@@ -498,6 +498,16 @@ export class AdminService {
     return { url: processed.path };
   }
 
+  /** 사회자 소개영상 업로드(어드민) — 원본 저장(/uploads/:id, Range 재생·비율 유지) → URL 반환 */
+  async uploadVideo(file: Express.Multer.File) {
+    if (!file?.buffer?.length) throw new BadRequestException('영상 파일이 필요합니다.');
+    const mime = file.mimetype || '';
+    const isVideo = mime.startsWith('video/') || /\.(mp4|mov|m4v|webm|3gp)$/i.test(file.originalname || '');
+    if (!isVideo) throw new BadRequestException('동영상 파일만 업로드할 수 있습니다.');
+    const url = await this.imageService.saveRawMedia(file.buffer, mime || 'video/mp4', file.originalname);
+    return { url };
+  }
+
   async deleteBusinessImage(businessId: string, imageId: string) {
     const img = await this.prisma.businessImage.findUnique({ where: { id: imageId } });
     if (!img || img.businessProfileId !== businessId) {

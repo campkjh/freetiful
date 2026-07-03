@@ -1,4 +1,6 @@
 import UIKit
+import AVFoundation
+import AVKit
 
 protocol NativeProDetailDelegate: AnyObject {
     func proDetailInquiry(_ id: String)
@@ -375,6 +377,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let scores: [String: Double]; let content: String; let badge: String
     }
 
+    // 진행 영상 항목 — 유튜브 또는 직접 업로드 파일(/uploads/:id)
+    private enum VideoEntry {
+        case youtube(id: String, url: String)
+        case file(url: String)
+    }
+
     override init(frame: CGRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
@@ -536,11 +544,15 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         let mainExp = (d["mainExperience"] as? String) ?? ""
         let responseRate = intVal(d["responseRate"])
         youtubeURLString = (d["youtubeUrl"] as? String) ?? ""
-        // 여러 영상 — youtubeUrl 에 개행 조인 저장(단일 데이터 호환)
-        let videoEntries: [(id: String, url: String)] = youtubeURLString
+        // 여러 영상 — youtubeUrl 에 개행 조인 저장(유튜브 URL + 직접 업로드 /uploads/ URL 혼재)
+        let videoEntries: [VideoEntry] = youtubeURLString
             .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .compactMap { u in youtubeID(u).map { (id: $0, url: u) } }
+            .compactMap { u -> VideoEntry? in
+                if let id = youtubeID(u) { return .youtube(id: id, url: u) }
+                if let fileURL = fileVideoURL(u) { return .file(url: fileURL) }
+                return nil
+            }
 
         // 표시 리뷰: API 본문 있으면 사용, 없으면 웹과 동일한 레거시 폴백 생성
         let displayReviews = Self.resolveReviews(api: apiReviews, reviewCount: reviewCount, rating: rating)
@@ -934,8 +946,90 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
         return nil
     }
 
+    // 직접 업로드 영상 URL 판별 — /uploads/ 경로 또는 영상 확장자, 상대경로는 절대경로화
+    private func fileVideoURL(_ u: String) -> String? {
+        let lower = u.lowercased()
+        let isUpload = lower.contains("/uploads/")
+        let hasVideoExt = ["mp4", "mov", "webm", "m4v"].contains { lower.hasSuffix(".\($0)") || lower.contains(".\($0)?") }
+        guard isUpload || (lower.hasPrefix("http") && hasVideoExt) else { return nil }
+        if u.hasPrefix("http") { return u }
+        return "https://freetiful.com" + (u.hasPrefix("/") ? u : "/" + u)
+    }
+
+    // 직접 업로드 영상 썸네일 — AVAsset 첫 프레임 + 원본 비율(세로 9:16 유지, 최대 높이 420pt), 탭 시 전체 재생
+    private func fileVideoThumb(_ urlString: String) -> UIView {
+        let wrap = UIView()
+        guard let url = URL(string: urlString) else { return wrap }
+        let img = UIImageView()
+        img.contentMode = .scaleAspectFit; img.clipsToBounds = true
+        img.layer.cornerRadius = 12; img.layer.cornerCurve = .continuous
+        img.backgroundColor = .black
+        img.translatesAutoresizingMaskIntoConstraints = false
+        wrap.addSubview(img)
+        let play = UILabel(); play.text = "▶"; play.font = .systemFont(ofSize: 18); play.textColor = UIColor(white: 0.1, alpha: 1)
+        play.textAlignment = .center
+        play.backgroundColor = UIColor.white.withAlphaComponent(0.92)
+        play.layer.cornerRadius = 24; play.clipsToBounds = true
+        play.translatesAutoresizingMaskIntoConstraints = false
+        wrap.addSubview(play)
+        // 기본 16:9 — 메타데이터 로드 후 실제 비율로 교체(세로 영상은 420pt 캡으로 레터박스)
+        var aspectC = img.heightAnchor.constraint(equalTo: img.widthAnchor, multiplier: 9.0 / 16.0)
+        aspectC.priority = UILayoutPriority(999)
+        NSLayoutConstraint.activate([
+            img.topAnchor.constraint(equalTo: wrap.topAnchor), img.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
+            img.leadingAnchor.constraint(equalTo: wrap.leadingAnchor), img.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
+            aspectC,
+            img.heightAnchor.constraint(lessThanOrEqualToConstant: 420),
+            play.centerXAnchor.constraint(equalTo: wrap.centerXAnchor), play.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
+            play.widthAnchor.constraint(equalToConstant: 48), play.heightAnchor.constraint(equalToConstant: 48),
+        ])
+        // 첫 프레임 썸네일 + 원본 비율 — 백그라운드 로드 후 메인에서 반영
+        DispatchQueue.global(qos: .userInitiated).async { [weak img, weak wrap] in
+            let asset = AVURLAsset(url: url)
+            let gen = AVAssetImageGenerator(asset: asset)
+            gen.appliesPreferredTrackTransform = true
+            gen.maximumSize = CGSize(width: 1280, height: 1280)
+            let cg = try? gen.copyCGImage(at: CMTime(seconds: 0.1, preferredTimescale: 600), actualTime: nil)
+            var ratio: CGFloat = 0
+            if let track = asset.tracks(withMediaType: .video).first {
+                let sz = track.naturalSize.applying(track.preferredTransform)
+                let w = abs(sz.width), h = abs(sz.height)
+                if w > 0, h > 0 { ratio = h / w }
+            }
+            let thumb = cg.map { UIImage(cgImage: $0) }
+            DispatchQueue.main.async {
+                guard let img = img else { return }
+                if let thumb = thumb { img.image = thumb }
+                if ratio > 0, abs(ratio - 9.0 / 16.0) > 0.01 {
+                    aspectC.isActive = false
+                    let c = img.heightAnchor.constraint(equalTo: img.widthAnchor, multiplier: ratio)
+                    c.priority = UILayoutPriority(999)
+                    c.isActive = true
+                    aspectC = c
+                    wrap?.setNeedsLayout()
+                }
+            }
+        }
+        wrap.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer()
+        tap.addTargetClosure { [weak self] _ in self?.presentFileVideoPlayer(url) }
+        wrap.addGestureRecognizer(tap)
+        return wrap
+    }
+
+    // 업로드 영상 전체 재생 — 최상위 뷰컨트롤러를 찾아 AVPlayerViewController present
+    private func presentFileVideoPlayer(_ url: URL) {
+        Haptics.tap()
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard var top = scenes.compactMap({ $0.keyWindow }).first?.rootViewController else { return }
+        while let presented = top.presentedViewController { top = presented }
+        let vc = AVPlayerViewController()
+        vc.player = AVPlayer(url: url)
+        top.present(vc, animated: true) { vc.player?.play() }
+    }
+
     // 서비스 설명 — detailHtml 의 텍스트 + 이미지 모두 렌더 (웹 dangerouslySetInnerHTML 대응)
-    private func buildDescription(_ html: String, videos: [(id: String, url: String)]) -> UIView? {
+    private func buildDescription(_ html: String, videos: [VideoEntry]) -> UIView? {
         let text = NativeHelpContent.htmlToText(html)
         let imgs = extractImageSrcs(html)
         guard !text.isEmpty || !imgs.isEmpty || !videos.isEmpty else { return nil }
@@ -948,7 +1042,12 @@ final class NativeProDetailContent: UIView, UIScrollViewDelegate {
             let vt = UILabel(); vt.text = "진행 영상"; vt.font = .systemFont(ofSize: 14, weight: .bold); vt.textColor = UIColor(white: 0.2, alpha: 1)
             col.addArrangedSubview(vt)
             col.setCustomSpacing(8, after: vt)
-            for v in videos { col.addArrangedSubview(videoThumb(v.id, urlString: v.url)) }
+            for v in videos {
+                switch v {
+                case .youtube(let id, let url): col.addArrangedSubview(videoThumb(id, urlString: url))
+                case .file(let url): col.addArrangedSubview(fileVideoThumb(url))
+                }
+            }
         }
         // 본문(텍스트+이미지)은 길어서 기본 접힘 — 펼쳐보기 버튼
         let body = UIStackView(); body.axis = .vertical; body.spacing = 12; body.alignment = .fill

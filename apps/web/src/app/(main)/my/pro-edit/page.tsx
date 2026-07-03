@@ -16,7 +16,6 @@ import {
   normalizeWeddingPlanKey,
   parseWeddingOptionsFromDescription,
 } from '@/lib/wedding-plans';
-import { COMPANY_LOGOS } from '@/lib/company-logos';
 /* ─── Constants ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
@@ -77,13 +76,11 @@ function compactProfileForCache(profile: any) {
     shortIntro: profile.shortIntro,
     phone: profile.phone,
     careerYears: profile.careerYears,
-    awards: profile.awards,
     tags: profile.tags,
     detailHtml: profile.detailHtml,
     gender: profile.gender,
     youtubeUrl: profile.youtubeUrl,
     images: profile.images,
-    faqs: profile.faqs,
     categories: profile.categories,
     regions: profile.regions,
     isNationwide: profile.isNationwide,
@@ -324,13 +321,9 @@ export default function ProEditPage() {
   const [photos, setPhotos] = useState<ProPhotoItem[]>([]);
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
   const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([]);
-  const [selectedCompanyLogos, setSelectedCompanyLogos] = useState<string[]>([]);
-  const [showLogoSheet, setShowLogoSheet] = useState(false);
   const [languages, setLanguages] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
   const [isProfileHidden, setIsProfileHidden] = useState(false);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
-  const [awards, setAwards] = useState('');
   const [detailHtml, setDetailHtml] = useState('');
   const detailHtmlRef = useRef('');
   detailHtmlRef.current = detailHtml; // 항상 최신 detailHtml 미러 (에디터 마운트 시 주입용)
@@ -440,7 +433,43 @@ export default function ProEditPage() {
   const removeVideo = (url: string) => {
     setVideos((prev) => prev.filter((v) => v !== url));
   };
-  const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
+
+  /* ── 동영상 파일 직접 업로드 (유튜브 없이) ── */
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadPct, setVideoUploadPct] = useState(0);
+  const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || videoUploading) return;
+    if (file.size > 100 * 1024 * 1024) {
+      setToast('동영상은 100MB 이하만 업로드할 수 있습니다.');
+      setTimeout(() => setToast(''), 2500);
+      return;
+    }
+    setVideoUploading(true);
+    setVideoUploadPct(0);
+    try {
+      const { url } = await prosApi.uploadVideo(file, {
+        onUploadProgress: (ev) => {
+          if (ev.total) setVideoUploadPct(Math.min(100, Math.round((ev.loaded / ev.total) * 100)));
+        },
+      });
+      if (url) {
+        addVideoUrl(url);
+        setToast('동영상이 업로드되었습니다. 저장하기를 눌러야 반영됩니다.');
+      } else {
+        setToast('동영상 업로드에 실패했습니다. 다시 시도해주세요.');
+      }
+      setTimeout(() => setToast(''), 3000);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '동영상 업로드에 실패했습니다.';
+      setToast(String(msg).slice(0, 80));
+      setTimeout(() => setToast(''), 3000);
+    } finally {
+      setVideoUploading(false);
+    }
+  };
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -457,22 +486,17 @@ export default function ProEditPage() {
         careerYears,
         selectedTags: selectedCategories,
         languages,
-        awards: awards || undefined,
         keywords: intro || undefined, // 기존 한줄소개를 톤 힌트로 전달
         imageDataUrls: photos.map((p) => p.url).filter((p) => p?.startsWith('data:image/')).slice(0, 4),
       });
       // 기존 값이 비어있는 필드만 덮어쓰기 (사용자가 입력한 값 보호)
       if (!intro && out.shortIntro) setIntro(out.shortIntro);
-      if (!awards && out.mainExperience) setAwards(out.mainExperience);
       // 상세설명 HTML 을 에디터에 주입 + state 동기화
       if (out.detailHtml) {
         detailDirtyRef.current = true;
         setDetailHtml(out.detailHtml);
         if (detailEditorRef.current) detailEditorRef.current.innerHTML = out.detailHtml;
         setTimeout(() => detailEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-      }
-      if (faqItems.length === 0 && Array.isArray(out.faqs) && out.faqs.length > 0) {
-        setFaqItems(out.faqs.map((f) => ({ q: f.question, a: f.answer })));
       }
       setToast('AI 텍스트 완료 — 이미지 생성 중...');
 
@@ -523,12 +547,9 @@ export default function ProEditPage() {
     if (p.shortIntro) setIntro(p.shortIntro);
     setIsProfileHidden(Boolean(p.isProfileHidden));
     if (typeof p.careerYears === 'number' && p.careerYears >= 0) setCareerYears(p.careerYears);
-    if (p.awards) setAwards(p.awards);
     if (Array.isArray(p.tags)) {
       const specialty = p.tags.filter((t: string) => ALL_CATEGORIES.includes(t));
-      const quality = p.tags.filter((t: string) => !ALL_CATEGORIES.includes(t));
       if (specialty.length > 0) setSelectedCategories(specialty);
-      setTags(quality);
     }
     if (typeof p.detailHtml === 'string' && !detailDirtyRef.current) {
       setDetailHtml(p.detailHtml);
@@ -557,9 +578,6 @@ export default function ProEditPage() {
       if (primaryIdx >= 0) setMainPhotoIndex(primaryIdx);
       lastSyncedPhotoIdsRef.current = loadedPhotos.map((img: ProPhotoItem) => img.id).filter(Boolean) as string[];
       lastSyncedMainIndexRef.current = nextMainIndex;
-    }
-    if (Array.isArray(p.faqs) && p.faqs.length > 0) {
-      setFaqItems(p.faqs.map((f: any) => ({ q: f.question, a: f.answer })));
     }
     if (Array.isArray(p.categories) && p.categories.length > 0) {
       const catName = p.categories[0]?.category?.name;
@@ -614,18 +632,9 @@ export default function ProEditPage() {
     setSelectedRegions(lsJson('proRegister_selectedRegions', []));
     setPhotos(lsJson<string[]>('proRegister_photos', []).map((url) => ({ url, isLocal: url?.startsWith('data:image/') })));
     setMainPhotoIndex(parseInt(ls('proRegister_mainPhotoIndex', '0')) || 0);
-    setSelectedCompanyLogos(lsJson('proRegister_companyLogos', []));
     setLanguages(lsJson('proRegister_languages', []));
-    const savedAwardsRaw = ls('proRegister_awards');
-    try {
-      const savedAwards = savedAwardsRaw ? JSON.parse(savedAwardsRaw) : [];
-      setAwards(Array.isArray(savedAwards) ? savedAwards.map((a: any) => typeof a === 'string' ? a : a.text || '').join('\n') : savedAwardsRaw);
-    } catch {
-      setAwards(savedAwardsRaw);
-    }
     const savedVideos = lsJson<string[] | null>('proRegister_videos', null);
     if (Array.isArray(savedVideos)) setVideos(savedVideos);
-    setFaqItems(lsJson('proRegister_faq', []));
     setEnabledPlans(new Set(migrateWeddingPlanKeys(lsJson('proRegister_enabledPlans', []))));
     setPlanPrices(migrateWeddingPlanPrices(lsJson('proRegister_prices', {})));
     setCustomOptions(migrateWeddingCustomOptions(lsJson('proRegister_customOptions', {})));
@@ -837,13 +846,6 @@ export default function ProEditPage() {
     }
   };
 
-  /* ── FAQ handlers ── */
-  const addFaqItem = () => setFaqItems(prev => [...prev, { q: '', a: '' }]);
-  const updateFaqItem = (index: number, field: 'q' | 'a', value: string) => {
-    setFaqItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
-  };
-  const removeFaqItem = (index: number) => setFaqItems(prev => prev.filter((_, i) => i !== index));
-
   const patchCachedProfileVisibility = (nextHidden: boolean) => {
     if (typeof window === 'undefined') return;
     const userId = authUser?.id;
@@ -899,19 +901,15 @@ export default function ProEditPage() {
       safeSetLocalStorage('proRegister_selectedRegions', JSON.stringify(selectedRegions));
       safeSetLocalStorage('proRegister_photos', JSON.stringify(persistedPhotoUrls));
       safeSetLocalStorage('proRegister_mainPhotoIndex', String(mainPhotoIndex));
-      safeSetLocalStorage('proRegister_companyLogos', JSON.stringify(selectedCompanyLogos));
       safeSetLocalStorage('proRegister_languages', JSON.stringify(languages));
-      safeSetLocalStorage('proRegister_awards', awards);
       safeSetLocalStorage('proRegister_videos', JSON.stringify(videos));
-      safeSetLocalStorage('proRegister_faq', JSON.stringify(faqItems));
       safeSetLocalStorage('proRegister_enabledPlans', JSON.stringify([...enabledPlans]));
       safeSetLocalStorage('proRegister_prices', JSON.stringify(planPrices));
       safeSetLocalStorage('proRegister_customOptions', JSON.stringify(customOptions));
 
       // 2) 서버에 업데이트 (pro detail 페이지 반영)
-      const awardsArray = awards.split('\n').filter(Boolean);
-      // 전문영역 + 일반 태그 병합해서 tags 필드에 저장 (중복 제거)
-      const mergedTags = Array.from(new Set([...selectedCategories, ...tags].filter(Boolean)));
+      // 전문영역 태그만 tags 필드에 저장 (중복 제거)
+      const mergedTags = Array.from(new Set(selectedCategories.filter(Boolean)));
       const servicesPayload = buildWeddingServices(enabledPlans, planPrices, customOptions);
 
       const profilePayload = {
@@ -919,13 +917,10 @@ export default function ProEditPage() {
         phone,
         gender,
         shortIntro: intro,
-        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
         careerYears,
-        awards,
         detailHtml: currentDetailHtml,
         youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
         isProfileHidden,
-        faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages,
         category: category || undefined,
         regions: selectedRegions,
@@ -965,15 +960,12 @@ export default function ProEditPage() {
         phone,
         gender,
         shortIntro: intro,
-        mainExperience: awardsArray.length > 0 ? awardsArray.join(' / ') : '',
         careerYears,
-        awards,
         detailHtml: currentDetailHtml,
         youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
         isProfileHidden,
         tags: mergedTags,
         images: syncedImages || editResponse?.images,
-        faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.map((languageCode) => ({ languageCode })),
         categories: category ? [{ category: { name: category } }] : [],
         regions: selectedRegions.map((regionName) => ({ region: { name: regionName } })),
@@ -1266,72 +1258,6 @@ export default function ProEditPage() {
         )}
       </Section>
 
-      {/* ─── 7. 기업이력 ─── */}
-      <Section title="기업이력">
-        {selectedCompanyLogos.length > 0 ? (
-          <div className="flex flex-wrap gap-3">
-            {selectedCompanyLogos.map((logo, i) => (
-              <div key={i} className="relative w-16 h-16 bg-white border border-gray-100 rounded-xl p-2 flex items-center justify-center">
-                <img src={logo} alt="Company" className="w-full h-full object-contain" />
-                <button
-                  onClick={() => setSelectedCompanyLogos(prev => prev.filter((_, idx) => idx !== i))}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center"
-                >
-                  <X size={10} className="text-white" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[13px] text-gray-400">등록된 기업이력이 없습니다</p>
-        )}
-        <button
-          onClick={() => setShowLogoSheet(true)}
-          className="mt-3 w-full py-2.5 border border-gray-200 rounded-xl text-[13px] font-bold text-gray-600 active:bg-gray-50 transition-colors"
-        >
-          기업이력 선택
-        </button>
-
-        {/* 기업이력 선택 시트 — 등록 플로우(파트너 신청)로 보내지 않고 인라인 선택 */}
-        {showLogoSheet && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-white">
-            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-[18px] font-bold text-gray-900">기업이력 선택</h2>
-              <span className="text-[13px] text-[#3180F7] font-bold">{selectedCompanyLogos.length}개 선택됨</span>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <div className="grid grid-cols-3 gap-3">
-                {COMPANY_LOGOS.map((logo, i) => {
-                  const selected = selectedCompanyLogos.includes(logo);
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedCompanyLogos((prev) => selected ? prev.filter((l) => l !== logo) : [...prev, logo])}
-                      className={`relative aspect-[3/2] rounded-xl border-2 flex items-center justify-center p-3 transition-all ${
-                        selected ? 'border-[#3180F7] bg-blue-50/50 shadow-sm' : 'border-gray-100 bg-white'
-                      }`}
-                    >
-                      <img src={logo} alt="" className="w-full h-full object-contain" />
-                      {selected && (
-                        <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#3180F7] text-white text-[11px] flex items-center justify-center">✓</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="shrink-0 px-4 py-3 border-t border-gray-100" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}>
-              <button
-                onClick={() => setShowLogoSheet(false)}
-                className="w-full py-3.5 rounded-2xl bg-[#3180F7] text-white text-[15px] font-bold active:scale-[0.99] transition-transform"
-              >
-                완료 ({selectedCompanyLogos.length}개)
-              </button>
-            </div>
-          </div>
-        )}
-      </Section>
-
       {/* ─── 8. 언어 ─── */}
       <Section title="언어">
         <div className="flex flex-wrap gap-2">
@@ -1341,46 +1267,28 @@ export default function ProEditPage() {
         </div>
       </Section>
 
-      {/* ─── 태그 ─── */}
-      <Section title="태그 (프로필 카드에 표시됨)">
-        <p className="text-[12px] text-gray-400 mb-2.5">프로필 카드와 상세에 강조되는 태그입니다. 최대 4개 권장.</p>
-        <div className="flex flex-wrap gap-2">
-          {['즉시출근', '풀타임 가능', '출장 가능', '심야 가능', '주말 전문', '영어 진행', '당일예약', '긴급예약', '프리미엄', '신규'].map((tag) => (
-            <TagChip
-              key={tag}
-              label={tag}
-              selected={tags.includes(tag)}
-              onToggle={() => setTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : (prev.length < 6 ? [...prev, tag] : prev))}
-            />
-          ))}
-        </div>
-        {tags.length > 0 && (
-          <p className="mt-2 text-[11px] text-gray-400">선택됨: {tags.join(' · ')}</p>
-        )}
-      </Section>
-
-
-      {/* ─── 9. 수상내역 ─── */}
-      <Section title="수상내역">
-        <textarea
-          value={awards}
-          onChange={(e) => setAwards(e.target.value)}
-          placeholder="수상 이력을 자유롭게 입력해주세요"
-          rows={3}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all resize-none"
-        />
-      </Section>
-
       {/* ─── 10. 소개영상 ─── */}
       <Section title="소개영상">
         <div className="space-y-3">
           {videos.map((url, i) => {
+            const isUploadedVideo = url.includes('/uploads/');
             const embedSrc = url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
             return (
               <div key={i} className="relative">
-                <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
-                  <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
-                </div>
+                {isUploadedVideo ? (
+                  <video
+                    src={`${url}#t=0.1`}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl bg-black object-contain"
+                    style={{ maxHeight: '70vh' }}
+                  />
+                ) : (
+                  <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
+                    <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => removeVideo(url)}
@@ -1399,6 +1307,36 @@ export default function ProEditPage() {
           >
             <Plus size={16} /> 영상 추가 (YouTube 검색)
           </button>
+          {/* 동영상 파일 직접 업로드 */}
+          <input
+            ref={videoFileInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleVideoFileSelected}
+          />
+          <button
+            type="button"
+            disabled={videoUploading}
+            onClick={() => videoFileInputRef.current?.click()}
+            className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7] active:scale-[0.98] transition-all disabled:opacity-60 disabled:active:scale-100"
+          >
+            {videoUploading ? (
+              <>
+                <span className="w-4 h-4 rounded-full border-2 border-[#3180F7] border-t-transparent animate-spin" />
+                업로드 중... {videoUploadPct}%
+              </>
+            ) : (
+              <>
+                <Plus size={16} /> 동영상 파일 업로드 (100MB 이하)
+              </>
+            )}
+          </button>
+          {videoUploading && (
+            <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full bg-[#3180F7] rounded-full transition-all" style={{ width: `${videoUploadPct}%` }} />
+            </div>
+          )}
           {/* URL 직접 입력 */}
           <div className="flex gap-2">
             <input
@@ -1583,45 +1521,6 @@ export default function ProEditPage() {
             onInput={(e) => { detailDirtyRef.current = true; setDetailHtml(e.currentTarget.innerHTML); }}
             className="min-h-[180px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#3180F7] [&_a]:underline empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
           />
-        </div>
-      </Section>
-
-      {/* ─── 11. FAQ ─── */}
-      <Section title="FAQ">
-        <div className="space-y-3">
-          {faqItems.map((item, index) => (
-            <div
-              key={index}
-              className="border border-gray-200 rounded-xl p-3 space-y-2 relative"
-            >
-              <button
-                onClick={() => removeFaqItem(index)}
-                className="absolute top-2 right-2 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center"
-              >
-                <X size={12} className="text-gray-500" />
-              </button>
-              <input
-                type="text"
-                value={item.q}
-                onChange={(e) => updateFaqItem(index, 'q', e.target.value)}
-                placeholder="질문을 입력하세요"
-                className="w-full text-[16px] font-bold text-gray-900 outline-none border-b border-gray-100 pb-2 pr-6"
-              />
-              <textarea
-                value={item.a}
-                onChange={(e) => updateFaqItem(index, 'a', e.target.value)}
-                placeholder="답변을 입력하세요"
-                rows={2}
-                className="w-full text-[16px] text-gray-600 outline-none resize-none"
-              />
-            </div>
-          ))}
-          <button
-            onClick={addFaqItem}
-            className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-[13px] font-bold text-gray-500 flex items-center justify-center gap-1 active:bg-gray-50 transition-colors"
-          >
-            <Plus size={14} /> FAQ 항목 추가
-          </button>
         </div>
       </Section>
 

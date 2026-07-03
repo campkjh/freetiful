@@ -160,6 +160,17 @@ function extractYoutubeId(url: string | null | undefined): string | undefined {
   return url.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
 }
 
+// 업로드 영상 URL 여부 (/uploads/ 경로 또는 영상 확장자)
+function isUploadedVideoUrl(url: string): boolean {
+  return url.startsWith('/uploads/') || /\.(mp4|mov|webm|m4v)(\?.*)?$/i.test(url);
+}
+
+// youtubeUrl(개행 조인) 원본 URL 목록에서 유튜브가 아닌 업로드 영상만 추출
+function extractUploadedVideos(urls: string[], titlePrefix: string): { url: string; title: string }[] {
+  const uploaded = Array.from(new Set(urls.filter((u) => !extractYoutubeId(u) && isUploadedVideoUrl(u))));
+  return uploaded.map((url, i) => ({ url, title: `${titlePrefix}${uploaded.length > 1 ? ` ${i + 1}` : ''}` }));
+}
+
 function runWhenIdle(cb: () => void, timeout = 1200) {
   if (typeof window === 'undefined') return 0;
   const win = window as typeof window & {
@@ -193,6 +204,7 @@ interface ProDetailData {
   companyLogos?: string[];
   youtubeId?: string;
   youtubeVideos: { id: string; title: string }[];
+  uploadedVideos: { url: string; title: string }[];
   faqs: { question: string; answer: string }[];
   rating: number;
   reviewCount: number;
@@ -423,7 +435,9 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     ...(Array.isArray(p.regions) ? p.regions : []),
   ].filter(Boolean);
   const previewTags = (previewApiTags.length > 0 ? previewApiTags : previewFallbackTags).slice(0, 5);
-  const previewYoutubeId = extractYoutubeId(p.youtubeUrl);
+  const previewVideoUrls: string[] = String(p.youtubeUrl || '').split(/\n+/).map((u) => u.trim()).filter(Boolean);
+  const previewYoutubeId = previewVideoUrls.map((u) => extractYoutubeId(u)).filter(Boolean)[0];
+  const previewUploadedVideos = extractUploadedVideos(previewVideoUrls, `${p.name} ${proCategory} 진행 영상`);
   const plans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
     label: t.label,
@@ -451,6 +465,7 @@ function mapListProPreview(p: ProListItem, planTemplates: PlanTemplate[]): ProDe
     companyLogos: [],
     youtubeId: previewYoutubeId,
     youtubeVideos: previewYoutubeId ? [{ id: previewYoutubeId, title: `${p.name} ${proCategory} 진행 영상` }] : [],
+    uploadedVideos: previewUploadedVideos,
     faqs: [],
     rating: p.avgRating || 0,
     reviewCount: p.reviewCount || 0,
@@ -490,6 +505,8 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
   const ytIds: string[] = Array.from(new Set(ytUrls.map((u) => extractYoutubeId(u)).filter(Boolean))) as string[];
   const ytId = ytIds[0] || null;
   const proCategory: string = (res.categoryNames && res.categoryNames[0]) || '사회자';
+  // 상대 /uploads URL 은 그대로 사용 (next rewrite 가 /uploads 프록시)
+  const uploadedVideos = extractUploadedVideos(ytUrls, `${userName} ${proCategory} 진행 영상`);
   const services = res.services || [];
   const fallbackPlans = planTemplates.filter((t) => t.isActive).map((t, idx) => ({
     id: t.planKey,
@@ -565,6 +582,7 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
     companyLogos: Array.isArray(res.companyLogos) ? res.companyLogos.filter(Boolean) : [],
     youtubeId: ytId,
     youtubeVideos: ytIds.map((id, i) => ({ id, title: `${userName} ${proCategory} 진행 영상${ytIds.length > 1 ? ` ${i + 1}` : ''}` })),
+    uploadedVideos,
     faqs,
     rating: res.avgRating || 0,
     reviewCount: res.reviewCount || 0,
@@ -902,6 +920,7 @@ export default function ProDetailPage() {
         } catch {}
         const ytIds = videoUrls.map((u) => extractYoutubeId(u)).filter(Boolean) as string[];
         const ytId = ytIds[0];
+        const localUploadedVideos = extractUploadedVideos(videoUrls, `${name} 사회자 진행 영상`);
         const allImages = photos.length > 0 ? photos : ['/images/placeholder.avif'];
         const detailHtml = localStorage.getItem('proRegister_description') || '';
         let localFaqs: { question: string; answer: string }[] = [];
@@ -964,6 +983,7 @@ export default function ProDetailPage() {
           companyLogos: localCompanyLogos,
           youtubeId: ytId,
           youtubeVideos: ytIds.map((id, i) => ({ id, title: `${name} 사회자 진행 영상 ${i + 1}` })),
+          uploadedVideos: localUploadedVideos,
           faqs: localFaqs,
           rating: 5.0,
           reviewCount: 0,
@@ -1662,7 +1682,7 @@ export default function ProDetailPage() {
                   <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
                     <h3 className="text-[19px] font-bold text-gray-950">영상</h3>
                     <div>
-                      {pro.youtubeVideos.length > 0 ? (
+                      {pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0 ? (
                         <div className="grid grid-cols-2 gap-4">
                           {pro.youtubeVideos.map((video) => (
                             <div key={video.id}>
@@ -1691,6 +1711,19 @@ export default function ProDetailPage() {
                                   </button>
                                 )}
                               </div>
+                              <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
+                            </div>
+                          ))}
+                          {pro.uploadedVideos.map((video) => (
+                            <div key={video.url}>
+                              <video
+                                src={`${video.url}#t=0.1`}
+                                controls
+                                playsInline
+                                preload="metadata"
+                                className="w-full rounded-xl bg-black object-contain"
+                                style={{ maxHeight: '70vh' }}
+                              />
                               <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
                             </div>
                           ))}
@@ -1731,43 +1764,6 @@ export default function ProDetailPage() {
                     </div>
                   </div>
 
-                  {pro.youtubeVideos.length > 0 && (
-                    <div className="mt-5 rounded-lg border border-gray-200 p-5">
-                      <h3 className="mb-4 text-[17px] font-bold text-gray-950">영상 리스트</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        {pro.youtubeVideos.map((video) => (
-                          <div key={`info-${video.id}`}>
-                            <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
-                              {playingVideos.has(video.id) ? (
-                                <iframe
-                                  className="h-full w-full"
-                                  src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
-                                  title={video.title}
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
-                                  className="relative block h-full w-full"
-                                  aria-label={`${video.title} 재생`}
-                                >
-                                  <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                  <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
-                                      <Play size={19} className="ml-0.5 fill-gray-950 text-gray-950" />
-                                    </span>
-                                  </span>
-                                </button>
-                              )}
-                            </div>
-                            <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </section>
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
@@ -2085,7 +2081,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 서비스 설명 Section ─── */}
-      {hasDescriptionContent && (
+      {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
         <div ref={descRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
           <Reveal>
             <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
@@ -2119,31 +2115,35 @@ export default function ProDetailPage() {
           </Reveal>
         )}
 
-        {/* Description text */}
-        <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`} onClick={zoomOnImgClick}>
-          <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
-          {!descExpanded && (
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-          )}
-        </div>
+        {/* Description text (영상만 있는 사회자는 설명 본문 생략) */}
+        {hasDescriptionContent && (
+          <>
+            <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`} onClick={zoomOnImgClick}>
+              <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
+              {!descExpanded && (
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+              )}
+            </div>
 
-        {!descExpanded && (
-          <button
-            onClick={() => setDescExpanded(true)}
-            className="mt-4 w-full py-3.5 border border-gray-200 rounded-xl text-[18px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            더보기
-          </button>
+            {!descExpanded && (
+              <button
+                onClick={() => setDescExpanded(true)}
+                className="mt-4 w-full py-3.5 border border-gray-200 rounded-xl text-[18px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                더보기
+              </button>
+            )}
+
+            {/* Image expand notice */}
+            <div className="mt-8 bg-gray-50 rounded-xl py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
+              이미지를 클릭해서 확대 할 수 있어요
+              <ArrowUpRight size={14} />
+            </div>
+          </>
         )}
 
-        {/* Image expand notice */}
-        <div className="mt-8 bg-gray-50 rounded-xl py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
-          이미지를 클릭해서 확대 할 수 있어요
-          <ArrowUpRight size={14} />
-        </div>
-
-        {/* YouTube 영상 리스트 */}
-        {pro.youtubeVideos && pro.youtubeVideos.length > 0 && (
+        {/* 영상 리스트 (유튜브 + 업로드) */}
+        {(pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
           <div className="mt-8">
             <h3 className="text-[16px] font-bold text-gray-900 mb-3">영상</h3>
             <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
@@ -2179,6 +2179,19 @@ export default function ProDetailPage() {
                       </button>
                     )}
                   </div>
+                  <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                </div>
+              ))}
+              {pro.uploadedVideos.map((video) => (
+                <div key={video.url} className="shrink-0 w-[260px] snap-start">
+                  <video
+                    src={`${video.url}#t=0.1`}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl bg-black object-contain"
+                    style={{ maxHeight: '70vh' }}
+                  />
                   <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
                 </div>
               ))}
@@ -2239,44 +2252,6 @@ export default function ProDetailPage() {
             <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
           </div>
         </div>
-
-        {pro.youtubeVideos.length > 0 && (
-          <div className="mt-5">
-            <h3 className="mb-3 text-[15px] font-bold text-gray-900">진행 영상</h3>
-            <div className="space-y-3">
-              {pro.youtubeVideos.map((video) => (
-                <div key={`mobile-info-${video.id}`}>
-                  <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
-                    {playingVideos.has(video.id) ? (
-                      <iframe
-                        className="h-full w-full"
-                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
-                        className="relative block h-full w-full"
-                        aria-label={`${video.title} 재생`}
-                      >
-                        <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
-                            <Play size={17} className="ml-0.5 fill-gray-950 text-gray-950" />
-                          </span>
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-2 line-clamp-1 text-[12px] font-semibold text-gray-700">{video.title}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
       </div>
 

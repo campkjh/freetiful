@@ -3,13 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, Plus, X, Image as ImageIcon, CheckCircle, Check } from 'lucide-react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { prosApi } from '@/lib/api/pros.api';
 import { buildWeddingServicesFromStorage } from '@/lib/wedding-plans';
-import { COMPANY_LOGOS } from '@/lib/company-logos';
-
-// COMPANY_LOGOS 는 공용 모듈로 이동
 
 const LANGUAGES = [
   '영어', '일본어', '중국어', '러시아어',
@@ -55,16 +52,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const [intro, setIntro] = useState('');
   const [careerYears, setCareerYears] = useState('');
-  const [awardInput, setAwardInput] = useState('');
-  const [awardYear, setAwardYear] = useState('');
-  const [awardMonth, setAwardMonth] = useState('');
-  const [showAwardYear, setShowAwardYear] = useState(false);
-  const [showAwardMonth, setShowAwardMonth] = useState(false);
-  const [awardList, setAwardList] = useState<{ text: string; year: string; month: string }[]>([]);
   const [videoError, setVideoError] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [videos, setVideos] = useState<string[]>([]);
   const [videoInput, setVideoInput] = useState('');
@@ -75,25 +64,17 @@ export default function ProfilePage() {
   const [ytVideos, setYtVideos] = useState<{ id: string; title: string; thumbnail: string }[]>([]);
   const [ytSelectedChannel, setYtSelectedChannel] = useState<string | null>(null);
   const [ytLoading, setYtLoading] = useState(false);
-  const FAQ_CATEGORIES = ['서비스정보', '수정 및 재진행', '취소 및 환불 규정', '상품정보 고시'] as const;
   const userName = typeof window !== 'undefined' ? localStorage.getItem('proRegister_name') || '' : '';
-  const FAQ_DEFAULTS: Record<string, string> = {
-    '서비스정보': '전문 사회자가 행사 당일 현장에서 사회를 진행합니다. 사전 미팅을 통해 행사 진행 순서를 조율하며, 신랑신부님의 요청에 맞춰 맞춤형 진행을 제공합니다.',
-    '수정 및 재진행': '행사 진행 대본은 행사 3일 전까지 수정 가능합니다. 행사 당일 현장 상황에 따른 즉석 수정은 무료로 제공됩니다.',
-    '취소 및 환불 규정': '행사 7일 전 취소 시 전액 환불, 3일 전 취소 시 50% 환불, 당일 취소 시 환불 불가합니다. 천재지변 등 불가항력적인 사유의 경우 별도 협의합니다.',
-    '상품정보 고시': `서비스 제공자: ${userName || '프리티풀 등록 전문 사회자'}\n서비스 형태: 행사 현장 사회 진행\n이용 조건: 사전 예약 필수\n취소/환불 조건: 취소 및 환불 규정 참조`,
-  };
-  const [faqContents, setFaqContents] = useState<Record<string, string>>({ ...FAQ_DEFAULTS });
-  const [activeFaqTab, setActiveFaqTab] = useState<string>('서비스정보');
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showCompanySheet, setShowCompanySheet] = useState(false);
-  const [companySearch, setCompanySearch] = useState('');
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const editorRef = useRef<HTMLDivElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   const execFormat = (command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -140,9 +121,7 @@ export default function ProfilePage() {
         name: userName || undefined,
         category: localStorage.getItem('proRegister_category') || '사회자',
         careerYears: careerYears ? parseInt(careerYears) : undefined,
-        selectedTags: selectedCategories,
         languages: selectedLanguages,
-        awards: awardList.map((a) => a.text).filter(Boolean).join('\n') || undefined,
         keywords: intro || undefined,
         imageDataUrls,
       });
@@ -183,27 +162,10 @@ export default function ProfilePage() {
 
   const careerYearsOptions = Array.from({ length: 30 }, (_, i) => `${i + 1}년`);
 
-  const filteredCompanies = COMPANY_LOGOS;
-
-  const toggleCategory = (cat: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
-  };
-
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages(prev =>
       prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
     );
-  };
-
-  const addAward = () => {
-    if (awardInput.trim()) {
-      setAwardList(prev => [...prev, { text: awardInput.trim(), year: awardYear, month: awardMonth }]);
-      setAwardInput('');
-      setAwardYear('');
-      setAwardMonth('');
-    }
   };
 
   const searchYtChannels = async () => {
@@ -263,8 +225,28 @@ export default function ProfilePage() {
     setVideos(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateFaqContent = (category: string, value: string) => {
-    setFaqContents(prev => ({ ...prev, [category]: value }));
+  const isUploadedVideoUrl = (url: string) => !extractYouTubeId(url) && url.includes('/uploads/');
+
+  const onVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || videoUploading) return;
+    setVideoUploading(true);
+    setVideoUploadProgress(0);
+    try {
+      const { url } = await prosApi.uploadVideo(file, {
+        onUploadProgress: (evt) => {
+          if (evt.total) setVideoUploadProgress(Math.round((evt.loaded / evt.total) * 100));
+        },
+      });
+      if (url) setVideos(prev => [...prev, url]);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '알 수 없는 오류';
+      toast.error(`동영상 업로드 실패: ${msg}`);
+    } finally {
+      setVideoUploading(false);
+      setVideoUploadProgress(0);
+    }
   };
 
   return (
@@ -340,168 +322,6 @@ export default function ProfilePage() {
             </div>
           </motion.div>
 
-          {/* 수상 내역 */}
-          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-4">수상 내역</p>
-
-            {/* 등록된 수상 내역 */}
-            {awardList.length > 0 && (
-              <div className="space-y-2.5 mb-4">
-                {awardList.map((award, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0"
-                  >
-                    {/* 날짜 */}
-                    {(award.year || award.month) ? (
-                      <span className="shrink-0 text-[14px] text-gray-900 font-bold tabular-nums">
-                        {award.year}.{award.month?.padStart(2, '0')}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[14px] text-gray-300">—</span>
-                    )}
-                    {/* 수상명 */}
-                    <p className="flex-1 min-w-0 text-[14px] text-gray-600 leading-snug">{award.text}</p>
-                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => setAwardList(prev => prev.filter((_, i) => i !== index))} className="shrink-0">
-                      <X size={14} className="text-gray-300" />
-                    </motion.button>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* 입력 영역 — 카드 스타일 */}
-            <div className="bg-gray-50 rounded-2xl p-4">
-              {/* 연도/월 선택 — 인라인 */}
-              <div className="flex gap-2 mb-3">
-                <div className="relative flex-1">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => { setShowAwardYear(!showAwardYear); setShowAwardMonth(false); }}
-                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
-                  >
-                    <span className={awardYear ? 'text-gray-900' : 'text-gray-400'}>{awardYear ? `${awardYear}년` : '연도'}</span>
-                    <motion.span animate={{ rotate: showAwardYear ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown size={14} className="text-gray-400" />
-                    </motion.span>
-                  </motion.button>
-                  <AnimatePresence>
-                    {showAwardYear && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
-                      >
-                        {Array.from({ length: 30 }, (_, i) => `${2026 - i}`).map((y) => (
-                          <button
-                            key={y}
-                            onClick={() => { setAwardYear(y); setShowAwardYear(false); }}
-                            className={`w-full px-4 py-2.5 text-left text-[14px] transition-colors first:rounded-t-xl last:rounded-b-xl ${
-                              awardYear === y ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-blue-50'
-                            }`}
-                          >
-                            {y}년
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <div className="relative w-[90px]">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => { setShowAwardMonth(!showAwardMonth); setShowAwardYear(false); }}
-                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between text-[14px] font-medium"
-                  >
-                    <span className={awardMonth ? 'text-gray-900' : 'text-gray-400'}>{awardMonth ? `${awardMonth}월` : '월'}</span>
-                    <motion.span animate={{ rotate: showAwardMonth ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown size={14} className="text-gray-400" />
-                    </motion.span>
-                  </motion.button>
-                  <AnimatePresence>
-                    {showAwardMonth && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute top-12 left-0 right-0 max-h-[180px] overflow-y-auto bg-white rounded-xl border border-gray-100 shadow-xl z-30 scrollbar-hide"
-                      >
-                        {Array.from({ length: 12 }, (_, i) => `${i + 1}`).map((m) => (
-                          <button
-                            key={m}
-                            onClick={() => { setAwardMonth(m); setShowAwardMonth(false); }}
-                            className={`w-full px-4 py-2.5 text-left text-[14px] transition-colors first:rounded-t-xl last:rounded-b-xl ${
-                              awardMonth === m ? 'bg-[#3180F7] text-white font-bold' : 'text-gray-700 hover:bg-blue-50'
-                            }`}
-                          >
-                            {m}월
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* 수상명 입력 + 추가 버튼 */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={awardInput}
-                  onChange={(e) => setAwardInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addAward()}
-                  placeholder="수상명을 입력해주세요"
-                  className="flex-1 h-11 bg-white border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7] transition-colors"
-                />
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={addAward}
-                  animate={{
-                    backgroundColor: awardInput.trim() ? '#3180F7' : '#E5E7EB',
-                    color: awardInput.trim() ? '#FFFFFF' : '#9CA3AF',
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="shrink-0 h-11 px-5 rounded-xl text-[14px] font-bold"
-                >
-                  추가
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* [선택]기업이력 - opens company search modal */}
-          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">[선택]기업이력</p>
-            {selectedCategories.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {selectedCategories.map((logo) => (
-                  <div
-                    key={logo}
-                    className="relative w-[72px] h-[48px] rounded-lg border border-[#3180F7]/30 bg-white p-1.5 flex items-center justify-center"
-                  >
-                    <img src={logo} alt="" className="w-full h-full object-contain" />
-                    <button onClick={() => toggleCategory(logo)} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
-                      <X size={8} className="text-white" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <motion.button
-              onClick={() => setShowCompanySheet(true)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-3 bg-[#F9F9F9] text-left flex items-center justify-between"
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="text-sm text-gray-400">기업이력 검색 및 선택</span>
-              <Plus size={16} className="text-gray-400" />
-            </motion.button>
-          </motion.div>
-
           {/* [선택]언어 */}
           <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
             <p className="text-sm font-bold text-gray-900 mb-3">[선택]언어</p>
@@ -525,31 +345,6 @@ export default function ProfilePage() {
                   <span className="text-sm text-gray-700">{lang}</span>
                 </label>
               ))}
-            </div>
-          </motion.div>
-
-          {/* [선택]태그 */}
-          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-1">[선택]태그</p>
-            <p className="text-[12px] text-gray-400 mb-3">프로필 카드에 강조되는 태그입니다. 최대 6개.</p>
-            <div className="flex flex-wrap gap-2">
-              {['즉시출근', '풀타임 가능', '출장 가능', '심야 가능', '주말 전문', '영어 진행', '당일예약', '긴급예약', '프리미엄', '신규'].map((tag) => {
-                const active = selectedTags.includes(tag);
-                return (
-                  <button
-                    type="button"
-                    key={tag}
-                    onClick={() => setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : (prev.length < 6 ? [...prev, tag] : prev))}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all active:scale-95 ${
-                      active
-                        ? 'bg-[#3180F7] text-white'
-                        : 'bg-white text-gray-600 border border-gray-200'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
             </div>
           </motion.div>
 
@@ -776,6 +571,39 @@ export default function ProfilePage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#3180F7"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="white"/></svg>
                   <span className="text-[13px] text-[#3180F7] font-semibold">검색</span>
                 </motion.button>
+                <motion.button
+                  onClick={() => { if (!videoUploading) videoFileInputRef.current?.click(); }}
+                  disabled={videoUploading}
+                  className="flex items-center gap-1.5 border border-blue-200 rounded-xl px-3 py-2.5 bg-blue-50/50 disabled:opacity-60"
+                  whileTap={videoUploading ? {} : { scale: 0.98 }}
+                >
+                  {videoUploading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+                      <span className="text-[13px] text-[#3180F7] font-semibold tabular-nums">{videoUploadProgress}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} className="text-[#3180F7]" />
+                      <span className="text-[13px] text-[#3180F7] font-semibold">동영상 파일</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            )}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={onVideoFileSelected}
+            />
+            {videoUploading && (
+              <div className="mb-3">
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#3180F7] rounded-full transition-all" style={{ width: `${videoUploadProgress}%` }} />
+                </div>
+                <p className="text-[12px] text-gray-400 mt-1">동영상 업로드 중... {videoUploadProgress}%</p>
               </div>
             )}
 
@@ -802,6 +630,16 @@ export default function ProfilePage() {
                         <span className="absolute top-2 left-2 bg-black/60 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">{index + 1}</span>
                       </div>
                     )}
+                    {/* Uploaded video preview */}
+                    {!ytId && isUploadedVideoUrl(url) && (
+                      <video
+                        src={url + '#t=0.1'}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="w-full max-h-[280px] rounded-xl bg-black object-contain"
+                      />
+                    )}
                     <div className="flex items-center justify-between px-3 py-2">
                       <span className="text-[12px] text-gray-500 truncate flex-1">{url.length > 35 ? url.slice(0, 35) + '...' : url}</span>
                       <motion.button
@@ -817,50 +655,6 @@ export default function ProfilePage() {
                 })}
               </div>
             )}
-          </motion.div>
-
-          {/* [필수]사회자 FAQ */}
-          <motion.div className="py-4 border-b border-gray-200" variants={staggerItem}>
-            <p className="text-sm font-bold text-gray-900 mb-3">[필수]사회자 FAQ</p>
-
-            {/* 탭 목록 */}
-            <LayoutGroup>
-              <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-                {FAQ_CATEGORIES.map((cat) => (
-                  <motion.button
-                    key={cat}
-                    onClick={() => setActiveFaqTab(cat)}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-colors ${
-                      activeFaqTab === cat
-                        ? 'text-white'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}
-                    whileTap={{ scale: 0.92 }}
-                  >
-                    {activeFaqTab === cat && (
-                      <motion.div
-                        layoutId="faqActiveTab"
-                        className="absolute inset-0 bg-gray-900 rounded-full"
-                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                      />
-                    )}
-                    <span className="relative z-10">{cat}</span>
-                  </motion.button>
-                ))}
-              </div>
-            </LayoutGroup>
-
-            {/* 활성 FAQ 내용 편집 */}
-            <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">{activeFaqTab}</p>
-              <textarea
-                value={faqContents[activeFaqTab] || ''}
-                onChange={(e) => updateFaqContent(activeFaqTab, e.target.value)}
-                placeholder="내용을 작성해주세요"
-                className="w-full outline-none text-gray-900 placeholder:text-gray-400 text-[16px] resize-none bg-gray-50 rounded-xl p-4 leading-relaxed"
-                rows={5}
-              />
-            </div>
           </motion.div>
 
           {/* Bottom spacer so content isn't hidden behind the fixed footer */}
@@ -884,77 +678,6 @@ export default function ProfilePage() {
           제출
         </motion.button>
       </div>
-
-      {/* 기업이력 검색 — 전체 페이지 덮기 */}
-      <AnimatePresence>
-        {showCompanySheet && (
-          <motion.div
-            className="fixed inset-0 z-50 bg-white flex flex-col"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            {/* Header */}
-            <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
-              <div className="flex items-center gap-3 mb-4">
-                <motion.button onClick={() => setShowCompanySheet(false)} whileTap={{ scale: 0.9 }}>
-                  <ChevronLeft size={24} className="text-gray-900" />
-                </motion.button>
-                <h2 className="text-[18px] font-bold text-gray-900">기업이력 선택</h2>
-              </div>
-              <p className="text-[13px] text-gray-400 mt-1">진행한 기업의 로고를 선택해주세요</p>
-              {selectedCategories.length > 0 && (
-                <p className="text-[13px] text-[#3180F7] font-bold mt-2">{selectedCategories.length}개 선택됨</p>
-              )}
-            </div>
-
-            {/* Logo Grid */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <div className="grid grid-cols-3 gap-3">
-                {filteredCompanies.map((logo, i) => {
-                  const selected = selectedCategories.includes(logo);
-                  return (
-                    <motion.button
-                      key={i}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.02 }}
-                      whileTap={{ scale: 0.93 }}
-                      onClick={() => toggleCategory(logo)}
-                      className={`relative aspect-[3/2] rounded-xl border-2 flex items-center justify-center p-3 transition-all ${
-                        selected ? 'border-[#3180F7] bg-blue-50/50 shadow-sm' : 'border-gray-100 bg-white'
-                      }`}
-                    >
-                      <img src={logo} alt="" className="w-full h-full object-contain" />
-                      {selected && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#3180F7] flex items-center justify-center"
-                        >
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom button */}
-            <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
-              <motion.button
-                onClick={() => setShowCompanySheet(false)}
-                whileTap={{ scale: 0.96 }}
-                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px]"
-              >
-                선택 완료 ({selectedCategories.length}개)
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* YouTube 채널 검색 페이지 */}
       <AnimatePresence>
@@ -1142,13 +865,8 @@ export default function ProfilePage() {
                   localStorage.setItem('proRegistrationComplete', 'pending');
                   localStorage.setItem('proRegister_intro', intro);
                   localStorage.setItem('proRegister_careerYears', careerYears);
-                  localStorage.setItem('proRegister_awards', JSON.stringify(awardList));
-                  localStorage.setItem('proRegister_companyLogos', JSON.stringify(selectedCategories));
                   localStorage.setItem('proRegister_languages', JSON.stringify(selectedLanguages));
                   localStorage.setItem('proRegister_videos', JSON.stringify(videos));
-                  localStorage.setItem('proRegister_faq', JSON.stringify(
-                    Object.entries(faqContents).map(([key, val]) => ({ q: key, a: val }))
-                  ));
                   localStorage.setItem('proRegister_description', description);
 
                   // 서버에 실제 proProfile 생성/업데이트 (status=pending)
@@ -1158,9 +876,6 @@ export default function ProfilePage() {
                     const photos: string[] = JSON.parse(localStorage.getItem('proRegister_photos') || '[]');
                     const mainPhotoIndex = parseInt(localStorage.getItem('proRegister_mainPhotoIndex') || '0') || 0;
                     const services = buildWeddingServicesFromStorage();
-                    const faqs = Object.entries(faqContents)
-                      .filter(([q, a]) => q && a)
-                      .map(([question, answer]) => ({ question, answer }));
 
                     let registeredRegions: string[] | undefined = undefined;
                     try {
@@ -1172,20 +887,15 @@ export default function ProfilePage() {
                       phone: localStorage.getItem('proRegister_phone') || undefined,
                       gender: localStorage.getItem('proRegister_gender') || undefined,
                       shortIntro: intro || undefined,
-                      // profile/page 에는 '주요 경력' 텍스트 필드가 없음 → awardList 를 mainExperience 로 사용
-                      mainExperience: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join(' / ') : undefined,
                       careerYears: careerYears ? parseInt(careerYears) || undefined : undefined,
-                      awards: awardList.length > 0 ? awardList.map((a) => a.text).filter(Boolean).join('\n') : undefined,
-                      youtubeUrl: videos[0] || undefined,
+                      youtubeUrl: videos.filter(Boolean).join('\n') || undefined,
                       detailHtml: description || undefined,
                       photos: photos.length > 0 ? photos : undefined,
                       mainPhotoIndex,
                       services: services.length > 0 ? services : undefined,
-                      faqs: faqs.length > 0 ? faqs : undefined,
                       languages: selectedLanguages.length > 0 ? selectedLanguages : undefined,
                       category: localStorage.getItem('proRegister_category') || undefined,
                       regions: registeredRegions,
-                      tags: selectedTags.length > 0 ? selectedTags : undefined,
                     });
                     submitSucceeded = true;
                     // 백엔드 응답에 user가 포함됨 → auth store 즉시 갱신 + discovery 캐시 무효화
