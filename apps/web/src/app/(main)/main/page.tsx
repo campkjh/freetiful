@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Bell, ChevronRight, MapPin, X } from 'lucide-react';
@@ -1501,6 +1502,7 @@ function HomeSwipeTabs() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
@@ -2303,7 +2305,7 @@ export default function HomePage() {
             </Link>
             <button
               type="button"
-              onClick={() => openSimpleRequest('event')}
+              onClick={() => router.push('/corporate-mc')}
               className="group relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
               style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
             >
@@ -2533,7 +2535,7 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => openSimpleRequest('event')}
+                onClick={() => router.push('/corporate-mc')}
                 className="group relative flex h-[140px] flex-1 items-center gap-3 overflow-visible rounded-2xl border border-gray-200 bg-white py-3 pl-2 pr-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
               >
                 <span className="event-biz-float-bubble absolute -top-5 right-4 z-30 rounded-full bg-[#3180F7] px-3.5 py-1.5 text-[11px] font-bold leading-none text-white">
