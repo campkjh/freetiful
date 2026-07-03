@@ -1926,7 +1926,8 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/wedding-mc'));", completionHandler: nil)
     }
     func homeOpenEventRequest() {
-        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros?category=' + encodeURIComponent('전문행사사회자')));", completionHandler: nil)
+        // 전문행사 사회자 찾기 → 기업행사 MC 랜딩 (웹 /corporate-mc, wedding-mc 와 동일 패턴)
+        webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/corporate-mc'));", completionHandler: nil)
     }
     func homeOpenCategory(_ category: String) {
         webView.evaluateJavaScript("(window.__freetifulNavigate && window.__freetifulNavigate('/pros?category=' + encodeURIComponent(\(jsLiteral(category)))));", completionHandler: nil)
