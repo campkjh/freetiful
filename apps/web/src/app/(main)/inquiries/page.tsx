@@ -61,16 +61,27 @@ function writeCustomerInquiriesCache(userId: string | undefined | null, data: an
   } catch {}
 }
 
+// 행사일: @db.Date(UTC 자정 직렬화) → 기기 타임존과 무관하게 저장된 날짜 그대로(UTC) + 연도 표기
+function formatEventDate(value?: string | null) {
+  if (!value) return '일자 미정';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '일자 미정';
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+}
+
+// 신청일(createdAt): 진짜 타임스탬프 → KST 고정 (안드 웹뷰 UTC 타임존 대응)
 function formatDate(value?: string | null) {
   if (!value) return '일자 미정';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '일자 미정';
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' });
 }
 
+// 행사 시간: @db.Time(naive, "1970-01-01T13:00:00Z" 직렬화) → 기기 타임존 변환 없이 저장된 리터럴 그대로
 function formatTime(value?: string | null) {
   if (!value) return '시간 미정';
-  const time = value.includes('T') ? new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : value.slice(0, 5);
+  const iso = value.includes('T') ? value.match(/T(\d{2}:\d{2})/)?.[1] : null;
+  const time = iso || (value.includes('T') ? '' : value.slice(0, 5));
   return time || '시간 미정';
 }
 
@@ -96,7 +107,7 @@ function buildCards(requests: any[]): InquiryCard[] {
       requestId: request.id,
       category: request.eventCategory?.name || request.category?.name || '사회자 문의',
       location: request.eventLocation || '장소 미정',
-      eventDate: formatDate(request.eventDate),
+      eventDate: formatEventDate(request.eventDate),
       eventTime: formatTime(request.eventTime),
       createdAt: formatDate(request.createdAt),
     };
