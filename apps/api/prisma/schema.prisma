@@ -282,6 +282,7 @@ model ProProfile {
   awards         String?
   detailHtml     String?
   youtubeUrl     String?
+  introVideoUrl  String?   // 직접 업로드한 소개영상(/uploads/:id) — 유튜브(youtubeUrl)와 별개, 비율 원본 유지 재생
   isNationwide   Boolean   @default(false)
   profileViews   Int       @default(0)
   responseRate   Decimal?  @db.Decimal(5, 2)

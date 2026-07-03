@@ -83,6 +83,22 @@ export const prosApi = {
         throw error;
       }),
 
+  // 소개영상 직접 업로드 (100MB, 원본 저장 → /uploads URL). 대용량이라 Vercel 프록시 502 회피
+  // 위해 채팅 미디어와 동일하게 Railway 직행 + axios progress.
+  uploadVideo: (
+    file: File,
+    config?: { onUploadProgress?: (e: { loaded: number; total?: number }) => void },
+  ) => {
+    const form = new FormData();
+    form.append('file', file, file.name || 'video');
+    const DIRECT = process.env.NEXT_PUBLIC_DIRECT_API_URL || 'https://affectionate-smile-production-6535.up.railway.app';
+    return apiClient.post<{ url: string }>(
+      `${DIRECT}${BASE}/pro/profile/video`,
+      form,
+      { headers: { 'Content-Type': null as any }, timeout: 300000, onUploadProgress: config?.onUploadProgress },
+    ).then((r) => r.data);
+  },
+
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('file', file);

@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
+import { useAuthStore } from '@/lib/store/auth.store';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
 
 /* ─── Constants (pro-edit와 동일) ─── */
@@ -28,17 +30,6 @@ function normalizeRegionForApi(name: string) {
 
 function sameStringArray(a: string[], b: string[]) {
   return a.length === b.length && a.every((value, index) => value === b[index]);
-}
-
-function parseExtraTagsInput(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(/[,\n]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
 }
 
 /* ─── Section wrapper (pro-edit 동일) ─── */
@@ -101,6 +92,7 @@ export default function AdminProEditPage() {
   const params = useParams();
   const proId = params?.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
   const initialPhotosRef = useRef<string[]>([]);
   const initialMainPhotoIndexRef = useRef(0);
   const editorRef = useRef<RichTextEditorHandle>(null);
@@ -120,20 +112,19 @@ export default function AdminProEditPage() {
   const [intro, setIntro] = useState('');
   const [careerYears, setCareerYears] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [extraTagsInput, setExtraTagsInput] = useState('');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
   const [languages, setLanguages] = useState<string[]>([]);
-  const [awards, setAwards] = useState('');
   const [videos, setVideos] = useState<string[]>([]);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadPct, setVideoUploadPct] = useState(0);
   const [showYoutubeSearch, setShowYoutubeSearch] = useState(false);
   const [ytChannelQuery, setYtChannelQuery] = useState('');
   const [ytChannels, setYtChannels] = useState<Array<{ id: string; title: string; description: string; thumbnail: string }>>([]);
   const [ytVideos, setYtVideos] = useState<Array<{ id: string; title: string; thumbnail: string }>>([]);
   const [ytSelectedChannel, setYtSelectedChannel] = useState<string | null>(null);
   const [ytLoading, setYtLoading] = useState(false);
-  const [faqItems, setFaqItems] = useState<{ q: string; a: string }[]>([]);
   const [services, setServices] = useState<{ title: string; description: string; basePrice: number }[]>([]);
   const [mainExperience, setMainExperience] = useState('');
   // detailHtml 은 RichTextEditor 내부에서 관리 (uncontrolled) — 부모 리렌더 폭주 방지
@@ -157,7 +148,6 @@ export default function AdminProEditPage() {
     setIntro(d.shortIntro || '');
     setCareerYears(d.careerYears || 1);
     setMainExperience(d.mainExperience || '');
-    setAwards(d.awards || '');
     initialDetailHtmlRef.current = d.detailHtml || '';
     // 에디터가 이미 마운트되어 있으면 본문 강제 갱신 (저장 후 백엔드 응답 반영)
     editorRef.current?.setHTML(d.detailHtml || '');
@@ -174,15 +164,13 @@ export default function AdminProEditPage() {
       description: s.description || '',
       basePrice: s.basePrice || 0,
     })));
-    setFaqItems((d.faqs || []).map((f: any) => ({ q: f.question || '', a: f.answer || '' })));
     const categoryNames = (d.categories || []).map((c: any) => c.category?.name).filter(Boolean);
     const profileTags = Array.isArray(d.tags) ? d.tags.filter(Boolean) : [];
     const specialtyTags = profileTags.filter((tag: string) => ALL_CATEGORIES.includes(tag));
     setSelectedCategories(specialtyTags.length > 0 ? specialtyTags : categoryNames.filter((tag: string) => ALL_CATEGORIES.includes(tag)));
-    setExtraTagsInput(profileTags.filter((tag: string) => !ALL_CATEGORIES.includes(tag)).join(', '));
     setCategory(categoryNames[0] || '');
     setSelectedRegions((d.regions || []).map((r: any) => normalizeRegionForUi(r.region?.name || '')).filter(Boolean));
-    setVideos(d.youtubeUrl ? [d.youtubeUrl] : []);
+    setVideos(String(d.youtubeUrl || '').split(/\n+/).map((s: string) => s.trim()).filter(Boolean));
     setStatus(d.status || 'pending');
     setIsFeatured(!!d.isFeatured);
     setShowPartnersLogo(!!d.showPartnersLogo);
@@ -270,12 +258,49 @@ export default function AdminProEditPage() {
   };
   const removeVideo = (url: string) => setVideos((prev) => prev.filter((v) => v !== url));
 
-  /* ── FAQ / Service ── */
-  const addFaqItem = () => setFaqItems((prev) => [...prev, { q: '', a: '' }]);
-  const updateFaqItem = (i: number, k: 'q' | 'a', v: string) =>
-    setFaqItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, [k]: v } : it)));
-  const removeFaqItem = (i: number) => setFaqItems((prev) => prev.filter((_, idx) => idx !== i));
+  /* ── 동영상 파일 업로드 (어드민 전용 엔드포인트, Railway 직행 — Vercel 프록시 502 회피) ── */
+  const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      toast.error('동영상 파일만 업로드할 수 있습니다');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('100MB 이하 동영상만 업로드할 수 있습니다');
+      return;
+    }
+    setVideoUploading(true);
+    setVideoUploadPct(0);
+    try {
+      const form = new FormData();
+      form.append('file', file, file.name || 'video');
+      const token = useAuthStore.getState().accessToken;
+      const adminKey = typeof window !== 'undefined' ? localStorage.getItem('admin-key') || '' : '';
+      const DIRECT = process.env.NEXT_PUBLIC_DIRECT_API_URL || 'https://affectionate-smile-production-6535.up.railway.app';
+      const res = await axios.post<{ url: string }>(`${DIRECT}/api/v1/admin/upload/video`, form, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(adminKey ? { 'x-admin-key': adminKey } : {}),
+        },
+        timeout: 300000,
+        onUploadProgress: (ev) => {
+          if (ev.total) setVideoUploadPct(Math.round((ev.loaded / ev.total) * 100));
+        },
+      });
+      const url = res.data?.url;
+      if (!url) throw new Error('서버가 영상 URL을 반환하지 않았습니다');
+      setVideos((prev) => (prev.includes(url) ? prev : [...prev, url]));
+      toast.success('영상 업로드 완료');
+    } catch (err: any) {
+      toast.error(`영상 업로드 실패: ${err?.response?.data?.message || err?.message || ''}`, { duration: 6000 });
+    } finally {
+      setVideoUploading(false);
+    }
+  };
 
+  /* ── Service ── */
   const addService = () => setServices((prev) => [...prev, { title: '', description: '', basePrice: 0 }]);
   const updateService = (i: number, patch: any) =>
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -303,7 +328,6 @@ export default function AdminProEditPage() {
     if (!proId || saving) return;
     setSaving(true);
     try {
-      const awardsArray = awards.split('\n').filter(Boolean);
       const normalizedServices = services.filter((s) => s.title).map((s) => ({
         title: s.title,
         description: s.description || undefined,
@@ -317,21 +341,19 @@ export default function AdminProEditPage() {
       const photosChanged =
         !sameStringArray(photos, initialPhotosRef.current) ||
         mainPhotoIndex !== initialMainPhotoIndexRef.current;
-      const mergedTags = Array.from(new Set([...selectedCategories, ...parseExtraTagsInput(extraTagsInput)].map((tag) => tag.trim()).filter(Boolean)));
+      const mergedTags = Array.from(new Set(selectedCategories.filter(Boolean)));
       const payload = {
         name: name.trim(),
         phone,
         gender,
         shortIntro: intro,
-        mainExperience: mainExperience || (awardsArray.length > 0 ? awardsArray.join(' / ') : undefined),
+        mainExperience: mainExperience || undefined,
         careerYears: careerYears || undefined,
-        awards,
-        youtubeUrl: videos[0] || '',
+        youtubeUrl: videos.filter(Boolean).join('\n'),
         detailHtml: editorRef.current?.getHTML() ?? initialDetailHtmlRef.current,
         photos: photosChanged ? photos : undefined,
         mainPhotoIndex: photosChanged ? mainPhotoIndex : undefined,
         services: normalizedServices,
-        faqs: faqItems.filter((f) => f.q && f.a).map((f) => ({ question: f.q, answer: f.a })),
         languages: languages.length > 0 ? languages : [],
         category: category || selectedCategories[0] || undefined,
         regions: selectedRegions.map(normalizeRegionForApi),
@@ -383,6 +405,7 @@ export default function AdminProEditPage() {
   return (
     <div className="bg-white min-h-screen -m-4 md:-mx-0 md:-my-6 md:mx-auto md:max-w-2xl md:my-4 md:rounded-2xl md:border md:border-gray-200" style={{ letterSpacing: '-0.02em' }}>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
+      <input ref={videoFileInputRef} type="file" accept="video/*" onChange={handleVideoFileChange} className="hidden" />
 
       {/* ─── Header ─── */}
       <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100/60 md:rounded-t-2xl">
@@ -672,17 +695,6 @@ export default function AdminProEditPage() {
               {OTHER_TAGS.map((c) => <TagChip key={c} label={c} selected={selectedCategories.includes(c)} onToggle={() => toggleCategory(c)} />)}
             </div>
           </div>
-          <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">기타 태그</label>
-            <textarea
-              value={extraTagsInput}
-              onChange={(e) => setExtraTagsInput(e.target.value)}
-              placeholder="쉼표 또는 줄바꿈으로 입력"
-              rows={2}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] resize-none"
-            />
-            <p className="mt-1 text-[11px] font-medium text-gray-400">전문영역 목록에 없는 기존 태그도 저장 시 보존됩니다.</p>
-          </div>
         </div>
       </Section>
 
@@ -748,27 +760,28 @@ export default function AdminProEditPage() {
         </div>
       </Section>
 
-      {/* ─── 9. 수상내역 ─── */}
-      <Section title="수상내역">
-        <textarea
-          value={awards}
-          onChange={(e) => setAwards(e.target.value)}
-          placeholder="수상 이력을 자유롭게 입력해주세요"
-          rows={3}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] resize-none"
-        />
-      </Section>
-
-      {/* ─── 10. 소개영상 ─── */}
+      {/* ─── 9. 소개영상 ─── */}
       <Section title="소개영상">
         <div className="space-y-3">
           {videos.map((url, i) => {
+            const isYoutube = /youtube\.com|youtu\.be/.test(url);
             const embedSrc = url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
             return (
               <div key={i} className="relative">
-                <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
-                  <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
-                </div>
+                {isYoutube ? (
+                  <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
+                    <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
+                  </div>
+                ) : (
+                  <video
+                    src={url + '#t=0.1'}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full rounded-xl bg-black object-contain"
+                    style={{ maxHeight: '70vh' }}
+                  />
+                )}
                 <button onClick={() => removeVideo(url)} className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white">
                   <X size={16} />
                 </button>
@@ -780,6 +793,17 @@ export default function AdminProEditPage() {
             className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7]"
           >
             <Plus size={16} /> 영상 추가 (YouTube 검색)
+          </button>
+          <button
+            onClick={() => videoFileInputRef.current?.click()}
+            disabled={videoUploading}
+            className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7] disabled:opacity-60"
+          >
+            {videoUploading ? (
+              <>업로드 중... {videoUploadPct}%</>
+            ) : (
+              <><Plus size={16} /> 동영상 파일 업로드 (100MB 이하)</>
+            )}
           </button>
           <input
             type="url"
@@ -835,37 +859,7 @@ export default function AdminProEditPage() {
         </div>
       </Section>
 
-      {/* ─── 12. FAQ ─── */}
-      <Section title="FAQ">
-        <div className="space-y-3">
-          {faqItems.map((item, index) => (
-            <div key={index} className="border border-gray-200 rounded-xl p-3 space-y-2 relative">
-              <button onClick={() => removeFaqItem(index)} className="absolute top-2 right-2 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                <X size={12} className="text-gray-500" />
-              </button>
-              <input
-                type="text"
-                value={item.q}
-                onChange={(e) => updateFaqItem(index, 'q', e.target.value)}
-                placeholder="질문"
-                className="w-full text-[15px] font-bold text-gray-900 outline-none border-b border-gray-100 pb-2 pr-6"
-              />
-              <textarea
-                value={item.a}
-                onChange={(e) => updateFaqItem(index, 'a', e.target.value)}
-                placeholder="답변"
-                rows={2}
-                className="w-full text-[15px] text-gray-600 outline-none resize-none"
-              />
-            </div>
-          ))}
-          <button onClick={addFaqItem} className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-[13px] font-bold text-gray-500 flex items-center justify-center gap-1">
-            <Plus size={14} /> FAQ 항목 추가
-          </button>
-        </div>
-      </Section>
-
-      {/* ─── 13. 상세 페이지 본문 (Rich HTML) ─── */}
+      {/* ─── 11. 상세 페이지 본문 (Rich HTML) ─── */}
       {/* keepMounted: 아코디언 닫혀있어도 에디터 마운트 유지 — 펼칠 때 페이지 멈춤 방지 */}
       <Section title="상세 페이지 본문" keepMounted>
         <RichTextEditor

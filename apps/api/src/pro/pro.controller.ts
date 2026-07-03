@@ -110,6 +110,18 @@ export class ProController {
     return this.proService.submitRegistration(req.user.id, body);
   }
 
+  // ─── 소개영상 직접 업로드 ────────────────────────────────────────────────
+
+  @Post('profile/video')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '소개영상 직접 업로드 (원본 저장, 비율 유지)' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
+  uploadIntroVideo(@Req() req, @UploadedFile() file: Express.Multer.File) {
+    return this.proService.uploadIntroVideo(req.user.id, file);
+  }
+
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   @Post('profile/images')

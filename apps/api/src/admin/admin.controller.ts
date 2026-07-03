@@ -445,6 +445,14 @@ export class AdminController {
     return this.adminService.uploadEditorImage(file);
   }
 
+  // 사회자 소개영상 업로드 (어드민 수정 화면용) — 원본 저장, /uploads/:id 반환
+  @Post('upload/video')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
+  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
+    return this.adminService.uploadVideo(file);
+  }
+
   @Delete('businesses/:id/images/:imageId')
   async deleteBusinessImage(
     @Param('id') id: string,

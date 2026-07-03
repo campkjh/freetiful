@@ -620,6 +620,19 @@ export class ProService implements OnModuleInit {
     return this.updateProfile(userId, { isProfileHidden: nextProfileHidden });
   }
 
+  // ─── 소개영상 직접 업로드 ────────────────────────────────────────────────
+  // 원본 그대로 저장(/uploads/:id — Range 재생 지원, 9:16 세로 등 비율 유지) 후 URL 반환.
+  // 클라이언트가 이 URL 을 영상 목록(youtubeUrl 개행 조인)에 넣어 저장한다 — 유튜브 URL 과 혼재 가능.
+  async uploadIntroVideo(userId: string, file: Express.Multer.File) {
+    await this.getProfileByUserId(userId); // 사회자 본인 확인
+    if (!file?.buffer?.length) throw new BadRequestException('영상 파일이 비어 있습니다.');
+    const mime = file.mimetype || '';
+    const isVideo = mime.startsWith('video/') || /\.(mp4|mov|m4v|webm|3gp)$/i.test(file.originalname || '');
+    if (!isVideo) throw new BadRequestException('동영상 파일만 업로드할 수 있습니다.');
+    const url = await this.imageService.saveRawMedia(file.buffer, mime || 'video/mp4', file.originalname);
+    return { url };
+  }
+
   // ─── Profile Images ──────────────────────────────────────────────────────
 
   async uploadImage(
