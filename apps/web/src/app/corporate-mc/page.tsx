@@ -1,19 +1,22 @@
 'use client';
 
 /**
- * 전문행사(기업행사) 사회자 랜딩 — 홈 "전문행사 사회자 찾기" 진입.
- * 디자인 원본: corporate-mc-landing.html (CSS 는 .cmc 스코프로 이식)
- * 폼 제출: wedding-mc 와 동일하게 matchApi quickRequest/createRequest (source: landing_corporate_mc_v1)
+ * 전문행사(기업행사) MC 랜딩 — 홈 "전문행사 사회자 찾기" 진입.
+ * 톤앤매너: wedding-mc 페이지 기준(화이트 + 블루 #3182F6, 라운드 카드, 스크롤 리빌).
+ * 히어로: 풀스크린 배경 영상 + 카피 오버레이 → 스크롤 시 하단 콘텐츠.
+ * 폼 제출: wedding-mc 와 동일하게 matchApi (source: landing_corporate_mc_v1).
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft, ChevronDown, Star, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
-// ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — onError 로 없으면 자동 숨김) ───
+// ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
-const HERO_IMG = `${MEDIA_DIR}/hero.jpg`;
+const HERO_VIDEO = '/videos/corporate-mc-hero.mp4';
 const PROFILE_SLIDES: { src: string; role: string; name: string }[] = [
   { src: `${MEDIA_DIR}/profile-01.jpg`, role: '시상식 · 컨퍼런스', name: '아나운서 출신 MC' },
   { src: `${MEDIA_DIR}/profile-02.jpg`, role: '브랜드 · 론칭 행사', name: '아나운서 출신 MC' },
@@ -29,17 +32,44 @@ const SCENE_SLIDES: { src: string; cap: string }[] = [
   { src: `${MEDIA_DIR}/scene-04.jpg`, cap: '송년회 진행' },
   { src: `${MEDIA_DIR}/scene-05.jpg`, cap: '기념식 · 의전 진행' },
 ];
-// 레퍼런스 영상 — /uploads URL(직접 업로드) 또는 유튜브 embed URL
+// 레퍼런스 영상 — /uploads(직접 업로드) 또는 유튜브 embed URL. 비면 섹션 숨김.
 const VIDEOS: { src: string; cap: string }[] = [];
 
 const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
 const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
+const PAINS = [
+  { tag: '어색한 침묵', body: '발표 사이 정적이 흐르는데 사회자가 받아주질 못해서, 행사장 분위기가 그대로 가라앉았어요.' },
+  { tag: '잘못된 호칭', body: '임원 직함을 잘못 부르는 바람에, 식이 끝나고도 한참 사과하고 다녔습니다.' },
+  { tag: '밀리는 식순', body: '시간 조율을 못 해서 식순이 계속 밀렸고, 결국 대표님 다음 일정까지 꼬여버렸어요.' },
+  { tag: '맞지 않는 톤', body: '시상식인데 너무 가벼운 진행이라, 회사 이미지가 우스워 보일까 봐 내내 조마조마했습니다.' },
+];
+const WHYS = [
+  { no: '01', title: '철저하게 검증된 MC', body: '방송사 아나운서 출신 또는 충분한 공식행사 경력이 검증된 진행자만 선별해 안내합니다. 프로필·진행 영상까지 함께 드려 내부 보고도 수월합니다.' },
+  { no: '02', title: '행사 성격에 맞는 추천', body: '시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.' },
+  { no: '03', title: '대본·큐시트 사전 조율', body: '당일 즉흥이 아니라 대본과 큐시트를 미리 확인하고 리허설까지 맞춥니다. 발표 지연·순서 변경 같은 현장 변수에도 안정적으로 대응합니다.' },
+];
+const REVIEWS = [
+  { quote: '임원분들 호칭 하나 안 틀리고 깔끔하게 끝나서, 제가 칭찬을 들었어요.', who: '대기업 인사팀 · 사내 시상식' },
+  { quote: '브랜드 톤을 정확히 잡아주셔서, VIP·기자분들 앞에서 안심이 됐습니다.', who: '패션 브랜드 마케팅팀 · 신제품 발표회' },
+  { quote: '견적·프로필·영상을 빠르게 받아서 클라이언트 컨펌이 수월했어요.', who: '행사대행사 · 기업 컨퍼런스' },
+];
+const STEPS = [
+  { no: 'STEP 01', title: '행사 정보 접수', body: '전문 MD가 행사 일정·유형·규모·예산·식순을 확인합니다.' },
+  { no: 'STEP 02', title: 'MC 제안 & 선택', body: '가능한 진행자를 프로필·진행 영상으로 비교해 직접 고르고, 내부 보고용 자료까지 받습니다.' },
+  { no: 'STEP 03', title: '계약 · 사전 조율', body: '대본·큐시트를 사전에 맞추고, 세금계산서·정산 조건까지 깔끔하게 정리합니다.' },
+  { no: 'STEP 04', title: '당일 진행 & 마무리', body: '리허설부터 현장 변수 대응, 정산·세금계산서까지 책임지고 마무리합니다.' },
+];
 
 export default function CorporateMcPage() {
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const counted = useRef(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  // 폼 상태
+  // 폼
   const [step, setStep] = useState<number | 'done'>(1);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -52,9 +82,32 @@ export default function CorporateMcPage() {
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // 자동재생 보장(iOS WebView)
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play().catch(() => {});
+  }, []);
+
+  // 헤더 배경 전환(히어로 지나면 흰 배경)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.7);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // 스크롤 리빌
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll<HTMLElement>('.cmc-reveal'));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('cmc-in'); });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   // 통계 카운트업
-  const statsRef = useRef<HTMLDivElement>(null);
-  const counted = useRef(false);
   useEffect(() => {
     const el = statsRef.current;
     if (!el) return;
@@ -67,7 +120,7 @@ export default function CorporateMcPage() {
           const suffix = n.dataset.suffix || '';
           if (!target) { n.textContent = `0${suffix}`; return; }
           const start = performance.now();
-          const dur = 1100;
+          const dur = 1200;
           const tick = (now: number) => {
             const p = Math.min((now - start) / dur, 1);
             const eased = 1 - Math.pow(1 - p, 3);
@@ -88,6 +141,7 @@ export default function CorporateMcPage() {
     if (!t) return;
     t.scrollBy({ left: dir * t.clientWidth * 0.85, behavior: 'smooth' });
   };
+  const scrollToApply = () => document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth' });
 
   const goNext = (from: number) => {
     if (from === 1 && (!name.trim() || !phone.trim())) { toast.error('성함과 연락처를 입력해주세요.'); return; }
@@ -102,37 +156,17 @@ export default function CorporateMcPage() {
     const digits = phone.replace(/\D/g, '');
     const rawUserInput = {
       source: 'landing_corporate_mc_v1',
-      name: name.trim(),
-      company: company.trim(),
-      phone: phone.trim(),
-      eventType,
-      dateText: dateText.trim(),
-      region: region.trim(),
-      size: size.trim(),
-      benefits,
+      name: name.trim(), company: company.trim(), phone: phone.trim(),
+      eventType, dateText: dateText.trim(), region: region.trim(), size: size.trim(), benefits,
       landing_url: typeof window !== 'undefined' ? window.location.href : '',
     };
     try {
       let res: any;
       if (authUser) {
-        res = await matchApi.createRequest({
-          categoryId: '전문행사사회자',
-          type: 'multi',
-          eventLocation: region.trim() || undefined,
-          rawUserInput,
-        } as any);
+        res = await matchApi.createRequest({ categoryId: '전문행사사회자', type: 'multi', eventLocation: region.trim() || undefined, rawUserInput });
       } else {
-        res = await matchApi.quickRequest({
-          name: name.trim() || undefined,
-          phone: digits,
-          categoryId: '전문행사사회자',
-          type: 'multi',
-          eventLocation: region.trim() || undefined,
-          rawUserInput,
-        });
-        if (res?.accessToken && res?.refreshToken && res?.user) {
-          setAuth(res.user, res.accessToken, res.refreshToken);
-        }
+        res = await matchApi.quickRequest({ name: name.trim() || undefined, phone: digits, categoryId: '전문행사사회자', type: 'multi', eventLocation: region.trim() || undefined, rawUserInput });
+        if (res?.accessToken && res?.refreshToken && res?.user) setAuth(res.user, res.accessToken, res.refreshToken);
       }
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '행사 사회자' }); } catch {}
@@ -147,483 +181,362 @@ export default function CorporateMcPage() {
   const pct = step === 'done' ? 100 : (step as number) * 25;
 
   return (
-    <div className="cmc">
+    <main className="cmc bg-white text-[#191F28]">
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <nav>
-        <div className="wrap">
-          <div className="brand"><b>프리티풀</b><span>CORPORATE MC</span></div>
-          <a href="#apply" className="btn btn-brass nav-cta">가능 MC 확인하기 →</a>
-        </div>
-      </nav>
-
-      {/* HERO */}
-      <header className="hero">
-        <div className="wrap">
-          <div className="hero-copy">
-            <div className="eyebrow">Corporate Event MC</div>
-            <h1>중요한 행사의 완성도는<br /><span className="hl">사회자</span>에 따라 달라집니다</h1>
-            <p className="lead"><b>KBS · SBS · MBC 아나운서 출신.</b><br />중요한 행사일수록 검증된 사회자가 필요합니다!</p>
-            <div className="hero-cta">
-              <a href="#apply" className="btn btn-brass">행사일 기준 가능 MC 확인하기 →</a>
-            </div>
-            <div className="hero-badge">
-              <span><b>시상식 · 컨퍼런스 · 브랜드 행사</b> 진행 경험</span>
-              <span><b>공식행사 · 의전</b> 대응 가능</span>
-            </div>
-          </div>
-          <div className="hero-media">
-            <div className="ph"><span className="ic">🎤</span>행사 진행 사진</div>
-            <img src={HERO_IMG} alt="기업행사를 진행 중인 프리티풀 전문 사회자" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          </div>
+      {/* 헤더 (히어로 위 투명 → 스크롤 시 흰 배경) */}
+      <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
+          <button
+            type="button"
+            aria-label="뒤로"
+            onClick={() => { if (window.history.length > 1) router.back(); else router.push('/main'); }}
+            className={`flex h-10 w-10 items-center justify-center -ml-1 rounded-full transition ${scrolled ? 'text-[#191F28] hover:bg-black/5' : 'text-white hover:bg-white/10'}`}
+          >
+            <ChevronLeft size={24} strokeWidth={2.2} />
+          </button>
+          <span className={`text-[15px] font-extrabold tracking-tight transition-colors ${scrolled ? 'text-[#191F28]' : 'text-white'}`}>프리티풀 <span className="text-[#3182F6]">MC</span></span>
+          <div className="w-10" />
         </div>
       </header>
 
-      {/* STATS */}
-      <section className="stats" ref={statsRef}>
-        <div className="wrap">
-          <div className="stat"><div className="num" data-target="1200" data-suffix="+">1,200+</div><div className="lbl">기업행사 진행</div></div>
-          <div className="stat"><div className="num" data-target="99" data-suffix="%">99%</div><div className="lbl">담당자 재섭외 의향</div></div>
-          <div className="stat"><div className="num" data-target="0" data-suffix="건">0건</div><div className="lbl">의전·진행 사고</div></div>
+      {/* ───────── 히어로 (풀스크린 영상) ───────── */}
+      <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
+        <video
+          ref={videoRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          src={HERO_VIDEO}
+          autoPlay muted loop playsInline preload="auto"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/75" />
+        <div className="relative z-10 px-5 text-center">
+          <p className="cmc-hero-eyebrow mb-4 text-[12px] font-semibold uppercase tracking-[0.28em] text-white/70">Corporate Event MC</p>
+          <h1 className="font-extrabold leading-[1.34] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+            <span className="cmc-hero-line cmc-line-1 block text-[24px]">중요한 행사의 완성도는</span>
+            <span className="cmc-hero-line cmc-line-2 mt-1 block text-[29px]">
+              <span className="text-[#6DA8FF]">사회자</span>에 따라 달라집니다
+            </span>
+          </h1>
+          <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80">
+            KBS · SBS · MBC 아나운서 출신<br />검증된 전문 MC를 행사 성격에 맞춰
+          </p>
+          <button onClick={scrollToApply} className="cmc-hero-cta mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold text-[#191F28] shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition active:scale-95">
+            행사일 기준 가능 MC 확인하기
+          </button>
         </div>
+        {/* 스크롤 힌트 */}
+        <button onClick={() => window.scrollTo({ top: window.innerHeight - 56, behavior: 'smooth' })} aria-label="아래로" className="cmc-scrollhint absolute bottom-7 left-1/2 z-10 -translate-x-1/2 text-white/70">
+          <ChevronDown size={30} strokeWidth={2} />
+        </button>
       </section>
 
-      {/* PROBLEM */}
-      <section className="problem divider">
-        <div className="wrap">
-          <div className="head">
-            <div className="eyebrow" style={{ color: 'var(--danger)' }}>Real Voices</div>
-            <h2>&ldquo;이 사회자, <span className="danger">누가 섭외했어?&rdquo;</span></h2>
-            <p style={{ marginTop: 16 }}>행사가 어색해지는 건 한순간입니다. 그리고 그 책임은 사회자가 아니라 담당자에게 돌아옵니다.</p>
+      <div className="mx-auto max-w-md">
+        {/* ───────── STATS ───────── */}
+        <section className="cmc-reveal px-5 pt-11 pb-4" ref={statsRef}>
+          <div className="grid grid-cols-3 divide-x divide-[#EEF1F4] rounded-[24px] bg-[#F7F9FC] py-6">
+            {[
+              { t: '1200', s: '+', l: '기업행사 진행' },
+              { t: '99', s: '%', l: '담당자 재섭외 의향' },
+              { t: '0', s: '건', l: '의전·진행 사고' },
+            ].map((x) => (
+              <div key={x.l} className="px-2 text-center">
+                <div className="num text-[26px] font-extrabold tracking-tight text-[#3182F6]" data-target={x.t} data-suffix={x.s}>{Number(x.t).toLocaleString('ko-KR')}{x.s}</div>
+                <div className="mt-1 text-[12px] font-medium text-[#8B95A1]">{x.l}</div>
+              </div>
+            ))}
           </div>
-          <div className="pain-grid">
-            <div className="pain"><div className="tag">어색한 침묵</div><p>발표 사이에 정적이 흐르는데 사회자가 받아주질 못해서, 행사장 분위기가 그대로 가라앉았어요.</p></div>
-            <div className="pain"><div className="tag">잘못된 호칭</div><p>임원 직함을 잘못 부르는 바람에, 식이 끝나고도 한참 사과하고 다녔습니다.</p></div>
-            <div className="pain"><div className="tag">밀리는 식순</div><p>시간 조율을 못 해서 식순이 계속 밀렸고, 결국 대표님 다음 일정까지 꼬여버렸어요.</p></div>
-            <div className="pain"><div className="tag">맞지 않는 톤</div><p>시상식인데 너무 가벼운 진행이라, 회사 이미지가 우스워 보일까 봐 내내 조마조마했습니다.</p></div>
-          </div>
-          <p className="pivot">기업행사는 다시 할 수 없습니다.<br /><span className="danger">사회자 한 명이 회사 이미지를 결정합니다.</span></p>
-        </div>
-      </section>
+        </section>
 
-      {/* SOLUTION */}
-      <section className="solution divider">
-        <div className="wrap">
-          <div className="head">
-            <div className="eyebrow">Verified MCs</div>
-            <h2>그래서 검증된 전문 MC가 필요합니다</h2>
-            <p>방송사 아나운서 출신, 공식행사·브랜드행사 경험이 검증된 진행자를 만나보세요.</p>
+        {/* ───────── PROBLEM ───────── */}
+        <section className="cmc-reveal px-5 pt-10 pb-12 text-center">
+          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#E5484D]/25">Real Voices</p>
+          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">&ldquo;이 사회자,<br /><span className="text-[#E5484D]">누가 섭외했어?&rdquo;</span></h2>
+          <p className="mt-3 text-[14px] leading-relaxed text-[#6B7684]">행사가 어색해지는 건 한순간입니다.<br />그리고 그 책임은 담당자에게 돌아옵니다.</p>
+          <div className="mt-7 grid grid-cols-1 gap-2.5 text-left">
+            {PAINS.map((p) => (
+              <div key={p.tag} className="rounded-[22px] border border-[#F0E6E4] bg-[#FCF7F6] px-5 py-4">
+                <div className="mb-1.5 flex items-center gap-2 text-[13px] font-bold text-[#E5484D]"><span className="h-[6px] w-[6px] rounded-full bg-[#E5484D]" />{p.tag}</div>
+                <p className="text-[14.5px] leading-relaxed text-[#3D4148]">{p.body}</p>
+              </div>
+            ))}
           </div>
-          <div className="slider-block">
-            <div className="slider-label">사회자 프로필</div>
-            <div className="slider">
-              <button className="slider-btn prev" aria-label="이전" onClick={() => slide('profileTrack', -1)}>‹</button>
-              <div className="slider-track" id="profileTrack">
+          <p className="mt-8 text-[19px] font-extrabold leading-[1.5] text-[#191F28]">기업행사는 다시 할 수 없습니다.<br /><span className="text-[#E5484D]">사회자 한 명이 회사 이미지를 결정합니다.</span></p>
+        </section>
+
+        {/* ───────── SOLUTION (슬라이더) ───────── */}
+        <section className="cmc-reveal px-5 py-12 text-center">
+          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Verified MCs</p>
+          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">검증된 <span className="text-[#3182F6]">전문 MC</span>가<br />필요합니다</h2>
+          <p className="mt-2 text-[13px] text-[#9AA4B2]">방송사 아나운서 출신, 공식·브랜드행사 경험 검증</p>
+
+          <div className="mt-7 text-left">
+            <p className="mb-3 text-[13px] font-bold text-[#3182F6]">사회자 프로필</p>
+            <div className="relative">
+              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="profileTrack">
                 {PROFILE_SLIDES.map((s, i) => (
-                  <div key={s.src} className="slide portrait">
-                    <div className="ph"><span className="ic">👤</span>프로필 {String(i + 1).padStart(2, '0')}</div>
-                    <img src={s.src} alt={`사회자 프로필 ${i + 1}`} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="cap">{s.name}<small>{s.role}</small></div>
+                  <div key={s.src} className="relative aspect-[3/4] w-[150px] flex-none overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-[#F2F5F9]">
+                    <div className="absolute left-3 top-3 z-[1] text-[11px] tracking-[0.18em] text-[#B0B8C1]">MC {String(i + 1).padStart(2, '0')}</div>
+                    <img src={s.src} alt={s.name} loading="lazy" className="relative z-[2] h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/65 to-transparent px-3.5 pb-3 pt-6 text-left text-white">
+                      <p className="text-[11px] font-medium text-[#BBD9FF]">{s.role}</p>
+                      <p className="text-[13.5px] font-bold">{s.name}</p>
+                    </div>
                   </div>
                 ))}
               </div>
-              <button className="slider-btn next" aria-label="다음" onClick={() => slide('profileTrack', 1)}>›</button>
+              <button onClick={() => slide('profileTrack', -1)} aria-label="이전" className="cmc-arrow left-[-6px]">‹</button>
+              <button onClick={() => slide('profileTrack', 1)} aria-label="다음" className="cmc-arrow right-[-6px]">›</button>
             </div>
           </div>
 
-          <div className="slider-block">
-            <div className="slider-label">행사 진행 모습</div>
-            <div className="slider">
-              <button className="slider-btn prev" aria-label="이전" onClick={() => slide('actionTrack', -1)}>‹</button>
-              <div className="slider-track" id="actionTrack">
-                {SCENE_SLIDES.map((s, i) => (
-                  <div key={s.src} className="slide land">
-                    <div className="ph"><span className="ic">🎤</span>진행 모습 {String(i + 1).padStart(2, '0')}</div>
-                    <img src={s.src} alt={`행사 진행 모습 ${i + 1}`} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="cap">{s.cap}</div>
+          <div className="mt-8 text-left">
+            <p className="mb-3 text-[13px] font-bold text-[#3182F6]">행사 진행 모습</p>
+            <div className="relative">
+              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="sceneTrack">
+                {SCENE_SLIDES.map((s) => (
+                  <div key={s.src} className="relative aspect-[16/10] w-[280px] flex-none overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-[#F2F5F9]">
+                    <img src={s.src} alt={s.cap} loading="lazy" className="relative z-[2] h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-8 text-left text-[13px] font-bold text-white">{s.cap}</div>
                   </div>
                 ))}
               </div>
-              <button className="slider-btn next" aria-label="다음" onClick={() => slide('actionTrack', 1)}>›</button>
+              <button onClick={() => slide('sceneTrack', -1)} aria-label="이전" className="cmc-arrow left-[-6px]">‹</button>
+              <button onClick={() => slide('sceneTrack', 1)} aria-label="다음" className="cmc-arrow right-[-6px]">›</button>
             </div>
           </div>
-          <div className="ticker">
-            <div className="ticker-track">
-              <span><b>KBS</b> · <b>SBS</b> · <b>MBC</b> · <b>YTN</b> · <b>JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 행사 경험 ·&nbsp;</span>
-              <span><b>KBS</b> · <b>SBS</b> · <b>MBC</b> · <b>YTN</b> · <b>JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 행사 경험 ·&nbsp;</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* REFERENCE VIDEOS */}
-      {VIDEOS.length > 0 && (
-        <section className="videos divider">
-          <div className="wrap">
-            <div className="head">
-              <div className="eyebrow">Reference Films</div>
-              <h2>프리티풀의 사회자와<br />함께 해야 하는 이유</h2>
-              <p>사진보다 확실한 건 실제 진행 영상입니다. 직접 보고 판단하세요.</p>
-            </div>
-            <div className="video-grid">
-              {VIDEOS.map((v) => (
-                <div key={v.src} className="video-card">
-                  {v.src.includes('youtube.com') ? (
-                    <iframe src={v.src} title={v.cap} allowFullScreen />
-                  ) : (
-                    <video src={`${v.src}#t=0.1`} controls playsInline preload="metadata" />
-                  )}
-                  <div className="vcap">{v.cap}</div>
-                </div>
+          {/* 방송사 티커 */}
+          <div className="cmc-ticker mt-9">
+            <div className="cmc-ticker-track">
+              {[0, 1].map((k) => (
+                <span key={k} className="text-[14px] text-[#8B95A1]"><b className="text-[#3182F6]">KBS</b> · <b className="text-[#3182F6]">SBS</b> · <b className="text-[#3182F6]">MBC</b> · <b className="text-[#3182F6]">YTN</b> · <b className="text-[#3182F6]">JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험 ·&nbsp;</span>
               ))}
             </div>
           </div>
         </section>
-      )}
 
-      {/* WHY */}
-      <section className="why divider" id="why">
-        <div className="wrap">
-          <div className="head">
-            <div className="eyebrow">Why Freetiful</div>
-            <h2>중요한 행사는<br />재미보다 안정감이 중요합니다</h2>
-            <p>방송 3사 출신, 풍부한 경력의 검증된 사회자.</p>
-          </div>
-          <div className="why-grid">
-            <div className="why-card"><div className="no">01</div><h3>철저하게 검증된 MC</h3><p>방송사 아나운서 출신 또는 충분한 공식행사 경력이 검증된 진행자만 선별해 안내합니다. 프로필·진행 영상까지 함께 드려 내부 보고도 수월합니다.</p></div>
-            <div className="why-card"><div className="no">02</div><h3>행사 성격에 맞는 추천</h3><p>시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.</p></div>
-            <div className="why-card"><div className="no">03</div><h3>대본·큐시트 사전 조율</h3><p>당일 즉흥이 아니라, 대본과 큐시트를 미리 확인하고 리허설까지 맞춥니다. 발표 지연·순서 변경 같은 현장 변수에도 안정적으로 대응합니다.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* REVIEWS */}
-      <section className="reviews divider">
-        <div className="wrap">
-          <div className="head">
-            <div className="eyebrow">Reviews</div>
-            <h2>잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
-          </div>
-          <div className="rev-grid">
-            <div className="rev"><div className="stars">★★★★★</div><p className="quote">&ldquo;임원분들 호칭 하나 안 틀리고 깔끔하게 끝나서, 제가 칭찬을 들었어요.&rdquo;</p><div className="who">대기업 인사팀 · 사내 시상식</div></div>
-            <div className="rev"><div className="stars">★★★★★</div><p className="quote">&ldquo;브랜드 톤을 정확히 잡아주셔서, VIP·기자분들 앞에서 안심이 됐습니다.&rdquo;</p><div className="who">패션 브랜드 마케팅팀 · 신제품 발표회</div></div>
-            <div className="rev"><div className="stars">★★★★★</div><p className="quote">&ldquo;견적·프로필·영상을 빠르게 받아서 클라이언트 컨펌이 수월했어요.&rdquo;</p><div className="who">행사대행사 · 기업 컨퍼런스</div></div>
-          </div>
-        </div>
-      </section>
-
-      {/* PROCESS */}
-      <section className="process divider">
-        <div className="wrap">
-          <div className="head">
-            <div className="eyebrow">Process</div>
-            <h2>섭외, 이렇게 간편하게 진행됩니다</h2>
-            <p>행사일과 유형만 남겨주세요. 나머지는 프리티풀이 정리해드립니다.</p>
-          </div>
-          <div className="steps">
-            <div className="step"><div className="bar"></div><div className="no">STEP 01</div><h3>행사 정보 접수</h3><p>전문 MD가 행사 일정·유형·규모·예산·식순을 확인합니다.</p></div>
-            <div className="step"><div className="bar"></div><div className="no">STEP 02</div><h3>MC 제안 &amp; 선택</h3><p>가능한 진행자를 프로필·진행 영상으로 비교해 직접 고르고, 내부 보고용 자료까지 받습니다.</p></div>
-            <div className="step"><div className="bar"></div><div className="no">STEP 03</div><h3>계약 · 사전 조율</h3><p>대본·큐시트를 사전에 맞추고, 세금계산서·정산 조건까지 깔끔하게 정리합니다.</p></div>
-            <div className="step"><div className="bar"></div><div className="no">STEP 04</div><h3>당일 진행 &amp; 마무리</h3><p>리허설부터 현장 변수 대응, 정산·세금계산서까지 책임지고 마무리합니다.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* SCALE */}
-      <section className="scale divider">
-        <div className="wrap">
-          <p className="big">이미 <b>1,200개 기업</b>의 행사가<br />프리티풀의 MC와 함께였습니다.</p>
-          <p className="sub">이제 담당자님 차례입니다.</p>
-        </div>
-      </section>
-
-      {/* LEAD / FORM */}
-      <section className="lead divider" id="apply">
-        <div className="wrap">
-          <div className="pitch">
-            <div className="eyebrow">지금 바로 확인하세요</div>
-            <h2>행사 일정이 없어도 괜찮아요.<br />미리 확인해두세요.</h2>
-            <p>담당자라면 언젠가 한 번은 맡게 되는 게 기업행사입니다. 미리 가능 MC와 견적 기준을 알아두면, 막상 행사가 잡혔을 때 훨씬 덜 불안합니다.</p>
-            <p className="cta-note">📅 기업행사는 보통 5~6개월 전부터 섭외가 되고 있습니다.</p>
-            <div className="gift">
-              <div className="item"><span className="ic">🎯</span><div><b>가능 MC · 예상 견적 안내</b><small>행사일·유형에 맞춰 가능한 진행자와 예상 견적을 1영업일 내 안내</small></div></div>
-              <div className="item"><span className="ic">🎬</span><div><b>진행 영상 · 프로필 제공</b><small>내부 보고·클라이언트 컨펌에 바로 쓰는 MC 프로필과 진행 레퍼런스</small></div></div>
-              <div className="item"><span className="ic">🗂</span><div><b>행사 성격별 MC 추천</b><small>시상식·컨퍼런스·송년회 등 톤에 맞는 진행자를 골라서 제안</small></div></div>
+        {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
+        {VIDEOS.length > 0 && (
+          <section className="cmc-reveal px-5 py-12 text-center">
+            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reference</p>
+            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
+            <div className="mt-6 space-y-3">
+              {VIDEOS.map((v) => (
+                <div key={v.src} className="relative overflow-hidden rounded-[20px] bg-black">
+                  {v.src.includes('youtube.com') ? (
+                    <iframe className="aspect-video w-full" src={v.src} title={v.cap} allowFullScreen />
+                  ) : (
+                    <video className="max-h-[440px] w-full object-contain" src={`${v.src}#t=0.1`} controls playsInline preload="metadata" />
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-8 text-left text-[13px] font-bold text-white">{v.cap}</div>
+                </div>
+              ))}
             </div>
+          </section>
+        )}
+
+        {/* ───────── WHY (다크) ───────── */}
+        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-white">
+          <p className="cmc-script -mb-2 text-center text-[34px] leading-none text-white/15">Why Freetiful</p>
+          <h2 className="text-center text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
+          <p className="mt-2 text-center text-[13px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
+          <div className="mt-8 space-y-3">
+            {WHYS.map((w) => (
+              <div key={w.no} className="rounded-[22px] bg-white/[0.06] px-6 py-6">
+                <div className="cmc-script mb-1 text-[30px] leading-none text-[#6DA8FF]">{w.no}</div>
+                <h3 className="mb-2 text-[17px] font-bold">{w.title}</h3>
+                <p className="text-[14px] leading-relaxed text-white/70">{w.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ───────── REVIEWS ───────── */}
+        <section className="cmc-reveal px-5 py-14 text-center">
+          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reviews</p>
+          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+          <div className="mt-7 space-y-3 text-left">
+            {REVIEWS.map((r) => (
+              <div key={r.who} className="rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6">
+                <div className="mb-3 flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={15} className="fill-[#FFC42E] text-[#FFC42E]" />)}</div>
+                <p className="text-[15.5px] font-semibold leading-relaxed text-[#191F28]">&ldquo;{r.quote}&rdquo;</p>
+                <p className="mt-3 text-[12.5px] text-[#9AA4B2]">{r.who}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ───────── PROCESS ───────── */}
+        <section className="cmc-reveal px-5 py-12">
+          <div className="text-center">
+            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Process</p>
+            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
+          </div>
+          <div className="mt-7 space-y-3">
+            {STEPS.map((s) => (
+              <div key={s.no} className="flex gap-4 rounded-[22px] bg-[#F7F9FC] px-5 py-5">
+                <span className="mt-0.5 shrink-0 text-[12px] font-bold tracking-[0.14em] text-[#3182F6]">{s.no}</span>
+                <div>
+                  <h3 className="text-[16px] font-bold">{s.title}</h3>
+                  <p className="mt-1 text-[14px] leading-relaxed text-[#6B7684]">{s.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ───────── SCALE ───────── */}
+        <section className="cmc-reveal bg-[#F7F9FC] px-5 py-16 text-center">
+          <p className="text-[25px] font-extrabold leading-[1.5] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</p>
+          <p className="mt-3 text-[15px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
+        </section>
+
+        {/* ───────── LEAD / FORM ───────── */}
+        <section id="apply" className="cmc-reveal px-5 py-14">
+          <div className="text-center">
+            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Apply</p>
+            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
+            <p className="mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
           </div>
 
-          <div className="formcard">
-            <div className="progress"><span className="ptext">{step === 'done' ? '완료 · 100%' : `${step} / 4 단계 · ${pct}% 완료`}</span></div>
-            <div className="pbar"><i style={{ width: `${pct}%` }} /></div>
+          <div className="mt-7 rounded-[26px] border border-[#EEF1F4] bg-white p-6 shadow-[0_20px_44px_-28px_rgba(20,24,31,0.28)]">
+            <p className="mb-2 text-[12px] font-semibold text-[#9AA4B2]">{step === 'done' ? '완료 · 100%' : `${step} / 4 단계 · ${pct}% 완료`}</p>
+            <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-[#EEF1F4]"><div className="h-full rounded-full bg-[#3182F6] transition-all duration-300" style={{ width: `${pct}%` }} /></div>
 
             {step === 1 && (
-              <div className="fstep active">
-                <h3>먼저 담당자님 정보를 알려주세요</h3>
-                <p className="desc">가능 MC와 견적을 안내드릴 연락처예요.</p>
-                <div className="field"><label>성함 / 직함</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 김OO 대리" /></div>
-                <div className="field"><label>회사명 (선택)</label><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="예) OO기업 인사팀" /></div>
-                <div className="field"><label>연락처</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
-                <div className="fnav"><button className="btn btn-primary" onClick={() => goNext(1)}>다음 →</button></div>
-                <p className="consent">입력하신 정보는 MC 안내 목적으로만 사용됩니다.</p>
+              <div className="cmc-fade">
+                <h3 className="text-[18px] font-bold">먼저 담당자님 정보를 알려주세요</h3>
+                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">가능 MC와 견적을 안내드릴 연락처예요.</p>
+                <Field label="성함 / 직함" value={name} onChange={setName} placeholder="예) 김OO 대리" />
+                <Field label="회사명 (선택)" value={company} onChange={setCompany} placeholder="예) OO기업 인사팀" />
+                <Field label="연락처" value={phone} onChange={setPhone} placeholder="010-0000-0000" type="tel" />
+                <button className="cmc-btn-primary mt-2" onClick={() => goNext(1)}>다음 →</button>
+                <p className="mt-3.5 text-center text-[12px] text-[#B0B8C1]">입력하신 정보는 MC 안내 목적으로만 사용됩니다.</p>
               </div>
             )}
 
             {step === 2 && (
-              <div className="fstep active">
-                <h3>어떤 행사를 준비하고 계신가요?</h3>
-                <p className="desc">행사 성격에 맞는 MC를 추천해드릴게요.</p>
-                <div className="opt-grid">
+              <div className="cmc-fade">
+                <h3 className="text-[18px] font-bold">어떤 행사를 준비하고 계신가요?</h3>
+                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">행사 성격에 맞는 MC를 추천해드릴게요.</p>
+                <div className="grid grid-cols-2 gap-2">
                   {EVENT_TYPES.map((t, i) => (
-                    <button key={t} className={`opt ${i === EVENT_TYPES.length - 1 ? 'full' : ''} ${eventType === t ? 'sel' : ''}`} onClick={() => setEventType(t)}>{t}</button>
+                    <button key={t} onClick={() => setEventType(t)} className={`cmc-opt ${i === EVENT_TYPES.length - 1 ? 'col-span-2' : ''} ${eventType === t ? 'cmc-opt-sel' : ''}`}>{t}</button>
                   ))}
                 </div>
-                <div className="fnav"><button className="btn btn-ghost back" onClick={() => setStep(1)}>← 이전</button><button className="btn btn-primary" onClick={() => goNext(2)}>다음 →</button></div>
+                <div className="mt-6 flex gap-2.5">
+                  <button className="cmc-btn-ghost" onClick={() => setStep(1)}>← 이전</button>
+                  <button className="cmc-btn-primary flex-1" onClick={() => goNext(2)}>다음 →</button>
+                </div>
               </div>
             )}
 
             {step === 3 && (
-              <div className="fstep active">
-                <h3>행사 정보를 알려주세요</h3>
-                <p className="desc">행사일·지역·규모를 알면 더 잘 맞는 분을 추천할 수 있어요.</p>
-                <div className="field"><label>행사 예정일</label><input type="text" value={dateText} onChange={(e) => setDateText(e.target.value)} placeholder="예) 2026년 12월 중순 / 미정" /></div>
-                <div className="field"><label>행사 지역</label><input type="text" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="예) 서울 강남 / 호텔 미정" /></div>
-                <div className="field"><label>예상 참석 인원 (선택)</label><input type="text" value={size} onChange={(e) => setSize(e.target.value)} placeholder="예) 100명 내외" /></div>
-                <div className="fnav"><button className="btn btn-ghost back" onClick={() => setStep(2)}>← 이전</button><button className="btn btn-primary" onClick={() => goNext(3)}>다음 →</button></div>
+              <div className="cmc-fade">
+                <h3 className="text-[18px] font-bold">행사 정보를 알려주세요</h3>
+                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">행사일·지역·규모를 알면 더 잘 맞는 분을 추천할 수 있어요.</p>
+                <Field label="행사 예정일" value={dateText} onChange={setDateText} placeholder="예) 2026년 12월 중순 / 미정" />
+                <Field label="행사 지역" value={region} onChange={setRegion} placeholder="예) 서울 강남 / 호텔 미정" />
+                <Field label="예상 참석 인원 (선택)" value={size} onChange={setSize} placeholder="예) 100명 내외" />
+                <div className="mt-6 flex gap-2.5">
+                  <button className="cmc-btn-ghost" onClick={() => setStep(2)}>← 이전</button>
+                  <button className="cmc-btn-primary flex-1" onClick={() => goNext(3)}>다음 →</button>
+                </div>
               </div>
             )}
 
             {step === 4 && (
-              <div className="fstep active">
-                <h3>마지막이에요!</h3>
-                <p className="desc">필요한 자료를 함께 보내드릴게요. (복수 선택)</p>
-                <div className="check-grid">
+              <div className="cmc-fade">
+                <h3 className="text-[18px] font-bold">마지막이에요!</h3>
+                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">필요한 자료를 함께 보내드릴게요. (복수 선택)</p>
+                <div className="grid grid-cols-1 gap-2">
                   {BENEFITS.map((b) => (
-                    <div key={b} className={`chk ${benefits.includes(b) ? 'sel' : ''}`} onClick={() => setBenefits((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b])}>
-                      <span className="box">✓</span> {b}
-                    </div>
+                    <button key={b} onClick={() => setBenefits((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b])} className={`cmc-chk ${benefits.includes(b) ? 'cmc-chk-sel' : ''}`}>
+                      <span className="cmc-box">{benefits.includes(b) && <Check size={12} strokeWidth={3} />}</span>{b}
+                    </button>
                   ))}
                 </div>
-                <div className={`chk ${consent ? 'sel' : ''}`} style={{ marginBottom: 6 }} onClick={() => setConsent(!consent)}>
-                  <span className="box">✓</span> 개인정보 수집·이용에 동의합니다
-                </div>
-                <div className="fnav">
-                  <button className="btn btn-ghost back" onClick={() => setStep(3)}>← 이전</button>
-                  <button className="btn btn-brass" disabled={submitting} onClick={submit}>{submitting ? '접수 중…' : '가능 MC · 견적 신청 🎯'}</button>
+                <button onClick={() => setConsent(!consent)} className={`cmc-chk mt-2 w-full ${consent ? 'cmc-chk-sel' : ''}`}>
+                  <span className="cmc-box">{consent && <Check size={12} strokeWidth={3} />}</span>개인정보 수집·이용에 동의합니다
+                </button>
+                <div className="mt-6 flex gap-2.5">
+                  <button className="cmc-btn-ghost" onClick={() => setStep(3)}>← 이전</button>
+                  <button className="cmc-btn-primary flex-1" disabled={submitting} onClick={submit}>{submitting ? '접수 중…' : '가능 MC · 견적 신청 🎯'}</button>
                 </div>
               </div>
             )}
 
             {step === 'done' && (
-              <div className="done active">
-                <div className="mark">🎯</div>
-                <h3>신청 완료!</h3>
-                <p>1영업일 내에 행사에 맞는 가능 MC와<br />예상 견적을 안내드릴게요.</p>
-                <p style={{ marginTop: 20, fontSize: 13, color: 'var(--muted-2)' }}>가능 MC·견적은 문의목록과 입력하신 연락처로 안내됩니다.</p>
+              <div className="cmc-fade py-4 text-center">
+                <div className="mb-3 text-[44px]">🎯</div>
+                <h3 className="text-[21px] font-bold">신청 완료!</h3>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-[#6B7684]">1영업일 내에 행사에 맞는 가능 MC와<br />예상 견적을 안내드릴게요.</p>
+                <button onClick={() => router.push('/inquiries')} className="cmc-btn-primary mt-6">내 문의 내역 보기</button>
+                <p className="mt-4 text-[12.5px] text-[#B0B8C1]">가능 MC·견적은 문의목록과 연락처로 안내됩니다.</p>
               </div>
             )}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <footer>
-        <div className="wrap">
-          <p className="fcta"><b>1,200개 기업</b>이 프리티풀의 MC와 함께 행사를 마쳤습니다.</p>
-          <a href="#apply" className="btn btn-brass">🎯 가능 MC · 견적 무료로 확인하기</a>
-          <small>© FREETIFUL · CORPORATE MC<br />본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.</small>
+        <footer className="border-t border-[#F0EEE9] px-5 py-10 text-center">
+          <p className="text-[14px] text-[#6B7684]"><b className="text-[#191F28]">1,200개 기업</b>이 프리티풀 MC와 함께했습니다.</p>
+          <button onClick={scrollToApply} className="cmc-btn-primary mx-auto mt-5 !w-auto px-8">🎯 가능 MC · 견적 무료 확인</button>
+          <p className="mt-5 text-[11px] leading-relaxed text-[#B0B8C1]">© FREETIFUL · CORPORATE MC<br />본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.</p>
+        </footer>
+      </div>
+
+      {/* 하단 고정 CTA (히어로 지난 뒤) */}
+      <div className={`fixed inset-x-0 bottom-0 z-30 transition-transform duration-300 ${scrolled ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="mx-auto max-w-md px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" style={{ background: 'linear-gradient(transparent, #fff 32%)' }}>
+          <button onClick={scrollToApply} className="w-full rounded-full bg-[#3182F6] py-4 text-[16px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(49,128,247,0.6)] active:scale-[0.98]">가능 MC · 견적 확인하기</button>
         </div>
-      </footer>
+      </div>
+    </main>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return (
+    <div className="mb-3.5">
+      <label className="mb-1.5 block text-[13px] font-semibold text-[#3D4148]">{label}</label>
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-[12px] border border-[#E5E8EB] bg-[#FAFBFC] px-4 py-3 text-[15px] outline-none transition focus:border-[#3182F6]" />
     </div>
   );
 }
 
-// ─── 원본 랜딩 CSS (.cmc 스코프) ───────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
-.cmc{
-  --ink:#14181f; --ink-2:#2a2f38; --paper:#ffffff; --line:#e7e3d9; --line-soft:#f0ede5;
-  --brass:#a9803f; --brass-deep:#8a6731; --muted:#5b5e63; --muted-2:#9a9da2; --danger:#9c3a2e;
-  --radius:14px; --maxw:1100px;
-  --sans:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
-  --serif:'Gowun Batang',serif;
-  font-family:var(--sans); color:var(--ink); background:var(--paper); line-height:1.7;
-  -webkit-font-smoothing:antialiased; overflow-x:hidden;
-}
-.cmc *{margin:0;padding:0;box-sizing:border-box}
-.cmc .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
-.cmc section{padding:96px 0}
-.cmc .divider{border-top:1px solid var(--line-soft)}
-.cmc .eyebrow{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--brass);font-weight:600;margin-bottom:18px}
-.cmc h2{font-size:clamp(28px,4.4vw,42px);font-weight:700;line-height:1.32;letter-spacing:-.02em;color:var(--ink)}
-.cmc h3{font-size:20px;font-weight:600;line-height:1.45;color:var(--ink)}
-.cmc p{color:var(--muted)}
-.cmc a{color:inherit;text-decoration:none}
-.cmc .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:16px;font-weight:600;padding:16px 28px;border-radius:999px;border:none;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
-.cmc .btn:disabled{opacity:.6;cursor:default}
-.cmc .btn-primary{background:var(--ink);color:#fff}
-.cmc .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 30px -12px rgba(20,24,31,.35)}
-.cmc .btn-brass{background:var(--brass);color:#fff}
-.cmc .btn-brass:hover{transform:translateY(-2px);background:var(--brass-deep);box-shadow:0 14px 30px -12px rgba(169,128,63,.45)}
-.cmc .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
-.cmc .btn-ghost:hover{border-color:var(--ink)}
-.cmc nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.cmc nav .wrap{display:flex;align-items:center;justify-content:space-between;height:66px}
-.cmc .brand{display:flex;flex-direction:column;line-height:1.1}
-.cmc .brand b{font-size:18px;font-weight:800;letter-spacing:.02em}
-.cmc .brand span{font-size:10px;letter-spacing:.28em;color:var(--brass);font-weight:600}
-.cmc .nav-cta{font-size:14px;padding:11px 20px}
-.cmc .hero{position:relative;background:var(--paper);padding:88px 0 84px;text-align:left;border-bottom:1px solid var(--line-soft)}
-.cmc .hero .wrap{position:relative;z-index:2;display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
-.cmc .hero-media{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:4/5;border:1px solid var(--line);background:var(--line-soft)}
-.cmc .hero-media img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:2}
-.cmc .hero-media .ph{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--muted-2);font-size:13px;padding:24px;line-height:1.6}
-.cmc .hero-media .ph .ic{font-size:26px}
-.cmc .hero h1{font-size:clamp(34px,6vw,58px);font-weight:800;line-height:1.24;letter-spacing:-.025em;color:var(--ink);margin-bottom:22px}
-.cmc .hero h1 .hl{color:var(--brass)}
-.cmc .hero .lead{font-size:clamp(16px,2.1vw,19px);color:var(--muted);max-width:680px;margin-bottom:34px}
-.cmc .hero .lead b{color:var(--ink);font-weight:700}
-.cmc .hero-cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-.cmc .hero-badge{margin-top:30px;display:inline-flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--muted-2)}
-.cmc .hero-badge b{color:var(--ink-2);font-weight:600}
-.cmc .cta-note{margin-bottom:26px;font-size:16px;color:var(--danger);font-weight:700;line-height:1.5}
-.cmc .stats{padding:0;border-bottom:1px solid var(--line-soft)}
-.cmc .stats .wrap{display:grid;grid-template-columns:repeat(3,1fr)}
-.cmc .stat{padding:52px 16px;text-align:center;border-right:1px solid var(--line-soft)}
-.cmc .stat:last-child{border-right:none}
-.cmc .stat .num{font-size:clamp(30px,5vw,48px);font-weight:800;color:var(--brass);letter-spacing:-.02em;font-family:var(--sans)}
-.cmc .stat .lbl{font-size:14px;color:var(--muted);margin-top:6px}
-.cmc .problem .head{text-align:center;max-width:760px;margin:0 auto 56px}
-.cmc .problem h2 .danger{color:var(--danger)}
-.cmc .pain-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;max-width:920px;margin:0 auto}
-.cmc .pain{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px;position:relative}
-.cmc .pain .tag{font-size:13px;font-weight:700;color:var(--danger);letter-spacing:.02em;margin-bottom:10px;display:flex;align-items:center;gap:7px}
-.cmc .pain .tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger)}
-.cmc .pain p{font-size:15.5px;color:#3d4148}
-.cmc .problem .pivot{text-align:center;max-width:780px;margin:56px auto 0;font-family:var(--serif);font-size:clamp(20px,3vw,28px);line-height:1.5;color:var(--ink);font-weight:700}
-.cmc .problem .pivot .danger{color:var(--danger)}
-.cmc .solution .head{text-align:center;max-width:720px;margin:0 auto 50px}
-.cmc .solution .head p{margin-top:14px}
-.cmc .ticker{margin-top:46px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
-.cmc .ticker-track{display:flex;gap:34px;white-space:nowrap;animation:cmcScroll 26s linear infinite;width:max-content}
-.cmc .ticker-track span{font-size:15px;color:var(--muted);letter-spacing:.04em}
-.cmc .ticker-track b{color:var(--brass);font-weight:700}
-@keyframes cmcScroll{to{transform:translateX(-50%)}}
-.cmc .slider-block{margin-bottom:40px}
-.cmc .slider-block:last-of-type{margin-bottom:0}
-.cmc .slider-label{font-size:14px;font-weight:600;color:var(--brass);margin-bottom:16px;letter-spacing:.02em}
-.cmc .slider{position:relative}
-.cmc .slider-track{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:2px 2px 10px;scrollbar-width:none;-ms-overflow-style:none}
-.cmc .slider-track::-webkit-scrollbar{display:none}
-.cmc .slide{flex:0 0 auto;scroll-snap-align:start;position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--line-soft)}
-.cmc .slide.portrait{width:200px;aspect-ratio:3/4}
-.cmc .slide.land{width:330px;aspect-ratio:16/10}
-.cmc .slide img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:2}
-.cmc .slide .ph{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;color:var(--muted-2);font-size:12px;text-align:center;padding:14px;line-height:1.5}
-.cmc .slide .ph .ic{font-size:22px}
-.cmc .slide .cap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:18px 14px 12px;background:linear-gradient(transparent,rgba(0,0,0,.62));color:#fff;font-size:13px;font-weight:600;line-height:1.4}
-.cmc .slide .cap small{display:block;font-weight:500;color:#e7d7b8;font-size:11.5px;margin-top:2px}
-.cmc .slider-btn{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 6px 16px -8px rgba(0,0,0,.35);transition:all .15s}
-.cmc .slider-btn:hover{border-color:var(--brass);color:var(--brass)}
-.cmc .slider-btn.prev{left:-10px}
-.cmc .slider-btn.next{right:-10px}
-.cmc .videos .head{text-align:center;max-width:720px;margin:0 auto 52px}
-.cmc .videos .head p{margin-top:14px}
-.cmc .video-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.cmc .video-card{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#0d0f12}
-.cmc .video-card iframe{width:100%;aspect-ratio:16/9;border:0;display:block;position:relative;z-index:2}
-.cmc .video-card video{width:100%;max-height:420px;border:0;display:block;position:relative;z-index:2;object-fit:contain;background:#0d0f12}
-.cmc .video-card .vcap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:16px 14px 12px;background:linear-gradient(transparent,rgba(0,0,0,.6));color:#fff;font-size:13px;font-weight:600;pointer-events:none}
-.cmc .why .head{text-align:center;max-width:680px;margin:0 auto 56px}
-.cmc .why .head p{margin-top:12px}
-.cmc .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
-.cmc .why-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:38px 30px}
-.cmc .why-card .no{font-family:var(--serif);font-size:42px;font-weight:700;color:var(--brass);line-height:1;margin-bottom:18px}
-.cmc .why-card h3{margin-bottom:12px}
-.cmc .why-card p{font-size:15px}
-.cmc .reviews .head{text-align:center;max-width:680px;margin:0 auto 52px}
-.cmc .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.cmc .rev{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px 28px}
-.cmc .rev .quote{font-family:var(--serif);font-size:17px;line-height:1.6;color:var(--ink);margin-bottom:18px}
-.cmc .rev .who{font-size:13px;color:var(--muted-2)}
-.cmc .rev .stars{color:var(--brass);font-size:13px;letter-spacing:2px;margin-bottom:14px}
-.cmc .process .head{text-align:center;max-width:720px;margin:0 auto 56px}
-.cmc .process .head p{margin-top:14px}
-.cmc .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.cmc .step{position:relative;padding-top:28px}
-.cmc .step .no{font-size:13px;letter-spacing:.2em;color:var(--brass);font-weight:700;margin-bottom:14px}
-.cmc .step .bar{height:2px;background:var(--line);position:absolute;top:6px;left:0;right:0}
-.cmc .step .bar::before{content:"";position:absolute;left:0;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--brass)}
-.cmc .step h3{font-size:18px;margin-bottom:10px}
-.cmc .step p{font-size:14.5px;color:var(--muted)}
-.cmc .scale{text-align:center}
-.cmc .scale .big{font-family:var(--serif);font-size:clamp(30px,5vw,46px);font-weight:700;line-height:1.4;color:var(--ink);max-width:820px;margin:0 auto}
-.cmc .scale .big b{color:var(--brass)}
-.cmc .scale .sub{margin-top:18px;font-size:17px}
-.cmc .lead .wrap{display:grid;grid-template-columns:1fr 1.05fr;gap:54px;align-items:start}
-.cmc .lead .pitch h2{margin-bottom:20px}
-.cmc .lead .pitch p{margin-bottom:30px}
-.cmc .gift{display:flex;flex-direction:column;gap:14px}
-.cmc .gift .item{display:flex;gap:14px;align-items:flex-start;background:var(--line-soft);border:1px solid var(--line);padding:18px 20px;border-radius:12px}
-.cmc .gift .item .ic{font-size:20px;flex-shrink:0;line-height:1.4}
-.cmc .gift .item b{color:var(--ink);display:block;font-size:15px;font-weight:600}
-.cmc .gift .item small{color:var(--muted);font-size:13px}
-.cmc .formcard{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:34px 32px;color:var(--ink);box-shadow:0 24px 50px -30px rgba(0,0,0,.25)}
-.cmc .progress{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.cmc .progress .ptext{font-size:12px;color:var(--muted-2);font-weight:600}
-.cmc .pbar{height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden;margin-bottom:26px}
-.cmc .pbar i{display:block;height:100%;background:var(--brass);width:25%;transition:width .35s ease;border-radius:999px}
-.cmc .fstep.active{display:block;animation:cmcFade .35s ease}
+@import url('https://fonts.googleapis.com/css2?family=Allura&display=swap');
+.cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:hidden}
+.cmc .cmc-script{font-family:'Allura',cursive}
+.cmc-reveal{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+.cmc-reveal.cmc-in{opacity:1;transform:none}
+.cmc-track{scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
+.cmc-track::-webkit-scrollbar{display:none}
+.cmc-track>*{scroll-snap-align:start}
+.cmc-arrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid #EEF1F4;background:#fff;color:#191F28;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 6px 16px -8px rgba(0,0,0,.3)}
+.cmc-ticker{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.cmc-ticker-track{display:flex;white-space:nowrap;width:max-content;animation:cmcTicker 24s linear infinite}
+@keyframes cmcTicker{to{transform:translateX(-50%)}}
+@keyframes cmcRise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.cmc-hero-eyebrow{opacity:0;animation:cmcRise .8s ease .1s forwards}
+.cmc-hero-line{opacity:0;animation:cmcRise .9s cubic-bezier(.22,1,.36,1) forwards}
+.cmc-line-1{animation-delay:.25s}
+.cmc-line-2{animation-delay:.5s}
+.cmc-hero-sub{opacity:0;animation:cmcRise .9s ease .85s forwards}
+.cmc-hero-cta{opacity:0;animation:cmcRise .9s ease 1.05s forwards}
+@keyframes cmcBounce{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,8px)}}
+.cmc-scrollhint{animation:cmcBounce 1.8s ease-in-out infinite;opacity:0;animation:cmcRise .8s ease 1.3s forwards,cmcBounce 1.8s ease-in-out 1.3s infinite}
 @keyframes cmcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.cmc .fstep h3{font-size:19px;margin-bottom:6px}
-.cmc .fstep .desc{font-size:14px;color:var(--muted);margin-bottom:22px}
-.cmc .field{margin-bottom:16px}
-.cmc .field label{display:block;font-size:13px;font-weight:600;margin-bottom:7px;color:#3d4148}
-.cmc .field input{width:100%;font-family:var(--sans);font-size:15px;padding:13px 15px;border:1px solid var(--line);border-radius:10px;background:#fcfbf8;transition:border .15s}
-.cmc .field input:focus{outline:none;border-color:var(--brass)}
-.cmc .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
-.cmc .opt{border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:14.5px;cursor:pointer;background:#fcfbf8;transition:all .15s;font-weight:500;text-align:left;color:var(--ink)}
-.cmc .opt:hover{border-color:var(--brass)}
-.cmc .opt.sel{border-color:var(--brass);background:#faf4e8;color:var(--brass-deep);font-weight:600}
-.cmc .opt.full{grid-column:1/-1}
-.cmc .check-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.cmc .chk{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:13px 15px;cursor:pointer;font-size:14px;background:#fcfbf8;transition:all .15s;color:var(--ink)}
-.cmc .chk:hover{border-color:var(--brass)}
-.cmc .chk.sel{border-color:var(--brass);background:#faf4e8}
-.cmc .chk .box{width:18px;height:18px;border:1.5px solid var(--muted-2);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
-.cmc .chk.sel .box{background:var(--brass);border-color:var(--brass)}
-.cmc .fnav{display:flex;gap:10px;margin-top:24px}
-.cmc .fnav .btn{flex:1;justify-content:center;font-size:15px;padding:14px}
-.cmc .fnav .back{flex:0 0 auto;padding:14px 20px}
-.cmc .consent{font-size:12px;color:var(--muted-2);margin-top:14px;text-align:center}
-.cmc .done{text-align:center;display:none}
-.cmc .done.active{display:block;animation:cmcFade .4s ease}
-.cmc .done .mark{font-size:46px;margin-bottom:10px}
-.cmc .done h3{font-size:22px;margin-bottom:10px}
-.cmc .done p{font-size:15px;color:var(--muted)}
-.cmc footer{background:var(--paper);border-top:1px solid var(--line);padding:48px 0;text-align:center}
-.cmc footer .fcta{margin-bottom:24px;color:var(--muted)}
-.cmc footer .fcta b{color:var(--ink)}
-.cmc footer small{display:block;font-size:12px;color:var(--muted-2);margin-top:14px;line-height:1.7}
-@media(max-width:860px){
-  .cmc section{padding:72px 0}
-  .cmc .video-grid{grid-template-columns:1fr}
-  .cmc .slider-btn{width:34px;height:34px}
-  .cmc .pain-grid{grid-template-columns:1fr}
-  .cmc .why-grid{grid-template-columns:1fr}
-  .cmc .rev-grid{grid-template-columns:1fr}
-  .cmc .steps{grid-template-columns:1fr 1fr}
-  .cmc .lead .wrap{grid-template-columns:1fr;gap:40px}
-  .cmc .hero{padding:64px 0 60px}
-  .cmc .hero .wrap{grid-template-columns:1fr;gap:36px}
-  .cmc .hero-media{aspect-ratio:16/10;max-height:340px}
-  .cmc .stats .wrap{grid-template-columns:repeat(3,1fr)}
-  .cmc .stat{padding:36px 8px}
-}
-@media(max-width:520px){
-  .cmc .steps{grid-template-columns:1fr}
-  .cmc .opt-grid,.cmc .check-grid{grid-template-columns:1fr}
-  .cmc .nav-cta{display:none}
-  .cmc .stat .num{font-size:26px}
-  .cmc .stat .lbl{font-size:12px}
-}
+.cmc-fade{animation:cmcFade .35s ease}
+.cmc-btn-primary{display:inline-flex;width:100%;align-items:center;justify-content:center;border-radius:999px;background:#191F28;color:#fff;font-size:15px;font-weight:700;padding:15px 24px;transition:transform .15s,opacity .15s}
+.cmc-btn-primary:active{transform:scale(.98)}
+.cmc-btn-primary:disabled{opacity:.6}
+.cmc-btn-ghost{flex:0 0 auto;border-radius:999px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-size:15px;font-weight:600;padding:15px 20px}
+.cmc-opt{border:1px solid #E5E8EB;border-radius:12px;padding:14px 14px;font-size:14px;font-weight:500;text-align:left;background:#FAFBFC;color:#191F28;transition:all .15s}
+.cmc-opt-sel{border-color:#3182F6;background:#EEF5FF;color:#1F6FE5;font-weight:700}
+.cmc-chk{display:flex;align-items:center;gap:10px;border:1px solid #E5E8EB;border-radius:12px;padding:13px 15px;font-size:14px;background:#FAFBFC;color:#191F28;text-align:left;transition:all .15s}
+.cmc-chk-sel{border-color:#3182F6;background:#EEF5FF}
+.cmc-box{width:20px;height:20px;flex-shrink:0;border:1.5px solid #C4CCD4;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;background:#fff;transition:all .15s}
+.cmc-chk-sel .cmc-box{background:#3182F6;border-color:#3182F6}
 `;
