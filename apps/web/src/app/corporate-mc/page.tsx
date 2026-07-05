@@ -24,13 +24,6 @@ const PROFILE_SLIDES: { src: string }[] = [
   { src: `${MEDIA_DIR}/profile-04.webp` },
   { src: `${MEDIA_DIR}/profile-05.webp` },
 ];
-const SCENE_SLIDES: { src: string; cap: string }[] = [
-  { src: `${MEDIA_DIR}/scene-01.jpg`, cap: '사내 시상식 진행' },
-  { src: `${MEDIA_DIR}/scene-02.jpg`, cap: '기업 컨퍼런스 진행' },
-  { src: `${MEDIA_DIR}/scene-03.jpg`, cap: '브랜드 론칭 행사' },
-  { src: `${MEDIA_DIR}/scene-04.jpg`, cap: '송년회 진행' },
-  { src: `${MEDIA_DIR}/scene-05.jpg`, cap: '기념식 · 의전 진행' },
-];
 // 레퍼런스 영상 — /uploads(직접 업로드) 또는 유튜브 embed URL. 비면 섹션 숨김.
 const VIDEOS: { src: string; cap: string }[] = [];
 
@@ -220,7 +213,7 @@ export default function CorporateMcPage() {
           {/* 텍스트 */}
           <div className="relative z-[2] -my-8 px-2 text-center">
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자</h2>
-            <p className="mt-4 text-[14px] leading-[1.75] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
+            <p className="mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
           {/* 하단 이미지 */}
           <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
@@ -232,35 +225,19 @@ export default function CorporateMcPage() {
       <div className="mx-auto max-w-md">
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
-        <section className="cmc-reveal bg-[#F9F9F9] px-5 py-12 text-center">
-          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Verified MCs</p>
-          <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">검증된 <span className="text-[#3182F6]">전문 MC</span>가<br />필요합니다</h2>
-          <p className="mt-2 text-[13px] text-[#9AA4B2]">방송사 아나운서 출신, 공식·브랜드행사 경험 검증</p>
+        <section className="cmc-reveal px-5 py-12 text-center">
+          <p className="cmc-script -mb-1 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Verified MCs</p>
+          <h2 className="mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 검증된 대기업 및 행사<br />진행사회자들은<br />프리티풀과 함께하고 있습니다</h2>
 
-          <div className="mt-7 text-left">
-            <div className="relative">
-              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="profileTrack">
-                {PROFILE_SLIDES.map((s) => (
-                  <div key={s.src} className="cmc-profile-card relative aspect-[3/4] w-[168px] flex-none overflow-hidden bg-[#F9F9F9]">
-                    <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="cmc-blur-fade absolute inset-x-0 bottom-0 z-[3] h-[45%]" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-left">
-            <p className="mb-3 text-[13px] font-bold text-[#3182F6]">행사 진행 모습</p>
-            <div className="relative">
-              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="sceneTrack">
-                {SCENE_SLIDES.map((s) => (
-                  <div key={s.src} className="relative aspect-[16/10] w-[280px] flex-none overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-[#F2F5F9]">
-                    <img src={s.src} alt={s.cap} loading="lazy" className="relative z-[2] h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-8 text-left text-[13px] font-bold text-white">{s.cap}</div>
-                  </div>
-                ))}
-              </div>
+          {/* 프로필 마퀴 — 자동 흐름 */}
+          <div className="cmc-marquee mt-8">
+            <div className="cmc-marquee-track">
+              {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
+                <div key={`${s.src}-${i}`} className="relative aspect-[3/4] w-[220px] flex-none overflow-hidden">
+                  <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <div className="cmc-blur-fade absolute inset-x-0 bottom-0 z-[3] h-[45%]" />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -274,10 +251,17 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
+        {/* ───────── PREMIUM EVENTS ───────── */}
+        <section className="cmc-reveal px-5 py-12 text-center">
+          <p className="cmc-script -mb-1 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
+          <h2 className="mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
+          <p className="mx-auto mt-4 max-w-[520px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
+        </section>
+
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
         {VIDEOS.length > 0 && (
           <section className="cmc-reveal px-5 py-12 text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reference</p>
+            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Reference</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
             <div className="mt-6 space-y-3">
               {VIDEOS.map((v) => (
@@ -296,7 +280,7 @@ export default function CorporateMcPage() {
 
         {/* ───────── WHY (다크) ───────── */}
         <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-white">
-          <p className="cmc-script -mb-2 text-center text-[34px] leading-none text-white/15">Why Freetiful</p>
+          <p className="cmc-script -mb-1 text-center text-[16px] md:text-[20px] leading-none text-white/25">Why Freetiful</p>
           <h2 className="text-center text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
           <p className="mt-2 text-center text-[13px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
           <div className="mt-8 space-y-3">
@@ -312,7 +296,7 @@ export default function CorporateMcPage() {
 
         {/* ───────── REVIEWS ───────── */}
         <section className="cmc-reveal px-5 py-14 text-center">
-          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reviews</p>
+          <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Reviews</p>
           <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
           <div className="mt-7 space-y-3 text-left">
             {REVIEWS.map((r) => (
@@ -328,7 +312,7 @@ export default function CorporateMcPage() {
         {/* ───────── PROCESS ───────── */}
         <section className="cmc-reveal px-5 py-12">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Process</p>
+            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Process</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
           </div>
           <div className="mt-7 space-y-3">
@@ -347,13 +331,13 @@ export default function CorporateMcPage() {
         {/* ───────── SCALE ───────── */}
         <section className="cmc-reveal bg-[#F7F9FC] px-5 py-16 text-center">
           <p className="text-[25px] font-extrabold leading-[1.5] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</p>
-          <p className="mt-3 text-[15px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
+          <p className="mt-3 text-[16px] md:text-[20px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
         </section>
 
         {/* ───────── LEAD / FORM ───────── */}
         <section id="apply" className="cmc-reveal px-5 py-14">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Apply</p>
+            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Apply</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
             <p className="mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
           </div>
@@ -511,6 +495,11 @@ const CSS = `
 .cmc-cross-b{transform:translateY(calc(-60px * (1 - var(--spread))))}
 /* 프로필 카드 하단 그라데이션 블러 — 아래는 흐리게, 위로 갈수록 선명 */
 .cmc-blur-fade{backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);-webkit-mask-image:linear-gradient(to top,#000 0%,#000 22%,transparent 100%);mask-image:linear-gradient(to top,#000 0%,#000 22%,transparent 100%);pointer-events:none}
+/* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
+.cmc-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
+.cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
+@keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 /* 타이틀 내 파란색이 흐르는 고급 애니메이션 */
 .cmc-flow{background:linear-gradient(100deg,#111 0%,#111 38%,#3182F6 47%,#7FC0FF 50%,#3182F6 53%,#111 62%,#111 100%);background-size:280% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:cmcFlow 4.2s linear infinite}
 @keyframes cmcFlow{from{background-position:150% 0}to{background-position:-150% 0}}
