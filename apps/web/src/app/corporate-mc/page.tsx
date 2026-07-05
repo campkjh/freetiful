@@ -78,22 +78,32 @@ export default function CorporateMcPage() {
   // 헤더 배경 전환(히어로 지나면 흰 배경) + 교차 이미지 스크롤 벌어짐
   useEffect(() => {
     let raf = 0;
+    // 텍스트 블록 높이 절반 + 여유 = 벌어질 거리(--open)
+    const measureOpen = () => {
+      const el = crossRef.current;
+      if (!el) return;
+      const txt = el.querySelector<HTMLElement>('.cmc-cross-text');
+      if (txt) el.style.setProperty('--open', `${Math.round(txt.offsetHeight * 0.5 + 28)}px`);
+    };
     const apply = () => {
       raf = 0;
       setScrolled(window.scrollY > window.innerHeight * 0.7);
-      // 교차 섹션: 화면 중앙 기준 진행도(0=겹침 → 1=벌어짐)
+      // 교차 섹션: 화면 하단 진입~중앙 통과 기준 진행도(0=겹침 → 1=벌어짐)
       const el = crossRef.current;
       if (el) {
         const r = el.getBoundingClientRect();
         const vh = window.innerHeight;
-        const p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9)));
+        const p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.75)));
         el.style.setProperty('--spread', String(p));
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    const onResize = () => { measureOpen(); apply(); };
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    measureOpen();
     apply();
-    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf); };
   }, []);
 
   // 스크롤 리빌
@@ -204,14 +214,14 @@ export default function CorporateMcPage() {
       </section>
 
       {/* ───────── 교차 이미지 (품격) — 스크롤 시 위에서 겹쳤다가 텍스트 여백만큼 벌어짐 ───────── */}
-      <section ref={crossRef} className="cmc-cross-sec relative overflow-hidden bg-white px-5 py-24">
-        <div className="cmc-cross mx-auto flex max-w-md flex-col items-center">
+      <section ref={crossRef} className="cmc-cross-sec relative bg-white px-5 py-28 md:py-44">
+        <div className="cmc-cross mx-auto flex max-w-md flex-col items-center md:max-w-lg">
           {/* 상단 이미지 */}
           <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8]">
             <img src={`${MEDIA_DIR}/cross-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
           {/* 텍스트 */}
-          <div className="relative z-[2] -my-8 px-2 text-center">
+          <div className="cmc-cross-text relative z-[2] -my-8 px-2 text-center">
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자</h2>
             <p className="mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
@@ -222,11 +232,11 @@ export default function CorporateMcPage() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-md md:max-w-2xl">
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
-        <section className="cmc-reveal px-5 py-12 text-center">
-          <p className="cmc-script -mb-1 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Verified MCs</p>
+        <section className="cmc-reveal px-5 py-12 md:py-20 text-center">
+          <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
           <h2 className="mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 검증된 대기업 및 행사<br />진행사회자들은<br />프리티풀과 함께하고 있습니다</h2>
 
           {/* 프로필 마퀴 — 자동 흐름 */}
@@ -252,16 +262,16 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── PREMIUM EVENTS ───────── */}
-        <section className="cmc-reveal px-5 py-12 text-center">
-          <p className="cmc-script -mb-1 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
+        <section className="cmc-reveal px-5 py-12 md:py-20 text-center">
+          <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
           <h2 className="mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
           <p className="mx-auto mt-4 max-w-[520px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
         {VIDEOS.length > 0 && (
-          <section className="cmc-reveal px-5 py-12 text-center">
-            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Reference</p>
+          <section className="cmc-reveal px-5 py-12 md:py-20 text-center">
+            <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Reference</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
             <div className="mt-6 space-y-3">
               {VIDEOS.map((v) => (
@@ -279,13 +289,13 @@ export default function CorporateMcPage() {
         )}
 
         {/* ───────── WHY (다크) ───────── */}
-        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-white">
-          <p className="cmc-script -mb-1 text-center text-[16px] md:text-[20px] leading-none text-white/25">Why Freetiful</p>
+        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 md:py-24 text-white">
+          <p className="cmc-condor mb-3 text-center text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-white/30">Why Freetiful</p>
           <h2 className="text-center text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
           <p className="mt-2 text-center text-[13px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
           <div className="mt-8 space-y-3">
-            {WHYS.map((w) => (
-              <div key={w.no} className="rounded-[22px] bg-white/[0.06] px-6 py-6">
+            {WHYS.map((w, i) => (
+              <div key={w.no} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] bg-white/[0.06] px-6 py-6`}>
                 <div className="cmc-script mb-1 text-[30px] leading-none text-[#6DA8FF]">{w.no}</div>
                 <h3 className="mb-2 text-[17px] font-bold">{w.title}</h3>
                 <p className="text-[14px] leading-relaxed text-white/70">{w.body}</p>
@@ -295,12 +305,12 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── REVIEWS ───────── */}
-        <section className="cmc-reveal px-5 py-14 text-center">
-          <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Reviews</p>
+        <section className="cmc-reveal px-5 py-14 md:py-24 text-center">
+          <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Reviews</p>
           <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
           <div className="mt-7 space-y-3 text-left">
-            {REVIEWS.map((r) => (
-              <div key={r.who} className="rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6">
+            {REVIEWS.map((r, i) => (
+              <div key={r.who} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6`}>
                 <div className="mb-3 flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={15} className="fill-[#FFC42E] text-[#FFC42E]" />)}</div>
                 <p className="text-[15.5px] font-semibold leading-relaxed text-[#191F28]">&ldquo;{r.quote}&rdquo;</p>
                 <p className="mt-3 text-[12.5px] text-[#9AA4B2]">{r.who}</p>
@@ -310,14 +320,14 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── PROCESS ───────── */}
-        <section className="cmc-reveal px-5 py-12">
+        <section className="cmc-reveal px-5 py-12 md:py-20">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Process</p>
+            <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Process</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
           </div>
           <div className="mt-7 space-y-3">
-            {STEPS.map((s) => (
-              <div key={s.no} className="flex gap-4 rounded-[22px] bg-[#F7F9FC] px-5 py-5">
+            {STEPS.map((s, i) => (
+              <div key={s.no} className={`cmc-reveal cmc-d${i + 1} flex gap-4 rounded-[22px] bg-[#F7F9FC] px-5 py-5`}>
                 <span className="mt-0.5 shrink-0 text-[12px] font-bold tracking-[0.14em] text-[#3182F6]">{s.no}</span>
                 <div>
                   <h3 className="text-[16px] font-bold">{s.title}</h3>
@@ -329,15 +339,15 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── SCALE ───────── */}
-        <section className="cmc-reveal bg-[#F7F9FC] px-5 py-16 text-center">
+        <section className="cmc-reveal bg-[#F7F9FC] px-5 py-16 md:py-28 text-center">
           <p className="text-[25px] font-extrabold leading-[1.5] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</p>
           <p className="mt-3 text-[16px] md:text-[20px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
         </section>
 
         {/* ───────── LEAD / FORM ───────── */}
-        <section id="apply" className="cmc-reveal px-5 py-14">
+        <section id="apply" className="cmc-reveal px-5 py-14 md:py-24">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[16px] md:text-[20px] leading-none text-[#B7C0CC]">Apply</p>
+            <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Apply</p>
             <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
             <p className="mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
           </div>
@@ -476,8 +486,11 @@ const CSS = `
 /* 영어 subtitle — Condor 폰트(대문자·자간) */
 .cmc .cmc-script{font-family:'Condor',-apple-system,sans-serif;font-weight:500;letter-spacing:0.04em}
 .cmc .cmc-condor{font-family:'Condor',-apple-system,sans-serif;font-weight:400}
-.cmc-reveal{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+.cmc-reveal{opacity:0;transform:translateY(30px);transition:opacity 1s cubic-bezier(.22,1,.36,1),transform 1s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
 .cmc-reveal.cmc-in{opacity:1;transform:none}
+/* 스태거 지연 — 카드/스텝이 순차적으로 떠오름 */
+.cmc-d1{transition-delay:.07s}.cmc-d2{transition-delay:.14s}.cmc-d3{transition-delay:.21s}.cmc-d4{transition-delay:.28s}.cmc-d5{transition-delay:.35s}
+@media (prefers-reduced-motion:reduce){.cmc-reveal{opacity:1;transform:none;transition:none}}
 .cmc-track{scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
 .cmc-track::-webkit-scrollbar{display:none}
 .cmc-track>*{scroll-snap-align:start}
@@ -488,11 +501,11 @@ const CSS = `
 .cmc-glass:hover{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.42)}
 .cmc-glass-primary{background:rgba(49,130,246,0.28);border-color:rgba(255,255,255,0.38);box-shadow:0 10px 34px -8px rgba(49,130,246,0.55),inset 0 1px 0 rgba(255,255,255,0.5)}
 .cmc-glass-primary:hover{background:rgba(49,130,246,0.4)}
-/* 교차 이미지 섹션 — 위에서 겹쳤다가 스크롤 내리며 텍스트 여백만큼 벌어짐(--spread:0→1) */
-.cmc-cross-sec{--spread:0}
-.cmc-cross-img{will-change:transform}
-.cmc-cross-a{transform:translateY(calc(60px * (1 - var(--spread))))}
-.cmc-cross-b{transform:translateY(calc(-60px * (1 - var(--spread))))}
+/* 교차 이미지 섹션 — 처음엔 텍스트에 겹쳤다가 스크롤 내리며 텍스트 섹션 높이만큼 촥 벌어짐(--spread:0→1, --open=텍스트 높이 절반+여유) */
+.cmc-cross-sec{--spread:0;--open:180px}
+.cmc-cross-img{will-change:transform;transition:transform .12s linear}
+.cmc-cross-a{transform:translateY(calc((1 - var(--spread)) * 84px - var(--spread) * var(--open)))}
+.cmc-cross-b{transform:translateY(calc(-1 * ((1 - var(--spread)) * 84px - var(--spread) * var(--open))))}
 /* 프로필 카드 하단 그라데이션 블러 — 아래는 흐리게, 위로 갈수록 선명 */
 .cmc-blur-fade{backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);-webkit-mask-image:linear-gradient(to top,#000 0%,#000 22%,transparent 100%);mask-image:linear-gradient(to top,#000 0%,#000 22%,transparent 100%);pointer-events:none}
 /* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
@@ -500,9 +513,9 @@ const CSS = `
 .cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
 .cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
 @keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-/* 타이틀 내 파란색이 흐르는 고급 애니메이션 */
-.cmc-flow{background:linear-gradient(100deg,#111 0%,#111 38%,#3182F6 47%,#7FC0FF 50%,#3182F6 53%,#111 62%,#111 100%);background-size:280% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:cmcFlow 4.2s linear infinite}
-@keyframes cmcFlow{from{background-position:150% 0}to{background-position:-150% 0}}
+/* 타이틀 내 파란색이 넓게 퍼져 천천히 흐르는 고급 애니메이션 */
+.cmc-flow{background:linear-gradient(100deg,#111 0%,#111 22%,#5AA0F0 36%,#3182F6 50%,#5AA0F0 64%,#111 78%,#111 100%);background-size:340% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:cmcFlow 8.5s linear infinite}
+@keyframes cmcFlow{from{background-position:170% 0}to{background-position:-170% 0}}
 .cmc-ticker{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .cmc-ticker-track{display:flex;white-space:nowrap;width:max-content;animation:cmcTicker 24s linear infinite}
 @keyframes cmcTicker{to{transform:translateX(-50%)}}
