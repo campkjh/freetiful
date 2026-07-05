@@ -205,23 +205,25 @@ export default function CorporateMcPage() {
       <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
         <video
           ref={videoRef}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="cmc-hero-video absolute inset-0 h-full w-full object-cover"
           src={HERO_VIDEO}
           autoPlay muted loop playsInline preload="auto"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/75" />
+        {/* 첫 진입 커튼 — 고급스럽게 걷히는 오프닝 */}
+        <div className="cmc-hero-curtain pointer-events-none absolute inset-0 z-20 bg-black" />
         <div className="relative z-10 px-5 text-center">
-          <p className="cmc-hero-eyebrow mb-4 text-[12px] font-semibold uppercase tracking-[0.28em] text-white/70">Corporate Event MC</p>
-          <h1 className="font-extrabold leading-[1.34] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
-            <span className="cmc-hero-line cmc-line-1 block text-[24px]">중요한 행사의 완성도는</span>
-            <span className="cmc-hero-line cmc-line-2 mt-1 block text-[29px]">
+          <p className="cmc-hero-eyebrow mb-4 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/70 md:mb-5 md:text-[14px]">Corporate Event MC</p>
+          <h1 className="font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+            <span className="cmc-hero-line cmc-line-1 block text-[24px] md:text-[44px]">중요한 행사의 완성도는</span>
+            <span className="cmc-hero-line cmc-line-2 mt-1 block text-[24px] md:text-[44px]">
               <span className="text-[#6DA8FF]">사회자</span>에 따라 달라집니다
             </span>
           </h1>
-          <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80">
+          <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80 md:mt-7 md:text-[18px]">
             KBS · SBS · MBC 아나운서 출신<br />검증된 전문 MC를 행사 성격에 맞춰
           </p>
-          <button onClick={scrollToApply} className="cmc-hero-cta mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold text-[#191F28] shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition active:scale-95">
+          <button onClick={scrollToApply} className="cmc-hero-cta mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold text-[#191F28] shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition active:scale-95 md:mt-10 md:px-9 md:py-4 md:text-[17px]">
             행사일 기준 가능 MC 확인하기
           </button>
         </div>
@@ -519,14 +521,23 @@ const CSS = `
 .cmc-ticker-track{display:flex;white-space:nowrap;width:max-content;animation:cmcTicker 24s linear infinite}
 @keyframes cmcTicker{to{transform:translateX(-50%)}}
 @keyframes cmcRise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-.cmc-hero-eyebrow{opacity:0;animation:cmcRise .8s ease .1s forwards}
-.cmc-hero-line{opacity:0;animation:cmcRise .9s cubic-bezier(.22,1,.36,1) forwards}
-.cmc-line-1{animation-delay:.25s}
-.cmc-line-2{animation-delay:.5s}
-.cmc-hero-sub{opacity:0;animation:cmcRise .9s ease .85s forwards}
-.cmc-hero-cta{opacity:0;animation:cmcRise .9s ease 1.05s forwards}
+/* 고급 진입: 블러가 걷히며 살짝 확대→정착하는 시네마틱 리빌 */
+@keyframes cmcReveal{from{opacity:0;transform:translateY(34px) scale(1.06);filter:blur(18px)}to{opacity:1;transform:none;filter:blur(0)}}
+/* 첫 진입 커튼: 검은 막이 위로 걷히며 배경(영상) 노출 */
+@keyframes cmcCurtain{0%{opacity:1}60%{opacity:1}100%{opacity:0;clip-path:inset(0 0 100% 0)}}
+/* 배경 영상 슬로우 줌(켄 번스) */
+@keyframes cmcKen{from{transform:scale(1.12)}to{transform:scale(1)}}
+.cmc-hero-curtain{animation:cmcCurtain 1.5s cubic-bezier(.65,0,.35,1) forwards}
+.cmc-hero-video{animation:cmcKen 6s ease-out forwards;will-change:transform}
+.cmc-hero-eyebrow{opacity:0;letter-spacing:.42em;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) .55s forwards,cmcTrackIn 1.4s cubic-bezier(.19,1,.22,1) .55s forwards}
+@keyframes cmcTrackIn{to{letter-spacing:.1em}}
+.cmc-hero-line{opacity:0;animation:cmcReveal 1.15s cubic-bezier(.19,1,.22,1) forwards}
+.cmc-line-1{animation-delay:.7s}
+.cmc-line-2{animation-delay:.92s}
+.cmc-hero-sub{opacity:0;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) 1.3s forwards}
+.cmc-hero-cta{opacity:0;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) 1.55s forwards}
 @keyframes cmcBounce{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,8px)}}
-.cmc-scrollhint{animation:cmcBounce 1.8s ease-in-out infinite;opacity:0;animation:cmcRise .8s ease 1.3s forwards,cmcBounce 1.8s ease-in-out 1.3s infinite}
+.cmc-scrollhint{opacity:0;animation:cmcRise .8s ease 1.9s forwards,cmcBounce 1.8s ease-in-out 1.9s infinite}
 @keyframes cmcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .cmc-fade{animation:cmcFade .35s ease}
 .cmc-btn-primary{display:inline-flex;width:100%;align-items:center;justify-content:center;border-radius:999px;background:#191F28;color:#fff;font-size:15px;font-weight:700;padding:15px 24px;transition:transform .15s,opacity .15s}
