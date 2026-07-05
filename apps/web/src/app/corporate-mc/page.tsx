@@ -59,6 +59,7 @@ export default function CorporateMcPage() {
   const authUser = useAuthStore((s) => s.user);
   const setAuth = useAuthStore((s) => s.setAuth);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const crossRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
   // 폼
@@ -82,11 +83,25 @@ export default function CorporateMcPage() {
     v.play().catch(() => {});
   }, []);
 
-  // 헤더 배경 전환(히어로 지나면 흰 배경)
+  // 헤더 배경 전환(히어로 지나면 흰 배경) + 교차 이미지 스크롤 벌어짐
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.7);
+    let raf = 0;
+    const apply = () => {
+      raf = 0;
+      setScrolled(window.scrollY > window.innerHeight * 0.7);
+      // 교차 섹션: 화면 중앙 기준 진행도(0=겹침 → 1=벌어짐)
+      const el = crossRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const p = Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.9)));
+        el.style.setProperty('--spread', String(p));
+      }
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    apply();
+    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
   }, []);
 
   // 스크롤 리빌
@@ -173,26 +188,25 @@ export default function CorporateMcPage() {
           autoPlay muted loop playsInline preload="auto"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/75" />
+        {/* 살짝의 딤드 — 전체 균일 어둡게 */}
+        <div className="pointer-events-none absolute inset-0 bg-black/25" />
         {/* 첫 진입 커튼 — 고급스럽게 걷히는 오프닝 */}
         <div className="cmc-hero-curtain pointer-events-none absolute inset-0 z-20 bg-black" />
         <div className="relative z-10 px-5 text-center">
-          <p className="cmc-hero-eyebrow mb-4 text-[12px] font-semibold uppercase tracking-[0.1em] text-white/70 md:mb-5 md:text-[14px]">Corporate Event MC</p>
+          <p className="cmc-hero-eyebrow cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Corporate Event MC</p>
           <h1 className="font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
             <span className="cmc-hero-line cmc-line-1 block text-[24px] md:text-[44px]">중요한 행사의 완성도는</span>
             <span className="cmc-hero-line cmc-line-2 mt-1 block text-[24px] md:text-[44px]">
-              <span className="text-[#6DA8FF]">사회자</span>에 따라 달라집니다
+              사회자에 따라 달라집니다
             </span>
           </h1>
           <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80 md:mt-7 md:text-[18px]">
             KBS · SBS · MBC 아나운서 출신<br />검증된 전문 MC를 행사 성격에 맞춰
           </p>
-          <div className="cmc-hero-cta mt-8 flex flex-col items-center justify-center gap-3 md:mt-10 md:flex-row">
-            <button onClick={scrollToApply} className="cmc-glass cmc-glass-primary inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-bold text-white transition active:scale-95 md:px-9 md:py-4 md:text-[17px]">
-              행사일 기준 가능 MC 확인하기
-              <ChevronRight size={18} strokeWidth={2.4} className="opacity-80" />
-            </button>
-            <button onClick={scrollToApply} className="cmc-glass inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-semibold text-white/90 transition active:scale-95 md:px-9 md:py-4 md:text-[17px]">
+          <div className="cmc-hero-cta mt-8 flex items-center justify-center md:mt-10">
+            <button onClick={scrollToApply} className="cmc-glass inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-[15px] font-bold text-white transition active:scale-95 md:px-10 md:py-4 md:text-[17px]">
               비즈니스 문의
+              <ChevronRight size={18} strokeWidth={2.4} className="opacity-80" />
             </button>
           </div>
         </div>
@@ -202,12 +216,12 @@ export default function CorporateMcPage() {
         </button>
       </section>
 
-      {/* ───────── 교차 이미지 (품격) ───────── */}
-      <section className="cmc-reveal relative overflow-hidden bg-white px-5 py-20">
+      {/* ───────── 교차 이미지 (품격) — 스크롤 시 위에서 겹쳤다가 텍스트 여백만큼 벌어짐 ───────── */}
+      <section ref={crossRef} className="cmc-cross-sec relative overflow-hidden bg-white px-5 py-24">
         <div className="cmc-cross mx-auto flex max-w-md flex-col items-center">
           {/* 상단 이미지 */}
-          <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden rounded-[20px] bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8] shadow-[0_30px_60px_-24px_rgba(0,0,0,0.28)]">
-            <img src={`${MEDIA_DIR}/profile-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8]">
+            <img src={`${MEDIA_DIR}/cross-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
           {/* 텍스트 */}
           <div className="relative z-[2] -my-8 px-2 text-center">
@@ -215,8 +229,8 @@ export default function CorporateMcPage() {
             <p className="mt-4 text-[14px] leading-[1.75] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
           {/* 하단 이미지 */}
-          <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden rounded-[20px] bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8] shadow-[0_30px_60px_-24px_rgba(0,0,0,0.28)]">
-            <img src={`${MEDIA_DIR}/profile-05.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
+            <img src={`${MEDIA_DIR}/cross-02.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
         </div>
       </section>
@@ -487,8 +501,11 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: { label: 
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Allura&display=swap');
+@font-face{font-family:'Condor';src:url('/fonts/Condor-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Condor';src:url('/fonts/Condor-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:swap}
 .cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:hidden}
 .cmc .cmc-script{font-family:'Allura',cursive}
+.cmc .cmc-condor{font-family:'Condor',-apple-system,sans-serif;font-weight:400}
 .cmc-reveal{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
 .cmc-reveal.cmc-in{opacity:1;transform:none}
 .cmc-track{scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
@@ -501,10 +518,11 @@ const CSS = `
 .cmc-glass:hover{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.42)}
 .cmc-glass-primary{background:rgba(49,130,246,0.28);border-color:rgba(255,255,255,0.38);box-shadow:0 10px 34px -8px rgba(49,130,246,0.55),inset 0 1px 0 rgba(255,255,255,0.5)}
 .cmc-glass-primary:hover{background:rgba(49,130,246,0.4)}
-/* 교차 이미지 섹션 리빌 */
-.cmc-cross-img{opacity:0;transform:translateY(40px);transition:opacity 1s cubic-bezier(.22,1,.36,1),transform 1s cubic-bezier(.22,1,.36,1)}
-.cmc-reveal.cmc-in .cmc-cross-a{opacity:1;transform:none;transition-delay:.05s}
-.cmc-reveal.cmc-in .cmc-cross-b{opacity:1;transform:none;transition-delay:.28s}
+/* 교차 이미지 섹션 — 위에서 겹쳤다가 스크롤 내리며 텍스트 여백만큼 벌어짐(--spread:0→1) */
+.cmc-cross-sec{--spread:0}
+.cmc-cross-img{will-change:transform}
+.cmc-cross-a{transform:translateY(calc(60px * (1 - var(--spread))))}
+.cmc-cross-b{transform:translateY(calc(-60px * (1 - var(--spread))))}
 .cmc-ticker{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .cmc-ticker-track{display:flex;white-space:nowrap;width:max-content;animation:cmcTicker 24s linear infinite}
 @keyframes cmcTicker{to{transform:translateX(-50%)}}
