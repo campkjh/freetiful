@@ -225,7 +225,7 @@ export default function CorporateMcPage() {
           </div>
           {/* 텍스트 */}
           <div className="relative z-[2] -my-8 px-2 text-center">
-            <h2 className="text-[22px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#FF6A2B]">고급, 우아한 행사의<br />품격을 달리하는 사회자</h2>
+            <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#FF6A2B]">고급, 우아한 행사의<br />품격을 달리하는 사회자</h2>
             <p className="mt-4 text-[14px] leading-[1.75] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
           {/* 하단 이미지 */}
@@ -240,7 +240,7 @@ export default function CorporateMcPage() {
         {/* ───────── SOLUTION (슬라이더) ───────── */}
         <section className="cmc-reveal px-5 py-12 text-center">
           <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Verified MCs</p>
-          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">검증된 <span className="text-[#3182F6]">전문 MC</span>가<br />필요합니다</h2>
+          <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">검증된 <span className="text-[#3182F6]">전문 MC</span>가<br />필요합니다</h2>
           <p className="mt-2 text-[13px] text-[#9AA4B2]">방송사 아나운서 출신, 공식·브랜드행사 경험 검증</p>
 
           <div className="mt-7 text-left">
@@ -293,7 +293,7 @@ export default function CorporateMcPage() {
         {VIDEOS.length > 0 && (
           <section className="cmc-reveal px-5 py-12 text-center">
             <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reference</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
+            <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
             <div className="mt-6 space-y-3">
               {VIDEOS.map((v) => (
                 <div key={v.src} className="relative overflow-hidden rounded-[20px] bg-black">
@@ -312,7 +312,7 @@ export default function CorporateMcPage() {
         {/* ───────── WHY (다크) ───────── */}
         <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-white">
           <p className="cmc-script -mb-2 text-center text-[34px] leading-none text-white/15">Why Freetiful</p>
-          <h2 className="text-center text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
+          <h2 className="text-center text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
           <p className="mt-2 text-center text-[13px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
           <div className="mt-8 space-y-3">
             {WHYS.map((w) => (
@@ -328,7 +328,7 @@ export default function CorporateMcPage() {
         {/* ───────── REVIEWS ───────── */}
         <section className="cmc-reveal px-5 py-14 text-center">
           <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reviews</p>
-          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+          <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
           <div className="mt-7 space-y-3 text-left">
             {REVIEWS.map((r) => (
               <div key={r.who} className="rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6">
@@ -344,7 +344,7 @@ export default function CorporateMcPage() {
         <section className="cmc-reveal px-5 py-12">
           <div className="text-center">
             <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Process</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
+            <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
           </div>
           <div className="mt-7 space-y-3">
             {STEPS.map((s) => (
@@ -369,7 +369,7 @@ export default function CorporateMcPage() {
         <section id="apply" className="cmc-reveal px-5 py-14">
           <div className="text-center">
             <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Apply</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
+            <h2 className="text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
             <p className="mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
           </div>
 
@@ -504,7 +504,8 @@ const CSS = `
 @font-face{font-family:'Condor';src:url('/fonts/Condor-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:'Condor';src:url('/fonts/Condor-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:swap}
 .cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:hidden}
-.cmc .cmc-script{font-family:'Allura',cursive}
+/* 영어 subtitle — Condor 폰트(대문자·자간) */
+.cmc .cmc-script{font-family:'Condor',-apple-system,sans-serif;font-weight:500;letter-spacing:0.04em}
 .cmc .cmc-condor{font-family:'Condor',-apple-system,sans-serif;font-weight:400}
 .cmc-reveal{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
 .cmc-reveal.cmc-in{opacity:1;transform:none}
