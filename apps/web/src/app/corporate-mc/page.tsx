@@ -46,7 +46,7 @@ const PARTNER_LOGOS = [
 // 정방향·똑같은 크기(cross 상/하단 이미지 사이즈 300px)·4:5 비율·좌우 가장자리 배치.
 const SCATTER: { src: string; style: CSSProperties }[] = [
   { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '20%', left: '-1%', '--fx': '80px', '--fy': '54px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '55%', left: '1%', '--fx': '70px', '--fy': '-56px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '63%', left: '6%', '--fx': '70px', '--fy': '-56px' } as unknown as CSSProperties },
   { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '6%', left: '76%', '--fx': '-80px', '--fy': '48px' } as unknown as CSSProperties },
   { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '58%', left: '75%', '--fx': '-82px', '--fy': '-46px' } as unknown as CSSProperties },
 ];
@@ -303,8 +303,8 @@ export default function CorporateMcPage() {
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
 
-          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장 */}
-          <div className="cmc-marquee cmc-riser mt-9">
+          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드 */}
+          <div className="cmc-marquee cmc-bleed-md cmc-riser mt-9">
             <div className="cmc-marquee-track">
               {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
                 <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
@@ -649,6 +649,8 @@ const CSS = `
 /* 후기 카드 캐러셀 — 큰 카드가 천천히 흐름, 호버 시 정지 */
 .cmc-rev-track{display:flex;gap:18px;width:max-content;padding:0 18px;align-items:stretch;animation:cmcMarquee 90s linear infinite}
 .cmc-marquee:hover .cmc-rev-track{animation-play-state:paused}
+/* PC 풀블리드 — max-w 컨테이너 벗어나 뷰포트 가로폭 전체 사용 */
+@media(min-width:768px){.cmc-bleed-md{width:100vw;margin-left:calc(50% - 50vw)}}
 /* 스크롤 시 전체화면으로 채워지는 영상 (--vp:0=작은 카드 → 1=풀스크린) */
 .cmc-vidsec{--vp:0;width:100vw;margin-left:calc(50% - 50vw)}
 .cmc-vidbox{width:calc(92vw + 8vw * var(--vp));height:calc(74svh + 26svh * var(--vp));max-width:100vw;border-radius:calc(22px * (1 - var(--vp)));transition:none;will-change:width,height,border-radius}
