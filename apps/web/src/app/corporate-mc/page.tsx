@@ -327,6 +327,7 @@ export default function CorporateMcPage() {
         <section className="px-5 pt-12 md:pt-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
         {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
@@ -338,13 +339,11 @@ export default function CorporateMcPage() {
               <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
                 <div className="mx-auto max-w-[1100px] overflow-hidden rounded-2xl border border-white/25 bg-white/10 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
                   <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/70 md:text-[11px]">Trusted Partners</p>
-                  <div className="cmc-marquee px-3 pb-3.5 pt-1">
+                  <div className="cmc-marquee px-3 pb-4 pt-1">
                     <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
                       {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
-                        <div key={`${logo}-${i}`} className="flex flex-none items-center px-1.5 md:px-2">
-                          <div className="flex h-11 w-[122px] items-center justify-center rounded-xl bg-white/95 px-3 shadow-sm md:h-[52px] md:w-[150px]">
-                            <img src={`/images/partners/${encodeURIComponent(logo)}`} alt="후원사 로고" loading="lazy" className="max-h-6 max-w-full object-contain md:max-h-7" />
-                          </div>
+                        <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[146px]">
+                          <img src={`/images/partners-mono/${encodeURIComponent(logo)}`} alt="후원사 로고" loading="lazy" className="max-h-6 max-w-full object-contain opacity-85 md:max-h-7" style={{ filter: 'brightness(0) invert(1)' }} />
                         </div>
                       ))}
                     </div>
@@ -355,10 +354,6 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
-        {/* ───────── 프리미엄 설명 (후원사 캐러셀은 영상 안 글래스 오버레이로 이동) ───────── */}
-        <section className="cmc-reveal py-12 md:py-16 text-center">
-          <p className="cmc-pop mx-auto max-w-[520px] px-5 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
-        </section>
 
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
         {VIDEOS.length > 0 && (
@@ -406,7 +401,7 @@ export default function CorporateMcPage() {
           <div className="cmc-marquee cmc-riser mt-10">
             <div className="cmc-rev-track">
               {[...REVIEWS, ...REVIEWS].map((r, i) => (
-                <article key={`${r.title}-${i}`} className={`cmc-rise cmc-d${(i % 8) + 1} flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left md:w-[344px]`}>
+                <article key={`${r.title}-${i}`} className={`cmc-rise cmc-d${(i % 8) + 1} flex w-[300px] flex-none flex-col rounded-[26px] border border-[#E9ECF0] bg-white px-7 py-8 text-left md:w-[344px]`}>
                   <h3 className="text-[19px] font-extrabold tracking-tight text-[#1B2331] md:text-[21px]">{r.title}</h3>
                   <p className="mt-4 flex-1 text-[15px] leading-[1.78] text-[#5A6472] md:text-[16px]"><Highlight text={r.body} /></p>
                   <div className="mt-7 flex items-center gap-3">
