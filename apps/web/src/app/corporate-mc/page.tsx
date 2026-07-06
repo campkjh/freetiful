@@ -7,9 +7,9 @@
  * 폼 제출: wedding-mc 와 동일하게 matchApi (source: landing_corporate_mc_v1).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronDown, Star, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Star, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -17,32 +17,38 @@ import { useAuthStore } from '@/lib/store/auth.store';
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
 const HERO_VIDEO = '/videos/corporate-mc-hero.mp4';
-const PROFILE_SLIDES: { src: string; role: string; name: string }[] = [
-  { src: `${MEDIA_DIR}/profile-01.jpg`, role: '시상식 · 컨퍼런스', name: '아나운서 출신 MC' },
-  { src: `${MEDIA_DIR}/profile-02.jpg`, role: '브랜드 · 론칭 행사', name: '아나운서 출신 MC' },
-  { src: `${MEDIA_DIR}/profile-03.jpg`, role: '포럼 · 기념식 · 의전', name: '공식행사 전문 MC' },
-  { src: `${MEDIA_DIR}/profile-04.jpg`, role: '글로벌 컨퍼런스', name: '영어 진행 가능 MC' },
-  { src: `${MEDIA_DIR}/profile-05.jpg`, role: '제품 발표회', name: '쇼호스트 출신 MC' },
-  { src: `${MEDIA_DIR}/profile-06.jpg`, role: '송년회 · 사내행사', name: '아나운서 출신 MC' },
-];
-const SCENE_SLIDES: { src: string; cap: string }[] = [
-  { src: `${MEDIA_DIR}/scene-01.jpg`, cap: '사내 시상식 진행' },
-  { src: `${MEDIA_DIR}/scene-02.jpg`, cap: '기업 컨퍼런스 진행' },
-  { src: `${MEDIA_DIR}/scene-03.jpg`, cap: '브랜드 론칭 행사' },
-  { src: `${MEDIA_DIR}/scene-04.jpg`, cap: '송년회 진행' },
-  { src: `${MEDIA_DIR}/scene-05.jpg`, cap: '기념식 · 의전 진행' },
+const PROFILE_SLIDES: { src: string }[] = [
+  { src: `${MEDIA_DIR}/profile-01.webp` },
+  { src: `${MEDIA_DIR}/profile-02.webp` },
+  { src: `${MEDIA_DIR}/profile-03.webp` },
+  { src: `${MEDIA_DIR}/profile-04.webp` },
+  { src: `${MEDIA_DIR}/profile-05.webp` },
 ];
 // 레퍼런스 영상 — /uploads(직접 업로드) 또는 유튜브 embed URL. 비면 섹션 숨김.
 const VIDEOS: { src: string; cap: string }[] = [];
+const PREMIUM_VIDEO = '/videos/premium-events.mp4';
+// 함께한 기업 로고 (70) — 5줄 캐러셀
+const LOGO_NAMES = ['GS칼텍스','JTBC','JW메리어트','KBS','KT','LG','MBC','S-OIL','SBS','SK','SPC그룹','YTN','강남구청','경기도','고려대학교','교보생명','구글코리아','국민은행','기업은행','나이키','네이버','농협은행','대구광역시','대한무역투자진흥공사','대한상공회의소','대한항공','롯데','롯데백화점','매일유업','메리츠화재','문화체육관광부','보건복지부','빙그레','산업은행','산업통상자원부','삼성','삼양식품','새마을금고','새마을회','서울시','신한은행','아디다스','아모레퍼시픽','올리브영','우리은행','유한양행','이랜드','이마트','인천광역시','전라북도','제주항공','진에어','카카오모빌리티','코레일','코엑스','코오롱','코웨이','키움증권','포스코','풀무원','하나은행','한국관광공사','한국장학재단','한국전력공사','한미약품','한샘','현대','현대백화점','현대오일뱅크','현대카드'];
+const LOGO_SRC = (n: string) => `${MEDIA_DIR}/logos/${encodeURIComponent(n)}.svg`;
+// 8줄로 분배
+const LOGO_ROWS: string[][] = [[], [], [], [], [], [], [], []];
+LOGO_NAMES.forEach((n, i) => LOGO_ROWS[i % 8].push(n));
+// 교차 섹션 스크롤 시 흩뿌려지는 행사 사진(PC) — 정방향·똑같은 크기(190px, 4:5)·시작오프셋만.
+// r/쉐도우/회전 제거, 상하(cross) 사진과 동일 비율(4/5). 좌/우 가장자리 4장씩 배치(가운데 텍스트 회피).
+const SCATTER: { src: string; style: CSSProperties }[] = [
+  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '2%', left: '0%', '--fx': '72px', '--fy': '52px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-01.webp`, style: { top: '31%', left: '-3%', '--fx': '82px', '--fy': '-18px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '60%', left: '1%', '--fx': '66px', '--fy': '-52px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-02.webp`, style: { top: '88%', left: '6%', '--fx': '50px', '--fy': '-62px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '5%', left: '78%', '--fx': '-74px', '--fy': '46px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-03.webp`, style: { top: '34%', left: '81%', '--fx': '-84px', '--fy': '-20px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '62%', left: '77%', '--fx': '-80px', '--fy': '-42px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-04.webp`, style: { top: '89%', left: '72%', '--fx': '-54px', '--fy': '-60px' } as unknown as CSSProperties },
+];
+const SCATTER_W = '190px';
 
 const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
 const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
-const PAINS = [
-  { tag: '어색한 침묵', body: '발표 사이 정적이 흐르는데 사회자가 받아주질 못해서, 행사장 분위기가 그대로 가라앉았어요.' },
-  { tag: '잘못된 호칭', body: '임원 직함을 잘못 부르는 바람에, 식이 끝나고도 한참 사과하고 다녔습니다.' },
-  { tag: '밀리는 식순', body: '시간 조율을 못 해서 식순이 계속 밀렸고, 결국 대표님 다음 일정까지 꼬여버렸어요.' },
-  { tag: '맞지 않는 톤', body: '시상식인데 너무 가벼운 진행이라, 회사 이미지가 우스워 보일까 봐 내내 조마조마했습니다.' },
-];
 const WHYS = [
   { no: '01', title: '철저하게 검증된 MC', body: '방송사 아나운서 출신 또는 충분한 공식행사 경력이 검증된 진행자만 선별해 안내합니다. 프로필·진행 영상까지 함께 드려 내부 보고도 수월합니다.' },
   { no: '02', title: '행사 성격에 맞는 추천', body: '시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.' },
@@ -65,8 +71,8 @@ export default function CorporateMcPage() {
   const authUser = useAuthStore((s) => s.user);
   const setAuth = useAuthStore((s) => s.setAuth);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const statsRef = useRef<HTMLDivElement>(null);
-  const counted = useRef(false);
+  const crossRef = useRef<HTMLElement>(null);
+  const vidRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
   // 폼
@@ -90,57 +96,57 @@ export default function CorporateMcPage() {
     v.play().catch(() => {});
   }, []);
 
-  // 헤더 배경 전환(히어로 지나면 흰 배경)
+  // 헤더 배경 전환(히어로 지나면 흰 배경) + 교차 이미지 스크롤 벌어짐
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.7);
+    let raf = 0;
+    // 텍스트 블록 높이 절반 + 여유 = 벌어질 거리(--open)
+    const measureOpen = () => {
+      const el = crossRef.current;
+      if (!el) return;
+      const txt = el.querySelector<HTMLElement>('.cmc-cross-text');
+      if (txt) el.style.setProperty('--open', `${Math.round(txt.offsetHeight * 0.5 + 28)}px`);
+    };
+    const apply = () => {
+      raf = 0;
+      setScrolled(window.scrollY > window.innerHeight * 0.7);
+      const vh = window.innerHeight;
+      // 교차 섹션: 섹션 중앙이 화면 중앙에 가까워질수록 벌어짐(0=겹침 → 1=벌어짐)
+      // 섹션 상단이 화면의 55% 지점에 오면 시작, 25% 지점 통과 시 완료 → 스크롤 내리는 게 확실히 보임
+      const el = crossRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        const start = vh * 0.62;   // r.top 이 이 값일 때 p=0
+        const end = vh * 0.12;     // r.top 이 이 값일 때 p=1
+        const p = Math.min(1, Math.max(0, (start - r.top) / (start - end)));
+        el.style.setProperty('--spread', String(p));
+      }
+      // 영상 섹션: 섹션 상단이 화면 상단을 지난 뒤 0.8화면 스크롤하는 동안 풀스크린으로 채워짐(이후 유지)
+      const vs = vidRef.current;
+      if (vs) {
+        const vr = vs.getBoundingClientRect();
+        const vp = Math.min(1, Math.max(0, -vr.top / (vh * 0.8)));
+        vs.style.setProperty('--vp', String(vp));
+      }
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
+    const onResize = () => { measureOpen(); apply(); };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener('resize', onResize);
+    measureOpen();
+    apply();
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf); };
   }, []);
 
-  // 스크롤 리빌
+  // 스크롤 리빌 (섹션 슬라이드 + 텍스트 팝 + 마퀴 순차 등장)
   useEffect(() => {
-    const els = Array.from(document.querySelectorAll<HTMLElement>('.cmc-reveal'));
+    const els = Array.from(document.querySelectorAll<HTMLElement>('.cmc-reveal, .cmc-pop, .cmc-riser'));
     const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('cmc-in'); });
-    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('cmc-in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -10% 0px' });
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
 
-  // 통계 카운트업
-  useEffect(() => {
-    const el = statsRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (!e.isIntersecting || counted.current) return;
-        counted.current = true;
-        el.querySelectorAll<HTMLElement>('.num[data-target]').forEach((n) => {
-          const target = Number(n.dataset.target || 0);
-          const suffix = n.dataset.suffix || '';
-          if (!target) { n.textContent = `0${suffix}`; return; }
-          const start = performance.now();
-          const dur = 1200;
-          const tick = (now: number) => {
-            const p = Math.min((now - start) / dur, 1);
-            const eased = 1 - Math.pow(1 - p, 3);
-            n.textContent = Math.floor(target * eased).toLocaleString('ko-KR') + suffix;
-            if (p < 1) requestAnimationFrame(tick);
-            else n.textContent = target.toLocaleString('ko-KR') + suffix;
-          };
-          requestAnimationFrame(tick);
-        });
-      });
-    }, { threshold: 0.4 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  const slide = (id: string, dir: number) => {
-    const t = document.getElementById(id);
-    if (!t) return;
-    t.scrollBy({ left: dir * t.clientWidth * 0.85, behavior: 'smooth' });
-  };
   const scrollToApply = () => document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth' });
 
   const goNext = (from: number) => {
@@ -196,7 +202,7 @@ export default function CorporateMcPage() {
           >
             <ChevronLeft size={24} strokeWidth={2.2} />
           </button>
-          <span className={`text-[15px] font-extrabold tracking-tight transition-colors ${scrolled ? 'text-[#191F28]' : 'text-white'}`}>프리티풀 <span className="text-[#3182F6]">MC</span></span>
+          <FreetifulLogo className={`h-[22px] w-auto transition-colors duration-300 ${scrolled ? 'text-[#1B1B1B]' : 'text-white'}`} />
           <div className="w-10" />
         </div>
       </header>
@@ -205,25 +211,32 @@ export default function CorporateMcPage() {
       <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
         <video
           ref={videoRef}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="cmc-hero-video absolute inset-0 h-full w-full object-cover"
           src={HERO_VIDEO}
           autoPlay muted loop playsInline preload="auto"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/75" />
+        {/* 살짝의 딤드 — 전체 균일 어둡게 */}
+        <div className="pointer-events-none absolute inset-0 bg-black/25" />
+        {/* 첫 진입 커튼 — 고급스럽게 걷히는 오프닝 */}
+        <div className="cmc-hero-curtain pointer-events-none absolute inset-0 z-20 bg-black" />
         <div className="relative z-10 px-5 text-center">
-          <p className="cmc-hero-eyebrow mb-4 text-[12px] font-semibold uppercase tracking-[0.28em] text-white/70">Corporate Event MC</p>
-          <h1 className="font-extrabold leading-[1.34] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
-            <span className="cmc-hero-line cmc-line-1 block text-[24px]">중요한 행사의 완성도는</span>
-            <span className="cmc-hero-line cmc-line-2 mt-1 block text-[29px]">
-              <span className="text-[#6DA8FF]">사회자</span>에 따라 달라집니다
+          <p className="cmc-hero-eyebrow cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Corporate Event MC</p>
+          <h1 className="font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+            <span className="cmc-hero-line cmc-line-1 block text-[24px] md:text-[44px]">중요한 행사의 완성도는</span>
+            <span className="cmc-hero-line cmc-line-2 mt-1 block text-[24px] md:text-[44px]">
+              사회자에 따라 달라집니다
             </span>
           </h1>
-          <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80">
+          <p className="cmc-hero-sub mt-6 text-[14px] font-medium leading-relaxed text-white/80 md:mt-7 md:text-[18px]">
             KBS · SBS · MBC 아나운서 출신<br />검증된 전문 MC를 행사 성격에 맞춰
           </p>
-          <button onClick={scrollToApply} className="cmc-hero-cta mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-bold text-[#191F28] shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition active:scale-95">
-            행사일 기준 가능 MC 확인하기
-          </button>
+          <div className="cmc-hero-cta mt-8 flex items-center justify-center md:mt-10">
+            <button onClick={scrollToApply} className="cmc-glass inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-[15px] font-bold text-white transition active:scale-95 md:px-10 md:py-4 md:text-[17px]">
+              비즈니스 문의
+              <ChevronRight size={18} strokeWidth={2.4} className="opacity-80" />
+            </button>
+          </div>
         </div>
         {/* 스크롤 힌트 */}
         <button onClick={() => window.scrollTo({ top: window.innerHeight - 56, behavior: 'smooth' })} aria-label="아래로" className="cmc-scrollhint absolute bottom-7 left-1/2 z-10 -translate-x-1/2 text-white/70">
@@ -231,78 +244,49 @@ export default function CorporateMcPage() {
         </button>
       </section>
 
-      <div className="mx-auto max-w-md">
-        {/* ───────── STATS ───────── */}
-        <section className="cmc-reveal px-5 pt-11 pb-4" ref={statsRef}>
-          <div className="grid grid-cols-3 divide-x divide-[#EEF1F4] rounded-[24px] bg-[#F7F9FC] py-6">
-            {[
-              { t: '1200', s: '+', l: '기업행사 진행' },
-              { t: '99', s: '%', l: '담당자 재섭외 의향' },
-              { t: '0', s: '건', l: '의전·진행 사고' },
-            ].map((x) => (
-              <div key={x.l} className="px-2 text-center">
-                <div className="num text-[26px] font-extrabold tracking-tight text-[#3182F6]" data-target={x.t} data-suffix={x.s}>{Number(x.t).toLocaleString('ko-KR')}{x.s}</div>
-                <div className="mt-1 text-[12px] font-medium text-[#8B95A1]">{x.l}</div>
-              </div>
-            ))}
+      {/* ───────── 교차 이미지 (품격) — 스크롤 시 위에서 겹쳤다가 텍스트 여백만큼 벌어짐 ───────── */}
+      <section ref={crossRef} className="cmc-cross-sec relative bg-white px-5 py-28 md:py-44">
+        {/* PC 전용 — 스크롤 시 흩뿌려지는 행사 사진(촤라락) */}
+        <div className="cmc-riser pointer-events-none absolute inset-0 z-0 hidden md:block">
+          {SCATTER.map((s, i) => (
+            <div key={s.src} className={`cmc-scatter cmc-d${i + 1} absolute aspect-[4/5] overflow-hidden`} style={{ ...s.style, width: SCATTER_W }}>
+              <img src={s.src} alt="" loading="lazy" className="block h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            </div>
+          ))}
+        </div>
+        <div className="cmc-cross relative z-[1] mx-auto flex max-w-md flex-col items-center md:max-w-lg">
+          {/* 상단 이미지 */}
+          <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8]">
+            <img src={`${MEDIA_DIR}/cross-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
-        </section>
+          {/* 텍스트 */}
+          <div className="cmc-cross-text relative z-[2] -my-8 px-2 text-center">
+            <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자들</h2>
+            <p className="cmc-pop cmc-d2 mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
+          </div>
+          {/* 하단 이미지 */}
+          <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
+            <img src={`${MEDIA_DIR}/cross-02.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          </div>
+        </div>
+      </section>
 
-        {/* ───────── PROBLEM ───────── */}
-        <section className="cmc-reveal px-5 pt-10 pb-12 text-center">
-          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#E5484D]/25">Real Voices</p>
-          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">&ldquo;이 사회자,<br /><span className="text-[#E5484D]">누가 섭외했어?&rdquo;</span></h2>
-          <p className="mt-3 text-[14px] leading-relaxed text-[#6B7684]">행사가 어색해지는 건 한순간입니다.<br />그리고 그 책임은 담당자에게 돌아옵니다.</p>
-          <div className="mt-7 grid grid-cols-1 gap-2.5 text-left">
-            {PAINS.map((p) => (
-              <div key={p.tag} className="rounded-[22px] border border-[#F0E6E4] bg-[#FCF7F6] px-5 py-4">
-                <div className="mb-1.5 flex items-center gap-2 text-[13px] font-bold text-[#E5484D]"><span className="h-[6px] w-[6px] rounded-full bg-[#E5484D]" />{p.tag}</div>
-                <p className="text-[14.5px] leading-relaxed text-[#3D4148]">{p.body}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-[19px] font-extrabold leading-[1.5] text-[#191F28]">기업행사는 다시 할 수 없습니다.<br /><span className="text-[#E5484D]">사회자 한 명이 회사 이미지를 결정합니다.</span></p>
-        </section>
+      <div className="mx-auto max-w-md md:max-w-2xl">
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
-        <section className="cmc-reveal px-5 py-12 text-center">
-          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Verified MCs</p>
-          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">검증된 <span className="text-[#3182F6]">전문 MC</span>가<br />필요합니다</h2>
-          <p className="mt-2 text-[13px] text-[#9AA4B2]">방송사 아나운서 출신, 공식·브랜드행사 경험 검증</p>
+        <section className="px-5 py-12 md:py-20 text-center">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
 
-          <div className="mt-7 text-left">
-            <p className="mb-3 text-[13px] font-bold text-[#3182F6]">사회자 프로필</p>
-            <div className="relative">
-              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="profileTrack">
-                {PROFILE_SLIDES.map((s, i) => (
-                  <div key={s.src} className="relative aspect-[3/4] w-[150px] flex-none overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-[#F2F5F9]">
-                    <div className="absolute left-3 top-3 z-[1] text-[11px] tracking-[0.18em] text-[#B0B8C1]">MC {String(i + 1).padStart(2, '0')}</div>
-                    <img src={s.src} alt={s.name} loading="lazy" className="relative z-[2] h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/65 to-transparent px-3.5 pb-3 pt-6 text-left text-white">
-                      <p className="text-[11px] font-medium text-[#BBD9FF]">{s.role}</p>
-                      <p className="text-[13.5px] font-bold">{s.name}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => slide('profileTrack', -1)} aria-label="이전" className="cmc-arrow left-[-6px]">‹</button>
-              <button onClick={() => slide('profileTrack', 1)} aria-label="다음" className="cmc-arrow right-[-6px]">›</button>
-            </div>
-          </div>
-
-          <div className="mt-8 text-left">
-            <p className="mb-3 text-[13px] font-bold text-[#3182F6]">행사 진행 모습</p>
-            <div className="relative">
-              <div className="cmc-track flex gap-3 overflow-x-auto pb-2" id="sceneTrack">
-                {SCENE_SLIDES.map((s) => (
-                  <div key={s.src} className="relative aspect-[16/10] w-[280px] flex-none overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-[#F2F5F9]">
-                    <img src={s.src} alt={s.cap} loading="lazy" className="relative z-[2] h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-8 text-left text-[13px] font-bold text-white">{s.cap}</div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => slide('sceneTrack', -1)} aria-label="이전" className="cmc-arrow left-[-6px]">‹</button>
-              <button onClick={() => slide('sceneTrack', 1)} aria-label="다음" className="cmc-arrow right-[-6px]">›</button>
+          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장 */}
+          <div className="cmc-marquee cmc-riser mt-9">
+            <div className="cmc-marquee-track">
+              {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
+                <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
+                  <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <div className="cmc-blur-fade absolute inset-x-0 bottom-0 z-[3] h-[38%]" />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -316,11 +300,27 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
+        {/* ───────── PREMIUM EVENTS ───────── */}
+        <section className="px-5 pt-12 md:pt-20 text-center">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[520px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
+        </section>
+
+        {/* 스크롤 시 전체화면으로 채워지는 영상 */}
+        <section ref={vidRef} className="cmc-vidsec relative h-[240vh]">
+          <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
+            <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
+              <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+            </div>
+          </div>
+        </section>
+
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
         {VIDEOS.length > 0 && (
-          <section className="cmc-reveal px-5 py-12 text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reference</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
+          <section className="cmc-reveal px-5 py-12 md:py-20 text-center">
+            <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Reference</p>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">사진보다 확실한 건<br />실제 진행 영상입니다</h2>
             <div className="mt-6 space-y-3">
               {VIDEOS.map((v) => (
                 <div key={v.src} className="relative overflow-hidden rounded-[20px] bg-black">
@@ -337,13 +337,13 @@ export default function CorporateMcPage() {
         )}
 
         {/* ───────── WHY (다크) ───────── */}
-        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 text-white">
-          <p className="cmc-script -mb-2 text-center text-[34px] leading-none text-white/15">Why Freetiful</p>
-          <h2 className="text-center text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
-          <p className="mt-2 text-center text-[13px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
+        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 md:py-24 text-white">
+          <p className="cmc-pop cmc-condor mb-3 text-center text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-white/30">Why Freetiful</p>
+          <h2 className="cmc-pop cmc-d1 text-center text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
+          <p className="cmc-pop cmc-d2 mt-2 text-center text-[16px] md:text-[20px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
           <div className="mt-8 space-y-3">
-            {WHYS.map((w) => (
-              <div key={w.no} className="rounded-[22px] bg-white/[0.06] px-6 py-6">
+            {WHYS.map((w, i) => (
+              <div key={w.no} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] bg-white/[0.06] px-6 py-6`}>
                 <div className="cmc-script mb-1 text-[30px] leading-none text-[#6DA8FF]">{w.no}</div>
                 <h3 className="mb-2 text-[17px] font-bold">{w.title}</h3>
                 <p className="text-[14px] leading-relaxed text-white/70">{w.body}</p>
@@ -353,12 +353,12 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── REVIEWS ───────── */}
-        <section className="cmc-reveal px-5 py-14 text-center">
-          <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Reviews</p>
-          <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+        <section className="cmc-reveal px-5 py-14 md:py-24 text-center">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Reviews</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
           <div className="mt-7 space-y-3 text-left">
-            {REVIEWS.map((r) => (
-              <div key={r.who} className="rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6">
+            {REVIEWS.map((r, i) => (
+              <div key={r.who} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6`}>
                 <div className="mb-3 flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={15} className="fill-[#FFC42E] text-[#FFC42E]" />)}</div>
                 <p className="text-[15.5px] font-semibold leading-relaxed text-[#191F28]">&ldquo;{r.quote}&rdquo;</p>
                 <p className="mt-3 text-[12.5px] text-[#9AA4B2]">{r.who}</p>
@@ -368,14 +368,14 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── PROCESS ───────── */}
-        <section className="cmc-reveal px-5 py-12">
+        <section className="cmc-reveal px-5 py-12 md:py-20">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Process</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
+            <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Process</p>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">섭외, 이렇게<br />간편하게 진행됩니다</h2>
           </div>
           <div className="mt-7 space-y-3">
-            {STEPS.map((s) => (
-              <div key={s.no} className="flex gap-4 rounded-[22px] bg-[#F7F9FC] px-5 py-5">
+            {STEPS.map((s, i) => (
+              <div key={s.no} className={`cmc-reveal cmc-d${i + 1} flex gap-4 rounded-[22px] bg-[#F7F9FC] px-5 py-5`}>
                 <span className="mt-0.5 shrink-0 text-[12px] font-bold tracking-[0.14em] text-[#3182F6]">{s.no}</span>
                 <div>
                   <h3 className="text-[16px] font-bold">{s.title}</h3>
@@ -387,17 +387,33 @@ export default function CorporateMcPage() {
         </section>
 
         {/* ───────── SCALE ───────── */}
-        <section className="cmc-reveal bg-[#F7F9FC] px-5 py-16 text-center">
-          <p className="text-[25px] font-extrabold leading-[1.5] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</p>
-          <p className="mt-3 text-[15px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
+        <section className="px-5 py-16 md:py-28 text-center">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Over 1,200 Companies Chose Freetiful</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</h2>
+          <p className="cmc-pop cmc-d2 mt-3 text-[16px] md:text-[20px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
+
+          {/* 함께한 기업 로고 — 8줄 캐러셀, 스크롤 진입 시 하단에서 딱딱 올라오며 흐름 */}
+          <div className="cmc-logo-wall cmc-riser mt-12 space-y-7">
+            {LOGO_ROWS.map((row, ri) => (
+              <div key={ri} className={`cmc-logo-marquee cmc-rise cmc-d${(ri % 5) + 1}`}>
+                <div className={`cmc-logo-track ${ri % 2 === 1 ? 'cmc-logo-rev' : ''}`} style={{ animationDuration: `${78 + ri * 7}s` }}>
+                  {[...row, ...row].map((n, i) => (
+                    <span key={`${n}-${i}`} className="cmc-logo-item">
+                      <img src={LOGO_SRC(n)} alt={n} loading="lazy" className="h-full w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* ───────── LEAD / FORM ───────── */}
-        <section id="apply" className="cmc-reveal px-5 py-14">
+        <section id="apply" className="cmc-reveal px-5 py-14 md:py-24">
           <div className="text-center">
-            <p className="cmc-script -mb-2 text-[34px] leading-none text-[#D7DEE8]">Apply</p>
-            <h2 className="text-[28px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
-            <p className="mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
+            <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Apply</p>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
+            <p className="cmc-pop cmc-d2 mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
           </div>
 
           <div className="mt-7 rounded-[26px] border border-[#EEF1F4] bg-white p-6 shadow-[0_20px_44px_-28px_rgba(20,24,31,0.28)]">
@@ -496,6 +512,27 @@ export default function CorporateMcPage() {
   );
 }
 
+// freetiful 로고 — 워드마크(reetiful)는 currentColor로 히어로=흰색 / 스크롤=검정 토글, f 마크는 브랜드 컬러 고정
+function FreetifulLogo({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 472 137" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="freetiful">
+      <g fill="currentColor">
+        <path d="M420.394 118.653C420.009 118.955 419.702 119.346 419.499 119.791C416.623 124.256 412.391 127.678 407.426 129.555C405.18 130.411 402.817 130.922 400.419 131.073C397.772 131.281 395.11 131.099 392.516 130.534C387.117 129.278 383.389 126.056 381.236 120.972C380.15 118.271 379.462 115.427 379.196 112.529C378.995 110.599 378.903 108.659 378.919 106.719C378.919 98.3711 378.919 90.0231 378.919 81.6751C378.894 80.7063 378.967 79.7375 379.139 78.7837C379.71 76.0113 381.29 73.5502 383.573 71.8782C385.856 70.2063 388.678 69.4428 391.491 69.736C394.304 70.0292 396.909 71.3581 398.798 73.4648C400.687 75.5715 401.727 78.3056 401.715 81.1363C401.738 83.2005 401.715 85.2685 401.715 87.3328C401.715 91.9293 401.715 96.5245 401.715 101.118C401.718 103.397 402.065 105.663 402.743 107.839C403.053 108.846 403.484 109.812 404.028 110.715C404.48 111.479 405.055 112.162 405.731 112.737C406.692 113.574 407.898 114.078 409.169 114.174C410.44 114.27 411.708 113.952 412.784 113.269C413.917 112.53 414.886 111.567 415.631 110.438C417.062 108.292 418.014 105.863 418.422 103.315C418.623 102.061 418.709 100.791 418.68 99.5209C418.68 93.3661 418.68 87.2114 418.68 81.0566C418.649 78.0375 419.817 75.1296 421.929 72.9727C424.04 70.8158 426.921 69.5865 429.938 69.5553C432.955 69.5241 435.861 70.6935 438.016 72.8063C440.172 74.9191 441.4 77.8022 441.431 80.8213C441.431 81.0756 441.431 81.3298 441.431 81.5802C441.431 97.0114 441.431 112.443 441.431 127.874C441.431 129.684 441.647 129.43 439.914 129.433C433.893 129.433 427.871 129.433 421.85 129.433H421.221C420.39 129.433 420.379 129.433 420.375 128.58C420.375 125.751 420.375 122.927 420.375 120.106L420.394 118.653Z"/>
+        <path d="M227.76 105.131C223.297 105.131 218.834 105.131 214.371 105.131C213.112 105.131 213.234 105.203 213.31 106.224C213.373 108.123 213.758 109.998 214.447 111.768C214.743 112.511 215.125 113.216 215.585 113.87C216.193 114.76 216.978 115.513 217.892 116.083C218.806 116.654 219.828 117.028 220.893 117.183C224.12 117.726 227.436 117.147 230.289 115.544C231.165 115.039 232.009 114.48 232.815 113.87C233.425 113.422 234.047 112.99 234.676 112.565C238.468 110.007 243.8 111.772 245.536 116.211C246.201 117.825 246.296 119.618 245.805 121.293C245.315 122.968 244.267 124.426 242.837 125.425C239.872 127.52 236.554 129.063 233.042 129.978C230.105 130.732 227.088 131.133 224.056 131.173C220.182 131.298 216.31 130.897 212.544 129.982C207.557 128.722 203.087 126.48 199.325 122.92C196.359 120.143 194.075 116.717 192.652 112.91C189.447 104.354 189.353 95.7626 192.792 87.2552C194.758 82.2658 198.059 77.9149 202.334 74.6803C206.609 71.4458 211.693 69.4527 217.025 68.9199C222.36 68.3298 227.759 68.9591 232.815 70.7603C239.158 73.037 243.853 77.2566 246.954 83.2444C248.888 86.9546 250.098 90.9997 250.519 95.1631C250.871 98.6806 249.381 101.473 246.496 103.511C244.778 104.718 242.818 105.131 240.755 105.139C237.892 105.139 235.029 105.139 232.166 105.139L227.76 105.131ZM214.03 91.3989C214.335 91.5466 214.679 91.5918 215.012 91.5279H227.256C228.617 91.5279 228.393 91.5051 228.185 90.3516C227.89 88.5151 227.221 86.7586 226.221 85.191C225.049 83.4455 223.46 82.4058 221.322 82.2692C219.285 82.144 217.602 82.7928 216.343 84.4321C215.911 85.0048 215.551 85.6279 215.27 86.2876C214.785 87.4092 214.431 88.5832 214.216 89.7862C214.11 90.3175 213.886 90.8373 214.03 91.3989Z"/>
+        <path d="M163.239 105.132H150.229C149.892 105.132 149.554 105.132 149.217 105.132C148.88 105.132 148.785 105.265 148.792 105.614C148.834 107.997 149.198 110.316 150.267 112.475C151.667 115.298 153.904 116.937 157.062 117.26C158.36 117.405 159.672 117.383 160.964 117.195C163.301 116.821 165.517 115.897 167.429 114.501C168.29 113.894 169.128 113.256 170.004 112.672C170.865 112.061 171.85 111.648 172.889 111.461C174.61 111.237 176.356 111.6 177.845 112.491C179.334 113.382 180.48 114.75 181.097 116.373C181.714 117.995 181.766 119.779 181.246 121.435C180.725 123.092 179.662 124.524 178.228 125.501C175.038 127.717 171.457 129.308 167.676 130.191C165.007 130.797 162.282 131.123 159.546 131.163C156.053 131.275 152.559 130.971 149.137 130.256C145.168 129.435 141.399 127.836 138.05 125.551C133.223 122.204 129.894 117.7 127.877 112.205C126.893 109.467 126.257 106.617 125.981 103.721C125.469 99.0973 125.925 94.418 127.319 89.9805C129.829 82.0765 134.607 76.0014 141.978 72.0892C145.381 70.3018 149.107 69.2154 152.937 68.8942C157.601 68.4485 162.306 68.915 166.792 70.2678C174.414 72.5749 179.828 77.4243 183.139 84.6492C184.619 87.9157 185.59 91.3902 186.017 94.9514C186.601 99.5807 183.362 104.058 178.509 104.946C177.679 105.093 176.838 105.164 175.995 105.159C171.74 105.136 167.489 105.127 163.239 105.132ZM156.573 91.5515H162.64C162.936 91.5515 163.232 91.5515 163.524 91.5515C163.816 91.5515 163.869 91.3655 163.827 91.1189C163.585 89.4046 163.073 87.7396 162.31 86.186C161.709 84.9223 160.759 83.8571 159.572 83.1162C158.248 82.2976 156.654 82.0376 155.139 82.3932C153.623 82.7488 152.311 83.6911 151.488 85.0134C150.294 86.9107 149.824 89.0471 149.482 91.2175C149.475 91.2593 149.477 91.3022 149.488 91.3431C149.5 91.3839 149.52 91.4217 149.548 91.4534C149.577 91.4852 149.611 91.5102 149.651 91.5265C149.69 91.5428 149.732 91.5501 149.774 91.5477C150.066 91.5666 150.362 91.5667 150.658 91.5667L156.573 91.5515Z"/>
+        <path d="M360.985 106.384V127.88C360.985 128.26 360.985 128.639 360.985 129.018C360.988 129.07 360.981 129.122 360.963 129.171C360.945 129.219 360.918 129.264 360.882 129.302C360.847 129.339 360.804 129.369 360.756 129.39C360.709 129.41 360.658 129.421 360.606 129.421C360.356 129.421 360.102 129.421 359.847 129.421H339.372C338.181 129.421 338.234 129.519 338.234 128.244C338.234 113.744 338.234 99.2451 338.234 84.7474C338.234 84.368 338.234 83.9885 338.234 83.609C338.236 83.5458 338.225 83.4828 338.2 83.4245C338.175 83.3663 338.138 83.3141 338.091 83.2718C338.044 83.2295 337.988 83.198 337.928 83.1795C337.867 83.1611 337.804 83.1561 337.741 83.1651C337.237 83.1651 336.732 83.1651 336.224 83.1385C334.749 83.0963 333.329 82.5718 332.18 81.6453C331.031 80.7188 330.217 79.4412 329.862 78.0079C329.507 76.5746 329.632 75.0644 330.216 73.7084C330.8 72.3524 331.811 71.225 333.096 70.4988C334.05 69.9504 335.128 69.654 336.228 69.6375C336.732 69.6375 337.237 69.6375 337.745 69.6375C337.808 69.6465 337.872 69.6415 337.933 69.6228C337.993 69.6042 338.049 69.5723 338.096 69.5296C338.144 69.4868 338.181 69.4342 338.205 69.3754C338.229 69.3167 338.241 69.2533 338.238 69.1897C338.238 68.852 338.238 68.5143 338.238 68.1766C338.238 65.9871 338.238 63.7939 338.238 61.6006C338.228 59.1548 338.599 56.7224 339.337 54.391C340.911 49.5491 344.092 46.2365 348.844 44.4416C351.576 43.4333 354.466 42.9194 357.379 42.9238C360.913 42.8897 364.451 42.9466 367.996 42.9048C369.783 42.8822 371.506 43.5709 372.786 44.8194C374.065 46.068 374.797 47.7741 374.82 49.5624C374.842 51.3507 374.154 53.0748 372.906 54.3554C371.659 55.6359 369.954 56.368 368.167 56.3907C367.367 56.3952 366.571 56.4984 365.797 56.698C362.938 57.5101 361.413 59.8096 361.076 62.3595C361.029 62.8209 361.01 63.2847 361.019 63.7483C361.019 65.2244 361.019 66.7005 361.019 68.1766C361.019 69.7855 360.848 69.6261 362.536 69.6299C364.345 69.6299 366.157 69.6299 367.966 69.6299C369.025 69.608 370.073 69.8475 371.017 70.3274C371.962 70.8072 372.773 71.5125 373.381 72.381C374.939 74.5438 375.174 76.9116 374.018 79.3136C373.531 80.4238 372.736 81.3712 371.728 82.0437C370.72 82.7162 369.541 83.0856 368.33 83.1082C366.358 83.2106 364.375 83.1423 362.396 83.1537C360.921 83.1537 361.019 82.9829 361.019 84.4894L360.985 106.384Z"/>
+        <path d="M259.744 97.7846V84.7617C259.744 84.4239 259.744 84.0862 259.744 83.7485C259.744 83.2742 259.638 83.1945 259.122 83.1793C258.607 83.1641 258.197 83.1793 257.735 83.1566C256.195 83.106 254.719 82.5304 253.551 81.5252C252.383 80.5201 251.593 79.1457 251.312 77.6298C251.032 76.1139 251.277 74.5476 252.008 73.1905C252.739 71.8333 253.911 70.7669 255.331 70.1678C256.067 69.8516 256.858 69.6803 257.659 69.6631C258.163 69.6631 258.671 69.6631 259.176 69.6404C259.68 69.6176 259.744 69.5265 259.744 69.0142C259.744 66.7375 259.744 64.4608 259.744 62.184C259.728 60.3234 260.154 58.4855 260.988 56.8224C262.072 54.6978 263.793 52.9665 265.911 51.8719C268.029 50.7773 270.437 50.3745 272.795 50.7199C275.153 51.0654 277.344 52.1419 279.06 53.798C280.775 55.4541 281.929 57.6066 282.359 59.9529C282.494 60.7844 282.554 61.6263 282.541 62.4686C282.564 64.4494 282.541 66.4302 282.541 68.4109C282.541 68.7069 282.541 69.0029 282.575 69.2951C282.578 69.3803 282.613 69.4613 282.674 69.5212C282.734 69.5812 282.816 69.6157 282.901 69.6176C283.193 69.6404 283.489 69.6441 283.785 69.6441H289.472C290.401 69.6236 291.324 69.8062 292.175 70.1791C293.027 70.552 293.786 71.1063 294.402 71.8032C296.298 73.913 296.76 76.3567 295.691 78.9674C295.253 80.1693 294.463 81.211 293.424 81.9558C292.385 82.7006 291.145 83.1139 289.867 83.1414C287.937 83.2552 285.995 83.1755 284.058 83.1907C282.438 83.1907 282.541 82.9706 282.541 84.644C282.541 92.4418 282.601 100.24 282.514 108.034C282.473 111.752 284.755 114.515 288.278 115.513C289.333 115.81 290.424 115.953 291.52 115.938C292.149 115.938 292.783 115.938 293.416 115.938C293.479 115.931 293.543 115.939 293.602 115.96C293.662 115.981 293.716 116.016 293.761 116.061C293.805 116.106 293.839 116.161 293.859 116.221C293.88 116.281 293.886 116.345 293.878 116.408C293.878 116.575 293.878 116.746 293.878 116.913V128.418C293.878 128.631 293.878 128.839 293.878 129.048C293.879 129.101 293.868 129.154 293.846 129.202C293.825 129.251 293.794 129.295 293.754 129.331C293.715 129.366 293.669 129.393 293.618 129.41C293.568 129.427 293.514 129.433 293.461 129.427H292.957C288.536 129.427 284.114 129.48 279.686 129.408C276.696 129.4 273.727 128.917 270.888 127.978C268.637 127.25 266.573 126.035 264.844 124.419C262.509 122.187 261.174 119.421 260.457 116.321C259.961 114.098 259.721 111.825 259.74 109.548C259.748 105.627 259.749 101.706 259.744 97.7846Z"/>
+        <path d="M471.435 91.0004C471.435 103.31 471.435 115.618 471.435 127.925C471.435 129.621 471.621 129.443 469.983 129.443H450.155C449.859 129.443 449.567 129.443 449.272 129.443C448.779 129.424 448.71 129.352 448.692 128.836C448.692 128.54 448.692 128.244 448.692 127.948C448.692 103.546 448.692 79.1424 448.692 54.7358C448.634 52.5339 449.194 50.3599 450.307 48.4597C451.485 46.4955 453.226 44.9316 455.304 43.9717C457.383 43.0118 459.701 42.7003 461.959 43.0779C464.217 43.4554 466.309 44.5044 467.962 46.0883C469.616 47.6722 470.755 49.7176 471.23 51.9582C471.394 52.7851 471.468 53.6274 471.45 54.4702C471.437 66.6432 471.432 78.8199 471.435 91.0004Z"/>
+        <path d="M94.7915 80.5492C95.1762 80.3373 95.4941 80.0218 95.7091 79.6385C97.8805 76.7781 100.545 74.3288 103.577 72.4061C107.559 69.8981 112.191 68.6192 116.894 68.7292C120.307 68.7937 123.006 70.2091 124.751 73.184C125.797 74.8908 126.224 76.9056 125.962 78.8905C125.7 80.8754 124.763 82.7097 123.31 84.0858C122.59 84.795 121.822 85.4543 121.012 86.0589C117.831 88.2939 114.517 88.3357 111.134 86.5257C110.404 86.1022 109.726 85.5926 109.117 85.0078C108.244 84.2056 107.176 83.6469 106.019 83.3876C104.006 82.955 102.273 83.5355 100.764 84.8636C99.8529 85.6861 99.1133 86.6803 98.5871 87.7892C97.5565 89.9647 96.9246 92.3077 96.7215 94.7067C96.5669 96.2195 96.496 97.7396 96.5092 99.2602C96.5092 108.873 96.5092 118.486 96.5092 128.099C96.5092 129.617 96.6381 129.461 95.1631 129.461H74.9526C73.6596 129.461 73.7089 129.567 73.7089 128.239C73.7089 115.844 73.7089 103.448 73.7089 91.0526C73.7089 87.258 73.7089 83.4634 73.7089 79.6689C73.6751 77.8065 74.1093 75.9655 74.9715 74.3148C76.0693 72.2638 77.8142 70.6338 79.9344 69.679C82.0546 68.7242 84.4309 68.4981 86.6928 69.0361C88.9548 69.5741 90.9754 70.8458 92.4396 72.6531C93.9038 74.4604 94.7294 76.7017 94.7877 79.0276C94.799 79.464 94.7915 79.9231 94.7915 80.5492Z"/>
+        <path d="M324.335 104.663C324.335 112.417 324.335 120.169 324.335 127.92C324.335 129.631 324.502 129.438 322.886 129.438C316.238 129.438 309.59 129.438 302.941 129.438C301.425 129.438 301.554 129.665 301.554 127.996V106.746C301.554 98.2768 301.554 89.8086 301.554 81.3417C301.554 78.6855 302.228 76.238 303.882 74.151C306.892 70.3565 310.855 68.888 315.542 69.977C320.228 71.0661 323.015 74.151 324.119 78.7728C324.294 79.5969 324.373 80.4386 324.354 81.281C324.331 89.0725 324.325 96.8665 324.335 104.663Z"/>
+        <path d="M312.914 42.9332C313.547 42.9332 314.177 42.9332 314.81 42.9332C318.86 42.8459 323.296 45.9233 324.184 50.9018C324.606 53.3105 324.104 55.7899 322.779 57.8447C321.454 59.8995 319.403 61.3783 317.036 61.9856C316.794 62.0536 316.549 62.1068 316.3 62.145C314.169 62.4024 312.014 62.4113 309.881 62.1716C307.644 61.8562 305.588 60.768 304.068 59.0955C302.549 57.4229 301.662 55.2713 301.561 53.0131C301.459 50.7549 302.15 48.5324 303.514 46.7304C304.878 44.9284 306.828 43.6603 309.028 43.1457C309.681 42.9924 310.351 42.916 311.022 42.918L312.914 42.9332Z"/>
+      </g>
+      <path d="M29.5977 98.7611C29.3892 99.1937 29.4954 99.6604 29.4954 100.108C29.4954 108.203 29.4954 116.298 29.4954 124.393C29.505 126.426 29.0002 128.429 28.0279 130.214C26.844 132.373 25.0078 134.101 22.7822 135.152C20.5567 136.202 18.056 136.521 15.6384 136.063C13.2207 135.604 11.0101 134.391 9.32328 132.598C7.63641 130.806 6.55979 128.525 6.24763 126.082C6.17689 125.498 6.14018 124.91 6.13766 124.321C6.13766 105.307 6.08079 86.2922 6.15662 67.2777C6.18696 58.7248 9.39864 51.4355 15.5793 45.5084C19.0906 42.1426 23.2047 39.7103 27.6829 37.8585C32.1755 36.0448 36.8711 34.7821 41.6672 34.0981C46.2508 33.4368 50.8763 33.1084 55.5073 33.1153C58.5258 33.1398 61.4174 34.3341 63.5745 36.4471C65.7316 38.5602 66.9864 41.4277 67.0752 44.4472C67.1641 47.4666 66.0801 50.403 64.0509 52.6394C62.0218 54.8759 59.2055 56.2383 56.1937 56.4405C54.9348 56.5088 53.6721 56.5088 52.4018 56.5543C48.1066 56.652 43.839 57.2686 39.6916 58.3909C37.9442 58.8695 36.2524 59.5322 34.6447 60.3678C33.7872 60.8191 32.9757 61.3529 32.2217 61.9615C30.4509 63.3921 29.4385 65.2097 29.4537 67.5282C29.4437 68.1619 29.4741 68.7956 29.5447 69.4254C29.7765 71.1135 30.6447 72.649 31.9714 73.7171C33.5419 74.998 35.3443 75.9642 37.28 76.563C40.1993 77.5364 43.2579 78.026 46.3349 78.0125C46.9226 78.0125 47.5104 77.9252 48.0981 77.8873C53.1526 77.5382 57.1227 79.4431 59.6101 83.8789C60.4888 85.4488 60.9917 87.2012 61.0791 88.9985C61.1666 90.7957 60.8363 92.5888 60.1142 94.2367C59.3921 95.8846 58.2978 97.3424 56.9175 98.4955C55.5372 99.6486 53.9084 100.466 52.1592 100.882C51.0513 101.136 49.9206 101.277 48.7844 101.303C46.002 101.443 43.213 101.367 40.4424 101.076C37.0977 100.697 33.7966 100 30.5836 98.9964C30.2739 98.8532 29.9387 98.7732 29.5977 98.7611Z" fill="#0B58FF"/>
+      <path d="M15.7396 31.976C7.51127 32.124 -0.00414451 25.2749 0.00723099 16.2324C-0.0566679 14.1233 0.303467 12.0228 1.06626 10.0556C1.82906 8.08835 2.97897 6.29453 4.44777 4.78054C5.91656 3.26656 7.6743 2.06326 9.61667 1.24205C11.559 0.42085 13.6465 -0.00152127 15.7551 4.11696e-06C17.8637 0.0015295 19.9505 0.426917 21.8917 1.25093C23.8329 2.07494 25.5889 3.28078 27.0555 4.79689C28.5221 6.31301 29.6694 8.1085 30.4294 10.0768C31.1893 12.0451 31.5464 14.1461 31.4795 16.2552C31.4757 25.2862 24.0247 32.1316 15.7396 31.976Z" fill="#68DEFF"/>
+    </svg>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
   return (
     <div className="mb-3.5">
@@ -507,26 +544,85 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: { label: 
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Allura&display=swap');
+@font-face{font-family:'Condor';src:url('/fonts/Condor-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Condor';src:url('/fonts/Condor-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:swap}
 .cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:hidden}
-.cmc .cmc-script{font-family:'Allura',cursive}
-.cmc-reveal{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+/* 영어 subtitle — Condor 폰트(대문자·자간) */
+.cmc .cmc-script{font-family:'Condor',-apple-system,sans-serif;font-weight:500;letter-spacing:0.04em}
+.cmc .cmc-condor{font-family:'Condor',-apple-system,sans-serif;font-weight:400;text-transform:uppercase}
+.cmc-reveal{opacity:0;transform:translateY(30px);transition:opacity 1s cubic-bezier(.22,1,.36,1),transform 1s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
 .cmc-reveal.cmc-in{opacity:1;transform:none}
+/* 텍스트 팝 — opacity0 + 크게(scale1.18)였다가 적정크기로 자리잡으며 등장 */
+.cmc-pop{opacity:0;transform:scale(1.18);transform-origin:center;transition:opacity .85s cubic-bezier(.22,1,.36,1),transform .85s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+.cmc-pop.cmc-in{opacity:1;transform:none}
+/* 마퀴 카드 — 섹션 진입 시 하단에서 순차적으로 촤라락 */
+.cmc-rise{opacity:0;transform:translateY(70px);transition:opacity .75s cubic-bezier(.22,1,.36,1),transform .75s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
+.cmc-riser.cmc-in .cmc-rise{opacity:1;transform:none}
+/* 교차 섹션 흩뿌림 사진 — 중앙에서 랜덤 위치로 촤라락 퍼짐 */
+.cmc-scatter{opacity:0;transform:translate(var(--fx,0),var(--fy,0)) scale(.72);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .95s cubic-bezier(.34,1.28,.5,1);will-change:opacity,transform}
+.cmc-riser.cmc-in .cmc-scatter{opacity:1;transform:translate(0,0) scale(1)}
+/* 스태거 지연 — 카드/스텝이 순차적으로 떠오름 */
+.cmc-d1{transition-delay:.07s}.cmc-d2{transition-delay:.14s}.cmc-d3{transition-delay:.21s}.cmc-d4{transition-delay:.28s}.cmc-d5{transition-delay:.35s}
+.cmc-d6{transition-delay:.42s}.cmc-d7{transition-delay:.49s}.cmc-d8{transition-delay:.56s}
+@media (prefers-reduced-motion:reduce){.cmc-reveal,.cmc-pop,.cmc-rise{opacity:1;transform:none;transition:none}}
 .cmc-track{scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
 .cmc-track::-webkit-scrollbar{display:none}
 .cmc-track>*{scroll-snap-align:start}
 .cmc-arrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;border:1px solid #EEF1F4;background:#fff;color:#191F28;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 6px 16px -8px rgba(0,0,0,.3)}
+/* 글래스 버튼 — 고급 유리 질감 */
+.cmc-glass{position:relative;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.28);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);box-shadow:0 8px 32px -8px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.4);overflow:hidden;transition:background .25s,border-color .25s,transform .15s}
+.cmc-glass::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,0.35),transparent 42%);pointer-events:none;opacity:.7}
+.cmc-glass:hover{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.42)}
+.cmc-glass-primary{background:rgba(49,130,246,0.28);border-color:rgba(255,255,255,0.38);box-shadow:0 10px 34px -8px rgba(49,130,246,0.55),inset 0 1px 0 rgba(255,255,255,0.5)}
+.cmc-glass-primary:hover{background:rgba(49,130,246,0.4)}
+/* 교차 이미지 섹션 — 처음엔 텍스트에 겹쳤다가 스크롤 내리며 텍스트 섹션 높이만큼 촥 벌어짐(--spread:0→1, --open=텍스트 높이 절반+여유) */
+.cmc-cross-sec{--spread:0;--open:180px}
+.cmc-cross-img{will-change:transform;transition:transform .12s linear}
+.cmc-cross-a{transform:translateY(calc((1 - var(--spread)) * 84px - var(--spread) * var(--open)))}
+.cmc-cross-b{transform:translateY(calc(-1 * ((1 - var(--spread)) * 84px - var(--spread) * var(--open))))}
+/* 프로필 카드 하단 그라데이션 블러 — 아래는 살짝 흐리게, 위로 갈수록 선명(약하게) */
+.cmc-blur-fade{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%);mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%);pointer-events:none}
+/* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
+.cmc-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
+.cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
+@keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* 스크롤 시 전체화면으로 채워지는 영상 (--vp:0=작은 카드 → 1=풀스크린) */
+.cmc-vidsec{--vp:0;width:100vw;margin-left:calc(50% - 50vw)}
+.cmc-vidbox{width:calc(92vw + 8vw * var(--vp));height:calc(74svh + 26svh * var(--vp));max-width:100vw;border-radius:calc(22px * (1 - var(--vp)));transition:none;will-change:width,height,border-radius}
+/* 기업 로고 5줄 캐러셀 — 천천히 흐르는 신뢰 월 */
+.cmc-logo-wall{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.cmc-logo-marquee{overflow:hidden}
+.cmc-logo-track{display:flex;align-items:center;gap:44px;width:max-content;animation:cmcLogo 46s linear infinite}
+.cmc-logo-rev{animation-direction:reverse}
+@keyframes cmcLogo{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.cmc-logo-item{flex:none;height:30px;display:flex;align-items:center;opacity:.5;filter:grayscale(1)}
+.cmc-logo-item img{max-height:30px}
+@media (min-width:768px){.cmc-logo-item{height:38px}.cmc-logo-item img{max-height:38px}}
+/* 타이틀 내 파란색이 넓게 퍼져 천천히 흐르는 고급 애니메이션 */
+.cmc-flow{background:linear-gradient(100deg,#111 0%,#111 22%,#5AA0F0 36%,#3182F6 50%,#5AA0F0 64%,#111 78%,#111 100%);background-size:340% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:cmcFlow 8.5s linear infinite}
+@keyframes cmcFlow{from{background-position:170% 0}to{background-position:-170% 0}}
 .cmc-ticker{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .cmc-ticker-track{display:flex;white-space:nowrap;width:max-content;animation:cmcTicker 24s linear infinite}
 @keyframes cmcTicker{to{transform:translateX(-50%)}}
 @keyframes cmcRise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-.cmc-hero-eyebrow{opacity:0;animation:cmcRise .8s ease .1s forwards}
-.cmc-hero-line{opacity:0;animation:cmcRise .9s cubic-bezier(.22,1,.36,1) forwards}
-.cmc-line-1{animation-delay:.25s}
-.cmc-line-2{animation-delay:.5s}
-.cmc-hero-sub{opacity:0;animation:cmcRise .9s ease .85s forwards}
-.cmc-hero-cta{opacity:0;animation:cmcRise .9s ease 1.05s forwards}
+/* 고급 진입: 블러가 걷히며 살짝 확대→정착하는 시네마틱 리빌 */
+@keyframes cmcReveal{from{opacity:0;transform:translateY(34px) scale(1.06);filter:blur(18px)}to{opacity:1;transform:none;filter:blur(0)}}
+/* 첫 진입 커튼: 검은 막이 위로 걷히며 배경(영상) 노출 */
+@keyframes cmcCurtain{0%{opacity:1}60%{opacity:1}100%{opacity:0;clip-path:inset(0 0 100% 0)}}
+/* 배경 영상 슬로우 줌(켄 번스) */
+@keyframes cmcKen{from{transform:scale(1.12)}to{transform:scale(1)}}
+.cmc-hero-curtain{animation:cmcCurtain 1.5s cubic-bezier(.65,0,.35,1) forwards}
+.cmc-hero-video{animation:cmcKen 6s ease-out forwards;will-change:transform}
+.cmc-hero-eyebrow{opacity:0;letter-spacing:.42em;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) .55s forwards,cmcTrackIn 1.4s cubic-bezier(.19,1,.22,1) .55s forwards}
+@keyframes cmcTrackIn{to{letter-spacing:.1em}}
+.cmc-hero-line{opacity:0;animation:cmcReveal 1.15s cubic-bezier(.19,1,.22,1) forwards}
+.cmc-line-1{animation-delay:.7s}
+.cmc-line-2{animation-delay:.92s}
+.cmc-hero-sub{opacity:0;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) 1.3s forwards}
+.cmc-hero-cta{opacity:0;animation:cmcReveal 1s cubic-bezier(.19,1,.22,1) 1.55s forwards}
 @keyframes cmcBounce{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,8px)}}
-.cmc-scrollhint{animation:cmcBounce 1.8s ease-in-out infinite;opacity:0;animation:cmcRise .8s ease 1.3s forwards,cmcBounce 1.8s ease-in-out 1.3s infinite}
+.cmc-scrollhint{opacity:0;animation:cmcRise .8s ease 1.9s forwards,cmcBounce 1.8s ease-in-out 1.9s infinite}
 @keyframes cmcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .cmc-fade{animation:cmcFade .35s ease}
 .cmc-btn-primary{display:inline-flex;width:100%;align-items:center;justify-content:center;border-radius:999px;background:#191F28;color:#fff;font-size:15px;font-weight:700;padding:15px 24px;transition:transform .15s,opacity .15s}
