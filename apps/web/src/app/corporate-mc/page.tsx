@@ -17,13 +17,6 @@ import { useAuthStore } from '@/lib/store/auth.store';
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
 const HERO_VIDEO = '/videos/corporate-mc-hero.mp4';
-const PROFILE_SLIDES: { src: string }[] = [
-  { src: `${MEDIA_DIR}/profile-01.webp` },
-  { src: `${MEDIA_DIR}/profile-02.webp` },
-  { src: `${MEDIA_DIR}/profile-03.webp` },
-  { src: `${MEDIA_DIR}/profile-04.webp` },
-  { src: `${MEDIA_DIR}/profile-05.webp` },
-];
 // 레퍼런스 영상 — /uploads(직접 업로드) 또는 유튜브 embed URL. 비면 섹션 숨김.
 const VIDEOS: { src: string; cap: string }[] = [];
 const PREMIUM_VIDEO = '/videos/premium-events.mp4';
@@ -33,19 +26,15 @@ const LOGO_SRC = (n: string) => `${MEDIA_DIR}/logos/${encodeURIComponent(n)}.svg
 // 8줄로 분배
 const LOGO_ROWS: string[][] = [[], [], [], [], [], [], [], []];
 LOGO_NAMES.forEach((n, i) => LOGO_ROWS[i % 8].push(n));
-// 교차 섹션 스크롤 시 흩뿌려지는 행사 사진(PC) — 정방향·똑같은 크기(190px, 4:5)·시작오프셋만.
-// r/쉐도우/회전 제거, 상하(cross) 사진과 동일 비율(4/5). 좌/우 가장자리 4장씩 배치(가운데 텍스트 회피).
+// 교차 섹션 스크롤 시 흩뿌려지는 "행사" 사진(PC) — 프로필(사회자 얼굴)은 제외, 행사 장면만.
+// 정방향·똑같은 크기(cross 상/하단 이미지 사이즈 300px)·4:5 비율·좌우 가장자리 배치.
 const SCATTER: { src: string; style: CSSProperties }[] = [
-  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '2%', left: '0%', '--fx': '72px', '--fy': '52px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/profile-01.webp`, style: { top: '31%', left: '-3%', '--fx': '82px', '--fy': '-18px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '60%', left: '1%', '--fx': '66px', '--fy': '-52px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/profile-02.webp`, style: { top: '88%', left: '6%', '--fx': '50px', '--fy': '-62px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '5%', left: '78%', '--fx': '-74px', '--fy': '46px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/profile-03.webp`, style: { top: '34%', left: '81%', '--fx': '-84px', '--fy': '-20px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '62%', left: '77%', '--fx': '-80px', '--fy': '-42px' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/profile-04.webp`, style: { top: '89%', left: '72%', '--fx': '-54px', '--fy': '-60px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '2%', left: '-1%', '--fx': '80px', '--fy': '54px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '55%', left: '1%', '--fx': '70px', '--fy': '-56px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '6%', left: '76%', '--fx': '-80px', '--fy': '48px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '58%', left: '75%', '--fx': '-82px', '--fy': '-46px' } as unknown as CSSProperties },
 ];
-const SCATTER_W = '190px';
+const SCATTER_W = '300px';
 
 const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
 const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
@@ -284,18 +273,6 @@ export default function CorporateMcPage() {
         <section className="px-5 py-12 md:py-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
-
-          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장 */}
-          <div className="cmc-marquee cmc-riser mt-9">
-            <div className="cmc-marquee-track">
-              {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
-                <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
-                  <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  <div className="cmc-blur-fade absolute inset-x-0 bottom-0 z-[3] h-[38%]" />
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* 방송사 티커 */}
           <div className="cmc-ticker mt-9">
