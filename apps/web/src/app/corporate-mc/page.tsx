@@ -334,19 +334,17 @@ export default function CorporateMcPage() {
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
             <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
-              {/* 후원사 로고 — 영상 하단 글래스 오버레이(프로스트) 캐러셀 */}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2]">
-                <div className="bg-gradient-to-t from-black/55 to-transparent pt-12">
-                  <div className="border-t border-white/20 bg-white/10 backdrop-blur-xl">
-                    <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/60 md:text-[11px]">Trusted Partners</p>
-                    <div className="cmc-marquee py-3">
-                      <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
-                        {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
-                          <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[150px]">
-                            <img src={`/images/partners/${logo}`} alt="후원사 로고" loading="lazy" className="max-h-7 max-w-full object-contain opacity-75 md:max-h-8" style={{ filter: 'brightness(0) invert(1)' }} />
-                          </div>
-                        ))}
-                      </div>
+              {/* 후원사 로고 — 영상 안 글래스 오버레이(프로스트) 플로팅 캐러셀 (하단 고정 CTA 위로 띄움) */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
+                <div className="mx-auto max-w-[1100px] overflow-hidden rounded-2xl border border-white/25 bg-white/10 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
+                  <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/70 md:text-[11px]">Trusted Partners</p>
+                  <div className="cmc-marquee py-3">
+                    <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
+                      {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
+                        <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[150px]">
+                          <img src={`/images/partners/${logo}`} alt="후원사 로고" loading="lazy" className="max-h-7 max-w-full object-contain opacity-90 md:max-h-8" style={{ filter: 'brightness(0) invert(1)' }} />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
