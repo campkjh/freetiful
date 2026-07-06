@@ -338,11 +338,13 @@ export default function CorporateMcPage() {
               <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
                 <div className="mx-auto max-w-[1100px] overflow-hidden rounded-2xl border border-white/25 bg-white/10 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
                   <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/70 md:text-[11px]">Trusted Partners</p>
-                  <div className="cmc-marquee py-3">
+                  <div className="cmc-marquee px-3 pb-3.5 pt-1">
                     <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
                       {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
-                        <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[150px]">
-                          <img src={`/images/partners/${logo}`} alt="후원사 로고" loading="lazy" className="max-h-7 max-w-full object-contain opacity-90 md:max-h-8" style={{ filter: 'brightness(0) invert(1)' }} />
+                        <div key={`${logo}-${i}`} className="flex flex-none items-center px-1.5 md:px-2">
+                          <div className="flex h-11 w-[122px] items-center justify-center rounded-xl bg-white/95 px-3 shadow-sm md:h-[52px] md:w-[150px]">
+                            <img src={`/images/partners/${encodeURIComponent(logo)}`} alt="후원사 로고" loading="lazy" className="max-h-6 max-w-full object-contain md:max-h-7" />
+                          </div>
                         </div>
                       ))}
                     </div>
