@@ -334,22 +334,30 @@ export default function CorporateMcPage() {
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
             <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+              {/* 후원사 로고 — 영상 하단 글래스 오버레이(프로스트) 캐러셀 */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2]">
+                <div className="bg-gradient-to-t from-black/55 to-transparent pt-12">
+                  <div className="border-t border-white/20 bg-white/10 backdrop-blur-xl">
+                    <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/60 md:text-[11px]">Trusted Partners</p>
+                    <div className="cmc-marquee py-3">
+                      <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
+                        {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
+                          <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[150px]">
+                            <img src={`/images/partners/${logo}`} alt="후원사 로고" loading="lazy" className="max-h-7 max-w-full object-contain opacity-75 md:max-h-8" style={{ filter: 'brightness(0) invert(1)' }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ───────── PARTNERS (헤딩 없이 로고 캐러셀만 흐름) + 프리미엄 설명 ───────── */}
+        {/* ───────── 프리미엄 설명 (후원사 캐러셀은 영상 안 글래스 오버레이로 이동) ───────── */}
         <section className="cmc-reveal py-12 md:py-16 text-center">
-          <div className="cmc-marquee">
-            <div className="cmc-marquee-track" style={{ animationDuration: '45s' }}>
-              {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
-                <div key={`${logo}-${i}`} className="flex h-[76px] w-[150px] flex-none items-center justify-center rounded-2xl border border-[#EEF1F4] bg-white px-5 md:h-24 md:w-[200px]">
-                  <img src={`/images/partners/${logo}`} alt="파트너사 로고" loading="lazy" className="max-h-9 max-w-full object-contain opacity-70 md:max-h-11" />
-                </div>
-              ))}
-            </div>
-          </div>
-          <p className="cmc-pop mx-auto mt-10 max-w-[520px] px-5 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
+          <p className="cmc-pop mx-auto max-w-[520px] px-5 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
