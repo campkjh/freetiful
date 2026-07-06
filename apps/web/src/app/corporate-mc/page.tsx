@@ -59,6 +59,11 @@ const WHYS = [
   { no: '02', title: '행사 성격에 맞는 추천', body: '시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.' },
   { no: '03', title: '대본·큐시트 사전 조율', body: '당일 즉흥이 아니라 대본과 큐시트를 미리 확인하고 리허설까지 맞춥니다. 발표 지연·순서 변경 같은 현장 변수에도 안정적으로 대응합니다.' },
 ];
+// 후기 카드 아바타(귀여운 물범 캐릭터) — 5종 순환. 파일 없으면 avatar 이모지로 폴백.
+const AVATAR_IMGS = [
+  `${MEDIA_DIR}/avatars/av-1.png`, `${MEDIA_DIR}/avatars/av-2.png`, `${MEDIA_DIR}/avatars/av-3.png`,
+  `${MEDIA_DIR}/avatars/av-4.png`, `${MEDIA_DIR}/avatars/av-5.png`,
+];
 // 후기 카드 캐러셀 — body 의 **...** 는 하이라이트. avatar 이모지 + demo(담당자 역할·행사).
 const REVIEWS: { title: string; body: string; avatar: string; demo: string }[] = [
   { title: '완벽한 진행 장악', body: '발표 사이 정적이 흐를 뻔한 순간에도 **자연스럽게 흐름을 이어**주셔서, 행사장 분위기가 끝까지 살아있었어요.', avatar: '🧑‍💼', demo: '대기업 인사팀 · 사내 시상식' },
@@ -392,8 +397,8 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
-        {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션 위 흐르는 후기) ───────── */}
-        <section className="cmc-reveal relative overflow-hidden py-16 md:py-24">
+        {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션 위 흐르는 후기, PC 풀블리드) ───────── */}
+        <section className="cmc-reveal cmc-bleed-md relative overflow-hidden py-16 md:py-24">
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
           <div className="px-5 text-center">
             <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#7FA0D8]">Reviews</p>
@@ -406,7 +411,10 @@ export default function CorporateMcPage() {
                   <h3 className="text-[19px] font-extrabold tracking-tight text-[#1B2331] md:text-[21px]">{r.title}</h3>
                   <p className="mt-4 flex-1 text-[15px] leading-[1.78] text-[#5A6472] md:text-[16px]"><Highlight text={r.body} /></p>
                   <div className="mt-7 flex items-center gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEF2FB] text-[22px]">{r.avatar}</span>
+                    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EAF1FB] text-[22px]">
+                      {r.avatar}
+                      <img src={AVATAR_IMGS[i % AVATAR_IMGS.length]} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                    </span>
                     <span className="text-[14px] font-medium text-[#8B95A1] md:text-[15px]">{r.demo}</span>
                   </div>
                 </article>
