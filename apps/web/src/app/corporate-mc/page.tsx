@@ -590,7 +590,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Allura&display=swap');
 @font-face{font-family:'Condor';src:url('/fonts/Condor-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:'Condor';src:url('/fonts/Condor-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:swap}
-.cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:hidden}
+.cmc{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Apple SD Gothic Neo',Pretendard,system-ui,sans-serif;overflow-x:clip}
 /* 영어 subtitle — Condor 폰트(대문자·자간) */
 .cmc .cmc-script{font-family:'Condor',-apple-system,sans-serif;font-weight:500;letter-spacing:0.04em}
 .cmc .cmc-condor{font-family:'Condor',-apple-system,sans-serif;font-weight:400;text-transform:uppercase}
