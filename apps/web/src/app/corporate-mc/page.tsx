@@ -34,6 +34,14 @@ const LOGO_SRC = (n: string) => `${MEDIA_DIR}/logos/${encodeURIComponent(n)}.svg
 // 8줄로 분배
 const LOGO_ROWS: string[][] = [[], [], [], [], [], [], [], []];
 LOGO_NAMES.forEach((n, i) => LOGO_ROWS[i % 8].push(n));
+// biz 고객사 페이지의 '파트너사' 로고 (/images/partners/) — 영상 아래 캐러셀용
+const PARTNER_LOGOS = [
+  'frame-1707490594.svg', 'frame-1707490595.svg', 'frame-1707490596.svg', 'frame-1707490598.svg',
+  'frame-1707490599.svg', 'frame-1707490618.svg', 'frame-1707490619.svg', 'frame-1707490620.svg',
+  'frame-1707490621.svg', 'frame-1707490622.svg', 'frame-1707490623.svg', 'frame-1707490624.svg',
+  'frame-1707490625.svg', 'frame-1707490626.svg', 'frame-1707490627.svg', 'frame-1707490628.svg',
+  'frame-1707490629.svg', 'frame-1707490630.svg', 'frame-1707490631.svg', 'frame-1707490632.svg',
+];
 // 교차 섹션 스크롤 시 흩뿌려지는 "행사" 사진(PC) — 프로필(사회자 얼굴)은 제외, 행사 장면만.
 // 정방향·똑같은 크기(cross 상/하단 이미지 사이즈 300px)·4:5 비율·좌우 가장자리 배치.
 const SCATTER: { src: string; style: CSSProperties }[] = [
@@ -311,11 +319,26 @@ export default function CorporateMcPage() {
           <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[520px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
-        {/* 스크롤 시 전체화면으로 채워지는 영상 */}
-        <section ref={vidRef} className="cmc-vidsec relative h-[170vh]">
+        {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
+        <section ref={vidRef} className="cmc-vidsec relative h-[112vh]">
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
             <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+            </div>
+          </div>
+        </section>
+
+        {/* ───────── PARTNERS (biz 고객사 파트너사 — 캐러셀) ───────── */}
+        <section className="cmc-reveal py-12 md:py-16 text-center">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Partners</p>
+          <h2 className="cmc-pop cmc-d1 px-5 text-[24px] md:text-[40px] font-extrabold leading-[1.3] tracking-[-0.02em]">프리티풀과 함께한 <span className="text-[#3182F6]">파트너사</span></h2>
+          <div className="cmc-marquee mt-9">
+            <div className="cmc-marquee-track" style={{ animationDuration: '45s' }}>
+              {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
+                <div key={`${logo}-${i}`} className="flex h-[76px] w-[150px] flex-none items-center justify-center rounded-2xl border border-[#EEF1F4] bg-white px-5 md:h-24 md:w-[200px]">
+                  <img src={`/images/partners/${logo}`} alt="파트너사 로고" loading="lazy" className="max-h-9 max-w-full object-contain opacity-70 md:max-h-11" />
+                </div>
+              ))}
             </div>
           </div>
         </section>
