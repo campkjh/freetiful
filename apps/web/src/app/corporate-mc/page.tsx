@@ -307,6 +307,7 @@ export default function CorporateMcPage() {
         <section className="px-5 py-12 md:py-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
 
           {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드 */}
           <div className="cmc-marquee cmc-bleed-md cmc-riser mt-9">
@@ -320,21 +321,12 @@ export default function CorporateMcPage() {
             </div>
           </div>
 
-          {/* 방송사 티커 */}
-          <div className="cmc-ticker mt-9">
-            <div className="cmc-ticker-track">
-              {[0, 1].map((k) => (
-                <span key={k} className="text-[14px] text-[#8B95A1]"><b className="text-[#3182F6]">KBS</b> · <b className="text-[#3182F6]">SBS</b> · <b className="text-[#3182F6]">MBC</b> · <b className="text-[#3182F6]">YTN</b> · <b className="text-[#3182F6]">JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험 ·&nbsp;</span>
-              ))}
-            </div>
-          </div>
         </section>
 
         {/* ───────── PREMIUM EVENTS ───────── */}
         <section className="px-5 pt-12 md:pt-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
-          <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[520px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
         {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
@@ -346,11 +338,9 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
-        {/* ───────── PARTNERS (biz 고객사 파트너사 — 캐러셀) ───────── */}
+        {/* ───────── PARTNERS (헤딩 없이 로고 캐러셀만 흐름) + 프리미엄 설명 ───────── */}
         <section className="cmc-reveal py-12 md:py-16 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Partners</p>
-          <h2 className="cmc-pop cmc-d1 px-5 text-[24px] md:text-[40px] font-extrabold leading-[1.3] tracking-[-0.02em]">프리티풀과 함께한 <span className="text-[#3182F6]">파트너사</span></h2>
-          <div className="cmc-marquee mt-9">
+          <div className="cmc-marquee">
             <div className="cmc-marquee-track" style={{ animationDuration: '45s' }}>
               {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
                 <div key={`${logo}-${i}`} className="flex h-[76px] w-[150px] flex-none items-center justify-center rounded-2xl border border-[#EEF1F4] bg-white px-5 md:h-24 md:w-[200px]">
@@ -359,6 +349,7 @@ export default function CorporateMcPage() {
               ))}
             </div>
           </div>
+          <p className="cmc-pop mx-auto mt-10 max-w-[520px] px-5 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
         {/* ───────── REFERENCE VIDEOS (있을 때만) ───────── */}
@@ -407,7 +398,7 @@ export default function CorporateMcPage() {
           <div className="cmc-marquee mt-10">
             <div className="cmc-rev-track">
               {[...REVIEWS, ...REVIEWS].map((r, i) => (
-                <article key={`${r.title}-${i}`} className="flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left shadow-[0_24px_54px_-28px_rgba(30,60,120,0.42)] md:w-[344px]">
+                <article key={`${r.title}-${i}`} className="flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left md:w-[344px]">
                   <h3 className="text-[19px] font-extrabold tracking-tight text-[#1B2331] md:text-[21px]">{r.title}</h3>
                   <p className="mt-4 flex-1 text-[15px] leading-[1.78] text-[#5A6472] md:text-[16px]"><Highlight text={r.body} /></p>
                   <div className="mt-7 flex items-center gap-3">
