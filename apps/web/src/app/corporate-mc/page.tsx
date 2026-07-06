@@ -33,13 +33,19 @@ const LOGO_SRC = (n: string) => `${MEDIA_DIR}/logos/${encodeURIComponent(n)}.svg
 // 8줄로 분배
 const LOGO_ROWS: string[][] = [[], [], [], [], [], [], [], []];
 LOGO_NAMES.forEach((n, i) => LOGO_ROWS[i % 8].push(n));
-// 교차 섹션 스크롤 시 흩뿌려지는 행사 사진(PC) — 위치·회전·시작오프셋·비율 유지
+// 교차 섹션 스크롤 시 흩뿌려지는 행사 사진(PC) — 정방향·똑같은 크기(190px, 4:5)·시작오프셋만.
+// r/쉐도우/회전 제거, 상하(cross) 사진과 동일 비율(4/5). 좌/우 가장자리 4장씩 배치(가운데 텍스트 회피).
 const SCATTER: { src: string; style: CSSProperties }[] = [
-  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '10%', left: '2.5%', width: '190px', '--fx': '80px', '--fy': '50px', '--rot': '-5deg' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '58%', left: '4%', width: '224px', '--fx': '70px', '--fy': '-46px', '--rot': '4deg' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '20%', left: '80%', width: '158px', '--fx': '-70px', '--fy': '40px', '--rot': '6deg' } as unknown as CSSProperties },
-  { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '62%', left: '76%', width: '244px', '--fx': '-80px', '--fy': '-40px', '--rot': '-4deg' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '2%', left: '0%', '--fx': '72px', '--fy': '52px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-01.webp`, style: { top: '31%', left: '-3%', '--fx': '82px', '--fy': '-18px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '60%', left: '1%', '--fx': '66px', '--fy': '-52px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-02.webp`, style: { top: '88%', left: '6%', '--fx': '50px', '--fy': '-62px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '5%', left: '78%', '--fx': '-74px', '--fy': '46px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-03.webp`, style: { top: '34%', left: '81%', '--fx': '-84px', '--fy': '-20px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '62%', left: '77%', '--fx': '-80px', '--fy': '-42px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/profile-04.webp`, style: { top: '89%', left: '72%', '--fx': '-54px', '--fy': '-60px' } as unknown as CSSProperties },
 ];
+const SCATTER_W = '190px';
 
 const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
 const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
@@ -243,8 +249,8 @@ export default function CorporateMcPage() {
         {/* PC 전용 — 스크롤 시 흩뿌려지는 행사 사진(촤라락) */}
         <div className="cmc-riser pointer-events-none absolute inset-0 z-0 hidden md:block">
           {SCATTER.map((s, i) => (
-            <div key={s.src} className={`cmc-scatter cmc-d${i + 1} absolute overflow-hidden rounded-[14px] shadow-[0_24px_50px_-24px_rgba(0,0,0,0.4)]`} style={s.style}>
-              <img src={s.src} alt="" loading="lazy" className="block h-auto w-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <div key={s.src} className={`cmc-scatter cmc-d${i + 1} absolute aspect-[4/5] overflow-hidden`} style={{ ...s.style, width: SCATTER_W }}>
+              <img src={s.src} alt="" loading="lazy" className="block h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             </div>
           ))}
         </div>
@@ -554,9 +560,10 @@ const CSS = `
 .cmc-riser.cmc-in .cmc-rise{opacity:1;transform:none}
 /* 교차 섹션 흩뿌림 사진 — 중앙에서 랜덤 위치로 촤라락 퍼짐 */
 .cmc-scatter{opacity:0;transform:translate(var(--fx,0),var(--fy,0)) scale(.72);transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .95s cubic-bezier(.34,1.28,.5,1);will-change:opacity,transform}
-.cmc-riser.cmc-in .cmc-scatter{opacity:1;transform:translate(0,0) rotate(var(--rot,0deg)) scale(1)}
+.cmc-riser.cmc-in .cmc-scatter{opacity:1;transform:translate(0,0) scale(1)}
 /* 스태거 지연 — 카드/스텝이 순차적으로 떠오름 */
 .cmc-d1{transition-delay:.07s}.cmc-d2{transition-delay:.14s}.cmc-d3{transition-delay:.21s}.cmc-d4{transition-delay:.28s}.cmc-d5{transition-delay:.35s}
+.cmc-d6{transition-delay:.42s}.cmc-d7{transition-delay:.49s}.cmc-d8{transition-delay:.56s}
 @media (prefers-reduced-motion:reduce){.cmc-reveal,.cmc-pop,.cmc-rise{opacity:1;transform:none;transition:none}}
 .cmc-track{scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
 .cmc-track::-webkit-scrollbar{display:none}
