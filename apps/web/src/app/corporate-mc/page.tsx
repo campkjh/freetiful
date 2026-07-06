@@ -124,7 +124,9 @@ export default function CorporateMcPage() {
       const vs = vidRef.current;
       if (vs) {
         const vr = vs.getBoundingClientRect();
-        const vp = Math.min(1, Math.max(0, -vr.top / (vh * 0.8)));
+        // 섹션 상단이 화면 55%지점 → 최상단으로 오는 동안 카드→풀스크린으로 채워지고(도착 시 꽉 참),
+        // 이후 sticky 로 풀스크린 유지. (예전엔 상단을 지난 뒤에야 채워져 과하게 스크롤 필요)
+        const vp = Math.min(1, Math.max(0, (vh * 0.55 - vr.top) / (vh * 0.55)));
         vs.style.setProperty('--vp', String(vp));
       }
     };
@@ -141,7 +143,12 @@ export default function CorporateMcPage() {
   useEffect(() => {
     const els = Array.from(document.querySelectorAll<HTMLElement>('.cmc-reveal, .cmc-pop, .cmc-riser'));
     const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('cmc-in'); io.unobserve(e.target); } });
+      entries.forEach((e) => {
+        if (e.isIntersecting) e.target.classList.add('cmc-in');
+        // 요소가 뷰포트 아래로 벗어나면(위로 스크롤해 지나침) 리셋 → 다시 내려오면 재생.
+        // 위로 벗어날 때(top<0)는 유지해서 스크롤다운 중 역방향 페이드가 안 생기게.
+        else if (e.boundingClientRect.top > 0) e.target.classList.remove('cmc-in');
+      });
     }, { threshold: 0.12, rootMargin: '0px 0px -10% 0px' });
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
@@ -308,7 +315,7 @@ export default function CorporateMcPage() {
         </section>
 
         {/* 스크롤 시 전체화면으로 채워지는 영상 */}
-        <section ref={vidRef} className="cmc-vidsec relative h-[240vh]">
+        <section ref={vidRef} className="cmc-vidsec relative h-[170vh]">
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
             <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
