@@ -371,19 +371,8 @@ export default function CorporateMcPage() {
           </section>
         )}
 
-        {/* ───────── GLOBAL MC NETWORK (인터랙티브 점 지도 — 호버 시 핀 회피) ───────── */}
-        <section className="cmc-reveal overflow-hidden bg-[#EDF3FB] px-5 py-14 md:py-24">
-          <div className="mx-auto max-w-[1180px]">
-            <div className="text-center">
-              <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#3182F6]">Global MC Network</p>
-              <h2 className="cmc-pop cmc-d1 text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-[#1B2A4A]">국제 행사 및 이벤트에 최적화된<br className="hidden md:block" /> 전문 사회자를 프리티풀이 연결합니다</h2>
-              <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[660px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
-            </div>
-            <div className="cmc-pop cmc-d3 relative mt-8 md:mt-12">
-              <GlobalMcNetwork />
-            </div>
-          </div>
-        </section>
+        {/* ───────── GLOBAL MC NETWORK (점 지도 — 먼지 흩어짐 + 스크롤 시 자전 지구본) ───────── */}
+        <GlobalMcNetwork />
 
         {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션, PC 풀블리드, 카드 아래→위 촤라락 리빌) ───────── */}
         <section className="cmc-bleed-md relative overflow-hidden py-16 md:py-24">
