@@ -29,7 +29,7 @@ LOGO_NAMES.forEach((n, i) => LOGO_ROWS[i % 8].push(n));
 // 교차 섹션 스크롤 시 흩뿌려지는 "행사" 사진(PC) — 프로필(사회자 얼굴)은 제외, 행사 장면만.
 // 정방향·똑같은 크기(cross 상/하단 이미지 사이즈 300px)·4:5 비율·좌우 가장자리 배치.
 const SCATTER: { src: string; style: CSSProperties }[] = [
-  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '2%', left: '-1%', '--fx': '80px', '--fy': '54px' } as unknown as CSSProperties },
+  { src: `${MEDIA_DIR}/scatter-01.webp`, style: { top: '20%', left: '-1%', '--fx': '80px', '--fy': '54px' } as unknown as CSSProperties },
   { src: `${MEDIA_DIR}/scatter-03.jpg`, style: { top: '55%', left: '1%', '--fx': '70px', '--fy': '-56px' } as unknown as CSSProperties },
   { src: `${MEDIA_DIR}/scatter-02.png`, style: { top: '6%', left: '76%', '--fx': '-80px', '--fy': '48px' } as unknown as CSSProperties },
   { src: `${MEDIA_DIR}/scatter-04.jpg`, style: { top: '58%', left: '75%', '--fx': '-82px', '--fy': '-46px' } as unknown as CSSProperties },
