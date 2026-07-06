@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import GlobalMcNetwork from './GlobalMcNetwork';
 
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
@@ -54,11 +55,6 @@ const SCATTER_W = '300px';
 
 const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
 const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
-const WHYS = [
-  { no: '01', title: '철저하게 검증된 MC', body: '방송사 아나운서 출신 또는 충분한 공식행사 경력이 검증된 진행자만 선별해 안내합니다. 프로필·진행 영상까지 함께 드려 내부 보고도 수월합니다.' },
-  { no: '02', title: '행사 성격에 맞는 추천', body: '시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.' },
-  { no: '03', title: '대본·큐시트 사전 조율', body: '당일 즉흥이 아니라 대본과 큐시트를 미리 확인하고 리허설까지 맞춥니다. 발표 지연·순서 변경 같은 현장 변수에도 안정적으로 대응합니다.' },
-];
 // 후기 카드 아바타(귀여운 물범 캐릭터) — 5종 순환. 파일 없으면 avatar 이모지로 폴백.
 const AVATAR_IMGS = [
   `${MEDIA_DIR}/avatars/av-1.png`, `${MEDIA_DIR}/avatars/av-2.png`, `${MEDIA_DIR}/avatars/av-3.png`,
@@ -375,19 +371,17 @@ export default function CorporateMcPage() {
           </section>
         )}
 
-        {/* ───────── WHY (다크) ───────── */}
-        <section className="cmc-reveal relative overflow-hidden bg-[#333D4B] px-5 py-14 md:py-24 text-white">
-          <p className="cmc-pop cmc-condor mb-3 text-center text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-white/30">Why Freetiful</p>
-          <h2 className="cmc-pop cmc-d1 text-center text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">중요한 행사는<br />재미보다 <span className="text-[#6DA8FF]">안정감</span></h2>
-          <p className="cmc-pop cmc-d2 mt-2 text-center text-[16px] md:text-[20px] text-white/55">방송 3사 출신, 풍부한 경력의 검증된 사회자</p>
-          <div className="mt-8 space-y-3">
-            {WHYS.map((w, i) => (
-              <div key={w.no} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] bg-white/[0.06] px-6 py-6`}>
-                <div className="cmc-script mb-1 text-[30px] leading-none text-[#6DA8FF]">{w.no}</div>
-                <h3 className="mb-2 text-[17px] font-bold">{w.title}</h3>
-                <p className="text-[14px] leading-relaxed text-white/70">{w.body}</p>
-              </div>
-            ))}
+        {/* ───────── GLOBAL MC NETWORK (인터랙티브 점 지도 — 호버 시 핀 회피) ───────── */}
+        <section className="cmc-reveal overflow-hidden bg-[#EDF3FB] px-5 py-14 md:py-24">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="text-center">
+              <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#3182F6]">Global MC Network</p>
+              <h2 className="cmc-pop cmc-d1 text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-[#1B2A4A]">국제 행사 및 이벤트에 최적화된<br className="hidden md:block" /> 전문 사회자를 프리티풀이 연결합니다</h2>
+              <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[660px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
+            </div>
+            <div className="cmc-pop cmc-d3 relative mt-8 md:mt-12">
+              <GlobalMcNetwork />
+            </div>
           </div>
         </section>
 
