@@ -388,17 +388,17 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
-        {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션 위 흐르는 후기, PC 풀블리드) ───────── */}
-        <section className="cmc-reveal cmc-bleed-md relative overflow-hidden py-16 md:py-24">
+        {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션, PC 풀블리드, 카드 아래→위 촤라락 리빌) ───────── */}
+        <section className="cmc-bleed-md relative overflow-hidden py-16 md:py-24">
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
           <div className="px-5 text-center">
             <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#7FA0D8]">Reviews</p>
             <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
           </div>
-          <div className="cmc-marquee mt-10">
+          <div className="cmc-marquee cmc-riser mt-10">
             <div className="cmc-rev-track">
               {[...REVIEWS, ...REVIEWS].map((r, i) => (
-                <article key={`${r.title}-${i}`} className="flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left md:w-[344px]">
+                <article key={`${r.title}-${i}`} className={`cmc-rise cmc-d${(i % 8) + 1} flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left md:w-[344px]`}>
                   <h3 className="text-[19px] font-extrabold tracking-tight text-[#1B2331] md:text-[21px]">{r.title}</h3>
                   <p className="mt-4 flex-1 text-[15px] leading-[1.78] text-[#5A6472] md:text-[16px]"><Highlight text={r.body} /></p>
                   <div className="mt-7 flex items-center gap-3">
