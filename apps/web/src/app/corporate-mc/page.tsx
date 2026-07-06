@@ -17,6 +17,14 @@ import { useAuthStore } from '@/lib/store/auth.store';
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
 const HERO_VIDEO = '/videos/corporate-mc-hero.mp4';
+// '검증된 대기업·행사 사회자들이 프리티풀과 함께합니다' 섹션의 사회자 프로필 마퀴(캐러셀)
+const PROFILE_SLIDES: { src: string }[] = [
+  { src: `${MEDIA_DIR}/profile-01.webp` },
+  { src: `${MEDIA_DIR}/profile-02.webp` },
+  { src: `${MEDIA_DIR}/profile-03.webp` },
+  { src: `${MEDIA_DIR}/profile-04.webp` },
+  { src: `${MEDIA_DIR}/profile-05.webp` },
+];
 // 레퍼런스 영상 — /uploads(직접 업로드) 또는 유튜브 embed URL. 비면 섹션 숨김.
 const VIDEOS: { src: string; cap: string }[] = [];
 const PREMIUM_VIDEO = '/videos/premium-events.mp4';
@@ -273,6 +281,18 @@ export default function CorporateMcPage() {
         <section className="px-5 py-12 md:py-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
           <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
+
+          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장 */}
+          <div className="cmc-marquee cmc-riser mt-9">
+            <div className="cmc-marquee-track">
+              {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
+                <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
+                  <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <div className="cmc-blur-fade absolute inset-x-0 bottom-0 z-[3] h-[38%]" />
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* 방송사 티커 */}
           <div className="cmc-ticker mt-9">
