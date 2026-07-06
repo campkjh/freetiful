@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, ChevronDown, Star, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -59,10 +59,23 @@ const WHYS = [
   { no: '02', title: '행사 성격에 맞는 추천', body: '시상식은 품격 있게, 송년회는 밝게, 컨퍼런스는 차분하게. 행사 톤앤매너를 이해하고 어울리는 MC를 골라서 제안해드립니다.' },
   { no: '03', title: '대본·큐시트 사전 조율', body: '당일 즉흥이 아니라 대본과 큐시트를 미리 확인하고 리허설까지 맞춥니다. 발표 지연·순서 변경 같은 현장 변수에도 안정적으로 대응합니다.' },
 ];
-const REVIEWS = [
-  { quote: '임원분들 호칭 하나 안 틀리고 깔끔하게 끝나서, 제가 칭찬을 들었어요.', who: '대기업 인사팀 · 사내 시상식' },
-  { quote: '브랜드 톤을 정확히 잡아주셔서, VIP·기자분들 앞에서 안심이 됐습니다.', who: '패션 브랜드 마케팅팀 · 신제품 발표회' },
-  { quote: '견적·프로필·영상을 빠르게 받아서 클라이언트 컨펌이 수월했어요.', who: '행사대행사 · 기업 컨퍼런스' },
+// 후기 카드 캐러셀 — body 의 **...** 는 하이라이트. avatar 이모지 + demo(담당자 역할·행사).
+const REVIEWS: { title: string; body: string; avatar: string; demo: string }[] = [
+  { title: '완벽한 진행 장악', body: '발표 사이 정적이 흐를 뻔한 순간에도 **자연스럽게 흐름을 이어**주셔서, 행사장 분위기가 끝까지 살아있었어요.', avatar: '🧑‍💼', demo: '대기업 인사팀 · 사내 시상식' },
+  { title: '임원 의전까지 완벽', body: '**임원분 호칭 하나 안 틀리고** 깔끔하게 진행해주셔서, 끝나고 제가 칭찬을 들었습니다.', avatar: '👨‍💼', demo: 'IT기업 총무팀 · 창립기념식' },
+  { title: '브랜드 톤 정확히', body: '**브랜드 톤앤매너를 정확히** 잡아주셔서, VIP·기자분들 앞에서도 내내 안심이 됐어요.', avatar: '👩', demo: '패션 브랜드 마케팅팀 · 신제품 발표회' },
+  { title: '빠른 자료 제공', body: '견적·프로필·**진행 영상까지 하루 만에** 받아서, 클라이언트 컨펌이 정말 수월했습니다.', avatar: '🧑', demo: '행사대행사 · 기업 컨퍼런스' },
+  { title: '식순 완벽 소화', body: '순서가 갑자기 바뀌었는데도 **당황 없이 매끄럽게** 대응해주셔서 감탄했어요.', avatar: '👨', demo: '제조사 홍보팀 · 준공식' },
+  { title: '차분한 진행 톤', body: '시상식 격에 맞게 **품격 있고 차분하게** 진행해주셔서 회사 이미지가 한층 좋아 보였어요.', avatar: '👩‍💼', demo: '금융사 인사팀 · 우수사원 시상식' },
+  { title: '리허설부터 꼼꼼', body: '당일 즉흥이 아니라 **대본·큐시트를 미리 맞춰**주셔서, 현장에서 전혀 불안하지 않았어요.', avatar: '🧑‍💼', demo: '공공기관 · 기념식' },
+  { title: '분위기 메이커', body: '송년회를 **적당한 텐션으로 유쾌하게** 이끌어주셔서 직원들 반응이 최고였어요.', avatar: '👨', demo: '스타트업 대표 · 송년회' },
+  { title: '영어 진행 능숙', body: '글로벌 컨퍼런스라 걱정했는데 **한·영 진행을 자연스럽게** 오가며 매끄럽게 마무리해주셨어요.', avatar: '🧑', demo: '외국계 기업 · 글로벌 포럼' },
+  { title: '돌발상황 대처', body: '음향 사고가 났는데도 **관객이 눈치 못 채게** 자연스럽게 넘어가주셔서 정말 프로답다 느꼈어요.', avatar: '👩', demo: '유통사 · 브랜드 론칭 행사' },
+  { title: '정산까지 깔끔', body: '진행은 물론 **세금계산서·정산 조건까지** 깔끔하게 정리돼서 사후 처리가 편했어요.', avatar: '👨‍💼', demo: '대기업 구매팀 · 협력사 간담회' },
+  { title: '대표님도 만족', body: '대표님이 직접 **"이 사회자 또 부르자"**고 하실 만큼 진행 만족도가 높았습니다.', avatar: '🧑‍💼', demo: '중견기업 비서실 · 창립기념식' },
+  { title: '섬세한 큐 조율', body: '무대 뒤 스태프와 **큐 사인을 정확히 맞춰**주셔서 영상·조명 전환이 완벽했어요.', avatar: '👩‍💼', demo: '이벤트사 PM · 시상식' },
+  { title: '내부 보고도 수월', body: '**프로필과 진행 영상**을 함께 주셔서 윗선 보고와 예산 승인이 한 번에 통과됐어요.', avatar: '👨', demo: '제약사 마케팅팀 · 심포지엄' },
+  { title: '재섭외 확정', body: '올해 행사가 너무 좋아서 **내년 행사도 미리 예약**했습니다. 믿고 맡길 수 있어요.', avatar: '👩', demo: '금융지주 · 정기 주주총회' },
 ];
 const STEPS = [
   { no: 'STEP 01', title: '행사 정보 접수', body: '전문 MD가 행사 일정·유형·규모·예산·식순을 확인합니다.' },
@@ -379,18 +392,26 @@ export default function CorporateMcPage() {
           </div>
         </section>
 
-        {/* ───────── REVIEWS ───────── */}
-        <section className="cmc-reveal px-5 py-14 md:py-24 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Reviews</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
-          <div className="mt-7 space-y-3 text-left">
-            {REVIEWS.map((r, i) => (
-              <div key={r.who} className={`cmc-reveal cmc-d${i + 1} rounded-[22px] border border-[#EEF1F4] bg-[#F9FAFB] px-6 py-6`}>
-                <div className="mb-3 flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} size={15} className="fill-[#FFC42E] text-[#FFC42E]" />)}</div>
-                <p className="text-[15.5px] font-semibold leading-relaxed text-[#191F28]">&ldquo;{r.quote}&rdquo;</p>
-                <p className="mt-3 text-[12.5px] text-[#9AA4B2]">{r.who}</p>
-              </div>
-            ))}
+        {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션 위 흐르는 후기) ───────── */}
+        <section className="cmc-reveal relative overflow-hidden py-16 md:py-24">
+          <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
+          <div className="px-5 text-center">
+            <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#7FA0D8]">Reviews</p>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+          </div>
+          <div className="cmc-marquee mt-10">
+            <div className="cmc-rev-track">
+              {[...REVIEWS, ...REVIEWS].map((r, i) => (
+                <article key={`${r.title}-${i}`} className="flex w-[300px] flex-none flex-col rounded-[26px] bg-white px-7 py-8 text-left shadow-[0_24px_54px_-28px_rgba(30,60,120,0.42)] md:w-[344px]">
+                  <h3 className="text-[19px] font-extrabold tracking-tight text-[#1B2331] md:text-[21px]">{r.title}</h3>
+                  <p className="mt-4 flex-1 text-[15px] leading-[1.78] text-[#5A6472] md:text-[16px]"><Highlight text={r.body} /></p>
+                  <div className="mt-7 flex items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEF2FB] text-[22px]">{r.avatar}</span>
+                    <span className="text-[14px] font-medium text-[#8B95A1] md:text-[15px]">{r.demo}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -560,6 +581,17 @@ function FreetifulLogo({ className = '' }: { className?: string }) {
   );
 }
 
+// 후기 본문 하이라이트 — **...** 를 연보라 배경 강조로 렌더
+function Highlight({ text }: { text: string }) {
+  return (
+    <>
+      {text.split('**').map((s, i) => (i % 2 === 1
+        ? <mark key={i} className="rounded-[5px] bg-[#E6EBFB] px-[3px] py-[1.5px] font-bold text-[#3A4353]">{s}</mark>
+        : <span key={i}>{s}</span>))}
+    </>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
   return (
     <div className="mb-3.5">
@@ -614,6 +646,9 @@ const CSS = `
 .cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
 .cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
 @keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* 후기 카드 캐러셀 — 큰 카드가 천천히 흐름, 호버 시 정지 */
+.cmc-rev-track{display:flex;gap:18px;width:max-content;padding:0 18px;align-items:stretch;animation:cmcMarquee 90s linear infinite}
+.cmc-marquee:hover .cmc-rev-track{animation-play-state:paused}
 /* 스크롤 시 전체화면으로 채워지는 영상 (--vp:0=작은 카드 → 1=풀스크린) */
 .cmc-vidsec{--vp:0;width:100vw;margin-left:calc(50% - 50vw)}
 .cmc-vidbox{width:calc(92vw + 8vw * var(--vp));height:calc(74svh + 26svh * var(--vp));max-width:100vw;border-radius:calc(22px * (1 - var(--vp)));transition:none;will-change:width,height,border-radius}
