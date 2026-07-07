@@ -100,8 +100,8 @@ export default function GlobalMcNetwork() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
       if (g > 0.01) {
-        const cx = W / 2, cy = H * 0.58;
-        const Rg = Math.min(W, H * 0.86) * 0.42 * (0.88 + 0.12 * g);
+        const cx = W / 2, cy = H * 0.66; // 헤딩 아래로 정렬
+        const Rg = Math.min(W * 0.42, H * 0.325) * (0.88 + 0.12 * g);
         const lam0 = -127 * DEG + (now - t0) * 0.00016; // 서울 정면에서 시작, 천천히 자전
         ctx.fillStyle = DOT_COLOR;
         for (let i = 0; i < N; i++) {
@@ -151,13 +151,13 @@ export default function GlobalMcNetwork() {
         <div
           ref={glowRef}
           className="pointer-events-none absolute inset-0 opacity-0"
-          style={{ background: 'radial-gradient(ellipse 62% 52% at 50% 58%, rgba(49,130,246,0.22), rgba(49,130,246,0.06) 55%, transparent 75%)' }}
+          style={{ background: 'radial-gradient(ellipse 58% 48% at 50% 66%, rgba(49,130,246,0.22), rgba(49,130,246,0.06) 55%, transparent 75%)' }}
         />
         {/* 지구본 캔버스 */}
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="글로벌 MC 네트워크 지구본" />
 
         {/* 상단 라벨(항상) */}
-        <p className="cmc-condor absolute inset-x-0 top-[44px] text-center text-[16px] md:text-[20px] uppercase tracking-[0.22em] leading-none text-[#5E90E8]">Global MC Network</p>
+        <p className="cmc-condor absolute inset-x-0 top-[104px] md:top-[112px] text-center text-[16px] md:text-[20px] uppercase tracking-[0.22em] leading-none text-[#5E90E8]">Global MC Network</p>
 
         {/* 언어 대형 타이포 */}
         {WORDS.map((w, i) => (
@@ -171,7 +171,7 @@ export default function GlobalMcNetwork() {
         ))}
 
         {/* 지구본 페이즈 헤딩 */}
-        <div ref={headRef} className="pointer-events-none absolute inset-x-0 top-[84px] px-5 text-center opacity-0 md:top-[96px]">
+        <div ref={headRef} className="pointer-events-none absolute inset-x-0 top-[148px] px-5 text-center opacity-0 md:top-[158px]">
           <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-white">국제 행사도 프리티풀은 전부 가능합니다</h2>
           <p className="mx-auto mt-3 max-w-[660px] text-[14px] md:text-[18px] leading-[1.7] text-white/55">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
         </div>
