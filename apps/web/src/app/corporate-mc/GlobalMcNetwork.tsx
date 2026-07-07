@@ -172,7 +172,7 @@ export default function GlobalMcNetwork() {
   return (
     <div ref={wrapRef} className="relative" style={{ height: '180vh', width: '100vw', marginLeft: 'calc(50% - 50vw)' }}>
       <div className="sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden">
-        <div className="cmc-pop px-5 pt-6 text-center md:pt-8">
+        <div className="cmc-pop px-5 pt-[44px] text-center">
           <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#3182F6]">Global MC Network</p>
           <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-[#1B2A4A]">국제 행사도 프리티풀은 전부 가능합니다</h2>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
