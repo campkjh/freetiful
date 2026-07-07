@@ -60,12 +60,12 @@ export default function GlobalMcNetwork() {
       canvas.style.height = H + 'px';
     };
 
-    // 평면 맵 배치(영역에 맞춰 contain)
+    // 평면 맵 배치(영역에 맞춰 contain, 세로는 상단 붙임 — 헤딩과의 갭 최소화)
     const flatBox = () => {
       const ar = MAP_W / MAP_H;
       let mw = W, mh = W / ar;
       if (mh > H) { mh = H; mw = H * ar; }
-      return { mw, mh, ox: (W - mw) / 2, oy: (H - mh) / 2 };
+      return { mw, mh, ox: (W - mw) / 2, oy: Math.min((H - mh) / 2, H * 0.04) };
     };
 
     let mouse: { x: number; y: number } | null = null;
