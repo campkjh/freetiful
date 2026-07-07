@@ -93,7 +93,9 @@ export default function CorporateMcPage() {
   const crossRef = useRef<HTMLElement>(null);
   const vidRef = useRef<HTMLElement>(null);
   const bspreadRef = useRef<HTMLDivElement>(null); // 방송 3사 이미지 — 덱→양옆 펼침
+  const globalRef = useRef<HTMLDivElement>(null); // Global MC Network(블랙 섹션) 래퍼 — 헤더 다크존 판정
   const [scrolled, setScrolled] = useState(false);
+  const [darkZone, setDarkZone] = useState(false); // 영상/블랙 섹션이 헤더를 덮는 동안 히어로 헤더 유지
 
   // 폼
   const [step, setStep] = useState<number | 'done'>(1);
@@ -156,6 +158,14 @@ export default function CorporateMcPage() {
         const sp = Math.min(1, Math.max(0, (vh * 0.88 - br.top) / (vh * 0.5)));
         bs.style.setProperty('--bsp', String(sp));
       }
+      // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
+      const HEADER_Y = 56;
+      const dark = [vidRef.current, globalRef.current].some((el) => {
+        if (!el) return false;
+        const dr = el.getBoundingClientRect();
+        return dr.top <= HEADER_Y && dr.bottom >= HEADER_Y + 20;
+      });
+      setDarkZone(dark);
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
     const onResize = () => { measureOpen(); apply(); };
@@ -225,18 +235,18 @@ export default function CorporateMcPage() {
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      {/* 헤더 (히어로 위 투명 → 스크롤 시 흰 배경) */}
-      <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
+      {/* 헤더 (히어로/다크섹션 위 투명 → 그 외 스크롤 시 흰 배경) */}
+      <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled && !darkZone ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
           <button
             type="button"
             aria-label="뒤로"
             onClick={() => { if (window.history.length > 1) router.back(); else router.push('/main'); }}
-            className={`flex h-10 w-10 items-center justify-center -ml-1 rounded-full transition ${scrolled ? 'text-[#191F28] hover:bg-black/5' : 'text-white hover:bg-white/10'}`}
+            className={`flex h-10 w-10 items-center justify-center -ml-1 rounded-full transition ${scrolled && !darkZone ? 'text-[#191F28] hover:bg-black/5' : 'text-white hover:bg-white/10'}`}
           >
             <ChevronLeft size={24} strokeWidth={2.2} />
           </button>
-          <FreetifulLogo className={`h-[22px] w-auto transition-colors duration-300 ${scrolled ? 'text-[#1B1B1B]' : 'text-white'}`} />
+          <FreetifulLogo className={`h-[22px] w-auto transition-colors duration-300 ${scrolled && !darkZone ? 'text-[#1B1B1B]' : 'text-white'}`} />
           <div className="w-10" />
         </div>
       </header>
@@ -330,14 +340,8 @@ export default function CorporateMcPage() {
         {/* ───────── ANNOUNCER POOL ───────── */}
         <section className="cmc-reveal px-5 py-14 text-center md:py-24">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">3사 방송사 아나운서 출신 사회자들이<br />프리티풀과 함께합니다</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
-          <div className="cmc-pop cmc-d3 mx-auto mt-7 flex max-w-[600px] flex-wrap items-center justify-center gap-2.5">
-            {['방송사 아나운서 출신', '진행 영상 사전 검증', '행사 경력 확인 완료'].map((b) => (
-              <span key={b} className="rounded-full border border-[#D6E4FF] bg-[#F4F8FF] px-4 py-2 text-[13px] font-semibold text-[#3182F6] md:text-[14.5px]">{b}</span>
-            ))}
-          </div>
-
           {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
           <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
             <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
@@ -398,8 +402,10 @@ export default function CorporateMcPage() {
           </section>
         )}
 
-        {/* ───────── GLOBAL MC NETWORK (점 지도 — 먼지 흩어짐 + 스크롤 시 자전 지구본) ───────── */}
-        <GlobalMcNetwork />
+        {/* ───────── GLOBAL MC NETWORK (블랙 테이크오버 — 언어 타이포 → 자전 지구본) ───────── */}
+        <div ref={globalRef}>
+          <GlobalMcNetwork />
+        </div>
 
         {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션, PC 풀블리드, 카드 아래→위 촤라락 리빌) ───────── */}
         <section className="cmc-bleed-md relative overflow-hidden py-16 md:py-24">
