@@ -374,6 +374,18 @@ export default function CorporateMcPage() {
         {/* ───────── GLOBAL MC NETWORK (점 지도 — 먼지 흩어짐 + 스크롤 시 자전 지구본) ───────── */}
         <GlobalMcNetwork />
 
+        {/* ───────── ANNOUNCER POOL ───────── */}
+        <section className="cmc-reveal px-5 py-14 text-center md:py-24">
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified Announcer Pool</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">프리티풀은 검증된<br />아나운서 출신 풀을 보유하고 있습니다</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[640px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">방송사 아나운서·쇼호스트 출신 진행자의 경력과 실제 진행 영상을 하나하나 확인해 등록합니다.<br className="hidden md:block" /> 행사 규모와 성격에 맞는 사회자를, 검증이 끝난 풀 안에서 바로 연결해드립니다.</p>
+          <div className="cmc-pop cmc-d3 mx-auto mt-7 flex max-w-[600px] flex-wrap items-center justify-center gap-2.5">
+            {['방송사 아나운서 출신', '진행 영상 사전 검증', '행사 경력 확인 완료'].map((b) => (
+              <span key={b} className="rounded-full border border-[#D6E4FF] bg-[#F4F8FF] px-4 py-2 text-[13px] font-semibold text-[#3182F6] md:text-[14.5px]">{b}</span>
+            ))}
+          </div>
+        </section>
+
         {/* ───────── REVIEWS (카드 캐러셀 — 파란 그라데이션, PC 풀블리드, 카드 아래→위 촤라락 리빌) ───────── */}
         <section className="cmc-bleed-md relative overflow-hidden py-16 md:py-24">
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
