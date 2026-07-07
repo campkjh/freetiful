@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -106,6 +106,9 @@ export default function CorporateMcPage() {
   const statsSecRef = useRef<HTMLElement>(null); // 성장 지표 다이얼 섹션
   const [scrolled, setScrolled] = useState(false);
   const [darkZone, setDarkZone] = useState(false); // 영상/블랙 섹션이 헤더를 덮는 동안 히어로 헤더 유지
+  const [fabTipOpen, setFabTipOpen] = useState(true); // 우하단 플로팅 버튼 위 글래스 툴팁 노출 여부
+  const [fabOverDark, setFabOverDark] = useState(true); // 플로팅 버튼이 다크 배경 위에 있는지 (흰 배경이면 글자/아이콘 검정)
+  const fabWrapRef = useRef<HTMLDivElement>(null);
 
   // 폼
   const [step, setStep] = useState<number | 'done'>(1);
@@ -202,6 +205,19 @@ export default function CorporateMcPage() {
         return dr.top <= HEADER_Y && dr.bottom >= HEADER_Y + 20;
       });
       setDarkZone(dark);
+
+      // 플로팅 버튼 배경 판정: 버튼 중심점에 다크 섹션([data-cmc-dark])이 걸리면 흰 글자, 아니면 검정.
+      const fabEl = fabWrapRef.current;
+      if (fabEl) {
+        const fr = fabEl.getBoundingClientRect();
+        const px = fr.left + fr.width / 2;
+        const py = fr.bottom - 38; // 원형 버튼(76px)의 대략 중심
+        const overDark = Array.from(document.querySelectorAll<HTMLElement>('[data-cmc-dark]')).some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.left <= px && r.right >= px && r.top <= py && r.bottom >= py;
+        });
+        setFabOverDark(overDark);
+      }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
     const onResize = () => { measureOpen(); apply(); };
@@ -288,7 +304,7 @@ export default function CorporateMcPage() {
       </header>
 
       {/* ───────── 히어로 (풀스크린 영상) ───────── */}
-      <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
+      <section data-cmc-dark className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
         <video
           ref={videoRef}
           className="cmc-hero-video absolute inset-0 h-full w-full object-cover"
@@ -338,10 +354,12 @@ export default function CorporateMcPage() {
       </section>
 
       {/* ───────── 성장 지표 — 스크롤 다이얼 (수치들이 중앙에 하나씩 스냅) ───────── */}
+      {/* 스탯 하나 전환당 스크롤 거리 = --stats-per * 화면높이 (모바일 0.55, 데스크톱 0.7). 작을수록 예민. */}
       <section
         ref={statsSecRef}
+        data-cmc-dark
         className="cmc-stats-sec relative bg-black text-white"
-        style={{ height: `${STATS.length * 100}vh` }}
+        style={{ height: `calc((${STATS.length} - 1) * var(--stats-per, 0.55) * 100vh + 100vh)` }}
       >
         <div className="cmc-stats-sticky">
           <div className="cmc-stats-bg" aria-hidden="true" />
@@ -422,7 +440,7 @@ export default function CorporateMcPage() {
         {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
         <section ref={vidRef} className="cmc-vidsec relative h-[112vh]">
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
-            <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
+            <div data-cmc-dark className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
               {/* 후원사 로고 — 영상 안 글래스 오버레이(프로스트) 플로팅 캐러셀 (하단 고정 CTA 위로 띄움) */}
               <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
@@ -465,7 +483,7 @@ export default function CorporateMcPage() {
         )}
 
         {/* ───────── GLOBAL MC NETWORK (블랙 테이크오버 — 언어 타이포 → 자전 지구본) ───────── */}
-        <div ref={globalRef}>
+        <div ref={globalRef} data-cmc-dark>
           <GlobalMcNetwork />
         </div>
 
@@ -630,11 +648,37 @@ export default function CorporateMcPage() {
         </footer>
       </div>
 
-      {/* 하단 고정 CTA (히어로 지난 뒤) */}
-      <div className={`fixed inset-x-0 bottom-0 z-30 transition-transform duration-300 ${scrolled ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="mx-auto max-w-md px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" style={{ background: 'linear-gradient(transparent, #fff 32%)' }}>
-          <button onClick={scrollToApply} className="w-full rounded-full bg-[#3182F6] py-4 text-[16px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(49,128,247,0.6)] active:scale-[0.98]">가능 MC · 견적 확인하기</button>
-        </div>
+      {/* 우하단 플로팅 — 글래스 툴팁 + 원형 섭외/상담 버튼 */}
+      <div ref={fabWrapRef} className="fixed right-4 z-40 flex flex-col items-end gap-3 bottom-[max(20px,env(safe-area-inset-bottom))]">
+        {/* 글래스 툴팁 — 흰 배경 위에선 검정 글자/아이콘 */}
+        {fabTipOpen && (
+          <button
+            onClick={scrollToApply}
+            className={`cmc-glass cmc-fab-tip flex items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold active:scale-95 md:text-[15px] ${fabOverDark ? 'text-white' : 'cmc-fab-tip--light text-[#191F28]'}`}
+          >
+            프리미엄 사회자 섭외
+            <span className="text-[15px] leading-none opacity-80">+</span>
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="툴팁 닫기"
+              onClick={(e) => { e.stopPropagation(); setFabTipOpen(false); }}
+              className={`-mr-1.5 ml-0.5 flex h-5 w-5 items-center justify-center rounded-full transition ${fabOverDark ? 'text-white/70 hover:bg-white/15 hover:text-white' : 'text-[#191F28]/50 hover:bg-black/10 hover:text-[#191F28]'}`}
+            >
+              <X size={13} strokeWidth={2.5} />
+            </span>
+          </button>
+        )}
+        {/* 원형 섭외/상담 버튼 */}
+        <button
+          onClick={scrollToApply}
+          className="cmc-fab flex h-[76px] w-[76px] flex-col items-center justify-center rounded-full text-white active:scale-95"
+          aria-label="섭외 상담"
+        >
+          <span className="text-[15px] font-bold leading-none">섭외</span>
+          <span className="my-1 h-px w-6 bg-white/45" />
+          <span className="text-[15px] font-bold leading-none">상담</span>
+        </button>
       </div>
     </main>
   );
@@ -714,6 +758,16 @@ const CSS = `
 .cmc-glass:hover{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.42)}
 .cmc-glass-primary{background:rgba(49,130,246,0.28);border-color:rgba(255,255,255,0.38);box-shadow:0 10px 34px -8px rgba(49,130,246,0.55),inset 0 1px 0 rgba(255,255,255,0.5)}
 .cmc-glass-primary:hover{background:rgba(49,130,246,0.4)}
+/* 우하단 플로팅 — 원형 섭외/상담 버튼(브랜드 블루) + 글래스 툴팁 */
+.cmc-fab{background:linear-gradient(150deg,#3F8DFF 0%,#2F72E6 100%);box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 4px 12px -4px rgba(0,0,0,0.25),inset 0 1px 0 rgba(255,255,255,0.35);transition:transform .15s,box-shadow .25s;animation:cmcFabPulse 2.8s ease-in-out infinite}
+.cmc-fab:hover{box-shadow:0 18px 38px -8px rgba(49,128,247,0.7),0 4px 12px -4px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.4)}
+@keyframes cmcFabPulse{0%,100%{box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 0 0 0 rgba(49,128,247,0.32),inset 0 1px 0 rgba(255,255,255,0.35)}50%{box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 0 0 12px rgba(49,128,247,0),inset 0 1px 0 rgba(255,255,255,0.35)}}
+/* 툴팁: 등장 + 은은히 위아래로 떠 있는 느낌 */
+.cmc-fab-tip{background:rgba(49,130,246,0.34);border-color:rgba(255,255,255,0.4);box-shadow:0 10px 30px -10px rgba(49,128,247,0.5),inset 0 1px 0 rgba(255,255,255,0.45);animation:cmcTipIn .5s cubic-bezier(.19,1,.22,1) both,cmcTipBob 3.2s ease-in-out .6s infinite;white-space:nowrap}
+/* 흰 배경 위 툴팁 — 흰 글래스 + 검정 글자 */
+.cmc-fab-tip--light{background:rgba(255,255,255,0.72);border-color:rgba(0,0,0,0.08);box-shadow:0 12px 30px -10px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.9)}
+@keyframes cmcTipIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cmcTipBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 /* 교차 이미지 섹션 — 처음엔 텍스트에 겹쳤다가 스크롤 내리며 텍스트 섹션 높이만큼 촥 벌어짐(--spread:0→1, --open=텍스트 높이 절반+여유) */
 .cmc-cross-sec{--spread:0;--open:180px}
 .cmc-cross-img{will-change:transform;transition:transform .12s linear}
@@ -742,15 +796,17 @@ const CSS = `
 .cmc-bc-r{z-index:20;transform:translateX(calc(var(--bsx) * var(--bsp))) rotate(calc(5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
 .cmc-bc-c{z-index:30}
 /* 성장 지표 다이얼 — 첨부 우주 이미지 배경 + 스크롤에 맞춰 수치가 중앙에 스냅 */
-.cmc-stats-sec{position:relative;color:#fff;background:#000}
+.cmc-stats-sec{position:relative;color:#fff;background:#000;--stats-per:0.55}
 .cmc-stats-sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;isolation:isolate;contain:paint}
 .cmc-stats-bg{position:absolute;inset:0;overflow:hidden;background:#03060F url('/images/corporate-mc/stats-cosmos-bg.png') center center / cover no-repeat}
 /* 중앙 텍스트 가독성용 은은한 딤 — 이미지 위 수치가 파묻히지 않게 */
 .cmc-stats-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 42% at 50% 50%,rgba(3,8,26,0.55) 0%,rgba(3,8,26,0.28) 45%,transparent 72%)}
 .cmc-stats-inner{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 8vh) 20px 8vh}
 .cmc-stats-heading{text-align:center}
+@media (min-width:768px){.cmc-stats-sec{--stats-per:0.7}}
 .cmc-stats-dial{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none;perspective:620px;perspective-origin:50% 50%;transform-style:preserve-3d}
-.cmc-stat-row{position:absolute;left:50%;top:0;transform:translate(-50%,calc(var(--y,0px) - 50%)) rotateX(var(--rx,0deg)) scale(var(--s,1));transform-origin:center center;opacity:var(--o,0);text-align:center;white-space:nowrap;transition:opacity .18s linear,transform .18s linear;display:flex;flex-direction:column;align-items:center;gap:6px;backface-visibility:hidden;will-change:transform,opacity}
+/* 스크롤 구동 값이라 transform 에는 transition 을 걸지 않는다(걸면 스크롤을 못 따라와 "두두둑" 랙 발생). opacity 만 살짝. */
+.cmc-stat-row{position:absolute;left:50%;top:0;transform:translate(-50%,calc(var(--y,0px) - 50%)) rotateX(var(--rx,0deg)) scale(var(--s,1));transform-origin:center center;opacity:var(--o,0);text-align:center;white-space:nowrap;transition:opacity .12s linear;display:flex;flex-direction:column;align-items:center;gap:6px;backface-visibility:hidden;will-change:transform,opacity}
 .cmc-stat-val{font-size:46px;font-weight:800;letter-spacing:-0.03em;color:rgba(210,225,255,0.52);line-height:1;text-shadow:0 1px 10px rgba(0,6,22,0.4)}
 .cmc-stat-lbl{font-size:15px;font-weight:500;color:rgba(195,212,238,0.6);letter-spacing:-0.01em;text-shadow:0 1px 6px rgba(0,6,22,0.45)}
 .cmc-stat-row.is-active .cmc-stat-val{color:#fff;text-shadow:0 1px 14px rgba(0,6,22,0.5),0 0 34px rgba(120,170,255,0.28)}
