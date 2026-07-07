@@ -340,9 +340,9 @@ export default function CorporateMcPage() {
 
           {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
           <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
-            <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" loading="lazy" /></div>
-            <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" loading="lazy" /></div>
-            <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" loading="lazy" /></div>
+            <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
+            <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" /></div>
+            <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" /></div>
           </div>
         </section>
 
