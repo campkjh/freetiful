@@ -170,7 +170,7 @@ export default function GlobalMcNetwork() {
   }, []);
 
   return (
-    <div ref={wrapRef} className="relative" style={{ height: '180vh' }}>
+    <div ref={wrapRef} className="relative" style={{ height: '180vh', width: '100vw', marginLeft: 'calc(50% - 50vw)' }}>
       <div className="sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden">
         <div className="cmc-pop px-5 pt-6 text-center md:pt-8">
           <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#3182F6]">Global MC Network</p>
