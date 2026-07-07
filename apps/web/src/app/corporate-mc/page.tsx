@@ -295,6 +295,12 @@ export default function CorporateMcPage() {
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
+      {/* iOS 앱 네이티브 하단 네비 숨김 마커 — 앱 주입 스크립트의 readState 가
+          [role="dialog"]/[aria-modal="true"] 존재 시 hasBlockingOverlay=true 를 보내고,
+          Swift renderNativeNavigation 이 그동안 네비바를 숨긴다. display:none 이라
+          접근성 트리/화면에는 안 잡히고 querySelector 에만 걸림. (앱 재빌드 없이 즉효) */}
+      <div role="dialog" aria-modal="true" style={{ display: 'none' }} aria-hidden="true" />
+
       {/* 헤더 (히어로/다크섹션 위 투명 → 그 외 스크롤 시 흰 배경) */}
       <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled && !darkZone ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">

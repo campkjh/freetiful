@@ -728,9 +728,13 @@ final class NativeChatVideoCell: UITableViewCell {
     private var timeTrailingC: NSLayoutConstraint!
     private var currentURL = ""
     private var msgId = ""
+    private var isUploading = false
     private let uploadOverlay = ChatUploadOverlay()
     private let failedOverlay = ChatFailedOverlay()
     private static var posterCache: [String: UIImage] = [:]
+    // /uploads 미디어는 Vercel(CDN) 경유 대신 Railway 원본에서 — 포스터 생성(AVAssetImageGenerator)도
+    // Range 응답에 의존하므로 CDN 캐시 변수를 제거해 "썸네일 안 뜨는 영상" 케이스를 줄인다.
+    static let mediaBase = "https://affectionate-smile-production-6535.up.railway.app"
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -807,6 +811,9 @@ final class NativeChatVideoCell: UITableViewCell {
 
     @objc private func handleTap() {
         guard !currentURL.isEmpty else { return }
+        // 업로드 중이거나 아직 로컬(data:/blob:) 미리보기 상태면 재생 불가 — 탭 무시.
+        // (AVPlayer 가 data URL 을 못 열어 "재생 안 됨" 으로 보이던 문제)
+        if isUploading || currentURL.hasPrefix("data:") || currentURL.hasPrefix("blob:") { return }
         Haptics.tap()
         onTap?(currentURL)
     }
@@ -822,6 +829,7 @@ final class NativeChatVideoCell: UITableViewCell {
         }
         failedOverlay.isHidden = !m.uploadFailed
         let uploading = m.uploadProgress >= 0 && m.uploadProgress < 100
+        isUploading = uploading
         uploadOverlay.isHidden = !uploading || m.uploadFailed
         playIcon.isHidden = uploading || m.uploadFailed   // 업로드 중/실패 시 재생버튼 숨김
         if uploading { uploadOverlay.update(progress: m.uploadProgress, totalBytes: m.uploadBytesTotal) }
@@ -846,9 +854,10 @@ final class NativeChatVideoCell: UITableViewCell {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         // data:video 는 포스터 생성 불가 → 회색 배경 + 재생아이콘만 유지(곧 서버 /uploads URL 로 교체됨)
-        if trimmed.hasPrefix("data:") { return }
+        if trimmed.hasPrefix("data:") || trimmed.hasPrefix("blob:") { return }
         let full: String
         if trimmed.hasPrefix("http") { full = trimmed }
+        else if trimmed.hasPrefix("/uploads/") { full = "\(NativeChatVideoCell.mediaBase)\(trimmed)" }
         else if trimmed.hasPrefix("/") { full = "https://freetiful.com\(trimmed)" }
         else { full = "https://freetiful.com/\(trimmed)" }
 

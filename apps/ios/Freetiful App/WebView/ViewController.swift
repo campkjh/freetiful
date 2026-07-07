@@ -17,6 +17,9 @@ import UniformTypeIdentifiers
 // ─── Config ───────────────────────────────────────────────────────────────────
 private let kAPIBase  = "https://freetiful.com/api/v1"   // 프리티풀 API
 private let kWebBase  = "https://freetiful.com"           // 프리티풀 웹앱
+// 미디어(/uploads) 직접 서빙 — Vercel 프록시/CDN 을 거치지 않는 Railway 원본.
+// 동영상 재생은 Range(206) 응답이 필수인데 CDN 경유 변수를 없애기 위해 항상 원본에서 재생.
+private let kMediaBase = "https://affectionate-smile-production-6535.up.railway.app"
 // ──────────────────────────────────────────────────────────────────────────────
 
 // 웹 nav 와 동일하게 구성 (apps/web/src/app/(main)/layout.tsx 의 USER_NAV_ITEMS / PRO_NAV_ITEMS)
@@ -832,6 +835,7 @@ class ViewController: UIViewController,
         if path.hasPrefix("/biz") { return true }
         if path.hasPrefix("/search") { return true }
         if path.hasPrefix("/wedding-mc") { return true }
+        if path.hasPrefix("/corporate-mc") { return true }
         if path == "/pros" || path == "/businesses" || path == "/careers" { return true }
         return false
     }
@@ -1850,13 +1854,28 @@ class ViewController: UIViewController,
     func chatMessagesVideoTap(_ url: String) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        // data:/blob: 는 AVPlayer 가 재생 불가 — 업로드가 끝나 서버 /uploads URL 로 교체되기 전 상태.
+        // 여기서 열면 "재생 안 됨" 으로 보이므로 무시한다. (업로드 완료 후 탭하면 정상 재생)
+        if trimmed.hasPrefix("data:") || trimmed.hasPrefix("blob:") { return }
         let full: String
-        if trimmed.hasPrefix("http") || trimmed.hasPrefix("data:") { full = trimmed }
+        if trimmed.hasPrefix("http") { full = trimmed }
+        // /uploads 는 Vercel(CDN) 경유 대신 Railway 원본에서 직접 재생 — CDN 이 Range 요청을
+        // 통짜(200)로 응답하면 iOS 가 재생을 거부하던 변수를 제거.
+        else if trimmed.hasPrefix("/uploads/") { full = "\(kMediaBase)\(trimmed)" }
         else if trimmed.hasPrefix("/") { full = "\(kWebBase)\(trimmed)" }
         else { full = "\(kWebBase)/\(trimmed)" }
         guard let videoURL = URL(string: full) else { return }
+        // 무음 스위치가 켜져 있어도 소리가 나오도록 재생 세션을 .playback 으로 —
+        // 기본 카테고리(.soloAmbient)는 무음 스위치 ON 이면 영상 소리가 안 남("소리 안 나옴" 버그).
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        try? AVAudioSession.sharedInstance().setActive(true)
         let vc = AVPlayerViewController()
-        vc.player = AVPlayer(url: videoURL)
+        let player = AVPlayer(url: videoURL)
+        player.isMuted = false
+        // 짧은 클립도 버퍼가 어느 정도 쌓일 때까지 기다리며 "로딩이 긴" 체감이 있어
+        // 재생 가능한 즉시 시작하도록 스톨 최소화 대기를 끈다.
+        player.automaticallyWaitsToMinimizeStalling = false
+        vc.player = player
         present(vc, animated: true) { vc.player?.play() }
     }
 
@@ -2377,21 +2396,33 @@ class ViewController: UIViewController,
     }
 
     // 고른 미디어 → 청크 base64 로 웹에 전달(웹이 File 재구성 후 낙관+게이지+직접업로드)
+    // 큰 영상에서 "튕김/멈춤" 방지:
+    //  - 예전엔 전체 base64(원본의 1.33배) 문자열을 만든 뒤 수십 개 evaluateJavaScript 를
+    //    한 번에 큐잉 → IPC/메모리 폭주로 WKWebView WebContent 프로세스가 죽거나 멈췄다.
+    //  - 지금은 Data 를 525,000바이트(3의 배수 → base64 경계 안전, 인코딩 후 700,000자)씩
+    //    잘라 그때그때 인코딩하고, completionHandler 체인으로 "한 청크 전달이 끝난 뒤 다음"을
+    //    보내는 직렬 전송이라 피크 메모리는 원본 + 청크 1개 수준으로 유지된다.
     private func sendNativeMediaToWeb(data: Data, mime: String, name: String) {
-        let b64 = data.base64EncodedString()
         let id = UUID().uuidString
-        let chunkSize = 700_000
+        let rawChunk = 525_000   // base64 후 700,000자 — 웹 수신부(청크별 즉시 디코딩)와 짝
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaBegin(\(self.jsLiteral(id)), \(self.jsLiteral(mime)), \(self.jsLiteral(name)));", completionHandler: nil)
-            var idx = b64.startIndex
-            while idx < b64.endIndex {
-                let end = b64.index(idx, offsetBy: chunkSize, limitedBy: b64.endIndex) ?? b64.endIndex
-                let chunk = String(b64[idx..<end])
-                self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaChunk(\(self.jsLiteral(id)), \(self.jsLiteral(chunk)));", completionHandler: nil)
-                idx = end
+            func sendChunk(from offset: Int) {
+                if offset >= data.count {
+                    self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaEnd(\(self.jsLiteral(id)));", completionHandler: nil)
+                    return
+                }
+                let end = min(offset + rawChunk, data.count)
+                let js: String = autoreleasepool {
+                    let chunkB64 = data.subdata(in: offset..<end).base64EncodedString()
+                    return "window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaChunk(\(self.jsLiteral(id)), \(self.jsLiteral(chunkB64)));"
+                }
+                self.webView.evaluateJavaScript(js) { _, _ in
+                    sendChunk(from: end)
+                }
             }
-            self.webView.evaluateJavaScript("window.__freetifulChatActions && window.__freetifulChatActions.nativeMediaEnd(\(self.jsLiteral(id)));", completionHandler: nil)
+            sendChunk(from: 0)
         }
     }
 
@@ -3334,6 +3365,15 @@ extension ViewController: PHPickerViewControllerDelegate {
         if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
             provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, _ in
                 guard let url = url, let data = try? Data(contentsOf: url) else { return }
+                // 웹 업로드 가드(100MB)와 동일 — 초과분을 base64 브릿지로 밀어넣으면 WKWebView 메모리 압박.
+                if data.count > 100 * 1024 * 1024 {
+                    DispatchQueue.main.async {
+                        let a = UIAlertController(title: nil, message: "동영상은 100MB 이하만 전송할 수 있습니다", preferredStyle: .alert)
+                        a.addAction(UIAlertAction(title: "확인", style: .default))
+                        self?.present(a, animated: true)
+                    }
+                    return
+                }
                 let ext = url.pathExtension.isEmpty ? "mp4" : url.pathExtension.lowercased()
                 let mime = UTType(filenameExtension: ext)?.preferredMIMEType ?? "video/mp4"
                 self?.sendNativeMediaToWeb(data: data, mime: mime, name: "video.\(ext)")

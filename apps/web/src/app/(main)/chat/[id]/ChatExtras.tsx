@@ -1952,18 +1952,33 @@ export default function ChatExtras(props: ChatExtrasProps) {
     };
     // 네이티브 PHPicker(+버튼→사진) 가 고른 미디어를 청크 base64 로 전달 → File 재구성 후
     // 일반 업로드 경로(handleImageSend: 낙관+게이지+직접업로드)로. 한방 거대 주입/큰 본문 회피.
-    const nativeMediaBuf: Record<string, { mime: string; name: string; parts: string[] }> = {};
+    //
+    // 큰 영상(수십 MB)에서 "업로드 중 튕김/멈춤" 방지:
+    //   예전엔 base64 전체를 join → atob → charCodeAt 루프 한 방에 처리해서
+    //   (원본 30MB 기준) 40MB 문자열 + 30MB 바이너리 문자열 + 30MB TypedArray 가 동시에 살아있고
+    //   메인스레드가 수 초 정지 → WKWebView 메모리 압박으로 WebContent 프로세스가 죽어 화면이 리로드됐다.
+    //   지금은 청크(700KB, 4의 배수라 독립 디코딩 안전)를 받는 즉시 바이너리로 변환해 버리므로
+    //   피크 메모리가 원본 크기 수준으로 떨어지고 블로킹도 잘게 쪼개진다.
+    const nativeMediaBuf: Record<string, { mime: string; name: string; parts: BlobPart[] }> = {};
+    const b64ChunkToBytes = (b64: string) => {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    };
     const nativeMediaBegin = (id: string, mime: string, name: string) => { nativeMediaBuf[id] = { mime: mime || '', name: name || 'media', parts: [] }; };
-    const nativeMediaChunk = (id: string, b64: string) => { const e = nativeMediaBuf[id]; if (e) e.parts.push(b64); };
+    const nativeMediaChunk = (id: string, b64: string) => {
+      const e = nativeMediaBuf[id];
+      if (!e) return;
+      try { e.parts.push(b64ChunkToBytes(b64)); }
+      catch { delete nativeMediaBuf[id]; toast.error('미디어를 불러오지 못했습니다'); }
+    };
     const nativeMediaEnd = (id: string) => {
       const e = nativeMediaBuf[id];
       if (!e) return;
       delete nativeMediaBuf[id];
       try {
-        const bin = atob(e.parts.join(''));
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const f = new File([bytes], e.name, { type: e.mime || 'application/octet-stream' });
+        const f = new File(e.parts, e.name, { type: e.mime || 'application/octet-stream' });
         // 이미지/영상은 미디어 경로, 그 외(PDF 등)는 파일 경로로 — 네이티브 문서피커 지원
         const isMedia = /^(image|video)\//.test(f.type) || /\.(jpe?g|png|gif|webp|heic|mp4|mov|m4v|webm)$/i.test(f.name);
         if (isMedia) handleImageSend(f); else handleFileSend(f);
