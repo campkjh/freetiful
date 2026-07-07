@@ -174,7 +174,7 @@ export default function GlobalMcNetwork() {
       <div className="sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden">
         <div className="cmc-pop px-5 pt-6 text-center md:pt-8">
           <p className="cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#3182F6]">Global MC Network</p>
-          <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-[#1B2A4A]">국제 행사 및 이벤트에 최적화된<br className="hidden md:block" /> 전문 사회자를 프리티풀이 연결합니다</h2>
+          <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-[#1B2A4A]">국제 행사도 프리티풀은 전부 가능합니다</h2>
           <p className="mx-auto mt-4 max-w-[660px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
         </div>
         <div ref={areaRef} className="relative w-full flex-1" style={{ minHeight: 0, touchAction: 'pan-y' }}>
