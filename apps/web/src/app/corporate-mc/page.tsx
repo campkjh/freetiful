@@ -92,6 +92,7 @@ export default function CorporateMcPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const crossRef = useRef<HTMLElement>(null);
   const vidRef = useRef<HTMLElement>(null);
+  const bspreadRef = useRef<HTMLDivElement>(null); // 방송 3사 이미지 — 덱→양옆 펼침
   const [scrolled, setScrolled] = useState(false);
 
   // 폼
@@ -147,6 +148,13 @@ export default function CorporateMcPage() {
         // 이후 sticky 로 풀스크린 유지. (예전엔 상단을 지난 뒤에야 채워져 과하게 스크롤 필요)
         const vp = Math.min(1, Math.max(0, (vh * 0.55 - vr.top) / (vh * 0.55)));
         vs.style.setProperty('--vp', String(vp));
+      }
+      // 방송 3사 이미지: 컨테이너가 화면 88% 지점에 들어오면 겹친 덱에서 양옆으로 펼쳐짐
+      const bs = bspreadRef.current;
+      if (bs) {
+        const br = bs.getBoundingClientRect();
+        const sp = Math.min(1, Math.max(0, (vh * 0.88 - br.top) / (vh * 0.5)));
+        bs.style.setProperty('--bsp', String(sp));
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
@@ -328,6 +336,13 @@ export default function CorporateMcPage() {
             {['방송사 아나운서 출신', '진행 영상 사전 검증', '행사 경력 확인 완료'].map((b) => (
               <span key={b} className="rounded-full border border-[#D6E4FF] bg-[#F4F8FF] px-4 py-2 text-[13px] font-semibold text-[#3182F6] md:text-[14.5px]">{b}</span>
             ))}
+          </div>
+
+          {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
+          <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
+            <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" loading="lazy" /></div>
+            <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" loading="lazy" /></div>
+            <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" loading="lazy" /></div>
           </div>
         </section>
 
@@ -651,6 +666,13 @@ const CSS = `
 /* 스크롤 시 전체화면으로 채워지는 영상 (--vp:0=작은 카드 → 1=풀스크린) */
 .cmc-vidsec{--vp:0;width:100vw;margin-left:calc(50% - 50vw)}
 .cmc-vidbox{width:calc(92vw + 8vw * var(--vp));height:calc(74svh + 26svh * var(--vp));max-width:100vw;border-radius:calc(22px * (1 - var(--vp)));transition:none;will-change:width,height,border-radius}
+/* 방송 3사 덱 → 양옆 펼침 (--bsp:0=겹친 덱 → 1=펼쳐진 3장) */
+.cmc-bspread{--bsp:0}
+.cmc-bcard{position:absolute;left:50%;top:0;width:264px;height:100%;margin-left:-132px;overflow:hidden;will-change:transform;--bsx:min(calc(100% + 18px),31vw)}
+.cmc-bcard img{display:block;width:100%;height:100%;object-fit:cover}
+.cmc-bc-l{z-index:10;transform:translateX(calc(var(--bsx) * var(--bsp) * -1)) rotate(calc(-5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
+.cmc-bc-r{z-index:20;transform:translateX(calc(var(--bsx) * var(--bsp))) rotate(calc(5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
+.cmc-bc-c{z-index:30}
 /* 기업 로고 5줄 캐러셀 — 천천히 흐르는 신뢰 월 */
 .cmc-logo-wall{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .cmc-logo-marquee{overflow:hidden}
