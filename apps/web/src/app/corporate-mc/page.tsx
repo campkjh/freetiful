@@ -85,6 +85,15 @@ const STEPS = [
   { no: 'STEP 04', title: '당일 진행 & 마무리', body: '리허설부터 현장 변수 대응, 정산·세금계산서까지 책임지고 마무리합니다.' },
 ];
 
+// 스크롤 다이얼 스탯 — 각 항목이 뷰포트 중앙으로 차례로 스냅되며 나타난다.
+const STATS: { text: string; label: string }[] = [
+  { text: '1,200+건',      label: '기업행사 진행' },
+  { text: '99%',           label: '담당자 재섭외 의향' },
+  { text: '0건',           label: '의전 진행 사고' },
+  { text: '100명 이상',    label: '검증된 행사가능 사회자' },
+  { text: '365일 24시간',  label: '상담가능시간' },
+];
+
 export default function CorporateMcPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
@@ -94,6 +103,7 @@ export default function CorporateMcPage() {
   const vidRef = useRef<HTMLElement>(null);
   const bspreadRef = useRef<HTMLDivElement>(null); // 방송 3사 이미지 — 덱→양옆 펼침
   const globalRef = useRef<HTMLDivElement>(null); // Global MC Network(블랙 섹션) 래퍼 — 헤더 다크존 판정
+  const statsSecRef = useRef<HTMLElement>(null); // 성장 지표 다이얼 섹션
   const [scrolled, setScrolled] = useState(false);
   const [darkZone, setDarkZone] = useState(false); // 영상/블랙 섹션이 헤더를 덮는 동안 히어로 헤더 유지
 
@@ -158,9 +168,35 @@ export default function CorporateMcPage() {
         const sp = Math.min(1, Math.max(0, (vh * 0.88 - br.top) / (vh * 0.5)));
         bs.style.setProperty('--bsp', String(sp));
       }
-      // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
+      // 성장 지표 다이얼: sticky 영역 안에서의 스크롤 진행률(0→1) 을 계산해 각 수치 row 의 위치/투명도/스케일 결정.
+      const ss = statsSecRef.current;
+      if (ss) {
+        const sr = ss.getBoundingClientRect();
+        const total = ss.offsetHeight - vh;
+        const scrolled = Math.min(Math.max(-sr.top, 0), total);
+        const p = total > 0 ? scrolled / total : 0;
+        const activeF = p * (STATS.length - 1);
+        const rows = ss.querySelectorAll<HTMLElement>('.cmc-stat-row');
+        const gap = Math.min(96, Math.max(72, vh * 0.11)); // 90 근처, 화면 높이에 따라 살짝 가변
+        rows.forEach((row, idx) => {
+          const dist = idx - activeF;
+          const absD = Math.abs(dist);
+          const y = dist * gap;
+          const o = Math.max(0, 1 - absD * 0.42);
+          const s = Math.max(0.6, 1 - absD * 0.12);
+          // 다이얼 원근: 중앙보다 위(dist<0)면 뒤로 눕고, 아래(dist>0)면 앞으로 눕는다.
+          // 중앙에서 멀수록 더 크게 기울이되(최대 ±58도) 캡을 둔다.
+          const rx = Math.max(-58, Math.min(58, -dist * 26));
+          row.style.setProperty('--y', `${y}px`);
+          row.style.setProperty('--o', String(o));
+          row.style.setProperty('--s', String(s));
+          row.style.setProperty('--rx', `${rx}deg`);
+          row.classList.toggle('is-active', absD < 0.4);
+        });
+      }
+      // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션·성장지표(우주 배경) 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
       const HEADER_Y = 56;
-      const dark = [vidRef.current, globalRef.current].some((el) => {
+      const dark = [vidRef.current, globalRef.current, statsSecRef.current].some((el) => {
         if (!el) return false;
         const dr = el.getBoundingClientRect();
         return dr.top <= HEADER_Y && dr.bottom >= HEADER_Y + 20;
@@ -288,6 +324,45 @@ export default function CorporateMcPage() {
         </button>
       </section>
 
+      {/* ───────── ANNOUNCER POOL (히어로 직후) ───────── */}
+      <section className="cmc-reveal px-5 py-14 text-center md:py-24">
+        <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
+        <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">3사 방송사 아나운서 출신 사회자들이<br />프리티풀과 함께합니다</h2>
+        <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
+        {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
+        <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
+          <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
+          <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" /></div>
+          <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" /></div>
+        </div>
+      </section>
+
+      {/* ───────── 성장 지표 — 스크롤 다이얼 (수치들이 중앙에 하나씩 스냅) ───────── */}
+      <section
+        ref={statsSecRef}
+        className="cmc-stats-sec relative bg-black text-white"
+        style={{ height: `${STATS.length * 100}vh` }}
+      >
+        <div className="cmc-stats-sticky">
+          <div className="cmc-stats-bg" aria-hidden="true" />
+          <div className="cmc-stats-inner">
+            <p className="cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Proven by Numbers</p>
+            <h2 className="cmc-stats-heading font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+              <span className="block text-[24px] md:text-[44px]">프리티풀의 신뢰는</span>
+              <span className="mt-1 block text-[24px] md:text-[44px]">숫자로 검증됩니다</span>
+            </h2>
+            <div className="cmc-stats-dial">
+              {STATS.map((s, i) => (
+                <div key={i} className="cmc-stat-row">
+                  <span className="cmc-stat-val">{s.text}</span>
+                  <span className="cmc-stat-lbl">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ───────── 교차 이미지 (품격) — 스크롤 시 위에서 겹쳤다가 텍스트 여백만큼 벌어짐 ───────── */}
       <section ref={crossRef} className="cmc-cross-sec relative bg-white px-5 py-28 md:py-44">
         {/* PC 전용 — 스크롤 시 흩뿌려지는 행사 사진(촤라락) */}
@@ -299,18 +374,18 @@ export default function CorporateMcPage() {
           ))}
         </div>
         <div className="cmc-cross relative z-[1] mx-auto flex max-w-md flex-col items-center md:max-w-lg">
-          {/* 상단 이미지 */}
+          {/* 상단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
           <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8]">
-            <img src={`${MEDIA_DIR}/cross-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <video src="/videos/cross-top.mp4" autoPlay muted loop playsInline preload="auto" className="relative h-full w-full object-cover" />
           </div>
           {/* 텍스트 */}
           <div className="cmc-cross-text relative z-[2] -my-8 px-2 text-center">
             <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자들</h2>
             <p className="cmc-pop cmc-d2 mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
-          {/* 하단 이미지 */}
+          {/* 하단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
           <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
-            <img src={`${MEDIA_DIR}/cross-02.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <video src="/videos/cross-bottom.mp4" autoPlay muted loop playsInline preload="auto" className="relative h-full w-full object-cover" />
           </div>
         </div>
       </section>
@@ -335,19 +410,6 @@ export default function CorporateMcPage() {
             </div>
           </div>
 
-        </section>
-
-        {/* ───────── ANNOUNCER POOL ───────── */}
-        <section className="cmc-reveal px-5 py-14 text-center md:py-24">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">3사 방송사 아나운서 출신 사회자들이<br />프리티풀과 함께합니다</h2>
-          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
-          {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
-          <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
-            <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
-            <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" /></div>
-            <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" /></div>
-          </div>
         </section>
 
         {/* ───────── PREMIUM EVENTS ───────── */}
@@ -679,6 +741,21 @@ const CSS = `
 .cmc-bc-l{z-index:10;transform:translateX(calc(var(--bsx) * var(--bsp) * -1)) rotate(calc(-5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
 .cmc-bc-r{z-index:20;transform:translateX(calc(var(--bsx) * var(--bsp))) rotate(calc(5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
 .cmc-bc-c{z-index:30}
+/* 성장 지표 다이얼 — 첨부 우주 이미지 배경 + 스크롤에 맞춰 수치가 중앙에 스냅 */
+.cmc-stats-sec{position:relative;color:#fff;background:#000}
+.cmc-stats-sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;isolation:isolate;contain:paint}
+.cmc-stats-bg{position:absolute;inset:0;overflow:hidden;background:#03060F url('/images/corporate-mc/stats-cosmos-bg.png') center center / cover no-repeat}
+/* 중앙 텍스트 가독성용 은은한 딤 — 이미지 위 수치가 파묻히지 않게 */
+.cmc-stats-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 42% at 50% 50%,rgba(3,8,26,0.55) 0%,rgba(3,8,26,0.28) 45%,transparent 72%)}
+.cmc-stats-inner{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 8vh) 20px 8vh}
+.cmc-stats-heading{text-align:center}
+.cmc-stats-dial{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none;perspective:620px;perspective-origin:50% 50%;transform-style:preserve-3d}
+.cmc-stat-row{position:absolute;left:50%;top:0;transform:translate(-50%,calc(var(--y,0px) - 50%)) rotateX(var(--rx,0deg)) scale(var(--s,1));transform-origin:center center;opacity:var(--o,0);text-align:center;white-space:nowrap;transition:opacity .18s linear,transform .18s linear;display:flex;flex-direction:column;align-items:center;gap:6px;backface-visibility:hidden;will-change:transform,opacity}
+.cmc-stat-val{font-size:46px;font-weight:800;letter-spacing:-0.03em;color:rgba(210,225,255,0.52);line-height:1;text-shadow:0 1px 10px rgba(0,6,22,0.4)}
+.cmc-stat-lbl{font-size:15px;font-weight:500;color:rgba(195,212,238,0.6);letter-spacing:-0.01em;text-shadow:0 1px 6px rgba(0,6,22,0.45)}
+.cmc-stat-row.is-active .cmc-stat-val{color:#fff;text-shadow:0 1px 14px rgba(0,6,22,0.5),0 0 34px rgba(120,170,255,0.28)}
+.cmc-stat-row.is-active .cmc-stat-lbl{color:rgba(225,234,248,0.98);text-shadow:0 1px 8px rgba(0,6,22,0.5)}
+@media (min-width:768px){.cmc-stat-val{font-size:66px}.cmc-stat-row.is-active .cmc-stat-val{font-size:88px}.cmc-stat-lbl{font-size:18px}.cmc-stat-row.is-active .cmc-stat-lbl{font-size:19px}}
 /* 기업 로고 5줄 캐러셀 — 천천히 흐르는 신뢰 월 */
 .cmc-logo-wall{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .cmc-logo-marquee{overflow:hidden}
