@@ -333,13 +333,13 @@ export default function CorporateMcPage() {
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
               {/* 후원사 로고 — 영상 안 글래스 오버레이(프로스트) 플로팅 캐러셀 (하단 고정 CTA 위로 띄움) */}
               <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
-                <div className="mx-auto max-w-[1100px] overflow-hidden rounded-2xl border border-white/25 bg-white/10 shadow-[0_18px_50px_-22px_rgba(0,0,0,0.65)] backdrop-blur-2xl">
+                <div className="mx-auto max-w-[1100px]">
                   <p className="pt-3 text-center text-[10px] font-semibold uppercase tracking-[0.26em] text-white/70 md:text-[11px]">Trusted Partners</p>
-                  <div className="cmc-marquee px-3 pb-4 pt-1">
+                  <div className="cmc-marquee px-3 pb-5 pt-2">
                     <div className="cmc-marquee-track" style={{ animationDuration: '42s' }}>
                       {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((logo, i) => (
-                        <div key={`${logo}-${i}`} className="flex h-9 w-[118px] flex-none items-center justify-center px-3 md:h-11 md:w-[146px]">
-                          <img src={`/images/partners-mono/${encodeURIComponent(logo)}`} alt="후원사 로고" loading="lazy" className="max-h-6 max-w-full object-contain opacity-85 md:max-h-7" style={{ filter: 'brightness(0) invert(1)' }} />
+                        <div key={`${logo}-${i}`} className="flex h-12 w-[150px] flex-none items-center justify-center px-3 md:h-14 md:w-[190px]">
+                          <img src={`/images/partners-mono/${encodeURIComponent(logo)}`} alt="후원사 로고" loading="lazy" className="max-h-9 max-w-full object-contain opacity-90 md:max-h-11" style={{ filter: 'brightness(0) invert(1)' }} />
                         </div>
                       ))}
                     </div>
