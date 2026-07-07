@@ -45,18 +45,7 @@ export default function GlobalMcNetwork() {
       rate[i] = 0.07 + 0.12 * rnd[i];
     }
 
-    // ---- 점 스프라이트 ----
-    const SP = 16;
-    const sprite = document.createElement('canvas');
-    sprite.width = SP; sprite.height = SP;
-    const sctx = sprite.getContext('2d')!;
-    const g = sctx.createRadialGradient(SP / 2, SP / 2, 0, SP / 2, SP / 2, SP / 2);
-    g.addColorStop(0, DOT_COLOR);
-    g.addColorStop(0.62, DOT_COLOR);
-    g.addColorStop(1, 'rgba(94,144,232,0)');
-    sctx.fillStyle = g;
-    sctx.beginPath(); sctx.arc(SP / 2, SP / 2, SP / 2, 0, Math.PI * 2); sctx.fill();
-
+    const TAU = Math.PI * 2;
     let W = 0, H = 0, dpr = 1;
     const PHI0 = 20 * DEG, cPHI0 = Math.cos(PHI0), sPHI0 = Math.sin(PHI0);
     let inited = false;
@@ -111,6 +100,7 @@ export default function GlobalMcNetwork() {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = DOT_COLOR;
 
       for (let i = 0; i < N; i++) {
         const fx = ox + nx[i] * mw;
@@ -149,7 +139,9 @@ export default function GlobalMcNetwork() {
         if (alpha <= 0.02) continue;
         const s = 1.9 + 1.5 * (0.4 + 0.6 * front);
         ctx.globalAlpha = alpha;
-        ctx.drawImage(sprite, px[i] - s, py[i] - s, s * 2, s * 2);
+        ctx.beginPath();
+        ctx.arc(px[i], py[i], s, 0, TAU);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
       inited = true;
