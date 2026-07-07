@@ -334,7 +334,7 @@ export default function CorporateMcPage() {
         {/* ───────── PREMIUM EVENTS ───────── */}
         <section className="px-5 pt-12 md:pt-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀의 고품격 행사의 향현</h2>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 자체 행사<br className="md:hidden" /> 기획·운영 경험을 갖추고 있습니다</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
         </section>
 
