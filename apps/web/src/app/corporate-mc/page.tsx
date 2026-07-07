@@ -18,7 +18,7 @@ import GlobalMcNetwork from './GlobalMcNetwork';
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
 const HERO_VIDEO = '/videos/corporate-mc-hero.mp4';
-// '검증된 대기업·행사 사회자들이 프리티풀과 함께합니다' 섹션의 사회자 프로필 마퀴(캐러셀)
+// '프리티풀은 검증된 아나운서 출신 풀을 보유하고 있습니다' 섹션의 사회자 프로필 마퀴(캐러셀)
 const PROFILE_SLIDES: { src: string }[] = [
   { src: `${MEDIA_DIR}/profile-01.webp` },
   { src: `${MEDIA_DIR}/profile-02.webp` },
@@ -301,8 +301,8 @@ export default function CorporateMcPage() {
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
         <section className="px-5 py-12 md:py-20 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified MCs</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified Announcer Pool</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 검증된<br />아나운서 출신 풀을 보유하고 있습니다</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
 
           {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드 */}
@@ -321,8 +321,8 @@ export default function CorporateMcPage() {
 
         {/* ───────── ANNOUNCER POOL ───────── */}
         <section className="cmc-reveal px-5 py-14 text-center md:py-24">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified Announcer Pool</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">프리티풀은 검증된<br />아나운서 출신 풀을 보유하고 있습니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">검증된 대기업·행사 사회자들이<br />프리티풀과 함께합니다</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[640px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">방송사 아나운서·쇼호스트 출신 진행자의 경력과 실제 진행 영상을 하나하나 확인해 등록합니다.<br className="hidden md:block" /> 행사 규모와 성격에 맞는 사회자를, 검증이 끝난 풀 안에서 바로 연결해드립니다.</p>
           <div className="cmc-pop cmc-d3 mx-auto mt-7 flex max-w-[600px] flex-wrap items-center justify-center gap-2.5">
             {['방송사 아나운서 출신', '진행 영상 사전 검증', '행사 경력 확인 완료'].map((b) => (
