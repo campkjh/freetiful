@@ -197,7 +197,7 @@ export default function GlobalMcNetwork() {
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-label="글로벌 MC 네트워크 지구본" />
 
         {/* 상단 라벨(항상) */}
-        <p className="cmc-condor absolute inset-x-0 top-[104px] md:top-[112px] text-center text-[16px] md:text-[20px] uppercase tracking-[0.22em] leading-none text-[#5E90E8]">Global MC Network</p>
+        <p className="cmc-condor absolute inset-x-0 top-[104px] md:top-[112px] text-center text-[16px] md:text-[20px] uppercase tracking-[0.22em] leading-none text-[#5E90E8]">global announcer</p>
 
         {/* 언어 대형 타이포 */}
         {WORDS.map((w, i) => (
@@ -212,7 +212,7 @@ export default function GlobalMcNetwork() {
 
         {/* 지구본 페이즈 헤딩 */}
         <div ref={headRef} className="pointer-events-none absolute inset-x-0 top-[148px] px-5 text-center opacity-0 md:top-[158px]">
-          <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-white">국제 행사도 프리티풀은 전부 가능합니다</h2>
+          <h2 className="text-[22px] md:text-[38px] font-extrabold leading-[1.34] tracking-[-0.02em] text-white">국제 행사 사회자도 프리티풀에서</h2>
           <p className="mx-auto mt-3 max-w-[660px] text-[14px] md:text-[18px] leading-[1.7] text-white/55">언어와 문화의 경계를 넘어, 글로벌 행사에 최적화된 전문 MC와 함께 완성도 높은 무대를 만들어갑니다</p>
         </div>
       </div>

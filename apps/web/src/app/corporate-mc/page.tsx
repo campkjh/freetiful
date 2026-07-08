@@ -356,9 +356,9 @@ export default function CorporateMcPage() {
 
       {/* ───────── ANNOUNCER POOL (히어로 직후) ───────── */}
       <section className="cmc-reveal px-5 py-14 text-center md:py-24">
-        <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
-        <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">3사 방송사 아나운서 출신 사회자들이<br />프리티풀과 함께합니다</h2>
-        <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
+        <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Certified announcer</p>
+        <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">프리티풀은 방송사출신<br className="md:hidden" /> 아나운서들과 함께합니다</h2>
+        <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트<span className="hidden md:inline"> · </span><br className="md:hidden" />호텔·컨벤션 경험</p>
         {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
         <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
           <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
@@ -378,7 +378,7 @@ export default function CorporateMcPage() {
         <div className="cmc-stats-sticky">
           <div className="cmc-stats-bg" aria-hidden="true" />
           <div className="cmc-stats-inner">
-            <p className="cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Proven by Numbers</p>
+            <p className="cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Verified announcer</p>
             <h2 className="cmc-stats-heading font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
               <span className="block text-[24px] md:text-[44px]">프리티풀의 신뢰는</span>
               <span className="mt-1 block text-[24px] md:text-[44px]">숫자로 검증됩니다</span>
@@ -412,7 +412,7 @@ export default function CorporateMcPage() {
           </div>
           {/* 텍스트 */}
           <div className="cmc-cross-text relative z-[2] -my-8 px-2 text-center">
-            <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자들</h2>
+            <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">중요한 순간, 행사의<br /><span className="cmc-flow">품격</span>을 결정하는 사회자</h2>
             <p className="cmc-pop cmc-d2 mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
           {/* 하단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
@@ -426,13 +426,13 @@ export default function CorporateMcPage() {
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
         <section className="px-5 py-12 md:py-20 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified Announcer Pool</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 검증된<br />아나운서 출신 풀을 보유하고 있습니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Trusted announcer</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">고급스러운 행사,<br />프리티풀의 검증된 사회자가 보장합니다.</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[640px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">행사 규모와 성격에 맞는 사회자를, 검증이 끝난 풀 안에서 바로 연결해드립니다.</p>
 
-          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드 */}
+          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드. 모바일은 더 빠르게(cmc-profile-track) */}
           <div className="cmc-marquee cmc-bleed-md cmc-riser mt-9">
-            <div className="cmc-marquee-track">
+            <div className="cmc-marquee-track cmc-profile-track">
               {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
                 <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
                   <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -447,8 +447,8 @@ export default function CorporateMcPage() {
         {/* ───────── PREMIUM EVENTS ───────── */}
         <section className="px-5 pt-12 md:pt-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 자체 행사<br className="md:hidden" /> 기획·운영 경험을 갖추고 있습니다</h2>
-          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 행사 기획 및<br />현장 운영 역량을 갖추고 있습니다.</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">전국 각 지역 행사장 &amp; 웨딩홀에서<br />행사 기획부터 진행까지 모두 가능합니다</p>
         </section>
 
         {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
@@ -506,7 +506,7 @@ export default function CorporateMcPage() {
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
           <div className="px-5 text-center">
             <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#7FA0D8]">Reviews</p>
-            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">행사가 성공할수록,<br />담당자의 가치는 더 선명해집니다.</h2>
           </div>
           <div className="cmc-marquee cmc-riser mt-10">
             <div className="cmc-rev-track">
@@ -548,8 +548,8 @@ export default function CorporateMcPage() {
 
         {/* ───────── SCALE ───────── */}
         <section className="px-5 py-16 md:py-28 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Over 1,200 Companies Chose Freetiful</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Assured freetiful</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의 행사가<br />프리티풀의 전문 사회자와 함께했습니다.</h2>
           <p className="cmc-pop cmc-d2 mt-3 text-[16px] md:text-[20px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
 
           {/* 함께한 기업 로고 — 8줄 캐러셀, 스크롤 진입 시 하단에서 딱딱 올라오며 흐름 */}
@@ -837,6 +837,8 @@ const CSS = `
 /* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
 .cmc-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
+/* 사회자 프로필 캐러셀 — 모바일에선 더 빠르게 흐름 */
+@media (max-width:767px){.cmc-profile-track{animation-duration:19s}}
 .cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
 @keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 /* 후기 카드 캐러셀 — 큰 카드가 천천히 흐름, 호버 시 정지 */
