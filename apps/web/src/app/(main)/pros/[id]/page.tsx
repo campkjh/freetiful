@@ -1208,7 +1208,6 @@ export default function ProDetailPage() {
   const [inquiryLocation, setInquiryLocation] = useState('');
   const [inquiryDate, setInquiryDate] = useState('');
   const [inquiryTime, setInquiryTime] = useState('');
-  const [descExpanded, setDescExpanded] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
   // 서비스 설명 본문(dangerouslySetInnerHTML)의 <img> 클릭 시 확대 모달 — 이벤트 위임.
@@ -2207,21 +2206,10 @@ export default function ProDetailPage() {
         {/* Description text (영상만 있는 사회자는 설명 본문 생략) */}
         {hasDescriptionContent && (
           <>
-            <div className={`pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in ${descExpanded ? '' : 'max-h-[400px] overflow-hidden relative'}`} onClick={zoomOnImgClick}>
+            {/* 설명 전문 표시 — 400px 클램프+더보기 제거(설명 짤림 QA) */}
+            <div className="pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick}>
               <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
-              {!descExpanded && (
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-              )}
             </div>
-
-            {!descExpanded && (
-              <button
-                onClick={() => setDescExpanded(true)}
-                className="mt-4 w-full py-3.5 border border-gray-200 rounded-xl text-[18px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                더보기
-              </button>
-            )}
 
             {/* Image expand notice */}
             <div className="mt-8 bg-gray-50 rounded-xl py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">

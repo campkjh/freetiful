@@ -1624,9 +1624,10 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const isVideo = (file.type || '').startsWith('video') || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|qt)$/i.test(nameLc);
     const msgType = isVideo ? 'video' : 'image';
     const label = isVideo ? '동영상' : '이미지';
-    // 용량 가드 — 멀티파트 바이너리 업로드라 100MB 까지 허용(영상). 초과 시 차단.
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error(`${label}은 100MB 이하만 전송할 수 있습니다`);
+    // 용량 가드 — 50MB. 100MB 는 iOS 네이티브 base64 브릿지 + 웹 재조립 이중 적재로
+    // WKWebView WebContent 메모리 한도를 넘어 앱이 튕기던 원인(업로드 중 크래시 QA).
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error(`${label}은 50MB 이하만 전송할 수 있습니다`);
       return;
     }
     // 방이 아직 준비 전(pending-)이면 낙관적 메시지를 넣기 전에 차단 — 안 그러면 멈춘 0% 버블이 남음

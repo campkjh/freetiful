@@ -179,6 +179,14 @@ class ViewController: UIViewController,
     override func viewDidLoad() {
         super.viewDidLoad()
         print("🧭 Freetiful current native auth build marker: 2026-05-08-kakao-native-api")
+        // 전역 오디오 세션 — 기본 .soloAmbient 는 무음 스위치 ON 이면 인라인 <video> 소리를 죽임
+        // ("영상 소리 안 남" QA). .playback + mixWithOthers 로 무음 스위치를 무시하되
+        // 앱 실행만으로 다른 앱 음악을 끊지 않게 setActive 는 호출하지 않는다(재생 시 자동 활성).
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+        } catch {
+            print("⚠️ AVAudioSession 카테고리 설정 실패: \(error)")
+        }
         setupWebView()
         setupBackSwipe()
         setupBizNav()
@@ -3365,10 +3373,11 @@ extension ViewController: PHPickerViewControllerDelegate {
         if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
             provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, _ in
                 guard let url = url, let data = try? Data(contentsOf: url) else { return }
-                // 웹 업로드 가드(100MB)와 동일 — 초과분을 base64 브릿지로 밀어넣으면 WKWebView 메모리 압박.
-                if data.count > 100 * 1024 * 1024 {
+                // 웹 업로드 가드(50MB)와 동일 — base64 브릿지 + 웹 재조립 이중 적재라
+                // 그 이상은 WKWebView WebContent 메모리 한도 초과로 앱이 튕김(업로드 중 크래시 QA).
+                if data.count > 50 * 1024 * 1024 {
                     DispatchQueue.main.async {
-                        let a = UIAlertController(title: nil, message: "동영상은 100MB 이하만 전송할 수 있습니다", preferredStyle: .alert)
+                        let a = UIAlertController(title: nil, message: "동영상은 50MB 이하만 전송할 수 있습니다", preferredStyle: .alert)
                         a.addAction(UIAlertAction(title: "확인", style: .default))
                         self?.present(a, animated: true)
                     }
