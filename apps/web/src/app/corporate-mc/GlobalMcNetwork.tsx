@@ -66,10 +66,19 @@ export default function GlobalMcNetwork() {
     const PHASES: [number, number][] = [[0.03, 0.26], [0.26, 0.49], [0.49, 0.72]];
 
     let raf = 0, visible = true;
+    let lastP = -1;
     const t0 = performance.now();
 
     const frame = (now: number) => {
       const p = scrollP();
+      const gNow = smooth(0.70, 0.86, p);
+      // 스크롤 변화가 없고 지구본(자전)도 안 보이면 이번 프레임은 통째로 스킵 —
+      // 언어 타이포 구간에서 캔버스/스타일을 계속 갱신해 스크롤이 버벅이던 원인.
+      if (Math.abs(p - lastP) <= 0.0005 && gNow <= 0.01) {
+        if (visible) raf = requestAnimationFrame(frame);
+        return;
+      }
+      lastP = p;
 
       // ---- 언어 타이포: 아래에서 떠올라 → 위로 흘러 사라짐(블러+자간 확장) ----
       for (let i = 0; i < WORDS.length; i++) {
