@@ -74,6 +74,25 @@ const REVIEWS: { title: string; body: string; avatar: string; demo: string }[] =
   { title: '내부 보고도 수월', body: '**프로필과 진행 영상**을 함께 주셔서 윗선 보고와 예산 승인이 한 번에 통과됐어요.', avatar: '👨', demo: '제약사 마케팅팀 · 심포지엄' },
   { title: '재섭외 확정', body: '올해 행사가 너무 좋아서 **내년 행사도 미리 예약**했습니다. 믿고 맡길 수 있어요.', avatar: '👩', demo: '금융지주 · 정기 주주총회' },
 ];
+// 개인정보 수집·이용 동의 (모달)
+const PRIVACY_SECTIONS: { heading: string; body: string }[] = [
+  { heading: '1. 수집하는 개인정보 항목', body: '수집 항목: 담당자명, 기관명, 연락처, 이메일, 행사 예정일, 행사 지역, 행사 진행에 필요한 사항을 수집합니다.' },
+  { heading: '2. 개인정보 수집·이용 목적', body: '프리티풀 서비스 제공 및 회원 관리, 기업ㆍ기관ㆍ단체ㆍ행사대행사 등 섭외 문의 접수ㆍ상담ㆍ견적 제공ㆍ계약 체결 및 이행ㆍ행사 운영 관련 커뮤니케이션ㆍ정산 및 분쟁 대응을 목적으로 개인정보를 수집합니다.' },
+  { heading: '3. 개인정보 보유·이용 기간', body: '회원 탈퇴 시 또는 서비스 종료 시까지 보유하며, 관련 법령에 따라 일정 기간 보관될 수 있습니다.' },
+  { heading: '4. 개인정보의 제3자 제공', body: '회사는 원칙적으로 정보주체의 개인정보를 외부에 제공하지 않습니다. 다만, 행사전문사회자 섭외 및 프리티풀 서비스 제공에 필요한 경우, 행사 진행에 필요한 최소한의 정보를 회사의 협력업체 및 배정 예정 또는 확정된 사회자에게 제공할 수 있습니다.' },
+  { heading: '5. 처리 위탁', body: '회사는 서비스 운영, 고객 상담, 알림 발송, 데이터 보관, 결제 및 정산 등 업무 수행을 위해 필요한 경우 개인정보 처리 업무의 일부를 외부 업체에 위탁할 수 있으며, 위탁 시 관련 법령에 따라 개인정보가 안전하게 처리되도록 관리·감독합니다.' },
+  { heading: '6. 동의 거부 권리 및 불이익', body: '개인정보 수집·이용에 동의하지 않을 권리가 있으나, 동의를 거부하실 경우 서비스 안내 및 이용이 제한될 수 있습니다.' },
+];
+
+// 행사 사회자 섭외 유의사항
+const BOOKING_NOTICES: string[] = [
+  '기업·기관 행사는 행사일 기준 3개월 전에 사회자 섭외가 시작되므로, 선호도가 높은 사회자는 일정이 조기 마감될 수 있습니다.',
+  '행사 진행 초안 및 확정된 행사 일시ㆍ장소 등 기타 사항을 전달해주시면, 상세한 견적 안내 및 행사에 적합한 사회자를 신속히 안내드립니다.',
+  '섭외 완료 기간은 상담 후 가급적 빠른 시일 내 확정됩니다.',
+  '프리티풀을 통해 소개받은 사회자와 별도 직거래를 진행하거나 우회하여 섭외하는 행위는 추가 서비스 이용이 제한될 수 있습니다.',
+  '제공해주신 첨부 자료ㆍ파일은 프리티풀 서비스 제공 및 견적 안내 목적으로만 사용됩니다.',
+];
+
 const STEPS = [
   { no: 'STEP 01', title: '행사 정보 접수', body: '전문 MD가 행사 일정·유형·규모·예산·식순을 확인합니다.' },
   { no: 'STEP 02', title: 'MC 제안 & 선택', body: '가능한 진행자를 프로필·진행 영상으로 비교해 직접 고르고, 내부 보고용 자료까지 받습니다.' },
@@ -115,6 +134,7 @@ export default function CorporateMcPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [policyModal, setPolicyModal] = useState<null | 'privacy' | 'notice'>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAttach = (file: File | undefined) => {
@@ -674,7 +694,11 @@ export default function CorporateMcPage() {
                     {consent && <Check size={16} strokeWidth={3} className="text-white" />}
                   </span>
                   <span className={`text-[16px] ${showErrors && !consent ? 'text-[#FF4D4F]' : 'text-[#3A3F49]'}`}>
-                    <span className="font-semibold text-[#3182F6]">개인정보 수집·이용</span>에 동의합니다.
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPolicyModal('privacy'); }}
+                      className="font-semibold text-[#3182F6] underline underline-offset-2"
+                    >개인정보 수집·이용</button>에 동의합니다.
                   </span>
                 </label>
                 {showErrors && !consent && <p className="mt-1.5 text-center text-[14px] text-[#FF4D4F]">개인정보 수집·이용에 동의해주세요</p>}
@@ -691,21 +715,18 @@ export default function CorporateMcPage() {
 
               {/* 행사 사회자 섭외 유의사항 */}
               <div className="rounded-[16px] bg-[#F2F4F6] px-5 py-6">
-                <h3 className="text-[15px] font-bold text-[#031228]/70">행사 사회자 섭외 유의사항</h3>
-                <ul className="mt-3.5 space-y-2.5">
-                  {[
-                    '기업행사는 보통 5~6개월 전부터 섭외가 시작되며, 원하시는 사회자는 조기 마감될 수 있습니다.',
-                    '정확한 행사일·장소·기획 내용을 알려주실수록 더 적합한 사회자를 빠르게 안내드릴 수 있습니다.',
-                    '견적은 행사 규모·진행 시간·요청 사항에 따라 달라지며, 상담 후 확정됩니다.',
-                    '섭외 확정은 사회자 일정 확인 후 계약을 통해 완료되며, 신청만으로 예약이 확정되지는 않습니다.',
-                    '제출하신 기획서·첨부 자료는 사회자 매칭 및 견적 안내 목적으로만 사용됩니다.',
-                  ].map((line, i) => (
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-[15px] font-bold text-[#031228]/70">행사 사회자 섭외 유의사항</h3>
+                  <button type="button" onClick={() => setPolicyModal('notice')} className="shrink-0 text-[13px] font-semibold text-[#031228]/46 underline underline-offset-2">전체보기</button>
+                </div>
+                <ol className="mt-3.5 space-y-2.5">
+                  {BOOKING_NOTICES.map((line, i) => (
                     <li key={i} className="flex gap-2 text-[14px] leading-[1.6] text-[#031228]/70">
-                      <span className="mt-[7px] h-[3px] w-[3px] shrink-0 rounded-full bg-[#031228]/46" />
+                      <span className="shrink-0 font-bold text-[#031228]/46">{i + 1}.</span>
                       <span>{line}</span>
                     </li>
                   ))}
-                </ul>
+                </ol>
               </div>
             </form>
           )}
@@ -748,6 +769,57 @@ export default function CorporateMcPage() {
           <span className="text-[15px] font-bold leading-none">상담</span>
         </button>
       </div>
+
+      {/* 정책 모달 — 개인정보 수집·이용 / 섭외 유의사항 */}
+      {policyModal && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/45 animate-[cmcOverlayIn_0.25s_ease]" onClick={() => setPolicyModal(null)} />
+          <div className="relative flex max-h-[86vh] w-full max-w-[520px] flex-col rounded-t-[24px] bg-white shadow-2xl sm:rounded-[24px] animate-[cmcSheetIn_0.32s_cubic-bezier(0.16,1,0.3,1)]">
+            <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-3">
+              <h2 className="text-[19px] font-bold leading-[1.35] text-[#191F28]">
+                {policyModal === 'privacy' ? '개인정보 수집·이용 동의' : '행사 사회자 섭외 유의사항'}
+              </h2>
+              <button type="button" onClick={() => setPolicyModal(null)} aria-label="닫기" className="-mr-1.5 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#8B95A1] transition hover:bg-gray-100 hover:text-[#4E5968]">
+                <X size={20} strokeWidth={2.4} />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {policyModal === 'privacy' ? (
+                <div className="space-y-4 pb-4">
+                  {PRIVACY_SECTIONS.map((s, i) => (
+                    <div key={i}>
+                      <p className="text-[14.5px] font-bold text-[#031228]/85">{s.heading}</p>
+                      <p className="mt-1 text-[14px] leading-[1.65] text-[#031228]/62">{s.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ol className="space-y-3 pb-4">
+                  {BOOKING_NOTICES.map((line, i) => (
+                    <li key={i} className="flex gap-2 text-[14.5px] leading-[1.65] text-[#031228]/70">
+                      <span className="shrink-0 font-bold text-[#031228]/46">{i + 1}.</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <div className="px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-3">
+              <button
+                type="button"
+                onClick={() => { if (policyModal === 'privacy') setConsent(true); setPolicyModal(null); }}
+                className="h-[54px] w-full rounded-[16px] bg-[#3182F6] text-[16px] font-bold text-white transition active:scale-[0.98]"
+              >
+                {policyModal === 'privacy' ? '동의하고 닫기' : '확인'}
+              </button>
+            </div>
+          </div>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes cmcOverlayIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes cmcSheetIn { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: translateY(0) } }
+          ` }} />
+        </div>
+      )}
     </main>
   );
 }
