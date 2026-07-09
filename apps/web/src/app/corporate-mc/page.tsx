@@ -435,9 +435,9 @@ export default function CorporateMcPage() {
             <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">중요한 순간, 행사의<br /><span className="cmc-flow">품격</span>을 결정하는 사회자</h2>
             <p className="cmc-pop cmc-d2 mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
-          {/* 하단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
+          {/* 하단 — kt cloud SUMMIT 사회 진행 사진 (가로 원본이라 좌측 기준 크롭 — 사회자 구도 유지) */}
           <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
-            <video src="/videos/cross-bottom.mp4" autoPlay muted loop playsInline preload="auto" className="relative h-full w-full object-cover" />
+            <img src={`${MEDIA_DIR}/cross-bottom.jpg`} alt="kt cloud SUMMIT 행사 사회 진행" className="relative h-full w-full object-cover object-left" />
           </div>
         </div>
       </section>
