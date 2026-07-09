@@ -151,6 +151,20 @@ export default function CorporateMcPage() {
     v.play().catch(() => {});
   }, []);
 
+  // 화면 밖 영상은 일시정지 — 스크롤 중 백그라운드 디코딩이 모바일 버벅임을 유발
+  useEffect(() => {
+    const vids = Array.from(document.querySelectorAll<HTMLVideoElement>('.cmc video'));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting) { v.muted = true; v.play().catch(() => {}); }
+        else v.pause();
+      });
+    }, { rootMargin: '160px' });
+    vids.forEach((v) => io.observe(v));
+    return () => io.disconnect();
+  }, []);
+
   // 헤더 배경 전환(히어로 지나면 흰 배경) + 교차 이미지 스크롤 벌어짐
   useEffect(() => {
     let raf = 0;
@@ -160,6 +174,15 @@ export default function CorporateMcPage() {
       if (!el) return;
       const txt = el.querySelector<HTMLElement>('.cmc-cross-text');
       if (txt) el.style.setProperty('--open', `${Math.round(txt.offsetHeight * 0.5 + 28)}px`);
+    };
+    // 모바일 WKWebView 스크롤 버벅임 방지 — 값이 실제로 바뀔 때만 스타일을 기록하고,
+    // querySelectorAll 은 매 프레임이 아니라 마운트/리사이즈 시 1회만 수행한다.
+    const last = { spread: -1, vp: -1, bsp: -1, statsP: -1 };
+    let statRows: HTMLElement[] = [];
+    let darkEls: HTMLElement[] = [];
+    const cacheEls = () => {
+      statRows = statsSecRef.current ? Array.from(statsSecRef.current.querySelectorAll<HTMLElement>('.cmc-stat-row')) : [];
+      darkEls = Array.from(document.querySelectorAll<HTMLElement>('[data-cmc-dark]'));
     };
     const apply = () => {
       raf = 0;
@@ -173,7 +196,7 @@ export default function CorporateMcPage() {
         const start = vh * 0.62;   // r.top 이 이 값일 때 p=0
         const end = vh * 0.12;     // r.top 이 이 값일 때 p=1
         const p = Math.min(1, Math.max(0, (start - r.top) / (start - end)));
-        el.style.setProperty('--spread', String(p));
+        if (Math.abs(p - last.spread) > 0.001) { last.spread = p; el.style.setProperty('--spread', String(p)); }
       }
       // 영상 섹션: 섹션 상단이 화면 상단을 지난 뒤 0.8화면 스크롤하는 동안 풀스크린으로 채워짐(이후 유지)
       const vs = vidRef.current;
@@ -182,14 +205,14 @@ export default function CorporateMcPage() {
         // 섹션 상단이 화면 55%지점 → 최상단으로 오는 동안 카드→풀스크린으로 채워지고(도착 시 꽉 참),
         // 이후 sticky 로 풀스크린 유지. (예전엔 상단을 지난 뒤에야 채워져 과하게 스크롤 필요)
         const vp = Math.min(1, Math.max(0, (vh * 0.55 - vr.top) / (vh * 0.55)));
-        vs.style.setProperty('--vp', String(vp));
+        if (Math.abs(vp - last.vp) > 0.001) { last.vp = vp; vs.style.setProperty('--vp', String(vp)); }
       }
       // 방송 3사 이미지: 컨테이너가 화면 88% 지점에 들어오면 겹친 덱에서 양옆으로 펼쳐짐
       const bs = bspreadRef.current;
       if (bs) {
         const br = bs.getBoundingClientRect();
         const sp = Math.min(1, Math.max(0, (vh * 0.88 - br.top) / (vh * 0.5)));
-        bs.style.setProperty('--bsp', String(sp));
+        if (Math.abs(sp - last.bsp) > 0.001) { last.bsp = sp; bs.style.setProperty('--bsp', String(sp)); }
       }
       // 성장 지표 다이얼: sticky 영역 안에서의 스크롤 진행률(0→1) 을 계산해 각 수치 row 의 위치/투명도/스케일 결정.
       const ss = statsSecRef.current;
@@ -198,8 +221,11 @@ export default function CorporateMcPage() {
         const total = ss.offsetHeight - vh;
         const scrolled = Math.min(Math.max(-sr.top, 0), total);
         const p = total > 0 ? scrolled / total : 0;
+        const visible = sr.bottom > 0 && sr.top < vh;
+        if (visible && Math.abs(p - last.statsP) > 0.0005) {
+        last.statsP = p;
         const activeF = p * (STATS.length - 1);
-        const rows = ss.querySelectorAll<HTMLElement>('.cmc-stat-row');
+        const rows = statRows;
         const gap = Math.min(96, Math.max(72, vh * 0.11)); // 90 근처, 화면 높이에 따라 살짝 가변
         rows.forEach((row, idx) => {
           const dist = idx - activeF;
@@ -216,6 +242,7 @@ export default function CorporateMcPage() {
           row.style.setProperty('--rx', `${rx}deg`);
           row.classList.toggle('is-active', absD < 0.4);
         });
+        }
       }
       // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션·성장지표(우주 배경) 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
       const HEADER_Y = 56;
@@ -232,18 +259,19 @@ export default function CorporateMcPage() {
         const fr = fabEl.getBoundingClientRect();
         const px = fr.left + fr.width / 2;
         const py = fr.bottom - 38; // 원형 버튼(76px)의 대략 중심
-        const overDark = Array.from(document.querySelectorAll<HTMLElement>('[data-cmc-dark]')).some((el) => {
-          const r = el.getBoundingClientRect();
+        const overDark = darkEls.some((del) => {
+          const r = del.getBoundingClientRect();
           return r.left <= px && r.right >= px && r.top <= py && r.bottom >= py;
         });
         setFabOverDark(overDark);
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
-    const onResize = () => { measureOpen(); apply(); };
+    const onResize = () => { measureOpen(); cacheEls(); apply(); };
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     measureOpen();
+    cacheEls();
     apply();
     return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onResize); if (raf) cancelAnimationFrame(raf); };
   }, []);
@@ -905,7 +933,9 @@ const CSS = `
 .cmc-cross-a{transform:translateY(calc((1 - var(--spread)) * 84px - var(--spread) * var(--open)))}
 .cmc-cross-b{transform:translateY(calc(-1 * ((1 - var(--spread)) * 84px - var(--spread) * var(--open))))}
 /* 프로필 카드 하단 그라데이션 블러 — 아래는 살짝 흐리게, 위로 갈수록 선명(약하게) */
-.cmc-blur-fade{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%);mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%);pointer-events:none}
+/* 카드 하단 페이드 — 모바일은 backdrop-filter 가 스크롤 버벅임의 주범이라 그라데이션으로 대체, PC 만 블러 */
+.cmc-blur-fade{background:linear-gradient(to top,rgba(255,255,255,0.85),rgba(255,255,255,0) 80%);pointer-events:none}
+@media(min-width:768px){.cmc-blur-fade{background:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);-webkit-mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%);mask-image:linear-gradient(to top,#000 0%,#000 12%,transparent 100%)}}
 /* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
 .cmc-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
