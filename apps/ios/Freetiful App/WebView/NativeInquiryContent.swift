@@ -107,6 +107,7 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
     private var loaderTop: NSLayoutConstraint!
     private var baseTop: CGFloat = 0
     private var refreshing = false
+    private var refreshStartedAt = Date() // 물결 연출과 새로고침 마무리 동기화용
     private var lastHapticStep = 0
     private let pullThreshold: CGFloat = 78
     private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
@@ -191,7 +192,15 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
 
     private func startRefresh() {
         refreshing = true
-        heavyHaptic.impactOccurred()
+        refreshStartedAt = Date()
+        // NameDrop(아이폰 맞대기) 스타일 — 지이잉 연속 햅틱은 즉시,
+        // 물결은 릴리즈 바운스가 정착한 뒤 시작(움직이는 중에 스냅샷을 얼리면 찌부/끊김으로 보임).
+        Haptics.buzz()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, self.refreshing, let win = self.window else { return }
+            let origin = CGPoint(x: win.bounds.midX, y: 24) // 다이나믹 아일랜드 기점
+            win.playRipple(at: origin, duration: 1.1, amplitude: 16, frequency: 7, decay: 3.5, speed: 1000)
+        }
         loader.alpha = 1
         loader.transform = .identity
         loader.play()
@@ -204,6 +213,14 @@ final class NativeInquiryContent: UIView, UITableViewDataSource, UITableViewDele
     }
     func endRefresh() {
         guard refreshing else { return }
+        // 물결(0.35s 지연+1.1s)+크로스페이드(0.3s)가 화면을 다 지나가기 전에 데이터가 먼저 도착하면
+        // 오버레이가 걷힐 때 뚝 끊겨 보임 — 파동이 끝난 뒤에 마무리하도록 늦춘다.
+        let minVisual: TimeInterval = 1.8
+        let elapsed = Date().timeIntervalSince(refreshStartedAt)
+        if elapsed < minVisual {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (minVisual - elapsed)) { [weak self] in self?.endRefresh() }
+            return
+        }
         refreshing = false
         loader.stop()
         UIView.animate(withDuration: 0.3, animations: {

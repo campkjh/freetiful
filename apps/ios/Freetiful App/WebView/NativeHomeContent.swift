@@ -347,6 +347,8 @@ final class HeroCardView: UIControl {
     var onTap: (() -> Void)?
     private let bg = UIImageView()
     private let overlay = CAGradientLayer()
+    private var lastTouchPoint: CGPoint = .zero // 물결(Ripple) 시작점 = 탭 위치
+    private var didAutoRipple = false           // 데모: 등장 후 1회 자동 물결
 
     init(imageURL: String, line1: String, line2: String, showChevron: Bool, badge: String? = nil) {
         super.init(frame: .zero)
@@ -453,7 +455,27 @@ final class HeroCardView: UIControl {
             self.transform = .identity
         }
     }
-    @objc private func fire() { Haptics.tap(); onTap?() }
+    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        lastTouchPoint = touch.location(in: self)
+        return super.beginTracking(touch, with: event)
+    }
+    @objc private func fire() {
+        Haptics.tap()
+        // 애플 Metal 셰이더 물결 — 탭 지점에서 퍼짐. 네비게이션은 물결이 보이도록 살짝 지연(데모).
+        playRipple(at: lastTouchPoint == .zero ? CGPoint(x: bounds.midX, y: bounds.midY) : lastTouchPoint)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in self?.onTap?() }
+    }
+    // 데모: 홈 등장 후 3초마다 카드 중앙에서 자동 물결 반복 (효과 미리보기용 — 확정 시 제거)
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, !didAutoRipple else { return }
+        didAutoRipple = true
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] t in
+            guard let self else { t.invalidate(); return }
+            guard self.window != nil, self.bounds.width > 10 else { return }
+            self.playRipple(at: CGPoint(x: self.bounds.midX, y: self.bounds.midY))
+        }
+    }
 }
 
 // MARK: - 카테고리 보더 탭 (전체/결혼식/행사/외국어)
