@@ -66,9 +66,17 @@ function mapCachedMessage(m: MessageItem | Message): Message {
 // 네이티브 메시지 리스트(B3)용: 상대경로 /uploads 이미지를 API 절대경로로 (네이티브 UIImage 로딩 가능하게)
 function absChatUrl(u: string): string {
   if (!u) return '';
-  // /uploads 는 동일 출처(상대경로) 그대로 — 절대 타출처 URL 로 만들면 업로드 응답의
-  // cross-origin-resource-policy: same-origin 때문에 브라우저가 <img>/<video> 로딩을 차단함(200 이어도 안 뜸).
-  // 네이티브 브릿지는 상대경로를 freetiful.com 으로 해석하므로 그대로 동작.
+  // 이미지는 동일 출처(상대경로) 유지 — Vercel CDN 캐시 활용. (서버 CORP 는 cross-origin 으로 열려 있음)
+  return u;
+}
+
+// 동영상 전용: Railway origin 직결 URL.
+// Vercel CDN 경유 시 Range 요청이 200(전체 캐시)으로 뭉개져 iOS <video> 가 재생을 거부
+// → "썸네일은 뜨는데 재생 안됨" QA 의 원인. origin 은 Range 206 + CORP cross-origin 지원.
+const MEDIA_ORIGIN = process.env.NEXT_PUBLIC_DIRECT_API_URL || 'https://affectionate-smile-production-6535.up.railway.app';
+function videoDirectUrl(u: string): string {
+  if (!u) return '';
+  if (u.startsWith('/uploads/')) return `${MEDIA_ORIGIN}${u}`;
   return u;
 }
 
@@ -1419,7 +1427,7 @@ export default function ChatRoomPage() {
                         <video
                           // #t=0.1 미디어프래그먼트 — 모바일(특히 iOS Safari)은 이게 없으면 첫 프레임을
                           // 디코드/표시 안 해 썸네일이 비어 보임. 0.1초 프레임으로 강제 시킹해 포스터 노출.
-                          src={(() => { const u = absChatUrl(msg.content); return u && /^(https?:|\/uploads\/)/.test(u) && !u.includes('#') ? `${u}#t=0.1` : u; })()}
+                          src={(() => { const u = videoDirectUrl(msg.content); return u && /^https?:/.test(u) && !u.includes('#') ? `${u}#t=0.1` : u; })()}
                           controls={msg.uploadProgress == null}
                           playsInline
                           preload="metadata"

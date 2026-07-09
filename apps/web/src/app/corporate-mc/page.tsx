@@ -4,15 +4,13 @@
  * 전문행사(기업행사) MC 랜딩 — 홈 "전문행사 사회자 찾기" 진입.
  * 톤앤매너: wedding-mc 페이지 기준(화이트 + 블루 #3182F6, 라운드 카드, 스크롤 리빌).
  * 히어로: 풀스크린 배경 영상 + 카피 오버레이 → 스크롤 시 하단 콘텐츠.
- * 폼 제출: wedding-mc 와 동일하게 matchApi (source: landing_corporate_mc_v1).
+ * 폼 제출: /api/inquiry (BusinessInquiry) → 어드민 /admin/inquiries 에 첨부파일까지 노출 + 이메일/시트 기록.
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { matchApi } from '@/lib/api/match.api';
-import { useAuthStore } from '@/lib/store/auth.store';
 import GlobalMcNetwork from './GlobalMcNetwork';
 
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
@@ -53,8 +51,6 @@ const SCATTER: { src: string; style: CSSProperties }[] = [
 ];
 const SCATTER_W = '300px';
 
-const EVENT_TYPES = ['사내 시상식', '송년회·신년회', '컨퍼런스·세미나', '브랜드·론칭 행사', '공공·기념식·의전', '투자설명회·데모데이', '아직 정해지지 않았어요 / 기타'];
-const BENEFITS = ['예상 견적 안내', 'MC 진행 영상·프로필', '대본·큐시트 가이드', '의전·식순 체크리스트'];
 // 후기 카드 아바타(귀여운 물범 캐릭터) — 5종 순환. 파일 없으면 avatar 이모지로 폴백.
 const AVATAR_IMGS = [
   `${MEDIA_DIR}/avatars/av-1.png`, `${MEDIA_DIR}/avatars/av-2.png`, `${MEDIA_DIR}/avatars/av-3.png`,
@@ -78,6 +74,25 @@ const REVIEWS: { title: string; body: string; avatar: string; demo: string }[] =
   { title: '내부 보고도 수월', body: '**프로필과 진행 영상**을 함께 주셔서 윗선 보고와 예산 승인이 한 번에 통과됐어요.', avatar: '👨', demo: '제약사 마케팅팀 · 심포지엄' },
   { title: '재섭외 확정', body: '올해 행사가 너무 좋아서 **내년 행사도 미리 예약**했습니다. 믿고 맡길 수 있어요.', avatar: '👩', demo: '금융지주 · 정기 주주총회' },
 ];
+// 개인정보 수집·이용 동의 (모달)
+const PRIVACY_SECTIONS: { heading: string; body: string }[] = [
+  { heading: '1. 수집하는 개인정보 항목', body: '수집 항목: 담당자명, 기관명, 연락처, 이메일, 행사 예정일, 행사 지역, 행사 진행에 필요한 사항을 수집합니다.' },
+  { heading: '2. 개인정보 수집·이용 목적', body: '프리티풀 서비스 제공 및 회원 관리, 기업ㆍ기관ㆍ단체ㆍ행사대행사 등 섭외 문의 접수ㆍ상담ㆍ견적 제공ㆍ계약 체결 및 이행ㆍ행사 운영 관련 커뮤니케이션ㆍ정산 및 분쟁 대응을 목적으로 개인정보를 수집합니다.' },
+  { heading: '3. 개인정보 보유·이용 기간', body: '회원 탈퇴 시 또는 서비스 종료 시까지 보유하며, 관련 법령에 따라 일정 기간 보관될 수 있습니다.' },
+  { heading: '4. 개인정보의 제3자 제공', body: '회사는 원칙적으로 정보주체의 개인정보를 외부에 제공하지 않습니다. 다만, 행사전문사회자 섭외 및 프리티풀 서비스 제공에 필요한 경우, 행사 진행에 필요한 최소한의 정보를 회사의 협력업체 및 배정 예정 또는 확정된 사회자에게 제공할 수 있습니다.' },
+  { heading: '5. 처리 위탁', body: '회사는 서비스 운영, 고객 상담, 알림 발송, 데이터 보관, 결제 및 정산 등 업무 수행을 위해 필요한 경우 개인정보 처리 업무의 일부를 외부 업체에 위탁할 수 있으며, 위탁 시 관련 법령에 따라 개인정보가 안전하게 처리되도록 관리·감독합니다.' },
+  { heading: '6. 동의 거부 권리 및 불이익', body: '개인정보 수집·이용에 동의하지 않을 권리가 있으나, 동의를 거부하실 경우 서비스 안내 및 이용이 제한될 수 있습니다.' },
+];
+
+// 행사 사회자 섭외 유의사항
+const BOOKING_NOTICES: string[] = [
+  '기업·기관 행사는 행사일 기준 3개월 전에 사회자 섭외가 시작되므로, 선호도가 높은 사회자는 일정이 조기 마감될 수 있습니다.',
+  '행사 진행 초안 및 확정된 행사 일시ㆍ장소 등 기타 사항을 전달해주시면, 상세한 견적 안내 및 행사에 적합한 사회자를 신속히 안내드립니다.',
+  '섭외 완료 기간은 상담 후 가급적 빠른 시일 내 확정됩니다.',
+  '프리티풀을 통해 소개받은 사회자와 별도 직거래를 진행하거나 우회하여 섭외하는 행위는 추가 서비스 이용이 제한될 수 있습니다.',
+  '제공해주신 첨부 자료ㆍ파일은 프리티풀 서비스 제공 및 견적 안내 목적으로만 사용됩니다.',
+];
+
 const STEPS = [
   { no: 'STEP 01', title: '행사 정보 접수', body: '전문 MD가 행사 일정·유형·규모·예산·식순을 확인합니다.' },
   { no: 'STEP 02', title: 'MC 제안 & 선택', body: '가능한 진행자를 프로필·진행 영상으로 비교해 직접 고르고, 내부 보고용 자료까지 받습니다.' },
@@ -85,30 +100,48 @@ const STEPS = [
   { no: 'STEP 04', title: '당일 진행 & 마무리', body: '리허설부터 현장 변수 대응, 정산·세금계산서까지 책임지고 마무리합니다.' },
 ];
 
+// 스크롤 다이얼 스탯 — 각 항목이 뷰포트 중앙으로 차례로 스냅되며 나타난다.
+const STATS: { text: string; label: string }[] = [
+  { text: '1,200+건',      label: '기업행사 진행' },
+  { text: '99%',           label: '담당자 재섭외 의향' },
+  { text: '0건',           label: '의전 진행 사고' },
+  { text: '100명 이상',    label: '검증된 행사가능 사회자' },
+  { text: '365일 24시간',  label: '상담가능시간' },
+];
+
 export default function CorporateMcPage() {
   const router = useRouter();
-  const authUser = useAuthStore((s) => s.user);
-  const setAuth = useAuthStore((s) => s.setAuth);
   const videoRef = useRef<HTMLVideoElement>(null);
   const crossRef = useRef<HTMLElement>(null);
   const vidRef = useRef<HTMLElement>(null);
   const bspreadRef = useRef<HTMLDivElement>(null); // 방송 3사 이미지 — 덱→양옆 펼침
   const globalRef = useRef<HTMLDivElement>(null); // Global MC Network(블랙 섹션) 래퍼 — 헤더 다크존 판정
+  const statsSecRef = useRef<HTMLElement>(null); // 성장 지표 다이얼 섹션
   const [scrolled, setScrolled] = useState(false);
   const [darkZone, setDarkZone] = useState(false); // 영상/블랙 섹션이 헤더를 덮는 동안 히어로 헤더 유지
+  const [fabTipOpen, setFabTipOpen] = useState(true); // 우하단 플로팅 버튼 위 글래스 툴팁 노출 여부
+  const [fabOverDark, setFabOverDark] = useState(true); // 플로팅 버튼이 다크 배경 위에 있는지 (흰 배경이면 글자/아이콘 검정)
+  const fabWrapRef = useRef<HTMLDivElement>(null);
 
   // 폼
   const [step, setStep] = useState<number | 'done'>(1);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [phone, setPhone] = useState('');
-  const [eventType, setEventType] = useState<string | null>(null);
   const [dateText, setDateText] = useState('');
   const [region, setRegion] = useState('');
-  const [size, setSize] = useState('');
-  const [benefits, setBenefits] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [policyModal, setPolicyModal] = useState<null | 'privacy' | 'notice'>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttach = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast.error('8MB 이하 파일만 첨부할 수 있어요.'); return; }
+    setAttachment(file);
+  };
 
   // 자동재생 보장(iOS WebView)
   useEffect(() => {
@@ -158,14 +191,53 @@ export default function CorporateMcPage() {
         const sp = Math.min(1, Math.max(0, (vh * 0.88 - br.top) / (vh * 0.5)));
         bs.style.setProperty('--bsp', String(sp));
       }
-      // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
+      // 성장 지표 다이얼: sticky 영역 안에서의 스크롤 진행률(0→1) 을 계산해 각 수치 row 의 위치/투명도/스케일 결정.
+      const ss = statsSecRef.current;
+      if (ss) {
+        const sr = ss.getBoundingClientRect();
+        const total = ss.offsetHeight - vh;
+        const scrolled = Math.min(Math.max(-sr.top, 0), total);
+        const p = total > 0 ? scrolled / total : 0;
+        const activeF = p * (STATS.length - 1);
+        const rows = ss.querySelectorAll<HTMLElement>('.cmc-stat-row');
+        const gap = Math.min(96, Math.max(72, vh * 0.11)); // 90 근처, 화면 높이에 따라 살짝 가변
+        rows.forEach((row, idx) => {
+          const dist = idx - activeF;
+          const absD = Math.abs(dist);
+          const y = dist * gap;
+          const o = Math.max(0, 1 - absD * 0.42);
+          const s = Math.max(0.6, 1 - absD * 0.12);
+          // 다이얼 원근: 중앙보다 위(dist<0)면 뒤로 눕고, 아래(dist>0)면 앞으로 눕는다.
+          // 중앙에서 멀수록 더 크게 기울이되(최대 ±58도) 캡을 둔다.
+          const rx = Math.max(-58, Math.min(58, -dist * 26));
+          row.style.setProperty('--y', `${y}px`);
+          row.style.setProperty('--o', String(o));
+          row.style.setProperty('--s', String(s));
+          row.style.setProperty('--rx', `${rx}deg`);
+          row.classList.toggle('is-active', absD < 0.4);
+        });
+      }
+      // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션·성장지표(우주 배경) 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
       const HEADER_Y = 56;
-      const dark = [vidRef.current, globalRef.current].some((el) => {
+      const dark = [vidRef.current, globalRef.current, statsSecRef.current].some((el) => {
         if (!el) return false;
         const dr = el.getBoundingClientRect();
         return dr.top <= HEADER_Y && dr.bottom >= HEADER_Y + 20;
       });
       setDarkZone(dark);
+
+      // 플로팅 버튼 배경 판정: 버튼 중심점에 다크 섹션([data-cmc-dark])이 걸리면 흰 글자, 아니면 검정.
+      const fabEl = fabWrapRef.current;
+      if (fabEl) {
+        const fr = fabEl.getBoundingClientRect();
+        const px = fr.left + fr.width / 2;
+        const py = fr.bottom - 38; // 원형 버튼(76px)의 대략 중심
+        const overDark = Array.from(document.querySelectorAll<HTMLElement>('[data-cmc-dark]')).some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.left <= px && r.right >= px && r.top <= py && r.bottom >= py;
+        });
+        setFabOverDark(overDark);
+      }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
     const onResize = () => { measureOpen(); apply(); };
@@ -193,47 +265,61 @@ export default function CorporateMcPage() {
 
   const scrollToApply = () => document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth' });
 
-  const goNext = (from: number) => {
-    if (from === 1 && (!name.trim() || !phone.trim())) { toast.error('성함과 연락처를 입력해주세요.'); return; }
-    if (from === 2 && !eventType) { toast.error('행사 유형을 선택해주세요.'); return; }
-    setStep(from + 1);
-  };
+  const [showErrors, setShowErrors] = useState(false);
+  const formValid = !!(name.trim() && phone.trim() && consent);
 
   const submit = async () => {
     if (submitting) return;
-    if (!consent) { toast.error('개인정보 수집·이용에 동의해주세요.'); return; }
+    if (!formValid) {
+      setShowErrors(true);
+      if (!name.trim() || !phone.trim()) toast.error('성함과 연락처를 입력해주세요.');
+      else if (!consent) toast.error('개인정보 수집·이용에 동의해주세요.');
+      return;
+    }
     setSubmitting(true);
-    const digits = phone.replace(/\D/g, '');
-    const rawUserInput = {
-      source: 'landing_corporate_mc_v1',
-      name: name.trim(), company: company.trim(), phone: phone.trim(),
-      eventType, dateText: dateText.trim(), region: region.trim(), size: size.trim(), benefits,
-      landing_url: typeof window !== 'undefined' ? window.location.href : '',
-    };
+
+    // 어드민(Biz 문의)으로 전송 — 이미 완성된 /admin/inquiries 화면에 첨부파일까지 그대로 노출됨.
+    // 모든 폼 값을 message 로 조합하고, 파일은 multipart 로 붙인다. (biz 페이지와 동일한 /api/inquiry 경로)
+    const messageLines = [
+      `행사 예정일: ${dateText.trim() || '미정'}`,
+      `행사 지역: ${region.trim() || '미정'}`,
+      '',
+      '[행사 기획 설명]',
+      description.trim() || '(작성 없음)',
+    ];
+    const fd = new FormData();
+    fd.append('company', company.trim());
+    fd.append('name', name.trim());
+    fd.append('phone', phone.trim());
+    fd.append('email', '');
+    fd.append('type', '전문 행사 사회자 섭외');
+    fd.append('message', messageLines.join('\n'));
+    if (attachment) fd.append('file', attachment);
+
     try {
-      let res: any;
-      if (authUser) {
-        res = await matchApi.createRequest({ categoryId: '전문행사사회자', type: 'multi', eventLocation: region.trim() || undefined, rawUserInput });
-      } else {
-        res = await matchApi.quickRequest({ name: name.trim() || undefined, phone: digits, categoryId: '전문행사사회자', type: 'multi', eventLocation: region.trim() || undefined, rawUserInput });
-        if (res?.accessToken && res?.refreshToken && res?.user) setAuth(res.user, res.accessToken, res.refreshToken);
+      const res = await fetch('/api/inquiry', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `요청 실패 (${res.status})`);
       }
-      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '행사 사회자' }); } catch {}
       setStep('done');
     } catch (err: any) {
-      toast.error(`제출에 실패했어요. ${err?.response?.data?.message || err?.message || ''}`);
+      toast.error(`제출에 실패했어요. ${err?.message || ''}`);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const pct = step === 'done' ? 100 : (step as number) * 25;
-
   return (
     <main className="cmc bg-white text-[#191F28]">
       {/* eslint-disable-next-line react/no-unknown-property */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+
+      {/* iOS 앱 네이티브 하단 네비 숨김 마커 — 앱 주입 스크립트의 readState 가
+          [role="dialog"]/[aria-modal="true"] 존재 시 hasBlockingOverlay=true 를 보내고,
+          Swift renderNativeNavigation 이 그동안 네비바를 숨긴다. display:none 이라
+          접근성 트리/화면에는 안 잡히고 querySelector 에만 걸림. (앱 재빌드 없이 즉효) */}
+      <div role="dialog" aria-modal="true" style={{ display: 'none' }} aria-hidden="true" />
 
       {/* 헤더 (히어로/다크섹션 위 투명 → 그 외 스크롤 시 흰 배경) */}
       <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled && !darkZone ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
@@ -252,7 +338,7 @@ export default function CorporateMcPage() {
       </header>
 
       {/* ───────── 히어로 (풀스크린 영상) ───────── */}
-      <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
+      <section data-cmc-dark className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
         <video
           ref={videoRef}
           className="cmc-hero-video absolute inset-0 h-full w-full object-cover"
@@ -288,6 +374,47 @@ export default function CorporateMcPage() {
         </button>
       </section>
 
+      {/* ───────── ANNOUNCER POOL (히어로 직후) ───────── */}
+      <section className="cmc-reveal px-5 py-14 text-center md:py-24">
+        <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Certified announcer</p>
+        <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">프리티풀은 방송사출신<br className="md:hidden" /> 아나운서들과 함께합니다</h2>
+        <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트<span className="hidden md:inline"> · </span><br className="md:hidden" />호텔·컨벤션 경험</p>
+        {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
+        <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
+          <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
+          <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" /></div>
+          <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" /></div>
+        </div>
+      </section>
+
+      {/* ───────── 성장 지표 — 스크롤 다이얼 (수치들이 중앙에 하나씩 스냅) ───────── */}
+      {/* 스탯 하나 전환당 스크롤 거리 = --stats-per * 화면높이 (모바일 0.55, 데스크톱 0.7). 작을수록 예민. */}
+      <section
+        ref={statsSecRef}
+        data-cmc-dark
+        className="cmc-stats-sec relative bg-black text-white"
+        style={{ height: `calc((${STATS.length} - 1) * var(--stats-per, 0.55) * 100vh + 100vh)` }}
+      >
+        <div className="cmc-stats-sticky">
+          <div className="cmc-stats-bg" aria-hidden="true" />
+          <div className="cmc-stats-inner">
+            <p className="cmc-condor mb-4 text-[13px] uppercase tracking-[0.16em] text-white/75 md:mb-5 md:text-[15px]">Verified announcer</p>
+            <h2 className="cmc-stats-heading font-extrabold leading-[1.3] tracking-[-0.02em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+              <span className="block text-[24px] md:text-[44px]">프리티풀의 신뢰는</span>
+              <span className="mt-1 block text-[24px] md:text-[44px]">숫자로 검증됩니다</span>
+            </h2>
+            <div className="cmc-stats-dial">
+              {STATS.map((s, i) => (
+                <div key={i} className="cmc-stat-row">
+                  <span className="cmc-stat-val">{s.text}</span>
+                  <span className="cmc-stat-lbl">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ───────── 교차 이미지 (품격) — 스크롤 시 위에서 겹쳤다가 텍스트 여백만큼 벌어짐 ───────── */}
       <section ref={crossRef} className="cmc-cross-sec relative bg-white px-5 py-28 md:py-44">
         {/* PC 전용 — 스크롤 시 흩뿌려지는 행사 사진(촤라락) */}
@@ -299,18 +426,18 @@ export default function CorporateMcPage() {
           ))}
         </div>
         <div className="cmc-cross relative z-[1] mx-auto flex max-w-md flex-col items-center md:max-w-lg">
-          {/* 상단 이미지 */}
+          {/* 상단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
           <div className="cmc-cross-img cmc-cross-a relative aspect-[4/5] w-[62%] self-start overflow-hidden bg-gradient-to-br from-[#EDEFF3] to-[#DDE1E8]">
-            <img src={`${MEDIA_DIR}/cross-01.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <video src="/videos/cross-top.mp4" autoPlay muted loop playsInline preload="auto" className="relative h-full w-full object-cover" />
           </div>
           {/* 텍스트 */}
           <div className="cmc-cross-text relative z-[2] -my-8 px-2 text-center">
-            <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">고급, <span className="cmc-flow">우아한 행사</span>의<br />품격을 달리하는 사회자들</h2>
+            <h2 className="cmc-pop text-[24px] md:text-[44px] font-extrabold leading-[1.35] tracking-[-0.02em] text-[#111]">중요한 순간, 행사의<br /><span className="cmc-flow">품격</span>을 결정하는 사회자</h2>
             <p className="cmc-pop cmc-d2 mt-4 text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">첫 인사의 설렘부터 마지막 박수의 감동까지.<br />프리티풀은 품격 있는 사회와 안정적인 진행으로<br />기업의 특별한 순간을 완벽하게 완성합니다.</p>
           </div>
-          {/* 하단 이미지 */}
+          {/* 하단 — 영상 (규격은 이미지와 동일: aspect-[4/5] w-[62%] object-cover) */}
           <div className="cmc-cross-img cmc-cross-b relative aspect-[4/5] w-[62%] self-end overflow-hidden bg-gradient-to-br from-[#F3EFEC] to-[#E6DED8]">
-            <img src={`${MEDIA_DIR}/cross-02.jpg`} alt="" loading="lazy" className="relative h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <video src="/videos/cross-bottom.mp4" autoPlay muted loop playsInline preload="auto" className="relative h-full w-full object-cover" />
           </div>
         </div>
       </section>
@@ -319,13 +446,13 @@ export default function CorporateMcPage() {
 
         {/* ───────── SOLUTION (슬라이더) ───────── */}
         <section className="px-5 py-12 md:py-20 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Verified Announcer Pool</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 검증된<br />아나운서 출신 풀을 보유하고 있습니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Trusted announcer</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">고급스러운 행사,<br />프리티풀의 검증된 사회자가 보장합니다.</h2>
           <p className="cmc-pop cmc-d2 mx-auto mt-4 max-w-[640px] text-[15px] md:text-[19px] leading-[1.7] text-[#6B7684]">행사 규모와 성격에 맞는 사회자를, 검증이 끝난 풀 안에서 바로 연결해드립니다.</p>
 
-          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드 */}
+          {/* 프로필 마퀴 — 자동 흐름 + 하단에서 순차 등장. PC 에선 max-w 컨테이너 벗어나 가로 풀블리드. 모바일은 더 빠르게(cmc-profile-track) */}
           <div className="cmc-marquee cmc-bleed-md cmc-riser mt-9">
-            <div className="cmc-marquee-track">
+            <div className="cmc-marquee-track cmc-profile-track">
               {[...PROFILE_SLIDES, ...PROFILE_SLIDES].map((s, i) => (
                 <div key={`${s.src}-${i}`} className={`cmc-rise cmc-d${(i % 5) + 1} relative aspect-[3/4] w-[264px] flex-none overflow-hidden`}>
                   <img src={s.src} alt="" loading="lazy" className="relative z-[2] h-full w-full object-cover object-top" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -337,30 +464,17 @@ export default function CorporateMcPage() {
 
         </section>
 
-        {/* ───────── ANNOUNCER POOL ───────── */}
-        <section className="cmc-reveal px-5 py-14 text-center md:py-24">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.18em] leading-none text-[#B7C0CC]">Verified MCs</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#1B2A4A]">3사 방송사 아나운서 출신 사회자들이<br />프리티풀과 함께합니다</h2>
-          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[600px] text-[15px] md:text-[19px] leading-[1.7] text-[#8B95A1]"><b className="text-[#3182F6]">KBS · SBS · MBC · YTN · JTBC</b> · 홈쇼핑 쇼호스트 · 호텔·컨벤션 경험</p>
-          {/* 방송 3사 — 겹친 덱에서 스크롤에 따라 양옆으로 펼쳐짐(아나운서 캐러셀과 동일 264px·3:4) */}
-          <div ref={bspreadRef} className="cmc-bspread relative mx-auto mt-10 h-[352px] md:mt-14">
-            <div className="cmc-bcard cmc-bc-l"><img src={`${MEDIA_DIR}/broadcast-sbs.jpg`} alt="SBS 사옥" /></div>
-            <div className="cmc-bcard cmc-bc-r"><img src={`${MEDIA_DIR}/broadcast-mbc.jpg`} alt="MBC 사옥" /></div>
-            <div className="cmc-bcard cmc-bc-c"><img src={`${MEDIA_DIR}/broadcast-kbs.jpg`} alt="KBS 사옥" /></div>
-          </div>
-        </section>
-
         {/* ───────── PREMIUM EVENTS ───────── */}
         <section className="px-5 pt-12 md:pt-20 text-center">
           <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">The Art of Premium Events</p>
-          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 자체 행사<br className="md:hidden" /> 기획·운영 경험을 갖추고 있습니다</h2>
-          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">프리티풀은 자사 주최 송년회부터 다양한 대형 웨딩홀에서 행사를 기획부터 모든 진행 및 설계까지 진행한 이력이 있습니다</p>
+          <h2 className="cmc-pop cmc-d1 mt-3 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">프리티풀은 행사 기획 및<br />현장 운영 역량을 갖추고 있습니다.</h2>
+          <p className="cmc-pop cmc-d2 mx-auto mt-5 max-w-[540px] text-[16px] md:text-[20px] leading-[1.7] text-[#6B7684]">전국 각 지역 행사장 &amp; 웨딩홀에서<br />행사 기획부터 진행까지 모두 가능합니다</p>
         </section>
 
         {/* 스크롤 시 전체화면으로 채워지는 영상 (풀스크린 도달 후 홀드 최소화 → 아래 gap 축소) */}
         <section ref={vidRef} className="cmc-vidsec relative h-[112vh]">
           <div className="sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
-            <div className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
+            <div data-cmc-dark className="cmc-vidbox relative overflow-hidden bg-black shadow-[0_40px_90px_-40px_rgba(0,0,0,0.5)]">
               <video src={PREMIUM_VIDEO} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
               {/* 후원사 로고 — 영상 안 글래스 오버레이(프로스트) 플로팅 캐러셀 (하단 고정 CTA 위로 띄움) */}
               <div className="pointer-events-none absolute inset-x-0 bottom-[calc(94px+env(safe-area-inset-bottom))] z-[2] px-4 md:px-10">
@@ -403,7 +517,7 @@ export default function CorporateMcPage() {
         )}
 
         {/* ───────── GLOBAL MC NETWORK (블랙 테이크오버 — 언어 타이포 → 자전 지구본) ───────── */}
-        <div ref={globalRef}>
+        <div ref={globalRef} data-cmc-dark>
           <GlobalMcNetwork />
         </div>
 
@@ -412,7 +526,7 @@ export default function CorporateMcPage() {
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, #DCEBFF 0%, #EDF4FF 40%, #E5EDFF 70%, #D6E4FF 100%)', zIndex: -1 }} />
           <div className="px-5 text-center">
             <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#7FA0D8]">Reviews</p>
-            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">잘 끝난 행사는,<br />담당자를 돋보이게 합니다</h2>
+            <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em] text-[#1B2A4A]">행사가 성공할수록,<br />담당자의 가치는 더 선명해집니다.</h2>
           </div>
           <div className="cmc-marquee cmc-riser mt-10">
             <div className="cmc-rev-track">
@@ -454,8 +568,8 @@ export default function CorporateMcPage() {
 
         {/* ───────── SCALE ───────── */}
         <section className="px-5 py-16 md:py-28 text-center">
-          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Over 1,200 Companies Chose Freetiful</p>
-          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의<br />행사가 프리티풀과 함께였습니다</h2>
+          <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Assured freetiful</p>
+          <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.32] tracking-[-0.02em]">이미 <span className="text-[#3182F6]">1,200개 기업</span>의 행사가<br />프리티풀의 전문 사회자와 함께했습니다.</h2>
           <p className="cmc-pop cmc-d2 mt-3 text-[16px] md:text-[20px] text-[#8B95A1]">이제 담당자님 차례입니다.</p>
 
           {/* 함께한 기업 로고 — 8줄 캐러셀, 스크롤 진입 시 하단에서 딱딱 올라오며 흐름 */}
@@ -479,101 +593,233 @@ export default function CorporateMcPage() {
           <div className="text-center">
             <p className="cmc-pop cmc-condor mb-3 text-[16px] md:text-[20px] uppercase tracking-[0.16em] leading-none text-[#B7C0CC]">Apply</p>
             <h2 className="cmc-pop cmc-d1 text-[24px] md:text-[44px] font-extrabold leading-[1.28] tracking-[-0.02em]">행사 일정이 없어도<br />미리 확인해두세요</h2>
-            <p className="cmc-pop cmc-d2 mt-3 text-[13.5px] font-bold text-[#E5484D]">📅 기업행사는 보통 5~6개월 전부터 섭외됩니다.</p>
+            <p className="cmc-pop cmc-d2 mt-3 inline-flex items-center justify-center gap-1.5 text-[17px] font-bold text-[#031228]/70">
+              <img src={`${MEDIA_DIR}/icon-warn.svg`} alt="" width={20} height={20} className="shrink-0" />
+              기업행사는 보통 5~6개월 전부터 섭외됩니다.
+            </p>
           </div>
 
-          <div className="mt-7 rounded-[26px] border border-[#EEF1F4] bg-white p-6 shadow-[0_20px_44px_-28px_rgba(20,24,31,0.28)]">
-            <p className="mb-2 text-[12px] font-semibold text-[#9AA4B2]">{step === 'done' ? '완료 · 100%' : `${step} / 4 단계 · ${pct}% 완료`}</p>
-            <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-[#EEF1F4]"><div className="h-full rounded-full bg-[#3182F6] transition-all duration-300" style={{ width: `${pct}%` }} /></div>
-
-            {step === 1 && (
-              <div className="cmc-fade">
-                <h3 className="text-[18px] font-bold">먼저 담당자님 정보를 알려주세요</h3>
-                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">가능 MC와 견적을 안내드릴 연락처예요.</p>
-                <Field label="성함 / 직함" value={name} onChange={setName} placeholder="예) 김OO 대리" />
-                <Field label="회사명 (선택)" value={company} onChange={setCompany} placeholder="예) OO기업 인사팀" />
-                <Field label="연락처" value={phone} onChange={setPhone} placeholder="010-0000-0000" type="tel" />
-                <button className="cmc-btn-primary mt-2" onClick={() => goNext(1)}>다음 →</button>
-                <p className="mt-3.5 text-center text-[12px] text-[#B0B8C1]">입력하신 정보는 MC 안내 목적으로만 사용됩니다.</p>
+          {step === 'done' ? (
+            <div className="cmc-fade mx-auto mt-7 max-w-md rounded-[24px] border border-[#EEF1F4] bg-white p-8 text-center shadow-[0_20px_44px_-28px_rgba(20,24,31,0.28)]">
+              <div className="mb-3 text-[44px]">🎯</div>
+              <h3 className="text-[21px] font-bold">신청 완료!</h3>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-[#6B7684]">담당 매니저가 1영업일 내에<br />남겨주신 연락처로 안내드릴게요.</p>
+              <button onClick={() => router.push('/main')} className="mt-6 h-[56px] w-full rounded-[16px] bg-[#3182F6] text-[17px] font-bold text-white transition active:scale-[0.98]">홈으로</button>
+              <p className="mt-4 text-[12.5px] text-[#B0B8C1]">가능 MC·견적은 입력하신 연락처로 안내됩니다.</p>
+            </div>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="mx-auto mt-8 max-w-md space-y-6">
+              {/* 성함 / 직함 */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">성함 / 직함</label>
+                <input
+                  type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 김OO 대리" autoComplete="name"
+                  className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !name.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
+                />
+                <p className={`mt-2.5 text-[14px] ${showErrors && !name.trim() ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>{showErrors && !name.trim() ? '담당자님 성함을 입력해주세요' : '가능 MC 안내를 받으실 담당자님 성함'}</p>
               </div>
-            )}
 
-            {step === 2 && (
-              <div className="cmc-fade">
-                <h3 className="text-[18px] font-bold">어떤 행사를 준비하고 계신가요?</h3>
-                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">행사 성격에 맞는 MC를 추천해드릴게요.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {EVENT_TYPES.map((t, i) => (
-                    <button key={t} onClick={() => setEventType(t)} className={`cmc-opt ${i === EVENT_TYPES.length - 1 ? 'col-span-2' : ''} ${eventType === t ? 'cmc-opt-sel' : ''}`}>{t}</button>
-                  ))}
-                </div>
-                <div className="mt-6 flex gap-2.5">
-                  <button className="cmc-btn-ghost" onClick={() => setStep(1)}>← 이전</button>
-                  <button className="cmc-btn-primary flex-1" onClick={() => goNext(2)}>다음 →</button>
-                </div>
+              {/* 회사명 (선택) */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">회사명 <span className="text-[13px] font-medium text-[#9AA3B0]">(선택)</span></label>
+                <input
+                  type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="예) OO기업 인사팀"
+                  className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none focus:border-[#3182F6]"
+                />
               </div>
-            )}
 
-            {step === 3 && (
-              <div className="cmc-fade">
-                <h3 className="text-[18px] font-bold">행사 정보를 알려주세요</h3>
-                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">행사일·지역·규모를 알면 더 잘 맞는 분을 추천할 수 있어요.</p>
-                <Field label="행사 예정일" value={dateText} onChange={setDateText} placeholder="예) 2026년 12월 중순 / 미정" />
-                <Field label="행사 지역" value={region} onChange={setRegion} placeholder="예) 서울 강남 / 호텔 미정" />
-                <Field label="예상 참석 인원 (선택)" value={size} onChange={setSize} placeholder="예) 100명 내외" />
-                <div className="mt-6 flex gap-2.5">
-                  <button className="cmc-btn-ghost" onClick={() => setStep(2)}>← 이전</button>
-                  <button className="cmc-btn-primary flex-1" onClick={() => goNext(3)}>다음 →</button>
-                </div>
+              {/* 연락처 */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">연락처</label>
+                <input
+                  type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" autoComplete="tel"
+                  className={`mt-2 w-full border-b-2 bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none ${showErrors && !phone.trim() ? 'border-[#FF4D4F] focus:border-[#FF4D4F]' : 'border-[#E5E8EE] focus:border-[#3182F6]'}`}
+                />
+                <p className={`mt-2.5 text-[14px] ${showErrors && !phone.trim() ? 'text-[#FF4D4F]' : 'text-[#9AA3B0]'}`}>{showErrors && !phone.trim() ? '연락처를 입력해주세요' : '가능 MC와 견적을 안내드릴 연락처'}</p>
               </div>
-            )}
 
-            {step === 4 && (
-              <div className="cmc-fade">
-                <h3 className="text-[18px] font-bold">마지막이에요!</h3>
-                <p className="mb-5 mt-1 text-[13.5px] text-[#8B95A1]">필요한 자료를 함께 보내드릴게요. (복수 선택)</p>
-                <div className="grid grid-cols-1 gap-2">
-                  {BENEFITS.map((b) => (
-                    <button key={b} onClick={() => setBenefits((prev) => prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b])} className={`cmc-chk ${benefits.includes(b) ? 'cmc-chk-sel' : ''}`}>
-                      <span className="cmc-box">{benefits.includes(b) && <Check size={12} strokeWidth={3} />}</span>{b}
+              {/* 행사 예정일 (데이트 피커) / 지역 */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">행사 예정일 <span className="text-[13px] font-medium text-[#9AA3B0]">(선택)</span></label>
+                <input type="date" value={dateText} onChange={(e) => setDateText(e.target.value)} className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] outline-none focus:border-[#3182F6]" style={{ colorScheme: 'light' }} />
+              </div>
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">행사 지역 <span className="text-[13px] font-medium text-[#9AA3B0]">(선택)</span></label>
+                <input type="text" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="예) 서울 강남 / 호텔 미정" className="mt-2 w-full border-b-2 border-[#E5E8EE] bg-transparent pb-2.5 text-[21px] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none focus:border-[#3182F6]" />
+              </div>
+
+              {/* 행사 기획 설명 (멀티라인) */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">행사 기획 설명 <span className="text-[13px] font-medium text-[#9AA3B0]">(선택)</span></label>
+                <textarea
+                  value={description} onChange={(e) => setDescription(e.target.value)} rows={4}
+                  placeholder={'행사 목적·규모·진행 순서·요청 사항 등\n자유롭게 적어주시면 더 정확히 안내드려요.'}
+                  className="mt-2 w-full resize-none rounded-[16px] border-2 border-[#ECEEF2] bg-white px-[18px] py-4 text-[16px] leading-[1.6] text-[#1A1A1A] placeholder:text-[#9AA3B0] outline-none transition focus:border-[#3182F6]"
+                />
+              </div>
+
+              {/* 첨부파일 */}
+              <div>
+                <label className="block text-[15px] font-bold text-[#1A1A1A]">첨부파일 <span className="text-[13px] font-medium text-[#9AA3B0]">(선택)</span></label>
+                <input
+                  ref={fileInputRef} type="file" className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.hwp,.xls,.xlsx"
+                  onChange={(e) => handleAttach(e.target.files?.[0])}
+                />
+                {attachment ? (
+                  <div className="mt-2 flex items-center gap-3 rounded-[16px] border-2 border-[#3182F6] bg-[rgba(49,130,246,0.06)] px-[18px] py-3.5">
+                    <Paperclip size={18} className="shrink-0 text-[#3182F6]" />
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#1F6FE5]">{attachment.name}</span>
+                    <button type="button" onClick={() => { setAttachment(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} className="shrink-0 text-[#8B95A1] transition hover:text-[#4E5968]">
+                      <X size={18} strokeWidth={2.5} />
                     </button>
-                  ))}
-                </div>
-                <button onClick={() => setConsent(!consent)} className={`cmc-chk mt-2 w-full ${consent ? 'cmc-chk-sel' : ''}`}>
-                  <span className="cmc-box">{consent && <Check size={12} strokeWidth={3} />}</span>개인정보 수집·이용에 동의합니다
-                </button>
-                <div className="mt-6 flex gap-2.5">
-                  <button className="cmc-btn-ghost" onClick={() => setStep(3)}>← 이전</button>
-                  <button className="cmc-btn-primary flex-1" disabled={submitting} onClick={submit}>{submitting ? '접수 중…' : '가능 MC · 견적 신청 🎯'}</button>
-                </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button" onClick={() => fileInputRef.current?.click()}
+                    className="mt-2 flex h-[54px] w-full items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-[#D5DAE2] bg-[#FAFBFC] text-[15px] font-semibold text-[#4E5968] transition active:scale-[0.98] hover:border-[#3182F6] hover:text-[#3182F6]"
+                  >
+                    <Paperclip size={17} className="shrink-0" />
+                    행사 기획서·참고 자료 첨부
+                  </button>
+                )}
+                <p className="mt-2 text-[13px] text-[#9AA3B0]">이미지·PDF·문서 파일 · 8MB 이하</p>
               </div>
-            )}
 
-            {step === 'done' && (
-              <div className="cmc-fade py-4 text-center">
-                <div className="mb-3 text-[44px]">🎯</div>
-                <h3 className="text-[21px] font-bold">신청 완료!</h3>
-                <p className="mt-2 text-[14.5px] leading-relaxed text-[#6B7684]">1영업일 내에 행사에 맞는 가능 MC와<br />예상 견적을 안내드릴게요.</p>
-                <button onClick={() => router.push('/inquiries')} className="cmc-btn-primary mt-6">내 문의 내역 보기</button>
-                <p className="mt-4 text-[12.5px] text-[#B0B8C1]">가능 MC·견적은 문의목록과 연락처로 안내됩니다.</p>
+              {/* 개인정보 동의 */}
+              <div>
+                <label className="flex cursor-pointer items-center justify-center gap-3 pt-1">
+                  <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="sr-only" />
+                  <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border-2 transition-colors" style={{ borderColor: consent ? '#3182F6' : (showErrors && !consent ? '#FF4D4F' : '#D5DAE2'), backgroundColor: consent ? '#3182F6' : 'transparent' }}>
+                    {consent && <Check size={16} strokeWidth={3} className="text-white" />}
+                  </span>
+                  <span className={`text-[16px] ${showErrors && !consent ? 'text-[#FF4D4F]' : 'text-[#3A3F49]'}`}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPolicyModal('privacy'); }}
+                      className="font-semibold text-[#3182F6] underline underline-offset-2"
+                    >개인정보 수집·이용</button>에 동의합니다.
+                  </span>
+                </label>
+                {showErrors && !consent && <p className="mt-1.5 text-center text-[14px] text-[#FF4D4F]">개인정보 수집·이용에 동의해주세요</p>}
               </div>
-            )}
-          </div>
+
+              {/* 제출 */}
+              <button
+                type="submit" disabled={submitting}
+                className={`h-[56px] w-full rounded-[16px] text-[17px] font-bold transition active:scale-[0.98] disabled:opacity-60 ${formValid ? 'bg-[#3182F6] hover:bg-[#4E83F6] text-white' : 'bg-[#F2F4F6] text-[#333D4B]'}`}
+              >
+                {submitting ? '접수 중…' : '가능 MC · 견적 무료 신청'}
+              </button>
+              <p className="text-center text-[12px] text-[#B0B8C1]">입력하신 정보는 MC 안내 목적으로만 사용됩니다.</p>
+
+              {/* 행사 사회자 섭외 유의사항 */}
+              <div className="rounded-[16px] bg-[#F2F4F6] px-5 py-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-[15px] font-bold text-[#031228]/70">행사 사회자 섭외 유의사항</h3>
+                  <button type="button" onClick={() => setPolicyModal('notice')} className="shrink-0 text-[13px] font-semibold text-[#031228]/46 underline underline-offset-2">전체보기</button>
+                </div>
+                <ol className="mt-3.5 space-y-2.5">
+                  {BOOKING_NOTICES.map((line, i) => (
+                    <li key={i} className="flex gap-2 text-[14px] leading-[1.6] text-[#031228]/70">
+                      <span className="shrink-0 font-bold text-[#031228]/46">{i + 1}.</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </form>
+          )}
         </section>
 
         <footer className="border-t border-[#F0EEE9] px-5 py-10 text-center">
-          <p className="text-[14px] text-[#6B7684]"><b className="text-[#191F28]">1,200개 기업</b>이 프리티풀 MC와 함께했습니다.</p>
-          <button onClick={scrollToApply} className="cmc-btn-primary mx-auto mt-5 !w-auto px-8">🎯 가능 MC · 견적 무료 확인</button>
-          <p className="mt-5 text-[11px] leading-relaxed text-[#B0B8C1]">© FREETIFUL · CORPORATE MC<br />본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.</p>
+          <p className="text-[11px] leading-relaxed text-[#B0B8C1]">© FREETIFUL · CORPORATE MC<br />본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.</p>
         </footer>
       </div>
 
-      {/* 하단 고정 CTA (히어로 지난 뒤) */}
-      <div className={`fixed inset-x-0 bottom-0 z-30 transition-transform duration-300 ${scrolled ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="mx-auto max-w-md px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" style={{ background: 'linear-gradient(transparent, #fff 32%)' }}>
-          <button onClick={scrollToApply} className="w-full rounded-full bg-[#3182F6] py-4 text-[16px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(49,128,247,0.6)] active:scale-[0.98]">가능 MC · 견적 확인하기</button>
-        </div>
+      {/* 우하단 플로팅 — 글래스 툴팁 + 원형 섭외/상담 버튼 */}
+      <div ref={fabWrapRef} className="fixed right-4 z-40 flex flex-col items-end gap-3 bottom-[max(20px,env(safe-area-inset-bottom))]">
+        {/* 글래스 툴팁 — 흰 배경 위에선 검정 글자/아이콘 */}
+        {fabTipOpen && (
+          <button
+            onClick={scrollToApply}
+            className={`cmc-glass cmc-fab-tip flex items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold active:scale-95 md:text-[15px] ${fabOverDark ? 'text-white' : 'cmc-fab-tip--light text-[#191F28]'}`}
+          >
+            프리미엄 사회자 섭외
+            <span className="text-[15px] leading-none opacity-80">+</span>
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="툴팁 닫기"
+              onClick={(e) => { e.stopPropagation(); setFabTipOpen(false); }}
+              className={`-mr-1.5 ml-0.5 flex h-5 w-5 items-center justify-center rounded-full transition ${fabOverDark ? 'text-white/70 hover:bg-white/15 hover:text-white' : 'text-[#191F28]/50 hover:bg-black/10 hover:text-[#191F28]'}`}
+            >
+              <X size={13} strokeWidth={2.5} />
+            </span>
+          </button>
+        )}
+        {/* 원형 섭외/상담 버튼 */}
+        <button
+          onClick={scrollToApply}
+          className="cmc-fab flex h-[76px] w-[76px] flex-col items-center justify-center rounded-full text-white active:scale-95"
+          aria-label="섭외 상담"
+        >
+          <span className="text-[15px] font-bold leading-none">섭외</span>
+          <span className="my-1 h-px w-6 bg-white/45" />
+          <span className="text-[15px] font-bold leading-none">상담</span>
+        </button>
       </div>
+
+      {/* 정책 모달 — 개인정보 수집·이용 / 섭외 유의사항 */}
+      {policyModal && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/45 animate-[cmcOverlayIn_0.25s_ease]" onClick={() => setPolicyModal(null)} />
+          <div className="relative flex max-h-[86vh] w-full max-w-[520px] flex-col rounded-t-[24px] bg-white shadow-2xl sm:rounded-[24px] animate-[cmcSheetIn_0.32s_cubic-bezier(0.16,1,0.3,1)]">
+            <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-3">
+              <h2 className="text-[19px] font-bold leading-[1.35] text-[#191F28]">
+                {policyModal === 'privacy' ? '개인정보 수집·이용 동의' : '행사 사회자 섭외 유의사항'}
+              </h2>
+              <button type="button" onClick={() => setPolicyModal(null)} aria-label="닫기" className="-mr-1.5 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#8B95A1] transition hover:bg-gray-100 hover:text-[#4E5968]">
+                <X size={20} strokeWidth={2.4} />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {policyModal === 'privacy' ? (
+                <div className="space-y-4 pb-4">
+                  {PRIVACY_SECTIONS.map((s, i) => (
+                    <div key={i}>
+                      <p className="text-[14.5px] font-bold text-[#031228]/85">{s.heading}</p>
+                      <p className="mt-1 text-[14px] leading-[1.65] text-[#031228]/62">{s.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ol className="space-y-3 pb-4">
+                  {BOOKING_NOTICES.map((line, i) => (
+                    <li key={i} className="flex gap-2 text-[14.5px] leading-[1.65] text-[#031228]/70">
+                      <span className="shrink-0 font-bold text-[#031228]/46">{i + 1}.</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <div className="px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-3">
+              <button
+                type="button"
+                onClick={() => { if (policyModal === 'privacy') setConsent(true); setPolicyModal(null); }}
+                className="h-[54px] w-full rounded-[16px] bg-[#3182F6] text-[16px] font-bold text-white transition active:scale-[0.98]"
+              >
+                {policyModal === 'privacy' ? '동의하고 닫기' : '확인'}
+              </button>
+            </div>
+          </div>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes cmcOverlayIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes cmcSheetIn { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: translateY(0) } }
+          ` }} />
+        </div>
+      )}
     </main>
   );
 }
@@ -610,15 +856,6 @@ function Highlight({ text }: { text: string }) {
   );
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
-  return (
-    <div className="mb-3.5">
-      <label className="mb-1.5 block text-[13px] font-semibold text-[#3D4148]">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-[12px] border border-[#E5E8EB] bg-[#FAFBFC] px-4 py-3 text-[15px] outline-none transition focus:border-[#3182F6]" />
-    </div>
-  );
-}
-
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Allura&display=swap');
 @font-face{font-family:'Condor';src:url('/fonts/Condor-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
@@ -652,6 +889,16 @@ const CSS = `
 .cmc-glass:hover{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.42)}
 .cmc-glass-primary{background:rgba(49,130,246,0.28);border-color:rgba(255,255,255,0.38);box-shadow:0 10px 34px -8px rgba(49,130,246,0.55),inset 0 1px 0 rgba(255,255,255,0.5)}
 .cmc-glass-primary:hover{background:rgba(49,130,246,0.4)}
+/* 우하단 플로팅 — 원형 섭외/상담 버튼(브랜드 블루) + 글래스 툴팁 */
+.cmc-fab{background:linear-gradient(150deg,#3F8DFF 0%,#2F72E6 100%);box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 4px 12px -4px rgba(0,0,0,0.25),inset 0 1px 0 rgba(255,255,255,0.35);transition:transform .15s,box-shadow .25s;animation:cmcFabPulse 2.8s ease-in-out infinite}
+.cmc-fab:hover{box-shadow:0 18px 38px -8px rgba(49,128,247,0.7),0 4px 12px -4px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.4)}
+@keyframes cmcFabPulse{0%,100%{box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 0 0 0 rgba(49,128,247,0.32),inset 0 1px 0 rgba(255,255,255,0.35)}50%{box-shadow:0 14px 30px -8px rgba(49,128,247,0.6),0 0 0 12px rgba(49,128,247,0),inset 0 1px 0 rgba(255,255,255,0.35)}}
+/* 툴팁: 등장 + 은은히 위아래로 떠 있는 느낌 */
+.cmc-fab-tip{background:rgba(49,130,246,0.34);border-color:rgba(255,255,255,0.4);box-shadow:0 10px 30px -10px rgba(49,128,247,0.5),inset 0 1px 0 rgba(255,255,255,0.45);animation:cmcTipIn .5s cubic-bezier(.19,1,.22,1) both,cmcTipBob 3.2s ease-in-out .6s infinite;white-space:nowrap}
+/* 흰 배경 위 툴팁 — 흰 글래스 + 검정 글자 */
+.cmc-fab-tip--light{background:rgba(255,255,255,0.72);border-color:rgba(0,0,0,0.08);box-shadow:0 12px 30px -10px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.9)}
+@keyframes cmcTipIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cmcTipBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 /* 교차 이미지 섹션 — 처음엔 텍스트에 겹쳤다가 스크롤 내리며 텍스트 섹션 높이만큼 촥 벌어짐(--spread:0→1, --open=텍스트 높이 절반+여유) */
 .cmc-cross-sec{--spread:0;--open:180px}
 .cmc-cross-img{will-change:transform;transition:transform .12s linear}
@@ -662,6 +909,8 @@ const CSS = `
 /* 프로필 마퀴 — 자동으로 흐르는 캐러셀 */
 .cmc-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .cmc-marquee-track{display:flex;gap:14px;width:max-content;animation:cmcMarquee 32s linear infinite}
+/* 사회자 프로필 캐러셀 — 모바일에선 더 빠르게 흐름 */
+@media (max-width:767px){.cmc-profile-track{animation-duration:19s}}
 .cmc-marquee:hover .cmc-marquee-track{animation-play-state:paused}
 @keyframes cmcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 /* 후기 카드 캐러셀 — 큰 카드가 천천히 흐름, 호버 시 정지 */
@@ -679,6 +928,23 @@ const CSS = `
 .cmc-bc-l{z-index:10;transform:translateX(calc(var(--bsx) * var(--bsp) * -1)) rotate(calc(-5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
 .cmc-bc-r{z-index:20;transform:translateX(calc(var(--bsx) * var(--bsp))) rotate(calc(5deg * (1 - var(--bsp)))) scale(calc(0.96 + 0.04 * var(--bsp)))}
 .cmc-bc-c{z-index:30}
+/* 성장 지표 다이얼 — 첨부 우주 이미지 배경 + 스크롤에 맞춰 수치가 중앙에 스냅 */
+.cmc-stats-sec{position:relative;color:#fff;background:#000;--stats-per:0.55}
+.cmc-stats-sticky{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;isolation:isolate;contain:paint}
+.cmc-stats-bg{position:absolute;inset:0;overflow:hidden;background:#03060F url('/images/corporate-mc/stats-cosmos-bg.png') center center / cover no-repeat}
+/* 중앙 텍스트 가독성용 은은한 딤 — 이미지 위 수치가 파묻히지 않게 */
+.cmc-stats-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 42% at 50% 50%,rgba(3,8,26,0.55) 0%,rgba(3,8,26,0.28) 45%,transparent 72%)}
+.cmc-stats-inner{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 8vh) 20px 8vh}
+.cmc-stats-heading{text-align:center}
+@media (min-width:768px){.cmc-stats-sec{--stats-per:0.7}}
+.cmc-stats-dial{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none;perspective:620px;perspective-origin:50% 50%;transform-style:preserve-3d}
+/* 스크롤 구동 값이라 transform 에는 transition 을 걸지 않는다(걸면 스크롤을 못 따라와 "두두둑" 랙 발생). opacity 만 살짝. */
+.cmc-stat-row{position:absolute;left:50%;top:0;transform:translate(-50%,calc(var(--y,0px) - 50%)) rotateX(var(--rx,0deg)) scale(var(--s,1));transform-origin:center center;opacity:var(--o,0);text-align:center;white-space:nowrap;transition:opacity .12s linear;display:flex;flex-direction:column;align-items:center;gap:6px;backface-visibility:hidden;will-change:transform,opacity}
+.cmc-stat-val{font-size:46px;font-weight:800;letter-spacing:-0.03em;color:rgba(210,225,255,0.52);line-height:1;text-shadow:0 1px 10px rgba(0,6,22,0.4)}
+.cmc-stat-lbl{font-size:15px;font-weight:500;color:rgba(195,212,238,0.6);letter-spacing:-0.01em;text-shadow:0 1px 6px rgba(0,6,22,0.45)}
+.cmc-stat-row.is-active .cmc-stat-val{color:#fff;text-shadow:0 1px 14px rgba(0,6,22,0.5),0 0 34px rgba(120,170,255,0.28)}
+.cmc-stat-row.is-active .cmc-stat-lbl{color:rgba(225,234,248,0.98);text-shadow:0 1px 8px rgba(0,6,22,0.5)}
+@media (min-width:768px){.cmc-stat-val{font-size:66px}.cmc-stat-row.is-active .cmc-stat-val{font-size:88px}.cmc-stat-lbl{font-size:18px}.cmc-stat-row.is-active .cmc-stat-lbl{font-size:19px}}
 /* 기업 로고 5줄 캐러셀 — 천천히 흐르는 신뢰 월 */
 .cmc-logo-wall{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .cmc-logo-marquee{overflow:hidden}
@@ -714,14 +980,4 @@ const CSS = `
 .cmc-scrollhint{opacity:0;animation:cmcRise .8s ease 1.9s forwards,cmcBounce 1.8s ease-in-out 1.9s infinite}
 @keyframes cmcFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .cmc-fade{animation:cmcFade .35s ease}
-.cmc-btn-primary{display:inline-flex;width:100%;align-items:center;justify-content:center;border-radius:999px;background:#191F28;color:#fff;font-size:15px;font-weight:700;padding:15px 24px;transition:transform .15s,opacity .15s}
-.cmc-btn-primary:active{transform:scale(.98)}
-.cmc-btn-primary:disabled{opacity:.6}
-.cmc-btn-ghost{flex:0 0 auto;border-radius:999px;border:1px solid #E5E8EB;background:#fff;color:#4E5968;font-size:15px;font-weight:600;padding:15px 20px}
-.cmc-opt{border:1px solid #E5E8EB;border-radius:12px;padding:14px 14px;font-size:14px;font-weight:500;text-align:left;background:#FAFBFC;color:#191F28;transition:all .15s}
-.cmc-opt-sel{border-color:#3182F6;background:#EEF5FF;color:#1F6FE5;font-weight:700}
-.cmc-chk{display:flex;align-items:center;gap:10px;border:1px solid #E5E8EB;border-radius:12px;padding:13px 15px;font-size:14px;background:#FAFBFC;color:#191F28;text-align:left;transition:all .15s}
-.cmc-chk-sel{border-color:#3182F6;background:#EEF5FF}
-.cmc-box{width:20px;height:20px;flex-shrink:0;border:1.5px solid #C4CCD4;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;background:#fff;transition:all .15s}
-.cmc-chk-sel .cmc-box{background:#3182F6;border-color:#3182F6}
 `;
