@@ -50,6 +50,13 @@ export class PaymentController {
     return this.paymentService.confirmPayment(req.user.id, body);
   }
 
+  /** 토스 웹훅 — 가상계좌 입금 완료/취소 확정 (토스 서버가 인증 없이 호출하므로 Public) */
+  @Post('webhook')
+  @ApiOperation({ summary: '토스 웹훅 (가상계좌 입금 완료/취소)' })
+  handleWebhook(@Body() body: any) {
+    return this.paymentService.handleTossWebhook(body);
+  }
+
   /** 결제 내역 목록 */
   @Get()
   @UseGuards(JwtAuthGuard)

@@ -5,12 +5,15 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 
+type VirtualAccount = { bank: string | null; accountNumber: string | null; dueDate: string | null; customerName: string | null };
+
 function PaymentSuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'waiting' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
+  const [virtualAccount, setVirtualAccount] = useState<VirtualAccount | null>(null);
 
   const paymentKey = searchParams.get('paymentKey');
   const orderId = searchParams.get('orderId');
@@ -31,6 +34,12 @@ function PaymentSuccessInner() {
       amount: Number(amount),
     })
       .then((res: any) => {
+        // 가상계좌: 계좌만 발급되고 아직 입금 전 → '입금 대기' 화면 (완료 아님!)
+        if (res?.data?.awaitingDeposit) {
+          setVirtualAccount(res?.data?.virtualAccount ?? null);
+          setStatus('waiting');
+          return;
+        }
         setStatus('success');
         const cid = res?.data?.chatRoomId;
         if (cid) {
@@ -72,6 +81,54 @@ function PaymentSuccessInner() {
           <button onClick={() => router.back()} className="bg-gray-900 text-white font-semibold text-[14px] px-6 py-3 rounded-xl">
             다시 시도하기
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'waiting') {
+    const bankName = virtualAccount?.bank || '';
+    const dueLabel = virtualAccount?.dueDate ? new Date(virtualAccount.dueDate).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white px-6">
+        <div className="text-center max-w-sm w-full">
+          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" fill="#DBEAFE" />
+              <path d="M12 7v5l3 2" stroke="#3182F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <h1 className="text-[22px] font-bold text-gray-900 mb-1">입금 대기 중</h1>
+          <p className="text-[14px] text-gray-500 mb-6">아래 가상계좌로 입금하시면<br />결제가 완료됩니다.</p>
+
+          <div className="rounded-2xl border border-gray-100 bg-[#F8FAFC] p-5 text-left space-y-3">
+            {virtualAccount?.accountNumber ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] text-gray-400">입금 계좌</span>
+                  <span className="text-[15px] font-bold text-gray-900">{bankName} {virtualAccount.accountNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] text-gray-400">입금 금액</span>
+                  <span className="text-[15px] font-bold text-[#3182F6]">{Number(amount).toLocaleString()}원</span>
+                </div>
+                {dueLabel && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-gray-400">입금 기한</span>
+                    <span className="text-[14px] font-semibold text-gray-700">{dueLabel}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-[14px] text-gray-500">발급된 가상계좌 정보는 문자 및 결제 내역에서 확인하실 수 있습니다.</p>
+            )}
+          </div>
+          <p className="mt-4 text-[12px] text-gray-400">입금이 확인되면 자동으로 결제가 완료 처리됩니다.</p>
+
+          <div className="mt-7 space-y-2.5">
+            <Link href="/chat" className="block w-full bg-[#3180F7] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-[0.97] transition-transform">채팅 목록으로</Link>
+            <Link href="/main" className="block w-full text-gray-400 font-medium text-[14px] py-2">홈으로 돌아가기</Link>
+          </div>
         </div>
       </div>
     );

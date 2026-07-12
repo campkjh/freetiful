@@ -41,6 +41,7 @@ enum BusinessStatus {
 
 enum PaymentStatus {
   pending
+  waiting_for_deposit // 가상계좌 발급됨 · 입금 대기(미결제). 입금 완료 웹훅 수신 시 completed 로 전환.
   completed
   failed
   refunded
