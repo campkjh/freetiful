@@ -245,8 +245,14 @@ export default function ChatConnectionsPage() {
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없습니다</div>
         ) : (() => {
           const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.quickRate != null && r.quickRate >= 0.8));
-          const good = respStats.filter(isGood);
-          const attention = respStats.filter((r) => !isGood(r));
+          // 즉답률 높은 순으로 정렬 → 잘하는 사회자가 위로. 동률이면 즉답 건수 많은 순, 요청없음은 맨 뒤.
+          const byQuick = (a: RespStat, b: RespStat) => {
+            const ra = a.quickRate ?? -1, rb = b.quickRate ?? -1;
+            if (rb !== ra) return rb - ra;
+            return (b.quickCount ?? 0) - (a.quickCount ?? 0);
+          };
+          const good = respStats.filter(isGood).sort(byQuick);
+          const attention = respStats.filter((r) => !isGood(r)).sort(byQuick);
           const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
             <div className="flex flex-col rounded-lg bg-white px-2.5 py-2 ring-1 ring-black/[0.05]">
               <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
