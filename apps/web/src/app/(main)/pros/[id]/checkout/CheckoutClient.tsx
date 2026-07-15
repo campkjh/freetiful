@@ -34,7 +34,11 @@ export default function CheckoutClient({
   const widgetsRef = useRef<any>(null);
   const safeAmount = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
   const finalAmount = Number(quoteDetail?.amount || safeAmount || 0);
-  const displayAmount = Math.max(0, finalAmount);
+  // 견적 금액 = 공급가액. 실제 결제는 부가세(10%) 포함 총액으로 진행. (예: 30만 → 33만)
+  const VAT_RATE = 0.1;
+  const supplyAmount = Math.max(0, finalAmount);
+  const vatAmount = Math.round(supplyAmount * VAT_RATE);
+  const displayAmount = supplyAmount + vatAmount; // 부가세 포함 총 결제금액(위젯·주문·표시 공통)
   const proName = pro?.user?.name || pro?.name || '사회자';
   const planName = quoteDetail?.title || plan || '견적 결제';
   const orderName = useMemo(() => `${proName} 사회자 - ${planName}`.slice(0, 100), [planName, proName]);
@@ -186,7 +190,15 @@ export default function CheckoutClient({
           </section>
 
           <section className="mt-6 rounded-[22px] bg-gray-50 px-5 py-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between text-[13.5px] text-gray-500">
+              <span>공급가액</span>
+              <span className="tabular-nums">{formatKRW(supplyAmount)}</span>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[13.5px] text-gray-500">
+              <span>부가세 (10%)</span>
+              <span className="tabular-nums">{formatKRW(vatAmount)}</span>
+            </div>
+            <div className="mt-3 border-t border-gray-200 pt-3 flex items-center justify-between">
               <span className="text-[14px] font-semibold text-gray-500">총 결제금액</span>
               <span className="text-[24px] font-extrabold text-gray-950 tabular-nums">{formatKRW(displayAmount)}</span>
             </div>
