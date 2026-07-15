@@ -19,7 +19,7 @@ function BizKakaoMap() {
   return (
     <iframe
       title="프리티풀 오시는길"
-      src="https://www.openstreetmap.org/export/embed.html?bbox=127.0184%2C37.5023%2C127.0384%2C37.5223&layer=mapnik&marker=37.5123%2C127.0284"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=126.9863%2C37.5553%2C127.0013%2C37.5653&layer=mapnik&marker=37.56029%2C126.99376"
       className="w-full h-full border-0"
       loading="lazy"
     />
@@ -403,6 +403,8 @@ const HISTORY_DATA = [
     { ko: '02월 제휴업체 300여 곳과 전략적 파트너십 체결', en: 'Feb · Strategic partnerships with 300+ affiliates', ja: '2月 提携先 300 社と戦略的パートナーシップ締結', zh: '2月 与 300 余家合作伙伴建立战略合作' },
     { ko: '03월 벤처기업 인증 획득',          en: 'Mar · Certified as Venture Company',     ja: '3月 ベンチャー企業認証取得',               zh: '3月 获得风险企业认证' },
     { ko: '03월 프리티풀 정식 서비스 운영 개시', en: 'Mar · Official service operation begins', ja: '3月 Freetiful 正式サービス運営開始',     zh: '3月 Freetiful 正式运营' },
+    { ko: '05월 신용보증기금 성장지원 기업 선정', en: 'May · Selected for KODIT growth support program', ja: '5月 信用保証基金の成長支援企業に選定', zh: '5月 入选信用保证基金成长支持企业' },
+    { ko: '06월 빌라드지디 웨딩홀 & 한국웨딩협회 제휴 체결', en: 'Jun · Partnership with Villa de GD Wedding Hall & Korea Wedding Association', ja: '6月 ヴィラ・ド・ジディ ウェディングホール&韓国ウェディング協会と提携', zh: '6月 与Villa de GD婚礼会馆和韩国婚礼协会签署合作' },
   ]},
   { year: '2025', events: [
     { ko: '12월 주식회사 커넥트풀 설립', en: 'Dec · Connectful Inc. founded', ja: '12月 株式会社 Connectful 設立', zh: '12月 Connectful 株式会社成立' },
