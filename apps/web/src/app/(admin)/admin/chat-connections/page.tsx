@@ -42,7 +42,7 @@ interface ConnStats {
   paid: number; paidRate: number;
 }
 
-interface RespStat { proProfileId: string; proName: string; totalRooms: number; responded: number; declined: number; notResponded: number; repliedCount: number; avgSec: number | null; medianSec: number | null; category?: 'good' | 'attention'; hasData?: boolean; }
+interface RespStat { proProfileId: string; proName: string; totalRooms: number; responded: number; declined: number; notResponded: number; repliedCount: number; quickCount?: number; quickRate?: number | null; avgSec: number | null; medianSec: number | null; category?: 'good' | 'attention'; hasData?: boolean; }
 
 interface HistoryMsg { id: string; fromPro: boolean; type: string; content: string | null; fileName: string | null; createdAt: string; }
 
@@ -244,45 +244,42 @@ export default function ChatConnectionsPage() {
         ) : respStats.length === 0 ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없습니다</div>
         ) : (() => {
-          const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.avgSec != null && r.avgSec <= 300));
+          const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.quickRate != null && r.quickRate >= 0.8));
           const good = respStats.filter(isGood);
           const attention = respStats.filter((r) => !isGood(r));
-          const Row = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => {
-            const ignored = Math.max(0, r.notResponded - (r.declined || 0));
-            return (
-              <div className="flex items-center gap-2 rounded-lg bg-white px-2.5 py-2 ring-1 ring-black/[0.04]">
-                <div className="min-w-0 flex-1 truncate text-[13px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</div>
-                <span className="shrink-0 text-[11px] font-medium text-[#8B95A1]">
-                  {r.totalRooms === 0 ? '요청 없음' : `응답 ${r.responded}/${r.totalRooms}`}
-                  {ignored > 0 && <span className="ml-1 text-[#B91C1C]">· 무응답 {ignored}</span>}
-                </span>
-                <span className="w-16 shrink-0 text-right text-[12.5px] font-black" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
-                  {r.avgSec != null ? `평균 ${fmtSec(r.avgSec)}` : '—'}
-                </span>
-              </div>
-            );
-          };
+          const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
+            <div className="flex flex-col rounded-lg bg-white px-2.5 py-2 ring-1 ring-black/[0.05]">
+              <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
+              <span className="mt-0.5 text-[11px] font-bold" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
+                {r.totalRooms === 0 ? <span className="font-medium text-[#B0B8C1]">요청 없음</span>
+                  : <>즉답 {r.quickRate != null ? Math.round(r.quickRate * 100) : 0}%{r.avgSec != null && <span className="font-medium opacity-70"> · {fmtSec(r.avgSec)}</span>}</>}
+              </span>
+            </div>
+          );
+          const Grid = ({ items, tone, empty }: { items: RespStat[]; tone: 'good' | 'attention'; empty: string }) => (
+            items.length === 0
+              ? <p className="py-4 text-center text-[12px] opacity-60">{empty}</p>
+              : <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">{items.map((r) => <Card key={r.proProfileId} r={r} tone={tone} />)}</div>
+          );
           return (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-3">
               {/* 잘하고 있음 */}
               <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex items-center gap-2">
                   <span className="text-[13px] font-black text-emerald-700">✅ 잘하고 있음</span>
-                  <span className="text-[12px] font-bold text-emerald-600">{good.length}명 <span className="font-medium text-emerald-500/70">평균 5분 이내</span></span>
+                  <span className="text-[12px] font-bold text-emerald-600">{good.length}명</span>
+                  <span className="text-[11px] font-medium text-emerald-500/70">즉답(5분내) 80% 이상</span>
                 </div>
-                <div className="space-y-1.5">
-                  {good.length === 0 ? <p className="py-4 text-center text-[12px] text-emerald-600/60">아직 없음</p> : good.map((r) => <Row key={r.proProfileId} r={r} tone="good" />)}
-                </div>
+                <div className="text-emerald-700"><Grid items={good} tone="good" empty="아직 없음" /></div>
               </div>
               {/* 단도리 */}
               <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex items-center gap-2">
                   <span className="text-[13px] font-black text-red-700">⚠️ 단도리 필요</span>
-                  <span className="text-[12px] font-bold text-red-600">{attention.length}명 <span className="font-medium text-red-500/70">5분 초과·무응답</span></span>
+                  <span className="text-[12px] font-bold text-red-600">{attention.length}명</span>
+                  <span className="text-[11px] font-medium text-red-500/70">즉답 80% 미만·요청없음</span>
                 </div>
-                <div className="space-y-1.5">
-                  {attention.length === 0 ? <p className="py-4 text-center text-[12px] text-red-600/60">아직 없음</p> : attention.map((r) => <Row key={r.proProfileId} r={r} tone="attention" />)}
-                </div>
+                <div className="text-red-700"><Grid items={attention} tone="attention" empty="아직 없음" /></div>
               </div>
             </div>
           );
