@@ -2823,8 +2823,9 @@ export class AdminService {
   // 사회자별 응답 통계 — 매칭의뢰(요청) 대비 응답/거절/미응답 + 평균·중앙 응답시간(요청 도착 → 답장).
   // 데이터 원천: match_deliveries (deliveredAt=요청 도착, repliedAt=답장, status=declined 거절). 상단 분석 그래프용.
   // 사회자별 응답 현황 — 승인된 모든 사회자 포함. 최근 1주일 매칭의뢰 기준.
-  // 판정: 평균이 아니라 "즉답률"(5분 이내 답장 비율)로 유연하게 —
-  //   즉답률 80% 이상이면 (몇 건 느려도) good(잘하고 있음), 그 외 = attention(단도리).
+  // 판정: "견적 도착 → 답장까지 걸리는 시간"의 중앙값(median). 평균은 몇 건의 늦은 답장에
+  //   부풀려져 왜곡되므로(예: 이승진 평균 2.6h인데 median 49초) 통상 응답속도인 median 을 쓴다.
+  //   median 이 5분 이내면 good(잘하고 있음), 그 외(느림·답장없음) = attention(단도리).
   async getChatResponseStats(_limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT pp.id AS pro_id, u.name AS pro_name,
@@ -2841,13 +2842,12 @@ export class AdminService {
         AND md."deliveredAt" >= NOW() - INTERVAL '7 days'
       WHERE pp.status = 'approved'
       GROUP BY pp.id, u.name
-      ORDER BY quick DESC, avg_sec ASC NULLS LAST
+      ORDER BY median_sec ASC NULLS LAST, replied DESC
     `);
-    const QUICK_SEC = 300;      // 5분 이내 = 즉답
-    const GOOD_QUICK_RATE = 0.8; // 즉답 80% 이상이면 잘하고 있음
+    const GOOD_MEDIAN_SEC = 300; // 통상(median) 답장시간 5분 이내면 잘하고 있음
     return {
-      thresholdSec: QUICK_SEC,
-      quickRateThreshold: GOOD_QUICK_RATE,
+      thresholdSec: GOOD_MEDIAN_SEC,
+      metric: 'median',
       windowDays: 7,
       data: rows.map((r) => {
         const total = Number(r.total) || 0;
@@ -2855,9 +2855,9 @@ export class AdminService {
         const declined = Number(r.declined) || 0;
         const quick = Number(r.quick) || 0;
         const avgSec = r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null;
-        const quickRate = total > 0 ? quick / total : null;
-        // 즉답률 80% 이상이면 good. 요청이 없으면(총 0) attention(단도리 — 판단 보류지만 단순 2분류).
-        const category: 'good' | 'attention' = quickRate != null && quickRate >= GOOD_QUICK_RATE ? 'good' : 'attention';
+        const medianSec = r.median_sec != null ? Math.round(Number(r.median_sec)) : null;
+        // 통상 응답시간(median) 5분 이내 = good. 답장 이력이 없으면(median null) attention.
+        const category: 'good' | 'attention' = medianSec != null && medianSec <= GOOD_MEDIAN_SEC ? 'good' : 'attention';
         return {
           proProfileId: r.pro_id,
           proName: r.pro_name || '-',
@@ -2867,11 +2867,11 @@ export class AdminService {
           notResponded: Math.max(0, total - responded),
           repliedCount: responded,
           quickCount: quick,
-          quickRate,
+          quickRate: total > 0 ? quick / total : null,
           avgSec,
-          medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
+          medianSec,
           category,
-          hasData: total > 0,
+          hasData: responded > 0,
         };
       }),
     };
