@@ -290,6 +290,7 @@ model ProProfile {
   avgRating      Decimal   @default(0) @db.Decimal(3, 2)
   reviewCount    Int       @default(0)
   isFeatured     Boolean   @default(false)
+  rankOrder      Int?      // 어드민 수동 랭킹(작을수록 상위). null = 자동정렬(평점순). @@index 아래.
   showPartnersLogo Boolean  @default(false)
   isProfileHidden Boolean   @default(false)
   rejectionReason String?
