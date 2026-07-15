@@ -2822,27 +2822,33 @@ export class AdminService {
 
   // 사회자별 응답 통계 — 매칭의뢰(요청) 대비 응답/거절/미응답 + 평균·중앙 응답시간(요청 도착 → 답장).
   // 데이터 원천: match_deliveries (deliveredAt=요청 도착, repliedAt=답장, status=declined 거절). 상단 분석 그래프용.
-  async getChatResponseStats(limit = 60) {
+  // 사회자별 응답 현황 — 승인된 모든 사회자 포함(요청 이력 없어도 표시),
+  // 평균 응답시간 5분(300초) 기준 2분류: good(잘하고 있음) / attention(단도리).
+  async getChatResponseStats(_limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
-      SELECT md."proProfileId" AS pro_id, u.name AS pro_name,
-        COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE md."repliedAt" IS NOT NULL) AS replied,
-        COUNT(*) FILTER (WHERE md.status = 'declined') AS declined,
+      SELECT pp.id AS pro_id, u.name AS pro_name,
+        COUNT(md.id) AS total,
+        COUNT(md.id) FILTER (WHERE md."repliedAt" IS NOT NULL) AS replied,
+        COUNT(md.id) FILTER (WHERE md.status = 'declined') AS declined,
         AVG(EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS avg_sec,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS median_sec
-      FROM match_deliveries md
-      JOIN pro_profiles pp ON pp.id = md."proProfileId"
+      FROM pro_profiles pp
       JOIN users u ON u.id = pp."userId"
-      GROUP BY md."proProfileId", u.name
-      HAVING COUNT(*) > 0
-      ORDER BY replied DESC, median_sec ASC NULLS LAST, total DESC
-      LIMIT ${Math.max(1, Math.min(120, limit))}
+      LEFT JOIN match_deliveries md ON md."proProfileId" = pp.id AND md."deliveredAt" IS NOT NULL
+      WHERE pp.status = 'approved'
+      GROUP BY pp.id, u.name
+      ORDER BY avg_sec ASC NULLS LAST, replied DESC
     `);
+    const GOOD_THRESHOLD_SEC = 300; // 평균 5분
     return {
+      thresholdSec: GOOD_THRESHOLD_SEC,
       data: rows.map((r) => {
         const total = Number(r.total) || 0;
         const responded = Number(r.replied) || 0;
         const declined = Number(r.declined) || 0;
+        const avgSec = r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null;
+        // good: 평균 5분 이내 답장 이력. 그 외(느림·무응답·요청없음) = attention(단도리).
+        const category: 'good' | 'attention' = avgSec != null && avgSec <= GOOD_THRESHOLD_SEC ? 'good' : 'attention';
         return {
           proProfileId: r.pro_id,
           proName: r.pro_name || '-',
@@ -2851,11 +2857,50 @@ export class AdminService {
           declined,
           notResponded: Math.max(0, total - responded),
           repliedCount: responded,
-          avgSec: r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null,
+          avgSec,
           medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
+          category,
+          hasData: responded > 0,
         };
       }),
     };
+  }
+
+  // ─── 사회자 랭킹 (드래그앤드롭 수동 정렬) ───
+  async getProRanking() {
+    const rows = await this.prisma.$queryRawUnsafe<any[]>(`
+      SELECT pp.id, u.name, pp."avgRating" AS rating, pp."reviewCount" AS reviews,
+        pp."rankOrder" AS rank_order, pp."isFeatured" AS featured,
+        u."profileImageUrl" AS image
+      FROM pro_profiles pp
+      JOIN users u ON u.id = pp."userId"
+      WHERE pp.status = 'approved'
+      ORDER BY pp."rankOrder" ASC NULLS LAST, pp."avgRating" DESC, pp."reviewCount" DESC, pp.id ASC
+    `);
+    return {
+      data: rows.map((r) => ({
+        proProfileId: r.id,
+        name: r.name || '-',
+        rating: r.rating != null ? Number(r.rating) : 0,
+        reviewCount: Number(r.reviews) || 0,
+        rankOrder: r.rank_order != null ? Number(r.rank_order) : null,
+        isFeatured: !!r.featured,
+        image: r.image || null,
+      })),
+    };
+  }
+
+  // orderedIds 순서대로 rankOrder = 1,2,3… 부여. 목록에 없는 사회자는 rankOrder=null 로 초기화(자동정렬).
+  async saveProRanking(orderedIds: string[]) {
+    if (!Array.isArray(orderedIds)) return { ok: false };
+    await this.prisma.$transaction(async (tx) => {
+      // 전체 승인 사회자 rankOrder 초기화 후, 전달된 순서만 매김
+      await tx.$executeRawUnsafe(`UPDATE pro_profiles SET "rankOrder" = NULL WHERE status = 'approved'`);
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx.$executeRawUnsafe(`UPDATE pro_profiles SET "rankOrder" = $1 WHERE id = $2`, i + 1, orderedIds[i]);
+      }
+    });
+    return { ok: true, count: orderedIds.length };
   }
 
   // 특정 연결(방)의 대화 내역 — 셀 클릭 시 채팅 히스토리 모달

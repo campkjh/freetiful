@@ -505,4 +505,15 @@ export class AdminController {
   async getChatRoomMessages(@Param('roomId') roomId: string) {
     return this.adminService.getChatRoomMessages(roomId);
   }
+
+  // 사회자 랭킹 (드래그앤드롭 수동 정렬)
+  @Get('pro-ranking')
+  async getProRanking() {
+    return this.adminService.getProRanking();
+  }
+
+  @Patch('pro-ranking')
+  async saveProRanking(@Body('orderedIds') orderedIds: string[]) {
+    return this.adminService.saveProRanking(orderedIds || []);
+  }
 }

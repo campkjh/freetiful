@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Star,
   TrendingUp,
+  Trophy,
   UserCheck,
   Users,
   Wallet,
@@ -748,6 +749,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', count: stats?.totalReviews != null ? `${formatNumber(stats.totalReviews)}건` : undefined },
     { href: '/admin/businesses', icon: Building2, label: 'Biz 고객사', desc: '비즈니스 계정', count: stats?.profiles?.businessTotal != null ? `${formatNumber(stats.profiles.businessTotal)}개` : undefined },
     { href: '/admin/landing-analytics', icon: TrendingUp, label: '랜딩 유입 분석', desc: 'UTM 소스별 방문·전환' },
+    { href: '/admin/pro-ranking', icon: Trophy, label: '사회자 랭킹', desc: '드래그로 목록 순서 조정' },
   ];
 
   const summaryItems = stats
