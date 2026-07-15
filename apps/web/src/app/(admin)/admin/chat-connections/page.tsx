@@ -237,28 +237,29 @@ export default function ChatConnectionsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Zap size={16} className="text-[#3182F6]" />
           <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 현황</h2>
-          <span className="text-[11px] font-medium text-[#8B95A1]">최근 1주일 매칭의뢰 · 도착→답장 <b>평균 5분</b> 기준 · 승인된 전 사회자</span>
+          <span className="text-[11px] font-medium text-[#8B95A1]">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</span>
         </div>
         {respStats == null ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
         ) : respStats.length === 0 ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없습니다</div>
         ) : (() => {
-          const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.quickRate != null && r.quickRate >= 0.8));
-          // 즉답률 높은 순으로 정렬 → 잘하는 사회자가 위로. 동률이면 즉답 건수 많은 순, 요청없음은 맨 뒤.
-          const byQuick = (a: RespStat, b: RespStat) => {
-            const ra = a.quickRate ?? -1, rb = b.quickRate ?? -1;
-            if (rb !== ra) return rb - ra;
-            return (b.quickCount ?? 0) - (a.quickCount ?? 0);
+          const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.medianSec != null && r.medianSec <= 300));
+          // 통상 답장시간(median) 빠른 순으로 정렬 → 빨리 답장하는 사회자가 위로. 답장이력 없으면 맨 뒤.
+          const byMedian = (a: RespStat, b: RespStat) => {
+            const ma = a.medianSec ?? Infinity, mb = b.medianSec ?? Infinity;
+            if (ma !== mb) return ma - mb;
+            return (b.repliedCount ?? 0) - (a.repliedCount ?? 0);
           };
-          const good = respStats.filter(isGood).sort(byQuick);
-          const attention = respStats.filter((r) => !isGood(r)).sort(byQuick);
+          const good = respStats.filter(isGood).sort(byMedian);
+          const attention = respStats.filter((r) => !isGood(r)).sort(byMedian);
           const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
             <div className="flex flex-col rounded-lg bg-white px-2.5 py-2 ring-1 ring-black/[0.05]">
               <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
               <span className="mt-0.5 text-[11px] font-bold" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
-                {r.totalRooms === 0 ? <span className="font-medium text-[#B0B8C1]">요청 없음</span>
-                  : <>즉답 {r.quickRate != null ? Math.round(r.quickRate * 100) : 0}%{r.avgSec != null && <span className="font-medium opacity-70"> · {fmtSec(r.avgSec)}</span>}</>}
+                {r.repliedCount === 0
+                  ? <span className="font-medium text-[#B0B8C1]">{r.totalRooms === 0 ? '요청 없음' : '답장 없음'}</span>
+                  : <>보통 {fmtSec(r.medianSec)}<span className="font-medium opacity-60"> · {r.repliedCount}건</span></>}
               </span>
             </div>
           );
@@ -274,7 +275,7 @@ export default function ChatConnectionsPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-[13px] font-black text-emerald-700">✅ 잘하고 있음</span>
                   <span className="text-[12px] font-bold text-emerald-600">{good.length}명</span>
-                  <span className="text-[11px] font-medium text-emerald-500/70">즉답(5분내) 80% 이상</span>
+                  <span className="text-[11px] font-medium text-emerald-500/70">통상 답장 5분 이내</span>
                 </div>
                 <div className="text-emerald-700"><Grid items={good} tone="good" empty="아직 없음" /></div>
               </div>
@@ -283,7 +284,7 @@ export default function ChatConnectionsPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-[13px] font-black text-red-700">⚠️ 단도리 필요</span>
                   <span className="text-[12px] font-bold text-red-600">{attention.length}명</span>
-                  <span className="text-[11px] font-medium text-red-500/70">즉답 80% 미만·요청없음</span>
+                  <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과·답장없음</span>
                 </div>
                 <div className="text-red-700"><Grid items={attention} tone="attention" empty="아직 없음" /></div>
               </div>
