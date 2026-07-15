@@ -41,7 +41,6 @@ enum BusinessStatus {
 
 enum PaymentStatus {
   pending
-  waiting_for_deposit // 가상계좌 발급됨 · 입금 대기(미결제). 입금 완료 웹훅 수신 시 completed 로 전환.
   completed
   failed
   refunded
@@ -506,6 +505,28 @@ model MatchRequestStyle {
 
   @@id([matchRequestId, styleOptionId])
   @@map("match_request_styles")
+}
+
+// 랜딩(wedding-mc / corporate-mc) 유입 추적 — utm 소스별 방문/전환 지표.
+model LandingVisit {
+  id          String    @id @default(uuid())
+  page        String    // 'wedding-mc' | 'corporate-mc'
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  referrer    String?
+  landingPath String?
+  sessionKey  String
+  converted   Boolean   @default(false)
+  convertedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([sessionKey, page])
+  @@index([page, createdAt])
+  @@index([utmSource])
+  @@map("landing_visits")
 }
 
 model MatchRequestPersonality {

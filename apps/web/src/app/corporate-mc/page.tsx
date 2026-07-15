@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
 import GlobalMcNetwork from './GlobalMcNetwork';
+import { captureUtm, readUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
@@ -142,6 +143,12 @@ export default function CorporateMcPage() {
     if (file.size > 8 * 1024 * 1024) { toast.error('8MB 이하 파일만 첨부할 수 있어요.'); return; }
     setAttachment(file);
   };
+
+  // UTM 보존 + 방문 추적
+  useEffect(() => {
+    captureUtm();
+    trackLandingVisit('corporate-mc');
+  }, []);
 
   // 자동재생 보장(iOS WebView)
   useEffect(() => {
@@ -308,12 +315,16 @@ export default function CorporateMcPage() {
 
     // 어드민(Biz 문의)으로 전송 — 이미 완성된 /admin/inquiries 화면에 첨부파일까지 그대로 노출됨.
     // 모든 폼 값을 message 로 조합하고, 파일은 multipart 로 붙인다. (biz 페이지와 동일한 /api/inquiry 경로)
+    const utm = readUtm();
+    const utmLine = [utm.utm_source && `source=${utm.utm_source}`, utm.utm_medium && `medium=${utm.utm_medium}`, utm.utm_campaign && `campaign=${utm.utm_campaign}`]
+      .filter(Boolean).join(' · ');
     const messageLines = [
       `행사 예정일: ${dateText.trim() || '미정'}`,
       `행사 지역: ${region.trim() || '미정'}`,
       '',
       '[행사 기획 설명]',
       description.trim() || '(작성 없음)',
+      ...(utmLine ? ['', `[유입경로] ${utmLine}`] : []),
     ];
     const fd = new FormData();
     fd.append('company', company.trim());
@@ -330,6 +341,7 @@ export default function CorporateMcPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || `요청 실패 (${res.status})`);
       }
+      trackLandingConversion('corporate-mc');
       setStep('done');
     } catch (err: any) {
       toast.error(`제출에 실패했어요. ${err?.message || ''}`);

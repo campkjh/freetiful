@@ -8,6 +8,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
+import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -258,17 +259,10 @@ export default function WeddingMcLandingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser]);
 
-  /* ── UTM 보존 ── */
+  /* ── UTM 보존 + 방문 추적 ── */
   useEffect(() => {
-    try {
-      const sp = new URLSearchParams(window.location.search);
-      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach((k) => {
-        const v = sp.get(k);
-        if (v) sessionStorage.setItem(k, v);
-      });
-      if (document.referrer && !sessionStorage.getItem('referrer')) sessionStorage.setItem('referrer', document.referrer);
-      if (!sessionStorage.getItem('landing_url')) sessionStorage.setItem('landing_url', window.location.href);
-    } catch {}
+    captureUtm();
+    trackLandingVisit('wedding-mc');
   }, []);
 
   /* ── 활성 매칭 복원 — /wedding-mc 재진입 시 진행 화면 그대로 ── */
@@ -402,6 +396,7 @@ export default function WeddingMcLandingPage() {
         }
       }
       createdMatchRequestId = res?.matchRequest?.id || res?.id || null;
+      trackLandingConversion('wedding-mc');
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       // iOS: 다이나믹 아일랜드 "사회자 찾는 중" 라이브 액티비티 시작
       try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '결혼식 사회자' }); } catch {}
