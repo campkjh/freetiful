@@ -670,6 +670,42 @@ function TopList({
   );
 }
 
+// 랜딩 유입 요약 배너 — 자체 데이터 로드(어드민 홈 상단 노출)
+function LandingTrafficBanner() {
+  const [d, setD] = useState<{ today?: { visits: number; conversions: number }; totalVisits?: number; totalConversions?: number } | null>(null);
+  useEffect(() => {
+    const from = new Date(Date.now() - 7 * 86400000).toISOString();
+    adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}`, undefined, { cache: false })
+      .then(setD).catch(() => setD(null));
+  }, []);
+  const n = (v?: number) => (v ?? 0).toLocaleString('ko-KR');
+  return (
+    <Link href="/admin/landing-analytics" className="block rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] transition hover:border-[#3182F6]/40">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <TrendingUp size={16} className="text-[#3182F6]" />
+          <span className="text-[14px] font-bold text-[#191F28]">랜딩 유입 분석</span>
+          <span className="text-[11px] text-[#B0B8C1]">wedding-mc · corporate-mc</span>
+        </div>
+        <ChevronRight size={16} className="text-[#B0B8C1]" />
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {[
+          { label: '오늘 방문', value: n(d?.today?.visits), tone: 'text-[#3182F6]' },
+          { label: '오늘 견적', value: n(d?.today?.conversions), tone: 'text-emerald-600' },
+          { label: '7일 방문', value: n(d?.totalVisits), tone: 'text-[#191F28]' },
+          { label: '7일 견적', value: n(d?.totalConversions), tone: 'text-[#191F28]' },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg bg-[#F7F8FA] px-3 py-2 text-center">
+            <p className="text-[11px] text-[#8B95A1]">{s.label}</p>
+            <p className={`mt-0.5 text-[20px] font-black leading-none ${s.tone}`}>{d ? s.value : '…'}</p>
+          </div>
+        ))}
+      </div>
+    </Link>
+  );
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -985,6 +1021,9 @@ export default function AdminDashboardPage() {
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
+
+      {/* 랜딩 유입 요약 (상단 노출) */}
+      <LandingTrafficBanner />
 
       {loading ? (
         <div className="grid animate-pulse gap-3 sm:grid-cols-2 lg:grid-cols-4">

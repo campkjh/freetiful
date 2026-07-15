@@ -60,7 +60,7 @@ export class LandingService {
     }
     const rows = await this.prisma.landingVisit.findMany({
       where,
-      select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true },
+      select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, createdAt: true },
     });
 
     const pages = ['wedding-mc', 'corporate-mc'] as const;
@@ -110,6 +110,50 @@ export class LandingService {
       };
     };
 
-    return { pages: pages.map(build), totalVisits: rows.length, totalConversions: rows.filter((r) => r.converted).length };
+    // ── 일별 방문/견적(전환) — KST 기준 ──
+    const kstDate = (d: Date) => new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const dayMap = new Map<string, { visits: number; conversions: number }>();
+    for (const r of rows) {
+      const day = kstDate(r.createdAt);
+      const e = dayMap.get(day) || { visits: 0, conversions: 0 };
+      e.visits += 1; if (r.converted) e.conversions += 1;
+      dayMap.set(day, e);
+    }
+    const daily = Array.from(dayMap.entries())
+      .map(([date, v]) => ({ date, visits: v.visits, conversions: v.conversions }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1)); // 최신일 먼저
+
+    const todayStr = kstDate(new Date());
+    const today = dayMap.get(todayStr) || { visits: 0, conversions: 0 };
+
+    return {
+      pages: pages.map(build),
+      totalVisits: rows.length,
+      totalConversions: rows.filter((r) => r.converted).length,
+      daily,
+      today: { date: todayStr, visits: today.visits, conversions: today.conversions },
+    };
+  }
+
+  // 최근 방문 리스트(어떤 유입으로 들어왔는지) — 어드민 하단 표.
+  async recentVisits(limit = 100) {
+    const rows = await this.prisma.landingVisit.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: Math.max(1, Math.min(300, limit)),
+      select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, convertedAt: true, createdAt: true },
+    });
+    const host = (r?: string | null) => { if (!r) return null; try { return new URL(r).hostname.replace(/^www\./, ''); } catch { return r.slice(0, 40); } };
+    return {
+      data: rows.map((r) => ({
+        page: r.page,
+        source: (r.utmSource && r.utmSource.trim()) || null,
+        medium: (r.utmMedium && r.utmMedium.trim()) || null,
+        campaign: (r.utmCampaign && r.utmCampaign.trim()) || null,
+        referrerHost: host(r.referrer),
+        referrer: r.referrer || null,
+        converted: r.converted,
+        createdAt: r.createdAt,
+      })),
+    };
   }
 }

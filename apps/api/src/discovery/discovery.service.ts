@@ -202,12 +202,14 @@ export class DiscoveryService implements OnModuleInit {
       };
     }
 
-    // 기본(추천/평점) 정렬은 어드민 수동 랭킹(rankOrder, null=최하위)을 최우선으로 반영.
-    // 사용자가 리뷰/경력 정렬을 고르면 그 기준을 우선한다.
+    // 어드민 수동 랭킹(rankOrder, null=최하위)을 모든 정렬에서 최우선으로 반영 —
+    // 고객 목록 기본 정렬이 'reviews' 라서 rankOrder 를 여기에도 얹어야 반영됨.
+    // rankOrder 가 매겨진 사회자는 어드민 순서대로 상단 고정, 나머지는 선택한 정렬 기준.
+    const rank = { rankOrder: { sort: 'asc' as const, nulls: 'last' as const } };
     const orderBy: any =
-      sort === 'reviews' ? [{ reviewCount: 'desc' as const }, { avgRating: 'desc' as const }, { id: 'asc' as const }]
-      : sort === 'experience' ? [{ careerYears: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }]
-      : [{ rankOrder: { sort: 'asc' as const, nulls: 'last' as const } }, { avgRating: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }];
+      sort === 'reviews' ? [rank, { reviewCount: 'desc' as const }, { avgRating: 'desc' as const }, { id: 'asc' as const }]
+      : sort === 'experience' ? [rank, { careerYears: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }]
+      : [rank, { avgRating: 'desc' as const }, { reviewCount: 'desc' as const }, { id: 'asc' as const }];
 
     const [data, totalCount] = await Promise.all([
       this.prisma.proProfile.findMany({
