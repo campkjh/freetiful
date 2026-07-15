@@ -237,7 +237,7 @@ export default function ChatConnectionsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Zap size={16} className="text-[#3182F6]" />
           <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 현황</h2>
-          <span className="text-[11px] font-medium text-[#8B95A1]">매칭의뢰 도착 → 답장까지 <b>평균 5분</b> 기준 · 승인된 전 사회자</span>
+          <span className="text-[11px] font-medium text-[#8B95A1]">최근 1주일 매칭의뢰 · 도착→답장 <b>평균 5분</b> 기준 · 승인된 전 사회자</span>
         </div>
         {respStats == null ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>

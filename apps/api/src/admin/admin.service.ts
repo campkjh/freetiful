@@ -2823,7 +2823,7 @@ export class AdminService {
   // 사회자별 응답 통계 — 매칭의뢰(요청) 대비 응답/거절/미응답 + 평균·중앙 응답시간(요청 도착 → 답장).
   // 데이터 원천: match_deliveries (deliveredAt=요청 도착, repliedAt=답장, status=declined 거절). 상단 분석 그래프용.
   // 사회자별 응답 현황 — 승인된 모든 사회자 포함(요청 이력 없어도 표시),
-  // 평균 응답시간 5분(300초) 기준 2분류: good(잘하고 있음) / attention(단도리).
+  // 최근 1주일(7일) 매칭의뢰 기준 평균 응답시간 5분(300초) 2분류: good(잘하고 있음) / attention(단도리).
   async getChatResponseStats(_limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT pp.id AS pro_id, u.name AS pro_name,
@@ -2834,7 +2834,9 @@ export class AdminService {
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS median_sec
       FROM pro_profiles pp
       JOIN users u ON u.id = pp."userId"
-      LEFT JOIN match_deliveries md ON md."proProfileId" = pp.id AND md."deliveredAt" IS NOT NULL
+      LEFT JOIN match_deliveries md ON md."proProfileId" = pp.id
+        AND md."deliveredAt" IS NOT NULL
+        AND md."deliveredAt" >= NOW() - INTERVAL '7 days'
       WHERE pp.status = 'approved'
       GROUP BY pp.id, u.name
       ORDER BY avg_sec ASC NULLS LAST, replied DESC
@@ -2842,6 +2844,7 @@ export class AdminService {
     const GOOD_THRESHOLD_SEC = 300; // 평균 5분
     return {
       thresholdSec: GOOD_THRESHOLD_SEC,
+      windowDays: 7,
       data: rows.map((r) => {
         const total = Number(r.total) || 0;
         const responded = Number(r.replied) || 0;
