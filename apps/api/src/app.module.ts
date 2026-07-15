@@ -26,6 +26,7 @@ import { FaqModule } from './faq/faq.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { BusinessInquiryModule } from './business-inquiry/business-inquiry.module';
 import { PolicyModule } from './policy/policy.module';
+import { LandingModule } from './landing/landing.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -57,6 +58,7 @@ import { HealthController } from './health.controller';
     SettlementModule,
     BusinessInquiryModule,
     PolicyModule,
+    LandingModule,
   ],
   controllers: [HealthController],
 })
