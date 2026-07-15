@@ -6,9 +6,12 @@ import { adminFetch } from '../_components/adminFetch';
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }
 interface PageStat { page: string; visits: number; conversions: number; rate: number; bySource: Bucket[]; byMedium: Bucket[]; byCampaign: Bucket[]; }
-interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: number; }
+interface DailyRow { date: string; visits: number; conversions: number; }
+interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: number; daily: DailyRow[]; today: { date: string; visits: number; conversions: number }; }
+interface VisitRow { page: string; source: string | null; medium: string | null; campaign: string | null; referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string; }
 
 const PAGE_LABEL: Record<string, string> = { 'wedding-mc': '결혼식 사회자 (wedding-mc)', 'corporate-mc': '전문행사 사회자 (corporate-mc)' };
+const PAGE_SHORT: Record<string, string> = { 'wedding-mc': '결혼식', 'corporate-mc': '전문행사' };
 const RANGES = [
   { key: '7', label: '7일' },
   { key: '30', label: '30일' },
@@ -49,6 +52,7 @@ function Bars({ title, rows }: { title: string; rows: Bucket[] }) {
 
 export default function LandingAnalyticsPage() {
   const [data, setData] = useState<Analytics | null>(null);
+  const [visits, setVisits] = useState<VisitRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<string>('30');
 
@@ -60,8 +64,12 @@ export default function LandingAnalyticsPage() {
         const from = new Date(Date.now() - Number(r) * 86400000).toISOString();
         qs = `?from=${encodeURIComponent(from)}`;
       }
-      const d = await adminFetch('GET', `/api/v1/admin/landing-analytics${qs}`, undefined, { cache: false });
+      const [d, v] = await Promise.all([
+        adminFetch('GET', `/api/v1/admin/landing-analytics${qs}`, undefined, { cache: false }),
+        adminFetch('GET', `/api/v1/admin/landing-analytics/recent?limit=150`, undefined, { cache: false }).catch(() => null),
+      ]);
       setData(d);
+      setVisits(v && Array.isArray(v.data) ? v.data : []);
     } catch {
       setData(null);
     } finally {
@@ -72,6 +80,7 @@ export default function LandingAnalyticsPage() {
   useEffect(() => { load(range); /* eslint-disable-next-line */ }, [range]);
 
   const totalRate = useMemo(() => (data && data.totalVisits ? data.totalConversions / data.totalVisits : 0), [data]);
+  const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 md:px-6">
@@ -94,11 +103,23 @@ export default function LandingAnalyticsPage() {
         ))}
       </div>
 
-      {/* 총계 */}
-      <div className="mb-8 grid grid-cols-3 gap-3">
+      {/* 오늘 요약 (강조) */}
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-[#3182F6] p-5 text-white">
+          <p className="text-[12px] opacity-80">오늘 방문</p>
+          <p className="mt-1 text-[30px] font-black leading-none">{loading ? '…' : num(data?.today?.visits ?? 0)}<span className="ml-1 text-[14px] font-medium opacity-80">회</span></p>
+        </div>
+        <div className="rounded-2xl bg-emerald-500 p-5 text-white">
+          <p className="text-[12px] opacity-80">오늘 견적 신청</p>
+          <p className="mt-1 text-[30px] font-black leading-none">{loading ? '…' : num(data?.today?.conversions ?? 0)}<span className="ml-1 text-[14px] font-medium opacity-80">명</span></p>
+        </div>
+      </div>
+
+      {/* 기간 총계 */}
+      <div className="mb-6 grid grid-cols-3 gap-3">
         {[
           { label: '총 방문', value: num(data?.totalVisits ?? 0), tone: 'text-gray-900' },
-          { label: '총 전환(문의)', value: num(data?.totalConversions ?? 0), tone: 'text-[#3182F6]' },
+          { label: '총 견적(전환)', value: num(data?.totalConversions ?? 0), tone: 'text-[#3182F6]' },
           { label: '전환율', value: pct(totalRate), tone: 'text-emerald-600' },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-gray-100 bg-white p-5 text-center">
@@ -107,6 +128,32 @@ export default function LandingAnalyticsPage() {
           </div>
         ))}
       </div>
+
+      {/* 일별 방문·견적 */}
+      {data?.daily && data.daily.length > 0 && (() => {
+        const maxV = Math.max(1, ...data.daily.map((d) => d.visits));
+        return (
+          <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5">
+            <h3 className="mb-3 text-[14px] font-bold text-gray-800">일별 방문 · 견적 (KST)</h3>
+            <div className="space-y-2">
+              {data.daily.slice(0, 21).map((d) => (
+                <div key={d.date} className="flex items-center gap-3">
+                  <span className="w-14 shrink-0 text-[12px] tabular-nums text-gray-500">{d.date.slice(5)}</span>
+                  <div className="relative h-5 flex-1 overflow-hidden rounded bg-gray-100">
+                    <div className="h-full rounded bg-[#3182F6]/80" style={{ width: `${(d.visits / maxV) * 100}%` }} />
+                  </div>
+                  <span className="w-24 shrink-0 text-right text-[12px] tabular-nums">
+                    <b className="text-gray-800">{num(d.visits)}</b><span className="text-gray-400"> 방문</span>
+                  </span>
+                  <span className="w-24 shrink-0 text-right text-[12px] tabular-nums">
+                    <b className="text-emerald-600">{num(d.conversions)}</b><span className="text-gray-400"> 견적</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 페이지별 */}
       {(data?.pages ?? []).map((p) => (
@@ -122,6 +169,40 @@ export default function LandingAnalyticsPage() {
           </div>
         </section>
       ))}
+
+      {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
+      <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5">
+        <h3 className="mb-3 text-[14px] font-bold text-gray-800">방문 로그 <span className="font-medium text-gray-400">(최근순 · 어떤 경로로 유입됐는지)</span></h3>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-[12.5px]">
+            <thead>
+              <tr className="border-b border-gray-100 text-[11px] text-gray-400">
+                <th className="py-2 pr-2 text-left font-semibold">시간</th>
+                <th className="py-2 pr-2 text-left font-semibold">랜딩</th>
+                <th className="py-2 pr-2 text-left font-semibold">유입 소스</th>
+                <th className="py-2 pr-2 text-left font-semibold">매체/캠페인</th>
+                <th className="py-2 pr-2 text-left font-semibold">리퍼러</th>
+                <th className="py-2 pl-2 text-right font-semibold">견적</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(visits ?? []).slice(0, 150).map((v, i) => (
+                <tr key={i} className="border-b border-gray-50">
+                  <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-gray-500">{fmtDT(v.createdAt)}</td>
+                  <td className="py-2 pr-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">{PAGE_SHORT[v.page] || v.page}</span></td>
+                  <td className="py-2 pr-2 font-semibold text-gray-800">{v.source || v.referrerHost || <span className="font-normal text-gray-400">직접/기타</span>}</td>
+                  <td className="py-2 pr-2 text-gray-500">{[v.medium, v.campaign].filter(Boolean).join(' · ') || '—'}</td>
+                  <td className="max-w-[180px] truncate py-2 pr-2 text-gray-400" title={v.referrer || ''}>{v.referrerHost || '—'}</td>
+                  <td className="py-2 pl-2 text-right">{v.converted ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">신청</span> : <span className="text-gray-300">–</span>}</td>
+                </tr>
+              ))}
+              {visits != null && visits.length === 0 && (
+                <tr><td colSpan={6} className="py-8 text-center text-gray-400">방문 기록이 아직 없습니다</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {!loading && !data && <p className="text-center text-[14px] text-gray-400">데이터를 불러오지 못했습니다.</p>}
 

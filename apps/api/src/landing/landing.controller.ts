@@ -31,4 +31,9 @@ export class AdminLandingController {
   analytics(@Query('from') from?: string, @Query('to') to?: string) {
     return this.landing.analytics(from, to);
   }
+
+  @Get('recent')
+  recent(@Query('limit') limit?: string) {
+    return this.landing.recentVisits(limit ? Number(limit) : 100);
+  }
 }
