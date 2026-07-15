@@ -30,11 +30,11 @@ type AdminNavItem = {
 const TOP_NAV = [
   { href: '/admin', label: '홈', exact: true, paths: ['/admin'] },
   { href: '/admin/users', label: '유저 센터', paths: ['/admin/users', '/admin/referral-event'] },
-  { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses'] },
-  { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings', '/admin/chat-connections'] },
+  { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses', '/admin/pro-ranking'] },
+  { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
+  { href: '/admin/chat-connections', label: '채팅 매칭', paths: ['/admin/chat-connections'] },
   { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries', '/admin/wedding-mc-leads'] },
-  { href: '/admin/payments', label: '페이먼츠 센터', paths: ['/admin/payments', '/admin/settlements'] },
-  { href: '/admin/banners', label: '콘텐츠 센터', paths: ['/admin/banners', '/admin/reviews', '/admin/announcements', '/admin/faqs', '/admin/policies', '/admin/plan-templates'] },
+  { href: '/admin/landing-analytics', label: '랜딩 유입', paths: ['/admin/landing-analytics'] },
 ];
 
 const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
@@ -50,6 +50,7 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
       { href: '/admin/users', label: '유저 관리' },
       { href: '/admin/referral-event', label: '친구초대 이벤트' },
       { href: '/admin/pros', label: '사회자 관리' },
+      { href: '/admin/pro-ranking', label: '사회자 랭킹' },
       { href: '/admin/partners', label: '웨딩 파트너 업체' },
       { href: '/admin/businesses', label: 'Biz 고객사' },
     ],
@@ -59,6 +60,7 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
     items: [
       { href: '/admin/bookings', label: '의뢰/예약' },
       { href: '/admin/chat-connections', label: '채팅 매칭' },
+      { href: '/admin/landing-analytics', label: '랜딩 유입 분석' },
       { href: '/admin/payments', label: '결제조회' },
       { href: '/admin/settlements', label: '정산내역' },
     ],

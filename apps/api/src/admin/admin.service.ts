@@ -2822,14 +2822,16 @@ export class AdminService {
 
   // 사회자별 응답 통계 — 매칭의뢰(요청) 대비 응답/거절/미응답 + 평균·중앙 응답시간(요청 도착 → 답장).
   // 데이터 원천: match_deliveries (deliveredAt=요청 도착, repliedAt=답장, status=declined 거절). 상단 분석 그래프용.
-  // 사회자별 응답 현황 — 승인된 모든 사회자 포함(요청 이력 없어도 표시),
-  // 최근 1주일(7일) 매칭의뢰 기준 평균 응답시간 5분(300초) 2분류: good(잘하고 있음) / attention(단도리).
+  // 사회자별 응답 현황 — 승인된 모든 사회자 포함. 최근 1주일 매칭의뢰 기준.
+  // 판정: 평균이 아니라 "즉답률"(5분 이내 답장 비율)로 유연하게 —
+  //   즉답률 80% 이상이면 (몇 건 느려도) good(잘하고 있음), 그 외 = attention(단도리).
   async getChatResponseStats(_limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT pp.id AS pro_id, u.name AS pro_name,
         COUNT(md.id) AS total,
         COUNT(md.id) FILTER (WHERE md."repliedAt" IS NOT NULL) AS replied,
         COUNT(md.id) FILTER (WHERE md.status = 'declined') AS declined,
+        COUNT(md.id) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt" AND EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt")) <= 300) AS quick,
         AVG(EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS avg_sec,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (md."repliedAt" - md."deliveredAt"))) FILTER (WHERE md."repliedAt" IS NOT NULL AND md."repliedAt" >= md."deliveredAt") AS median_sec
       FROM pro_profiles pp
@@ -2839,19 +2841,23 @@ export class AdminService {
         AND md."deliveredAt" >= NOW() - INTERVAL '7 days'
       WHERE pp.status = 'approved'
       GROUP BY pp.id, u.name
-      ORDER BY avg_sec ASC NULLS LAST, replied DESC
+      ORDER BY quick DESC, avg_sec ASC NULLS LAST
     `);
-    const GOOD_THRESHOLD_SEC = 300; // 평균 5분
+    const QUICK_SEC = 300;      // 5분 이내 = 즉답
+    const GOOD_QUICK_RATE = 0.8; // 즉답 80% 이상이면 잘하고 있음
     return {
-      thresholdSec: GOOD_THRESHOLD_SEC,
+      thresholdSec: QUICK_SEC,
+      quickRateThreshold: GOOD_QUICK_RATE,
       windowDays: 7,
       data: rows.map((r) => {
         const total = Number(r.total) || 0;
         const responded = Number(r.replied) || 0;
         const declined = Number(r.declined) || 0;
+        const quick = Number(r.quick) || 0;
         const avgSec = r.avg_sec != null ? Math.round(Number(r.avg_sec)) : null;
-        // good: 평균 5분 이내 답장 이력. 그 외(느림·무응답·요청없음) = attention(단도리).
-        const category: 'good' | 'attention' = avgSec != null && avgSec <= GOOD_THRESHOLD_SEC ? 'good' : 'attention';
+        const quickRate = total > 0 ? quick / total : null;
+        // 즉답률 80% 이상이면 good. 요청이 없으면(총 0) attention(단도리 — 판단 보류지만 단순 2분류).
+        const category: 'good' | 'attention' = quickRate != null && quickRate >= GOOD_QUICK_RATE ? 'good' : 'attention';
         return {
           proProfileId: r.pro_id,
           proName: r.pro_name || '-',
@@ -2860,10 +2866,12 @@ export class AdminService {
           declined,
           notResponded: Math.max(0, total - responded),
           repliedCount: responded,
+          quickCount: quick,
+          quickRate,
           avgSec,
           medianSec: r.median_sec != null ? Math.round(Number(r.median_sec)) : null,
           category,
-          hasData: responded > 0,
+          hasData: total > 0,
         };
       }),
     };
