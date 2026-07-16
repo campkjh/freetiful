@@ -9,7 +9,7 @@ import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
 import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
-import HeartBeamGame from './HeartBeamGame';
+import GazeGame from './GazeGame';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -1509,8 +1509,8 @@ function MatchingScreen({
           </div>
         </div>
 
-        {/* 하트 눈빛 미니게임 (기다리는 동안) */}
-        <HeartBeamGame />
+        {/* 큐피드 눈빛 — 프리티풀 오리지널 미니게임 (기다리는 동안) */}
+        <GazeGame />
       </div>
 
 
