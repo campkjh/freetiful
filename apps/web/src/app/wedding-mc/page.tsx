@@ -9,6 +9,7 @@ import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
 import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
+import HeartBeamGame from './HeartBeamGame';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -87,14 +88,6 @@ const FALLBACK_PROS = [
   { id: 'fb-7', name: '오세훈', categories: ['결혼식사회자'], regions: [], isNationwide: true, rating: 4.8, reviews: 53, rank: 7, image: '/images/pro-15/IMG_0196.avif', intro: '베테랑 사회자. 어떤 돌발상황도 자연스럽게 리드합니다.', experience: 12 },
   { id: 'fb-8', name: '윤지아', categories: ['결혼식사회자'], regions: ['서울', '경기'], isNationwide: false, rating: 5.0, reviews: 91, rank: 8, image: '/images/pro-20/D54BC1BA-3BF2-4827-AA76-096D4056BCDB1773030157943.avif', intro: '결혼식 톤앤매너에 맞춘 맞춤형 대본으로 진행해 드립니다.', experience: 6 },
   { id: 'fb-9', name: '강태우', categories: ['결혼식사회자'], regions: ['인천', '서울'], isNationwide: false, rating: 4.9, reviews: 70, rank: 9, image: '/images/pro-23/IMG_46511771924269213.avif', intro: '신뢰감 있는 목소리로 예식의 격을 한층 높여 드립니다.', experience: 7 },
-];
-
-const OX_QUIZ_BANK: { q: string; answer: 'O' | 'X'; reveal: string }[] = [
-  { q: '프리티풀의 사회자는 모두 방송사 출신 또는 검증된 경력자다.', answer: 'O', reveal: 'KBS·SBS·MBC·YTN 등 방송 출신 사회자만 등록되어 있어요.' },
-  { q: '결혼식 사회자 미팅은 예식 당일에만 진행한다.', answer: 'X', reveal: '예식 3~4주 전 사전 미팅을 진행해요. 흐름을 미리 맞춥니다.' },
-  { q: '프리티풀은 사회자 노쇼·당일사고 0건을 유지하고 있다.', answer: 'O', reveal: '운영 시작 이후 노쇼·당일사고 0건. 사고 발생 시 대체 사회자 즉시 투입.' },
-  { q: '사회자는 한 명만 골라야 한다.', answer: 'X', reveal: '여러 사회자에게 동시에 견적을 받고 비교 후 선택할 수 있어요.' },
-  { q: '신랑신부 톤·분위기에 맞춰 사회자를 추천한다.', answer: 'O', reveal: '차분/밝은/감성/유쾌 등 원하시는 결혼식 톤에 맞춰 큐레이션해 드려요.' },
 ];
 
 /* ─── Small helpers ─── */
@@ -1318,8 +1311,6 @@ function MatchingScreen({
   const [deliveries, setDeliveries] = useState<DeliveryItem[]>([]);
   const [hasReply, setHasReply] = useState(false);
   const [showProSheet, setShowProSheet] = useState(false);
-  const [quizIdx, setQuizIdx] = useState(0);
-  const [quizPicked, setQuizPicked] = useState<null | 'O' | 'X'>(null);
   const [msgIdx, setMsgIdx] = useState(0);
   const [centerIdx, setCenterIdx] = useState(0);
   const [proImages, setProImages] = useState<string[]>(FALLBACK_PRO_IMAGES);
@@ -1415,17 +1406,6 @@ function MatchingScreen({
     const t = setTimeout(() => onResolvedRef.current(resolvedRoomIdRef.current || undefined), 1200);
     return () => clearTimeout(t);
   }, [hasReply]);
-
-  /* ── OX 퀴즈 진행 ── */
-  const quiz = OX_QUIZ_BANK[quizIdx % OX_QUIZ_BANK.length];
-  const onPickQuiz = (pick: 'O' | 'X') => {
-    if (quizPicked) return;
-    setQuizPicked(pick);
-    setTimeout(() => {
-      setQuizPicked(null);
-      setQuizIdx((i) => i + 1);
-    }, 2500);
-  };
 
   /* ── 사회자가 요청 확인했다는 메시지 표시용 ── */
 
@@ -1529,45 +1509,8 @@ function MatchingScreen({
           </div>
         </div>
 
-        {/* OX 퀴즈 */}
-        <div className="mt-8 bg-white rounded-[30px] p-5 text-center shadow-[0_0_18px_0_rgba(127,174,255,0.16)]">
-          <p className="text-[16px] font-medium tracking-normal text-[#8B95A1] mb-2">기다리는 동안 OX 퀴즈</p>
-          <p className="text-[20px] font-bold text-[#191F28] leading-snug min-h-[2.6em]">
-            {quiz.q}
-          </p>
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            {(['O', 'X'] as const).map((mark) => {
-              const isO = mark === 'O';
-              const picked = quizPicked === mark;
-              const correct = quizPicked && mark === quiz.answer;
-              const wrong = quizPicked === mark && mark !== quiz.answer;
-              const dim = quizPicked && !picked && !correct;
-              return (
-                <button
-                  key={mark}
-                  type="button"
-                  onClick={() => onPickQuiz(mark)}
-                  disabled={!!quizPicked}
-                  className={`flex flex-col items-center justify-center gap-2.5 rounded-[24px] py-5 transition-all active:scale-[0.98] disabled:cursor-default ${isO ? 'bg-[#E9F3FF]' : 'bg-[#FED4D6]'} ${dim ? 'opacity-40' : ''} ${correct ? 'ring-2 ring-offset-2 ring-[#3787FF]' : ''} ${wrong ? 'ring-2 ring-offset-2 ring-[#FF6767]' : ''}`}
-                >
-                  <span className={`flex h-[68px] w-[68px] items-center justify-center rounded-full text-white ${isO ? 'bg-[#6EA0FF]' : 'bg-[#FF6767]'}`}>
-                    {isO ? (
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="8" /></svg>
-                    ) : (
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-                    )}
-                  </span>
-                  <span className={`text-[18px] font-bold ${isO ? 'text-[#3787FF]' : 'text-[#FF6767]'}`}>{isO ? '그렇다' : '아니다'}</span>
-                </button>
-              );
-            })}
-          </div>
-          {quizPicked && (
-            <p className="mt-4 text-[13px] text-[#4B5563] leading-relaxed" style={{ animation: 'wmcFadeIn 0.4s' }}>
-              <b className="text-[#2A5BFF]">정답 {quiz.answer}</b> — {quiz.reveal}
-            </p>
-          )}
-        </div>
+        {/* 하트 눈빛 미니게임 (기다리는 동안) */}
+        <HeartBeamGame />
       </div>
 
 
