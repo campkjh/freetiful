@@ -318,6 +318,41 @@ export default function CorporateMcPage() {
     const utm = readUtm();
     const utmLine = [utm.utm_source && `source=${utm.utm_source}`, utm.utm_medium && `medium=${utm.utm_medium}`, utm.utm_campaign && `campaign=${utm.utm_campaign}`]
       .filter(Boolean).join(' · ');
+
+    // ── 구글시트(Apps Script) 리드 적재 — 유입/전환 분석용. fire-and-forget(no-cors) ──
+    // UTM/landing_url 은 이 앱에서 sessionStorage 에 보존됨(landing-track). localStorage 가 비어도
+    // landing_url(=UTM 포함 최초 접속 주소)로 유입 복구 가능.
+    try {
+      const ssGet = (k: string) => { try { return window.sessionStorage.getItem(k) || ''; } catch { return ''; } };
+      const sheetPayload = {
+        formType: 'corporate-mc',                    // ★ 시트 분류 키 — 수정/삭제 금지
+        name: name.trim(),
+        phone: phone.trim(),
+        company: company.trim(),                     // corporate-mc 실제 필드(회사/단체명)
+        q1: '',                                      // corporate-mc 폼에 해당 항목 없음
+        weddingDate: dateText.trim(),                // 행사 예정일
+        region: region.trim(),                       // 행사 지역
+        benefits: [] as string[],                    // corporate-mc 폼에 해당 항목 없음
+        description: description.trim(),             // 행사 기획 설명
+        couponCode: '',
+        source: 'freetiful-corporate-mc',
+        utm_source: utm.utm_source || '',
+        utm_medium: utm.utm_medium || '',
+        utm_campaign: utm.utm_campaign || '',
+        utm_term: utm.utm_term || '',
+        utm_content: utm.utm_content || '',
+        referrer: utm.referrer || ssGet('referrer'),
+        landing_url: ssGet('landing_url') || window.location.href,
+      };
+      fetch('https://script.google.com/macros/s/AKfycbwGOi4e1J2Q1w8x-5UEe-czB3uy6mET90xBhP9OG82fl4jRPEyYdBfqJkmDZuYJMFuc/exec', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(sheetPayload),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+
     const messageLines = [
       `행사 예정일: ${dateText.trim() || '미정'}`,
       `행사 지역: ${region.trim() || '미정'}`,
