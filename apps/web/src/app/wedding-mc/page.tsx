@@ -446,6 +446,9 @@ export default function WeddingMcLandingPage() {
         addressDetail,
         eventPart: eventPartChoice,
         benefit,
+        // 시트 헤더가 한글('관심혜택')이면 헤더-키 매칭을 위해 이 키로도 함께 전송.
+        // (Apps Script가 헤더명==JSON키로 컬럼을 채우는 방식일 때 [관심혜택] 칸이 채워짐)
+        관심혜택: benefit,
         source: 'freetiful-mc-wedding-v3',
         ...utm,
       }),
