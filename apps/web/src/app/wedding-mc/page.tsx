@@ -442,8 +442,10 @@ export default function WeddingMcLandingPage() {
         name: name.trim(),
         phone: np,
         region: addressDetail.trim(),
-        weddingDate: datePart || '',
-        weddingTime: timePart || '',
+        // Apps Script 의 [결혼예정일] 칸은 data.weddingDate 만 기록하고 weddingTime 은 읽지 않는다.
+        // 기존 컬럼 순서를 바꾸면 과거 데이터가 밀리므로, 날짜+시간을 한 값으로 합쳐 보낸다. (예: "2026-10-10 13:00")
+        weddingDate: [datePart, timePart].filter(Boolean).join(' '),
+        weddingTime: timePart || '',   // 시트에 '예식시간' 컬럼을 추가할 경우 대비
         addressDetail,
         eventPart: eventPartChoice,
         // ★ Apps Script 는 (data.benefits || []).join(', ') 로 [관심혜택] 칸을 채운다 →
