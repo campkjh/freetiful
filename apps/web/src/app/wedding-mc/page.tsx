@@ -420,7 +420,8 @@ export default function WeddingMcLandingPage() {
   };
 
   /* ── 설문(관심혜택) 선택 → 폼+혜택을 한 행으로 시트 기록 후 OX 매칭 화면으로 ── */
-  const proceedFromSurvey = (benefit: string) => {
+  const proceedFromSurvey = (benefitList: string[]) => {
+    const benefit = benefitList.join(', ');
     const np = normalizePhone(phone) || phone;
     const [datePart, timePart] = eventDateTime.split('T');
     const utm = {
@@ -445,10 +446,10 @@ export default function WeddingMcLandingPage() {
         weddingTime: timePart || '',
         addressDetail,
         eventPart: eventPartChoice,
+        // ★ Apps Script 는 (data.benefits || []).join(', ') 로 [관심혜택] 칸을 채운다 →
+        //   반드시 배열 키 `benefits` 로 보내야 기록됨. `benefit`(문자열)은 하위호환용.
+        benefits: benefitList,
         benefit,
-        // 시트 헤더가 한글('관심혜택')이면 헤더-키 매칭을 위해 이 키로도 함께 전송.
-        // (Apps Script가 헤더명==JSON키로 컬럼을 채우는 방식일 때 [관심혜택] 칸이 채워짐)
-        관심혜택: benefit,
         source: 'freetiful-mc-wedding-v3',
         ...utm,
       }),
@@ -1174,7 +1175,7 @@ export default function WeddingMcLandingPage() {
 /* ═══════════════════════════════════════════════════════════════════
    설문 화면 — 폼 제출 후 혜택 선택 (고급 선택 애니메이션) → OX 매칭
    ═══════════════════════════════════════════════════════════════════ */
-function SurveyScreen({ onSelect, onBack }: { onSelect: (benefit: string) => void; onBack: () => void }) {
+function SurveyScreen({ onSelect, onBack }: { onSelect: (benefits: string[]) => void; onBack: () => void }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [going, setGoing] = useState(false);
   const toggle = (benefit: string) => {
@@ -1184,7 +1185,7 @@ function SurveyScreen({ onSelect, onBack }: { onSelect: (benefit: string) => voi
   const proceed = () => {
     if (going) return;
     setGoing(true);
-    setTimeout(() => onSelect(selected.join(', ')), 350);
+    setTimeout(() => onSelect(selected), 350);
   };
   return (
     <div className="min-h-[100dvh] bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif" }}>
