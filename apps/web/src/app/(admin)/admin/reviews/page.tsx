@@ -160,6 +160,24 @@ export default function AdminReviewsPage() {
     } catch { toast.error('삭제 실패'); }
   };
 
+  // ── 인라인 편집 + 자동저장(버튼 없이 onBlur 시 저장) ──
+  const editLocal = (id: string, patch: Partial<ReviewItem>) => {
+    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
+  const saveReviewField = async (id: string, field: 'comment' | 'reviewerName' | 'createdAt', value: string) => {
+    try {
+      await adminFetch('PATCH', `/api/v1/admin/reviews/${id}`, { [field]: value });
+    } catch {
+      toast.error('저장 실패 — 다시 시도해주세요');
+    }
+  };
+  const toDateInput = (v?: string) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return '';
+    return new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -417,7 +435,13 @@ export default function AdminReviewsPage() {
                 ) : reviews.map((review) => (
                   <tr key={review.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {review.isAnonymous ? <span className="text-gray-400 italic">익명</span> : review.reviewerName || '-'}
+                      <input
+                        value={review.reviewerName || ''}
+                        onChange={(e) => editLocal(review.id, { reviewerName: e.target.value })}
+                        onBlur={(e) => saveReviewField(review.id, 'reviewerName', e.target.value)}
+                        placeholder={review.isAnonymous ? '익명' : '작성자'}
+                        className="w-full min-w-[70px] rounded bg-transparent px-1 py-0.5 text-sm text-gray-700 outline-none hover:bg-gray-100 focus:bg-white focus:ring-1 focus:ring-[#3180F7]"
+                      />
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{review.proName || '-'}</td>
                     <td className="px-4 py-3 text-center">
@@ -426,14 +450,28 @@ export default function AdminReviewsPage() {
                         <span className="text-sm font-bold text-gray-900">{Number(review.avgRating).toFixed(1)}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[300px] truncate">{review.comment || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 max-w-[300px]">
+                      <input
+                        value={review.comment || ''}
+                        onChange={(e) => editLocal(review.id, { comment: e.target.value })}
+                        onBlur={(e) => saveReviewField(review.id, 'comment', e.target.value)}
+                        placeholder="리뷰 내용"
+                        className="w-full min-w-[160px] rounded bg-transparent px-1 py-0.5 text-sm text-gray-700 outline-none hover:bg-gray-100 focus:bg-white focus:ring-1 focus:ring-[#3180F7]"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       <p className="font-semibold text-gray-700">{review.eventTitle || '-'}</p>
                       <p className="mt-0.5">{formatDate(review.eventDate)} {formatTime(review.eventTime)}</p>
                       {review.eventLocation && <p className="mt-0.5 max-w-[180px] truncate">{review.eventLocation}</p>}
                     </td>
                     <td className="px-4 py-3 text-center text-xs text-gray-400">
-                      {formatDate(review.createdAt)}
+                      <input
+                        type="date"
+                        value={toDateInput(review.createdAt)}
+                        onChange={(e) => editLocal(review.id, { createdAt: e.target.value })}
+                        onBlur={(e) => { if (e.target.value) saveReviewField(review.id, 'createdAt', e.target.value); }}
+                        className="rounded bg-transparent px-1 py-0.5 text-xs text-gray-600 outline-none hover:bg-gray-100 focus:bg-white focus:ring-1 focus:ring-[#3180F7] [color-scheme:light]"
+                      />
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`rounded-lg px-2 py-1 text-[12px] font-semibold ${review.adminCreated ? 'bg-[#F3F8FF] text-[#3180F7]' : 'bg-gray-50 text-gray-500'}`}>
