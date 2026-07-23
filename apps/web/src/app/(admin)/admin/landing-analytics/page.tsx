@@ -88,16 +88,19 @@ export default function LandingAnalyticsPage() {
   const [customFrom, setCustomFrom] = useState<string>('');
   const [customTo, setCustomTo] = useState<string>('');
   const customActive = !!(customFrom || customTo);
+  const [weekDaily, setWeekDaily] = useState<DailyRow[]>([]);
 
   const load = async (r: string, from = customFrom, to = customTo) => {
     setLoading(true);
     try {
       let qs = '';
       if (from || to) {
-        // 캘린더로 고른 날짜 범위(KST 하루 경계). from/to 둘 중 하나만 있어도 동작.
+        // 단일 날짜 선택 시 그날 하루만(to 미지정이면 from 하루). 둘 다면 범위. (KST 하루 경계)
+        const effFrom = from || to;
+        const effTo = to || from;
         const parts: string[] = [];
-        if (from) parts.push(`from=${encodeURIComponent(new Date(`${from}T00:00:00+09:00`).toISOString())}`);
-        if (to) parts.push(`to=${encodeURIComponent(new Date(`${to}T23:59:59.999+09:00`).toISOString())}`);
+        if (effFrom) parts.push(`from=${encodeURIComponent(new Date(`${effFrom}T00:00:00+09:00`).toISOString())}`);
+        if (effTo) parts.push(`to=${encodeURIComponent(new Date(`${effTo}T23:59:59.999+09:00`).toISOString())}`);
         qs = `?${parts.join('&')}`;
       } else if (r !== 'all') {
         const fromISO = new Date(Date.now() - Number(r) * 86400000).toISOString();
@@ -117,6 +120,17 @@ export default function LandingAnalyticsPage() {
   };
 
   useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
+
+  // 최근 7일 달력용 데이터 — 메인 필터와 무관하게 항상 유지(달력이 하루로 접히지 않게)
+  useEffect(() => {
+    (async () => {
+      try {
+        const from = new Date(Date.now() - 7 * 86400000).toISOString();
+        const d = await adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}`, undefined, { cache: false });
+        setWeekDaily(Array.isArray(d?.daily) ? d.daily : []);
+      } catch {}
+    })();
+  }, []);
 
   const totalRate = useMemo(() => (data && data.totalVisits ? data.totalConversions / data.totalVisits : 0), [data]);
   const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -181,27 +195,36 @@ export default function LandingAnalyticsPage() {
         ))}
       </div>
 
-      {/* 일별 방문·견적 */}
-      {data?.daily && data.daily.length > 0 && (() => {
-        const maxV = Math.max(1, ...data.daily.map((d) => d.visits));
+      {/* 최근 7일 달력 (오늘부터 7일 전까지) — 날짜 클릭 시 그날로 필터 */}
+      {(() => {
+        const WD = ['일', '월', '화', '수', '목', '금', '토'];
+        const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        const map = new Map(weekDaily.map((d) => [d.date, d]));
+        const base = new Date(`${kstToday}T00:00:00Z`).getTime();
+        const cells = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(base - i * 86400000);
+          const key = dt.toISOString().slice(0, 10);
+          const row = map.get(key);
+          cells.push({ key, wd: WD[dt.getUTCDay()], dd: key.slice(8), visits: row?.visits || 0, conversions: row?.conversions || 0 });
+        }
         return (
           <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5">
-            <h3 className="mb-3 text-[14px] font-bold text-gray-800">일별 방문 · 견적 (KST)</h3>
-            <div className="space-y-2">
-              {data.daily.slice(0, 21).map((d) => (
-                <div key={d.date} className="flex items-center gap-3">
-                  <span className="w-14 shrink-0 text-[12px] tabular-nums text-gray-500">{d.date.slice(5)}</span>
-                  <div className="relative h-5 flex-1 overflow-hidden rounded bg-gray-100">
-                    <div className="h-full rounded bg-[#3182F6]/80" style={{ width: `${(d.visits / maxV) * 100}%` }} />
-                  </div>
-                  <span className="w-24 shrink-0 text-right text-[12px] tabular-nums">
-                    <b className="text-gray-800">{num(d.visits)}</b><span className="text-gray-400"> 방문</span>
-                  </span>
-                  <span className="w-24 shrink-0 text-right text-[12px] tabular-nums">
-                    <b className="text-emerald-600">{num(d.conversions)}</b><span className="text-gray-400"> 견적</span>
-                  </span>
-                </div>
-              ))}
+            <h3 className="mb-3 text-[14px] font-bold text-gray-800">최근 7일 (KST) <span className="font-medium text-gray-400">· 날짜를 누르면 그날만 필터돼요</span></h3>
+            <div className="grid grid-cols-7 gap-1.5">
+              {cells.map((c) => {
+                const active = customFrom === c.key && (customTo === c.key || !customTo);
+                const isToday = c.key === kstToday;
+                return (
+                  <button key={c.key} onClick={() => { setCustomFrom(c.key); setCustomTo(c.key); }}
+                    className={`rounded-xl border p-2 text-center transition ${active ? 'border-[#3182F6] bg-[#EAF3FF] ring-1 ring-[#3182F6]' : 'border-gray-100 bg-white hover:bg-gray-50'}`}>
+                    <div className={`text-[11px] font-bold ${c.wd === '일' ? 'text-red-500' : c.wd === '토' ? 'text-blue-500' : 'text-gray-500'}`}>{c.wd}</div>
+                    <div className={`text-[15px] font-extrabold tabular-nums ${isToday ? 'text-[#3182F6]' : 'text-gray-900'}`}>{c.dd}</div>
+                    <div className="mt-1.5 text-[11px] tabular-nums text-gray-600">방문 <b className="text-gray-800">{num(c.visits)}</b></div>
+                    <div className="text-[11px] tabular-nums text-emerald-600">신청 <b>{num(c.conversions)}</b></div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
