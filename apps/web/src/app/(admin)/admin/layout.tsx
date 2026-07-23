@@ -25,6 +25,7 @@ type AdminNavItem = {
   href: string;
   label: string;
   exact?: boolean;
+  icon?: string; // /admin-icons/*.svg
 };
 
 const TOP_NAV = [
@@ -40,42 +41,42 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
   {
     label: '운영 홈',
     items: [
-      { href: '/admin', label: '관리자 홈', exact: true },
+      { href: '/admin', label: '관리자 홈', exact: true, icon: 'home.svg' },
     ],
   },
   {
     label: '유저 센터',
     items: [
-      { href: '/admin/users', label: '유저 관리' },
-      { href: '/admin/referral-event', label: '친구초대 이벤트' },
-      { href: '/admin/pros', label: '사회자 관리' },
-      { href: '/admin/partners', label: '업체 관리' },
+      { href: '/admin/users', label: '유저 관리', icon: 'users.svg' },
+      { href: '/admin/referral-event', label: '친구초대 이벤트', icon: 'gift.svg' },
+      { href: '/admin/pros', label: '사회자 관리', icon: 'mic.svg' },
+      { href: '/admin/partners', label: '업체 관리', icon: 'store.svg' },
     ],
   },
   {
     label: '거래 센터',
     items: [
-      { href: '/admin/chat-connections', label: '채팅 매칭' },
-      { href: '/admin/landing-analytics', label: '랜딩 유입 분석' },
-      { href: '/admin/payments', label: '결제조회' },
-      { href: '/admin/settlements', label: '정산내역' },
+      { href: '/admin/chat-connections', label: '채팅 매칭', icon: 'chat.svg' },
+      { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph.svg' },
+      { href: '/admin/payments', label: '결제조회', icon: 'card.svg' },
+      { href: '/admin/settlements', label: '정산내역', icon: 'money-bag.svg' },
     ],
   },
   {
     label: '문의 센터',
     items: [
-      { href: '/admin/inquiries', label: 'Biz 문의' },
-      { href: '/admin/wedding-mc-leads', label: '웨딩MC 설문/리드' },
+      { href: '/admin/inquiries', label: 'Biz 문의', icon: 'envelope.svg' },
+      { href: '/admin/wedding-mc-leads', label: '웨딩MC 설문/리드', icon: 'survey.svg' },
     ],
   },
   {
     label: '콘텐츠 센터',
     items: [
-      { href: '/admin/banners', label: '배너 관리' },
-      { href: '/admin/reviews', label: '리뷰 관리' },
-      { href: '/admin/announcements', label: '공지사항' },
-      { href: '/admin/faqs', label: 'FAQ' },
-      { href: '/admin/policies', label: '약관 관리' },
+      { href: '/admin/banners', label: '배너 관리', icon: 'picture.svg' },
+      { href: '/admin/reviews', label: '리뷰 관리', icon: 'star.svg' },
+      { href: '/admin/announcements', label: '공지사항', icon: 'loudspeaker.svg' },
+      { href: '/admin/faqs', label: 'FAQ', icon: 'question.svg' },
+      { href: '/admin/policies', label: '약관 관리', icon: 'policy.svg' },
     ],
   },
 ];
@@ -225,13 +226,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   key={item.href}
                   href={item.href}
                   onClick={onClickItem}
-                  className={`admin-nav-item block min-h-[54px] rounded-lg px-6 py-[17px] text-[14px] font-semibold leading-5 ${
+                  className={`admin-nav-item flex min-h-[54px] items-center gap-3 rounded-lg px-6 py-[17px] text-[14px] font-semibold leading-5 ${
                     active
                       ? 'active bg-[#F7F9FC] text-[#3180F7]'
                       : 'text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]'
                   }`}
                 >
-                  {item.label}
+                  {item.icon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/admin-icons/${item.icon}`} alt="" aria-hidden className="h-[20px] w-[20px] shrink-0 object-contain" />
+                  )}
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
