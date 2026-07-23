@@ -9,6 +9,7 @@ import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
+import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 
 type NavIconProps = { className?: string };
 
@@ -398,6 +399,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface-50">
+      {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
+      <VilladegdEventOverlay />
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
       <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50`}>
         <div
