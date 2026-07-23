@@ -44,6 +44,14 @@ function monthGrid(offset: number): { year: number; month: number; cells: CalCel
   return { year, month, cells, gridStart: cells[0].key, gridEnd: cells[cells.length - 1].key };
 }
 
+// 표시월(offset)의 실제 1일~말일 KST 날짜
+function monthFirstLast(offset: number): { first: string; last: string } {
+  const kstNow = new Date(Date.now() + 9 * 3600000);
+  const first = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth() + offset, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0));
+  return { first: first.toISOString().slice(0, 10), last: last.toISOString().slice(0, 10) };
+}
+
 // 방문 로그 1행 → 유입 소스 키(utm 우선, 없으면 리퍼러 호스트로 추정)
 function srcKeyOf(v: { source: string | null; referrerHost: string | null }): string {
   if (v.source && v.source.trim()) return v.source.trim();
@@ -194,6 +202,8 @@ export default function LandingAnalyticsPage() {
   const customActive = !!(customFrom || customTo);
   const [monthData, setMonthData] = useState<Analytics | null>(null);
   const [monthOffset, setMonthOffset] = useState(0); // 0=이번달, -1=저번달…
+  const [prevMonth, setPrevMonth] = useState<{ visits: number; conversions: number }>({ visits: 0, conversions: 0 });
+  const [showPages, setShowPages] = useState(false); // 페이지별 도넛 섹션 — 기본 접힘
 
   const load = async (r: string, from = customFrom, to = customTo) => {
     setLoading(true);
@@ -233,8 +243,15 @@ export default function LandingAnalyticsPage() {
         const g = monthGrid(monthOffset);
         const from = new Date(`${g.gridStart}T00:00:00+09:00`).toISOString();
         const to = new Date(`${g.gridEnd}T23:59:59.999+09:00`).toISOString();
-        const d = await adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, undefined, { cache: false });
+        const pr = monthFirstLast(monthOffset - 1); // 저번달(브리핑용)
+        const pFrom = new Date(`${pr.first}T00:00:00+09:00`).toISOString();
+        const pTo = new Date(`${pr.last}T23:59:59.999+09:00`).toISOString();
+        const [d, dp] = await Promise.all([
+          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, undefined, { cache: false }),
+          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(pFrom)}&to=${encodeURIComponent(pTo)}`, undefined, { cache: false }).catch(() => null),
+        ]);
         setMonthData(d ?? null);
+        setPrevMonth({ visits: dp?.totalVisits ?? 0, conversions: dp?.totalConversions ?? 0 });
       } catch {}
     })();
   }, [monthOffset]);
@@ -269,6 +286,18 @@ export default function LandingAnalyticsPage() {
     const bySource = Array.from(sm.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
     return { visits: visitsSum, conversions: convSum, bySource };
   }, [monthData, monthOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 표시월 브리핑 — 저번달 방문수 대비 추세
+  const briefing = useMemo(() => {
+    const cur = monthAgg.visits, prev = prevMonth.visits;
+    if (cur === 0 && prev === 0) return { text: '아직 유입 데이터가 없어요', tone: 'text-gray-400', arrow: '' };
+    if (prev === 0) return { text: '저번달엔 유입이 없었는데, 이번 달에 시작됐어요', tone: 'text-[#3182F6]', arrow: '↑' };
+    const diff = cur - prev;
+    const pctv = Math.round((Math.abs(diff) / prev) * 100);
+    if (pctv < 5) return { text: '저번달과 비슷해요', tone: 'text-gray-500', arrow: '→' };
+    if (diff > 0) return { text: `저번달보다 ${pctv}% 상승세를 보이고 있어요`, tone: 'text-[#3182F6]', arrow: '↑' };
+    return { text: `저번달보다 ${pctv}% 하락세를 보이고 있어요`, tone: 'text-[#F04452]', arrow: '↓' };
+  }, [monthAgg.visits, prevMonth.visits]);
 
   // ── 달력에서 하루 선택 시(customFrom===customTo) 상단 카드를 그 날짜 기준으로 ──
   const pickedDate = customFrom && customFrom === customTo ? customFrom : '';
@@ -328,6 +357,21 @@ export default function LandingAnalyticsPage() {
                   className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition enabled:hover:bg-gray-200 enabled:hover:text-gray-600 disabled:opacity-40" aria-label="다음 달">›</button>
               </div>
             </div>
+            {/* 월 요약: 유입수 · 견적 신청수 · 브리핑(저번달 대비) */}
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-gray-100">
+              <div className="sm:pr-6">
+                <p className="text-[13px] text-gray-500">{g.month + 1}월 유입수</p>
+                <p className="mt-1.5 text-[24px] font-extrabold text-gray-900">{num(monthAgg.visits)}<span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
+              </div>
+              <div className="sm:px-6">
+                <p className="text-[13px] text-gray-500">{g.month + 1}월 견적 신청수</p>
+                <p className="mt-1.5 text-[24px] font-extrabold text-emerald-600">{num(monthAgg.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
+              </div>
+              <div className="sm:pl-6">
+                <p className="text-[13px] text-gray-500">{g.month + 1}월 브리핑</p>
+                <p className={`mt-1.5 text-[15px] font-bold leading-snug ${briefing.tone}`}>{briefing.arrow && <span className="mr-1">{briefing.arrow}</span>}{briefing.text}</p>
+              </div>
+            </div>
             {/* 범례 */}
             <div className="mt-6 flex items-center gap-5 border-t border-gray-100 pt-5 text-[13px] text-gray-500">
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#3182F6]" /> 방문</span>
@@ -374,43 +418,58 @@ export default function LandingAnalyticsPage() {
         );
       })()}
 
-      {/* 기간 필터 (아래 페이지별 유입 소스·매체·캠페인에 적용) */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-[13px] font-semibold text-gray-500">기간</span>
-        {RANGES.map((r) => (
-          <button key={r.key} onClick={() => { setCustomFrom(''); setCustomTo(''); setRange(r.key); }}
-            className={`rounded-full px-4 py-2 text-[13px] font-semibold transition ${range === r.key && !customActive ? 'bg-[#3182F6] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {r.label}
-          </button>
-        ))}
-        <div className={`ml-1 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${customActive ? 'border-[#3182F6] bg-[#EAF3FF]' : 'border-gray-200'}`}>
-          <input type="date" value={customFrom} max={customTo || undefined}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
-          <span className="text-gray-400">~</span>
-          <input type="date" value={customTo} min={customFrom || undefined}
-            onChange={(e) => setCustomTo(e.target.value)}
-            className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
-          {customActive && (
-            <button onClick={() => { setCustomFrom(''); setCustomTo(''); }} className="ml-0.5 rounded-full px-1.5 text-[13px] font-bold text-gray-400 hover:text-gray-600" title="날짜 필터 해제">✕</button>
-          )}
-        </div>
-      </div>
+      {/* 페이지별 유입 상세 — 기본 접힘 */}
+      <div className="mb-8">
+        <button onClick={() => setShowPages((v) => !v)}
+          className="flex w-full items-center justify-between rounded-3xl bg-white px-6 py-4 text-left shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition hover:bg-gray-50">
+          <span className="flex items-center gap-2 text-[15px] font-bold text-gray-800">
+            페이지별 유입 상세 <span className="font-medium text-gray-400">유입 소스 · 매체 · 캠페인</span>
+          </span>
+          <span className={`text-[11px] text-gray-400 transition-transform ${showPages ? 'rotate-180' : ''}`}>▼</span>
+        </button>
 
-      {/* 페이지별 */}
-      {(data?.pages ?? []).map((p) => (
-        <section key={p.page} className="mb-10">
-          <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h2 className="text-[17px] font-bold text-gray-900">{PAGE_LABEL[p.page] || p.page}</h2>
-            <span className="text-[13px] text-gray-500">방문 <b className="text-gray-800">{num(p.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(p.conversions)}</b> · 전환율 <b className="text-emerald-600">{pct(p.rate)}</b></span>
+        {showPages && (
+          <div className="mt-4">
+            {/* 기간 필터 (페이지별 유입 소스·매체·캠페인에 적용) */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-[13px] font-semibold text-gray-500">기간</span>
+              {RANGES.map((r) => (
+                <button key={r.key} onClick={() => { setCustomFrom(''); setCustomTo(''); setRange(r.key); }}
+                  className={`rounded-full px-4 py-2 text-[13px] font-semibold transition ${range === r.key && !customActive ? 'bg-[#3182F6] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {r.label}
+                </button>
+              ))}
+              <div className={`ml-1 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${customActive ? 'border-[#3182F6] bg-[#EAF3FF]' : 'border-gray-200'}`}>
+                <input type="date" value={customFrom} max={customTo || undefined}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
+                <span className="text-gray-400">~</span>
+                <input type="date" value={customTo} min={customFrom || undefined}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
+                {customActive && (
+                  <button onClick={() => { setCustomFrom(''); setCustomTo(''); }} className="ml-0.5 rounded-full px-1.5 text-[13px] font-bold text-gray-400 hover:text-gray-600" title="날짜 필터 해제">✕</button>
+                )}
+              </div>
+            </div>
+
+            {/* 페이지별 도넛 */}
+            {(data?.pages ?? []).map((p) => (
+              <section key={p.page} className="mb-10">
+                <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <h2 className="text-[17px] font-bold text-gray-900">{PAGE_LABEL[p.page] || p.page}</h2>
+                  <span className="text-[13px] text-gray-500">방문 <b className="text-gray-800">{num(p.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(p.conversions)}</b> · 전환율 <b className="text-emerald-600">{pct(p.rate)}</b></span>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Donut title="유입 소스" rows={p.bySource} />
+                  <Donut title="매체 (medium)" rows={p.byMedium} />
+                  <Donut title="캠페인 (campaign)" rows={p.byCampaign} />
+                </div>
+              </section>
+            ))}
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Donut title="유입 소스" rows={p.bySource} />
-            <Donut title="매체 (medium)" rows={p.byMedium} />
-            <Donut title="캠페인 (campaign)" rows={p.byCampaign} />
-          </div>
-        </section>
-      ))}
+        )}
+      </div>
 
       {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
       <div className="mb-8 rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
