@@ -22,6 +22,15 @@ const RANGES = [
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const num = (n: number) => n.toLocaleString('ko-KR');
 
+// 특정 주(offset 0=이번주, -1=저번주…)의 KST 날짜 7개(과거→오늘 순)
+function weekDates(offset: number): string[] {
+  const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const anchor = new Date(`${kstToday}T00:00:00Z`).getTime() + offset * 7 * 86400000;
+  const out: string[] = [];
+  for (let i = 6; i >= 0; i--) out.push(new Date(anchor - i * 86400000).toISOString().slice(0, 10));
+  return out;
+}
+
 // 유입 소스 → 브랜드 아이콘(public/admin-icons/src-*.svg)
 const SOURCE_ICON: Record<string, string> = {
   instagram: 'src-instagram', insta: 'src-instagram', ig: 'src-instagram',
@@ -52,28 +61,59 @@ function SourceLabel({ value, className = '' }: { value: string; className?: str
   );
 }
 
-function Bars({ title, rows }: { title: string; rows: Bucket[] }) {
-  const max = Math.max(1, ...rows.map((r) => r.visits));
+const DONUT_COLORS = ['#3182F6', '#00C2B3', '#FF7043', '#845EF7', '#FFB020', '#F45B8B', '#4E9BFF', '#22C55E', '#EC4899', '#14B8A6', '#F97316', '#A0AEC0'];
+
+function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
+  const shown = rows.slice(0, 12);
+  const total = shown.reduce((s, r) => s + r.visits, 0);
+  const R = 42;
+  const C = 2 * Math.PI * R;
+  let acc = 0;
+  const segs = shown.map((r, i) => {
+    const len = total > 0 ? (r.visits / total) * C : 0;
+    const seg = { color: DONUT_COLORS[i % DONUT_COLORS.length], len, offset: acc };
+    acc += len;
+    return seg;
+  });
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5">
       <h4 className="mb-4 text-[14px] font-bold text-gray-800">{title}</h4>
-      {rows.length === 0 ? (
+      {shown.length === 0 || total === 0 ? (
         <p className="text-[13px] text-gray-400">데이터 없음</p>
       ) : (
-        <div className="space-y-3">
-          {rows.slice(0, 12).map((r) => (
-            <div key={r.key}>
-              <div className="mb-1 flex items-baseline justify-between gap-3">
-                <SourceLabel value={r.key} className="text-[13px] font-medium text-gray-700" />
-                <span className="shrink-0 text-[12px] text-gray-400">
-                  방문 <b className="text-gray-700">{num(r.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(r.conversions)}</b> · {pct(r.rate)}
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                <div className="h-full rounded-full bg-[#3182F6]" style={{ width: `${(r.visits / max) * 100}%` }} />
-              </div>
+        <div className="flex items-center gap-5">
+          {/* 도넛 */}
+          <div className="relative shrink-0" style={{ width: 116, height: 116 }}>
+            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+              <circle cx="50" cy="50" r={R} fill="none" stroke="#F1F3F5" strokeWidth="15" />
+              {segs.map((s, i) => (
+                <circle key={i} cx="50" cy="50" r={R} fill="none" stroke={s.color} strokeWidth="15"
+                  strokeDasharray={`${s.len} ${C - s.len}`} strokeDashoffset={-s.offset} />
+              ))}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[18px] font-extrabold leading-none tabular-nums text-gray-900">{num(total)}</span>
+              <span className="mt-0.5 text-[10px] text-gray-400">방문</span>
             </div>
-          ))}
+          </div>
+          {/* 범례 (비율) */}
+          <div className="min-w-0 flex-1 space-y-1.5">
+            {shown.map((r, i) => {
+              const frac = total > 0 ? r.visits / total : 0;
+              return (
+                <div key={r.key} className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                    <SourceLabel value={r.key} className="truncate text-[12px] font-medium text-gray-700" />
+                  </span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
+                    <b className="text-gray-800">{pct(frac)}</b> · {num(r.visits)}
+                    {r.conversions > 0 && <> · 전환 <b className="text-[#3182F6]">{num(r.conversions)}</b></>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -89,6 +129,7 @@ export default function LandingAnalyticsPage() {
   const [customTo, setCustomTo] = useState<string>('');
   const customActive = !!(customFrom || customTo);
   const [weekDaily, setWeekDaily] = useState<DailyRow[]>([]);
+  const [weekOffset, setWeekOffset] = useState(0); // 0=이번주, -1=저번주…
 
   const load = async (r: string, from = customFrom, to = customTo) => {
     setLoading(true);
@@ -121,16 +162,18 @@ export default function LandingAnalyticsPage() {
 
   useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
 
-  // 최근 7일 달력용 데이터 — 메인 필터와 무관하게 항상 유지(달력이 하루로 접히지 않게)
+  // 달력용 데이터 — 메인 필터와 무관하게 해당 주(weekOffset)의 7일치만
   useEffect(() => {
     (async () => {
       try {
-        const from = new Date(Date.now() - 7 * 86400000).toISOString();
-        const d = await adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}`, undefined, { cache: false });
+        const ds = weekDates(weekOffset);
+        const from = new Date(`${ds[0]}T00:00:00+09:00`).toISOString();
+        const to = new Date(`${ds[6]}T23:59:59.999+09:00`).toISOString();
+        const d = await adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, undefined, { cache: false });
         setWeekDaily(Array.isArray(d?.daily) ? d.daily : []);
       } catch {}
     })();
-  }, []);
+  }, [weekOffset]);
 
   const totalRate = useMemo(() => (data && data.totalVisits ? data.totalConversions / data.totalVisits : 0), [data]);
   const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -195,22 +238,29 @@ export default function LandingAnalyticsPage() {
         ))}
       </div>
 
-      {/* 최근 7일 달력 (오늘부터 7일 전까지) — 날짜 클릭 시 그날로 필터 */}
+      {/* 주간 달력 — 좌우 버튼으로 저번주/다음주 이동, 날짜 클릭 시 그날로 필터 */}
       {(() => {
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
         const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
         const map = new Map(weekDaily.map((d) => [d.date, d]));
-        const base = new Date(`${kstToday}T00:00:00Z`).getTime();
-        const cells = [];
-        for (let i = 6; i >= 0; i--) {
-          const dt = new Date(base - i * 86400000);
-          const key = dt.toISOString().slice(0, 10);
+        const ds = weekDates(weekOffset);
+        const cells = ds.map((key) => {
           const row = map.get(key);
-          cells.push({ key, wd: WD[dt.getUTCDay()], dd: key.slice(8), visits: row?.visits || 0, conversions: row?.conversions || 0 });
-        }
+          return { key, wd: WD[new Date(`${key}T00:00:00Z`).getUTCDay()], dd: key.slice(8), visits: row?.visits || 0, conversions: row?.conversions || 0 };
+        });
+        const rangeLabel = weekOffset === 0 ? '이번 주' : `${ds[0].slice(5).replace('-', '.')} ~ ${ds[6].slice(5).replace('-', '.')}`;
         return (
           <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5">
-            <h3 className="mb-3 text-[14px] font-bold text-gray-800">최근 7일 (KST) <span className="font-medium text-gray-400">· 날짜를 누르면 그날만 필터돼요</span></h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-[14px] font-bold text-gray-800">주간 방문 · 신청 (KST) <span className="font-medium text-gray-400">· 날짜를 누르면 그날만 필터돼요</span></h3>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setWeekOffset((v) => v - 1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50" aria-label="저번 주">‹</button>
+                <span className="min-w-[92px] text-center text-[12px] font-semibold tabular-nums text-gray-600">{rangeLabel}</span>
+                <button onClick={() => setWeekOffset((v) => Math.min(0, v + 1))} disabled={weekOffset >= 0}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition enabled:hover:bg-gray-50 disabled:opacity-30" aria-label="다음 주">›</button>
+              </div>
+            </div>
             <div className="grid grid-cols-7 gap-1.5">
               {cells.map((c) => {
                 const active = customFrom === c.key && (customTo === c.key || !customTo);
@@ -238,9 +288,9 @@ export default function LandingAnalyticsPage() {
             <span className="text-[13px] text-gray-500">방문 <b className="text-gray-800">{num(p.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(p.conversions)}</b> · 전환율 <b className="text-emerald-600">{pct(p.rate)}</b></span>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <Bars title="유입 소스" rows={p.bySource} />
-            <Bars title="매체 (medium)" rows={p.byMedium} />
-            <Bars title="캠페인 (campaign)" rows={p.byCampaign} />
+            <Donut title="유입 소스" rows={p.bySource} />
+            <Donut title="매체 (medium)" rows={p.byMedium} />
+            <Donut title="캠페인 (campaign)" rows={p.byCampaign} />
           </div>
         </section>
       ))}
