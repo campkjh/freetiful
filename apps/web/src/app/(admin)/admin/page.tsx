@@ -1053,6 +1053,19 @@ export default function AdminDashboardPage() {
             title="승인 상태 · 랭킹"
             aside={<span className="text-[12px] font-normal text-[#8B95A1]">조회수 · 매출 TOP</span>}
           >
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <TopList
+                title="조회수 TOP"
+                items={stats.topLists?.viewedPros || []}
+                valueLabel="조회"
+              />
+              <TopList
+                title="매출 TOP"
+                items={stats.topLists?.revenuePros || []}
+                valueLabel="매출"
+                formatter={formatMoney}
+              />
+            </div>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
@@ -1066,21 +1079,16 @@ export default function AdminDashboardPage() {
                   <Building2 className="h-4 w-4 text-[#3180F7]" />
                   <h3 className="text-[16px] font-bold text-[#191F28]">웨딩파트너 업종</h3>
                 </div>
-                <BreakdownList items={businessStatusItems} />
+                {/* 막대 대신 수치만(공간 절약) */}
+                <div className="flex flex-wrap gap-x-5 gap-y-2.5">
+                  {businessStatusItems.map((item) => (
+                    <div key={item.label} className="flex items-baseline gap-1.5">
+                      <span className="text-[13px] text-[#6B7684]">{item.label}</span>
+                      <span className="text-[16px] font-bold text-[#191F28] tabular-nums">{formatNumber(item.value)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              <TopList
-                title="조회수 TOP"
-                items={stats.topLists?.viewedPros || []}
-                valueLabel="조회"
-              />
-              <TopList
-                title="매출 TOP"
-                items={stats.topLists?.revenuePros || []}
-                valueLabel="매출"
-                formatter={formatMoney}
-              />
             </div>
           </AdminSection>
         </div>
