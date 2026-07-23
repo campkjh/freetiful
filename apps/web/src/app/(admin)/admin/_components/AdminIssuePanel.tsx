@@ -5,6 +5,8 @@ import Link from 'next/link';
 import {
   BellRing,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   CreditCard,
   Inbox,
@@ -14,6 +16,8 @@ import {
   Wallet,
   XCircle,
 } from '@/app/(admin)/admin/_components/admin-icons';
+
+const COLLAPSE_KEY = 'admin_issue_panel_collapsed';
 import { adminFetch } from './adminFetch';
 
 type IssueTone = 'blue' | 'green' | 'amber' | 'red' | 'gray';
@@ -138,6 +142,19 @@ export function AdminIssuePanel() {
   const issuesRef = useRef<IssueItem[]>([]);
   const statsRef = useRef<PanelStats>({ ...EMPTY_PANEL_STATS });
   const requestSeqRef = useRef(0);
+
+  // 접기/펼치기 — localStorage 로 상태 기억(다음 접속에도 유지)
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch {}
+  }, []);
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
 
   const loadIssues = useCallback(async (silent = false) => {
     const requestSeq = ++requestSeqRef.current;
@@ -353,7 +370,24 @@ export function AdminIssuePanel() {
   ], [stats]);
 
   return (
-    <aside className="admin-issue-panel hidden w-[328px] shrink-0 border-l border-[#F2F4F6] bg-white xl:flex 2xl:w-[360px]">
+    <aside className={`admin-issue-panel hidden shrink-0 border-l border-[#F2F4F6] bg-white xl:flex ${collapsed ? 'w-[52px]' : 'w-[328px] 2xl:w-[360px]'}`}>
+      {collapsed ? (
+        <div className="flex w-full flex-col items-center gap-3 py-4">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7]"
+            aria-label="운영 이슈 패널 펼치기"
+            title="펼치기"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="mt-1 rotate-180 text-[12px] font-bold text-[#8B95A1]" style={{ writingMode: 'vertical-rl' }}>운영 이슈 패널</div>
+          {issues.length > 0 && (
+            <span className="mt-1 rounded-full bg-[#F3F8FF] px-1.5 py-0.5 text-[11px] font-bold text-[#3180F7]">{issues.length}</span>
+          )}
+        </div>
+      ) : (
       <div className="flex min-h-0 w-full flex-col">
         <div className="border-b border-[#F2F4F6] px-5 py-5">
           <div className="flex items-start justify-between gap-3">
@@ -370,15 +404,26 @@ export function AdminIssuePanel() {
                 {lastUpdated ? `${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 갱신` : '데이터 동기화 중'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => loadIssues()}
-              disabled={loading}
-              className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7] disabled:opacity-50"
-              aria-label="이슈 새로고침"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => loadIssues()}
+                disabled={loading}
+                className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7] disabled:opacity-50"
+                aria-label="이슈 새로고침"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7]"
+                aria-label="운영 이슈 패널 접기"
+                title="접기"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -498,6 +543,7 @@ export function AdminIssuePanel() {
           </Link>
         </div>
       </div>
+      )}
     </aside>
   );
 }
