@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
 
 interface AdminInfiniteScrollProps {
   hasMore: boolean;

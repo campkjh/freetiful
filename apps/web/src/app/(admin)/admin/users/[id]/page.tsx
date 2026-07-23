@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, ExternalLink, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Archive, ExternalLink, RefreshCw, Save, Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../../_components/adminFetch';
 import { AdminSwitch } from '../../_components/AdminSwitch';

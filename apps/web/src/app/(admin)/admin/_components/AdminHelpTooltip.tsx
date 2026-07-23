@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle } from '@/app/(admin)/admin/_components/admin-icons';
 
 export const ADMIN_TERM_TOOLTIPS: Record<string, string> = {
   CTR: 'Click Through Rate. 노출 또는 조회 이후 실제 클릭이나 진입으로 이어진 비율입니다.',

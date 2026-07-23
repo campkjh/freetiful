@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from 'lucide-react';
+import { ArrowLeft, Search, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { GripVertical, ChevronUp, ChevronDown, Save, RefreshCw, Star, Trophy } from 'lucide-react';
+import { GripVertical, ChevronUp, ChevronDown, Save, RefreshCw, Star, Trophy } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../_components/adminFetch';
 

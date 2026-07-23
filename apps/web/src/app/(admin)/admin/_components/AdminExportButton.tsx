@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
 
 export interface AdminExportColumn<T> {
   header: string;

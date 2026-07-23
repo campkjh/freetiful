@@ -11,7 +11,7 @@ import {
   Save,
   Search,
   Trash2,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import {
