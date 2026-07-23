@@ -13,6 +13,7 @@ import {
 } from '@/app/(admin)/admin/_components/admin-icons';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
+import { adminFetch } from './_components/adminFetch';
 
 const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
@@ -102,6 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasAdminKey, setHasAdminKey] = useState(false);
+  const [navBadge, setNavBadge] = useState<{ todayUsers: number; pendingPros: number }>({ todayUsers: 0, pendingPros: 0 });
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -162,6 +164,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // 사이드바 뱃지용 — 오늘 신규 유저 수 / 대기 사회자 신청 수
+  useEffect(() => {
+    if (!checked || isLoginPage) return;
+    let stop = false;
+    const load = async () => {
+      try {
+        const s: any = await adminFetch('GET', '/api/v1/admin/stats', undefined, { cache: false });
+        if (stop) return;
+        setNavBadge({
+          todayUsers: Number(s?.newUsersToday || 0),
+          pendingPros: Number(s?.pendingPros ?? s?.profiles?.proStatus?.pending ?? 0),
+        });
+      } catch {}
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { stop = true; clearInterval(t); };
+  }, [checked, isLoginPage]);
 
   const activeLabel = useMemo(() => {
     for (const section of NAV_SECTIONS) {
@@ -237,6 +258,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <img src={`/admin-icons/${item.icon}`} alt="" aria-hidden className="h-[20px] w-[20px] shrink-0 object-contain" />
                   )}
                   <span>{item.label}</span>
+                  {item.href === '/admin/users' && navBadge.todayUsers > 0 && (
+                    <span className="ml-auto shrink-0 rounded-full bg-[#FFF0F0] px-1.5 py-0.5 text-[11px] font-bold text-[#F04452]">
+                      +{navBadge.todayUsers}
+                    </span>
+                  )}
+                  {item.href === '/admin/pros' && navBadge.pendingPros > 0 && (
+                    <span className="ml-auto shrink-0 rounded-full bg-[#FF5D8F] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      new
+                    </span>
+                  )}
                 </Link>
               );
             })}

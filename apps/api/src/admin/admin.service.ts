@@ -1178,6 +1178,20 @@ export class AdminService {
     const paidQuotations = quotationStatusMap.paid || 0;
     const totalProfileViews = (proAggregate._sum.profileViews || 0) + (businessAggregate._sum.profileViews || 0);
 
+    // 활동중 사회자 = 승인된 사회자 중 최근 7일 내 세션(로그인/토큰갱신) 있는 계정. 나머지는 비활동중.
+    const activePros = await safe('activePros', this.prisma.proProfile.count({
+      where: { status: 'approved', user: { sessions: { some: { createdAt: sevenDayRange } } } },
+    }), 0);
+    const inactivePros = Math.max(0, totalPros - activePros);
+    // 웨딩파트너 업종별 카운트(웨딩홀/스튜디오/헤어샵 …)
+    const businessTypeGroups = await safe('businessTypeGroups', this.prisma.businessProfile.groupBy({
+      by: ['businessType'], _count: true,
+    }), emptyRows);
+    const businessTypes = (businessTypeGroups as any[])
+      .map((row) => ({ type: (row.businessType && String(row.businessType).trim()) || '기타', count: groupCount(row._count) }))
+      .filter((t) => t.count > 0)
+      .sort((a, b) => b.count - a.count);
+
     return {
       totalUsers: roleMap.general || 0,
       allUsers: totalUsers,
@@ -1214,11 +1228,14 @@ export class AdminService {
         avgResponseRate: Number(proAggregate._avg.responseRate || 0),
         proStatus: {
           approved: proStatusMap.approved || 0,
+          active: activePros,
+          inactive: inactivePros,
           pending: proStatusMap.pending || 0,
           draft: proStatusMap.draft || 0,
           rejected: proStatusMap.rejected || 0,
           suspended: proStatusMap.suspended || 0,
         },
+        businessTypes,
         businessTotal: totalBusinesses,
         businessStatus: {
           approved: businessStatusMap.approved || 0,

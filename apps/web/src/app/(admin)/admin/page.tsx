@@ -80,6 +80,7 @@ interface Stats {
     proStatus?: Record<string, number>;
     businessTotal?: number;
     businessStatus?: Record<string, number>;
+    businessTypes?: Array<{ type: string; count: number }>;
   };
   engagement?: {
     chatRooms?: number;
@@ -904,33 +905,22 @@ export default function AdminDashboardPage() {
 
   const proStatusItems = useMemo(() => {
     if (!stats) return [];
-    const labels: Record<string, string> = {
-      approved: '승인',
-      pending: '대기',
-      draft: '작성중',
-      rejected: '반려',
-      suspended: '정지',
-    };
-    return Object.entries(labels).map(([key, label]) => ({
-      label,
-      value: toNumber(stats.profiles?.proStatus?.[key]),
-      color: key === 'approved' ? BLUE : key === 'pending' ? ORANGE : key === 'rejected' || key === 'suspended' ? RED : GRAY,
-    }));
+    // 활동중 = 승인 + 최근 7일 접속, 비활동중 = 승인이나 7일+ 미접속
+    return [
+      { label: '활동중', value: toNumber(stats.profiles?.proStatus?.active), color: BLUE },
+      { label: '비활동중', value: toNumber(stats.profiles?.proStatus?.inactive), color: GRAY },
+    ];
   }, [stats]);
 
   const businessStatusItems = useMemo(() => {
     if (!stats) return [];
-    const labels: Record<string, string> = {
-      approved: '승인',
-      pending: '대기',
-      draft: '작성중',
-      rejected: '반려',
-    };
-    return Object.entries(labels).map(([key, label]) => ({
-      label,
-      value: toNumber(stats.profiles?.businessStatus?.[key]),
-      color: key === 'approved' ? BLUE : key === 'pending' ? ORANGE : key === 'rejected' ? RED : GRAY,
-    }));
+    // 웨딩파트너 업종별 카운트(웨딩홀/스튜디오/헤어샵 …)
+    const types: Array<{ type: string; count: number }> = Array.isArray(stats.profiles?.businessTypes)
+      ? stats.profiles.businessTypes
+      : [];
+    if (types.length === 0) return [{ label: '등록 없음', value: 0, color: GRAY }];
+    const palette = [BLUE, GREEN, ORANGE, RED, GRAY];
+    return types.map((t, i) => ({ label: t.type, value: toNumber(t.count), color: palette[i % palette.length] }));
   }, [stats]);
 
   const matchStatusItems = useMemo(() => {
@@ -1074,7 +1064,7 @@ export default function AdminDashboardPage() {
               <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="웨딩파트너 상태">웨딩파트너 상태</AdminTerm></h3>
+                  <h3 className="text-[16px] font-bold text-[#191F28]">웨딩파트너 업종</h3>
                 </div>
                 <BreakdownList items={businessStatusItems} />
               </div>
