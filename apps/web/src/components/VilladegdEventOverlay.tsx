@@ -23,17 +23,17 @@ const STRENGTHS = [
   { t: '프리미엄 플라워 브랜딩', d: '감각적인 홀과 스페셜 플라워로 품격을 더해요' },
 ];
 
-type Branch = { key: string; name: string; hall?: string; loc: string; address: string; phone: string; intro: string; video?: string };
+type Branch = { key: string; name: string; en: string; hall?: string; address: string; phone: string; intro: string; video: string };
 const BRANCHES: Branch[] = [
-  { key: '빌라드지디청담', name: '청담', loc: '서울 강남 · 청담', address: '서울 강남구 학동로 519', phone: '02-542-7513',
-    intro: '청담동, 도심 속 프리미엄 하우스 웨딩. 감각적인 공간에서 품격 있는 하루를 완성합니다.' },
-  { key: '빌라드지디수서', name: '수서', hall: '르씨엘홀', loc: '서울 강남 · 수서', address: '서울 강남구 밤고개로21길 79', phone: '02-543-2555',
+  { key: '빌라드지디청담', name: '청담', en: 'CHUNGDAM', address: '서울 강남구 학동로 519', phone: '02-542-7513',
+    intro: '청담동, 도심 속 프리미엄 하우스 웨딩. 감각적인 공간에서 품격 있는 하루를 완성합니다.', video: HERO_VIDEO },
+  { key: '빌라드지디수서', name: '수서', en: 'SUSEO', hall: '르씨엘홀', address: '서울 강남구 밤고개로21길 79', phone: '02-543-2555',
     intro: '자연광 가득한 르씨엘홀. 빛으로 물드는 로맨틱한 분위기 속에서 특별한 예식을 담습니다.', video: `${BLOB}/villadegd-suseo.mp4` },
-  { key: '빌라드지디안양', name: '안양', hall: '갤러리아홀', loc: '경기 안양 · 동안구', address: '경기 안양시 동안구 관악대로 254', phone: '031-382-3838',
+  { key: '빌라드지디안양', name: '안양', en: 'ANYANG', hall: '갤러리아홀', address: '경기 안양시 동안구 관악대로 254', phone: '031-382-3838',
     intro: '빛과 컨셉이 어우러진 갤러리아홀. 미디어아트로 완성하는 가장 감각적인 웨딩.', video: `${BLOB}/villadegd-anyang.mp4` },
-  { key: '빌라드지디안산', name: '안산', hall: '그레이스켈리홀', loc: '경기 안산 · 단원구', address: '경기 안산시 단원구 광덕4로 140', phone: '031-487-8100',
+  { key: '빌라드지디안산', name: '안산', en: 'ANSAN', hall: '그레이스켈리홀', address: '경기 안산시 단원구 광덕4로 140', phone: '031-487-8100',
     intro: '스페셜 플라워 브랜딩이 빛나는 그레이스켈리홀. 우아함이 흐르는 프리미엄 예식.', video: `${BLOB}/villadegd-ansan.mp4` },
-  { key: '빌라드지디논현', name: '논현', loc: '서울 강남 · 논현', address: '서울 강남구 언주로126길 23', phone: '02-547-3381',
+  { key: '빌라드지디논현', name: '논현', en: 'NONHYEON', address: '서울 강남구 언주로126길 23', phone: '02-547-3381',
     intro: '2024 리뉴얼로 새롭게 태어난 논현. 세련된 도심형 웨딩홀에서의 완벽한 하루.', video: `${BLOB}/villadegd-nonhyeon.mp4` },
 ];
 
@@ -53,10 +53,12 @@ const CSS = `
 @keyframes vgdHint{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(7px);opacity:1}}
 .vgd-fade{animation:vgdFade .5s ease both}
 @keyframes vgdFade{from{opacity:0}to{opacity:1}}
-.vgd-gal{scrollbar-width:none}.vgd-gal::-webkit-scrollbar{display:none}
+.vgd-marquee-track{animation:vgdMarquee 34s linear infinite}
+@keyframes vgdMarquee{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.vgd-marquee:hover .vgd-marquee-track,.vgd-marquee:active .vgd-marquee-track{animation-play-state:paused}
 @media (prefers-reduced-motion: reduce){
-  .vgd-reveal,.vgd-pop,.vgd-rise{opacity:1 !important;transform:none !important}
-  .vgd-curtain,.vgd-hint,.vgd-fade{animation:none !important}
+  .vgd-reveal,.vgd-pop,.vgd-rise,.vgd-rise-sm{opacity:1 !important;transform:none !important}
+  .vgd-curtain,.vgd-hint,.vgd-fade,.vgd-marquee-track{animation:none !important}
 }
 `;
 
@@ -145,64 +147,49 @@ export default function VilladegdEventOverlay() {
         </ul>
       </section>
 
-      {/* ── 미디어아트 웨딩 ── */}
-      <section className="px-6 pb-4 text-center">
-        <p className="vgd-pop mb-3 text-[14px] font-semibold uppercase tracking-[0.16em] text-[#B7C0CC] md:text-[16px]">Media Art Wedding</p>
-        <h2 className="vgd-pop vgd-d1 text-[26px] font-extrabold leading-[1.32] tracking-[-0.02em] text-[#191F28] md:text-[40px]">
-          빛과 영상이 예식이 되는<br />미디어아트 웨딩
-        </h2>
-        <p className="vgd-reveal vgd-d2 mx-auto mt-4 max-w-[500px] text-[15px] leading-[1.75] text-[#8B95A1] md:text-[18px]">
-          공간 전체를 채우는 미디어아트와 조명 연출로,<br className="hidden sm:block" />
-          두 사람만의 스토리를 가장 아름답게 담아냅니다.
-        </p>
-      </section>
-
       {/* ── 지점별 시네마틱 섹션 ── */}
       {BRANCHES.map((b) => {
         const imgs = getWeddingPartnerImages(b.key);
         const lead = imgs[0];
-        const gallery = imgs.slice(1, 9);
+        const gallery = imgs.slice(0, 10);
         return (
-          <section key={b.key} className="px-6 py-14 md:py-20">
-            <div className="mx-auto max-w-[760px] text-center">
-              <p className="vgd-reveal mb-2 inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#3182F6] md:text-[15px]">
-                {b.loc}{b.hall ? ` · ${b.hall}` : ''}
+          <section key={b.key} className="py-14 md:py-20">
+            <div className="mx-auto max-w-[760px] px-6 text-center">
+              <p className="vgd-reveal mb-2 text-[13px] font-semibold uppercase tracking-[0.02em] text-[#9AA3AF] md:text-[14px]">
+                VILLA DE GD {b.en}
               </p>
               <h3 className="vgd-reveal vgd-d1 text-[27px] font-extrabold leading-[1.2] tracking-[-0.02em] text-[#191F28] md:text-[40px]">
-                빌라드지디 <span className="text-[#3182F6]">{b.name}</span>
+                빌라드지디 {b.name}
               </h3>
               <p className="vgd-reveal vgd-d2 mx-auto mt-4 max-w-[560px] text-[16px] leading-[1.75] text-[#6B7684] md:text-[19px]">
                 {b.intro}
               </p>
 
-              {/* 대표 미디어 — 영상 자동재생(무한 루프), 없으면 대표 이미지 */}
+              {/* 대표 미디어 — 영상 자동재생(무한 루프) */}
               <div className="vgd-rise mt-8 overflow-hidden rounded-[24px] bg-[#F2F4F6] shadow-[0_16px_50px_rgba(0,0,0,0.14)]">
-                {b.video ? (
-                  <video className="aspect-video w-full object-cover" src={b.video} autoPlay muted loop playsInline preload="auto" poster={lead} />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={lead} alt={`빌라드지디 ${b.name}`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
-                )}
+                <video className="aspect-video w-full object-cover" src={b.video} autoPlay muted loop playsInline preload="auto" poster={lead} />
               </div>
+            </div>
 
-              {/* 갤러리 — 좌→우 촤라락 */}
-              {gallery.length > 0 && (
-                <div className="vgd-gal -mx-6 mt-2 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-6 pb-6 pt-3">
-                  {gallery.map((src, k) => (
-                    <div key={src} className="vgd-rise-sm relative aspect-[3/4] w-[42%] shrink-0 snap-start overflow-hidden rounded-[18px] bg-[#F2F4F6] sm:w-[28%] md:w-[22%]" style={{ transitionDelay: `${Math.min(k, 7) * 0.07}s` }}>
+            {/* 갤러리 — 무한 캐러셀(좌→우) */}
+            {gallery.length > 0 && (
+              <div className="vgd-marquee vgd-reveal mt-4 overflow-hidden">
+                <div className="vgd-marquee-track flex w-max">
+                  {[...gallery, ...gallery].map((src, k) => (
+                    <div key={k} className="relative mr-2.5 aspect-[3/4] w-[44vw] shrink-0 overflow-hidden rounded-[18px] bg-[#F2F4F6] sm:w-[28vw] md:w-[210px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={`빌라드지디 ${b.name} ${k + 2}`} loading="lazy" className="h-full w-full object-cover" />
+                      <img src={src} alt={`빌라드지디 ${b.name}`} loading="lazy" className="h-full w-full object-cover" />
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* 위치·연락 — 카드 없이 담백하게 */}
-              <p className="vgd-reveal mt-6 inline-flex items-center gap-1.5 text-[14px] text-[#8B95A1] md:text-[15px]">
-                <MapPin size={15} strokeWidth={2.2} className="text-[#B0B8C1]" />
-                {b.address} · {b.phone}
-              </p>
-            </div>
+            {/* 위치·연락 — 카드 없이 담백하게 */}
+            <p className="vgd-reveal mt-6 flex items-center justify-center gap-1.5 px-6 text-center text-[14px] text-[#8B95A1] md:text-[15px]">
+              <MapPin size={15} strokeWidth={2.2} className="text-[#B0B8C1]" />
+              {b.address} · {b.phone}
+            </p>
           </section>
         );
       })}
