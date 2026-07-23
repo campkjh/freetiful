@@ -121,7 +121,7 @@ function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
     return seg;
   });
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="rounded-[38px] bg-white p-5">
       <h4 className="mb-4 text-[14px] font-bold text-gray-800">{title}</h4>
       {shown.length === 0 || total === 0 ? (
         <p className="text-[13px] text-gray-400">데이터 없음</p>
@@ -169,9 +169,9 @@ function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
 function SourceCard({ title, value, unit, tone = 'text-gray-900', rows, empty = '유입 기록 없음' }:
   { title: string; value: number; unit: string; tone?: string; rows: { key: string; count: number }[]; empty?: string }) {
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <p className="text-[13px] text-gray-500">{title}</p>
-      <p className={`mt-1 text-[26px] font-black leading-none ${tone}`}>{num(value)}<span className="ml-1 text-[14px] font-bold text-gray-400">{unit}</span></p>
+    <div className="rounded-[38px] bg-white p-5">
+      <p className="text-[15px] font-medium text-gray-500">{title}</p>
+      <p className={`mt-1.5 text-[32px] font-black leading-none ${tone}`}>{num(value)}<span className="ml-1 text-[16px] font-bold text-gray-400">{unit}</span></p>
       <div className="mt-4 space-y-2.5">
         {rows.length === 0 ? (
           <p className="text-[12px] text-gray-300">{empty}</p>
@@ -322,7 +322,7 @@ export default function LandingAnalyticsPage() {
     : { title: '오늘 견적 신청', value: todayAgg.conversions, rows: todayAgg.byConvSource, empty: '오늘 신청 없음' };
 
   return (
-    <div className="min-h-full w-full bg-[#F2F4F6] px-5 py-6 md:px-8">
+    <div className="w-full">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-[22px] font-bold text-gray-900"><TrendingUp className="h-6 w-6 text-[#3182F6]" /> 랜딩 유입 분석</h1>
@@ -346,10 +346,10 @@ export default function LandingAnalyticsPage() {
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 rounded-3xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-8">
+          <div className="mb-8 rounded-[38px] bg-white p-6 md:p-8">
             {/* 헤더: 연·월 + 이동 */}
             <div className="flex items-center gap-3">
-              <h3 className="text-[26px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
+              <h3 className="text-[32px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setMonthOffset((v) => v - 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition hover:bg-gray-200 hover:text-gray-600" aria-label="저번 달">‹</button>
@@ -360,16 +360,16 @@ export default function LandingAnalyticsPage() {
             {/* 월 요약: 유입수 · 견적 신청수 · 브리핑(저번달 대비) */}
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-gray-100">
               <div className="sm:pr-6">
-                <p className="text-[13px] text-gray-500">{g.month + 1}월 유입수</p>
-                <p className="mt-1.5 text-[24px] font-extrabold text-gray-900">{num(monthAgg.visits)}<span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
+                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 유입수</p>
+                <p className="mt-1.5 text-[28px] font-extrabold text-gray-900">{num(monthAgg.visits)}<span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
               </div>
               <div className="sm:px-6">
-                <p className="text-[13px] text-gray-500">{g.month + 1}월 견적 신청수</p>
-                <p className="mt-1.5 text-[24px] font-extrabold text-emerald-600">{num(monthAgg.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
+                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 견적 신청수</p>
+                <p className="mt-1.5 text-[28px] font-extrabold text-emerald-600">{num(monthAgg.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
               </div>
               <div className="sm:pl-6">
-                <p className="text-[13px] text-gray-500">{g.month + 1}월 브리핑</p>
-                <p className={`mt-1.5 text-[15px] font-bold leading-snug ${briefing.tone}`}>{briefing.arrow && <span className="mr-1">{briefing.arrow}</span>}{briefing.text}</p>
+                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 브리핑</p>
+                <p className={`mt-1.5 text-[17px] font-bold leading-snug ${briefing.tone}`}>{briefing.arrow && <span className="mr-1">{briefing.arrow}</span>}{briefing.text}</p>
               </div>
             </div>
             {/* 범례 */}
@@ -421,7 +421,7 @@ export default function LandingAnalyticsPage() {
       {/* 페이지별 유입 상세 — 기본 접힘 */}
       <div className="mb-8">
         <button onClick={() => setShowPages((v) => !v)}
-          className="flex w-full items-center justify-between rounded-3xl bg-white px-6 py-4 text-left shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition hover:bg-gray-50">
+          className="flex w-full items-center justify-between rounded-[38px] bg-white px-6 py-4 text-left transition hover:bg-gray-50">
           <span className="flex items-center gap-2 text-[15px] font-bold text-gray-800">
             페이지별 유입 상세 <span className="font-medium text-gray-400">유입 소스 · 매체 · 캠페인</span>
           </span>
@@ -472,7 +472,7 @@ export default function LandingAnalyticsPage() {
       </div>
 
       {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
-      <div className="mb-8 rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="mb-8 rounded-[38px] bg-white p-5">
         <h3 className="mb-3 text-[14px] font-bold text-gray-800">방문 로그 <span className="font-medium text-gray-400">(최근순 · 어떤 경로로 유입됐는지)</span></h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-[12.5px]">

@@ -362,7 +362,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </aside>
 
         <main className="admin-main min-w-0 flex-1 overflow-auto bg-white">
-          <div className="admin-page-frame w-full px-5 py-8 md:px-9 lg:px-12 xl:px-14 2xl:px-[54px]" key={pathname}>
+          <div className={`admin-page-frame w-full px-5 py-8 md:px-9 lg:px-12 xl:px-14 2xl:px-[54px] ${pathname === '/admin/landing-analytics' ? 'bg-[#F2F4F6]' : ''}`} key={pathname}>
             <div className="mb-7 flex items-center justify-between border-b border-transparent md:hidden">
               <div>
                 <p className="text-[12px] font-normal text-[#B0B8C1]">관리자 센터</p>
