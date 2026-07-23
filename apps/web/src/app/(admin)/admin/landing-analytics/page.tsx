@@ -113,7 +113,7 @@ function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
     return seg;
   });
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5">
+    <div className="rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <h4 className="mb-4 text-[14px] font-bold text-gray-800">{title}</h4>
       {shown.length === 0 || total === 0 ? (
         <p className="text-[13px] text-gray-400">데이터 없음</p>
@@ -161,7 +161,7 @@ function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
 function SourceCard({ title, value, unit, tone = 'text-gray-900', rows, empty = '유입 기록 없음' }:
   { title: string; value: number; unit: string; tone?: string; rows: { key: string; count: number }[]; empty?: string }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <p className="text-[13px] text-gray-500">{title}</p>
       <p className={`mt-1 text-[26px] font-black leading-none ${tone}`}>{num(value)}<span className="ml-1 text-[14px] font-bold text-gray-400">{unit}</span></p>
       <div className="mt-4 space-y-2.5">
@@ -293,7 +293,7 @@ export default function LandingAnalyticsPage() {
     : { title: '오늘 견적 신청', value: todayAgg.conversions, rows: todayAgg.byConvSource, empty: '오늘 신청 없음' };
 
   return (
-    <div className="w-full px-5 py-6 md:px-8">
+    <div className="min-h-full w-full bg-[#F2F4F6] px-5 py-6 md:px-8">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-[22px] font-bold text-gray-900"><TrendingUp className="h-6 w-6 text-[#3182F6]" /> 랜딩 유입 분석</h1>
@@ -317,7 +317,7 @@ export default function LandingAnalyticsPage() {
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 rounded-3xl border border-gray-100 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-8">
+          <div className="mb-8 rounded-3xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-8">
             {/* 헤더: 연·월 + 이동 */}
             <div className="flex items-center gap-3">
               <h3 className="text-[26px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
@@ -413,7 +413,7 @@ export default function LandingAnalyticsPage() {
       ))}
 
       {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
-      <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5">
+      <div className="mb-8 rounded-3xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <h3 className="mb-3 text-[14px] font-bold text-gray-800">방문 로그 <span className="font-medium text-gray-400">(최근순 · 어떤 경로로 유입됐는지)</span></h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-[12.5px]">
