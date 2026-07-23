@@ -22,6 +22,36 @@ const RANGES = [
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const num = (n: number) => n.toLocaleString('ko-KR');
 
+// 유입 소스 → 브랜드 아이콘(public/admin-icons/src-*.svg)
+const SOURCE_ICON: Record<string, string> = {
+  instagram: 'src-instagram', insta: 'src-instagram', ig: 'src-instagram',
+  facebook: 'src-facebook', fb: 'src-facebook', 'facebook.com': 'src-facebook',
+  meta: 'src-meta',
+  threads: 'src-threads', 'threads.net': 'src-threads',
+};
+function sourceIconFile(key?: string | null): string | null {
+  if (!key) return null;
+  const k = String(key).toLowerCase().trim();
+  if (SOURCE_ICON[k]) return SOURCE_ICON[k];
+  if (k.includes('instagram')) return 'src-instagram';
+  if (k.includes('facebook')) return 'src-facebook';
+  if (k.includes('threads')) return 'src-threads';
+  if (k.includes('meta')) return 'src-meta';
+  return null;
+}
+function SourceLabel({ value, className = '' }: { value: string; className?: string }) {
+  const file = sourceIconFile(value);
+  return (
+    <span className={`inline-flex min-w-0 items-center gap-1.5 ${className}`}>
+      {file && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={`/admin-icons/${file}.svg`} alt="" width={16} height={16} className="shrink-0 rounded-[3px]" />
+      )}
+      <span className="truncate">{value}</span>
+    </span>
+  );
+}
+
 function Bars({ title, rows }: { title: string; rows: Bucket[] }) {
   const max = Math.max(1, ...rows.map((r) => r.visits));
   return (
@@ -34,7 +64,7 @@ function Bars({ title, rows }: { title: string; rows: Bucket[] }) {
           {rows.slice(0, 12).map((r) => (
             <div key={r.key}>
               <div className="mb-1 flex items-baseline justify-between gap-3">
-                <span className="truncate text-[13px] font-medium text-gray-700">{r.key}</span>
+                <SourceLabel value={r.key} className="text-[13px] font-medium text-gray-700" />
                 <span className="shrink-0 text-[12px] text-gray-400">
                   방문 <b className="text-gray-700">{num(r.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(r.conversions)}</b> · {pct(r.rate)}
                 </span>
@@ -190,7 +220,7 @@ export default function LandingAnalyticsPage() {
                 <tr key={i} className="border-b border-gray-50">
                   <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-gray-500">{fmtDT(v.createdAt)}</td>
                   <td className="py-2 pr-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">{PAGE_SHORT[v.page] || v.page}</span></td>
-                  <td className="py-2 pr-2 font-semibold text-gray-800">{v.source || v.referrerHost || <span className="font-normal text-gray-400">직접/기타</span>}</td>
+                  <td className="py-2 pr-2 font-semibold text-gray-800">{v.source ? <SourceLabel value={v.source} /> : v.referrerHost ? <SourceLabel value={v.referrerHost} /> : <span className="font-normal text-gray-400">직접/기타</span>}</td>
                   <td className="py-2 pr-2 text-gray-500">{[v.medium, v.campaign].filter(Boolean).join(' · ') || '—'}</td>
                   <td className="max-w-[180px] truncate py-2 pr-2 text-gray-400" title={v.referrer || ''}>{v.referrerHost || '—'}</td>
                   <td className="py-2 pl-2 text-right">{v.converted ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">신청</span> : <span className="text-gray-300">–</span>}</td>
