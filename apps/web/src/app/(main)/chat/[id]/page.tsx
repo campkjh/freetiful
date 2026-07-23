@@ -1184,7 +1184,6 @@ export default function ChatRoomPage() {
           >
             <div className="relative shrink-0">
               <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
-              {chatPartner?.isActive && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#34C759] border-2 border-white rounded-full" />}
             </div>
             <div className="flex-1 min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
@@ -1201,9 +1200,6 @@ export default function ChatRoomPage() {
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-gray-400">
-                {chatPartner?.isActive ? '온라인' : chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'}
-              </p>
             </div>
           </button>
 
