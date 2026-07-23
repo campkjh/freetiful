@@ -10,7 +10,7 @@ import {
   LogOut,
   Menu,
   X,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 

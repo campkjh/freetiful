@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, RotateCcw } from 'lucide-react';
+import { CalendarDays, RotateCcw } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminTerm } from './AdminHelpTooltip';
 
 export type AdminDateRange = {

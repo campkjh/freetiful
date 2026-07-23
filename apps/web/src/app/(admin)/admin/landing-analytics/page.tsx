@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, TrendingUp } from 'lucide-react';
+import { RefreshCw, TrendingUp } from '@/app/(admin)/admin/_components/admin-icons';
 import { adminFetch } from '../_components/adminFetch';
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }

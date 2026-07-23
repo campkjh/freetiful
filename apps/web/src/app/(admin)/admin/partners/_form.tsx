@@ -14,7 +14,7 @@ import {
   ChevronDown,
   Loader2,
   X,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import {
   adminPartnersApi,

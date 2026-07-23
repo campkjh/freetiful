@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useRouter, useParams } from 'next/navigation';
-import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star, AlertCircle } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminSwitch } from '../../../_components/AdminSwitch';
 import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetch';

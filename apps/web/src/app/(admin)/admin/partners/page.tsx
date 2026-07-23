@@ -9,7 +9,7 @@ import {
   Trash2,
   ImageOff,
   AlertCircle,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';

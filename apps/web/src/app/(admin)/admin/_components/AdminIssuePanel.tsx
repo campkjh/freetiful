@@ -13,7 +13,7 @@ import {
   UserCheck,
   Wallet,
   XCircle,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import { adminFetch } from './adminFetch';
 
 type IssueTone = 'blue' | 'green' | 'amber' | 'red' | 'gray';

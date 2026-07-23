@@ -19,7 +19,7 @@ import {
   UserCheck,
   Users,
   Wallet,
-} from 'lucide-react';
+} from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminTerm } from './_components/AdminHelpTooltip';
 import { adminFetch } from './_components/adminFetch';

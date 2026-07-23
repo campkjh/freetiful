@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Code2, Eye, FileText, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Code2, Eye, FileText, Plus, RefreshCw, Save, Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminTerm } from '../_components/AdminHelpTooltip';

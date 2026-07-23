@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle } from '@/app/(admin)/admin/_components/admin-icons';
 import { useAuthStore } from '@/lib/store/auth.store';
 
 export interface AdminErrorInfo {
