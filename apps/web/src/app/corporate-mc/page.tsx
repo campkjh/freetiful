@@ -328,12 +328,13 @@ export default function CorporateMcPage() {
         formType: 'corporate-mc',                    // ★ 시트 분류 키 — 수정/삭제 금지
         name: name.trim(),
         phone: phone.trim(),
-        company: company.trim(),                     // corporate-mc 실제 필드(회사/단체명)
+        company: company.trim(),                     // 추가 필드(기업명) — 시트 컬럼 필요
         q1: '',                                      // corporate-mc 폼에 해당 항목 없음
-        weddingDate: dateText.trim(),                // 행사 예정일
+        weddingDate: dateText.trim(),                // 행사일 (Apps Script 는 weddingDate||eventDate 순으로 읽음)
+        eventDate: dateText.trim(),                  // corporate 스키마 키(행사일) — 문서 사양 일치
         region: region.trim(),                       // 행사 지역
         benefits: [] as string[],                    // corporate-mc 폼에 해당 항목 없음
-        description: description.trim(),             // 행사 기획 설명
+        description: description.trim(),             // 추가 필드(행사 기획 설명) — 시트 컬럼 필요
         couponCode: '',
         source: 'freetiful-corporate-mc',
         utm_source: utm.utm_source || '',
