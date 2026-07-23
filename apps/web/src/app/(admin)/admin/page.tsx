@@ -831,12 +831,6 @@ export default function AdminDashboardPage() {
         color: GREEN,
       },
       {
-        label: '요청 열람률',
-        value: toNumber(stats.rates?.deliveryViewRate),
-        detail: `${formatNumber(stats.funnel?.viewedDeliveries)} / ${formatNumber(stats.funnel?.deliveries)} 전달`,
-        color: ORANGE,
-      },
-      {
         label: '요청 응답률',
         value: toNumber(stats.rates?.deliveryReplyRate),
         detail: `${formatNumber(stats.funnel?.repliedDeliveries)} / ${formatNumber(stats.funnel?.deliveries)} 전달`,
@@ -855,12 +849,6 @@ export default function AdminDashboardPage() {
         color: BLUE,
       },
       {
-        label: '리뷰 작성률',
-        value: toNumber(stats.rates?.reviewWriteRate),
-        detail: `${formatNumber(stats.totalReviews)} / ${formatNumber(stats.funnel?.completedPayments)} 완료 결제`,
-        color: ORANGE,
-      },
-      {
         label: '푸시 발송률',
         value: toNumber(stats.rates?.pushSendRate),
         detail: `${formatNumber(stats.engagement?.sentPushNotifications)} / ${formatNumber(stats.engagement?.notifications)} 알림`,
@@ -875,12 +863,10 @@ export default function AdminDashboardPage() {
       { label: '프로필 조회', value: toNumber(stats.funnel?.profileViews), color: BLUE },
       { label: '요청 생성', value: toNumber(stats.funnel?.matchRequests), color: GREEN },
       { label: '전달', value: toNumber(stats.funnel?.deliveries), color: GREEN },
-      { label: '열람', value: toNumber(stats.funnel?.viewedDeliveries), color: ORANGE },
       { label: '응답', value: toNumber(stats.funnel?.repliedDeliveries), color: ORANGE },
       { label: '채팅방', value: toNumber(stats.funnel?.chatRooms), color: BLUE },
       { label: '견적', value: toNumber(stats.funnel?.quotations), color: GREEN },
       { label: '결제완료', value: toNumber(stats.funnel?.completedPayments), color: RED },
-      { label: '리뷰', value: toNumber(stats.funnel?.reviews), color: GRAY },
     ];
   }, [stats]);
 
