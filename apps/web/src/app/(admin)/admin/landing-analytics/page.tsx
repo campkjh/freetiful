@@ -85,14 +85,23 @@ export default function LandingAnalyticsPage() {
   const [visits, setVisits] = useState<VisitRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<string>('30');
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
+  const customActive = !!(customFrom || customTo);
 
-  const load = async (r: string) => {
+  const load = async (r: string, from = customFrom, to = customTo) => {
     setLoading(true);
     try {
       let qs = '';
-      if (r !== 'all') {
-        const from = new Date(Date.now() - Number(r) * 86400000).toISOString();
-        qs = `?from=${encodeURIComponent(from)}`;
+      if (from || to) {
+        // 캘린더로 고른 날짜 범위(KST 하루 경계). from/to 둘 중 하나만 있어도 동작.
+        const parts: string[] = [];
+        if (from) parts.push(`from=${encodeURIComponent(new Date(`${from}T00:00:00+09:00`).toISOString())}`);
+        if (to) parts.push(`to=${encodeURIComponent(new Date(`${to}T23:59:59.999+09:00`).toISOString())}`);
+        qs = `?${parts.join('&')}`;
+      } else if (r !== 'all') {
+        const fromISO = new Date(Date.now() - Number(r) * 86400000).toISOString();
+        qs = `?from=${encodeURIComponent(fromISO)}`;
       }
       const [d, v] = await Promise.all([
         adminFetch('GET', `/api/v1/admin/landing-analytics${qs}`, undefined, { cache: false }),
@@ -107,7 +116,7 @@ export default function LandingAnalyticsPage() {
     }
   };
 
-  useEffect(() => { load(range); /* eslint-disable-next-line */ }, [range]);
+  useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
 
   const totalRate = useMemo(() => (data && data.totalVisits ? data.totalConversions / data.totalVisits : 0), [data]);
   const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -124,13 +133,26 @@ export default function LandingAnalyticsPage() {
         </button>
       </div>
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (
-          <button key={r.key} onClick={() => setRange(r.key)}
-            className={`rounded-full px-4 py-2 text-[13px] font-semibold transition ${range === r.key ? 'bg-[#3182F6] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+          <button key={r.key} onClick={() => { setCustomFrom(''); setCustomTo(''); setRange(r.key); }}
+            className={`rounded-full px-4 py-2 text-[13px] font-semibold transition ${range === r.key && !customActive ? 'bg-[#3182F6] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {r.label}
           </button>
         ))}
+        {/* 캘린더 날짜 범위 필터 */}
+        <div className={`ml-1 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${customActive ? 'border-[#3182F6] bg-[#EAF3FF]' : 'border-gray-200'}`}>
+          <input type="date" value={customFrom} max={customTo || undefined}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
+          <span className="text-gray-400">~</span>
+          <input type="date" value={customTo} min={customFrom || undefined}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
+          {customActive && (
+            <button onClick={() => { setCustomFrom(''); setCustomTo(''); }} className="ml-0.5 rounded-full px-1.5 text-[13px] font-bold text-gray-400 hover:text-gray-600" title="날짜 필터 해제">✕</button>
+          )}
+        </div>
       </div>
 
       {/* 오늘 요약 (강조) */}
