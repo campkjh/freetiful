@@ -1174,7 +1174,11 @@ export class AdminService {
     const paymentAmountMap = Object.fromEntries(paymentStatuses.map((row: any) => [row.status, row._sum.amount || 0]));
     const settlementStatusMap = Object.fromEntries(settlementStatuses.map((row: any) => [row.status, groupCount(row._count)]));
 
-    const completedPayments = paymentStatusMap.completed || 0;
+    // 결제완료 지표는 관리자 리뷰 더미 결제(admin_review)를 제외한 실제 결제만 카운트
+    const completedRealPayments = await safe('completedRealPayments', this.prisma.payment.count({
+      where: { status: 'completed', method: { not: 'admin_review' } },
+    }), 0);
+    const completedPayments = completedRealPayments;
     const paidQuotations = quotationStatusMap.paid || 0;
     const totalProfileViews = (proAggregate._sum.profileViews || 0) + (businessAggregate._sum.profileViews || 0);
 
@@ -1296,7 +1300,7 @@ export class AdminService {
       payments: {
         total: totalPayments,
         pending: paymentStatusMap.pending || 0,
-        completed: paymentStatusMap.completed || 0,
+        completed: completedRealPayments,
         failed: paymentStatusMap.failed || 0,
         refunded: paymentStatusMap.refunded || 0,
         escrowed: paymentStatusMap.escrowed || 0,
@@ -2222,6 +2226,9 @@ export class AdminService {
     const where: any = {};
     this.applyCreatedAtRange(where, params);
     if (params.status) where.status = params.status;
+    // 관리자 리뷰 직접 등록 시 생기는 더미 결제(method='admin_review', 0원)는 실제 결제가 아니므로
+    // 결제 목록·카운트('결제완료' 지표 포함)에서 제외한다.
+    where.method = { not: 'admin_review' };
 
     const [payments, total] = await Promise.all([
       this.prisma.payment.findMany({
