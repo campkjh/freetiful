@@ -329,6 +329,11 @@ export class AdminController {
     return this.adminService.deleteReview(id);
   }
 
+  @Patch('reviews/:id')
+  async updateReview(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateReview(id, body);
+  }
+
   @Patch('quotations/:id')
   async updateQuotation(@Param('id') id: string, @Body() body: any) {
     return this.adminService.updateQuotation(id, body);

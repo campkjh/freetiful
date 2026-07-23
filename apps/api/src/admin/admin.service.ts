@@ -2458,6 +2458,31 @@ export class AdminService {
     return { success: true };
   }
 
+  // 어드민 리뷰 인라인 수정 — 내용(comment)·리뷰일(createdAt)·작성자명 갱신
+  async updateReview(reviewId: string, data: any) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { reviewerId: true },
+    });
+    if (!review) return { success: false };
+    const allowed: any = {};
+    if (data.comment !== undefined) allowed.comment = String(data.comment ?? '');
+    if (data.isAnonymous !== undefined) allowed.isAnonymous = !!data.isAnonymous;
+    if (data.createdAt !== undefined && data.createdAt) {
+      const d = new Date(data.createdAt);
+      if (!Number.isNaN(d.getTime())) allowed.createdAt = d;
+    }
+    if (Object.keys(allowed).length > 0) {
+      await this.prisma.review.update({ where: { id: reviewId }, data: allowed });
+    }
+    // 작성자명 = 리뷰어(관리자 등록 더미) 계정 이름
+    if (data.reviewerName !== undefined && review.reviewerId) {
+      const name = String(data.reviewerName ?? '').trim();
+      if (name) await this.prisma.user.update({ where: { id: review.reviewerId }, data: { name } }).catch(() => undefined);
+    }
+    return { success: true };
+  }
+
   async updateQuotation(id: string, data: any) {
     const allowed: any = {};
     const fields = ['amount', 'title', 'description', 'eventLocation', 'validUntil', 'status'];
