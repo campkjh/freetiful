@@ -1002,29 +1002,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-6 pb-10">
-      <div className="flex items-start justify-between rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-        <div>
-          <p className="text-[12px] font-normal text-[#B0B8C1]">운영 센터</p>
-          <div className="mt-3 flex items-center gap-2">
-            <h1 className="text-[16px] font-bold text-[#191F28]">관리자 홈</h1>
-            {stats?.degraded && (
-              <span className="rounded-full bg-[#FFF6E0] px-2 py-0.5 text-[11px] font-semibold text-[#B76E00]">간이 통계</span>
-            )}
-          </div>
-        </div>
-        <button
-          onClick={() => fetchStats(true)}
-          disabled={loading}
-          className="admin-icon-button flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] disabled:opacity-50"
-          title="새로고침"
-        >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-
-      {/* 랜딩 유입 요약 (상단 노출) */}
-      <LandingTrafficBanner />
-
       {loading ? (
         <div className="grid animate-pulse gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
@@ -1037,102 +1014,40 @@ export default function AdminDashboardPage() {
         </div>
       ) : stats && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
-            <div className="space-y-6">
-              <AdminSection
-                eyebrow="페이먼츠 센터"
-                title="매출 요약"
-                aside={<span className="text-[12px] font-normal text-[#8B95A1]">실제 결제완료 기준</span>}
-              >
-                <MetricBand items={summaryItems} />
-              </AdminSection>
-
-              <AdminSection
-                eyebrow="유저 센터"
-                title="유저 진입 · 계정 상태"
-                aside={<span className="text-[12px] font-normal text-[#8B95A1]">오늘 · 7일 · 30일 신규 유입</span>}
-              >
-                <MetricBand items={userItems} minWidth={1120} />
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-                  <ChartPanel
-                    title="일별 신규 유저"
-                    value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.users), 0))}명`}
-                    points={dailySeries}
-                    dataKey="users"
-                    color={BLUE}
-                    chart="bar"
-                  />
-                  <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-[#3180F7]" />
-                      <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="역할 분포">역할 분포</AdminTerm></h3>
-                    </div>
-                    <BreakdownList items={roleItems} />
-                  </div>
-                </div>
-              </AdminSection>
-            </div>
-
-            <div className="space-y-6">
-              <AdminSection
-                title="관리 메뉴"
-                aside={<span className="text-[12px] font-normal text-[#8B95A1]">{navItems.length}개 센터</span>}
-              >
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const countClass = item.countTone === 'warn'
-                      ? 'bg-[#FFF3F3] text-[#F04452]'
-                      : 'bg-[#F3F8FF] text-[#3180F7]';
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className="admin-icon-button group flex min-h-[74px] items-center gap-3 rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:border-[#D6E7FF] hover:bg-[#FBFDFF]"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3F8FF] text-[#3180F7]">
-                          <Icon size={18} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14px] font-bold text-[#191F28]">{item.label}</span>
-                          <span className="mt-0.5 block truncate text-[12px] font-normal text-[#8B95A1]">{item.desc}</span>
-                        </span>
-                        {item.count && (
-                          <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${countClass}`}>
-                            {item.count}
-                          </span>
-                        )}
-                        <ChevronRight size={16} className="shrink-0 text-[#B0B8C1] transition-colors group-hover:text-[#3180F7]" />
-                      </Link>
-                    );
-                  })}
-                </div>
-              </AdminSection>
-
-              <AdminSection title="관리자 도구">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <button
-                    onClick={handleCleanup}
-                    className="rounded-lg border border-[#E5E8EB] bg-white p-4 text-left shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:bg-[#F7F8FA]"
+          <AdminSection
+            title="관리 메뉴"
+            aside={<span className="text-[12px] font-normal text-[#8B95A1]">{navItems.length}개 센터</span>}
+          >
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const countClass = item.countTone === 'warn'
+                  ? 'bg-[#FFF3F3] text-[#F04452]'
+                  : 'bg-[#F3F8FF] text-[#3180F7]';
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="admin-icon-button group flex min-h-[74px] items-center gap-3 rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:border-[#D6E7FF] hover:bg-[#FBFDFF]"
                   >
-                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
-                      <Search size={13} /> 빈 프로필 정리
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3F8FF] text-[#3180F7]">
+                      <Icon size={18} />
                     </span>
-                    <span className="mt-1 block text-[12px] font-normal text-[#8B95A1]">이미지 0 → draft 강등</span>
-                  </button>
-                  <button
-                    onClick={() => setTransferOpen(true)}
-                    className="rounded-lg border border-[#E5E8EB] bg-white p-4 text-left shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:bg-[#F7F8FA]"
-                  >
-                    <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#191F28]">
-                      <ArrowRightLeft size={13} /> 프로필 이관
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-bold text-[#191F28]">{item.label}</span>
+                      <span className="mt-0.5 block truncate text-[12px] font-normal text-[#8B95A1]">{item.desc}</span>
                     </span>
-                    <span className="mt-1 block text-[12px] font-normal text-[#8B95A1]">계정 연결 정리</span>
-                  </button>
-                </div>
-              </AdminSection>
+                    {item.count && (
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${countClass}`}>
+                        {item.count}
+                      </span>
+                    )}
+                    <ChevronRight size={16} className="shrink-0 text-[#B0B8C1] transition-colors group-hover:text-[#3180F7]" />
+                  </Link>
+                );
+              })}
             </div>
-          </div>
+          </AdminSection>
 
           <AdminSection
             eyebrow="전환 센터"
@@ -1153,95 +1068,6 @@ export default function AdminDashboardPage() {
                   <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전환 퍼널">전환 퍼널</AdminTerm></h3>
                 </div>
                 <FunnelList items={funnelItems} />
-              </div>
-            </div>
-          </AdminSection>
-
-          <AdminSection
-            eyebrow="활동 센터"
-            title="프로필 · 채팅 · 알림"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">사용자 행동 데이터</span>}
-          >
-            <MetricBand items={operationItems} minWidth={1120} />
-            <MetricBand items={notificationItems} />
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-              <ChartPanel
-                title="요청 생성"
-                value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.matchRequests), 0))}건`}
-                points={dailySeries}
-                dataKey="matchRequests"
-                color={GREEN}
-                chart="bar"
-              />
-              <ChartPanel
-                title="채팅방"
-                value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.chats), 0))}개`}
-                points={dailySeries}
-                dataKey="chats"
-                color={ORANGE}
-              />
-              <ChartPanel
-                title="메시지"
-                value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.messages), 0))}개`}
-                points={dailySeries}
-                dataKey="messages"
-                color={BLUE}
-              />
-            </div>
-          </AdminSection>
-
-          <AdminSection
-            eyebrow="거래 센터"
-            title="견적 · 결제 · 정산"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">거래 흐름 전체</span>}
-          >
-            <MetricBand items={commerceItems} minWidth={1120} />
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <ChartPanel
-                title="일별 결제 건수"
-                value={`${formatNumber(dailySeries.reduce((sum, point) => sum + toNumber(point.payments), 0))}건`}
-                points={dailySeries}
-                dataKey="payments"
-                color={GREEN}
-                chart="bar"
-              />
-              <ChartPanel
-                title="일별 매출"
-                value={formatMoney(dailySeries.reduce((sum, point) => sum + toNumber(point.revenue), 0))}
-                points={dailySeries}
-                dataKey="revenue"
-                color={BLUE}
-                formatter={formatMoney}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="요청 상태">요청 상태</AdminTerm></h3>
-                </div>
-                <BreakdownList items={matchStatusItems} />
-              </div>
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="견적 상태">견적 상태</AdminTerm></h3>
-                </div>
-                <BreakdownList items={quotationStatusItems} />
-              </div>
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="결제 상태">결제 상태</AdminTerm></h3>
-                </div>
-                <BreakdownList items={paymentStatusItems} />
-              </div>
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="정산 상태">정산 상태</AdminTerm></h3>
-                </div>
-                <BreakdownList items={settlementStatusItems} />
               </div>
             </div>
           </AdminSection>
@@ -1284,65 +1110,6 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {transferOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-          onClick={() => setTransferOpen(false)}
-        >
-          <div
-            className="w-full max-w-md overflow-hidden rounded-lg bg-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 pt-6 pb-2">
-              <h2 className="text-[16px] font-bold text-[#191F28]">프로필 이관</h2>
-              <p className="mt-1 text-[12px] font-normal text-[#8B95A1]">기존 계정 → 대상 계정</p>
-            </div>
-            <div className="space-y-4 px-6 py-4">
-              <p className="text-[12px] font-normal leading-relaxed text-[#6B7684]">
-                기존 계정의 프로 프로필(이미지·서비스·리뷰·채팅 등)을 대상 계정으로 통째로 이관합니다.
-                대상 계정에 기존 프로필이 있으면 삭제되고, 기존 계정은 비활성화됩니다.
-              </p>
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">
-                  기존 계정 이메일
-                </label>
-                <input
-                  type="email"
-                  value={transferSource}
-                  onChange={(e) => setTransferSource(e.target.value)}
-                  className="w-full rounded-lg bg-[#F9FAFB] px-4 py-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">
-                  대상 계정 이메일
-                </label>
-                <input
-                  type="email"
-                  value={transferTarget}
-                  onChange={(e) => setTransferTarget(e.target.value)}
-                  className="w-full rounded-lg bg-[#F9FAFB] px-4 py-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 px-6 pb-6">
-              <button
-                onClick={() => setTransferOpen(false)}
-                className="flex-1 rounded-lg bg-[#F2F4F6] py-3 text-[13px] font-semibold text-[#191F28] hover:bg-[#E5E8EB]"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleTransfer}
-                disabled={transferring}
-                className="flex-1 rounded-lg bg-[#3180F7] py-3 text-[13px] font-semibold text-white hover:bg-[#1B64DA] disabled:opacity-50"
-              >
-                {transferring ? '이관 중...' : '이관 실행'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
