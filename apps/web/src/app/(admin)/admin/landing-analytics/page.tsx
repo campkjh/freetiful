@@ -270,8 +270,30 @@ export default function LandingAnalyticsPage() {
     return { visits: visitsSum, conversions: convSum, bySource };
   }, [monthData, monthOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 달력에서 하루 선택 시(customFrom===customTo) 상단 카드를 그 날짜 기준으로 ──
+  const pickedDate = customFrom && customFrom === customTo ? customFrom : '';
+  const pickedLabel = pickedDate ? `${Number(pickedDate.slice(5, 7))}월 ${Number(pickedDate.slice(8, 10))}일` : '';
+  const pickedAgg = useMemo(() => {
+    if (!pickedDate || !data) return null; // data는 선택 시 그날 하루로 필터돼 옴
+    const sm = new Map<string, { visits: number; conv: number }>();
+    for (const p of data.pages ?? []) for (const b of p.bySource) {
+      const e = sm.get(b.key) || { visits: 0, conv: 0 }; e.visits += b.visits; e.conv += b.conversions; sm.set(b.key, e);
+    }
+    const bySource = Array.from(sm.entries()).map(([key, v]) => ({ key, count: v.visits })).sort((a, b) => b.count - a.count);
+    const byConvSource = Array.from(sm.entries()).map(([key, v]) => ({ key, count: v.conv })).filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+    return { visits: data.totalVisits, conversions: data.totalConversions, bySource, byConvSource };
+  }, [pickedDate, data]);
+
+  // 상단 카드 1·2(방문/신청) — 선택일이 있으면 그날, 없으면 오늘
+  const card1 = pickedDate
+    ? { title: `${pickedLabel} 방문`, value: pickedAgg?.visits ?? 0, rows: pickedAgg?.bySource ?? [], empty: '방문 없음' }
+    : { title: '오늘 방문', value: todayAgg.visits, rows: todayAgg.bySource, empty: '오늘 방문 없음' };
+  const card2 = pickedDate
+    ? { title: `${pickedLabel} 견적 신청`, value: pickedAgg?.conversions ?? 0, rows: pickedAgg?.byConvSource ?? [], empty: '신청 없음' }
+    : { title: '오늘 견적 신청', value: todayAgg.conversions, rows: todayAgg.byConvSource, empty: '오늘 신청 없음' };
+
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 md:px-6">
+    <div className="w-full px-5 py-6 md:px-8">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-[22px] font-bold text-gray-900"><TrendingUp className="h-6 w-6 text-[#3182F6]" /> 랜딩 유입 분석</h1>
@@ -282,68 +304,72 @@ export default function LandingAnalyticsPage() {
         </button>
       </div>
 
-      {/* 상단: 오늘 방문 + 어디서 왔는지(유입처 리스트) + 이번 달 방문 */}
+      {/* 상단: (선택일/오늘) 방문 + 어디서 왔는지 리스트 + 이번 달 방문 */}
       <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <SourceCard title="오늘 방문" value={todayAgg.visits} unit="회" tone="text-gray-900" rows={todayAgg.bySource} empty="오늘 방문 없음" />
-        <SourceCard title="오늘 견적 신청" value={todayAgg.conversions} unit="명" tone="text-emerald-600" rows={todayAgg.byConvSource} empty="오늘 신청 없음" />
+        <SourceCard title={card1.title} value={card1.value} unit="회" tone="text-gray-900" rows={card1.rows} empty={card1.empty} />
+        <SourceCard title={card2.title} value={card2.value} unit="명" tone="text-emerald-600" rows={card2.rows} empty={card2.empty} />
         <SourceCard title={`${g.month + 1}월 방문`} value={monthAgg.visits} unit="회" tone="text-[#3182F6]" rows={monthAgg.bySource} empty="이번 달 방문 없음" />
       </div>
 
-      {/* 월간 달력 — ‹ › 로 월 이동, 날짜 클릭 시 그날로 필터 */}
+      {/* 월간 달력 — 토스 정산달력 스타일(테두리 없는 클린 그리드) */}
       {(() => {
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            {/* 헤더: 월 타이틀 + 이동 + 범례 */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[18px] font-extrabold text-gray-900">{g.year}. {g.month + 1}월</h3>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setMonthOffset((v) => v - 1)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50" aria-label="저번 달">‹</button>
-                  <button onClick={() => setMonthOffset((v) => Math.min(0, v + 1))} disabled={monthOffset >= 0}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition enabled:hover:bg-gray-50 disabled:opacity-30" aria-label="다음 달">›</button>
-                </div>
+          <div className="mb-8 rounded-3xl border border-gray-100 bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-8">
+            {/* 헤더: 연·월 + 이동 */}
+            <div className="flex items-center gap-3">
+              <h3 className="text-[26px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setMonthOffset((v) => v - 1)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition hover:bg-gray-200 hover:text-gray-600" aria-label="저번 달">‹</button>
+                <button onClick={() => setMonthOffset((v) => Math.min(0, v + 1))} disabled={monthOffset >= 0}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition enabled:hover:bg-gray-200 enabled:hover:text-gray-600 disabled:opacity-40" aria-label="다음 달">›</button>
               </div>
-              <div className="flex items-center gap-4 text-[12px] text-gray-500">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#3182F6]" /> 방문</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> 견적 신청</span>
-              </div>
+            </div>
+            {/* 범례 */}
+            <div className="mt-6 flex items-center gap-5 border-t border-gray-100 pt-5 text-[13px] text-gray-500">
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#3182F6]" /> 방문</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> 견적 신청</span>
             </div>
             {/* 요일 헤더 */}
-            <div className="mb-1.5 grid grid-cols-7">
-              {WD.map((w, i) => (
-                <div key={w} className={`px-1 text-[12px] font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>{w}</div>
+            <div className="mt-4 grid grid-cols-7">
+              {WD.map((w) => (
+                <div key={w} className="pb-1 text-[13px] font-medium text-gray-400">{w}</div>
               ))}
             </div>
-            {/* 날짜 그리드 */}
-            <div className="grid grid-cols-7 gap-1">
+            {/* 날짜 그리드 (테두리 없음) */}
+            <div className="grid grid-cols-7">
               {g.cells.map((c) => {
                 const row = map.get(c.key);
                 const vis = row?.visits || 0, conv = row?.conversions || 0;
                 const active = customFrom === c.key && (customTo === c.key || !customTo);
                 const isToday = c.key === kstToday;
-                const dateColor = !c.inMonth ? 'text-gray-300' : c.weekday === 0 ? 'text-red-500' : c.weekday === 6 ? 'text-blue-500' : 'text-gray-800';
+                const weekend = c.weekday === 0 || c.weekday === 6;
+                const dateColor = !c.inMonth ? (weekend ? 'text-red-200' : 'text-gray-300') : weekend ? 'text-[#F04452]' : 'text-gray-800';
                 return (
                   <button key={c.key} onClick={() => { setCustomFrom(c.key); setCustomTo(c.key); }}
-                    className={`flex min-h-[76px] flex-col rounded-xl border p-2 text-left transition
-                      ${active ? 'border-[#3182F6] bg-[#EAF3FF] ring-1 ring-[#3182F6]'
-                        : c.inMonth ? 'border-gray-100 bg-white hover:bg-gray-50' : 'border-transparent bg-gray-50/50'}`}>
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[13px] font-bold tabular-nums ${dateColor}`}>{c.day}</span>
-                      {isToday && <span className="rounded-full bg-red-500 px-1.5 py-[1px] text-[9px] font-bold leading-none text-white">오늘</span>}
-                    </div>
-                    <div className="mt-auto pt-2 leading-tight">
-                      <div className={`text-[12px] font-bold tabular-nums ${!c.inMonth ? 'text-gray-300' : vis ? 'text-[#3182F6]' : 'text-gray-300'}`}>{num(vis)}</div>
-                      <div className={`text-[12px] font-bold tabular-nums ${!c.inMonth ? 'text-gray-300' : conv ? 'text-emerald-600' : 'text-gray-300'}`}>{num(conv)}</div>
-                    </div>
+                    className="flex min-h-[92px] flex-col items-start px-1 pb-3 pt-2.5 text-left">
+                    <span className="flex items-center gap-1">
+                      <span className={`inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full px-1 text-[15px] font-semibold tabular-nums transition ${active ? 'bg-[#3182F6] text-white' : `${dateColor} hover:bg-gray-100`}`}>{c.day}</span>
+                      {isToday && !active && <span className="rounded-full bg-red-50 px-1.5 py-[2px] text-[10px] font-bold leading-none text-[#F04452]">오늘</span>}
+                    </span>
+                    <span className="mt-2 pl-1 leading-tight">
+                      {c.inMonth ? (
+                        <>
+                          <span className={`block text-[13px] font-bold tabular-nums ${vis ? 'text-[#3182F6]' : 'text-gray-300'}`}>{num(vis)}</span>
+                          <span className={`block text-[13px] font-bold tabular-nums ${conv ? 'text-emerald-500' : 'text-gray-300'}`}>{num(conv)}</span>
+                        </>
+                      ) : (
+                        <span className="block text-[13px] font-bold tabular-nums text-gray-200">0</span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-3 text-[11px] text-gray-400">날짜를 누르면 아래 유입 소스·방문 로그가 그날 기준으로 필터돼요.</p>
+            <p className="mt-2 border-t border-gray-100 pt-4 text-[12px] text-gray-400">날짜를 누르면 위 방문·신청 카드와 아래 유입 소스가 그 날짜 기준으로 바뀌어요.</p>
           </div>
         );
       })()}
