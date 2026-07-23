@@ -31,7 +31,6 @@ const TOP_NAV = [
   { href: '/admin', label: '홈', exact: true, paths: ['/admin'] },
   { href: '/admin/users', label: '유저 센터', paths: ['/admin/users', '/admin/referral-event'] },
   { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses', '/admin/pro-ranking'] },
-  { href: '/admin/bookings', label: '예약 센터', paths: ['/admin/bookings'] },
   { href: '/admin/chat-connections', label: '채팅 매칭', paths: ['/admin/chat-connections'] },
   { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries', '/admin/wedding-mc-leads'] },
   { href: '/admin/landing-analytics', label: '랜딩 유입', paths: ['/admin/landing-analytics'] },
@@ -50,15 +49,12 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
       { href: '/admin/users', label: '유저 관리' },
       { href: '/admin/referral-event', label: '친구초대 이벤트' },
       { href: '/admin/pros', label: '사회자 관리' },
-      { href: '/admin/pro-ranking', label: '사회자 랭킹' },
-      { href: '/admin/partners', label: '웨딩 파트너 업체' },
-      { href: '/admin/businesses', label: 'Biz 고객사' },
+      { href: '/admin/partners', label: '업체 관리' },
     ],
   },
   {
     label: '거래 센터',
     items: [
-      { href: '/admin/bookings', label: '의뢰/예약' },
       { href: '/admin/chat-connections', label: '채팅 매칭' },
       { href: '/admin/landing-analytics', label: '랜딩 유입 분석' },
       { href: '/admin/payments', label: '결제조회' },
@@ -80,9 +76,20 @@ const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
       { href: '/admin/announcements', label: '공지사항' },
       { href: '/admin/faqs', label: 'FAQ' },
       { href: '/admin/policies', label: '약관 관리' },
-      { href: '/admin/plan-templates', label: '서비스 플랜' },
     ],
   },
+];
+
+// 병합된 메뉴(사회자 관리·업체 관리)를 한 화면 안에서 탭으로 전환
+const SUB_TAB_GROUPS: { href: string; label: string }[][] = [
+  [
+    { href: '/admin/pros', label: '사회자 관리' },
+    { href: '/admin/pro-ranking', label: '사회자 랭킹' },
+  ],
+  [
+    { href: '/admin/partners', label: '웨딩 파트너' },
+    { href: '/admin/businesses', label: 'Biz 고객사' },
+  ],
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -180,7 +187,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isSideActive = (item: AdminNavItem) => {
     if (item.exact) return pathname === item.href;
-    return pathname.startsWith(item.href);
+    if (pathname.startsWith(item.href)) return true;
+    // 병합 메뉴(대표 탭)면 같은 그룹의 다른 탭에 있어도 활성 표시
+    const group = SUB_TAB_GROUPS.find((g) => g[0].href === item.href);
+    if (group) return group.some((t) => pathname === t.href || pathname.startsWith(`${t.href}/`));
+    return false;
   };
 
   const AdminBrand = () => (
@@ -322,6 +333,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <h1 className="mt-1 text-[16px] font-bold text-[#191F28]">{activeLabel}</h1>
               </div>
             </div>
+            {(() => {
+              const subTabs = SUB_TAB_GROUPS.find((g) => g.some((t) => pathname === t.href || pathname.startsWith(`${t.href}/`)));
+              if (!subTabs) return null;
+              return (
+                <div className="mb-6 inline-flex items-center gap-1 rounded-xl bg-[#F2F4F6] p-1">
+                  {subTabs.map((t) => {
+                    const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
+                    return (
+                      <Link
+                        key={t.href}
+                        href={t.href}
+                        className={`rounded-lg px-4 py-2 text-[13.5px] font-semibold transition ${active ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}
+                      >
+                        {t.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {children}
           </div>
         </main>
