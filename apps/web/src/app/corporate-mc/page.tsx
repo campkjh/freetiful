@@ -810,6 +810,14 @@ export default function CorporateMcPage() {
 
         <footer className="border-t border-[#F0EEE9] px-5 py-10 text-center">
           <p className="text-[11px] leading-relaxed text-[#B0B8C1]">© FREETIFUL · CORPORATE MC<br />본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.</p>
+          <div className="mt-5">
+            <div className="inline-block text-left text-[11px] leading-[1.75] text-[#B0B8C1]">
+              업체명 : 주식회사커넥트풀<br />
+              대표자명 : 서나웅<br />
+              사업자번호 : 391-86-03659<br />
+              사업장주소 : 서울 중구 퇴계로36길2, 본관 130호
+            </div>
+          </div>
         </footer>
       </div>
 
