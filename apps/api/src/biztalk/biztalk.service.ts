@@ -42,7 +42,9 @@ type BizTalkContext = {
 };
 
 const DEFAULT_TEMPLATE_CODES: Record<BizTalkTemplateKey, string> = {
-  GENERAL_SIGNUP_COMPLETE: 'A0004', // 가입환영 (프리티풀 알림톡 템플릿 A0004)
+  // NCP 콘솔 실제 템플릿 기준: A0001='1.일반유저_회원가입완료'(ACTIVE).
+  // (A0004 는 '파트너스_견적확인_리마인드' 라 가입환영으로 쓰면 안 됨 → PARTNER_QUOTE_REMINDER 로만 사용)
+  GENERAL_SIGNUP_COMPLETE: 'A0001',
   GENERAL_SMS_AUTH: 'A0011',
   GENERAL_BOOKING_COMPLETE: 'A0010',
   GENERAL_NEW_MESSAGE: 'A0009', // 매칭완료(이탈 후 사회자 대화) / 새 메시지 (템플릿 A0009)
@@ -106,6 +108,11 @@ export class BizTalkService implements OnModuleInit {
    * (자격증명이 없으면 모든 발송이 조용히 skip 되므로 — 실제로 이 때문에 발송이 전혀 안 됐던 이력이 있음)
    */
   onModuleInit() {
+    const ncp = this.getNcpConfig();
+    if (ncp.enabled) {
+      this.logger.log(`[알림톡 활성/NCP] channel=${ncp.channelId} service=${String(ncp.serviceId).slice(-24)}`);
+      return;
+    }
     const cfg = this.getConfig();
     if (!cfg.enabled) {
       const missing = [
@@ -114,7 +121,8 @@ export class BizTalkService implements OnModuleInit {
         !cfg.pfId ? 'BIZTALK_PF_ID(또는 SOLAPI_PF_ID)' : null,
       ].filter(Boolean);
       this.logger.warn(
-        `[알림톡 비활성] 카카오 알림톡이 발송되지 않습니다. 누락된 환경변수: ${missing.join(', ')}`,
+        `[알림톡 비활성] 카카오 알림톡이 발송되지 않습니다. NCP(NCP_ACCESS_KEY/NCP_SECRET_KEY/` +
+        `NCP_ALIMTALK_SERVICE_ID/NCP_ALIMTALK_CHANNEL_ID) 또는 Solapi 설정 필요. 누락(Solapi): ${missing.join(', ')}`,
       );
       return;
     }
@@ -348,12 +356,115 @@ export class BizTalkService implements OnModuleInit {
     return { sent };
   }
 
+  // ─── NCP SENS 카카오 알림톡 (프리티풀 실제 사용 대행사) ───────────────
+  private ncpTemplateCache = new Map<string, { content: string; at: number }>();
+  private static readonly NCP_TPL_TTL = 10 * 60 * 1000;
+
+  private getNcpConfig() {
+    const accessKey = this.config.get<string>('NCP_ACCESS_KEY');
+    const secretKey = this.config.get<string>('NCP_SECRET_KEY');
+    const serviceId = this.config.get<string>('NCP_ALIMTALK_SERVICE_ID');
+    const channelId = this.config.get<string>('NCP_ALIMTALK_CHANNEL_ID');
+    const host = this.config.get<string>('NCP_SENS_HOST') || 'https://sens.apigw.ntruss.com';
+    return { accessKey, secretKey, serviceId, channelId, host, enabled: !!(accessKey && secretKey && serviceId && channelId) };
+  }
+
+  /** NCP API Gateway signature v2 — "{METHOD} {path}\n{timestamp}\n{accessKey}" 를 HMAC-SHA256/base64 */
+  private ncpHeaders(method: string, path: string, accessKey: string, secretKey: string) {
+    const ts = Date.now().toString();
+    const signature = createHmac('sha256', secretKey).update(`${method} ${path}\n${ts}\n${accessKey}`).digest('base64');
+    return {
+      'Content-Type': 'application/json; charset=utf-8',
+      'x-ncp-apigw-timestamp': ts,
+      'x-ncp-iam-access-key': accessKey,
+      'x-ncp-apigw-signature-v2': signature,
+    };
+  }
+
+  /**
+   * 승인된 템플릿 본문을 NCP 에서 조회해 캐시한다.
+   * NCP 알림톡은 Solapi 처럼 변수 맵을 보내는 게 아니라 '치환이 끝난 본문(content)' 을 보내야 하고,
+   * 그 본문이 승인 템플릿과 일치해야 발송된다. 콘솔에서 템플릿을 수정해도 자동 반영되도록 런타임 조회.
+   */
+  private async fetchNcpTemplate(templateCode: string): Promise<string | null> {
+    const cfg = this.getNcpConfig();
+    if (!cfg.enabled) return null;
+    const hit = this.ncpTemplateCache.get(templateCode);
+    if (hit && Date.now() - hit.at < BizTalkService.NCP_TPL_TTL) return hit.content;
+    const path =
+      `/alimtalk/v2/services/${encodeURIComponent(cfg.serviceId!)}/templates` +
+      `?channelId=${encodeURIComponent(cfg.channelId!)}&templateCode=${encodeURIComponent(templateCode)}`;
+    try {
+      const { data } = await axios.get(`${cfg.host}${path}`, {
+        headers: this.ncpHeaders('GET', path, cfg.accessKey!, cfg.secretKey!),
+        timeout: 10000,
+      });
+      const tpl = Array.isArray(data) ? data[0] : data;
+      const content = tpl?.content ? String(tpl.content) : null;
+      if (content) this.ncpTemplateCache.set(templateCode, { content, at: Date.now() });
+      return content;
+    } catch (err: any) {
+      this.logger.warn(
+        `[NCP] 템플릿 조회 실패 code=${templateCode} status=${err?.response?.status} data=${JSON.stringify(err?.response?.data || err?.message)}`,
+      );
+      return hit?.content ?? null;
+    }
+  }
+
+  /** 템플릿 본문의 #{변수} 치환 (NCP 실제 템플릿은 #{Username}/#{닉네임}/#{Randomcode} 사용) */
+  private renderNcpContent(template: string, ctx: BizTalkContext) {
+    let out = template;
+    for (const [key, value] of Object.entries(this.buildVariables(ctx))) {
+      out = out.split(key).join(value ?? '');
+    }
+    return out
+      .replace(/#\{Username\}/gi, ctx.recipientName || ctx.customerName || '고객')
+      .replace(/#\{닉네임\}/g, ctx.recipientName || ctx.customerName || '고객')
+      .replace(/#\{Randomcode\}/gi, ctx.message || '');
+  }
+
+  private async sendViaNcp(to: string, templateKey: BizTalkTemplateKey, ctx: BizTalkContext) {
+    const cfg = this.getNcpConfig();
+    const templateCode = this.templateCode(templateKey);
+    const template = await this.fetchNcpTemplate(templateCode);
+    if (!template) return { sent: false, reason: 'ncp_template_unavailable', templateCode };
+
+    const content = this.renderNcpContent(template, ctx);
+    const path = `/alimtalk/v2/services/${encodeURIComponent(cfg.serviceId!)}/messages`;
+    const body = {
+      plusFriendId: cfg.channelId,
+      templateCode,
+      messages: [{ countryCode: '82', to, content }],
+    };
+    try {
+      const { data } = await axios.post(`${cfg.host}${path}`, body, {
+        headers: this.ncpHeaders('POST', path, cfg.accessKey!, cfg.secretKey!),
+        timeout: 15000,
+      });
+      const msgStatus = data?.messages?.[0]?.statusCode ?? data?.statusCode;
+      this.logger.log(
+        `[NCP] sent template=${templateCode} to=${this.maskPhone(to)} requestId=${data?.requestId} status=${msgStatus}`,
+      );
+      return { sent: true, templateCode, requestId: data?.requestId, status: msgStatus };
+    } catch (err: any) {
+      this.logger.error(
+        `[NCP] fail template=${templateCode} to=${this.maskPhone(to)} status=${err?.response?.status} data=${JSON.stringify(err?.response?.data || err?.message)}`,
+      );
+      return { sent: false, reason: 'ncp_send_failed', templateCode };
+    }
+  }
+
   async sendTemplateToPhone(phoneInput: string, templateKey: BizTalkTemplateKey, ctx: BizTalkContext) {
-    const cfg = this.getConfig();
     const to = normalizePhone(phoneInput);
+    if (!to) return { sent: false, reason: 'invalid_phone' };
+
+    // NCP(SENS)가 설정돼 있으면 우선 사용 — 프리티풀 실제 알림톡 대행사
+    const ncp = this.getNcpConfig();
+    if (ncp.enabled) return this.sendViaNcp(to, templateKey, ctx);
+
+    const cfg = this.getConfig();
     if (!cfg.enabled) return { sent: false, reason: 'disabled_or_missing_env' };
     if (!cfg.apiKey || !cfg.apiSecret || !cfg.pfId) return { sent: false, reason: 'missing_solapi_env' };
-    if (!to) return { sent: false, reason: 'invalid_phone' };
 
     const templateId = this.templateCode(templateKey);
     const message: Record<string, any> = {
