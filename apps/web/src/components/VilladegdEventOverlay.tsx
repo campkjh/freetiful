@@ -73,15 +73,17 @@ export default function VilladegdEventOverlay() {
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // 배경 스크롤 잠금(body.style.overflow)은 쓰지 않는다.
+    // 이 오버레이는 fixed inset-0 + overscroll-contain 으로 이미 스크롤이 갇히고,
+    // body 를 건드리면 메인의 공식오픈 팝업이 'hidden' 을 이전값으로 저장했다가
+    // 그대로 복원해 스크롤이 영구 잠기는 버그가 생긴다.
     const root = rootRef.current;
     const els = root ? Array.from(root.querySelectorAll<HTMLElement>('.vgd-reveal, .vgd-pop, .vgd-rise, .vgd-rise-sm')) : [];
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: 0.14 });
     els.forEach((el) => io.observe(el));
-    return () => { document.body.style.overflow = prev; io.disconnect(); };
+    return () => { io.disconnect(); };
   }, [open]);
 
   const close = () => { try { localStorage.setItem(DISMISS_KEY, 'closed'); } catch {} setOpen(false); };

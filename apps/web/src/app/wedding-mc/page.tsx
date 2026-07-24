@@ -848,6 +848,14 @@ export default function WeddingMcLandingPage() {
             <div className="max-w-6xl mx-auto px-5 py-10 text-center text-xs text-[#6B6F78] leading-relaxed">
               © FREETIFUL · WEDDING MC<br />
               본 페이지의 후기는 실제 고객 사례를 바탕으로 재구성되었습니다.
+              <div className="mt-5">
+                <div className="inline-block text-left text-[11px] leading-[1.75] text-[#8B8F98]">
+                  업체명 : 주식회사커넥트풀<br />
+                  대표자명 : 서나웅<br />
+                  사업자번호 : 391-86-03659<br />
+                  사업장주소 : 서울 중구 퇴계로36길2, 본관 130호
+                </div>
+              </div>
             </div>
           </footer>
 
