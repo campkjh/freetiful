@@ -18,7 +18,7 @@ const FOOTER_LINKS = {
   ],
   '고객센터': [
     { label: '전화: 02-765-8882', href: 'tel:02-765-8882' },
-    { label: '이메일: freetiful2025@gmail.com', href: 'mailto:freetiful2025@gmail.com' },
+    { label: '이메일: skdnd5@naver.com', href: 'mailto:skdnd5@naver.com' },
   ],
 };
 
@@ -60,8 +60,8 @@ export default function Footer() {
             프리티풀은 통신판매중개자로서 통신판매의 당사자가 아니며 개별 판매자가 제공하는 서비스에 대한 이행, 계약사항 등과 관련한 의무와 책임은 거래 당사자에게 있습니다.
           </p>
           <div className="mt-3 space-y-1 text-[11px] text-gray-400 leading-relaxed">
-            <p>프리티풀 ㅣ 서울시 중구 퇴계로36길 2, 충무로관 본관 130호</p>
-            <p>E freetiful2025@naver.com</p>
+            <p>주식회사커넥트풀 ㅣ 서울시 중구 퇴계로36길 2, 충무로관 본관 130호</p>
+            <p>E skdnd5@naver.com</p>
             <p>사업자등록번호 391-86-03659</p>
             <p>통신판매업신고번호 2026-서울중구-699호</p>
           </div>
