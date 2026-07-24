@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationType, User } from '@prisma/client';
 import axios from 'axios';
@@ -93,13 +93,33 @@ function formatTime(value?: Date | string | null) {
 }
 
 @Injectable()
-export class BizTalkService {
+export class BizTalkService implements OnModuleInit {
   private readonly logger = new Logger(BizTalkService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
+
+  /**
+   * 기동 시 알림톡 설정 상태를 로그로 남긴다.
+   * (자격증명이 없으면 모든 발송이 조용히 skip 되므로 — 실제로 이 때문에 발송이 전혀 안 됐던 이력이 있음)
+   */
+  onModuleInit() {
+    const cfg = this.getConfig();
+    if (!cfg.enabled) {
+      const missing = [
+        !cfg.apiKey ? 'BIZTALK_API_KEY(또는 SOLAPI_API_KEY)' : null,
+        !cfg.apiSecret ? 'BIZTALK_API_SECRET(또는 SOLAPI_API_SECRET)' : null,
+        !cfg.pfId ? 'BIZTALK_PF_ID(또는 SOLAPI_PF_ID)' : null,
+      ].filter(Boolean);
+      this.logger.warn(
+        `[알림톡 비활성] 카카오 알림톡이 발송되지 않습니다. 누락된 환경변수: ${missing.join(', ')}`,
+      );
+      return;
+    }
+    this.logger.log(`[알림톡 활성] pfId=${String(cfg.pfId).slice(0, 6)}… from=${cfg.from ? this.maskPhone(String(cfg.from)) : '(미설정)'}`);
+  }
 
   private getConfig() {
     const apiKey = this.config.get<string>('BIZTALK_API_KEY') || this.config.get<string>('SOLAPI_API_KEY');
