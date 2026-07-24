@@ -274,7 +274,18 @@ export default function CorporateMcPage() {
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(apply); };
-    const onResize = () => { measureOpen(); cacheEls(); apply(); };
+    // 모바일 키보드가 열리고 닫힐 때도 resize 가 발생한다. 그때마다 재측정하면 섹션 CSS 변수가
+    // 다시 잡히면서 폼 영역에서 스크롤이 튀는(불안정한) 원인이 된다.
+    // → 입력 중이고 '너비'가 그대로면(=높이만 변한 키보드 이벤트) 무시한다.
+    let lastW = window.innerWidth;
+    const onResize = () => {
+      const w = window.innerWidth;
+      const ae = document.activeElement as HTMLElement | null;
+      const typing = !!ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName || '');
+      if (typing && w === lastW) return;
+      lastW = w;
+      measureOpen(); cacheEls(); apply();
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     measureOpen();
