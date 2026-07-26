@@ -62,7 +62,7 @@ const PC_DETAIL_CATEGORY_MENUS = [
     href: proSearchHref('사회자', '결혼식'),
     items: [
       { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
-      { label: '주례없는 예식', href: proSearchHref('사회자', '주례없는') },
+      { label: '돌잔치 진행', href: proSearchHref('사회자', '돌잔치') },
       { label: '외국어 예식 진행', href: proSearchHref('외국어사회자', '결혼식') },
     ],
   },
@@ -71,7 +71,7 @@ const PC_DETAIL_CATEGORY_MENUS = [
     href: proSearchHref('사회자', '행사'),
     items: [
       { label: '행사 MC', href: proSearchHref('사회자', '행사') },
-      { label: '시상식 진행', href: proSearchHref('사회자', '시상식') },
+      { label: '공식행사 진행', href: proSearchHref('사회자', '공식행사') },
       { label: '레크리에이션', href: proSearchHref('사회자', '레크리에이션') },
     ],
   },
@@ -80,8 +80,8 @@ const PC_DETAIL_CATEGORY_MENUS = [
     href: proSearchHref('사회자', '기업행사'),
     items: [
       { label: '기업행사 사회자', href: proSearchHref('사회자', '기업행사') },
-      { label: '워크샵 진행', href: proSearchHref('사회자', '워크샵') },
-      { label: '창립기념식', href: proSearchHref('사회자', '창립기념식') },
+      { label: '송년회·시무식', href: proSearchHref('사회자', '송년회') },
+      { label: '기업PT 진행', href: proSearchHref('사회자', '기업PT') },
     ],
   },
   {
@@ -90,7 +90,7 @@ const PC_DETAIL_CATEGORY_MENUS = [
     items: [
       { label: '컨퍼런스 사회자', href: proSearchHref('사회자', '컨퍼런스') },
       { label: '세미나 진행', href: proSearchHref('사회자', '세미나') },
-      { label: '포럼 진행', href: proSearchHref('사회자', '포럼') },
+      { label: '축제·페스티벌', href: proSearchHref('사회자', '축제') },
     ],
   },
   {
