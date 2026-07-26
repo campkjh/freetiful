@@ -31,6 +31,7 @@ interface ProItem {
   intro: string;
   price: number;
   experience: number;
+  tags: string[];
 }
 
 const SORT_OPTIONS = [
@@ -351,6 +352,7 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       intro: p.shortIntro || '',
       price: 0,
       experience: p.careerYears || 1,
+      tags: (p as any).tags || [],
     }));
 }
 
@@ -533,7 +535,15 @@ function ProsListContent() {
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
       // 결혼식/행사(사회자)는 승인+비숨김 전체 노출 (카테고리 제한 없음)
       if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
-      if (q && !p.name.toLowerCase().includes(q) && !p.intro.toLowerCase().includes(q) && !(p.categories || []).some((c) => c.toLowerCase().includes(q))) return false;
+      // 검색어는 이름·소개·카테고리뿐 아니라 전문분야 태그(주례없는 예식 등)도 대상으로.
+      // 태그 표기 흔들림("주례없는"/"주례 없는")을 흡수하려고 공백 제거 후 비교한다.
+      if (q) {
+        const nq = q.replace(/\s+/g, '');
+        const hay = [p.name, p.intro, ...(p.categories || []), ...(p.tags || [])]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase().replace(/\s+/g, ''));
+        if (!hay.some((v) => v.includes(nq))) return false;
+      }
       if (!matchesRegion(p, selectedRegion)) return false;
       return true;
     });
