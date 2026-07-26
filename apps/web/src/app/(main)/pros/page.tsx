@@ -609,12 +609,8 @@ function ProsListContent() {
           <div className="skeleton" style={{ width: 24, height: 24 }} />
           <div className="skeleton" style={{ width: 80, height: 20 }} />
         </div>
-        {/* Filter chips skeleton */}
-        <div className="flex gap-2 mb-5">
-          {[50, 70, 50, 50, 50].map((w, i) => (
-            <div key={i} className="skeleton" style={{ width: w, height: 32, borderRadius: 16 }} />
-          ))}
-        </div>
+        {/* 필터 칩 스켈레톤은 두지 않는다 — 실제 /pros 화면에는 필터 칩 UI가 없어서
+            로딩 중에만 칩 5개가 떴다가 사라지며 레이아웃이 튀고, 홈 필터와 달라 보였다. */}
         {/* List item skeletons */}
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
