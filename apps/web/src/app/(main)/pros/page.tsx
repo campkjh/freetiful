@@ -539,7 +539,7 @@ function ProsListContent() {
       // 태그 표기 흔들림("주례없는"/"주례 없는")을 흡수하려고 공백 제거 후 비교한다.
       if (q) {
         const nq = q.replace(/\s+/g, '');
-        const hay = [p.name, p.intro, ...(p.categories || []), ...(p.tags || [])]
+        const hay = [p.name, p.intro, ...(p.categories || []), ...(p.tags || []), ...(p.languages || [])]
           .filter(Boolean)
           .map((v) => String(v).toLowerCase().replace(/\s+/g, ''));
         if (!hay.some((v) => v.includes(nq))) return false;
