@@ -1624,10 +1624,19 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const isVideo = (file.type || '').startsWith('video') || /\.(mp4|mov|m4v|webm|avi|mkv|3gp|qt)$/i.test(nameLc);
     const msgType = isVideo ? 'video' : 'image';
     const label = isVideo ? '동영상' : '이미지';
-    // 용량 가드 — 50MB. 100MB 는 iOS 네이티브 base64 브릿지 + 웹 재조립 이중 적재로
-    // WKWebView WebContent 메모리 한도를 넘어 앱이 튕기던 원인(업로드 중 크래시 QA).
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error(`${label}은 50MB 이하만 전송할 수 있습니다`);
+    // 용량 가드 — 플랫폼별로 다르다.
+    // iOS: 50MB. 네이티브 base64 청크 브릿지(nativeMedia*) + 웹 재조립 이중 적재로
+    //      WKWebView WebContent 메모리 한도를 넘어 앱이 튕겼다(업로드 중 크래시 QA).
+    // 그 외(안드로이드/데스크톱): 서버 multer 한도와 동일한 100MB.
+    //      안드는 base64 재조립 없이 FormData 멀티파트로 바로 올라가 메모리 문제가 없는데도
+    //      iOS용 50MB 캡을 같이 맞고 있었다. 갤럭시 기본 촬영(FHD30 ≈ 17Mbps)은 약 24초,
+    //      4K30(≈48Mbps)은 8초면 50MB를 넘어 "안드에서 동영상 전송이 안 된다"의 원인이었다.
+    // ※ 서버 한도(apps/api/src/chat/chat.controller.ts: FileInterceptor 100MB)를 넘기면
+    //   토스트가 아니라 multer LIMIT_FILE_SIZE 로 정체불명 오류가 나므로 반드시 동일하게 유지.
+    const isIosApp = typeof document !== 'undefined' && document.documentElement.dataset.platform === 'ios';
+    const maxBytes = (isIosApp ? 50 : 100) * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(`${label}은 ${isIosApp ? 50 : 100}MB 이하만 전송할 수 있습니다`);
       return;
     }
     // 방이 아직 준비 전(pending-)이면 낙관적 메시지를 넣기 전에 차단 — 안 그러면 멈춘 0% 버블이 남음

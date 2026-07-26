@@ -417,7 +417,11 @@ function ProsListContent() {
 
   const [selectedRegion, setSelectedRegion] = useState(initialRegion);
   const [sortBy, setSortBy] = useState('popular');
-  const [selectedLang, setSelectedLang] = useState(isForeignFilter ? '영어' : '전체');
+  // 외국어 사회자 진입 시 언어를 '영어'로 고정하면 안 된다.
+  // 언어를 바꿀 UI가 없어 영구 숨김 필터가 되고(중국어/스페인어 전용 사회자가 통째로 사라짐),
+  // 홈(languages 보유 여부)과 판정이 갈려 같은 버튼이 화면마다 다른 목록을 냈다.
+  // 외국어 여부는 아래 selectedType==='외국어사회자' 조건이 담당한다.
+  const [selectedLang, setSelectedLang] = useState('전체');
   const [selectedType, setSelectedType] = useState(initialType);
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
