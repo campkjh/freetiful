@@ -10,7 +10,9 @@ final class NativeVilladegdLandingViewController: UIViewController {
     private static let blob = "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd"
     private static let heroVideo = URL(string: "\(blob)/villadegd-hero.mp4")!
     private static let logoURL = "\(blob)/villadegd-logo-white.png"
-    private static let dismissKey = "ftVilladegdLanding_v3"   // 올리면 재노출
+    // '앱 초기 진입 화면'이라 앱을 새로 켤 때마다 노출한다(X 는 그 실행에서만 닫기).
+    // 영구 저장(UserDefaults)으로 한 번 닫으면 다시 안 뜨던 동작을 제거.
+    // 노출 빈도를 제한하려면 여기서 마지막 노출 시각을 기준으로 가드하면 된다.
 
     /// 닫힌 뒤 '웨딩홀 둘러보기' 로 이동시킬 때 호출
     var onOpenWeddingHalls: (() -> Void)?
@@ -72,15 +74,13 @@ final class NativeVilladegdLandingViewController: UIViewController {
 
     // MARK: - 표시 조건
 
-    static func shouldPresent() -> Bool {
-        !UserDefaults.standard.bool(forKey: dismissKey)
-    }
+    /// 앱을 새로 켤 때마다 노출(영구 dismiss 없음). loadInitialPage 가 콜드 스타트에서만 호출된다.
+    static func shouldPresent() -> Bool { true }
 
     static func presentIfNeeded(from presenter: UIViewController, openWeddingHalls: @escaping () -> Void) {
-        let dismissed = UserDefaults.standard.bool(forKey: dismissKey)
         let blocked = presenter.presentedViewController != nil
-        NSLog("[VilladegdLanding] present 시도 — 이미닫음=\(dismissed) 다른모달=\(blocked)")
-        guard shouldPresent(), !blocked else { return }
+        NSLog("[VilladegdLanding] present 시도 — 다른모달=\(blocked)")
+        guard !blocked else { return }
         let vc = NativeVilladegdLandingViewController()
         vc.onOpenWeddingHalls = openWeddingHalls
         vc.modalPresentationStyle = .fullScreen
@@ -590,13 +590,11 @@ final class NativeVilladegdLandingViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func tapClose() {
-        UserDefaults.standard.set(true, forKey: Self.dismissKey)
         players.forEach { $0.pause() }
         dismiss(animated: true)
     }
 
     @objc private func tapWeddingHalls() {
-        UserDefaults.standard.set(true, forKey: Self.dismissKey)
         players.forEach { $0.pause() }
         let open = onOpenWeddingHalls
         dismiss(animated: true) { open?() }
