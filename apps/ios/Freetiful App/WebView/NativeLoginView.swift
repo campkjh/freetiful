@@ -17,82 +17,112 @@ struct NativeLoginView: View {
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
     // 로그인 성공으로 닫힌 건지, 드래그/취소로 닫힌 건지 구분
     @State private var didLoginSuccessfully = false
+    // 네이버 인증창 진행 중 플래그 — 콜백 없이 복귀(뒤로가기) 시 무한로딩 해제용
+    @State private var naverInFlight = false
+    // 하단에서 올라오는 모달 애니메이션
+    @State private var sheetOffset: CGFloat = 900
+    @State private var dimOpacity: Double = 0
+    // 비회원 로그인 — 랜딩(견적 신청)으로만 가입해 소셜 계정이 없는 고객용
+    @State private var guestMode = false
+    @State private var guestPhone = ""
+    @State private var guestName = ""
+    @State private var guestError = ""
+
+    // 화면 곡률에 맞춘 카드 r (첫진입 오픈 모달과 동일 방식: 화면 r − 여백10)
+    private var cardRadius: CGFloat {
+        let screenR = (UIScreen.main.value(forKey: "_displayCorner" + "Radius") as? CGFloat) ?? 52
+        return max(22, screenR - 10)
+    }
 
     var body: some View {
-        ZStack {
-            Color.white.ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            // 딤 배경
+            Color.black.opacity(0.42 * dimOpacity).ignoresSafeArea()
+                .onTapGesture { dismissDown() }
 
-            VStack(spacing: 20) {
-                Spacer()
-
+            // 플로팅 글래스 카드 — 첫진입 오픈 모달처럼 화면 곡률 r + 상하좌우 10px 여백, 아래에서 슬라이드업
+            VStack(spacing: 16) {
                 Image("logo-wordmark")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 40)
+                    .resizable().scaledToFit().frame(height: 30)
+                    .padding(.top, 6)
 
                 Text("나의 특별한 행사를 완성하는 전문가")
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-
-                Spacer().frame(maxHeight: 40)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 2)
 
                 VStack(spacing: 10) {
-                    // Kakao
-                    Button(action: handleKakaoLogin) {
-                        Text("카카오로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color(red: 1.0, green: 0.898, blue: 0.0))
-                            .foregroundColor(Color(red: 0.098, green: 0.098, blue: 0.098))
-                            .cornerRadius(14)
-                    }
+                    if guestMode {
+                        guestLoginSection
+                    } else {
+                        socialButton(icon: "login-kakao", title: "카카오로 시작하기",
+                                     bg: Color(red: 1.0, green: 0.898, blue: 0.0),
+                                     fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
+                        socialButton(icon: "login-naver", title: "네이버로 시작하기",
+                                     bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
+                        socialButton(icon: "login-google", title: "Google로 시작하기",
+                                     bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
+                        socialButton(icon: "login-apple", title: "Apple로 시작하기",
+                                     bg: .black, fg: .white, action: handleAppleLogin)
 
-                    // Naver
-                    Button(action: handleNaverLogin) {
-                        Text("네이버로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color(red: 0.012, green: 0.780, blue: 0.353))
-                            .foregroundColor(.white)
-                            .cornerRadius(14)
-                    }
-
-                    // Google
-                    Button(action: handleGoogleLogin) {
-                        Text("Google로 시작하기")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Color.white)
-                            .foregroundColor(Color(red: 0.3, green: 0.3, blue: 0.3))
-                            .cornerRadius(14)
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                    }
-
-                    // Apple (web-based via Freetiful web login)
-                    Button(action: handleAppleLogin) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "apple.logo")
-                            Text("Apple로 시작하기").fontWeight(.bold)
+                        Button("비회원 로그인 (견적 신청하신 분)") {
+                            guestError = ""
+                            withAnimation(.easeOut(duration: 0.2)) { guestMode = true }
                         }
-                        .frame(maxWidth: .infinity).frame(height: 48)
-                        .background(Color.black)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .underline()
+                        .padding(.top, 6)
                     }
 
-                    // "나중에 하기" — 시트 닫고 홈으로 이동 (Android 동일 UX)
-                    Button("나중에 하기") { goHome() }
-                        .foregroundColor(.gray)
-                        .padding(.top, 8)
+                    Button("나중에 하기") { dismissDown() }
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 14))
+                        .padding(.top, 6)
                 }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
             }
+            .padding(.horizontal, 22)
+            .padding(.top, 26)
+            .padding(.bottom, 26)
+            .frame(maxWidth: .infinity)
+            .background(
+                ZStack {
+                    LiquidGlassView()
+                    Color.white.opacity(0.4)   // 오퍼시티 40 글래스
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.22), radius: 26, y: 8)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+            .offset(y: sheetOffset)
 
             if isLoading {
-                ProgressView().scaleEffect(1.5)
+                ProgressView().scaleEffect(1.4).tint(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black.opacity(0.2))
+                    .background(Color.black.opacity(0.25).ignoresSafeArea())
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                sheetOffset = 0
+                dimOpacity = 1
+            }
+        }
+        // 네이버 인증창에서 콜백 없이(뒤로가기/취소) 앱 복귀 시 무한로딩 해제 안전망.
+        // 정상 콜백(success/failure)이 naverInFlight 를 먼저 끄므로, 지연 후에도 남아있으면 취소로 간주.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            guard naverInFlight else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                if naverInFlight && !didLoginSuccessfully {
+                    naverInFlight = false
+                    isLoading = false
+                }
             }
         }
         // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
@@ -100,6 +130,131 @@ struct NativeLoginView: View {
             if !didLoginSuccessfully && !isLoading {
                 goHome()
             }
+        }
+    }
+
+    // 아래로 내려가며 닫기 → 홈
+    private func dismissDown() {
+        withAnimation(.easeIn(duration: 0.25)) {
+            sheetOffset = 900
+            dimOpacity = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { goHome() }
+    }
+
+    // 소셜 로그인 버튼 (제공 아이콘 + 브랜드 컬러)
+    @ViewBuilder
+    /// 비회원 로그인 입력 — 견적 신청 때 쓴 전화번호 + 이름
+    private var guestLoginSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("전화번호 (예: 01012345678)", text: $guestPhone)
+                .keyboardType(.numberPad)
+                .textContentType(.telephoneNumber)
+                .font(.system(size: 16))
+                .padding(.horizontal, 14).padding(.vertical, 13)
+                .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+
+            TextField("이름", text: $guestName)
+                .textContentType(.name)
+                .font(.system(size: 16))
+                .padding(.horizontal, 14).padding(.vertical, 13)
+                .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+
+            if !guestError.isEmpty {
+                Text(guestError)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.32))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: handleGuestLogin) {
+                Text(isLoading ? "확인 중…" : "로그인")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.19, green: 0.51, blue: 0.96)))
+            }
+            .disabled(isLoading)
+            .padding(.top, 2)
+
+            Button("소셜 로그인으로 돌아가기") {
+                guestError = ""
+                withAnimation(.easeOut(duration: 0.2)) { guestMode = false }
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// 비회원 로그인 요청 — 성공 시 소셜과 동일 경로(callAPI)로 토큰 주입
+    private func handleGuestLogin() {
+        let phoneDigits = guestPhone.filter(\.isNumber)
+        let name = guestName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phoneDigits.isEmpty, !name.isEmpty else {
+            guestError = "전화번호와 이름을 모두 입력해주세요"
+            return
+        }
+        guestError = ""
+        isLoading = true
+        guard let url = URL(string: "\(kAPIBase)/auth/login/guest") else { isLoading = false; return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "phone": phoneDigits, "name": name, "platform": "ios",
+        ])
+        req.timeoutInterval = 15
+
+        URLSession.shared.dataTask(with: req) { data, response, _ in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 200, let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let accessToken = json["accessToken"] as? String,
+               let refreshToken = json["refreshToken"] as? String,
+               let user = json["user"] as? [String: Any],
+               let userId = user["id"] as? String {
+                let userJSON = String(data: (try? JSONSerialization.data(withJSONObject: user)) ?? Data(),
+                                      encoding: .utf8) ?? "{}"
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.didLoginSuccessfully = true
+                    OneSignal.login(userId)
+                    NotificationCenter.default.post(
+                        name: .loginCompleted, object: nil,
+                        userInfo: ["accessToken": accessToken, "refreshToken": refreshToken, "userJSON": userJSON]
+                    )
+                }
+                return
+            }
+            let msg = (try? JSONSerialization.jsonObject(with: data ?? Data()) as? [String: Any])?["message"] as? String
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.guestError = msg ?? "전화번호 또는 이름이 일치하지 않습니다"
+            }
+        }.resume()
+    }
+
+    private func socialButton(icon: String, title: String, bg: Color, fg: Color, bordered: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(icon).resizable().scaledToFit().frame(width: 20, height: 20)
+                Text(title).fontWeight(.bold)
+            }
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .background(bg)
+            .foregroundColor(fg)
+            .cornerRadius(14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.gray.opacity(bordered ? 0.25 : 0), lineWidth: 1)
+            )
         }
     }
 
@@ -157,16 +312,17 @@ struct NativeLoginView: View {
     // MARK: - Naver (/auth/login/naver/native — accessToken)
     func handleNaverLogin() {
         isLoading = true
+        naverInFlight = true
         let coordinator = NaverNativeLoginCoordinator { result in
             DispatchQueue.main.async {
+                self.naverInFlight = false
                 switch result {
                 case .success(let accessToken):
                     self.callAPI(endpoint: "/auth/login/naver/native", body: ["accessToken": accessToken])
                 case .failure(let error):
-                    // 취소/실패 → 홈으로
+                    // 취소/실패 → 로딩만 해제하고 시트 유지(다른 방법으로 재시도 가능). 닫기는 드래그/배경탭.
                     print("❌ 네이버 로그인 취소·실패:", error)
                     self.isLoading = false
-                    self.goHome()
                 }
                 self.naverCoordinator = nil
             }
@@ -222,12 +378,19 @@ struct NativeLoginView: View {
             if let error = error {
                 print("❌ callAPI 네트워크:", error.localizedDescription); return
             }
+            // 소셜 로그인은 { tokens: {...}, user }, 비회원 로그인(/auth/login/guest)은
+            // { accessToken, refreshToken, user } 평평한 구조 → 둘 다 허용.
             guard
                 let data = data,
-                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let tokens = json["tokens"] as? [String: Any],
-                let accessToken  = tokens["accessToken"]  as? String,
-                let refreshToken = tokens["refreshToken"] as? String,
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
+                print("❌ callAPI 응답 파싱 실패:", String(data: data ?? Data(), encoding: .utf8) ?? "")
+                return
+            }
+            let tokenRoot = (json["tokens"] as? [String: Any]) ?? json
+            guard
+                let accessToken  = tokenRoot["accessToken"]  as? String,
+                let refreshToken = tokenRoot["refreshToken"] as? String,
                 let user = json["user"] as? [String: Any],
                 let userId = user["id"] as? String
             else {
@@ -273,6 +436,14 @@ struct NativeLoginView: View {
     }
 }
 
+// MARK: - 앱 공통 리퀴드 글래스(UIGlassEffect)를 SwiftUI 카드 배경으로
+struct LiquidGlassView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+    }
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
+}
+
 // MARK: - Naver Sign In Coordinator (access token만 반환 — 백엔드가 user info fetch)
 class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDelegate {
     private let completion: (Result<String, Error>) -> Void
@@ -304,6 +475,12 @@ class NaverNativeLoginCoordinator: NSObject, NaverThirdPartyLoginConnectionDeleg
     func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailWithError error: Error?) {
         completion(.failure(error ?? NSError(domain: "Naver", code: -1)))
     }
+    // 사용자가 네이버 인증화면에서 뒤로가기/취소(CANCELBYUSER=2 등) → didFailWithError 가 아니라 이 옵셔널 콜백으로 옴.
+    // 미구현 시 completion 이 안 불려 무한로딩이 됐음.
+    func oauth20Connection(_ oauthConnection: NaverThirdPartyLoginConnection?, didFailAuthorizationWithReceive receiveType: THIRDPARTYLOGIN_RECEIVE_TYPE) {
+        completion(.failure(NSError(domain: "Naver", code: Int(receiveType.rawValue),
+                                    userInfo: [NSLocalizedDescriptionKey: "네이버 로그인 취소/실패 (type \(receiveType.rawValue))"])))
+    }
 }
 
 // MARK: - Apple Sign In Coordinator
@@ -315,12 +492,14 @@ class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, 
         self.completion = completion
     }
 
+    private var activeController: ASAuthorizationController?   // 진행 중 강참조 — 중도 해제로 간헐 실패하던 문제 방지
     func signIn() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self
+        activeController = controller
         controller.performRequests()
     }
 
@@ -335,17 +514,21 @@ class AppleNativeLoginCoordinator: NSObject, ASAuthorizationControllerDelegate, 
         let fn = cred.fullName?.givenName ?? ""
         let ln = cred.fullName?.familyName ?? ""
         let fullName = [fn, ln].filter { !$0.isEmpty }.joined(separator: " ")
+        activeController = nil
         completion(.success((identityToken, fullName.isEmpty ? nil : fullName)))
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        activeController = nil
         completion(.failure(error))
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? UIWindow()
+        // 시트 전환 중 isKeyWindow 가 잠시 false 일 수 있음 — 분리된 UIWindow() 반환이 간헐 실패(에러 1000) 원인
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.compactMap { $0.keyWindow }.first
+            ?? scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+            ?? scenes.flatMap { $0.windows }.first
+            ?? ASPresentationAnchor()
     }
 }

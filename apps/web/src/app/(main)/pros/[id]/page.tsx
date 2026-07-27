@@ -21,6 +21,7 @@ import {
 import { matchApi } from '@/lib/api/match.api';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
+import GuestLoginForm from '@/components/GuestLoginForm';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -2759,6 +2760,10 @@ export default function ProDetailPage() {
                   className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform ${p === 'kakao' ? 'bg-[#FEE500] text-[#191919]' : 'bg-[#03C75A] text-white'}`}
                 >{p === 'kakao' ? '카카오로 계속하기' : '네이버로 계속하기'}</button>
               ))}
+            </div>
+            {/* 비회원 로그인 — 랜딩에서 견적만 신청한 고객(소셜 계정 없음)용 */}
+            <div className="mt-3">
+              <GuestLoginForm onSuccess={() => { setLoginModal(false); router.refresh(); }} />
             </div>
             <button onClick={() => setLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
           </div>
