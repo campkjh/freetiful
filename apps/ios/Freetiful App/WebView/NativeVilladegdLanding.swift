@@ -10,7 +10,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
     private static let blob = "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd"
     private static let heroVideo = URL(string: "\(blob)/villadegd-hero.mp4")!
     private static let logoURL = "\(blob)/villadegd-logo-white.png"
-    private static let dismissKey = "ftVilladegdLanding_v2"   // 올리면 재노출
+    private static let dismissKey = "ftVilladegdLanding_v3"   // 올리면 재노출
 
     /// 닫힌 뒤 '웨딩홀 둘러보기' 로 이동시킬 때 호출
     var onOpenWeddingHalls: (() -> Void)?
@@ -71,7 +71,10 @@ final class NativeVilladegdLandingViewController: UIViewController {
     }
 
     static func presentIfNeeded(from presenter: UIViewController, openWeddingHalls: @escaping () -> Void) {
-        guard shouldPresent(), presenter.presentedViewController == nil else { return }
+        let dismissed = UserDefaults.standard.bool(forKey: dismissKey)
+        let blocked = presenter.presentedViewController != nil
+        NSLog("[VilladegdLanding] present 시도 — 이미닫음=\(dismissed) 다른모달=\(blocked)")
+        guard shouldPresent(), !blocked else { return }
         let vc = NativeVilladegdLandingViewController()
         vc.onOpenWeddingHalls = openWeddingHalls
         vc.modalPresentationStyle = .fullScreen
