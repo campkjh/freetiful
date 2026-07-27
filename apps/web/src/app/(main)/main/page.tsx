@@ -462,6 +462,8 @@ interface ProData {
   available: boolean;
   youtubeId?: string;
   isPartner?: boolean;
+  avgRating?: number;      // BEST 포디움 정렬 기준(실제 평점)
+  reviewCount?: number;
 }
 
 function extractYoutubeId(url: string | null | undefined): string | undefined {
@@ -503,6 +505,8 @@ function mapDiscoveryProToHomePro(p: any): ProData {
     available: true,
     youtubeId: extractYoutubeId(p.youtubeUrl),
     isPartner: p.showPartnersLogo || p.isFeatured || false,
+    avgRating: Number(p.avgRating) || 0,
+    reviewCount: Number(p.reviewCount) || 0,
   };
 }
 
@@ -1653,7 +1657,17 @@ export default function HomePage() {
     (window as any).__freetifulHomeSectionsPost = async () => {
       try {
         const [pros, biz] = await Promise.all([fetchAllPros(), fetchBusiness()]);
-        const best = [...filterByTab(1, pros)].sort((a, b) => (Number(b.careerYears) || 0) - (Number(a.careerYears) || 0)).slice(0, 3).map((p: any) => ({ id: p.id, name: p.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, youtubeUrl: p.youtubeUrl || '' }));
+        // BEST 포디움은 실제 평점순(웹 bestWeddingPros 와 동일 기준). 예전엔 경력 연차순이라
+        // 평점과 무관한 순위가 나왔다. 리뷰 3개 이상을 우선하고 모자라면 나머지를 이어 붙인다.
+        const byRating = (a: any, b: any) =>
+          (Number(b.avgRating) || 0) - (Number(a.avgRating) || 0) ||
+          (Number(b.reviewCount) || 0) - (Number(a.reviewCount) || 0);
+        const bestBase = filterByTab(1, pros);
+        const bestRanked = [
+          ...bestBase.filter((p: any) => (Number(p.reviewCount) || 0) >= 3).sort(byRating),
+          ...bestBase.filter((p: any) => (Number(p.reviewCount) || 0) < 3).sort(byRating),
+        ];
+        const best = bestRanked.slice(0, 3).map((p: any) => ({ id: p.id, name: p.name || '사회자', image: proImg(p), careerYears: Number(p.careerYears) || 0, youtubeUrl: p.youtubeUrl || '' }));
         const morePros = pros.slice(0, 6).map(proCard);
         let event = filterByTab(2, pros);
         if (event.length < 9) { const ids = new Set(event.map((p: any) => p.id)); event = [...event, ...pros.filter((p: any) => !ids.has(p.id))]; }
@@ -1795,9 +1809,19 @@ export default function HomePage() {
       .filter((src): src is string => Boolean(src && !src.includes('default-profile')));
     return Array.from(new Set(images)).slice(0, 24);
   }, [prosData]);
+  // BEST 결혼식 사회자 — 실제 평점순(금/은/동). 예전엔 필터만 하고 정렬이 없어
+  // API 반환 순서가 그대로 포디움이 됐다(최고 평점이 3위에 놓이는 등).
+  // 리뷰가 너무 적은 사람이 5.0 하나로 1위가 되지 않도록 리뷰 3개 이상을 우선 배치하고,
+  // 그것만으로 3명이 안 되면 나머지를 같은 기준으로 이어 붙인다.
   const bestWeddingPros = useMemo(() => {
     const weddingPros = prosData.filter(isWeddingMcPro);
-    return weddingPros.length > 0 ? weddingPros : prosData;
+    const base = weddingPros.length > 0 ? weddingPros : prosData;
+    const byRating = (a: ProData, b: ProData) =>
+      (b.avgRating || 0) - (a.avgRating || 0) || (b.reviewCount || 0) - (a.reviewCount || 0);
+    const MIN_REVIEWS = 3;
+    const enough = base.filter((p) => (p.reviewCount || 0) >= MIN_REVIEWS).sort(byRating);
+    const rest = base.filter((p) => (p.reviewCount || 0) < MIN_REVIEWS).sort(byRating);
+    return [...enough, ...rest];
   }, [prosData]);
   const moreProsSeedRef = useRef(`${Date.now()}-${Math.random()}`);
   const morePros = useMemo(

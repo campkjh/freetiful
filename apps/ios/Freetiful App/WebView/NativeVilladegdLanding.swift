@@ -10,7 +10,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
     private static let blob = "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd"
     private static let heroVideo = URL(string: "\(blob)/villadegd-hero.mp4")!
     private static let logoURL = "\(blob)/villadegd-logo-white.png"
-    private static let dismissKey = "ftVilladegdLanding_v1"   // 올리면 재노출
+    private static let dismissKey = "ftVilladegdLanding_v2"   // 올리면 재노출
 
     /// 닫힌 뒤 '웨딩홀 둘러보기' 로 이동시킬 때 호출
     var onOpenWeddingHalls: (() -> Void)?
@@ -168,7 +168,8 @@ final class NativeVilladegdLandingViewController: UIViewController {
         let hero = makeVideoView(url: Self.heroVideo, dim: 0.42)
         hero.translatesAutoresizingMaskIntoConstraints = false
         content.addArrangedSubview(hero)
-        hero.heightAnchor.constraint(equalToConstant: UIScreen.main.bounds.height * 0.82).isActive = true
+        // 화면을 정확히 꽉 채우는 풀스크린 히어로(세이프에어리어 무시 — scrollView 가 view 전체에 핀되어 있음)
+        hero.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor).isActive = true
 
         let col = UIStackView()
         col.translatesAutoresizingMaskIntoConstraints = false
@@ -357,15 +358,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
                                      size: 15, weight: .regular,
                                      color: UIColor.white.withAlphaComponent(0.8), align: .center))
 
-        let cta = UIButton(type: .system)
-        cta.translatesAutoresizingMaskIntoConstraints = false
-        cta.setTitle("웨딩홀 둘러보기", for: .normal)
-        cta.setTitleColor(.white, for: .normal)
-        cta.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
-        cta.backgroundColor = UIColor(red: 0.19, green: 0.51, blue: 0.96, alpha: 1)
-        cta.layer.cornerRadius = 26
-        cta.layer.cornerCurve = .continuous
-        cta.contentEdgeInsets = UIEdgeInsets(top: 15, left: 34, bottom: 15, right: 34)
+        let cta = glassButton("웨딩홀 둘러보기", fontSize: 16, height: 54)
         cta.addTarget(self, action: #selector(tapWeddingHalls), for: .touchUpInside)
         col.addArrangedSubview(cta)
         col.setCustomSpacing(26, after: col.arrangedSubviews[1])
@@ -389,9 +382,26 @@ final class NativeVilladegdLandingViewController: UIViewController {
         closeButton.setImage(UIImage(systemName: "xmark",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)), for: .normal)
         closeButton.tintColor = .white
-        closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.35)
-        closeButton.layer.cornerRadius = 22
         closeButton.addTarget(self, action: #selector(tapClose), for: .touchUpInside)
+        // 리퀴드 글래스 원형(네이티브 UIGlassEffect, 미지원 OS 는 블러 폴백)
+        let glass = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        glass.isUserInteractionEnabled = false
+        glass.layer.cornerRadius = 22
+        glass.layer.cornerCurve = .continuous
+        glass.clipsToBounds = true
+        if !LiquidGlassEffectFactory.supportsNativeLiquidGlass {
+            glass.backgroundColor = UIColor.black.withAlphaComponent(0.28)
+            glass.layer.borderWidth = 1
+            glass.layer.borderColor = UIColor.white.withAlphaComponent(0.28).cgColor
+        }
+        closeButton.insertSubview(glass, at: 0)
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: closeButton.topAnchor),
+            glass.bottomAnchor.constraint(equalTo: closeButton.bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: closeButton.leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: closeButton.trailingAnchor),
+        ])
         view.addSubview(closeButton)
         NSLayoutConstraint.activate([
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
@@ -426,17 +436,35 @@ final class NativeVilladegdLandingViewController: UIViewController {
         return l
     }
 
-    private func glassButton(_ title: String) -> UIButton {
+    /// 리퀴드 글래스 버튼 — 프로젝트 공용 LiquidGlassEffectFactory(네이티브 UIGlassEffect,
+    /// 미지원 OS 는 블러로 폴백)를 써서 하단 네비바와 동일한 재질로 맞춘다.
+    private func glassButton(_ title: String, fontSize: CGFloat = 15, height: CGFloat = 50) -> UIButton {
         let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
         b.setTitle(title, for: .normal)
         b.setTitleColor(.white, for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
-        b.backgroundColor = UIColor.white.withAlphaComponent(0.16)
-        b.layer.cornerRadius = 24
-        b.layer.cornerCurve = .continuous
-        b.layer.borderWidth = 1
-        b.layer.borderColor = UIColor.white.withAlphaComponent(0.3).cgColor
-        b.contentEdgeInsets = UIEdgeInsets(top: 13, left: 30, bottom: 13, right: 30)
+        b.titleLabel?.font = .systemFont(ofSize: fontSize, weight: .bold)
+        b.contentEdgeInsets = UIEdgeInsets(top: 0, left: 34, bottom: 0, right: 34)
+        b.heightAnchor.constraint(equalToConstant: height).isActive = true
+
+        let glass = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        glass.isUserInteractionEnabled = false
+        glass.layer.cornerRadius = height / 2
+        glass.layer.cornerCurve = .continuous
+        glass.clipsToBounds = true
+        // 네이티브 리퀴드글래스는 자체 테두리/하이라이트를 갖고 있어 폴백(블러)일 때만 보더를 얹는다.
+        if !LiquidGlassEffectFactory.supportsNativeLiquidGlass {
+            glass.layer.borderWidth = 1
+            glass.layer.borderColor = UIColor.white.withAlphaComponent(0.34).cgColor
+        }
+        b.insertSubview(glass, at: 0)
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: b.topAnchor),
+            glass.bottomAnchor.constraint(equalTo: b.bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: b.leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: b.trailingAnchor),
+        ])
         return b
     }
 
