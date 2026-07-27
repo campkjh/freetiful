@@ -57,12 +57,18 @@ final class NativeVilladegdLandingViewController: UIViewController {
         ("프리미엄 플라워 브랜딩", "감각적인 홀과 스페셜 플라워로 품격을 더해요"),
     ]
 
+    /// 히어로 아래 무한 캐러셀에 흐를 지점 워드마크(흰색 PNG)
+    private static let branchLogos = ["cheongdam", "suseo", "anyang", "ansan", "nonhyeon"]
+        .map { "\(blob)/villadegd-logo-\($0).png" }
+
     private let scrollView = UIScrollView()
     private let content = UIStackView()
     private let closeButton = UIButton(type: .system)
     private var players: [AVPlayer] = []
     private var loopers: [Any] = []
     private var playerLayers: [(AVPlayerLayer, UIView)] = []
+    private let marqueeTrack = UIStackView()
+    private var marqueeStarted = false
 
     // MARK: - 표시 조건
 
@@ -88,6 +94,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
         view.backgroundColor = .white
         buildScroll()
         buildHero()
+        buildMarquee()
         buildStrengths()
         Self.branches.forEach { buildBranch($0) }
         buildClosing()
@@ -102,6 +109,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         players.forEach { $0.play() }
+        startMarquee()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -205,6 +213,81 @@ final class NativeVilladegdLandingViewController: UIViewController {
             col.leadingAnchor.constraint(equalTo: hero.leadingAnchor, constant: 24),
             col.trailingAnchor.constraint(equalTo: hero.trailingAnchor, constant: -24),
         ])
+
+        // 스크롤 유도 — 문구 + 아래 화살표(위아래로 천천히 부유)
+        let hint = UIStackView()
+        hint.translatesAutoresizingMaskIntoConstraints = false
+        hint.axis = .vertical
+        hint.alignment = .center
+        hint.spacing = 6
+        hint.addArrangedSubview(label("스크롤을 내려주세요", size: 13, weight: .semibold,
+                                      color: UIColor.white.withAlphaComponent(0.8), spacing: 0.6))
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.down",
+                                                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)))
+        chevron.tintColor = UIColor.white.withAlphaComponent(0.75)
+        chevron.contentMode = .scaleAspectFit
+        hint.addArrangedSubview(chevron)
+        hero.addSubview(hint)
+        NSLayoutConstraint.activate([
+            hint.centerXAnchor.constraint(equalTo: hero.centerXAnchor),
+            hint.bottomAnchor.constraint(equalTo: hero.bottomAnchor, constant: -26),
+        ])
+        UIView.animate(withDuration: 1.5, delay: 0.6, options: [.repeat, .autoreverse, .curveEaseInOut]) {
+            hint.transform = CGAffineTransform(translationX: 0, y: 8)
+        }
+    }
+
+    /// 히어로 바로 아래 — 지점 워드마크가 좌→우로 천천히 흐르는 무한 캐러셀
+    private func buildMarquee() {
+        let host = UIView()
+        host.translatesAutoresizingMaskIntoConstraints = false
+        host.backgroundColor = .black
+        host.clipsToBounds = true
+        content.addArrangedSubview(host)
+        host.heightAnchor.constraint(equalToConstant: 108).isActive = true
+
+        marqueeTrack.translatesAutoresizingMaskIntoConstraints = false
+        marqueeTrack.axis = .horizontal
+        marqueeTrack.alignment = .center
+        marqueeTrack.spacing = 44
+        host.addSubview(marqueeTrack)
+        NSLayoutConstraint.activate([
+            marqueeTrack.centerYAnchor.constraint(equalTo: host.centerYAnchor),
+            marqueeTrack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+        ])
+
+        // 끊김 없는 루프를 위해 동일 세트를 2벌 배치
+        for _ in 0..<2 {
+            for url in Self.branchLogos {
+                let iv = UIImageView()
+                iv.translatesAutoresizingMaskIntoConstraints = false
+                iv.contentMode = .scaleAspectFit
+                iv.alpha = 0.9
+                iv.widthAnchor.constraint(equalToConstant: 132).isActive = true
+                iv.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                loadImage(url, into: iv)
+                marqueeTrack.addArrangedSubview(iv)
+            }
+        }
+    }
+
+    /// 한 세트 폭만큼 왼쪽으로 흐른 뒤 원위치 — 육안으로는 끊김 없이 이어진다.
+    private func startMarquee() {
+        guard !marqueeStarted else { return }
+        marqueeTrack.layoutIfNeeded()
+        let full = marqueeTrack.bounds.width
+        guard full > 0 else { return }
+        marqueeStarted = true
+        let half = (full + marqueeTrack.spacing) / 2
+        func loop() {
+            marqueeTrack.transform = .identity
+            UIView.animate(withDuration: 26, delay: 0, options: [.curveLinear, .allowUserInteraction]) {
+                self.marqueeTrack.transform = CGAffineTransform(translationX: -half, y: 0)
+            } completion: { finished in
+                if finished { loop() }
+            }
+        }
+        loop()
     }
 
     private func buildStrengths() {
