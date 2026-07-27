@@ -20,6 +20,7 @@ import {
   AppleLoginDto,
   EmailRegisterDto,
   EmailLoginDto,
+  GuestLoginDto,
   RefreshTokenDto,
   LogoutDto,
   UpdateProfileDto,
@@ -96,6 +97,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Email login' })
   emailLogin(@Body() dto: EmailLoginDto, @Request() req: any) {
     return this.auth.emailLogin(dto.email, dto.password, getLoginDeviceInfo(req, 'web', dto.platform));
+  }
+
+  /** 비회원 로그인 — 랜딩(quick-request)으로만 가입해 로그인 수단이 없는 계정용 */
+  @Post('login/guest')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '비회원 로그인 (전화번호 + 이름)' })
+  guestLogin(@Body() dto: GuestLoginDto, @Request() req: any) {
+    return this.auth.guestLogin(dto.phone, dto.name, getLoginDeviceInfo(req, 'web', dto.platform));
   }
 
   @Post('refresh')
