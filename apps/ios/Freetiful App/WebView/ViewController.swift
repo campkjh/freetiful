@@ -2656,11 +2656,18 @@ class ViewController: UIViewController,
 
     private var didCheckLaunchPopup = false
     private func loadInitialPage() {
-        // 홈 진입 팝업(배너 placement=popup) — 런치 1회, 홈 보인 뒤 약간 지연 후 네이티브 바텀시트
+        // 홈 진입 팝업(배너 placement=popup) — 런치 1회, 홈 보인 뒤 약간 지연 후 네이티브 바텀시트.
+        // 단 최초 1회 빌라드지디 랜딩이 먼저다(웹 오버레이는 네이티브에서 억제됨 → 네이티브 화면으로 표시).
         if !didCheckLaunchPopup {
             didCheckLaunchPopup = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
                 guard let self = self else { return }
+                if NativeVilladegdLandingViewController.shouldPresent() {
+                    NativeVilladegdLandingViewController.presentIfNeeded(from: self) { [weak self] in
+                        self?.navigateNativeWeb(to: "/businesses?category=웨딩홀")
+                    }
+                    return   // 랜딩을 띄운 런치에선 배너 팝업은 건너뜀(연달아 뜨는 것 방지)
+                }
                 NativePopupModalViewController.checkAndPresent(from: self) { [weak self] link in
                     self?.navigateNativeWeb(to: link)
                 }
