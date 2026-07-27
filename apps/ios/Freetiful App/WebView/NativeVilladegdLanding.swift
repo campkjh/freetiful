@@ -94,12 +94,22 @@ final class NativeVilladegdLandingViewController: UIViewController {
         view.backgroundColor = .white
         buildScroll()
         buildHero()
-        buildMarquee()
         buildStrengths()
         Self.branches.forEach { buildBranch($0) }
         buildClosing()
         buildCloseButton()
+
+        // 백그라운드 복귀 시 CA 애니메이션/영상이 멈춘 채로 남지 않게 재개
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.view.window != nil else { return }
+            self.players.forEach { $0.play() }
+            self.startMarquee()
+        }
     }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -235,25 +245,44 @@ final class NativeVilladegdLandingViewController: UIViewController {
         UIView.animate(withDuration: 1.5, delay: 0.6, options: [.repeat, .autoreverse, .curveEaseInOut]) {
             hint.transform = CGAffineTransform(translationX: 0, y: 8)
         }
+
+        // 지점 워드마크 캐러셀 — 영상 위, 스크롤 안내 바로 위
+        buildMarquee(in: hero, above: hint)
     }
 
-    /// 히어로 바로 아래 — 지점 워드마크가 좌→우로 천천히 흐르는 무한 캐러셀
-    private func buildMarquee() {
-        let host = UIView()
-        host.translatesAutoresizingMaskIntoConstraints = false
-        host.backgroundColor = .black
-        host.clipsToBounds = true
-        content.addArrangedSubview(host)
-        host.heightAnchor.constraint(equalToConstant: 108).isActive = true
+    // 캐러셀 치수 — 레이아웃에 의존하지 않도록 상수로 고정(폭을 런타임에 재면
+    // 아직 레이아웃 전이라 0 이 나와 애니메이션이 시작되지 않는다).
+    private static let mqItemW: CGFloat = 132
+    private static let mqItemH: CGFloat = 46
+    private static let mqGap: CGFloat = 44
+    /// 한 세트 폭 + 간격 = 이만큼 왼쪽으로 흐르면 두 번째 세트가 정확히 첫 세트 자리에 온다.
+    private static var mqShift: CGFloat {
+        let n = CGFloat(branchLogos.count)
+        return (n * mqItemW + (n - 1) * mqGap) + mqGap
+    }
+
+    /// 히어로 영상 위에 얹는 지점 워드마크 무한 캐러셀 (스크롤 안내 바로 위)
+    private func buildMarquee(in hero: UIView, above anchorView: UIView) {
+        let clip = UIView()
+        clip.translatesAutoresizingMaskIntoConstraints = false
+        clip.backgroundColor = .clear          // 영상이 그대로 비치도록
+        clip.clipsToBounds = true
+        hero.addSubview(clip)
+        NSLayoutConstraint.activate([
+            clip.leadingAnchor.constraint(equalTo: hero.leadingAnchor),
+            clip.trailingAnchor.constraint(equalTo: hero.trailingAnchor),
+            clip.bottomAnchor.constraint(equalTo: anchorView.topAnchor, constant: -18),
+            clip.heightAnchor.constraint(equalToConstant: Self.mqItemH + 8),
+        ])
 
         marqueeTrack.translatesAutoresizingMaskIntoConstraints = false
         marqueeTrack.axis = .horizontal
         marqueeTrack.alignment = .center
-        marqueeTrack.spacing = 44
-        host.addSubview(marqueeTrack)
+        marqueeTrack.spacing = Self.mqGap
+        clip.addSubview(marqueeTrack)
         NSLayoutConstraint.activate([
-            marqueeTrack.centerYAnchor.constraint(equalTo: host.centerYAnchor),
-            marqueeTrack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            marqueeTrack.centerYAnchor.constraint(equalTo: clip.centerYAnchor),
+            marqueeTrack.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
         ])
 
         // 끊김 없는 루프를 위해 동일 세트를 2벌 배치
@@ -262,32 +291,28 @@ final class NativeVilladegdLandingViewController: UIViewController {
                 let iv = UIImageView()
                 iv.translatesAutoresizingMaskIntoConstraints = false
                 iv.contentMode = .scaleAspectFit
-                iv.alpha = 0.9
-                iv.widthAnchor.constraint(equalToConstant: 132).isActive = true
-                iv.heightAnchor.constraint(equalToConstant: 46).isActive = true
+                iv.alpha = 0.92
+                iv.widthAnchor.constraint(equalToConstant: Self.mqItemW).isActive = true
+                iv.heightAnchor.constraint(equalToConstant: Self.mqItemH).isActive = true
                 loadImage(url, into: iv)
                 marqueeTrack.addArrangedSubview(iv)
             }
         }
     }
 
-    /// 한 세트 폭만큼 왼쪽으로 흐른 뒤 원위치 — 육안으로는 끊김 없이 이어진다.
+    /// CoreAnimation 으로 무한 스크롤 — 레이아웃/런루프와 무관하게 확실히 돈다.
     private func startMarquee() {
-        guard !marqueeStarted else { return }
-        marqueeTrack.layoutIfNeeded()
-        let full = marqueeTrack.bounds.width
-        guard full > 0 else { return }
+        // 백그라운드 복귀 시 CA 애니메이션이 제거되므로 '이미 붙어있는지'로 판단(플래그 아님)
+        guard marqueeTrack.layer.animation(forKey: "villadegdMarquee") == nil else { return }
         marqueeStarted = true
-        let half = (full + marqueeTrack.spacing) / 2
-        func loop() {
-            marqueeTrack.transform = .identity
-            UIView.animate(withDuration: 26, delay: 0, options: [.curveLinear, .allowUserInteraction]) {
-                self.marqueeTrack.transform = CGAffineTransform(translationX: -half, y: 0)
-            } completion: { finished in
-                if finished { loop() }
-            }
-        }
-        loop()
+        let anim = CABasicAnimation(keyPath: "transform.translation.x")
+        anim.fromValue = 0
+        anim.toValue = -Self.mqShift
+        anim.duration = 26                     // 천천히
+        anim.repeatCount = .infinity
+        anim.isRemovedOnCompletion = false
+        anim.timingFunction = CAMediaTimingFunction(name: .linear)
+        marqueeTrack.layer.add(anim, forKey: "villadegdMarquee")
     }
 
     private func buildStrengths() {
