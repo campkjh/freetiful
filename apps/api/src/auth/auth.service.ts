@@ -169,6 +169,73 @@ export class AuthService {
     ])).filter(Boolean);
   }
 
+  /**
+   * 비회원 로그인 — 랜딩(quick-request)으로 가입돼 로그인 수단이 없는 계정을
+   * '전화번호 + 이름' 일치로 확인해 토큰을 발급한다.
+   *
+   * 안전장치(중요):
+   *  - role='general' 만 허용 → 사회자/사업자/관리자 계정은 이 경로로 절대 로그인 불가
+   *  - authProviders 가 하나라도 있으면 거부 → 카카오/구글/이메일 등 실제 로그인 수단이
+   *    있는 계정을 전화번호+이름이라는 약한 조합으로 열어주지 않는다(계정 강도 하락 방지)
+   *  - 실패 사유를 구분하지 않는 동일 메시지 → 번호 존재 여부(가입 여부) 노출 방지
+   *  - 전화번호당 실패 횟수 제한 → 이름 대입 시도 차단
+   */
+  private guestLoginFails = new Map<string, { count: number; until: number }>();
+  private static readonly GUEST_MAX_FAILS = 5;
+  private static readonly GUEST_LOCK_MS = 10 * 60 * 1000;
+
+  private static normalizeGuestName(v?: string | null) {
+    return String(v || '')
+      .normalize('NFC')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  }
+
+  async guestLogin(phoneInput: string, nameInput: string, deviceInfo?: LoginDeviceInfo) {
+    const phone = String(phoneInput || '').replace(/[^0-9]/g, '');
+    const name = AuthService.normalizeGuestName(nameInput);
+    // 사유를 구분하지 않는 단일 메시지(가입 여부 노출 방지)
+    const deny = () => new UnauthorizedException('전화번호 또는 이름이 일치하지 않습니다');
+
+    if (phone.length < 9 || phone.length > 13 || name.length < 1) throw deny();
+
+    const lock = this.guestLoginFails.get(phone);
+    if (lock && lock.count >= AuthService.GUEST_MAX_FAILS && Date.now() < lock.until) {
+      throw new UnauthorizedException('시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요');
+    }
+
+    const fail = () => {
+      const cur = this.guestLoginFails.get(phone);
+      const count = cur && Date.now() < cur.until ? cur.count + 1 : 1;
+      this.guestLoginFails.set(phone, { count, until: Date.now() + AuthService.GUEST_LOCK_MS });
+      return deny();
+    };
+
+    let user = await this.prisma.user.findUnique({
+      where: { phone },
+      include: { authProviders: { select: { id: true } } },
+    });
+    // 병합된 계정이면 실제 계정으로 이동
+    if (user?.mergedToUserId) {
+      user = await this.prisma.user.findUnique({
+        where: { id: user.mergedToUserId },
+        include: { authProviders: { select: { id: true } } },
+      });
+    }
+
+    if (!user || !user.isActive) throw fail();
+    if (user.role !== 'general') throw fail();
+    if (user.authProviders.length > 0) throw fail();
+    if (AuthService.normalizeGuestName(user.name) !== name) throw fail();
+
+    this.guestLoginFails.delete(phone);
+    const tokens = await this.issueTokens(user.id, deviceInfo);
+    return {
+      ...tokens,
+      user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
+    };
+  }
+
   private async issueTokens(userId: string, deviceInfo?: LoginDeviceInfo | null) {
     // 액세스 토큰 30일 고정 — 프로덕션 env(JWT_EXPIRES_IN)가 짧게 설정돼 있어도
     // 무시하고 항상 30일로 발급(모바일 앱 로그인 유지). 하루 만에 풀리는 문제 해결.

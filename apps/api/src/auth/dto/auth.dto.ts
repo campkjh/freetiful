@@ -135,6 +135,24 @@ export class EmailLoginDto {
   platform?: string;
 }
 
+/** 비회원 로그인 — 랜딩으로 가입한 계정을 전화번호+이름으로 확인 */
+export class GuestLoginDto {
+  @ApiProperty({ description: '가입 시 입력한 전화번호 (하이픈 무관)' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ description: '가입 시 입력한 이름' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Client platform hint: ios, android, web' })
+  @IsOptional()
+  @IsString()
+  platform?: string;
+}
+
 export class RefreshTokenDto {
   @ApiProperty()
   @IsString()
