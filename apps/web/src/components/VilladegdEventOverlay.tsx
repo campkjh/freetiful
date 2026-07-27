@@ -68,6 +68,13 @@ export default function VilladegdEventOverlay() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // iOS 네이티브 앱에선 웹 모달을 띄우지 않는다.
+    // (네이티브 홈 오버레이에 가려 보이지도 않고, role="dialog" 가 hasBlockingOverlay 를 켜
+    //  하단 네비게이션을 숨긴 뒤 닫아도 상태 재보고가 없어 네비가 영구히 사라지는 부작용)
+    // 홈 진입 팝업(main/page.tsx)과 동일한 가드. 네이티브는 자체 화면으로 표시한다.
+    const isNativeIOS = typeof window !== 'undefined'
+      && !!(window as any).webkit?.messageHandlers?.nativeNavState;
+    if (isNativeIOS) return;
     try { if (localStorage.getItem(DISMISS_KEY) !== 'closed') setOpen(true); } catch { setOpen(true); }
   }, []);
 
@@ -86,7 +93,14 @@ export default function VilladegdEventOverlay() {
     return () => { io.disconnect(); };
   }, [open]);
 
-  const close = () => { try { localStorage.setItem(DISMISS_KEY, 'closed'); } catch {} setOpen(false); };
+  const close = () => {
+    try { localStorage.setItem(DISMISS_KEY, 'closed'); } catch {}
+    setOpen(false);
+    // 안전망: 네이티브 앱에 nav 상태를 다시 알린다.
+    // 네이티브는 NAV/FOOTER 추가 시에만 MutationObserver 가 발화하고 dialog 제거는 감지하지 못해,
+    // hasBlockingOverlay 가 true 로 남아 하단 네비가 사라진 채 복구되지 않는다.
+    setTimeout(() => { try { (window as any).__freetifulNativeNavPostState?.(); } catch {} }, 60);
+  };
   const goWeddingHalls = () => { close(); router.push('/businesses?category=웨딩홀'); };
 
   if (!open) return null;
