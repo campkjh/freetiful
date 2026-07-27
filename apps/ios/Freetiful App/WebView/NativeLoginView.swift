@@ -22,6 +22,11 @@ struct NativeLoginView: View {
     // 하단에서 올라오는 모달 애니메이션
     @State private var sheetOffset: CGFloat = 900
     @State private var dimOpacity: Double = 0
+    // 비회원 로그인 — 랜딩(견적 신청)으로만 가입해 소셜 계정이 없는 고객용
+    @State private var guestMode = false
+    @State private var guestPhone = ""
+    @State private var guestName = ""
+    @State private var guestError = ""
 
     // 화면 곡률에 맞춘 카드 r (첫진입 오픈 모달과 동일 방식: 화면 r − 여백10)
     private var cardRadius: CGFloat {
@@ -47,15 +52,28 @@ struct NativeLoginView: View {
                     .padding(.bottom, 2)
 
                 VStack(spacing: 10) {
-                    socialButton(icon: "login-kakao", title: "카카오로 시작하기",
-                                 bg: Color(red: 1.0, green: 0.898, blue: 0.0),
-                                 fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
-                    socialButton(icon: "login-naver", title: "네이버로 시작하기",
-                                 bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
-                    socialButton(icon: "login-google", title: "Google로 시작하기",
-                                 bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
-                    socialButton(icon: "login-apple", title: "Apple로 시작하기",
-                                 bg: .black, fg: .white, action: handleAppleLogin)
+                    if guestMode {
+                        guestLoginSection
+                    } else {
+                        socialButton(icon: "login-kakao", title: "카카오로 시작하기",
+                                     bg: Color(red: 1.0, green: 0.898, blue: 0.0),
+                                     fg: Color(red: 0.098, green: 0.098, blue: 0.098), action: handleKakaoLogin)
+                        socialButton(icon: "login-naver", title: "네이버로 시작하기",
+                                     bg: Color(red: 0.012, green: 0.780, blue: 0.353), fg: .white, action: handleNaverLogin)
+                        socialButton(icon: "login-google", title: "Google로 시작하기",
+                                     bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
+                        socialButton(icon: "login-apple", title: "Apple로 시작하기",
+                                     bg: .black, fg: .white, action: handleAppleLogin)
+
+                        Button("비회원 로그인 (견적 신청하신 분)") {
+                            guestError = ""
+                            withAnimation(.easeOut(duration: 0.2)) { guestMode = true }
+                        }
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .underline()
+                        .padding(.top, 6)
+                    }
 
                     Button("나중에 하기") { dismissDown() }
                         .foregroundColor(.secondary)
@@ -126,6 +144,103 @@ struct NativeLoginView: View {
 
     // 소셜 로그인 버튼 (제공 아이콘 + 브랜드 컬러)
     @ViewBuilder
+    /// 비회원 로그인 입력 — 견적 신청 때 쓴 전화번호 + 이름
+    private var guestLoginSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
+                .font(.system(size: 13))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("전화번호 (예: 01012345678)", text: $guestPhone)
+                .keyboardType(.numberPad)
+                .textContentType(.telephoneNumber)
+                .font(.system(size: 16))
+                .padding(.horizontal, 14).padding(.vertical, 13)
+                .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+
+            TextField("이름", text: $guestName)
+                .textContentType(.name)
+                .font(.system(size: 16))
+                .padding(.horizontal, 14).padding(.vertical, 13)
+                .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3)))
+
+            if !guestError.isEmpty {
+                Text(guestError)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(red: 0.94, green: 0.27, blue: 0.32))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: handleGuestLogin) {
+                Text(isLoading ? "확인 중…" : "로그인")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.19, green: 0.51, blue: 0.96)))
+            }
+            .disabled(isLoading)
+            .padding(.top, 2)
+
+            Button("소셜 로그인으로 돌아가기") {
+                guestError = ""
+                withAnimation(.easeOut(duration: 0.2)) { guestMode = false }
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// 비회원 로그인 요청 — 성공 시 소셜과 동일 경로(callAPI)로 토큰 주입
+    private func handleGuestLogin() {
+        let phoneDigits = guestPhone.filter(\.isNumber)
+        let name = guestName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phoneDigits.isEmpty, !name.isEmpty else {
+            guestError = "전화번호와 이름을 모두 입력해주세요"
+            return
+        }
+        guestError = ""
+        isLoading = true
+        guard let url = URL(string: "\(kAPIBase)/auth/login/guest") else { isLoading = false; return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "phone": phoneDigits, "name": name, "platform": "ios",
+        ])
+        req.timeoutInterval = 15
+
+        URLSession.shared.dataTask(with: req) { data, response, _ in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 200, let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let accessToken = json["accessToken"] as? String,
+               let refreshToken = json["refreshToken"] as? String,
+               let user = json["user"] as? [String: Any],
+               let userId = user["id"] as? String {
+                let userJSON = String(data: (try? JSONSerialization.data(withJSONObject: user)) ?? Data(),
+                                      encoding: .utf8) ?? "{}"
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.didLoginSuccessfully = true
+                    OneSignal.login(userId)
+                    NotificationCenter.default.post(
+                        name: .loginCompleted, object: nil,
+                        userInfo: ["accessToken": accessToken, "refreshToken": refreshToken, "userJSON": userJSON]
+                    )
+                }
+                return
+            }
+            let msg = (try? JSONSerialization.jsonObject(with: data ?? Data()) as? [String: Any])?["message"] as? String
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.guestError = msg ?? "전화번호 또는 이름이 일치하지 않습니다"
+            }
+        }.resume()
+    }
+
     private func socialButton(icon: String, title: String, bg: Color, fg: Color, bordered: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -263,12 +378,19 @@ struct NativeLoginView: View {
             if let error = error {
                 print("❌ callAPI 네트워크:", error.localizedDescription); return
             }
+            // 소셜 로그인은 { tokens: {...}, user }, 비회원 로그인(/auth/login/guest)은
+            // { accessToken, refreshToken, user } 평평한 구조 → 둘 다 허용.
             guard
                 let data = data,
-                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let tokens = json["tokens"] as? [String: Any],
-                let accessToken  = tokens["accessToken"]  as? String,
-                let refreshToken = tokens["refreshToken"] as? String,
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
+                print("❌ callAPI 응답 파싱 실패:", String(data: data ?? Data(), encoding: .utf8) ?? "")
+                return
+            }
+            let tokenRoot = (json["tokens"] as? [String: Any]) ?? json
+            guard
+                let accessToken  = tokenRoot["accessToken"]  as? String,
+                let refreshToken = tokenRoot["refreshToken"] as? String,
                 let user = json["user"] as? [String: Any],
                 let userId = user["id"] as? String
             else {
