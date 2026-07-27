@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
 import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 import GazeGame from './GazeGame';
+import GuestLoginForm from '@/components/GuestLoginForm';
 
 /* 전문사회자 프로필 카드 (방송사 출신 아나운서 시안 카드) */
 const MC_IMAGES = Array.from({ length: 18 }, (_, i) => {
@@ -837,6 +838,10 @@ export default function WeddingMcLandingPage() {
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#191600" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.9 1.9 5.4 4.7 6.8-.2.7-.7 2.6-.8 3-.1.5.2.5.4.3.2-.1 2.6-1.8 3.6-2.5.7.1 1.4.2 2.1.2 5.5 0 10-3.6 10-8s-4.5-8-10-8z" /></svg>
                       카카오 로그인
                     </button>
+                    {/* 이미 여기서 견적을 신청한 분 — 소셜 계정 없이 전화번호+이름으로 로그인 */}
+                    <div className="mt-2">
+                      <GuestLoginForm compact onSuccess={() => window.location.reload()} />
+                    </div>
                   </>
                 )}
               </form>

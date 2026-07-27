@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
+import GuestLoginForm from '@/components/GuestLoginForm';
 
 type NavIconProps = { className?: string };
 
@@ -135,43 +136,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  // 비회원 로그인 — 랜딩(견적 신청)으로만 가입해 소셜 계정이 없는 고객용
-  const [guestMode, setGuestMode] = useState(false);
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestName, setGuestName] = useState('');
-  const [guestBusy, setGuestBusy] = useState(false);
-  const [guestError, setGuestError] = useState('');
-
-  const submitGuestLogin = async () => {
-    if (guestBusy) return;
-    setGuestError('');
-    if (!guestPhone.replace(/[^0-9]/g, '') || !guestName.trim()) {
-      setGuestError('전화번호와 이름을 모두 입력해주세요');
-      return;
-    }
-    setGuestBusy(true);
-    try {
-      const res = await fetch('/api/v1/auth/login/guest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: guestPhone, name: guestName, platform: 'web' }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setGuestError(data?.message || '전화번호 또는 이름이 일치하지 않습니다');
-        return;
-      }
-      useAuthStore.getState().setAuth(data.user, data.accessToken, data.refreshToken);
-      setShowLoginModal(false);
-      setGuestMode(false);
-      setGuestPhone(''); setGuestName('');
-      router.refresh();
-    } catch {
-      setGuestError('로그인에 실패했습니다. 잠시 후 다시 시도해주세요');
-    } finally {
-      setGuestBusy(false);
-    }
-  };
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
@@ -664,48 +628,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               ))}
             </div>
             {/* 비회원 로그인 — 랜딩에서 견적만 신청한 고객(소셜 계정 없음)용 */}
-            {!guestMode ? (
-              <button
-                onClick={() => { setGuestMode(true); setGuestError(''); }}
-                className="mt-3 w-full py-3 text-center text-[14px] font-semibold text-gray-500 underline underline-offset-4 animate-[loginItemUp_0.4s_ease_0.28s_both]"
-              >
-                비회원 로그인 (견적 신청하신 분)
-              </button>
-            ) : (
-              <div className="mt-4 animate-[loginItemUp_0.3s_ease_both]">
-                <p className="mb-2.5 text-[13px] leading-relaxed text-gray-500">
-                  견적 신청 때 입력하신 <b className="text-gray-700">전화번호와 이름</b>을 그대로 입력해주세요.
-                </p>
-                <input
-                  type="tel" inputMode="numeric" value={guestPhone}
-                  onChange={(e) => { setGuestPhone(e.target.value); setGuestError(''); }}
-                  placeholder="전화번호 (예: 01012345678)"
-                  className="mb-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-[16px] outline-none focus:border-[#3182F6]"
-                />
-                <input
-                  type="text" value={guestName}
-                  onChange={(e) => { setGuestName(e.target.value); setGuestError(''); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') submitGuestLogin(); }}
-                  placeholder="이름"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-[16px] outline-none focus:border-[#3182F6]"
-                />
-                {guestError && <p className="mt-2 text-[13px] font-medium text-[#F04452]">{guestError}</p>}
-                <button
-                  onClick={submitGuestLogin} disabled={guestBusy}
-                  className="mt-3 w-full rounded-2xl bg-[#3182F6] py-3.5 text-[15px] font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
-                >
-                  {guestBusy ? '확인 중…' : '로그인'}
-                </button>
-                <button
-                  onClick={() => { setGuestMode(false); setGuestError(''); }}
-                  className="mt-2 w-full py-2 text-center text-[13px] font-medium text-gray-400"
-                >
-                  소셜 로그인으로 돌아가기
-                </button>
-              </div>
-            )}
+            <div className="mt-3 animate-[loginItemUp_0.4s_ease_0.28s_both]">
+              <GuestLoginForm onSuccess={() => { setShowLoginModal(false); router.refresh(); }} />
+            </div>
 
-            <button onClick={() => { setShowLoginModal(false); setGuestMode(false); router.push('/main'); }} className="w-full mt-3 text-[14px] text-gray-400 font-medium py-2 text-center animate-[loginItemUp_0.4s_ease_0.35s_both]">
+            <button onClick={() => { setShowLoginModal(false); router.push('/main'); }} className="w-full mt-3 text-[14px] text-gray-400 font-medium py-2 text-center animate-[loginItemUp_0.4s_ease_0.35s_both]">
               취소
             </button>
           </div>
