@@ -135,6 +135,35 @@ export class LandingService {
     };
   }
 
+  /**
+   * 광고 집행비 — 채널별·월별. 어드민이 직접 입력한 금액을 그대로 돌려준다.
+   * yearMonth: "2026-07" (KST 기준)
+   */
+  async getAdSpend(yearMonth: string) {
+    const ym = /^\d{4}-\d{2}$/.test(yearMonth || '') ? yearMonth : '';
+    if (!ym) return { yearMonth: '', items: [] };
+    const rows = await this.prisma.adSpend.findMany({
+      where: { yearMonth: ym },
+      select: { channel: true, amount: true },
+      orderBy: { channel: 'asc' },
+    });
+    return { yearMonth: ym, items: rows };
+  }
+
+  /** 채널 금액 저장(upsert). amount=0 이면 0원으로 기록(삭제 아님 — 입력했다는 사실은 유지). */
+  async setAdSpend(yearMonth: string, channel: string, amount: number) {
+    const ym = /^\d{4}-\d{2}$/.test(yearMonth || '') ? yearMonth : '';
+    const ch = String(channel || '').trim().slice(0, 40);
+    const amt = Math.max(0, Math.round(Number(amount) || 0));
+    if (!ym || !ch) return { ok: false, reason: 'invalid_params' };
+    await this.prisma.adSpend.upsert({
+      where: { yearMonth_channel: { yearMonth: ym, channel: ch } },
+      create: { yearMonth: ym, channel: ch, amount: amt },
+      update: { amount: amt },
+    });
+    return { ok: true, yearMonth: ym, channel: ch, amount: amt };
+  }
+
   // 최근 방문 리스트(어떤 유입으로 들어왔는지) — 어드민 하단 표.
   async recentVisits(limit = 100) {
     const rows = await this.prisma.landingVisit.findMany({

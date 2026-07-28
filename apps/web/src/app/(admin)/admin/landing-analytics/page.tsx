@@ -106,6 +106,17 @@ function SourceLabel({ value, className = '' }: { value: string; className?: str
   );
 }
 
+// 광고 채널 — 유입 소스(utm_source/리퍼러)를 광고비 집행 단위로 묶는다.
+// 메타는 인스타/페북/스레드가 한 계정에서 집행되므로 하나로 합산한다.
+const AD_CHANNELS: { key: string; label: string; sources: string[]; color: string }[] = [
+  { key: 'meta',   label: '메타 (인스타·페북·스레드)', sources: ['meta', 'instagram', 'insta', 'ig', 'facebook', 'fb', 'threads'], color: '#3182F6' },
+  { key: 'naver',  label: '네이버',   sources: ['naver'],  color: '#22C55E' },
+  { key: 'google', label: '구글',     sources: ['google'], color: '#FF7043' },
+  { key: 'kakao',  label: '카카오',   sources: ['kakao'],  color: '#FFB020' },
+  { key: 'tiktok', label: '틱톡',     sources: ['tiktok'], color: '#845EF7' },
+];
+const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+
 const DONUT_COLORS = ['#3182F6', '#00C2B3', '#FF7043', '#845EF7', '#FFB020', '#F45B8B', '#4E9BFF', '#22C55E', '#EC4899', '#14B8A6', '#F97316', '#A0AEC0'];
 
 function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
@@ -203,6 +214,12 @@ export default function LandingAnalyticsPage() {
   const [monthData, setMonthData] = useState<Analytics | null>(null);
   const [monthOffset, setMonthOffset] = useState(0); // 0=이번달, -1=저번달…
   const [prevMonth, setPrevMonth] = useState<{ visits: number; conversions: number }>({ visits: 0, conversions: 0 });
+  // 광고 집행비 — 표시월 기준 채널별 금액(어드민이 직접 입력)
+  const [adSpend, setAdSpend] = useState<Record<string, number>>({});
+  const [monthExact, setMonthExact] = useState<Analytics | null>(null); // 표시월 1일~말일 정확 집계
+  const [spendEditing, setSpendEditing] = useState(false);
+  const [spendDraft, setSpendDraft] = useState<Record<string, string>>({});
+  const [spendSaving, setSpendSaving] = useState(false);
   const [showPages, setShowPages] = useState(false); // 페이지별 도넛 섹션 — 기본 접힘
 
   const load = async (r: string, from = customFrom, to = customTo) => {
@@ -252,6 +269,18 @@ export default function LandingAnalyticsPage() {
         ]);
         setMonthData(d ?? null);
         setPrevMonth({ visits: dp?.totalVisits ?? 0, conversions: dp?.totalConversions ?? 0 });
+
+        // 광고효율용 — 표시월 '정확한 1일~말일' 소스별 집계 + 저장된 광고비
+        const cur = monthFirstLast(monthOffset);
+        const ym = cur.first.slice(0, 7);
+        const [dm, spend] = await Promise.all([
+          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(new Date(`${cur.first}T00:00:00+09:00`).toISOString())}&to=${encodeURIComponent(new Date(`${cur.last}T23:59:59.999+09:00`).toISOString())}`, undefined, { cache: false }).catch(() => null),
+          adminFetch('GET', `/api/v1/admin/landing-analytics/ad-spend?month=${ym}`, undefined, { cache: false }).catch(() => null),
+        ]);
+        setMonthExact(dm ?? null);
+        const map: Record<string, number> = {};
+        for (const it of (spend?.items ?? [])) map[it.channel] = Number(it.amount) || 0;
+        setAdSpend(map);
       } catch {}
     })();
   }, [monthOffset]);
@@ -286,6 +315,59 @@ export default function LandingAnalyticsPage() {
     const bySource = Array.from(sm.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
     return { visits: visitsSum, conversions: convSum, bySource };
   }, [monthData, monthOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 광고효율 — 채널별 집행비 대비 유입/신청. 표시월 1일~말일 기준.
+  const adRows = useMemo(() => {
+    // 소스별 방문/전환 합산(페이지 구분 없이)
+    const bySrc = new Map<string, { visits: number; conversions: number }>();
+    for (const p of monthExact?.pages ?? []) {
+      for (const b of p.bySource) {
+        const k = String(b.key).toLowerCase().trim();
+        const e = bySrc.get(k) || { visits: 0, conversions: 0 };
+        e.visits += b.visits; e.conversions += b.conversions;
+        bySrc.set(k, e);
+      }
+    }
+    const rows = AD_CHANNELS.map((c) => {
+      let visits = 0, conversions = 0;
+      for (const s of c.sources) {
+        const e = bySrc.get(s);
+        if (e) { visits += e.visits; conversions += e.conversions; }
+      }
+      const spend = adSpend[c.key] || 0;
+      return {
+        ...c, spend, visits, conversions,
+        cpa: conversions > 0 ? spend / conversions : null,   // 신청 1건당 비용
+        cpc: visits > 0 ? spend / visits : null,             // 방문 1회당 비용
+        cvr: visits > 0 ? conversions / visits : 0,          // 전환율
+      };
+    });
+    const total = rows.reduce(
+      (a, r) => ({ spend: a.spend + r.spend, visits: a.visits + r.visits, conversions: a.conversions + r.conversions }),
+      { spend: 0, visits: 0, conversions: 0 },
+    );
+    return { rows, total };
+  }, [monthExact, adSpend]);
+
+  const saveAdSpend = async () => {
+    if (spendSaving) return;
+    setSpendSaving(true);
+    const ym = monthFirstLast(monthOffset).first.slice(0, 7);
+    try {
+      const next: Record<string, number> = { ...adSpend };
+      await Promise.all(AD_CHANNELS.map(async (c) => {
+        const raw = spendDraft[c.key];
+        if (raw === undefined) return;
+        const amount = Math.max(0, Number(String(raw).replace(/[^0-9]/g, '')) || 0);
+        if (amount === (adSpend[c.key] || 0)) return;
+        await adminFetch('POST', '/api/v1/admin/landing-analytics/ad-spend',
+          { month: ym, channel: c.key, amount }, { cache: false });
+        next[c.key] = amount;
+      }));
+      setAdSpend(next);
+      setSpendEditing(false);
+    } catch {} finally { setSpendSaving(false); }
+  };
 
   // 표시월 브리핑 — 저번달 방문수 대비 추세
   const briefing = useMemo(() => {
@@ -346,7 +428,8 @@ export default function LandingAnalyticsPage() {
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 rounded-[38px] bg-white p-6 md:p-8">
+          <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-start">
+          <div className="min-w-0 flex-1 rounded-[38px] bg-white p-6 md:p-8">
             {/* 헤더: 연·월 + 이동 */}
             <div className="flex items-center gap-3">
               <h3 className="text-[32px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
@@ -414,6 +497,96 @@ export default function LandingAnalyticsPage() {
               })}
             </div>
             <p className="mt-2 border-t border-gray-100 pt-4 text-[12px] text-gray-400">날짜를 누르면 위 방문·신청 카드와 아래 유입 소스가 그 날짜 기준으로 바뀌어요.</p>
+          </div>
+
+          {/* ── 광고효율 — 달력 옆 ── */}
+          <div className="shrink-0 rounded-[38px] bg-white p-6 md:p-7 xl:w-[380px]">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-[18px] font-extrabold tracking-tight text-gray-900">광고효율</h3>
+                <p className="mt-0.5 text-[13px] text-gray-400">{g.year}. {g.month + 1}월 집행 기준</p>
+              </div>
+              {spendEditing ? (
+                <button onClick={saveAdSpend} disabled={spendSaving}
+                  className="rounded-full bg-[#3182F6] px-4 py-2 text-[13px] font-bold text-white transition disabled:opacity-60">
+                  {spendSaving ? '저장 중…' : '저장'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const d: Record<string, string> = {};
+                    AD_CHANNELS.forEach((c) => { d[c.key] = String(adSpend[c.key] || ''); });
+                    setSpendDraft(d); setSpendEditing(true);
+                  }}
+                  className="rounded-full border border-gray-200 px-4 py-2 text-[13px] font-semibold text-gray-600 transition hover:bg-gray-50">
+                  광고비 입력
+                </button>
+              )}
+            </div>
+
+            {/* 합계 */}
+            <div className="mb-4 rounded-[22px] bg-[#F2F4F6] px-5 py-4">
+              <p className="text-[13px] text-gray-500">총 집행액</p>
+              <p className="mt-1 text-[26px] font-extrabold leading-none text-gray-900">{won(adRows.total.spend)}</p>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
+                <span className="text-gray-500">신청 <b className="text-emerald-600">{num(adRows.total.conversions)}</b>건</span>
+                <span className="text-gray-500">
+                  건당 <b className="text-gray-900">
+                    {adRows.total.conversions > 0 && adRows.total.spend > 0 ? won(adRows.total.spend / adRows.total.conversions) : '—'}
+                  </b>
+                </span>
+              </div>
+            </div>
+
+            {/* 채널별 */}
+            <div className="space-y-3">
+              {adRows.rows.map((r) => (
+                <div key={r.key} className="rounded-[20px] border border-gray-100 px-4 py-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                      <span className="truncate text-[13.5px] font-bold text-gray-800">{r.label}</span>
+                    </span>
+                    {!spendEditing && (
+                      <span className="shrink-0 text-[13.5px] font-extrabold tabular-nums text-gray-900">
+                        {r.spend > 0 ? won(r.spend) : <span className="font-medium text-gray-300">미입력</span>}
+                      </span>
+                    )}
+                  </div>
+
+                  {spendEditing ? (
+                    <div className="mt-2.5 flex items-center gap-1.5">
+                      <input
+                        type="text" inputMode="numeric"
+                        value={spendDraft[r.key] ?? ''}
+                        onChange={(e) => setSpendDraft((p) => ({ ...p, [r.key]: e.target.value.replace(/[^0-9]/g, '') }))}
+                        placeholder="0"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-right text-[14px] tabular-nums outline-none focus:border-[#3182F6]"
+                      />
+                      <span className="shrink-0 text-[13px] text-gray-400">원</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] tabular-nums text-gray-500">
+                      <span>방문 <b className="text-gray-700">{num(r.visits)}</b></span>
+                      <span>신청 <b className="text-emerald-600">{num(r.conversions)}</b></span>
+                      <span>전환율 <b className="text-gray-700">{pct(r.cvr)}</b></span>
+                      <span className="w-full">
+                        건당 <b className={r.cpa != null ? 'text-gray-900' : 'text-gray-300'}>
+                          {r.cpa != null ? won(r.cpa) : '—'}
+                        </b>
+                        {r.cpc != null && <span className="ml-3">방문당 <b className="text-gray-700">{won(r.cpc)}</b></span>}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-4 text-[11.5px] leading-relaxed text-gray-400">
+              · 광고비는 월별로 저장돼요. 달력의 월을 바꾸면 그 달 기준으로 표시됩니다.<br />
+              · <b>건당</b> = 집행액 ÷ 견적 신청수 (CPA). 메타는 인스타·페북·스레드를 합산합니다.
+            </p>
+          </div>
           </div>
         );
       })()}
