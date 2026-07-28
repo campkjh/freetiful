@@ -108,12 +108,12 @@ function SourceLabel({ value, className = '' }: { value: string; className?: str
 
 // 광고 채널 — 유입 소스(utm_source/리퍼러)를 광고비 집행 단위로 묶는다.
 // 메타는 인스타/페북/스레드가 한 계정에서 집행되므로 하나로 합산한다.
-const AD_CHANNELS: { key: string; label: string; sources: string[]; color: string }[] = [
-  { key: 'meta',   label: '메타 (인스타·페북·스레드)', sources: ['meta', 'instagram', 'insta', 'ig', 'facebook', 'fb', 'threads'], color: '#3182F6' },
-  { key: 'naver',  label: '네이버',   sources: ['naver'],  color: '#22C55E' },
-  { key: 'google', label: '구글',     sources: ['google'], color: '#FF7043' },
-  { key: 'kakao',  label: '카카오',   sources: ['kakao'],  color: '#FFB020' },
-  { key: 'tiktok', label: '틱톡',     sources: ['tiktok'], color: '#845EF7' },
+const AD_CHANNELS: { key: string; label: string; sources: string[]; color: string; icon: string }[] = [
+  { key: 'meta',   label: '메타 (인스타·페북·스레드)', sources: ['meta', 'instagram', 'insta', 'ig', 'facebook', 'fb', 'threads'], color: '#3182F6', icon: 'src-meta' },
+  { key: 'naver',  label: '네이버',   sources: ['naver'],  color: '#22C55E', icon: 'src-naver' },
+  { key: 'google', label: '구글',     sources: ['google'], color: '#FF7043', icon: 'src-google' },
+  { key: 'kakao',  label: '카카오',   sources: ['kakao'],  color: '#FFB020', icon: 'src-kakao' },
+  { key: 'tiktok', label: '틱톡',     sources: ['tiktok'], color: '#845EF7', icon: 'src-tiktok' },
 ];
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
 
@@ -316,6 +316,22 @@ export default function LandingAnalyticsPage() {
     return { visits: visitsSum, conversions: convSum, bySource };
   }, [monthData, monthOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** 전 채널 하루 집행액 합계 — 달력 각 날짜의 '방문당 비용' 계산에 쓴다 */
+  const dailyBudget = useMemo(
+    () => AD_CHANNELS.reduce((s, c) => s + (adSpend[c.key] || 0), 0),
+    [adSpend],
+  );
+
+  // 집행 일수 — 광고비는 '하루 집행액'이라 월 누적은 일수를 곱한다.
+  // 이번 달은 아직 안 지난 날까지 곱하면 과대계상되므로 오늘까지만 센다.
+  const spendDays = useMemo(() => {
+    const { first, last } = monthFirstLast(monthOffset);
+    const today = KST_TODAY();
+    const end = last > today ? today : last;
+    if (end < first) return 0;
+    return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${first}T00:00:00Z`)) / 86400000) + 1;
+  }, [monthOffset]);
+
   // 광고효율 — 채널별 집행비 대비 유입/신청. 표시월 1일~말일 기준.
   const adRows = useMemo(() => {
     // 소스별 방문/전환 합산(페이지 구분 없이)
@@ -334,20 +350,21 @@ export default function LandingAnalyticsPage() {
         const e = bySrc.get(s);
         if (e) { visits += e.visits; conversions += e.conversions; }
       }
-      const spend = adSpend[c.key] || 0;
+      const daily = adSpend[c.key] || 0;      // 하루 집행액
+      const spend = daily * spendDays;        // 표시월 누적 집행액
       return {
-        ...c, spend, visits, conversions,
-        cpa: conversions > 0 ? spend / conversions : null,   // 신청 1건당 비용
-        cpc: visits > 0 ? spend / visits : null,             // 방문 1회당 비용
-        cvr: visits > 0 ? conversions / visits : 0,          // 전환율
+        ...c, daily, spend, visits, conversions,
+        cpa: conversions > 0 && spend > 0 ? spend / conversions : null,  // 신청 1건당 비용
+        cpc: visits > 0 && spend > 0 ? spend / visits : null,            // 방문 1회당 비용
+        cvr: visits > 0 ? conversions / visits : 0,
       };
     });
     const total = rows.reduce(
-      (a, r) => ({ spend: a.spend + r.spend, visits: a.visits + r.visits, conversions: a.conversions + r.conversions }),
-      { spend: 0, visits: 0, conversions: 0 },
+      (a, r) => ({ daily: a.daily + r.daily, spend: a.spend + r.spend, visits: a.visits + r.visits, conversions: a.conversions + r.conversions }),
+      { daily: 0, spend: 0, visits: 0, conversions: 0 },
     );
-    return { rows, total };
-  }, [monthExact, adSpend]);
+    return { rows, total, spendDays };
+  }, [monthExact, adSpend, spendDays]);
 
   const saveAdSpend = async () => {
     if (spendSaving) return;
@@ -428,8 +445,7 @@ export default function LandingAnalyticsPage() {
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-start">
-          <div className="min-w-0 flex-1 rounded-[38px] bg-white p-6 md:p-8">
+          <div className="mb-8 rounded-[38px] bg-white p-6 md:p-8">
             {/* 헤더: 연·월 + 이동 */}
             <div className="flex items-center gap-3">
               <h3 className="text-[32px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
@@ -485,7 +501,13 @@ export default function LandingAnalyticsPage() {
                     <span className="mt-2 pl-1 leading-tight">
                       {c.inMonth ? (
                         <>
-                          <span className={`block text-[13px] font-bold tabular-nums ${vis ? 'text-[#3182F6]' : 'text-gray-300'}`}>{num(vis)}</span>
+                          {/* 방문수 옆에 그날 방문 1회당 비용 — 하루 집행액 ÷ 그날 방문수 */}
+                          <span className={`block text-[13px] font-bold tabular-nums ${vis ? 'text-[#3182F6]' : 'text-gray-300'}`}>
+                            {num(vis)}
+                            {dailyBudget > 0 && vis > 0 && (
+                              <span className="ml-1 text-[11px] font-semibold text-gray-400">({won(dailyBudget / vis)})</span>
+                            )}
+                          </span>
                           <span className={`block text-[13px] font-bold tabular-nums ${conv ? 'text-emerald-500' : 'text-gray-300'}`}>{num(conv)}</span>
                         </>
                       ) : (
@@ -497,14 +519,15 @@ export default function LandingAnalyticsPage() {
               })}
             </div>
             <p className="mt-2 border-t border-gray-100 pt-4 text-[12px] text-gray-400">날짜를 누르면 위 방문·신청 카드와 아래 유입 소스가 그 날짜 기준으로 바뀌어요.</p>
-          </div>
 
-          {/* ── 광고효율 — 달력 옆 ── */}
-          <div className="shrink-0 rounded-[38px] bg-white p-6 md:p-7 xl:w-[380px]">
+          {/* ── 광고효율 ── */}
+          <div className="mt-6 border-t border-gray-100 pt-6">
             <div className="mb-4 flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-[18px] font-extrabold tracking-tight text-gray-900">광고효율</h3>
-                <p className="mt-0.5 text-[13px] text-gray-400">{g.year}. {g.month + 1}월 집행 기준</p>
+                <p className="mt-0.5 text-[13px] text-gray-400">
+                  하루 집행액 기준 · {g.year}. {g.month + 1}월 {adRows.spendDays}일 누적
+                </p>
               </div>
               {spendEditing ? (
                 <button onClick={saveAdSpend} disabled={spendSaving}
@@ -525,31 +548,38 @@ export default function LandingAnalyticsPage() {
             </div>
 
             {/* 합계 */}
-            <div className="mb-4 rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-              <p className="text-[13px] text-gray-500">총 집행액</p>
-              <p className="mt-1 text-[26px] font-extrabold leading-none text-gray-900">{won(adRows.total.spend)}</p>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
-                <span className="text-gray-500">신청 <b className="text-emerald-600">{num(adRows.total.conversions)}</b>건</span>
-                <span className="text-gray-500">
-                  건당 <b className="text-gray-900">
-                    {adRows.total.conversions > 0 && adRows.total.spend > 0 ? won(adRows.total.spend / adRows.total.conversions) : '—'}
-                  </b>
-                </span>
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
+                <p className="text-[13px] text-gray-500">하루 집행액</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.daily)}</p>
+              </div>
+              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
+                <p className="text-[13px] text-gray-500">{g.month + 1}월 누적 ({adRows.spendDays}일)</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.spend)}</p>
+              </div>
+              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
+                <p className="text-[13px] text-gray-500">신청 건당</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-[#3182F6]">
+                  {adRows.total.conversions > 0 && adRows.total.spend > 0
+                    ? won(adRows.total.spend / adRows.total.conversions) : '—'}
+                </p>
+                <p className="mt-1 text-[12px] text-gray-400">신청 {num(adRows.total.conversions)}건</p>
               </div>
             </div>
 
             {/* 채널별 */}
-            <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {adRows.rows.map((r) => (
                 <div key={r.key} className="rounded-[20px] border border-gray-100 px-4 py-3.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/admin-icons/${r.icon}.svg`} alt="" width={20} height={20} className="shrink-0 rounded-full" />
                       <span className="truncate text-[13.5px] font-bold text-gray-800">{r.label}</span>
                     </span>
                     {!spendEditing && (
                       <span className="shrink-0 text-[13.5px] font-extrabold tabular-nums text-gray-900">
-                        {r.spend > 0 ? won(r.spend) : <span className="font-medium text-gray-300">미입력</span>}
+                        {r.daily > 0 ? won(r.daily) : <span className="font-medium text-gray-300">미입력</span>}
                       </span>
                     )}
                   </div>
@@ -560,10 +590,10 @@ export default function LandingAnalyticsPage() {
                         type="text" inputMode="numeric"
                         value={spendDraft[r.key] ?? ''}
                         onChange={(e) => setSpendDraft((p) => ({ ...p, [r.key]: e.target.value.replace(/[^0-9]/g, '') }))}
-                        placeholder="0"
+                        placeholder="하루 집행액"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-right text-[14px] tabular-nums outline-none focus:border-[#3182F6]"
                       />
-                      <span className="shrink-0 text-[13px] text-gray-400">원</span>
+                      <span className="shrink-0 text-[13px] text-gray-400">원/일</span>
                     </div>
                   ) : (
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] tabular-nums text-gray-500">
@@ -583,8 +613,9 @@ export default function LandingAnalyticsPage() {
             </div>
 
             <p className="mt-4 text-[11.5px] leading-relaxed text-gray-400">
-              · 광고비는 월별로 저장돼요. 달력의 월을 바꾸면 그 달 기준으로 표시됩니다.<br />
-              · <b>건당</b> = 집행액 ÷ 견적 신청수 (CPA). 메타는 인스타·페북·스레드를 합산합니다.
+              · 금액은 <b>하루 집행액</b>이에요. 월 누적은 하루 집행액 × 경과일수({adRows.spendDays}일)로 계산합니다.<br />
+              · 달력 각 날짜의 <b>괄호 안 금액</b>은 그날 방문 1회당 비용(하루 집행액 ÷ 그날 방문수)입니다.<br />
+              · <b>건당</b> = 누적 집행액 ÷ 견적 신청수(CPA). 메타는 인스타·페북·스레드를 합산합니다.
             </p>
           </div>
           </div>
