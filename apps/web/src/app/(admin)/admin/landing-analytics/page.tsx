@@ -508,7 +508,13 @@ export default function LandingAnalyticsPage() {
                               <span className="ml-1 text-[11px] font-semibold text-gray-400">({won(dailyBudget / vis)})</span>
                             )}
                           </span>
-                          <span className={`block text-[13px] font-bold tabular-nums ${conv ? 'text-emerald-500' : 'text-gray-300'}`}>{num(conv)}</span>
+                          {/* 신청수 옆에 그날 신청 1건당 비용 — 하루 집행액 ÷ 그날 신청수 */}
+                          <span className={`block text-[13px] font-bold tabular-nums ${conv ? 'text-emerald-500' : 'text-gray-300'}`}>
+                            {num(conv)}
+                            {dailyBudget > 0 && conv > 0 && (
+                              <span className="ml-1 text-[11px] font-semibold text-emerald-600/60">({won(dailyBudget / conv)})</span>
+                            )}
+                          </span>
                         </>
                       ) : (
                         <span className="block text-[13px] font-bold tabular-nums text-gray-200">0</span>
@@ -548,22 +554,37 @@ export default function LandingAnalyticsPage() {
             </div>
 
             {/* 합계 */}
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
                 <p className="text-[13px] text-gray-500">하루 집행액</p>
                 <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.daily)}</p>
+                <p className="mt-1.5 text-[12px] text-gray-400">전 채널 합계</p>
               </div>
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">{g.month + 1}월 누적 ({adRows.spendDays}일)</p>
+                <p className="text-[13px] text-gray-500">{g.month + 1}월 누적</p>
                 <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.spend)}</p>
+                <p className="mt-1.5 text-[12px] text-gray-400">{adRows.spendDays}일 집행 · 방문 {num(adRows.total.visits)}</p>
               </div>
+              {/* 전환이 얼마나 일어났는지 */}
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">신청 건당</p>
+                <p className="text-[13px] text-gray-500">전환 (견적 신청)</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-emerald-600">
+                  {num(adRows.total.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">건</span>
+                </p>
+                <p className="mt-1.5 text-[12px] text-gray-400">
+                  전환율 {adRows.total.visits > 0 ? pct(adRows.total.conversions / adRows.total.visits) : '—'}
+                </p>
+              </div>
+              {/* 전환 대비 얼마를 썼는지 */}
+              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
+                <p className="text-[13px] text-gray-500">전환 1건당 비용</p>
                 <p className="mt-1 text-[24px] font-extrabold leading-none text-[#3182F6]">
                   {adRows.total.conversions > 0 && adRows.total.spend > 0
                     ? won(adRows.total.spend / adRows.total.conversions) : '—'}
                 </p>
-                <p className="mt-1 text-[12px] text-gray-400">신청 {num(adRows.total.conversions)}건</p>
+                <p className="mt-1.5 text-[12px] text-gray-400">
+                  방문당 {adRows.total.visits > 0 && adRows.total.spend > 0 ? won(adRows.total.spend / adRows.total.visits) : '—'}
+                </p>
               </div>
             </div>
 
@@ -614,7 +635,8 @@ export default function LandingAnalyticsPage() {
 
             <p className="mt-4 text-[11.5px] leading-relaxed text-gray-400">
               · 금액은 <b>하루 집행액</b>이에요. 월 누적은 하루 집행액 × 경과일수({adRows.spendDays}일)로 계산합니다.<br />
-              · 달력 각 날짜의 <b>괄호 안 금액</b>은 그날 방문 1회당 비용(하루 집행액 ÷ 그날 방문수)입니다.<br />
+              · 달력 각 날짜의 괄호 금액 — <b className="text-[#3182F6]">파랑</b>은 방문 1회당 비용,
+              <b className="text-emerald-600"> 초록</b>은 신청 1건당 비용(하루 집행액 ÷ 그날 수치)입니다.<br />
               · <b>건당</b> = 누적 집행액 ÷ 견적 신청수(CPA). 메타는 인스타·페북·스레드를 합산합니다.
             </p>
           </div>
