@@ -10,6 +10,7 @@ import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
+import { formatEventTime } from '@/lib/event-time';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -1252,14 +1253,8 @@ export default function ChatRoomPage() {
           {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
             const mr = roomMeta?.matchRequest;
             const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-            const fmtTime = (v: any) => {
-              if (!v) return '';
-              if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
-              try {
-                const d = new Date(v);
-                return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-              } catch { return ''; }
-            };
+            // 행사 시각은 벽시계 값이라 시간대 변환하면 안 됨(로컬 변환 시 KST 에서 +9h 밀림)
+            const fmtTime = formatEventTime;
             const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
             const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
             const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
