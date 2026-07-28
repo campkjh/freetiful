@@ -93,47 +93,47 @@ enum NotificationType {
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 model User {
-  id              String    @id @default(uuid())
-  role            UserRole  @default(general)
-  name            String
-  phone           String?   @unique
-  email           String?   @unique
-  emailVerified   Boolean   @default(false)
-  profileImageUrl String?
-  isActive        Boolean   @default(true)
-  isBanned        Boolean   @default(false)
-  banReason       String?
-  referralCode    String    @unique
+  id               String    @id @default(uuid())
+  role             UserRole  @default(general)
+  name             String
+  phone            String?   @unique
+  email            String?   @unique
+  emailVerified    Boolean   @default(false)
+  profileImageUrl  String?
+  isActive         Boolean   @default(true)
+  isBanned         Boolean   @default(false)
+  banReason        String?
+  referralCode     String    @unique
   referredByUserId String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
   // 다른 유저로 머지된 경우 — 본 계정 id. 토큰 검증 시 자동으로 follow.
-  mergedToUserId  String?
+  mergedToUserId   String?
 
-  referredBy      User?     @relation("Referrals", fields: [referredByUserId], references: [id])
-  referrals       User[]    @relation("Referrals")
+  referredBy User?  @relation("Referrals", fields: [referredByUserId], references: [id])
+  referrals  User[] @relation("Referrals")
 
-  authProviders      AuthProviderRecord[]
-  termsAgreements    TermsAgreement[]
-  sessions           Session[]
-  proProfile         ProProfile?
-  businessProfile    BusinessProfile?
-  sentMessages       Message[]
-  notifications      Notification[]
-  pushTokens         PushToken[]
-  pushSubscriptions  PushSubscription[]
+  authProviders        AuthProviderRecord[]
+  termsAgreements      TermsAgreement[]
+  sessions             Session[]
+  proProfile           ProProfile?
+  businessProfile      BusinessProfile?
+  sentMessages         Message[]
+  notifications        Notification[]
+  pushTokens           PushToken[]
+  pushSubscriptions    PushSubscription[]
   notificationSettings NotificationSettings?
-  referralEventClaims ReferralEventClaim[]
+  referralEventClaims  ReferralEventClaim[]
   referralEventRewards ReferralEventReward[]
-  refundAccount      RefundAccount?
-  matchRequests      MatchRequest[]
-  reviews            Review[]
-  reports            Report[]             @relation("Reporter")
-  chatRoomMembers    ChatRoomMember[]
-  chatRooms          ChatRoom[]
-  frequentMessages   FrequentMessage[]
-  settledLogs        SettlementLog[]    @relation("SettlementSettledBy")
+  refundAccount        RefundAccount?
+  matchRequests        MatchRequest[]
+  reviews              Review[]
+  reports              Report[]              @relation("Reporter")
+  chatRoomMembers      ChatRoomMember[]
+  chatRooms            ChatRoom[]
+  frequentMessages     FrequentMessage[]
+  settledLogs          SettlementLog[]       @relation("SettlementSettledBy")
 
   @@map("users")
 }
@@ -156,15 +156,15 @@ model AuthProviderRecord {
 }
 
 model TermsAgreement {
-  id                    String   @id @default(uuid())
-  userId                String
-  privacyPolicy         Boolean
+  id                     String   @id @default(uuid())
+  userId                 String
+  privacyPolicy          Boolean
   personalDataCollection Boolean
-  thirdPartySharing     Boolean
-  marketingConsent      Boolean  @default(false)
-  partnerTerms          Boolean
-  agreedAt              DateTime @default(now())
-  ipAddress             String?
+  thirdPartySharing      Boolean
+  marketingConsent       Boolean  @default(false)
+  partnerTerms           Boolean
+  agreedAt               DateTime @default(now())
+  ipAddress              String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -189,7 +189,7 @@ model Session {
 
 model Category {
   id           String   @id @default(uuid())
-  type         String   // 'pro' | 'business'
+  type         String // 'pro' | 'business'
   name         String
   nameEn       String?
   iconUrl      String?
@@ -198,25 +198,25 @@ model Category {
   parentId     String?
   createdAt    DateTime @default(now())
 
-  parent          Category?       @relation("SubCategories", fields: [parentId], references: [id])
-  subCategories   Category[]      @relation("SubCategories")
-  eventCategories EventCategory[]
-  styleOptions    StyleOption[]
-  proCategories   ProCategory[]
+  parent             Category?          @relation("SubCategories", fields: [parentId], references: [id])
+  subCategories      Category[]         @relation("SubCategories")
+  eventCategories    EventCategory[]
+  styleOptions       StyleOption[]
+  proCategories      ProCategory[]
   businessCategories BusinessCategory[]
-  matchRequests   MatchRequest[]
+  matchRequests      MatchRequest[]
 
   @@map("categories")
 }
 
 model EventCategory {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   categoryId   String
   name         String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
-  category           Category            @relation(fields: [categoryId], references: [id])
+  category           Category           @relation(fields: [categoryId], references: [id])
   proEventCategories ProEventCategory[]
   matchRequests      MatchRequest[]
 
@@ -224,11 +224,11 @@ model EventCategory {
 }
 
 model Region {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   name         String
   nameEn       String?
-  isNationwide Boolean  @default(false)
-  displayOrder Int      @default(0)
+  isNationwide Boolean @default(false)
+  displayOrder Int     @default(0)
 
   proRegions ProRegion[]
 
@@ -236,23 +236,23 @@ model Region {
 }
 
 model StyleOption {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   categoryId   String
   name         String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
-  category            Category             @relation(fields: [categoryId], references: [id])
-  matchRequestStyles  MatchRequestStyle[]
+  category           Category            @relation(fields: [categoryId], references: [id])
+  matchRequestStyles MatchRequestStyle[]
 
   @@map("style_options")
 }
 
 model PersonalityOption {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   name         String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
   matchRequestPersonalities MatchRequestPersonality[]
 
@@ -260,10 +260,10 @@ model PersonalityOption {
 }
 
 model Company {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   name         String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
   proCompanyExperiences ProCompanyExperience[]
 
@@ -273,47 +273,47 @@ model Company {
 // ─── Pro Profiles ────────────────────────────────────────────────────────────
 
 model ProProfile {
-  id             String    @id @default(uuid())
-  userId         String    @unique
-  status         ProStatus @default(draft)
-  gender         String?
-  shortIntro     String?
-  mainExperience String?
-  careerYears    Int?
-  awards         String?
-  detailHtml     String?
-  youtubeUrl     String?
-  introVideoUrl  String?   // 직접 업로드한 소개영상(/uploads/:id) — 유튜브(youtubeUrl)와 별개, 비율 원본 유지 재생
-  isNationwide   Boolean   @default(false)
-  profileViews   Int       @default(0)
-  responseRate   Decimal?  @db.Decimal(5, 2)
-  avgRating      Decimal   @default(0) @db.Decimal(3, 2)
-  reviewCount    Int       @default(0)
-  isFeatured     Boolean   @default(false)
-  rankOrder      Int?      // 어드민 수동 랭킹(작을수록 상위). null = 자동정렬(평점순). @@index 아래.
-  showPartnersLogo Boolean  @default(false)
-  isProfileHidden Boolean   @default(false)
-  rejectionReason String?
-  approvedAt     DateTime?
-  createdAt      DateTime  @default(now())
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  status           ProStatus @default(draft)
+  gender           String?
+  shortIntro       String?
+  mainExperience   String?
+  careerYears      Int?
+  awards           String?
+  detailHtml       String?
+  youtubeUrl       String?
+  introVideoUrl    String? // 직접 업로드한 소개영상(/uploads/:id) — 유튜브(youtubeUrl)와 별개, 비율 원본 유지 재생
+  isNationwide     Boolean   @default(false)
+  profileViews     Int       @default(0)
+  responseRate     Decimal?  @db.Decimal(5, 2)
+  avgRating        Decimal   @default(0) @db.Decimal(3, 2)
+  reviewCount      Int       @default(0)
+  isFeatured       Boolean   @default(false)
+  rankOrder        Int? // 어드민 수동 랭킹(작을수록 상위). null = 자동정렬(평점순). @@index 아래.
+  showPartnersLogo Boolean   @default(false)
+  isProfileHidden  Boolean   @default(false)
+  rejectionReason  String?
+  approvedAt       DateTime?
+  createdAt        DateTime  @default(now())
   // 프로가 등록 시 선택하는 자유 태그 (예: 즉시출근, 풀타임 가능, 출장 가능 등)
-  tags           String[]  @default([])
-  updatedAt      DateTime  @updatedAt
+  tags             String[]  @default([])
+  updatedAt        DateTime  @updatedAt
 
-  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categories            ProCategory[]
-  eventCategories       ProEventCategory[]
-  regions               ProRegion[]
-  images                ProProfileImage[]
-  languages             ProLanguage[]
-  companyExperiences    ProCompanyExperience[]
-  services              ProService[]
-  faqs                  ProFaq[]
-  matchDeliveries       MatchDelivery[]
-  quotations            Quotation[]
-  reviews               Review[]
-  chatRooms             ChatRoom[]
-  settlementLogs        SettlementLog[]
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories         ProCategory[]
+  eventCategories    ProEventCategory[]
+  regions            ProRegion[]
+  images             ProProfileImage[]
+  languages          ProLanguage[]
+  companyExperiences ProCompanyExperience[]
+  services           ProService[]
+  faqs               ProFaq[]
+  matchDeliveries    MatchDelivery[]
+  quotations         Quotation[]
+  reviews            Review[]
+  chatRooms          ChatRoom[]
+  settlementLogs     SettlementLog[]
 
   @@map("pro_profiles")
 }
@@ -389,14 +389,14 @@ model ProCompanyExperience {
 }
 
 model ProService {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   proProfileId String
   title        String
   description  String?
   basePrice    Int?
   priceUnit    String?
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
   proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
 
@@ -471,21 +471,21 @@ model BusinessImage {
 // ─── Match Requests ───────────────────────────────────────────────────────────
 
 model MatchRequest {
-  id                  String             @id @default(uuid())
-  userId              String
-  type                MatchRequestType
-  categoryId          String
-  eventCategoryId     String?
-  eventDate           DateTime?          @db.Date
-  eventTime           DateTime?          @db.Time
-  eventLocation       String?
-  budgetMin           Int?
-  budgetMax           Int?
-  aiGeneratedMessage  String?
-  rawUserInput        Json?
-  status              MatchRequestStatus @default(open)
-  expiresAt           DateTime?
-  createdAt           DateTime           @default(now())
+  id                 String             @id @default(uuid())
+  userId             String
+  type               MatchRequestType
+  categoryId         String
+  eventCategoryId    String?
+  eventDate          DateTime?          @db.Date
+  eventTime          DateTime?          @db.Time
+  eventLocation      String?
+  budgetMin          Int?
+  budgetMax          Int?
+  aiGeneratedMessage String?
+  rawUserInput       Json?
+  status             MatchRequestStatus @default(open)
+  expiresAt          DateTime?
+  createdAt          DateTime           @default(now())
 
   user          User                      @relation(fields: [userId], references: [id])
   category      Category                  @relation(fields: [categoryId], references: [id])
@@ -512,7 +512,7 @@ model MatchRequestStyle {
 // 랜딩(wedding-mc / corporate-mc) 유입 추적 — utm 소스별 방문/전환 지표.
 model LandingVisit {
   id          String    @id @default(uuid())
-  page        String    // 'wedding-mc' | 'corporate-mc'
+  page        String // 'wedding-mc' | 'corporate-mc'
   utmSource   String?
   utmMedium   String?
   utmCampaign String?
@@ -543,14 +543,14 @@ model MatchRequestPersonality {
 }
 
 model MatchDelivery {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   matchRequestId String
   proProfileId   String
-  status         String   @default("pending") // pending|viewed|replied|declined|expired
-  deliveredAt    DateTime @default(now())
+  status         String    @default("pending") // pending|viewed|replied|declined|expired
+  deliveredAt    DateTime  @default(now())
   viewedAt       DateTime?
   repliedAt      DateTime?
-  declineReason  String?  // 사회자가 거절 시 남긴 사유 (고객 문의목록에 노출)
+  declineReason  String? // 사회자가 거절 시 남긴 사유 (고객 문의목록에 노출)
 
   matchRequest MatchRequest @relation(fields: [matchRequestId], references: [id], onDelete: Cascade)
   proProfile   ProProfile   @relation(fields: [proProfileId], references: [id])
@@ -563,22 +563,22 @@ model MatchDelivery {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 model ChatRoom {
-  id              String    @id @default(uuid())
-  userId          String
-  proProfileId    String
-  matchRequestId  String?
-  lastMessageId   String?
-  lastMessageAt   DateTime?
-  userDeletedAt   DateTime?
-  proDeletedAt    DateTime?
-  createdAt       DateTime  @default(now())
+  id             String    @id @default(uuid())
+  userId         String
+  proProfileId   String
+  matchRequestId String?
+  lastMessageId  String?
+  lastMessageAt  DateTime?
+  userDeletedAt  DateTime?
+  proDeletedAt   DateTime?
+  createdAt      DateTime  @default(now())
 
-  user         User          @relation(fields: [userId], references: [id])
-  proProfile   ProProfile    @relation(fields: [proProfileId], references: [id])
-  matchRequest MatchRequest? @relation(fields: [matchRequestId], references: [id])
-  messages          Message[]
-  members           ChatRoomMember[]
-  quotations        Quotation[]
+  user         User             @relation(fields: [userId], references: [id])
+  proProfile   ProProfile       @relation(fields: [proProfileId], references: [id])
+  matchRequest MatchRequest?    @relation(fields: [matchRequestId], references: [id])
+  messages     Message[]
+  members      ChatRoomMember[]
+  quotations   Quotation[]
 
   @@index([userId, userDeletedAt, lastMessageAt])
   @@index([proProfileId, proDeletedAt, lastMessageAt])
@@ -593,7 +593,7 @@ model ChatRoomMember {
   roomId      String
   userId      String
   lastReadAt  DateTime?
-  unreadCount Int      @default(0)
+  unreadCount Int       @default(0)
 
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User     @relation(fields: [userId], references: [id])
@@ -605,19 +605,19 @@ model ChatRoomMember {
 }
 
 model Message {
-  id            String      @id @default(uuid())
-  roomId        String
-  senderId      String
-  type          MessageType
-  content       String?
-  metadata      Json?
-  replyToId     String?
-  isEdited      Boolean     @default(false)
-  editedAt      DateTime?
-  isDeleted     Boolean     @default(false)
-  deletedAt     DateTime?
+  id             String      @id @default(uuid())
+  roomId         String
+  senderId       String
+  type           MessageType
+  content        String?
+  metadata       Json?
+  replyToId      String?
+  isEdited       Boolean     @default(false)
+  editedAt       DateTime?
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
   mediaExpiresAt DateTime?
-  createdAt     DateTime    @default(now())
+  createdAt      DateTime    @default(now())
 
   room      ChatRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
   sender    User              @relation(fields: [senderId], references: [id])
@@ -671,22 +671,22 @@ model FrequentMessage {
 // ─── Quotation & Payment ─────────────────────────────────────────────────────
 
 model Quotation {
-  id             String          @id @default(uuid())
-  proProfileId   String
-  userId         String
-  chatRoomId     String?
+  id              String          @id @default(uuid())
+  proProfileId    String
+  userId          String
+  chatRoomId      String?
   matchDeliveryId String?
-  amount         Int
-  title          String?
-  description    String?
-  eventDate      DateTime?       @db.Date
-  eventTime      DateTime?       @db.Time
-  eventLocation  String?
-  validUntil     DateTime?
-  status         QuotationStatus @default(pending)
-  paymentId      String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  amount          Int
+  title           String?
+  description     String?
+  eventDate       DateTime?       @db.Date
+  eventTime       DateTime?       @db.Time
+  eventLocation   String?
+  validUntil      DateTime?
+  status          QuotationStatus @default(pending)
+  paymentId       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   proProfile ProProfile @relation(fields: [proProfileId], references: [id])
   chatRoom   ChatRoom?  @relation(fields: [chatRoomId], references: [id])
@@ -696,29 +696,29 @@ model Quotation {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  userId          String
-  proProfileId    String
-  quotationId     String?
-  amount          Int
-  platformFee     Int?
-  platformFeeRate Decimal?      @db.Decimal(5, 2)
-  netAmount       Int?
-  currency        String        @default("KRW")
-  method          String?
-  pgProvider      String?
-  pgTransactionId String?       @unique
-  status          PaymentStatus @default(pending)
+  id               String        @id @default(uuid())
+  userId           String
+  proProfileId     String
+  quotationId      String?
+  amount           Int
+  platformFee      Int?
+  platformFeeRate  Decimal?      @db.Decimal(5, 2)
+  netAmount        Int?
+  currency         String        @default("KRW")
+  method           String?
+  pgProvider       String?
+  pgTransactionId  String?       @unique
+  status           PaymentStatus @default(pending)
   escrowReleasedAt DateTime?
-  settledAt       DateTime?
-  refundAmount    Int?
-  refundReason    String?
-  refundedAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  settledAt        DateTime?
+  refundAmount     Int?
+  refundReason     String?
+  refundedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  quotations   Quotation[]
-  review       Review?
+  quotations    Quotation[]
+  review        Review?
   settlementLog SettlementLog?
 
   @@map("payments")
@@ -737,9 +737,9 @@ model SettlementLog {
   payment         Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   proProfileId    String
   proProfile      ProProfile       @relation(fields: [proProfileId], references: [id])
-  amount          Int              // 원 결제 금액 (refund 전)
+  amount          Int // 원 결제 금액 (refund 전)
   platformFee     Int              @default(0)
-  netAmount       Int              // 수수료 공제 후 프로 지급액
+  netAmount       Int // 수수료 공제 후 프로 지급액
   status          SettlementStatus @default(pending)
   settledAt       DateTime?
   settledByUserId String?
@@ -770,28 +770,28 @@ model RefundAccount {
 // ─── Reviews ─────────────────────────────────────────────────────────────────
 
 model Review {
-  id                  String   @id @default(uuid())
-  paymentId           String?  @unique
-  reviewerId          String
-  proProfileId        String
-  ratingSatisfaction  Int
-  ratingComposition   Int
-  ratingExperience    Int
-  ratingAppearance    Int
-  ratingVoice         Int
-  ratingWit           Int
-  avgRating           Decimal  @db.Decimal(3, 2)
-  comment             String?
-  isAnonymous         Boolean  @default(false)
-  isVisible           Boolean  @default(true)
-  adminCreated        Boolean  @default(false)
-  proReply            String?
-  proRepliedAt        DateTime?
-  createdAt           DateTime @default(now())
+  id                 String    @id @default(uuid())
+  paymentId          String?   @unique
+  reviewerId         String
+  proProfileId       String
+  ratingSatisfaction Int
+  ratingComposition  Int
+  ratingExperience   Int
+  ratingAppearance   Int
+  ratingVoice        Int
+  ratingWit          Int
+  avgRating          Decimal   @db.Decimal(3, 2)
+  comment            String?
+  isAnonymous        Boolean   @default(false)
+  isVisible          Boolean   @default(true)
+  adminCreated       Boolean   @default(false)
+  proReply           String?
+  proRepliedAt       DateTime?
+  createdAt          DateTime  @default(now())
 
-  payment    Payment?   @relation(fields: [paymentId], references: [id])
-  reviewer   User       @relation(fields: [reviewerId], references: [id])
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id])
+  payment    Payment?       @relation(fields: [paymentId], references: [id])
+  reviewer   User           @relation(fields: [reviewerId], references: [id])
+  proProfile ProProfile     @relation(fields: [proProfileId], references: [id])
   images     ReviewImage[]
   reports    ReviewReport[]
 
@@ -898,7 +898,7 @@ model Announcement {
   id          String    @id @default(uuid())
   title       String
   content     String    @db.Text
-  tag         String?   // '필독', '업데이트', '안내', '이벤트', '점검' 등
+  tag         String? // '필독', '업데이트', '안내', '이벤트', '점검' 등
   target      String    @default("all")
   isPinned    Boolean   @default(false)
   isPublished Boolean   @default(true)
@@ -912,7 +912,7 @@ model Announcement {
 
 model Faq {
   id           String   @id @default(uuid())
-  category     String   // '서비스 이용', '결제/환불', '계정' 등
+  category     String // '서비스 이용', '결제/환불', '계정' 등
   question     String
   answer       String   @db.Text
   target       String   @default("all")
@@ -926,39 +926,39 @@ model Faq {
 }
 
 model PolicyDocument {
-  id            String   @id @default(uuid())
-  slug          String   @unique
+  id            String    @id @default(uuid())
+  slug          String    @unique
   title         String
   summary       String?
-  contentHtml   String   @db.Text
-  version       String   @default("1.0")
+  contentHtml   String    @db.Text
+  version       String    @default("1.0")
   effectiveDate DateTime?
-  displayOrder  Int      @default(0)
-  isPublished   Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  displayOrder  Int       @default(0)
+  isPublished   Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([isPublished, displayOrder])
   @@map("policy_documents")
 }
 
 model BusinessInquiry {
-  id          String   @id @default(uuid())
-  company     String?
-  name        String
-  phone       String
-  email       String?
-  type        String?
-  message     String   @db.Text
-  fileName    String?
-  fileSize    Int?
-  fileType    String?
-  status      String   @default("new") // new|contacted|done|archived
-  adminNote   String?  @db.Text
-  source      String   @default("biz_page")
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  company   String?
+  name      String
+  phone     String
+  email     String?
+  type      String?
+  message   String   @db.Text
+  fileName  String?
+  fileSize  Int?
+  fileType  String?
+  status    String   @default("new") // new|contacted|done|archived
+  adminNote String?  @db.Text
+  source    String   @default("biz_page")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, createdAt])
   @@index([createdAt])
@@ -998,52 +998,52 @@ model AdminAuditLog {
 
 // ─── Plan Templates (어드민이 일괄 관리하는 서비스 플랜) ───────────────
 model PlanTemplate {
-  id             String   @id @default(uuid())
-  planKey        String   @unique // premium, superior, enterprise, test 등
-  label          String   // 표시 이름 (Premium, Superior, ...)
-  description    String?  // 서브 설명 (행사 1시간 진행 등)
-  defaultPrice   Int      @default(0) // 기본 가격 (원)
-  includedItems  Json     @default("[]") // 포함 항목 string[] (사회 진행, 사전 미팅 등)
-  displayOrder   Int      @default(0)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(uuid())
+  planKey       String   @unique // premium, superior, enterprise, test 등
+  label         String // 표시 이름 (Premium, Superior, ...)
+  description   String? // 서브 설명 (행사 1시간 진행 등)
+  defaultPrice  Int      @default(0) // 기본 가격 (원)
+  includedItems Json     @default("[]") // 포함 항목 string[] (사회 진행, 사전 미팅 등)
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("plan_templates")
 }
 
 // ─── Banner (홈 상단 배너) ─────────────────────────────────────────
 model Banner {
-  id           String   @id @default(uuid())
-  placement    String   @default("home") // home | businesses
-  title        String   @default("")
-  subtitle     String   @default("")
-  imageUrl     String   // CDN/외부 이미지 URL 또는 /images/... public 경로
-  linkUrl      String?  // 클릭 시 이동, null 이면 이동 없음
-  bgColor      String?  // 이미지 없을 때 배경색 (hex)
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(uuid())
+  placement String   @default("home") // home | businesses
+  title     String   @default("")
+  subtitle  String   @default("")
+  imageUrl  String // CDN/외부 이미지 URL 또는 /images/... public 경로
+  linkUrl   String? // 클릭 시 이동, null 이면 이동 없음
+  bgColor   String? // 이미지 없을 때 배경색 (hex)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([placement, isActive, sortOrder])
   @@map("banners")
 }
 
 model ReferralEventClaim {
-  id                  String   @id @default(uuid())
-  userId              String
-  campaignKey         String   @default("friend-invite-cash-2026")
-  referralCountSnapshot Int    @default(0)
-  rewardAmount        Int      @default(5000)
-  bankName            String
-  accountHolder       String
-  accountNumber       String
-  status              String   @default("pending") // pending | approved | paid | rejected
-  adminNote           String?
-  submittedAt         DateTime @default(now())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  userId                String
+  campaignKey           String   @default("friend-invite-cash-2026")
+  referralCountSnapshot Int      @default(0)
+  rewardAmount          Int      @default(5000)
+  bankName              String
+  accountHolder         String
+  accountNumber         String
+  status                String   @default("pending") // pending | approved | paid | rejected
+  adminNote             String?
+  submittedAt           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1071,12 +1071,27 @@ model ReferralEventReward {
 
 // ─── Uploaded Files (DB 저장 — Railway 파일시스템 비영구 이슈 대응) ─────
 model UploadedFile {
-  id         String   @id @default(uuid())
-  mimeType   String
-  data       Bytes    // 파일 바이너리
-  size       Int
-  fileName   String?  // 원본 파일명 — /uploads 서빙 시 Content-Disposition 으로 반환(다운로드 파일명/타입 인식)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  mimeType  String
+  data      Bytes // 파일 바이너리
+  size      Int
+  fileName  String? // 원본 파일명 — /uploads 서빙 시 Content-Disposition 으로 반환(다운로드 파일명/타입 인식)
+  createdAt DateTime @default(now())
 
   @@map("uploaded_files")
+}
+
+// ─── 광고 집행비 (어드민 랜딩 유입 분석의 광고효율 계산용) ─────────────
+// 채널별·월별 집행 금액을 어드민이 직접 입력한다. 유입/전환 수치와 합쳐
+// CPA(신청당 비용)·방문당 비용을 산출한다.
+model AdSpend {
+  id        String   @id @default(uuid())
+  yearMonth String // "2026-07" (KST 기준 월)
+  channel   String // naver | meta | google | kakao | tiktok | etc
+  amount    Int      @default(0) // 원 단위
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([yearMonth, channel])
+  @@map("ad_spends")
 }

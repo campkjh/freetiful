@@ -36,4 +36,16 @@ export class AdminLandingController {
   recent(@Query('limit') limit?: string) {
     return this.landing.recentVisits(limit ? Number(limit) : 100);
   }
+
+  /** 광고 집행비 조회 — ?month=2026-07 */
+  @Get('ad-spend')
+  adSpend(@Query('month') month?: string) {
+    return this.landing.getAdSpend(month || '');
+  }
+
+  /** 광고 집행비 저장 */
+  @Post('ad-spend')
+  setAdSpend(@Body() body: { month: string; channel: string; amount: number }) {
+    return this.landing.setAdSpend(body?.month, body?.channel, body?.amount);
+  }
 }
