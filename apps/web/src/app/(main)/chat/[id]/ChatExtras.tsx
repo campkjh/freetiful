@@ -20,6 +20,7 @@ import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.ap
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
+import { formatEventTime } from '@/lib/event-time';
 export type { Message, ChatPartner, SystemPayload };
 
 // ─── Helpers ───
@@ -1349,15 +1350,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
         return d.toISOString().slice(0, 10);
       } catch { return ''; }
     };
-    const toTimeInput = (v: any): string => {
-      if (!v) return '';
-      if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5);
-      try {
-        const d = new Date(v);
-        if (Number.isNaN(d.getTime())) return '';
-        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      } catch { return ''; }
-    };
+    // 행사 시각은 벽시계 값 — 시간대 변환 금지(로컬 변환 시 KST 에서 +9h 밀림)
+    const toTimeInput = formatEventTime;
     setQuoteEventDate((cur) => cur || toDateInput(mr?.eventDate || lq?.eventDate || raw.date));
     setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
     setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
@@ -2005,7 +1999,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         const lq: any = roomMeta?.latestQuotation;
         if (!mr && !lq) return null;
         const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-        const toTime = (v: any): string => { if (!v) return ''; if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5); try { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
+        const toTime = formatEventTime;   // 행사 시각은 벽시계 값 — 시간대 변환 금지
         const toDate = (v: any): string => { if (!v) return ''; try { const d = new Date(v); return Number.isNaN(d.getTime()) ? (typeof v === 'string' ? v.slice(0, 10) : '') : d.toISOString().slice(0, 10); } catch { return ''; } };
         return {
           customerName: chatPartner?.name || '고객',
@@ -2210,7 +2204,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const lq = roomMeta?.latestQuotation;
     const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
     const toDate = (v: any): string => { if (!v) return ''; try { const d = new Date(v); return Number.isNaN(d.getTime()) ? (typeof v === 'string' ? v.slice(0, 10) : '') : d.toISOString().slice(0, 10); } catch { return ''; } };
-    const toTime = (v: any): string => { if (!v) return ''; if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0, 5); try { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
+    const toTime = formatEventTime;   // 행사 시각은 벽시계 값 — 시간대 변환 금지
     const plan = PLAN_DATA[quotePlan] || Object.values(PLAN_DATA)[0];
     return {
       // 행사명 기본값: '{고객명}님의 행사' (네이티브 견적폼도 이 값을 사용)
