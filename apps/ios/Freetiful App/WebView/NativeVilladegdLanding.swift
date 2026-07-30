@@ -86,6 +86,38 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     private let headerMask = CAGradientLayer()
     private var headerBlurHeight: NSLayoutConstraint?
 
+    /// 스크롤 리빌 대상 — 화면에 들어오면 한 번만 아래에서 올라오며 나타난다(웹의 vgd-reveal 과 동일).
+    private final class RevealTarget {
+        let view: UIView
+        let delay: TimeInterval
+        var shown = false
+        init(view: UIView, delay: TimeInterval) { self.view = view; self.delay = delay }
+    }
+    private var revealTargets: [RevealTarget] = []
+
+    /// 리빌 대상 등록 — 등록 즉시 '숨김' 상태로 만든다.
+    private func registerReveal(_ v: UIView, delay: TimeInterval = 0) {
+        v.alpha = 0
+        v.transform = CGAffineTransform(translationX: 0, y: 26)
+        revealTargets.append(RevealTarget(view: v, delay: delay))
+    }
+
+    private func updateReveals() {
+        // 화면 아래쪽 88% 지점까지 올라온 요소를 나타낸다(너무 이르게 터지지 않게).
+        let trigger = scrollView.contentOffset.y + scrollView.bounds.height * 0.88
+        for t in revealTargets where !t.shown {
+            let f = t.view.convert(t.view.bounds, to: scrollView)
+            guard f.minY < trigger else { continue }
+            t.shown = true
+            UIView.animate(withDuration: 0.85, delay: t.delay,
+                           usingSpringWithDamping: 0.9, initialSpringVelocity: 0,
+                           options: [.allowUserInteraction]) {
+                t.view.alpha = 1
+                t.view.transform = .identity
+            }
+        }
+    }
+
     /// 스크롤에 따라 흐르는 배경 그라데이션.
     /// 색은 지점 사진들의 실제 톤을 분석해 뽑았다(전체 평균 #727263 — 웜 그레이지/샌드,
     /// 안양만 다크 블루그레이 #344349). 그 톤을 아주 밝게 눌러 '은은하게' 흐르도록 한다.
@@ -159,6 +191,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         updateVisibleVideos()
         updateToneGradient()
+        updateReveals()
     }
 
     override func viewDidLayoutSubviews() {
@@ -209,6 +242,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         updateVisibleVideos()
+        updateReveals()   // 첫 화면에 이미 걸쳐 있는 요소는 바로 나타나게
         startMarquee()
     }
 
@@ -459,8 +493,10 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         box.addArrangedSubview(title)
         box.setCustomSpacing(10, after: box.arrangedSubviews[0])
         box.setCustomSpacing(32, after: title)
+        registerReveal(box.arrangedSubviews[0])          // WHY VILLA DE GD
+        registerReveal(title, delay: 0.08)               // 웨딩은 왜 빌라드지디일까요?
 
-        for (t, d) in Self.strengths {
+        for (idx, (t, d)) in Self.strengths.enumerated() {
             let row = UIStackView()
             row.axis = .horizontal
             row.alignment = .top
@@ -486,6 +522,8 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
 
             box.addArrangedSubview(row)
             box.setCustomSpacing(22, after: row)
+            // 스크롤 진입 시 아래에서 순차적으로 올라오게(항목마다 0.07s 씩 지연)
+            registerReveal(row, delay: Double(idx) * 0.07)
         }
         content.addArrangedSubview(box)
     }
@@ -521,6 +559,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
                                       color: UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1), align: .center))
         box.addArrangedSubview(head)
         box.setCustomSpacing(20, after: head)
+        registerReveal(head)   // 지점 헤더(로고·이름·소개)도 같은 리빌로 통일
 
         // 대표 영상
         if let url = URL(string: b.video) {
