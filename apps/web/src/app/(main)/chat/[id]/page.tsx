@@ -914,10 +914,9 @@ export default function ChatRoomPage() {
       getState: () => ({
         name: chatPartner?.name || '',
         imageUrl: chatPartner?.profileImageUrl || '',
-        online: !!chatPartner?.isActive,
-        statusText: chatPartner?.isActive
-          ? '온라인'
-          : (chatPartner?.lastSeen ? `${chatPartner.lastSeen} 활동` : '오프라인'),
+        // 온/오프라인 상태는 노출하지 않는다(웹 헤더에서 제거된 것과 동일하게 네이티브도 비움)
+        online: false,
+        statusText: '',
         partnerIsPro: !!partnerIsPro,
         partnerRoleKnown: !!partnerRoleKnown,
         isPro: !!isPro,

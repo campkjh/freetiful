@@ -36,6 +36,8 @@ import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.ap
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
 const OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY = 'freetiful-official-open-modal-dismissed-until-20260506';
 const OFFICIAL_OPEN_MODAL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
+// 홈 진입 팝업을 이 세션에서 이미 닫았는지 — 탭 안에서 홈을 다시 방문해도 재노출 안 되게
+const POPUP_SEEN_KEY = 'freetiful-popup-seen-session';
 const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
 
 /* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
@@ -1525,6 +1527,9 @@ export default function HomePage() {
     const isNative = typeof window !== 'undefined'
       && !!(window as any).webkit?.messageHandlers?.nativeNavState;
     if (isNative) return;
+    // 한 번 닫았으면 이 세션에선 다시 띄우지 않는다.
+    // (홈 → 마이/채팅 → 홈 으로 되돌아올 때마다 이 effect 가 다시 돌아 계속 뜨던 문제)
+    try { if (sessionStorage.getItem(POPUP_SEEN_KEY) === '1') return; } catch {}
     let cancelled = false;
     fetch('/api/v1/banners?placement=popup')
       .then((r) => (r.ok ? r.json() : null))
@@ -1543,6 +1548,12 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
+  /** 닫기(어떤 경로든) — 이 세션에선 다시 띄우지 않도록 표시 */
+  const closeOfficialOpenModal = () => {
+    try { sessionStorage.setItem(POPUP_SEEN_KEY, '1'); } catch {}
+    setShowOfficialOpenModal(false);
+  };
+
   const hideOfficialOpenModalFor3Days = () => {
     try {
       if (popupBanner) {
@@ -1556,7 +1567,7 @@ export default function HomePage() {
     if (!showOfficialOpenModal) return;
     const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowOfficialOpenModal(false);
+      if (event.key === 'Escape') closeOfficialOpenModal();
     };
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', handleKeyDown);
@@ -2083,7 +2094,7 @@ export default function HomePage() {
           aria-label="안내 팝업"
           className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 px-3 pb-[max(env(safe-area-inset-bottom),16px)] pt-6 backdrop-blur-[2px]"
           style={{ animation: 'homeOpeningModalFade 180ms ease-out both' }}
-          onClick={() => setShowOfficialOpenModal(false)}
+          onClick={() => closeOfficialOpenModal()}
         >
           <div
             className="relative w-full max-w-[460px] overflow-hidden rounded-[36px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25"
@@ -2092,7 +2103,7 @@ export default function HomePage() {
           >
             <button
               type="button"
-              onClick={() => setShowOfficialOpenModal(false)}
+              onClick={() => closeOfficialOpenModal()}
               aria-label="안내 닫기"
               className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
             >
@@ -2105,7 +2116,7 @@ export default function HomePage() {
                 if (popupBanner.linkUrl) {
                   try { window.location.href = popupBanner.linkUrl; } catch {}
                 } else {
-                  setShowOfficialOpenModal(false);
+                  closeOfficialOpenModal();
                 }
               }}
               className="relative block aspect-[4/3] w-full select-none"
@@ -2129,7 +2140,7 @@ export default function HomePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowOfficialOpenModal(false)}
+                onClick={() => closeOfficialOpenModal()}
                 className="pointer-events-auto rounded-full border border-white/20 bg-black/25 px-5 py-2.5 text-[14px] font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.22)] backdrop-blur-md transition hover:bg-black/35 active:scale-95"
               >
                 닫기
