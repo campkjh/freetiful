@@ -66,9 +66,19 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     private let scrollView = UIScrollView()
     private let content = UIStackView()
     private let closeButton = UIButton(type: .system)
-    private var players: [AVPlayer] = []
-    private var loopers: [Any] = []
-    private var playerLayers: [(AVPlayerLayer, UIView)] = []
+    /// 영상 슬롯 — 화면에 들어올 때 플레이어를 만들고(지연 생성), 벗어나면 멈춘다.
+    /// 미리 다 만들면 AVPlayerItem 7개가 동시에 네트워크를 물어 첫 재생이 매우 늦어진다.
+    private final class VideoSlot {
+        let url: URL
+        let host: UIView
+        var player: AVQueuePlayer?
+        var layer: AVPlayerLayer?
+        var looper: Any?
+        var poster: UIImageView?        // 버퍼링 동안 보여줄 정지 이미지
+        var readyObs: NSKeyValueObservation?
+        init(url: URL, host: UIView) { self.url = url; self.host = host }
+    }
+    private var videoSlots: [VideoSlot] = []
     private let marqueeTrack = UIStackView()
     private var marqueeStarted = false
 
@@ -115,7 +125,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        playerLayers.forEach { layer, host in layer.frame = host.bounds }
+        videoSlots.forEach { $0.layer?.frame = $0.host.bounds }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -126,27 +136,50 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        players.forEach { $0.pause() }
+        videoSlots.forEach { $0.player?.pause() }
+    }
+
+    /// 슬롯에 플레이어를 붙인다(최초 1회). 버퍼가 조금만 차도 바로 재생 시작해 체감 지연을 줄인다.
+    private func attach(_ slot: VideoSlot) {
+        guard slot.player == nil else { return }
+        let item = AVPlayerItem(url: slot.url)
+        item.preferredForwardBufferDuration = 2   // 2초만 받으면 시작
+        let queue = AVQueuePlayer(playerItem: item)
+        queue.isMuted = true
+        queue.automaticallyWaitsToMinimizeStalling = false   // 끊김 방지보다 빠른 시작 우선
+        slot.looper = AVPlayerLooper(player: queue, templateItem: item)
+        let layer = AVPlayerLayer(player: queue)
+        layer.videoGravity = .resizeAspectFill
+        layer.frame = slot.host.bounds
+        slot.host.layer.insertSublayer(layer, at: 0)
+        slot.player = queue
+        slot.layer = layer
+        // 첫 프레임이 실제로 준비되면 포스터를 부드럽게 걷어낸다.
+        if let poster = slot.poster {
+            slot.readyObs = layer.observe(\.isReadyForDisplay, options: [.initial, .new]) { l, _ in
+                guard l.isReadyForDisplay else { return }
+                DispatchQueue.main.async {
+                    UIView.animate(withDuration: 0.35) { poster.alpha = 0 }
+                }
+            }
+        }
     }
 
     /// 화면에 보이는 영상만 재생한다.
     /// 7개(히어로+지점5+클로징)를 한꺼번에 play() 하면 iOS 동시 H.264 디코더 한도를 넘겨
     /// 아래쪽 지점 영상이 검은 화면으로 남거나 로드되지 않는다.
     private func updateVisibleVideos() {
-        let visible = scrollView.bounds.insetBy(dx: 0, dy: -120)   // 살짝 미리 준비
-        for (idx, pair) in playerLayers.enumerated() {
-            let host = pair.1
-            let frameInScroll = host.convert(host.bounds, to: scrollView)
-            let onScreen = frameInScroll.intersects(
-                CGRect(x: 0, y: scrollView.contentOffset.y + visible.minY,
-                       width: scrollView.bounds.width, height: visible.height)
-            )
-            guard idx < players.count else { continue }
-            let p = players[idx]
+        // 화면(+위아래 200pt 프리롤)에 걸치는 슬롯만 준비/재생한다.
+        let viewport = CGRect(x: 0, y: scrollView.contentOffset.y - 200,
+                              width: scrollView.bounds.width,
+                              height: scrollView.bounds.height + 400)
+        for slot in videoSlots {
+            let onScreen = slot.host.convert(slot.host.bounds, to: scrollView).intersects(viewport)
             if onScreen {
-                if p.rate == 0 { p.play() }
-            } else if p.rate != 0 {
-                p.pause()
+                attach(slot)
+                if slot.player?.rate == 0 { slot.player?.play() }
+            } else {
+                slot.player?.pause()
             }
         }
     }
@@ -183,16 +216,10 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         let host = UIView()
         host.backgroundColor = .black
         host.clipsToBounds = true
-
-        let item = AVPlayerItem(url: url)
-        let queue = AVQueuePlayer(playerItem: item)
-        queue.isMuted = true
-        loopers.append(AVPlayerLooper(player: queue, templateItem: item))
-        let layer = AVPlayerLayer(player: queue)
-        layer.videoGravity = .resizeAspectFill
-        host.layer.addSublayer(layer)
-        players.append(queue)
-        playerLayers.append((layer, host))
+        // 플레이어는 화면에 들어올 때 만든다(지연 생성).
+        // 7개(히어로+지점5+클로징)를 미리 만들면 AVPlayerItem 들이 동시에 네트워크를 물어
+        // 대역폭을 나눠 먹고 첫 재생이 한참 뒤에 시작된다. url 만 들고 있다가 필요할 때 붙인다.
+        videoSlots.append(VideoSlot(url: url, host: host))
 
         if dim > 0 {
             let dimView = UIView()
@@ -413,6 +440,22 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
             let wrap = UIView()
             wrap.translatesAutoresizingMaskIntoConstraints = false
             let video = makeVideoView(url: url, dim: 0)
+            // 버퍼링 동안 검은 화면이 아니라 지점 사진이 보이도록 포스터를 깐다.
+            // (영상 레이어는 attach 시 insertSublayer(at:0) 로 이 이미지 '아래'가 아니라
+            //  뷰 계층상 이미지 뒤에 들어가므로, 포스터는 영상이 준비되면 서서히 감춘다.)
+            let poster = UIImageView()
+            poster.translatesAutoresizingMaskIntoConstraints = false
+            poster.contentMode = .scaleAspectFill
+            poster.clipsToBounds = true
+            loadImage("https://freetiful.com/images/wedding-partners/wedding-hall/\(b.slug)/01.webp", into: poster)
+            video.addSubview(poster)
+            NSLayoutConstraint.activate([
+                poster.topAnchor.constraint(equalTo: video.topAnchor),
+                poster.bottomAnchor.constraint(equalTo: video.bottomAnchor),
+                poster.leadingAnchor.constraint(equalTo: video.leadingAnchor),
+                poster.trailingAnchor.constraint(equalTo: video.trailingAnchor),
+            ])
+            videoSlots.last?.poster = poster
             video.translatesAutoresizingMaskIntoConstraints = false
             video.layer.cornerRadius = 24
             video.layer.cornerCurve = .continuous
@@ -615,12 +658,12 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     // MARK: - Actions
 
     @objc private func tapClose() {
-        players.forEach { $0.pause() }
+        videoSlots.forEach { $0.player?.pause() }
         dismiss(animated: true)
     }
 
     @objc private func tapWeddingHalls() {
-        players.forEach { $0.pause() }
+        videoSlots.forEach { $0.player?.pause() }
         let open = onOpenWeddingHalls
         dismiss(animated: true) { open?() }
     }
