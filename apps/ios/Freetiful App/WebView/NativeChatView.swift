@@ -303,7 +303,8 @@ final class NativeChatHeaderView: UIView {
     func apply(_ s: NativeChatState) {
         nameLabel.text = s.name.isEmpty ? "채팅" : s.name
         statusLabel.text = s.statusText
-        onlineDot.isHidden = !s.online
+        // 온/오프라인 표시는 사용하지 않는다(웹 헤더에서도 제거됨) — 항상 숨김
+        onlineDot.isHidden = true
 
         if s.partnerRoleKnown {
             roleBadge.isHidden = false

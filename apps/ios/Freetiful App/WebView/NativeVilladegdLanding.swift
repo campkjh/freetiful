@@ -5,7 +5,7 @@ import AVFoundation
 /// 웹 오버레이(VilladegdEventOverlay.tsx)의 네이티브 버전.
 /// 웹 모달은 네이티브 홈 오버레이에 가려지고 hasBlockingOverlay 로 하단 네비를 숨기는 부작용이
 /// 있어 웹에선 억제하고(=iOS 가드), 대신 이 화면을 네이티브로 띄운다.
-final class NativeVilladegdLandingViewController: UIViewController {
+final class NativeVilladegdLandingViewController: UIViewController, UIScrollViewDelegate {
 
     private static let blob = "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd"
     private static let heroVideo = URL(string: "\(blob)/villadegd-hero.mp4")!
@@ -104,12 +104,14 @@ final class NativeVilladegdLandingViewController: UIViewController {
             forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self = self, self.view.window != nil else { return }
-            self.players.forEach { $0.play() }
+            self.updateVisibleVideos()
             self.startMarquee()
         }
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) { updateVisibleVideos() }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -118,7 +120,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        players.forEach { $0.play() }
+        updateVisibleVideos()
         startMarquee()
     }
 
@@ -127,12 +129,35 @@ final class NativeVilladegdLandingViewController: UIViewController {
         players.forEach { $0.pause() }
     }
 
+    /// 화면에 보이는 영상만 재생한다.
+    /// 7개(히어로+지점5+클로징)를 한꺼번에 play() 하면 iOS 동시 H.264 디코더 한도를 넘겨
+    /// 아래쪽 지점 영상이 검은 화면으로 남거나 로드되지 않는다.
+    private func updateVisibleVideos() {
+        let visible = scrollView.bounds.insetBy(dx: 0, dy: -120)   // 살짝 미리 준비
+        for (idx, pair) in playerLayers.enumerated() {
+            let host = pair.1
+            let frameInScroll = host.convert(host.bounds, to: scrollView)
+            let onScreen = frameInScroll.intersects(
+                CGRect(x: 0, y: scrollView.contentOffset.y + visible.minY,
+                       width: scrollView.bounds.width, height: visible.height)
+            )
+            guard idx < players.count else { continue }
+            let p = players[idx]
+            if onScreen {
+                if p.rate == 0 { p.play() }
+            } else if p.rate != 0 {
+                p.pause()
+            }
+        }
+    }
+
     // MARK: - Build
 
     private func buildScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
         scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.delegate = self   // 보이는 영상만 재생하기 위해 스크롤 추적
         view.addSubview(scrollView)
 
         content.translatesAutoresizingMaskIntoConstraints = false
