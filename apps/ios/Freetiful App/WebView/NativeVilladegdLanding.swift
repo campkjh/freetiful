@@ -5,12 +5,14 @@ import AVFoundation
 /// 웹 오버레이(VilladegdEventOverlay.tsx)의 네이티브 버전.
 /// 웹 모달은 네이티브 홈 오버레이에 가려지고 hasBlockingOverlay 로 하단 네비를 숨기는 부작용이
 /// 있어 웹에선 억제하고(=iOS 가드), 대신 이 화면을 네이티브로 띄운다.
-final class NativeVilladegdLandingViewController: UIViewController {
+final class NativeVilladegdLandingViewController: UIViewController, UIScrollViewDelegate {
 
     private static let blob = "https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd"
     private static let heroVideo = URL(string: "\(blob)/villadegd-hero.mp4")!
     private static let logoURL = "\(blob)/villadegd-logo-white.png"
-    private static let dismissKey = "ftVilladegdLanding_v2"   // 올리면 재노출
+    // '앱 초기 진입 화면'이라 앱을 새로 켤 때마다 노출한다(X 는 그 실행에서만 닫기).
+    // 영구 저장(UserDefaults)으로 한 번 닫으면 다시 안 뜨던 동작을 제거.
+    // 노출 빈도를 제한하려면 여기서 마지막 노출 시각을 기준으로 가드하면 된다.
 
     /// 닫힌 뒤 '웨딩홀 둘러보기' 로 이동시킬 때 호출
     var onOpenWeddingHalls: (() -> Void)?
@@ -57,21 +59,28 @@ final class NativeVilladegdLandingViewController: UIViewController {
         ("프리미엄 플라워 브랜딩", "감각적인 홀과 스페셜 플라워로 품격을 더해요"),
     ]
 
+    /// 히어로 아래 무한 캐러셀에 흐를 지점 워드마크(흰색 PNG)
+    private static let branchLogos = ["cheongdam", "suseo", "anyang", "ansan", "nonhyeon"]
+        .map { "\(blob)/villadegd-logo-\($0).png" }
+
     private let scrollView = UIScrollView()
     private let content = UIStackView()
     private let closeButton = UIButton(type: .system)
     private var players: [AVPlayer] = []
     private var loopers: [Any] = []
     private var playerLayers: [(AVPlayerLayer, UIView)] = []
+    private let marqueeTrack = UIStackView()
+    private var marqueeStarted = false
 
     // MARK: - 표시 조건
 
-    static func shouldPresent() -> Bool {
-        !UserDefaults.standard.bool(forKey: dismissKey)
-    }
+    /// 앱을 새로 켤 때마다 노출(영구 dismiss 없음). loadInitialPage 가 콜드 스타트에서만 호출된다.
+    static func shouldPresent() -> Bool { true }
 
     static func presentIfNeeded(from presenter: UIViewController, openWeddingHalls: @escaping () -> Void) {
-        guard shouldPresent(), presenter.presentedViewController == nil else { return }
+        let blocked = presenter.presentedViewController != nil
+        NSLog("[VilladegdLanding] present 시도 — 다른모달=\(blocked)")
+        guard !blocked else { return }
         let vc = NativeVilladegdLandingViewController()
         vc.onOpenWeddingHalls = openWeddingHalls
         vc.modalPresentationStyle = .fullScreen
@@ -89,7 +98,20 @@ final class NativeVilladegdLandingViewController: UIViewController {
         Self.branches.forEach { buildBranch($0) }
         buildClosing()
         buildCloseButton()
+
+        // 백그라운드 복귀 시 CA 애니메이션/영상이 멈춘 채로 남지 않게 재개
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.view.window != nil else { return }
+            self.updateVisibleVideos()
+            self.startMarquee()
+        }
     }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) { updateVisibleVideos() }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -98,12 +120,35 @@ final class NativeVilladegdLandingViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        players.forEach { $0.play() }
+        updateVisibleVideos()
+        startMarquee()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         players.forEach { $0.pause() }
+    }
+
+    /// 화면에 보이는 영상만 재생한다.
+    /// 7개(히어로+지점5+클로징)를 한꺼번에 play() 하면 iOS 동시 H.264 디코더 한도를 넘겨
+    /// 아래쪽 지점 영상이 검은 화면으로 남거나 로드되지 않는다.
+    private func updateVisibleVideos() {
+        let visible = scrollView.bounds.insetBy(dx: 0, dy: -120)   // 살짝 미리 준비
+        for (idx, pair) in playerLayers.enumerated() {
+            let host = pair.1
+            let frameInScroll = host.convert(host.bounds, to: scrollView)
+            let onScreen = frameInScroll.intersects(
+                CGRect(x: 0, y: scrollView.contentOffset.y + visible.minY,
+                       width: scrollView.bounds.width, height: visible.height)
+            )
+            guard idx < players.count else { continue }
+            let p = players[idx]
+            if onScreen {
+                if p.rate == 0 { p.play() }
+            } else if p.rate != 0 {
+                p.pause()
+            }
+        }
     }
 
     // MARK: - Build
@@ -112,6 +157,7 @@ final class NativeVilladegdLandingViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
         scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.delegate = self   // 보이는 영상만 재생하기 위해 스크롤 추적
         view.addSubview(scrollView)
 
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -202,6 +248,96 @@ final class NativeVilladegdLandingViewController: UIViewController {
             col.leadingAnchor.constraint(equalTo: hero.leadingAnchor, constant: 24),
             col.trailingAnchor.constraint(equalTo: hero.trailingAnchor, constant: -24),
         ])
+
+        // 스크롤 유도 — 문구 + 아래 화살표(위아래로 천천히 부유)
+        let hint = UIStackView()
+        hint.translatesAutoresizingMaskIntoConstraints = false
+        hint.axis = .vertical
+        hint.alignment = .center
+        hint.spacing = 6
+        hint.addArrangedSubview(label("스크롤을 내려주세요", size: 13, weight: .semibold,
+                                      color: UIColor.white.withAlphaComponent(0.8), spacing: 0.6))
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.down",
+                                                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)))
+        chevron.tintColor = UIColor.white.withAlphaComponent(0.75)
+        chevron.contentMode = .scaleAspectFit
+        hint.addArrangedSubview(chevron)
+        hero.addSubview(hint)
+        NSLayoutConstraint.activate([
+            hint.centerXAnchor.constraint(equalTo: hero.centerXAnchor),
+            hint.bottomAnchor.constraint(equalTo: hero.bottomAnchor, constant: -26),
+        ])
+        UIView.animate(withDuration: 1.5, delay: 0.6, options: [.repeat, .autoreverse, .curveEaseInOut]) {
+            hint.transform = CGAffineTransform(translationX: 0, y: 8)
+        }
+
+        // 지점 워드마크 캐러셀 — 영상 위, 스크롤 안내 바로 위
+        buildMarquee(in: hero, above: hint)
+    }
+
+    // 캐러셀 치수 — 레이아웃에 의존하지 않도록 상수로 고정(폭을 런타임에 재면
+    // 아직 레이아웃 전이라 0 이 나와 애니메이션이 시작되지 않는다).
+    private static let mqItemW: CGFloat = 132
+    private static let mqItemH: CGFloat = 46
+    private static let mqGap: CGFloat = 44
+    /// 한 세트 폭 + 간격 = 이만큼 왼쪽으로 흐르면 두 번째 세트가 정확히 첫 세트 자리에 온다.
+    private static var mqShift: CGFloat {
+        let n = CGFloat(branchLogos.count)
+        return (n * mqItemW + (n - 1) * mqGap) + mqGap
+    }
+
+    /// 히어로 영상 위에 얹는 지점 워드마크 무한 캐러셀 (스크롤 안내 바로 위)
+    private func buildMarquee(in hero: UIView, above anchorView: UIView) {
+        let clip = UIView()
+        clip.translatesAutoresizingMaskIntoConstraints = false
+        clip.backgroundColor = .clear          // 영상이 그대로 비치도록
+        clip.clipsToBounds = true
+        hero.addSubview(clip)
+        NSLayoutConstraint.activate([
+            clip.leadingAnchor.constraint(equalTo: hero.leadingAnchor),
+            clip.trailingAnchor.constraint(equalTo: hero.trailingAnchor),
+            clip.bottomAnchor.constraint(equalTo: anchorView.topAnchor, constant: -18),
+            clip.heightAnchor.constraint(equalToConstant: Self.mqItemH + 8),
+        ])
+
+        marqueeTrack.translatesAutoresizingMaskIntoConstraints = false
+        marqueeTrack.axis = .horizontal
+        marqueeTrack.alignment = .center
+        marqueeTrack.spacing = Self.mqGap
+        clip.addSubview(marqueeTrack)
+        NSLayoutConstraint.activate([
+            marqueeTrack.centerYAnchor.constraint(equalTo: clip.centerYAnchor),
+            marqueeTrack.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
+        ])
+
+        // 끊김 없는 루프를 위해 동일 세트를 2벌 배치
+        for _ in 0..<2 {
+            for url in Self.branchLogos {
+                let iv = UIImageView()
+                iv.translatesAutoresizingMaskIntoConstraints = false
+                iv.contentMode = .scaleAspectFit
+                iv.alpha = 0.92
+                iv.widthAnchor.constraint(equalToConstant: Self.mqItemW).isActive = true
+                iv.heightAnchor.constraint(equalToConstant: Self.mqItemH).isActive = true
+                loadImage(url, into: iv)
+                marqueeTrack.addArrangedSubview(iv)
+            }
+        }
+    }
+
+    /// CoreAnimation 으로 무한 스크롤 — 레이아웃/런루프와 무관하게 확실히 돈다.
+    private func startMarquee() {
+        // 백그라운드 복귀 시 CA 애니메이션이 제거되므로 '이미 붙어있는지'로 판단(플래그 아님)
+        guard marqueeTrack.layer.animation(forKey: "villadegdMarquee") == nil else { return }
+        marqueeStarted = true
+        let anim = CABasicAnimation(keyPath: "transform.translation.x")
+        anim.fromValue = 0
+        anim.toValue = -Self.mqShift
+        anim.duration = 26                     // 천천히
+        anim.repeatCount = .infinity
+        anim.isRemovedOnCompletion = false
+        anim.timingFunction = CAMediaTimingFunction(name: .linear)
+        marqueeTrack.layer.add(anim, forKey: "villadegdMarquee")
     }
 
     private func buildStrengths() {
@@ -479,13 +615,11 @@ final class NativeVilladegdLandingViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func tapClose() {
-        UserDefaults.standard.set(true, forKey: Self.dismissKey)
         players.forEach { $0.pause() }
         dismiss(animated: true)
     }
 
     @objc private func tapWeddingHalls() {
-        UserDefaults.standard.set(true, forKey: Self.dismissKey)
         players.forEach { $0.pause() }
         let open = onOpenWeddingHalls
         dismiss(animated: true) { open?() }
