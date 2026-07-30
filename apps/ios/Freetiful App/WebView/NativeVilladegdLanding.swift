@@ -81,22 +81,32 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     private var videoSlots: [VideoSlot] = []
     private let marqueeTrack = UIStackView()
     private var marqueeStarted = false
+    /// 상단 그라데이션 블러(아래로 갈수록 사라지는 프로그레시브 블러)
+    private let headerBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let headerMask = CAGradientLayer()
+    private var headerBlurHeight: NSLayoutConstraint?
 
     /// 스크롤에 따라 흐르는 배경 그라데이션.
     /// 색은 지점 사진들의 실제 톤을 분석해 뽑았다(전체 평균 #727263 — 웜 그레이지/샌드,
     /// 안양만 다크 블루그레이 #344349). 그 톤을 아주 밝게 눌러 '은은하게' 흐르도록 한다.
     private let toneGradient = CAGradientLayer()
+    /// 각 구간 3스톱(위→중간→아래). 분석 톤을 '보일 만큼'만 남기고 밝게 눌렀다.
+    /// (이전엔 0.90~0.98 로 너무 하얘서 변화가 육안으로 보이지 않았다)
+    private static func rgb(_ hex: UInt32) -> UIColor {
+        UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
     private static let tonePalette: [[UIColor]] = [
-        // 아이보리 → 샴페인 (청담 #807c69 계열)
-        [UIColor(red: 0.984, green: 0.976, blue: 0.957, alpha: 1), UIColor(red: 0.953, green: 0.937, blue: 0.906, alpha: 1)],
-        // 샌드 (수서 #909078 / 논현 #8d8a77 계열)
-        [UIColor(red: 0.960, green: 0.949, blue: 0.918, alpha: 1), UIColor(red: 0.925, green: 0.914, blue: 0.878, alpha: 1)],
-        // 쿨 그레이지 (안양 #344349 를 밝게 눌러 살짝 파란기)
-        [UIColor(red: 0.937, green: 0.945, blue: 0.953, alpha: 1), UIColor(red: 0.902, green: 0.914, blue: 0.929, alpha: 1)],
-        // 브론즈 웜 (안산 #68604e 계열)
-        [UIColor(red: 0.965, green: 0.949, blue: 0.925, alpha: 1), UIColor(red: 0.929, green: 0.902, blue: 0.865, alpha: 1)],
-        // 다시 아이보리로 (끝과 처음이 이어지게)
-        [UIColor(red: 0.984, green: 0.976, blue: 0.957, alpha: 1), UIColor(red: 0.949, green: 0.945, blue: 0.933, alpha: 1)],
+        // 청담 — 아이보리 → 웜 토프 (#807c69 계열)
+        [rgb(0xFBF8F2), rgb(0xF0E9DC), rgb(0xDFD6C4)],
+        // 수서 — 라이트 올리브 샌드 (#909078)
+        [rgb(0xF7F6EE), rgb(0xE9E7D6), rgb(0xD6D4BE)],
+        // 안양 — 쿨 블루그레이 (#344349 를 밝게)
+        [rgb(0xF2F5F8), rgb(0xE0E6ED), rgb(0xCBD5E0)],
+        // 안산 — 브론즈 웜 (#68604e)
+        [rgb(0xFAF5EC), rgb(0xEFE3D0), rgb(0xDCCBB0)],
+        // 논현 → 다시 아이보리로 (끝과 처음이 이어지게)
+        [rgb(0xF9F7F1), rgb(0xEDEADF), rgb(0xDCD8C9)],
     ]
 
     // MARK: - 표시 조건
@@ -122,6 +132,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         // 배경 그라데이션 — 흰 배경 대신 깔아두고 스크롤에 따라 톤이 흐르게 한다.
         // (히어로·클로징은 자체 검정 배경이 있어 덮이고, 중간 섹션들은 배경이 없어 이게 비친다)
         toneGradient.colors = Self.tonePalette[0].map { $0.cgColor }
+        toneGradient.locations = [0, 0.5, 1]
         toneGradient.startPoint = CGPoint(x: 0.5, y: 0)
         toneGradient.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(toneGradient, at: 0)
@@ -130,6 +141,7 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         buildStrengths()
         Self.branches.forEach { buildBranch($0) }
         buildClosing()
+        buildHeaderBlur()     // X 버튼보다 먼저 — 블러가 아래, X 가 위
         buildCloseButton()
 
         // 백그라운드 복귀 시 CA 애니메이션/영상이 멈춘 채로 남지 않게 재개
@@ -153,6 +165,8 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         super.viewDidLayoutSubviews()
         videoSlots.forEach { $0.layer?.frame = $0.host.bounds }
         toneGradient.frame = view.bounds
+        headerBlurHeight?.constant = view.safeAreaInsets.top + 52
+        headerMask.frame = headerBlur.bounds
     }
 
     /// 스크롤 진행도에 따라 팔레트를 부드럽게 섞고, 방향도 함께 흐르게 한다.
@@ -169,12 +183,15 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         let from = Self.tonePalette[i], to = Self.tonePalette[i + 1]
         let mixed = zip(from, to).map { mix($0, $1, t) }
 
-        // 방향 드리프트 — 위→아래에서 살짝 대각으로 기울어지며 '이동하는' 느낌
-        let drift = 0.22 * sin(Double(p) * .pi)
+        // 방향 드리프트 + 밴드 이동 — 색만 바뀌는 게 아니라 '띠가 흐르는' 느낌을 준다.
+        let drift = 0.45 * sin(Double(p) * .pi * 2)          // 좌우로 기울기
+        let band = 0.28 * CGFloat(sin(Double(p) * .pi * 3))  // 중간 스톱이 위아래로 이동
+        let mid = min(0.85, max(0.15, 0.5 + band))
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         toneGradient.colors = mixed.map { $0.cgColor }
+        toneGradient.locations = [0, mid as NSNumber, 1]
         toneGradient.startPoint = CGPoint(x: 0.5 - drift, y: 0)
         toneGradient.endPoint = CGPoint(x: 0.5 + drift, y: 1)
         CATransaction.commit()
@@ -626,13 +643,35 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         ])
     }
 
+    /// 상단 그라데이션 블러 — 아래로 갈수록 서서히 사라지는(프로그레시브) 블러 띠.
+    /// 스크롤 콘텐츠가 상태바 밑으로 지나갈 때 지저분해 보이지 않게 정리해준다.
+    private func buildHeaderBlur() {
+        headerBlur.translatesAutoresizingMaskIntoConstraints = false
+        headerBlur.isUserInteractionEnabled = false
+        view.addSubview(headerBlur)
+        // 높이 = 세이프에어리어 상단 + 52 (레이아웃 단계에서 갱신)
+        headerBlurHeight = headerBlur.heightAnchor.constraint(equalToConstant: 96)
+        NSLayoutConstraint.activate([
+            headerBlur.topAnchor.constraint(equalTo: view.topAnchor),
+            headerBlur.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerBlur.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerBlurHeight!,
+        ])
+
+        // 아래로 갈수록 투명해지는 마스크 = 그라데이션 블러
+        headerMask.colors = [
+            UIColor.white.cgColor,
+            UIColor.white.withAlphaComponent(0.75).cgColor,
+            UIColor.white.withAlphaComponent(0).cgColor,
+        ]
+        headerMask.locations = [0, 0.55, 1]
+        headerBlur.layer.mask = headerMask
+    }
+
     private func buildCloseButton() {
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.setImage(UIImage(systemName: "xmark",
-                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)), for: .normal)
-        closeButton.tintColor = .white
-        closeButton.addTarget(self, action: #selector(tapClose), for: .touchUpInside)
-        // 리퀴드 글래스 원형(네이티브 UIGlassEffect, 미지원 OS 는 블러 폴백)
+        // 글래스 '안'(contentView)에 X 를 넣는다.
+        // 이전엔 버튼의 subview 로 글래스를 깔았는데, 리퀴드글래스가 위로 합성돼
+        // X 가 글래스 뒤에 있는 것처럼 흐려 보였다.
         let glass = UIVisualEffectView(effect: LiquidGlassEffectFactory.controlEffect())
         glass.translatesAutoresizingMaskIntoConstraints = false
         glass.isUserInteractionEnabled = false
@@ -640,11 +679,25 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         glass.layer.cornerCurve = .continuous
         glass.clipsToBounds = true
         if !LiquidGlassEffectFactory.supportsNativeLiquidGlass {
-            glass.backgroundColor = UIColor.black.withAlphaComponent(0.28)
+            glass.backgroundColor = UIColor.black.withAlphaComponent(0.30)
             glass.layer.borderWidth = 1
             glass.layer.borderColor = UIColor.white.withAlphaComponent(0.28).cgColor
         }
-        closeButton.insertSubview(glass, at: 0)
+
+        let icon = UIImageView(image: UIImage(systemName: "xmark",
+                                              withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)))
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.tintColor = .white
+        icon.contentMode = .center
+        glass.contentView.addSubview(icon)
+        NSLayoutConstraint.activate([
+            icon.centerXAnchor.constraint(equalTo: glass.contentView.centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: glass.contentView.centerYAnchor),
+        ])
+
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(tapClose), for: .touchUpInside)
+        closeButton.addSubview(glass)
         NSLayoutConstraint.activate([
             glass.topAnchor.constraint(equalTo: closeButton.topAnchor),
             glass.bottomAnchor.constraint(equalTo: closeButton.bottomAnchor),
