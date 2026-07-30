@@ -82,6 +82,23 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     private let marqueeTrack = UIStackView()
     private var marqueeStarted = false
 
+    /// 스크롤에 따라 흐르는 배경 그라데이션.
+    /// 색은 지점 사진들의 실제 톤을 분석해 뽑았다(전체 평균 #727263 — 웜 그레이지/샌드,
+    /// 안양만 다크 블루그레이 #344349). 그 톤을 아주 밝게 눌러 '은은하게' 흐르도록 한다.
+    private let toneGradient = CAGradientLayer()
+    private static let tonePalette: [[UIColor]] = [
+        // 아이보리 → 샴페인 (청담 #807c69 계열)
+        [UIColor(red: 0.984, green: 0.976, blue: 0.957, alpha: 1), UIColor(red: 0.953, green: 0.937, blue: 0.906, alpha: 1)],
+        // 샌드 (수서 #909078 / 논현 #8d8a77 계열)
+        [UIColor(red: 0.960, green: 0.949, blue: 0.918, alpha: 1), UIColor(red: 0.925, green: 0.914, blue: 0.878, alpha: 1)],
+        // 쿨 그레이지 (안양 #344349 를 밝게 눌러 살짝 파란기)
+        [UIColor(red: 0.937, green: 0.945, blue: 0.953, alpha: 1), UIColor(red: 0.902, green: 0.914, blue: 0.929, alpha: 1)],
+        // 브론즈 웜 (안산 #68604e 계열)
+        [UIColor(red: 0.965, green: 0.949, blue: 0.925, alpha: 1), UIColor(red: 0.929, green: 0.902, blue: 0.865, alpha: 1)],
+        // 다시 아이보리로 (끝과 처음이 이어지게)
+        [UIColor(red: 0.984, green: 0.976, blue: 0.957, alpha: 1), UIColor(red: 0.949, green: 0.945, blue: 0.933, alpha: 1)],
+    ]
+
     // MARK: - 표시 조건
 
     /// 앱을 새로 켤 때마다 노출(영구 dismiss 없음). loadInitialPage 가 콜드 스타트에서만 호출된다.
@@ -102,6 +119,12 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
+        // 배경 그라데이션 — 흰 배경 대신 깔아두고 스크롤에 따라 톤이 흐르게 한다.
+        // (히어로·클로징은 자체 검정 배경이 있어 덮이고, 중간 섹션들은 배경이 없어 이게 비친다)
+        toneGradient.colors = Self.tonePalette[0].map { $0.cgColor }
+        toneGradient.startPoint = CGPoint(x: 0.5, y: 0)
+        toneGradient.endPoint = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(toneGradient, at: 0)
         buildScroll()
         buildHero()
         buildStrengths()
@@ -121,11 +144,49 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
-    func scrollViewDidScroll(_ scrollView: UIScrollView) { updateVisibleVideos() }
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        updateVisibleVideos()
+        updateToneGradient()
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         videoSlots.forEach { $0.layer?.frame = $0.host.bounds }
+        toneGradient.frame = view.bounds
+    }
+
+    /// 스크롤 진행도에 따라 팔레트를 부드럽게 섞고, 방향도 함께 흐르게 한다.
+    /// 색을 매 프레임 갈아끼우되 암시적 애니메이션을 끊어 스크롤이 끈적이지 않게 한다.
+    private func updateToneGradient() {
+        let span = max(1, scrollView.contentSize.height - scrollView.bounds.height)
+        let p = min(1, max(0, scrollView.contentOffset.y / span))
+
+        // 팔레트 구간 사이 선형 보간
+        let steps = Self.tonePalette.count - 1
+        let pos = p * CGFloat(steps)
+        let i = min(steps - 1, max(0, Int(pos)))
+        let t = pos - CGFloat(i)
+        let from = Self.tonePalette[i], to = Self.tonePalette[i + 1]
+        let mixed = zip(from, to).map { mix($0, $1, t) }
+
+        // 방향 드리프트 — 위→아래에서 살짝 대각으로 기울어지며 '이동하는' 느낌
+        let drift = 0.22 * sin(Double(p) * .pi)
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        toneGradient.colors = mixed.map { $0.cgColor }
+        toneGradient.startPoint = CGPoint(x: 0.5 - drift, y: 0)
+        toneGradient.endPoint = CGPoint(x: 0.5 + drift, y: 1)
+        CATransaction.commit()
+    }
+
+    private func mix(_ a: UIColor, _ b: UIColor, _ t: CGFloat) -> UIColor {
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return UIColor(red: ar + (br - ar) * t, green: ag + (bg - ag) * t,
+                       blue: ab + (bb - ab) * t, alpha: aa + (ba - aa) * t)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -425,11 +486,20 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         head.isLayoutMarginsRelativeArrangement = true
         head.layoutMargins = UIEdgeInsets(top: 0, left: 24, bottom: 0, right: 24)
 
-        let eyebrow = "VILLA DE GD \(b.en)" + (b.hall.map { " · \($0)" } ?? "")
-        head.addArrangedSubview(label(eyebrow, size: 13, weight: .semibold,
-                                      color: UIColor(white: 0.62, alpha: 1), spacing: 0.4, align: .center))
-        head.addArrangedSubview(label("빌라드지디 \(b.name)", size: 27, weight: .heavy,
-                                      color: UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1), align: .center))
+        // 영문 'VILLA DE GD OOO' 텍스트 대신 지점 워드마크 로고를 넣는다.
+        // 원본이 흰색 PNG 라 밝은 배경에선 안 보이므로 template 로 칠해서 쓴다.
+        let logo = UIImageView()
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.contentMode = .scaleAspectFit
+        logo.tintColor = UIColor(red: 0.10, green: 0.12, blue: 0.16, alpha: 1)
+        logo.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        loadImage("\(Self.blob)/villadegd-logo-\(b.slug.replacingOccurrences(of: "villadegd-", with: "")).png",
+                  into: logo, asTemplate: true)
+        head.addArrangedSubview(logo)
+        if let hall = b.hall {
+            head.addArrangedSubview(label(hall, size: 13, weight: .semibold,
+                                          color: UIColor(white: 0.62, alpha: 1), spacing: 0.4, align: .center))
+        }
         head.addArrangedSubview(label(b.intro, size: 16, weight: .regular,
                                       color: UIColor(red: 0.42, green: 0.46, blue: 0.52, alpha: 1), align: .center))
         box.addArrangedSubview(head)
@@ -647,11 +717,13 @@ final class NativeVilladegdLandingViewController: UIViewController, UIScrollView
         return b
     }
 
-    private func loadImage(_ urlString: String, into view: UIImageView) {
+    /// asTemplate=true 면 tintColor 로 칠해 쓴다(흰색 PNG 로고를 밝은 배경에 올릴 때).
+    private func loadImage(_ urlString: String, into view: UIImageView, asTemplate: Bool = false) {
         guard let url = URL(string: urlString) else { return }
         URLSession.shared.dataTask(with: url) { data, _, _ in
             guard let data = data, let img = UIImage(data: data) else { return }
-            DispatchQueue.main.async { view.image = img }
+            let final = asTemplate ? img.withRenderingMode(.alwaysTemplate) : img
+            DispatchQueue.main.async { view.image = final }
         }.resume()
     }
 
