@@ -1,0 +1,44 @@
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:targetApi="31">
+
+    <!-- ✅ 스플래시 전용 테마 -->
+    <style name="Theme.Freetiful.Launcher"
+        parent="Theme.MaterialComponents.Light.NoActionBar">
+
+        <!-- ✅ 앱 아이콘 표시 -->
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+
+        <!-- ✅ 흰색 배경 -->
+        <item name="android:windowSplashScreenBackground">@android:color/white</item>
+
+        <!-- ✅ 브랜딩 이미지 제거 -->
+        <item name="android:windowSplashScreenBrandingImage">@null</item>
+
+        <!-- ✅ 상태바 밝게 (아이콘 검정) -->
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- ✅ 내비게이션바 밝게 -->
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <!-- ✅ 다음 테마로 전환 -->
+        <item name="postSplashScreenTheme">@style/Theme.Freetiful</item>
+    </style>
+
+    <!-- ✅ 메인 테마 (항상 화이트 고정) -->
+    <style name="Theme.Freetiful"
+        parent="Theme.MaterialComponents.Light.NoActionBar">
+
+        <!-- 전체 배경 화이트 -->
+        <item name="android:windowBackground">@android:color/white</item>
+
+        <!-- 상태바 밝게 -->
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- 내비게이션바 밝게 -->
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <!-- ✅ 다크모드 강제 비활성화 -->
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+</resources>
