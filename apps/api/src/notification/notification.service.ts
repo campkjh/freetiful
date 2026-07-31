@@ -57,12 +57,16 @@ export class NotificationService {
     const next = { ...(data || {}) };
     const roomId = next.roomId || next.chatRoomId || next.room_id || next.chat_room_id;
     const explicitLink = next.url || next.link || next.deepLink || next.deeplink || next.launchURL || next.launchUrl;
+    // roomId 는 클라이언트가 뱃지·알림 dedup 에 쓰므로 클릭 목적지와 무관하게 항상 정규화해 둔다.
     if (roomId) {
       const normalizedRoomId = String(roomId);
       next.roomId = normalizedRoomId;
       next.chatRoomId = normalizedRoomId;
-      next.url = `/chat/${normalizedRoomId}`;
-    } else if (explicitLink) next.url = String(explicitLink);
+    }
+    // 호출부가 목적지를 명시했으면 그게 최우선 — roomId 가 같이 실려 있어도 덮어쓰지 않는다.
+    // (sw.js 와 iOS clickTarget 도 url 을 먼저 보므로 이쪽이 전 구간 일관된 순서다)
+    if (explicitLink) next.url = String(explicitLink);
+    else if (roomId) next.url = `/chat/${String(roomId)}`;
     else if (next.quotationId) next.url = `/quote/${next.quotationId}`;
     else if (next.proProfileId) next.url = `/pros/${next.proProfileId}`;
     else if (next.matchRequestId || next.type === 'match_request') next.url = '/pro-dashboard/inquiries';
