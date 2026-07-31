@@ -40,8 +40,20 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   async headers() {
-    if (process.env.NODE_ENV !== 'production') return [];
+    // Universal Links(AASA) 는 개발/운영 무관하게 항상 application/json 으로 서빙해야 함.
+    // 확장자가 없는 public 파일은 기본이 octet-stream 이라 iOS 가 도메인 연결을 거부한다.
+    const wellKnown = [
+      {
+        source: '/.well-known/apple-app-site-association',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
+    ];
+    if (process.env.NODE_ENV !== 'production') return wellKnown;
     return [
+      ...wellKnown,
       {
         source: '/:path*.js',
         headers: [
