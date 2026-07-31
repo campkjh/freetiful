@@ -1,0 +1,22 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# 릴리즈 서명 정보 (평문 비밀번호) — 절대 커밋 금지. 양식은 keystore.properties.example
+keystore.properties
+# 서명된 산출물
+/app/release
+# macOS (exFAT 볼륨에서 생성되는 확장속성 사이드카)
+._*

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "266036690739",
+    "project_id": "freetiful-analytics",
+    "storage_bucket": "freetiful-analytics.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:266036690739:android:ca5cccb5bb1608b54cc846",
+        "android_client_info": {
+          "package_name": "com.freetiful.freetiful"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAd_7UeXzYfb6DeqaSKVT_dDqpHw7BEDKY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
