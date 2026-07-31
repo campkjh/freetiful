@@ -705,12 +705,18 @@ export class ChatService implements OnModuleInit {
     this.cacheRoomParticipants(room.id, [userId, pro.userId]);
 
     // 새 문의 알림 → 전문가에게 (fire-and-forget)
+    // 섭외요청(matchRequest)에서 시작된 견적이면 채팅방이 아니라 새요청 목록으로 보낸다 —
+    // 전문가가 요청 내용을 먼저 보고 수락/거절할 수 있어야 한다.
+    // 새요청 목록은 matchDelivery 만 렌더하므로(GET /match/pro/requests), matchRequest 가 없는
+    // 순수 채팅 문의는 그대로 채팅방으로 보낸다. 안 그러면 빈 목록에 떨어진다.
     this.notificationService.createNotification(
       pro.userId,
       'chat' as any,
       '새 문의가 도착했습니다 💬',
       `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
-      { roomId: room.id },
+      dto.matchRequestId
+        ? { roomId: room.id, matchRequestId: dto.matchRequestId, url: '/pro-dashboard/inquiries' }
+        : { roomId: room.id },
     ).catch(() => {});
 
     // 추가 쿼리 없이 응답 조립 (이미 pro join을 받아놨음)
