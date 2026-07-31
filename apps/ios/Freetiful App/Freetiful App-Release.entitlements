@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Release(TestFlight·App Store) 전용. Debug 는 Freetiful App.entitlements(development) 를 쓴다.
+	     둘을 한 파일로 공유하면 배포 빌드가 샌드박스 APNs 토큰을 받아 OneSignal 이
+	     "Apns Bad Device Token" 으로 구독을 버리고 iOS 푸시가 전부 유실된다. -->
+	<key>aps-environment</key>
+	<string>production</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:freetiful.com</string>
+	</array>
+</dict>
+</plist>
