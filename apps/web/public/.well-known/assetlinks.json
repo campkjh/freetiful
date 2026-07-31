@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.freetiful.freetiful",
+      "sha256_cert_fingerprints": [
+        "3F:3F:A3:3B:B6:2F:1F:F7:12:8A:59:2B:69:DB:87:0A:EE:10:6C:DD:56:69:34:DB:5F:B6:AA:A4:43:46:39:D1"
+      ]
+    }
+  }
+]
