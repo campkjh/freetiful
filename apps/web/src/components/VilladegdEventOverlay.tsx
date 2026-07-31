@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * 빌라드지디 첫 랜딩 이벤트 오버레이 — 앱 초기 진입 시 1회 노출(글래스 X로 닫기, localStorage 기억).
+ * 빌라드지디 첫 랜딩 이벤트 오버레이 — 초기 진입 시마다 노출(글래스 X로 닫기, 그 진입 한정).
  * 톤앤매너/인터랙션: corporate-mc(풀스크린 시네마틱 히어로 영상 + 커튼 리빌 + 스크롤 리빌/팝).
  * 지점별 대표 영상 자동재생 · 갤러리 좌→우 촤라락 리빌. 실제 빌라드지디 자산(Blob 영상 + webp).
  */
@@ -14,7 +14,6 @@ import { getWeddingPartnerImages } from '@/lib/wedding-partner-images';
 const BLOB = 'https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd';
 const HERO_VIDEO = `${BLOB}/villadegd-hero.mp4`;
 const LOGO_WHITE = `${BLOB}/villadegd-logo-white.png`;
-const DISMISS_KEY = 'villadegd_event_v3'; // 재설계 — 재노출
 
 const STRENGTHS = [
   { t: '전국 5개 지점', d: '청담 · 수서 · 안양 · 안산 · 논현, 가까운 곳에서 편하게' },
@@ -75,7 +74,10 @@ export default function VilladegdEventOverlay() {
     const isNativeIOS = typeof window !== 'undefined'
       && !!(window as any).webkit?.messageHandlers?.nativeNavState;
     if (isNativeIOS) return;
-    try { if (localStorage.getItem(DISMISS_KEY) !== 'closed') setOpen(true); } catch { setOpen(true); }
+    // '앱/웹 초기 진입 화면'이라 진입할 때마다 노출한다(X 는 그 진입에서만 닫기).
+    // 영구 저장(localStorage)으로 한 번 닫으면 다시 안 뜨던 동작을 제거 —
+    // 네이티브 iOS(NativeVilladegdLanding.shouldPresent == true)와 동일한 기준.
+    setOpen(true);
   }, []);
 
   useEffect(() => {
@@ -94,7 +96,6 @@ export default function VilladegdEventOverlay() {
   }, [open]);
 
   const close = () => {
-    try { localStorage.setItem(DISMISS_KEY, 'closed'); } catch {}
     setOpen(false);
     // 안전망: 네이티브 앱에 nav 상태를 다시 알린다.
     // 네이티브는 NAV/FOOTER 추가 시에만 MutationObserver 가 발화하고 dialog 제거는 감지하지 못해,
