@@ -1,0 +1,67 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["US45855997.freetiful-inc.Freetiful-App"],
+        "components": [
+          {
+            "/": "/auth/*",
+            "exclude": true,
+            "comment": "소셜 로그인 콜백은 사파리/SDK가 처리해야 하므로 앱으로 가로채지 않음"
+          },
+          {
+            "/": "/api/*",
+            "exclude": true,
+            "comment": "API 요청은 앱으로 열지 않음"
+          },
+          {
+            "/": "/admin/*",
+            "exclude": true,
+            "comment": "어드민은 웹 전용"
+          },
+          {
+            "/": "/payment/*",
+            "exclude": true,
+            "comment": "결제 리다이렉트는 브라우저 플로우 유지"
+          },
+          {
+            "/": "/chat",
+            "comment": "채팅 목록"
+          },
+          {
+            "/": "/chat/*",
+            "comment": "채팅방 — 채팅 푸시 알림 딥링크 대상"
+          },
+          {
+            "/": "/notifications",
+            "comment": "알림함 — 기본 푸시 폴백 경로"
+          },
+          {
+            "/": "/inquiries",
+            "comment": "문의 목록"
+          },
+          {
+            "/": "/pro-dashboard/*",
+            "comment": "사회자 대시보드 — 신규 매칭 요청 푸시"
+          },
+          {
+            "/": "/pros/*",
+            "comment": "사회자 상세 — 매칭 수락/거절 푸시"
+          },
+          {
+            "/": "/quote/*",
+            "comment": "견적 상세"
+          },
+          {
+            "/": "/my/*",
+            "comment": "마이페이지 — 결제/리뷰 푸시"
+          },
+          {
+            "/": "/main",
+            "comment": "홈 — 예약 푸시"
+          }
+        ]
+      }
+    ]
+  }
+}
