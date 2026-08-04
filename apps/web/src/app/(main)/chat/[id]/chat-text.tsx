@@ -11,6 +11,11 @@ import React from 'react';
 // 링크 뒤에 붙는 문장부호는 URL 에서 떼어낸다 ("...확인해보세요: https://a.com." 같은 케이스)
 const TRAILING_PUNCT = /[.,!?;:)\]}>"'`·…]+$/;
 
+// URL 본문은 ASCII 로만 제한한다.
+// [^\s...] 로 두면 "https://freetiful.com에서" 처럼 뒤에 붙은 한글 조사까지 URL 로 먹어 링크가 깨진다.
+const URL_BODY = "[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+";
+const URL_SPLIT = new RegExp(`(https?://${URL_BODY}|(?<![A-Za-z0-9@._-])www\\.${URL_BODY})`, 'gi');
+
 const isUrlToken = (s: string) => /^(https?:\/\/|www\.)/i.test(s);
 
 export function renderMessageText(text: string): React.ReactNode[] {
@@ -19,7 +24,7 @@ export function renderMessageText(text: string): React.ReactNode[] {
   let key = 0;
 
   // 1) URL 기준으로 자른다(캡처 그룹이라 URL 조각도 배열에 남는다)
-  for (const chunk of src.split(/(https?:\/\/[^\s<>"'`]+|www\.[^\s<>"'`]+)/gi)) {
+  for (const chunk of src.split(URL_SPLIT)) {
     if (!chunk) continue;
 
     if (isUrlToken(chunk)) {

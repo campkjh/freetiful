@@ -74,6 +74,10 @@ export default function VilladegdEventOverlay() {
     const isNativeIOS = typeof window !== 'undefined'
       && !!(window as any).webkit?.messageHandlers?.nativeNavState;
     if (isNativeIOS) return;
+    // PC(데스크톱)에서는 띄우지 않는다.
+    // 이 랜딩은 '앱 초기 진입 화면'으로 만든 것이라 모바일/앱 기준인데,
+    // z-[120] 전면 오버레이가 PC 헤더 검색창까지 덮어 '클릭이 안 된다'로 보였다.
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) return;
     // '앱/웹 초기 진입 화면'이라 진입할 때마다 노출한다(X 는 그 진입에서만 닫기).
     // 영구 저장(localStorage)으로 한 번 닫으면 다시 안 뜨던 동작을 제거 —
     // 네이티브 iOS(NativeVilladegdLanding.shouldPresent == true)와 동일한 기준.

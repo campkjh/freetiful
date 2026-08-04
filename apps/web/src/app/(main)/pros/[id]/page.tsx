@@ -980,6 +980,7 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const [headerQuery, setHeaderQuery] = useState('');   // PC 헤더 검색창
   const [pro, setPro] = useState<ProDetailData | null>(null);
   const [apiError, setApiError] = useState(false);
   const [apiLoading, setApiLoading] = useState(true);
@@ -1615,13 +1616,29 @@ export default function ProDetailPage() {
             <Link href="/main" className="flex items-center">
               <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-7 w-auto" />
             </Link>
-            <div className="flex h-11 flex-1 max-w-[520px] items-center rounded-full border border-gray-300 px-5 shadow-sm">
-              <span className="flex-1 text-[14px] text-gray-400">어떤 사회자가 필요하세요?</span>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.3" strokeLinecap="round">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M20 20l-3.5-3.5" />
-              </svg>
-            </div>
+            {/* 실제 입력 가능한 검색창 — 예전엔 span 으로 흉내만 낸 장식이라 클릭·입력이 안 됐다 */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = headerQuery.trim();
+                router.push(q ? `/pros?q=${encodeURIComponent(q)}` : '/pros');
+              }}
+              className="flex h-11 flex-1 max-w-[520px] items-center rounded-full border border-gray-300 px-5 shadow-sm focus-within:border-[#3180F7]"
+            >
+              <input
+                value={headerQuery}
+                onChange={(e) => setHeaderQuery(e.target.value)}
+                placeholder="어떤 사회자가 필요하세요?"
+                aria-label="사회자 검색"
+                className="flex-1 bg-transparent text-[14px] text-gray-900 outline-none placeholder:text-gray-400"
+              />
+              <button type="submit" aria-label="검색" className="ml-2 shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.3" strokeLinecap="round">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+              </button>
+            </form>
             <nav className="ml-auto flex items-center gap-6 text-[14px] font-semibold text-gray-900">
               <Link href="/biz">엔터프라이즈</Link>
               <Link href="/pro-register/terms">사회자 등록</Link>
@@ -1760,15 +1777,16 @@ export default function ProDetailPage() {
 
                 {hasDescriptionContent && (
                   <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
-                    <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                    <div className="space-y-5">
                       <h3 className="text-[19px] font-bold text-gray-950">사회자 소개</h3>
-                      <div className="pro-detail-html text-[14px] leading-[1.8] text-gray-800 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick} dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
+                      {/* 모바일 본문과 동일한 리치텍스트 유틸 — 없으면 preflight 때문에 문단 여백·불릿이 사라진다 */}
+                      <div className="pro-detail-html text-[15px] leading-[1.85] text-gray-800 [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:cursor-zoom-in [&_a]:text-[#3180F7] [&_a]:underline [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1.5 [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold" onClick={zoomOnImgClick} dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
                     </div>
                   </section>
                 )}
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                  <div className="space-y-5">
                     <h3 className="text-[19px] font-bold text-gray-950">영상</h3>
                     <div>
                       {pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0 ? (
@@ -1856,7 +1874,7 @@ export default function ProDetailPage() {
                 </section>
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                  <div className="space-y-5">
                     <h3 className="text-[19px] font-bold text-gray-950">대상자</h3>
                     <ul className="space-y-3 text-[14px] text-gray-800">
                       {['전문 결혼식 사회자를 찾는 예비부부', '기업행사와 컨퍼런스 진행이 필요한 담당자', '현장 분위기에 맞춘 안정적인 진행을 원하는 고객', '검증된 사회자와 직접 소통하고 싶은 고객'].map((item) => (
@@ -1883,7 +1901,7 @@ export default function ProDetailPage() {
                 </section>
 
                 <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
+                  <div className="space-y-5">
                     <h3 className="text-[19px] font-bold text-gray-950">FAQ</h3>
                     <div className="divide-y divide-gray-100">
                       {displayFaqs.map((faq, index) => (
@@ -1955,7 +1973,9 @@ export default function ProDetailPage() {
             </div>
 
             <aside className="space-y-7">
-              <button onClick={() => setImageModal(pro.images[activeImage] || pro.mainImage)} className="relative block aspect-[4/3] w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100 shadow-sm">
+              {/* 비율·라운드 모두 모바일 히어로와 동일(70:106 / 48px).
+                  aside 폭 360px 가 모바일 히어로 폭과 거의 같아 같은 크롭·같은 곡률로 보인다 */}
+              <button onClick={() => setImageModal(pro.images[activeImage] || pro.mainImage)} className="relative block aspect-[70/106] w-full overflow-hidden rounded-[48px] border border-gray-200 bg-gray-100 shadow-sm">
                 <Image src={pro.images[activeImage] || pro.mainImage} alt={pro.name} fill className="object-cover" sizes="360px" />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
                   <p className="text-[13px] font-medium opacity-80">{pro.categoryName || '사회자'} {pro.name}</p>
