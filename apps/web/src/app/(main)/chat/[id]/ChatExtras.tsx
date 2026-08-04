@@ -1746,8 +1746,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
   // 파일 선택 인풋 열기 — 안드 웹뷰는 DOM 에 안 붙은(detached) input.click() 을 무시하는
   // 기기가 있어(갤럭시 동영상/파일 안 열림) 반드시 body 에 붙였다가 정리한다.
   const pickFilesViaInput = (opts: { accept?: string; multiple?: boolean; capture?: string }, onFiles: (files: File[]) => void) => {
+    // 이전에 열었다가 사용자가 취소한 인풋이 5분간 DOM 에 남아 있었다.
+    // 안드 셸이 앞선 파일선택 콜백을 아직 물고 있으면 새 요청을 무시해 '떴다 안 떴다' 로 보인다 → 먼저 치운다.
+    document.querySelectorAll('input[data-ft-picker]').forEach((el) => el.remove());
+
     const inp = document.createElement('input');
     inp.type = 'file';
+    inp.setAttribute('data-ft-picker', '1');
     if (opts.accept) inp.accept = opts.accept;
     if (opts.multiple) inp.multiple = true;
     if (opts.capture) inp.setAttribute('capture', opts.capture);
