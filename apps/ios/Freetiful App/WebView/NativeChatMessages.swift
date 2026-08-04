@@ -262,26 +262,22 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
                 actions.append(contentsOf: [copy, partial, announce])
 
                 // 본문에 링크가 있으면 꾹눌러 메뉴로도 열 수 있게 (탭 판정이 빗나가도 우회 경로가 남는다)
-                if let d = NativeChatBubbleCell.linkDetector {
-                    let range = NSRange(m.content.startIndex..., in: m.content)
-                    let urls = d.matches(in: m.content, options: [], range: range)
-                        .compactMap { $0.url }
-                        .filter { let s = $0.scheme?.lowercased(); return s == "http" || s == "https" }
+                let urls = NativeChatBubbleCell.detectLinks(in: m.content).map { $0.url }
+                if !urls.isEmpty {
                     var seen = Set<String>()
                     var linkActions: [UIMenuElement] = []
-                    for u in urls where seen.insert(u.absoluteString).inserted {
-                        linkActions.append(UIAction(title: "링크 열기 — \(u.host ?? u.absoluteString)",
+                    for s in urls where seen.insert(s).inserted {
+                        let label = URL(string: s)?.host ?? s
+                        linkActions.append(UIAction(title: "링크 열기 — \(label)",
                                                     image: UIImage(systemName: "safari")) { _ in
                             Haptics.tap()
-                            self.delegate?.chatMessagesLinkTap(u.absoluteString)
+                            self.delegate?.chatMessagesLinkTap(s)
                         })
                         if linkActions.count == 3 { break }   // 링크 많은 메시지에서 메뉴 과밀 방지
                     }
-                    if let first = urls.first {
-                        linkActions.append(UIAction(title: "링크 복사", image: UIImage(systemName: "link")) { _ in
-                            UIPasteboard.general.string = first.absoluteString
-                        })
-                    }
+                    linkActions.append(UIAction(title: "링크 복사", image: UIImage(systemName: "link")) { _ in
+                        UIPasteboard.general.string = urls[0]
+                    })
                     actions.insert(contentsOf: linkActions, at: 0)
                 }
             }
@@ -351,6 +347,27 @@ final class NativeChatBubbleCell: UITableViewCell {
     private var linkRanges: [(range: NSRange, url: String)] = []
 
     fileprivate static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private static let urlAllowed = CharacterSet(charactersIn:
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~:/?#[]@!$&'()*+,;=%")
+
+    /// 본문에서 http(s) 링크를 찾아 (범위, URL) 로 돌려준다.
+    /// NSDataDetector 는 "https://a.com에서" 처럼 뒤에 붙은 한글 조사까지 도메인으로 먹고
+    /// punycode(xn--…)로 바꿔버려 엉뚱한 주소가 열린다 → 허용 ASCII 밖 문자는 잘라낸다.
+    fileprivate static func detectLinks(in text: String) -> [(range: NSRange, url: String)] {
+        guard let detector = linkDetector, !text.isEmpty else { return [] }
+        let full = NSRange(text.startIndex..., in: text)
+        var out: [(range: NSRange, url: String)] = []
+        for m in detector.matches(in: text, options: [], range: full) {
+            guard let r = Range(m.range, in: text) else { continue }
+            var s = String(text[r])
+            while let last = s.unicodeScalars.last, !urlAllowed.contains(last) { s.unicodeScalars.removeLast() }
+            while let last = s.last, ".,!?;:)]}\"'".contains(last) { s.removeLast() }
+            guard let u = URL(string: s), let scheme = u.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https", u.host != nil else { continue }
+            out.append((NSRange(location: m.range.location, length: s.utf16.count), s))
+        }
+        return out
+    }
 
     fileprivate static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -477,8 +494,8 @@ final class NativeChatBubbleCell: UITableViewCell {
         linkRanges = []   // 셀 재사용 — 비우지 않으면 이전 메시지 링크가 남아 오탭된다
 
         let baseColor: UIColor = mine ? .white : UIColor(white: 0.1, alpha: 1)
-        guard isText, !text.isEmpty,
-              let detector = NativeChatBubbleCell.linkDetector else {
+        let found = isText ? NativeChatBubbleCell.detectLinks(in: text) : []
+        guard !found.isEmpty else {
             messageLabel.attributedText = nil
             messageLabel.textColor = baseColor
             messageLabel.text = text
@@ -486,17 +503,6 @@ final class NativeChatBubbleCell: UITableViewCell {
         }
 
         let full = NSRange(text.startIndex..., in: text)
-        let matches = detector.matches(in: text, options: [], range: full).filter {
-            let s = $0.url?.scheme?.lowercased()
-            return s == "http" || s == "https"
-        }
-        guard !matches.isEmpty else {
-            messageLabel.attributedText = nil
-            messageLabel.textColor = baseColor
-            messageLabel.text = text
-            return
-        }
-
         let attr = NSMutableAttributedString(string: text, attributes: [
             .font: UIFont.systemFont(ofSize: 15.5),
             .foregroundColor: baseColor,
@@ -506,14 +512,13 @@ final class NativeChatBubbleCell: UITableViewCell {
         para.lineBreakMode = .byCharWrapping
         attr.addAttribute(.paragraphStyle, value: para, range: full)
 
-        for match in matches {
-            guard let url = match.url else { continue }
+        for link in found {
             attr.addAttributes([
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .foregroundColor: mine ? UIColor.white : UIColor.systemBlue,
-            ], range: match.range)
-            linkRanges.append((match.range, url.absoluteString))
+            ], range: link.range)
         }
+        linkRanges = found
         messageLabel.attributedText = attr
     }
 
