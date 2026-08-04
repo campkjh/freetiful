@@ -153,10 +153,16 @@ struct NativeLoginView: View {
     /// 비회원 로그인 입력 — 견적 신청 때 쓴 전화번호 + 이름
     private var guestLoginSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("* 비회원으로 견적을 신청하신 경우")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary.opacity(0.75))
+                Text("도착한 견적을 확인하려면, 견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             TextField("전화번호 (예: 01012345678)", text: $guestPhone)
                 .keyboardType(.numberPad)
