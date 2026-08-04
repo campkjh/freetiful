@@ -85,16 +85,22 @@ struct NativeLoginView: View {
             .padding(.top, 26)
             .padding(.bottom, 26)
             .frame(maxWidth: .infinity)
+            // 비회원 로그인(입력 폼)일 땐 글래스 대신 불투명 흰색 —
+            // 뒤 배경이 비쳐 입력 필드 가독성이 떨어지는 걸 막는다.
             .background(
                 ZStack {
-                    LiquidGlassView()
-                    Color.white.opacity(0.4)   // 오퍼시티 40 글래스
+                    if guestMode {
+                        Color.white
+                    } else {
+                        LiquidGlassView()
+                        Color.white.opacity(0.4)   // 오퍼시티 40 글래스
+                    }
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                    .stroke(Color.white.opacity(guestMode ? 0 : 0.55), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.22), radius: 26, y: 8)
             .padding(.horizontal, 10)
@@ -147,10 +153,16 @@ struct NativeLoginView: View {
     /// 비회원 로그인 입력 — 견적 신청 때 쓴 전화번호 + 이름
     private var guestLoginSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("* 비회원으로 견적을 신청하신 경우")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary.opacity(0.75))
+                Text("도착한 견적을 확인하려면, 견적 신청 때 입력하신 전화번호와 이름을 그대로 입력해주세요.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             TextField("전화번호 (예: 01012345678)", text: $guestPhone)
                 .keyboardType(.numberPad)
