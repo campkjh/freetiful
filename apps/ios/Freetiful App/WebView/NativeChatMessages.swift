@@ -77,6 +77,8 @@ protocol NativeChatMessagesDelegate: AnyObject {
     func chatMessagesDeleteMedia(_ id: String)
     // 파일 탭 → 다운로드 후 미리보기/공유 (fileName 으로 저장돼 PDF 등 타입 인식)
     func chatMessagesFileTap(_ url: String, fileName: String)
+    // 텍스트 메시지 안의 URL 탭 → 사파리 시트
+    func chatMessagesLinkTap(_ url: String)
 }
 
 // 네이티브 채팅 본문 (UITableView) — 글래스 헤더 아래 / 입력바 위
@@ -258,6 +260,30 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
                     self.delegate?.chatMessagesAnnounce(m.id)
                 }
                 actions.append(contentsOf: [copy, partial, announce])
+
+                // 본문에 링크가 있으면 꾹눌러 메뉴로도 열 수 있게 (탭 판정이 빗나가도 우회 경로가 남는다)
+                if let d = NativeChatBubbleCell.linkDetector {
+                    let range = NSRange(m.content.startIndex..., in: m.content)
+                    let urls = d.matches(in: m.content, options: [], range: range)
+                        .compactMap { $0.url }
+                        .filter { let s = $0.scheme?.lowercased(); return s == "http" || s == "https" }
+                    var seen = Set<String>()
+                    var linkActions: [UIMenuElement] = []
+                    for u in urls where seen.insert(u.absoluteString).inserted {
+                        linkActions.append(UIAction(title: "링크 열기 — \(u.host ?? u.absoluteString)",
+                                                    image: UIImage(systemName: "safari")) { _ in
+                            Haptics.tap()
+                            self.delegate?.chatMessagesLinkTap(u.absoluteString)
+                        })
+                        if linkActions.count == 3 { break }   // 링크 많은 메시지에서 메뉴 과밀 방지
+                    }
+                    if let first = urls.first {
+                        linkActions.append(UIAction(title: "링크 복사", image: UIImage(systemName: "link")) { _ in
+                            UIPasteboard.general.string = first.absoluteString
+                        })
+                    }
+                    actions.insert(contentsOf: linkActions, at: 0)
+                }
             }
             return UIMenu(title: "", children: actions)
         }
@@ -302,6 +328,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
         }
         let cell = tableView.dequeueReusableCell(withIdentifier: "bubble", for: indexPath) as! NativeChatBubbleCell
         cell.configure(m)
+        cell.onLinkTap = { [weak self] url in self?.delegate?.chatMessagesLinkTap(url) }
         return cell
     }
 }
@@ -318,6 +345,12 @@ final class NativeChatBubbleCell: UITableViewCell {
     private var trailingC: NSLayoutConstraint!
     private var timeLeadingC: NSLayoutConstraint!
     private var timeTrailingC: NSLayoutConstraint!
+
+    // 본문 속 URL — UILabel 은 링크 개념이 없어서 range 를 직접 들고 탭 좌표로 판정한다
+    var onLinkTap: ((String) -> Void)?
+    private var linkRanges: [(range: NSRange, url: String)] = []
+
+    fileprivate static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     fileprivate static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -357,6 +390,12 @@ final class NativeChatBubbleCell: UITableViewCell {
 
         messageLabel.font = .systemFont(ofSize: 15.5)
         messageLabel.numberOfLines = 0
+        // UILabel 은 기본이 false — 켜지 않으면 탭 제스처가 아예 안 붙는다.
+        // cancelsTouchesInView=false 라야 테이블의 키보드 내리기 탭과 공존한다.
+        messageLabel.isUserInteractionEnabled = true
+        let linkTap = UITapGestureRecognizer(target: self, action: #selector(handleLinkTap(_:)))
+        linkTap.cancelsTouchesInView = false
+        messageLabel.addGestureRecognizer(linkTap)
 
         bubbleStack.translatesAutoresizingMaskIntoConstraints = false
         bubbleStack.axis = .vertical
@@ -404,7 +443,7 @@ final class NativeChatBubbleCell: UITableViewCell {
             ? UIColor(red: 0.192, green: 0.502, blue: 0.969, alpha: 1) // #3180F7
             : UIColor(white: 0.92, alpha: 1)
         messageLabel.textColor = mine ? .white : UIColor(white: 0.1, alpha: 1)
-        messageLabel.text = displayText(m)
+        applyText(displayText(m), isText: m.type == "text", mine: mine)
         bubble.alpha = m.pending ? 0.6 : 1.0
 
         let hasReply = !m.replyContent.isEmpty
@@ -429,6 +468,82 @@ final class NativeChatBubbleCell: UITableViewCell {
         } else {
             leadingC.isActive = true
             timeLeadingC.isActive = true
+        }
+    }
+
+    /// 본문을 넣으면서 URL 을 찾아 밑줄 + linkRanges 기록.
+    /// attributedText 를 쓰면 label.font/textColor 가 무시되므로 전체 범위에 명시해야 한다.
+    private func applyText(_ text: String, isText: Bool, mine: Bool) {
+        linkRanges = []   // 셀 재사용 — 비우지 않으면 이전 메시지 링크가 남아 오탭된다
+
+        let baseColor: UIColor = mine ? .white : UIColor(white: 0.1, alpha: 1)
+        guard isText, !text.isEmpty,
+              let detector = NativeChatBubbleCell.linkDetector else {
+            messageLabel.attributedText = nil
+            messageLabel.textColor = baseColor
+            messageLabel.text = text
+            return
+        }
+
+        let full = NSRange(text.startIndex..., in: text)
+        let matches = detector.matches(in: text, options: [], range: full).filter {
+            let s = $0.url?.scheme?.lowercased()
+            return s == "http" || s == "https"
+        }
+        guard !matches.isEmpty else {
+            messageLabel.attributedText = nil
+            messageLabel.textColor = baseColor
+            messageLabel.text = text
+            return
+        }
+
+        let attr = NSMutableAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: 15.5),
+            .foregroundColor: baseColor,
+        ])
+        // 공백 없는 긴 URL 이 말풍선 폭(화면 0.72)을 넘어 잘리지 않도록
+        let para = NSMutableParagraphStyle()
+        para.lineBreakMode = .byCharWrapping
+        attr.addAttribute(.paragraphStyle, value: para, range: full)
+
+        for match in matches {
+            guard let url = match.url else { continue }
+            attr.addAttributes([
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .foregroundColor: mine ? UIColor.white : UIColor.systemBlue,
+            ], range: match.range)
+            linkRanges.append((match.range, url.absoluteString))
+        }
+        messageLabel.attributedText = attr
+    }
+
+    /// 탭 좌표 → 문자 인덱스로 바꿔 링크 범위 안이면 연다.
+    @objc private func handleLinkTap(_ g: UITapGestureRecognizer) {
+        guard !linkRanges.isEmpty,
+              let attr = messageLabel.attributedText else { return }
+
+        let storage = NSTextStorage(attributedString: attr)
+        let manager = NSLayoutManager()
+        let container = NSTextContainer(size: messageLabel.bounds.size)
+        container.lineFragmentPadding = 0
+        container.lineBreakMode = messageLabel.lineBreakMode
+        container.maximumNumberOfLines = messageLabel.numberOfLines
+        manager.addTextContainer(container)
+        storage.addLayoutManager(manager)
+
+        let point = g.location(in: messageLabel)
+        // 라벨은 텍스트를 세로 가운데 정렬하므로 그만큼 보정
+        let used = manager.usedRect(for: container)
+        let offsetY = (messageLabel.bounds.height - used.height) / 2
+        let adjusted = CGPoint(x: point.x, y: point.y - offsetY)
+        guard used.contains(adjusted) else { return }
+
+        let index = manager.characterIndex(for: adjusted, in: container,
+                                           fractionOfDistanceBetweenInsertionPoints: nil)
+        for link in linkRanges where NSLocationInRange(index, link.range) {
+            Haptics.tap()
+            onLinkTap?(link.url)
+            return
         }
     }
 

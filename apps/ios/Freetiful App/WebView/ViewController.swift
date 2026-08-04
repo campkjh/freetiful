@@ -1896,6 +1896,19 @@ class ViewController: UIViewController,
         webView.evaluateJavaScript("window.__freetifulChat && window.__freetifulChat.deleteMedia && window.__freetifulChat.deleteMedia(\(jsLiteral(id)));", completionHandler: nil)
     }
 
+    func chatMessagesLinkTap(_ url: String) {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let u = URL(string: trimmed) else { return }
+        Haptics.tap()
+        // SFSafariViewController 는 http/https 만 받는다 — mailto:/tel: 을 넘기면 예외로 죽으므로 시스템에 위임
+        let scheme = (u.scheme ?? "").lowercased()
+        if scheme == "http" || scheme == "https" {
+            present(SFSafariViewController(url: u), animated: true)
+        } else if UIApplication.shared.canOpenURL(u) {
+            UIApplication.shared.open(u)
+        }
+    }
+
     func chatMessagesFileTap(_ url: String, fileName: String) {
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -2797,23 +2810,59 @@ class ViewController: UIViewController,
                  decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.allow); return }
-        let host = url.host ?? ""
+        let host = (url.host ?? "").lowercased()
+        let scheme = (url.scheme ?? "").lowercased()
 
-        if host.contains("apps.apple.com") || host.contains("play.google.com") || url.scheme == "tel" {
+        if host.contains("apps.apple.com") || host.contains("play.google.com") || scheme == "tel" {
             UIApplication.shared.open(url)
             decisionHandler(.cancel)
             return
         }
+
+        // WKWebView 가 못 여는 스킴을 .allow 하면 아무 일도 안 일어난다(mailto: 무동작의 원인).
+        if !scheme.isEmpty, !["http", "https", "about", "data", "blob", "file"].contains(scheme) {
+            if UIApplication.shared.canOpenURL(url) { UIApplication.shared.open(url) }
+            decisionHandler(.cancel)
+            return
+        }
+
+        // '사용자가 직접 누른' 외부 http(s) 링크만 사파리 시트로.
+        // .linkActivated 한정이 핵심 — 카카오/네이버 OAuth 와 토스 결제 리다이렉트는 .other 라
+        // 그대로 웹뷰에서 진행돼야 한다.
+        if navigationAction.navigationType == .linkActivated, !isInternalWebHost(host) {
+            present(SFSafariViewController(url: url), animated: true)
+            decisionHandler(.cancel)
+            return
+        }
+
         decisionHandler(.allow)
+    }
+
+    /// 앱이 계속 웹뷰에서 처리해야 하는 내부 호스트
+    private func isInternalWebHost(_ host: String) -> Bool {
+        if host.isEmpty { return true }
+        return host.contains("freetiful.com")
+            || host.contains("localhost")
+            || host.contains("railway.app")
+            || host.contains("supabase")
     }
 
     func webView(_ webView: WKWebView,
                  createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction,
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-            webView.load(URLRequest(url: url))
+        guard navigationAction.targetFrame == nil,
+              let url = navigationAction.request.url else { return nil }
+        let host = (url.host ?? "").lowercased()
+        let scheme = (url.scheme ?? "").lowercased()
+
+        // target="_blank" 외부 링크가 메인 웹뷰를 갈아치우면 돌아올 길이 없어진다 → 사파리 시트.
+        // 단, window.open 팝업(결제창 등 내부 호스트)은 기존대로 웹뷰에 싣는다.
+        if (scheme == "http" || scheme == "https"), !isInternalWebHost(host) {
+            present(SFSafariViewController(url: url), animated: true)
+            return nil
         }
+        webView.load(URLRequest(url: url))
         return nil
     }
 
