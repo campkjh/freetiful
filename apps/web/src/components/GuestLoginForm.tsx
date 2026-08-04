@@ -66,7 +66,9 @@ export default function GuestLoginForm({
   return (
     <div className={compact ? 'mt-3' : 'mt-4'}>
       <p className="mb-2.5 text-[13px] leading-relaxed text-gray-500">
-        견적 신청 때 입력하신 <b className="text-gray-700">전화번호와 이름</b>을 그대로 입력해주세요.
+        <b className="block text-gray-700">* 비회원으로 견적을 신청하신 경우</b>
+        도착한 견적을 확인하려면, 견적 신청 때 입력하신{' '}
+        <b className="text-gray-700">전화번호와 이름</b>을 그대로 입력해주세요.
       </p>
       <input
         type="tel" inputMode="numeric" value={phone}
