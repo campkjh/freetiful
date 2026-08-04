@@ -233,7 +233,8 @@ function DesktopProsHeader({
           <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-[34px] w-auto" />
         </Link>
         <div className="relative h-[60px] w-full max-w-[640px]">
-          <Search className="absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
+          {/* pointer-events-none — 아이콘이 input 위에 겹쳐 그려져 그 부분 클릭이 먹히지 않던 문제 */}
+          <Search className="pointer-events-none absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}

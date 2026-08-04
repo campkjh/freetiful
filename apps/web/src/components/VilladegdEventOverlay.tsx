@@ -74,12 +74,11 @@ export default function VilladegdEventOverlay() {
     const isNativeIOS = typeof window !== 'undefined'
       && !!(window as any).webkit?.messageHandlers?.nativeNavState;
     if (isNativeIOS) return;
-    // 홈으로 진입했을 때만 띄운다. 이 오버레이는 (main) 레이아웃에 마운트돼 하위 경로 전부에
-    // 걸리는데, 푸시 딥링크(/chat/<id> 등)로 들어온 사용자까지 덮어버리면 목적지를 가린다.
-    // 레이아웃은 전체 로드당 한 번 마운트되므로 여기서 읽은 pathname 이 곧 '초기 진입 경로'다.
-    const entryPath = window.location.pathname.replace(/\/+$/, '') || '/';
-    if (entryPath !== '/' && entryPath !== '/main') return;
-    // '초기 진입 화면'이라 진입할 때마다 노출한다(X 는 그 진입에서만 닫기).
+    // PC(데스크톱)에서는 띄우지 않는다.
+    // 이 랜딩은 '앱 초기 진입 화면'으로 만든 것이라 모바일/앱 기준인데,
+    // z-[120] 전면 오버레이가 PC 헤더 검색창까지 덮어 '클릭이 안 된다'로 보였다.
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) return;
+    // '앱/웹 초기 진입 화면'이라 진입할 때마다 노출한다(X 는 그 진입에서만 닫기).
     // 영구 저장(localStorage)으로 한 번 닫으면 다시 안 뜨던 동작을 제거 —
     // 네이티브 iOS(NativeVilladegdLanding.shouldPresent == true)와 동일한 기준.
     setOpen(true);
