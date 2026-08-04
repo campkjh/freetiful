@@ -27,7 +27,7 @@ interface SettlementLogItem {
     id: string;
     amount: number;
     createdAt: string;
-    user: { id: string; name: string };
+    user: { id: string; name: string; phone?: string | null };
     quotations: { title: string; eventDate: string | null }[];
   };
   settledBy: { id: string; name: string } | null;
@@ -63,6 +63,8 @@ export default function AdminSettlementsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // 고객명 클릭 시 연락처를 펼쳐 보여줄 행 id
+  const [openPhoneId, setOpenPhoneId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
@@ -147,6 +149,7 @@ export default function AdminSettlementsPage() {
         { header: '프로', value: (row) => row.proProfile?.user?.name || '' },
         { header: '프로이메일', value: (row) => row.proProfile?.user?.email || '' },
         { header: '고객', value: (row) => row.payment?.user?.name || '' },
+        { header: '고객연락처', value: (row) => row.payment?.user?.phone || '' },
         { header: '행사', value: (row) => row.payment?.quotations?.[0]?.title || '' },
         { header: '행사일', value: (row) => formatExportDate(row.payment?.quotations?.[0]?.eventDate) },
         { header: '금액', value: (row) => row.amount },
@@ -253,7 +256,30 @@ export default function AdminSettlementsPage() {
                 return (
                   <tr key={it.id} className="border-t border-gray-100 hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-medium text-gray-900">{it.proProfile?.user?.name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{it.payment.user?.name || '—'}</td>
+                    {/* 고객명 클릭 → 연락처 토글(복사도 가능하게 tel 링크) */}
+                    <td className="px-4 py-3 text-gray-600">
+                      {it.payment.user?.name ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenPhoneId((cur) => (cur === it.id ? null : it.id))}
+                          className="text-left underline decoration-dotted underline-offset-4 hover:text-gray-900"
+                          title="클릭하면 연락처가 보여요"
+                        >
+                          {it.payment.user.name}
+                        </button>
+                      ) : '—'}
+                      {openPhoneId === it.id && (
+                        <div className="mt-1 text-[12px]">
+                          {it.payment.user?.phone ? (
+                            <a href={`tel:${it.payment.user.phone}`} className="font-semibold text-[#3182F6] tabular-nums">
+                              {it.payment.user.phone}
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">연락처 없음</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[180px]">{quote?.title || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(quote?.eventDate || null)}</td>
                     <td className="px-4 py-3 text-right text-gray-600">₩{it.amount.toLocaleString()}</td>

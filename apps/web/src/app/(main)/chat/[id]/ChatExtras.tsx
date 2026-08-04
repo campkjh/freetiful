@@ -1217,15 +1217,8 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 }
 
 // Highlight @mentions in text
-export function renderTextWithMentions(text: string) {
-  const parts = text.split(/(@[\w가-힣]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('@')) {
-      return <span key={i} className="font-bold text-[#0A84FF] bg-[#0A84FF]/15 px-1 py-0.5 rounded">{part}</span>;
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
+// 공용 렌더러(@멘션 + URL 링크화) 재노출 — 기존 import 경로 호환 유지
+export { renderTextWithMentions } from './chat-text';
 
 // ─── ChatExtras Props ───
 
