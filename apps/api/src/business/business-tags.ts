@@ -71,12 +71,19 @@ export function stripBusinessTagMarker(html?: string | null) {
 }
 
 export function withBusinessTagMarker(html: string | null | undefined, tags: unknown) {
+  // 가시성 마커는 태그와 별개 개념 — stripBusinessTagMarker 가 둘 다 지우므로
+  // 기존 가시성 값을 먼저 읽어뒀다가 태그 마커를 다시 단 뒤 복원한다.
+  // (안 그러면 태그만 수정해도 kakao-seeded 업체가 기본 숨김으로 되돌아가는 사고가 남 —
+  //  2026-08-04 빌라드지디 4개 지점이 리스트에서 사라졌던 실사고)
+  const visibility = extractBusinessVisibilityFromHtml(html);
   const cleanHtml = stripBusinessTagMarker(html);
   const normalizedTags = normalizeBusinessTags(tags);
-  if (normalizedTags.length === 0) return cleanHtml;
 
-  const encoded = Buffer.from(JSON.stringify(normalizedTags), 'utf8').toString('base64');
-  return `${cleanHtml || ''}\n<!--freetiful-business-tags:${encoded}-->`.trim();
+  const withTags = normalizedTags.length === 0
+    ? cleanHtml
+    : `${cleanHtml || ''}\n<!--freetiful-business-tags:${Buffer.from(JSON.stringify(normalizedTags), 'utf8').toString('base64')}-->`.trim();
+
+  return withBusinessVisibilityMarker(withTags, visibility === null ? undefined : visibility);
 }
 
 export function extractBusinessVisibilityFromHtml(html?: string | null) {
