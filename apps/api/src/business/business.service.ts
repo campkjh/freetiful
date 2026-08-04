@@ -9,6 +9,20 @@ import { isBusinessRelevantToAnyCategory, isBusinessRelevantToCategory } from '.
 
 const BUSINESS_LIST_MAX_CANDIDATES = 1000;
 
+// 리스트 상단 고정 — 빌라드지디 제휴 지점을 이 순서대로 최상단에 노출한다.
+// (나머지 업체들은 기존 createdAt asc 순서 유지 — Array#sort 는 stable)
+const PINNED_BUSINESS_ORDER = [
+  '빌라드지디 안산',
+  '빌라드지디 안양',
+  '빌라드지디 수서',
+  '빌라드지디 논현',
+  '빌라드지디 청담',
+];
+const pinnedRank = (name?: string | null) => {
+  const i = PINNED_BUSINESS_ORDER.indexOf(String(name || '').trim());
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+};
+
 @Injectable()
 export class BusinessService {
   constructor(private prisma: PrismaService) {}
@@ -92,6 +106,8 @@ export class BusinessService {
         ? isBusinessRelevantToCategory(item, category)
         : isBusinessRelevantToAnyCategory(item);
     });
+    // 고정 지점을 요청 순서대로 최상단에 (stable sort — 나머지는 createdAt asc 유지)
+    filteredItems.sort((a, b) => pinnedRank(a.businessName) - pinnedRank(b.businessName));
     const items = filteredItems.slice(skip, skip + normalizedLimit);
     const total = filteredItems.length;
 
