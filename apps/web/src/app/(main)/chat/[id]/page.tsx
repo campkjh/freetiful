@@ -11,6 +11,7 @@ import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
+import { renderTextWithMentions } from './chat-text';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -220,16 +221,8 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
   return [...fetchedMerged, ...preserved].sort((a, b) => messageTime(a) - messageTime(b));
 }
 
-// Simple inline text with @mention highlighting
-function renderTextWithMentions(text: string) {
-  const parts = text.split(/(@[\w가-힣]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('@')) {
-      return <span key={i} className="font-bold text-[#0A84FF] bg-[#0A84FF]/15 px-1 py-0.5 rounded">{part}</span>;
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
+// @멘션 하이라이트 + URL 링크화는 chat-text.tsx 공용 렌더러로 통일
+// (예전엔 여기서 @멘션만 처리해 채팅 속 링크가 눌리지 않았다)
 
 // Lightweight system message fallback (text-only pill) until ChatExtras loads the rich card
 function SystemMessageFallback({ msg }: { msg: Message }) {

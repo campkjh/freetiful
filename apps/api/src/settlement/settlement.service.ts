@@ -156,7 +156,9 @@ export class SettlementService {
     const users = userIds.length
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
-          select: { id: true, name: true },
+          // phone — 어드민 정산내역의 고객 연락처 표시·엑셀 내보내기에 사용
+          // (관리자 전용 목록이라 여기서만 노출. getMyLogs 는 프로 본인 조회라 제외)
+          select: { id: true, name: true, phone: true },
         })
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
