@@ -1,7 +1,7 @@
 import Foundation
 import OneSignalFramework
 
-class OneSignalManager: NSObject, OSNotificationClickListener {
+class OneSignalManager: NSObject, OSNotificationClickListener, OSNotificationLifecycleListener {
 
     static let shared = OneSignalManager()
     private var pendingDeepLink: String?
@@ -14,6 +14,9 @@ class OneSignalManager: NSObject, OSNotificationClickListener {
 
         OneSignal.initialize("fcf1313b-36ee-40ab-8fbc-4da8727ae83f")
         OneSignal.Notifications.addClickListener(self)
+        // 포그라운드 수신 리스너 — 앱 사용 중에도 배너가 항상 표시되도록 명시하고,
+        // 푸시가 기기까지 도달하는지 콘솔에서 진단할 수 있게 수신 로그를 남긴다.
+        OneSignal.Notifications.addForegroundLifecycleListener(self)
 
         OneSignal.Notifications.requestPermission { accepted in
             print("🔔 Permission: \(accepted)")
@@ -53,6 +56,13 @@ class OneSignalManager: NSObject, OSNotificationClickListener {
         let value = pendingDeepLink
         pendingDeepLink = nil
         return value
+    }
+
+    /// 포그라운드 수신 — preventDefault 를 호출하지 않으면 배너가 그대로 표시된다.
+    /// (수신 자체가 되는지 콘솔 진단용 로그 포함)
+    func onWillDisplay(event: OSNotificationWillDisplayEvent) {
+        let n = event.notification
+        print("🔔 [푸시 수신/포그라운드] id=\(n.notificationId ?? "-") title=\(n.title ?? "-")")
     }
 
     func onClick(event: OSNotificationClickEvent) {

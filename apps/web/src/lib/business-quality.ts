@@ -243,6 +243,9 @@ export function isAllowedBusinessImageUrl(url?: string | null) {
 export function sanitizeBusinessImageUrls(urls: Array<string | null | undefined>) {
   return urls
     .map((url) => String(url || '').trim())
+    // 자사 절대 URL 은 상대경로로 정규화 — DB(절대)와 큐레이션 세트(상대)가 같은 사진일 때
+    // 문자열이 달라 중복 노출되던 것을 dedup 되게 한다.
+    .map((url) => url.replace(/^https?:\/\/(www\.)?freetiful\.com(?=\/)/, ''))
     .filter((url) => isAllowedBusinessImageUrl(url))
     .filter((url, index, array) => array.indexOf(url) === index);
 }
