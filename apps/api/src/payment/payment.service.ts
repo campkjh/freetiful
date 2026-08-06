@@ -77,6 +77,27 @@ export class PaymentService {
     return tossData?.method ?? null;
   }
 
+  /** 하이픈·공백을 떼고 숫자만 남긴다. 010-1234-5678 → 01012345678 */
+  private normalizePhone(raw?: string | null): string | null {
+    const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+    if (!digits) return null;
+    // +82 국가번호로 들어오면 국내 표기로 되돌린다
+    const local = digits.startsWith('82') && digits.length >= 11 ? `0${digits.slice(2)}` : digits;
+    if (local.length < 9 || local.length > 11) return null;
+    return local;
+  }
+
+  /** 결제 화면에서 받은 번호를 우선하고, 없으면 계정에 등록된 번호를 쓴다 */
+  private async resolveCustomerPhone(userId: string, input?: string | null): Promise<string | null> {
+    const typed = this.normalizePhone(input);
+    if (typed) return typed;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
+    return this.normalizePhone(user?.phone);
+  }
+
   /** 주문 생성 (결제 전 pending Payment 레코드) */
   async createOrder(
     userId: string,
@@ -88,8 +109,12 @@ export class PaymentService {
       eventDate?: string;
       eventLocation?: string;
       eventTime?: string;
+      customerPhone?: string;
     },
   ) {
+    // 결제 당시 연락처. 클라이언트가 안 보내면 계정에 등록된 번호로 폴백한다.
+    const customerPhone = await this.resolveCustomerPhone(userId, data.customerPhone);
+
     // quotationId가 없으면 신규 견적 레코드 생성
     let quotationId = data.quotationId;
     if (!quotationId) {
@@ -134,6 +159,13 @@ export class PaymentService {
     });
 
     if (existingPending && existingPending.amount === data.amount && existingPending.pgTransactionId) {
+      // 재사용 시에도 이번에 입력한 연락처를 반영한다(첫 시도에 못 받았거나 번호를 고친 경우)
+      if (customerPhone && customerPhone !== existingPending.customerPhone) {
+        await this.prisma.payment.update({
+          where: { id: existingPending.id },
+          data: { customerPhone },
+        });
+      }
       return {
         orderId: existingPending.pgTransactionId,
         amount: existingPending.amount,
@@ -153,6 +185,7 @@ export class PaymentService {
         status: 'pending',
         pgProvider: 'tosspayments',
         pgTransactionId: orderId,
+        customerPhone: customerPhone ?? undefined,
       },
     });
 
@@ -181,6 +214,11 @@ export class PaymentService {
       throw new ForbiddenException('본인의 결제만 승인할 수 있습니다.');
     }
 
+    // pending 이 아니면 재처리 금지. 단, 가상계좌 입금대기(waiting_for_deposit)에서
+    // 성공페이지를 새로고침하는 경우엔 현재 상태(입금대기)를 그대로 돌려준다(에러 대신).
+    if (payment.status === 'waiting_for_deposit') {
+      return { ...payment, chatRoomId: null, awaitingDeposit: true };
+    }
     if (payment.status !== 'pending') {
       throw new BadRequestException('이미 처리된 결제입니다.');
     }
@@ -206,8 +244,38 @@ export class PaymentService {
     );
 
     const tossData = tossResponse.data;
+    const tossStatus = String(tossData?.status || '');
 
-    // Payment 레코드 업데이트
+    // ⚠️ 가상계좌(무통장)는 confirm 직후 status = WAITING_FOR_DEPOSIT (계좌 발급만, 미입금).
+    // 실제 입금 완료는 토스 웹훅(DEPOSIT_CALLBACK, status=DONE)으로만 확정된다.
+    // 따라서 status !== 'DONE' 이면 결제완료 처리(견적 paid / 채팅 / 알림 / 정산로그)를 절대 실행하지 않는다.
+    if (tossStatus !== 'DONE') {
+      const va = tossData?.virtualAccount;
+      const waitingPayment = await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'waiting_for_deposit',
+          method: this.formatEasyPayMethod(tossData),
+          pgTransactionId: data.paymentKey,
+        },
+      });
+      this.logger.log(`가상계좌 발급(입금대기) payment=${payment.id} status=${tossStatus}`);
+      return {
+        ...waitingPayment,
+        chatRoomId: null,
+        awaitingDeposit: true,
+        virtualAccount: va
+          ? {
+              bank: va.bankCode || va.bank || null,
+              accountNumber: va.accountNumber || null,
+              dueDate: va.dueDate || null,
+              customerName: va.customerName || null,
+            }
+          : null,
+      };
+    }
+
+    // 여기부터는 status === 'DONE' — 실제 결제 완료.
     const updatedPayment = await this.prisma.payment.update({
       where: { id: payment.id },
       data: {
@@ -217,6 +285,20 @@ export class PaymentService {
       },
     });
 
+    const { chatRoomId } = await this.runPaidSideEffects(payment, data.amount);
+
+    return { ...updatedPayment, chatRoomId };
+  }
+
+  /**
+   * 결제가 실제로 완료(DONE)된 뒤에만 실행하는 부수효과 —
+   * 견적 paid 전환 · 채팅 시스템 메시지 · 고객/전문가 알림 · 대시보드 갱신 · 정산로그 생성.
+   * 카드 즉시결제(confirm DONE)와 가상계좌 입금완료(웹훅 DONE) 양쪽에서 재사용한다.
+   */
+  private async runPaidSideEffects(
+    payment: { id: string; userId: string; proProfileId: string; quotationId: string | null; amount: number; platformFee: number | null; netAmount: number | null },
+    amount: number,
+  ): Promise<{ chatRoomId: string | null }> {
     // 연관된 견적서 상태 조회
     let paidQuotation: any = null;
     if (payment.quotationId) {
@@ -264,7 +346,7 @@ export class PaymentService {
       if (room?.id) {
         chatRoomId = room.id;
         const eventTitle = paidQuotation?.title || '결제';
-        const sysContent = `결제가 완료되었습니다 (${data.amount.toLocaleString()}원).`;
+        const sysContent = `결제가 완료되었습니다 (${amount.toLocaleString()}원).`;
         const systemMessage = await this.chatService.sendMessage(room.id, payment.userId, {
           type: MessageTypeEnum.system,
           content: sysContent,
@@ -273,7 +355,7 @@ export class PaymentService {
               kind: 'payment_paid',
               paymentId: payment.id,
               quotationId: paidQuotation?.id,
-              amount: data.amount,
+              amount,
               eventName: eventTitle,
             },
           },
@@ -295,7 +377,7 @@ export class PaymentService {
         payment.userId,
         'payment' as any,
         '결제가 완료되었습니다',
-        `${data.amount.toLocaleString()}원 결제가 완료되었습니다.`,
+        `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
         { paymentId: payment.id },
       ).catch(() => {});
 
@@ -309,7 +391,7 @@ export class PaymentService {
           proProfile.userId,
           'payment' as any,
           '결제가 완료되었습니다',
-          `${data.amount.toLocaleString()}원 결제가 완료되었습니다.`,
+          `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
           { paymentId: payment.id },
         ).catch(() => {});
       }
@@ -342,7 +424,73 @@ export class PaymentService {
       this.logger.error(`SettlementLog 생성 실패: ${e}`);
     }
 
-    return { ...updatedPayment, chatRoomId };
+    return { chatRoomId };
+  }
+
+  /**
+   * 토스 웹훅 수신 — 가상계좌 입금 완료/취소를 확정한다.
+   * PAYMENT_STATUS_CHANGED / DEPOSIT_CALLBACK 이벤트 처리.
+   * (인증 헤더 없이 토스가 호출하므로 컨트롤러에서 Public. orderId/paymentKey 로 결제를 재조회해 신뢰.)
+   */
+  async handleTossWebhook(body: any): Promise<{ ok: boolean }> {
+    try {
+      const eventType = String(body?.eventType || '');
+      const payload = body?.data || body || {};
+      const status = String(payload?.status || '');
+      const orderId = payload?.orderId as string | undefined;
+      const paymentKey = payload?.paymentKey as string | undefined;
+
+      this.logger.log(`토스 웹훅 수신 event=${eventType} status=${status} orderId=${orderId}`);
+
+      if (!orderId && !paymentKey) return { ok: true };
+
+      // order 생성 시 pgTransactionId=orderId, confirm 후엔 pgTransactionId=paymentKey 로 갱신됨.
+      // 두 값 중 매칭되는 결제를 찾는다.
+      const payment = await this.prisma.payment.findFirst({
+        where: {
+          OR: [
+            orderId ? { pgTransactionId: orderId } : undefined,
+            paymentKey ? { pgTransactionId: paymentKey } : undefined,
+          ].filter(Boolean) as any[],
+        },
+      });
+      if (!payment) {
+        this.logger.warn(`웹훅 대상 결제 없음 orderId=${orderId} paymentKey=${paymentKey}`);
+        return { ok: true };
+      }
+
+      // 입금 완료 → 결제 완료 확정 (아직 completed 가 아닐 때만)
+      if (status === 'DONE') {
+        if (payment.status === 'completed' || payment.status === 'settled' || payment.status === 'escrowed') {
+          return { ok: true }; // 이미 처리됨 (웹훅 중복 수신 방어)
+        }
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: 'completed' },
+        });
+        await this.runPaidSideEffects(payment as any, payment.amount);
+        this.logger.log(`가상계좌 입금완료 → 결제완료 확정 payment=${payment.id}`);
+        return { ok: true };
+      }
+
+      // 입금 취소/만료 → 실패 처리 (미완료 상태였을 때만)
+      if (status === 'CANCELED' || status === 'EXPIRED' || status === 'PARTIAL_CANCELED') {
+        if (payment.status === 'waiting_for_deposit' || payment.status === 'pending') {
+          await this.prisma.payment.update({
+            where: { id: payment.id },
+            data: { status: 'failed' },
+          });
+          this.logger.log(`가상계좌 입금 취소/만료 → 실패 payment=${payment.id} status=${status}`);
+        }
+        return { ok: true };
+      }
+
+      return { ok: true };
+    } catch (e) {
+      this.logger.error(`토스 웹훅 처리 실패: ${e}`);
+      // 토스에 200 을 돌려주지 않으면 재시도 폭주 → 로깅만 하고 ok 반환.
+      return { ok: true };
+    }
   }
 
   /** 결제 내역 목록 조회 */

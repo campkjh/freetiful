@@ -133,6 +133,8 @@ export class SettlementService {
               userId: true,
               amount: true,
               createdAt: true,
+              // 결제 당시 입력받은 연락처 — 계정 번호보다 우선한다
+              customerPhone: true,
               quotations: { select: { title: true, eventDate: true }, orderBy: { createdAt: 'desc' }, take: 1 },
             },
           },
@@ -162,10 +164,18 @@ export class SettlementService {
         })
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
-    const data = rawData.map((r) => ({
-      ...r,
-      payment: { ...r.payment, user: userMap.get(r.payment.userId) || null },
-    }));
+    const data = rawData.map((r) => {
+      const user = userMap.get(r.payment.userId) || null;
+      return {
+        ...r,
+        payment: {
+          ...r.payment,
+          user,
+          // 표시용 최종 연락처 — 결제 시 입력값 우선, 없으면(연락처 도입 이전 결제분) 계정 번호로 폴백
+          customerPhone: r.payment.customerPhone || user?.phone || null,
+        },
+      };
+    });
 
     const summary = {
       pendingCount: aggregates.find((a) => a.status === 'pending')?._count || 0,

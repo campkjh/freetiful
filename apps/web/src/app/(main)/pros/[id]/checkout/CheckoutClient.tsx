@@ -11,6 +11,17 @@ import { useAuthStore } from '@/lib/store/auth.store';
 
 const formatKRW = (value: number) => value.toLocaleString('ko-KR') + '원';
 
+/** 입력 중 자동 하이픈 — 010-1234-5678 */
+const formatPhone = (raw: string) => {
+  const d = raw.replace(/[^0-9]/g, '').slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+};
+const phoneDigits = (raw: string) => raw.replace(/[^0-9]/g, '');
+const isValidPhone = (raw: string) => /^01[016789][0-9]{7,8}$/.test(phoneDigits(raw));
+
 export default function CheckoutClient({
   proId,
   amount,
@@ -31,6 +42,9 @@ export default function CheckoutClient({
   const [quoteDetail, setQuoteDetail] = useState<any>(null);
   const [payLoading, setPayLoading] = useState(false);
   const [widgetsReady, setWidgetsReady] = useState(false);
+  // 결제 시 받는 고객 연락처 — 정산·환불 안내에 쓰이므로 필수
+  const [phone, setPhone] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const widgetsRef = useRef<any>(null);
   const safeAmount = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
   const finalAmount = Number(quoteDetail?.amount || safeAmount || 0);
@@ -51,6 +65,13 @@ export default function CheckoutClient({
       .catch(() => {});
     return () => { alive = false; };
   }, [proId]);
+
+  // 계정에 등록된 번호가 있으면 미리 채워둔다(대부분 그대로 결제 → 입력 부담 없음)
+  useEffect(() => {
+    if (!authHydrated) return;
+    const saved = (authUser as any)?.phone;
+    if (saved && !phone) setPhone(formatPhone(String(saved)));
+  }, [authHydrated, authUser, phone]);
 
   useEffect(() => {
     if (!quotationId) return;
@@ -111,6 +132,13 @@ export default function CheckoutClient({
       toast.error('결제창 초기화 중입니다. 잠시 후 다시 시도해주세요');
       return;
     }
+    if (!isValidPhone(phone)) {
+      setPhoneTouched(true);
+      toast.error('연락받으실 휴대폰번호를 입력해주세요');
+      document.getElementById('customer-phone')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (document.getElementById('customer-phone') as HTMLInputElement | null)?.focus();
+      return;
+    }
 
     setPayLoading(true);
     try {
@@ -119,6 +147,7 @@ export default function CheckoutClient({
         amount: displayAmount,
         orderName,
         proProfileId: proId,
+        customerPhone: phoneDigits(phone),
       });
       const order = orderRes.data || {};
       const orderId = order.orderId as string;
@@ -129,6 +158,8 @@ export default function CheckoutClient({
         failUrl: `${window.location.origin}/payment/fail`,
         customerName: authUser.name || undefined,
         customerEmail: (authUser as any).email || undefined,
+        // 가상계좌 입금 안내 문자 등 토스 쪽 안내에도 쓰인다
+        customerMobilePhone: phoneDigits(phone) || undefined,
       });
     } catch (error: any) {
       const code = error?.code;
@@ -138,7 +169,8 @@ export default function CheckoutClient({
     } finally {
       setPayLoading(false);
     }
-  }, [authUser, clientKey, displayAmount, orderName, payLoading, proId, quotationId, widgetsReady]);
+    // phone 이 빠지면 stale closure 로 예전(빈) 번호가 전송된다
+  }, [authUser, clientKey, displayAmount, orderName, payLoading, phone, proId, quotationId, widgetsReady]);
 
   return (
     <main className="min-h-[100dvh] bg-white px-5 pb-32 pt-safe">
@@ -173,6 +205,34 @@ export default function CheckoutClient({
                 <p className="mt-0.5 truncate text-[13px] font-medium text-gray-500">{planName}</p>
               </div>
             </div>
+          </section>
+
+          <section className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[17px] font-bold text-gray-950">연락처</h2>
+              <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
+            </div>
+            <input
+              id="customer-phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              onBlur={() => setPhoneTouched(true)}
+              placeholder="010-1234-5678"
+              aria-label="휴대폰번호"
+              className={`h-14 w-full rounded-2xl border px-4 text-[16px] font-medium text-gray-950 outline-none transition placeholder:text-gray-300 ${
+                phoneTouched && !isValidPhone(phone)
+                  ? 'border-red-400 bg-red-50/40'
+                  : 'border-gray-200 bg-white focus:border-[#3180F7]'
+              }`}
+            />
+            <p className={`mt-2 text-[13px] font-medium ${phoneTouched && !isValidPhone(phone) ? 'text-red-500' : 'text-gray-400'}`}>
+              {phoneTouched && !isValidPhone(phone)
+                ? '휴대폰번호를 정확히 입력해주세요'
+                : '결제·환불 안내와 행사 확인을 위해 사용됩니다'}
+            </p>
           </section>
 
           <section className="mt-6">

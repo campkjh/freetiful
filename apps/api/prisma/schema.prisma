@@ -705,6 +705,9 @@ model Payment {
   platformFeeRate  Decimal?      @db.Decimal(5, 2)
   netAmount        Int?
   currency         String        @default("KRW")
+  // 결제 당시 고객 연락처 스냅샷.
+  // User.phone 은 나중에 바뀔 수 있고 소셜 가입자는 비어 있을 수 있어서, 정산 기준으로 쓰려면 별도 보관해야 한다.
+  customerPhone    String?
   method           String?
   pgProvider       String?
   pgTransactionId  String?       @unique
