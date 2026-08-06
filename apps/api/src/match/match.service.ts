@@ -429,7 +429,10 @@ export class MatchService {
           'system' as any,
           '새로운 섭외 요청',
           `${customerName || '고객'}님에게 새로운 섭외 요청이 도착했습니다.`,
-          { type: 'match_request', matchRequestId },
+          // bizTalkTemplate 은 알림톡 템플릿을 '명시'로 지정한다.
+          // 제목 문자열로 추론하던 시절엔 '새로운 섭외 요청' 이 '새 매칭 요청' 규칙에 안 걸려
+          // 알림톡이 조용히 한 건도 안 나갔다(A00081 사문화). 문구를 바꿔도 안 깨지도록 마커 사용.
+          { type: 'match_request', matchRequestId, bizTalkTemplate: 'PARTNER_MATCH_CONFIRM' },
         )
         .catch(() => {});
     }

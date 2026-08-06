@@ -183,7 +183,15 @@ export class BizTalkService implements OnModuleInit {
     const isPartner = user?.role === 'pro' || user?.role === 'business';
     if (title.includes('프리티풀에 오신 것을 환영')) return 'GENERAL_SIGNUP_COMPLETE';
     if (title.includes('파트너 신청이 승인')) return 'PARTNER_APPROVED';
-    if (title.includes('새 매칭 요청') || body.includes('견적을 요청')) return 'PARTNER_MATCH_CONFIRM';
+    // '새로운 섭외 요청' 은 match.service 가 실제로 쓰는 제목 — 이게 빠져 있어 알림톡이 안 나갔다
+    if (
+      title.includes('새 매칭 요청') ||
+      title.includes('새로운 섭외 요청') ||
+      body.includes('견적을 요청') ||
+      body.includes('섭외 요청이 도착')
+    ) {
+      return 'PARTNER_MATCH_CONFIRM';
+    }
     if (title.includes('견적서가 도착')) return 'GENERAL_NEW_MESSAGE';
     if (title.includes('새 문의가 도착') || title.includes('님의 메시지') || body.includes('채팅')) {
       return isPartner ? 'PARTNER_NEW_MESSAGE' : 'GENERAL_NEW_MESSAGE';
@@ -306,7 +314,11 @@ export class BizTalkService implements OnModuleInit {
     if (!user?.phone) return { sent: false, reason: 'missing_user_phone' };
 
     const templateKey = this.resolveTemplate(payload, user);
-    if (!templateKey) return { sent: false, reason: 'no_template_mapping' };
+    if (!templateKey) {
+      // 조용히 버려지면 "알림톡이 안 온다"를 추적할 방법이 없다 — 제목을 남긴다
+      this.logger.warn(`[알림톡 미발송] 템플릿 매핑 없음 title="${compactText(payload.title)}" role=${user.role}`);
+      return { sent: false, reason: 'no_template_mapping' };
+    }
 
     const ctx = await this.buildContext(payload, user);
     return this.sendTemplateToPhone(user.phone, templateKey, ctx);
