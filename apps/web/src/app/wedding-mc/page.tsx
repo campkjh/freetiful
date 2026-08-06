@@ -39,6 +39,16 @@ const GOOGLE_SHEET_URL =
 const ACTIVE_MATCH_STORAGE_KEY = 'wmc-active-match-v1';
 
 /* 폼 제출 후 설문(혜택 안내) 항목 */
+/** 랜딩 점검용 계정 — 서버 match.service.ts 의 TEST_LEAD_USER_IDS 와 동일하게 유지할 것 */
+const TEST_LEAD_USER_IDS = ['a7c23078-a2cd-4643-87c0-c9292321bc3b']; // 사회자 김정현
+
+/** 서버(match.service.ts isTestLead)와 같은 규칙 — 공백 제거 후 정확히 '테스트'/'test' 일 때만 */
+const isTestSubmission = (name: string, userId?: string | null) => {
+  if (userId && TEST_LEAD_USER_IDS.includes(userId)) return true;
+  const s = name.replace(/\s/g, '');
+  return s === '테스트' || s.toLowerCase() === 'test';
+};
+
 const SURVEY_BENEFITS = ['웨딩홀 할인', '스튜디오 할인', '본식스냅 DVD 할인', '피부샵 할인', '신혼여행', '예복 한복'];
 
 /* 개인정보 수집·이용 동의 전문 (모달 '내용 보기') */
@@ -350,6 +360,7 @@ export default function WeddingMcLandingPage() {
     // datetime-local 값: "2026-08-15T14:30" 형식. 분리해서 백엔드로
     const [datePart, timePart] = eventDateTime.split('T');
     const fullLocation = addressDetail.trim();
+    const isTest = isTestSubmission(name.trim(), authUser?.id);
     const eventPart = eventPartChoice;
 
     // 시트 기록은 설문(관심혜택)까지 받은 뒤 proceedFromSurvey에서 폼+혜택을 한 행으로 전송
@@ -394,7 +405,8 @@ export default function WeddingMcLandingPage() {
         }
       }
       createdMatchRequestId = res?.matchRequest?.id || res?.id || null;
-      trackLandingConversion('wedding-mc');
+      // 테스트 제출은 전환으로 세지 않는다 — 어드민 광고효율의 견적신청수·전환당비용이 왜곡된다
+      if (!isTest) trackLandingConversion('wedding-mc');
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       // iOS: 다이나믹 아일랜드 "사회자 찾는 중" 라이브 액티비티 시작
       try { (window as any).webkit?.messageHandlers?.nativeMCSearch?.postMessage({ action: 'start', category: '결혼식 사회자' }); } catch {}
@@ -404,7 +416,8 @@ export default function WeddingMcLandingPage() {
       return;
     }
 
-    if (typeof window.fbq === 'function') {
+    // 테스트 제출은 메타 픽셀 Lead 도 보내지 않는다 — 광고 최적화 학습이 가짜 전환으로 오염된다
+    if (!isTest && typeof window.fbq === 'function') {
       window.fbq('track', 'Lead', {
         content_name: 'Wedding MC Consultation',
         content_category: 'wedding-mc',
