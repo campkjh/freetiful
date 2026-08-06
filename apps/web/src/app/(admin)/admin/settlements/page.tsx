@@ -28,6 +28,8 @@ interface SettlementLogItem {
     amount: number;
     createdAt: string;
     user: { id: string; name: string; phone?: string | null };
+    /** 결제 시 입력받은 연락처 우선, 없으면 계정 번호 폴백(서버에서 계산) */
+    customerPhone?: string | null;
     quotations: { title: string; eventDate: string | null }[];
   };
   settledBy: { id: string; name: string } | null;
@@ -49,6 +51,15 @@ const STATUS_COLORS: Record<string, string> = {
   settled: 'bg-green-50 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
 };
+
+/** 저장은 숫자만(01012345678) — 보기 좋게 하이픈을 넣어 표시 */
+function formatPhone(raw?: string | null): string {
+  const d = String(raw ?? '').replace(/[^0-9]/g, '');
+  if (!d) return '';
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return String(raw ?? '');
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -149,7 +160,7 @@ export default function AdminSettlementsPage() {
         { header: '프로', value: (row) => row.proProfile?.user?.name || '' },
         { header: '프로이메일', value: (row) => row.proProfile?.user?.email || '' },
         { header: '고객', value: (row) => row.payment?.user?.name || '' },
-        { header: '고객연락처', value: (row) => row.payment?.user?.phone || '' },
+        { header: '고객연락처', value: (row) => row.payment?.customerPhone || row.payment?.user?.phone || '' },
         { header: '행사', value: (row) => row.payment?.quotations?.[0]?.title || '' },
         { header: '행사일', value: (row) => formatExportDate(row.payment?.quotations?.[0]?.eventDate) },
         { header: '금액', value: (row) => row.amount },
@@ -270,9 +281,9 @@ export default function AdminSettlementsPage() {
                       ) : '—'}
                       {openPhoneId === it.id && (
                         <div className="mt-1 text-[12px]">
-                          {it.payment.user?.phone ? (
-                            <a href={`tel:${it.payment.user.phone}`} className="font-semibold text-[#3182F6] tabular-nums">
-                              {it.payment.user.phone}
+                          {(it.payment.customerPhone || it.payment.user?.phone) ? (
+                            <a href={`tel:${it.payment.customerPhone || it.payment.user?.phone}`} className="font-semibold text-[#3182F6] tabular-nums">
+                              {formatPhone(it.payment.customerPhone || it.payment.user?.phone)}
                             </a>
                           ) : (
                             <span className="text-gray-400">연락처 없음</span>

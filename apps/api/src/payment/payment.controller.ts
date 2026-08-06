@@ -33,6 +33,7 @@ export class PaymentController {
       eventDate?: string;
       eventLocation?: string;
       eventTime?: string;
+      customerPhone?: string;
     },
   ) {
     return this.paymentService.createOrder(req.user.id, body);

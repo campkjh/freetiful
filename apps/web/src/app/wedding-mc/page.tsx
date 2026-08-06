@@ -182,7 +182,10 @@ declare global {
   }
 }
 
-type Stage = 'form' | 'survey' | 'matching';
+type Stage = 'form' | 'survey' | 'tier' | 'matching';
+
+/** 설문 다음에 고르는 사회자 등급 */
+type McTier = '스탠다드 사회자' | '프리미엄 사회자';
 
 type ActiveMatchSnapshot = {
   matchRequestId: string;
@@ -202,6 +205,7 @@ export default function WeddingMcLandingPage() {
   const [eventDateTime, setEventDateTime] = useState('');
   const [agree, setAgree] = useState(false);
   const [eventPartChoice, setEventPartChoice] = useState<'1부예식' | '2부예식' | ''>('');
+  const [benefits, setBenefits] = useState<string[]>([]);   // 설문에서 고른 관심혜택 — 등급까지 고른 뒤 함께 기록
   const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeMatch, setActiveMatch] = useState<ActiveMatchSnapshot | null>(null);
@@ -420,8 +424,18 @@ export default function WeddingMcLandingPage() {
     setSubmitting(false);
   };
 
-  /* ── 설문(관심혜택) 선택 → 폼+혜택을 한 행으로 시트 기록 후 OX 매칭 화면으로 ── */
+  /* ── 설문(관심혜택) 선택 → 등급 선택 화면으로 (시트 기록은 등급까지 고른 뒤 한 번에) ── */
   const proceedFromSurvey = (benefitList: string[]) => {
+    setBenefits(benefitList);
+    setStage('tier');
+  };
+
+  /* ── 등급 선택 → 폼+혜택+등급을 한 행으로 시트 기록 후 OX 매칭 화면으로 ── */
+  const proceedFromTier = (tier: McTier) => {
+    // 시트의 [관심혜택] 칸에 등급도 함께 남긴다.
+    // Apps Script 는 고정 순서로 컬럼을 쓰고 benefits 배열만 읽으므로,
+    // 새 키(tier)만 보내면 시트에는 안 찍힌다. 접두어를 붙여 나중에 분리하기 쉽게 했다.
+    const benefitList = [...benefits, `희망등급: ${tier}`];
     const benefit = benefitList.join(', ');
     const np = normalizePhone(phone) || phone;
     const [datePart, timePart] = eventDateTime.split('T');
@@ -453,6 +467,8 @@ export default function WeddingMcLandingPage() {
         //   반드시 배열 키 `benefits` 로 보내야 기록됨. `benefit`(문자열)은 하위호환용.
         benefits: benefitList,
         benefit,
+        // 시트에 [희망등급] 컬럼을 추가할 경우 대비 (현재 Apps Script 는 이 키를 읽지 않는다)
+        tier,
         source: 'freetiful-mc-wedding-v3',
         ...utm,
       }),
@@ -497,6 +513,8 @@ export default function WeddingMcLandingPage() {
 
       {stage === 'survey' ? (
         <SurveyScreen onSelect={proceedFromSurvey} onBack={() => setStage('form')} />
+      ) : stage === 'tier' ? (
+        <TierScreen onSelect={proceedFromTier} onBack={() => setStage('survey')} />
       ) : stage === 'matching' && activeMatch ? (
         <MatchingScreen
           matchRequestId={activeMatch.matchRequestId}
@@ -1273,6 +1291,158 @@ function SurveyScreen({ onSelect, onBack }: { onSelect: (benefits: string[]) => 
         @media (prefers-reduced-motion: reduce) {
           .wmc-survey-row, .wmc-survey-on { transition: none !important; }
           .wmc-survey-on::before, .wmc-survey-check { animation: none; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   등급 선택 — 좌/우 풀사이즈 버튼 (스탠다드 · 프리미엄)
+   ═══════════════════════════════════════════════════════════════════ */
+
+const TIER_OPTIONS: {
+  key: McTier;
+  eyebrow: string;
+  title: string;
+  desc: string;
+  points: string[];
+}[] = [
+  {
+    key: '스탠다드 사회자',
+    eyebrow: 'STANDARD',
+    title: '스탠다드',
+    desc: '검증된 기본기,\n합리적인 예산으로',
+    points: ['진행 경력 3년 이상', '기본 리허설 포함', '합리적인 견적'],
+  },
+  {
+    key: '프리미엄 사회자',
+    eyebrow: 'PREMIUM',
+    title: '프리미엄',
+    desc: '방송인·아나운서급,\n특별한 하루를',
+    points: ['방송·아나운서 출신', '맞춤 대본 · 사전 미팅', '상위 평점 사회자'],
+  },
+];
+
+function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; onBack: () => void }) {
+  const [picked, setPicked] = useState<McTier | null>(null);
+
+  const choose = (tier: McTier) => {
+    if (picked) return;
+    setPicked(tier);
+    // 눌린 쪽이 커지는 모션을 보여주고 넘어간다
+    setTimeout(() => onSelect(tier), 420);
+  };
+
+  return (
+    <div
+      className="flex min-h-[100dvh] flex-col bg-white"
+      style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif" }}
+    >
+      <header className="sticky top-0 z-30 bg-white">
+        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="뒤로 가기"
+            className="-ml-1 flex h-10 w-10 items-center justify-center rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
+          >
+            <ChevronLeft size={24} strokeWidth={2.2} />
+          </button>
+          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
+          <div className="w-10" />
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-md px-6 pt-10 text-center">
+        <h1 className="text-[28px] font-extrabold leading-[1.3] text-[#1A1A1A]">
+          어떤 사회자를<br />찾고 계신가요?
+        </h1>
+        <p className="mt-3 text-[15px] text-[#9AA3B0]">선택하신 등급에 맞춰 사회자를 매칭해드려요</p>
+      </div>
+
+      {/* 좌/우 풀사이즈 버튼 — 남은 높이를 전부 차지한다 */}
+      <div className="mx-auto flex w-full max-w-md flex-1 gap-3 px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-8">
+        {TIER_OPTIONS.map((opt) => {
+          const isPicked = picked === opt.key;
+          const isOther = picked !== null && !isPicked;
+          const premium = opt.key === '프리미엄 사회자';
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => choose(opt.key)}
+              aria-label={opt.key}
+              className={`wmc-tier group relative flex flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] px-4 py-8 text-center transition-all duration-[420ms] active:scale-[0.98] ${
+                isPicked ? 'wmc-tier-picked' : ''
+              } ${isOther ? 'scale-[0.94] opacity-40' : ''} ${
+                premium
+                  ? 'bg-[#181C24] text-white'
+                  : 'border border-[#E5E8EC] bg-[#F7F8FA] text-[#1A1A1A]'
+              }`}
+            >
+              {premium && (
+                <span className="absolute right-3 top-3 rounded-full bg-[#3182F6] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white">
+                  추천
+                </span>
+              )}
+
+              <span
+                className={`text-[11px] font-bold tracking-[0.18em] ${premium ? 'text-white/45' : 'text-[#B0B8C1]'}`}
+              >
+                {opt.eyebrow}
+              </span>
+
+              <span className="mt-2 text-[26px] font-extrabold leading-tight">{opt.title}</span>
+
+              <span
+                className={`mt-3 whitespace-pre-line text-[14px] font-medium leading-[1.55] ${
+                  premium ? 'text-white/70' : 'text-[#6B7684]'
+                }`}
+              >
+                {opt.desc}
+              </span>
+
+              <span className={`my-6 h-px w-10 ${premium ? 'bg-white/20' : 'bg-[#E5E8EC]'}`} />
+
+              <span className="flex flex-col gap-2.5">
+                {opt.points.map((p) => (
+                  <span key={p} className="flex items-start gap-1.5 text-left text-[13px] font-semibold leading-snug">
+                    <Check
+                      size={15}
+                      strokeWidth={3}
+                      className={`mt-[2px] shrink-0 ${premium ? 'text-[#5AA0FF]' : 'text-[#3182F6]'}`}
+                    />
+                    <span className={premium ? 'text-white/85' : 'text-[#4E5968]'}>{p}</span>
+                  </span>
+                ))}
+              </span>
+
+              <span
+                className={`mt-8 inline-flex h-11 items-center justify-center rounded-[13px] px-6 text-[15px] font-bold ${
+                  premium ? 'bg-white text-[#181C24]' : 'bg-[#3182F6] text-white'
+                }`}
+              >
+                선택하기
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <style jsx global>{`
+        .wmc-tier { will-change: transform, opacity; }
+        .wmc-tier-picked {
+          animation: wmcTierPick 0.42s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+          box-shadow: 0 18px 40px rgba(49, 130, 246, 0.22);
+        }
+        @keyframes wmcTierPick {
+          0% { transform: scale(1); }
+          45% { transform: scale(1.045); }
+          100% { transform: scale(1.02); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .wmc-tier, .wmc-tier-picked { transition: none !important; animation: none !important; }
         }
       `}</style>
     </div>

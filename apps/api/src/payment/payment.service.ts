@@ -77,6 +77,27 @@ export class PaymentService {
     return tossData?.method ?? null;
   }
 
+  /** 하이픈·공백을 떼고 숫자만 남긴다. 010-1234-5678 → 01012345678 */
+  private normalizePhone(raw?: string | null): string | null {
+    const digits = String(raw ?? '').replace(/[^0-9]/g, '');
+    if (!digits) return null;
+    // +82 국가번호로 들어오면 국내 표기로 되돌린다
+    const local = digits.startsWith('82') && digits.length >= 11 ? `0${digits.slice(2)}` : digits;
+    if (local.length < 9 || local.length > 11) return null;
+    return local;
+  }
+
+  /** 결제 화면에서 받은 번호를 우선하고, 없으면 계정에 등록된 번호를 쓴다 */
+  private async resolveCustomerPhone(userId: string, input?: string | null): Promise<string | null> {
+    const typed = this.normalizePhone(input);
+    if (typed) return typed;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
+    return this.normalizePhone(user?.phone);
+  }
+
   /** 주문 생성 (결제 전 pending Payment 레코드) */
   async createOrder(
     userId: string,
@@ -88,8 +109,12 @@ export class PaymentService {
       eventDate?: string;
       eventLocation?: string;
       eventTime?: string;
+      customerPhone?: string;
     },
   ) {
+    // 결제 당시 연락처. 클라이언트가 안 보내면 계정에 등록된 번호로 폴백한다.
+    const customerPhone = await this.resolveCustomerPhone(userId, data.customerPhone);
+
     // quotationId가 없으면 신규 견적 레코드 생성
     let quotationId = data.quotationId;
     if (!quotationId) {
@@ -134,6 +159,13 @@ export class PaymentService {
     });
 
     if (existingPending && existingPending.amount === data.amount && existingPending.pgTransactionId) {
+      // 재사용 시에도 이번에 입력한 연락처를 반영한다(첫 시도에 못 받았거나 번호를 고친 경우)
+      if (customerPhone && customerPhone !== existingPending.customerPhone) {
+        await this.prisma.payment.update({
+          where: { id: existingPending.id },
+          data: { customerPhone },
+        });
+      }
       return {
         orderId: existingPending.pgTransactionId,
         amount: existingPending.amount,
@@ -153,6 +185,7 @@ export class PaymentService {
         status: 'pending',
         pgProvider: 'tosspayments',
         pgTransactionId: orderId,
+        customerPhone: customerPhone ?? undefined,
       },
     });
 
