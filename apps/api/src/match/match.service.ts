@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -55,6 +56,8 @@ function uniqueStrings(values: Array<string | null | undefined>) {
 
 @Injectable()
 export class MatchService {
+  private readonly logger = new Logger(MatchService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
@@ -62,6 +65,27 @@ export class MatchService {
     private jwt: JwtService,
     private config: ConfigService,
   ) {}
+
+  /**
+   * 사회자에게 내보내지 않는 "테스트 의뢰" 판정.
+   *
+   * 판정되면 MatchDelivery 를 만들지 않는다 → 알림도, 사회자 문의목록 노출도 함께 사라진다
+   * (문의목록이 MatchDelivery 기준이라 뿌리에서 한 번만 막으면 된다).
+   * 의뢰 레코드 자체는 그대로 남으므로 어드민에서는 보이고, 고객 화면도 평소처럼 매칭 UI 가 돈다.
+   */
+  private static readonly TEST_LEAD_USER_IDS = new Set<string>([
+    'a7c23078-a2cd-4643-87c0-c9292321bc3b', // 사회자 김정현(campkjh@nate.com) — 랜딩 점검용
+  ]);
+
+  private isTestLead(userId: string, requesterName?: string | null, rawUserInput?: any): boolean {
+    if (MatchService.TEST_LEAD_USER_IDS.has(userId)) return true;
+    const candidates = [rawUserInput?.name, requesterName];
+    return candidates.some((v) => {
+      // 공백을 지우고 정확히 '테스트' 일 때만. '테스트일'·'김테스트' 같은 실제 이름 오탐을 막는다.
+      const s = String(v ?? '').replace(/\s/g, '');
+      return s === '테스트' || s.toLowerCase() === 'test';
+    });
+  }
 
   /** 사용자가 매칭 요청 생성 */
   async createMatchRequest(
@@ -91,10 +115,14 @@ export class MatchService {
       data.eventCategoryId,
       data.rawUserInput,
     );
-    const [styleOptionIds, personalityOptionIds] = await Promise.all([
+    const [styleOptionIds, personalityOptionIds, requester] = await Promise.all([
       this.resolveStyleOptionIds(category.id, data.styleOptionIds),
       this.resolvePersonalityOptionIds(data.personalityOptionIds),
+      // 알림 문구용 고객명 + 테스트 판정에 함께 쓴다
+      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
     ]);
+    const customerName = requester?.name?.trim() || '고객';
+    const testLead = this.isTestLead(userId, requester?.name, data.rawUserInput);
 
     const matchRequest = await this.prisma.matchRequest.create({
       data: {
@@ -124,6 +152,8 @@ export class MatchService {
           resolvedCategoryName: category.name,
           resolvedEventCategoryId: eventCategory?.id,
           resolvedEventCategoryName: eventCategory?.name,
+          // 어드민에서 "왜 사회자에게 안 갔는지" 알 수 있게 남긴다
+          ...(testLead ? { suppressedAsTestLead: true } : {}),
         }),
         styles: styleOptionIds.length
           ? {
@@ -148,22 +178,23 @@ export class MatchService {
       },
     });
 
-    // 알림 멘트에 쓸 고객명 조회
-    const requester = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
-    const customerName = requester?.name?.trim() || '고객';
-
-    // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out.
-    // 전달 레코드가 만들어진 뒤 성공 응답을 보내야 전문가 홈/새요청에 즉시 보인다.
-    await this.fanoutMatchRequestToPros(
-      matchRequest.id,
-      category.id,
-      category.name,
-      data.selectedProProfileIds,
-      customerName,
-    );
+    // 테스트 의뢰는 사회자에게 내보내지 않는다 — MatchDelivery 를 안 만들면
+    // 알림(새로운 섭외 요청)도, 사회자 문의목록 노출도 함께 막힌다.
+    if (testLead) {
+      this.logger.log(
+        `[match] 테스트 의뢰 — 사회자 발송 생략 (matchRequestId=${matchRequest.id}, userId=${userId})`,
+      );
+    } else {
+      // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out.
+      // 전달 레코드가 만들어진 뒤 성공 응답을 보내야 전문가 홈/새요청에 즉시 보인다.
+      await this.fanoutMatchRequestToPros(
+        matchRequest.id,
+        category.id,
+        category.name,
+        data.selectedProProfileIds,
+        customerName,
+      );
+    }
 
     this.chatRealtimeService.emitMatchUpdated([userId], {
       kind: 'match-request-created',
