@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { Check, ChevronLeft, Star } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -209,6 +209,15 @@ export default function WeddingMcLandingPage() {
 
   /* ── 폼 상태 ── */
   const [stage, setStage] = useState<Stage>('form');
+
+  // 개발 중 화면 확인용: /wedding-mc?preview=tier 로 등급 선택 화면만 바로 띄운다.
+  // 프로덕션 빌드에선 무시된다(실사용자가 URL 로 단계를 건너뛰지 못하게).
+  // useState 초기값으로 넣으면 서버('form')와 클라이언트가 달라져 하이드레이션 에러가 난다 → 마운트 후 전환.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    const p = new URLSearchParams(window.location.search).get('preview');
+    if (p === 'tier' || p === 'survey') setStage(p as Stage);
+  }, []);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
@@ -1314,148 +1323,278 @@ function SurveyScreen({ onSelect, onBack }: { onSelect: (benefits: string[]) => 
    등급 선택 — 좌/우 풀사이즈 버튼 (스탠다드 · 프리미엄)
    ═══════════════════════════════════════════════════════════════════ */
 
+/** 프리미엄 배경 — 빌라드지디 히어로 영상 (VilladegdEventOverlay 와 동일 소스) */
+const TIER_PREMIUM_VIDEO =
+  'https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd/villadegd-hero.mp4';
+
+/** 금색 파티클 — 랜덤이면 하이드레이션 불일치가 나므로 좌표를 고정한다 */
+const TIER_PARTICLES: { left: number; size: number; dur: number; delay: number; opacity: number }[] = [
+  { left: 6, size: 3, dur: 15, delay: 0, opacity: 0.75 },
+  { left: 14, size: 2, dur: 19, delay: 3.2, opacity: 0.55 },
+  { left: 22, size: 4, dur: 13, delay: 6.5, opacity: 0.85 },
+  { left: 31, size: 2, dur: 21, delay: 1.4, opacity: 0.5 },
+  { left: 39, size: 3, dur: 16, delay: 8.1, opacity: 0.7 },
+  { left: 47, size: 2, dur: 18, delay: 4.6, opacity: 0.6 },
+  { left: 55, size: 4, dur: 14, delay: 10.3, opacity: 0.8 },
+  { left: 63, size: 2, dur: 20, delay: 2.2, opacity: 0.5 },
+  { left: 71, size: 3, dur: 17, delay: 7.4, opacity: 0.72 },
+  { left: 79, size: 2, dur: 22, delay: 5.0, opacity: 0.55 },
+  { left: 87, size: 4, dur: 15, delay: 11.6, opacity: 0.82 },
+  { left: 94, size: 2, dur: 19, delay: 9.0, opacity: 0.6 },
+];
+
 const TIER_OPTIONS: {
   key: McTier;
   eyebrow: string;
   title: string;
+  price: string;
+  /** 취소선으로 보여줄 정가 — 있으면 '특가' 배지가 함께 붙는다 */
+  strikePrice?: string;
   desc: string;
-  points: string[];
+  image: string;
 }[] = [
   {
     key: '스탠다드 사회자',
     eyebrow: 'STANDARD',
     title: '스탠다드',
-    desc: '검증된 기본기,\n합리적인 예산으로',
-    points: ['진행 경력 3년 이상', '기본 리허설 포함', '합리적인 견적'],
+    price: '19만 9,000원',
+    desc: '프리티풀이 엄선한\n스탠다드 사회자',
+    image: '/images/wedding-mc/tier-standard.webp',
   },
   {
     key: '프리미엄 사회자',
     eyebrow: 'PREMIUM',
     title: '프리미엄',
-    desc: '방송인·아나운서급,\n특별한 하루를',
-    points: ['방송·아나운서 출신', '맞춤 대본 · 사전 미팅', '상위 평점 사회자'],
+    price: '29만 9,000원',
+    strikePrice: '49만 9,000원',
+    desc: '어디서도 만나볼 수 없는\n방송사 3사 출신 포함\n경력 7년 이상의 베테랑\n프리미엄 사회자',
+    image: '/images/wedding-mc/tier-premium.webp',
   },
 ];
 
 function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; onBack: () => void }) {
   const [picked, setPicked] = useState<McTier | null>(null);
+  const [going, setGoing] = useState(false);
 
-  const choose = (tier: McTier) => {
-    if (picked) return;
-    setPicked(tier);
-    // 눌린 쪽이 커지는 모션을 보여주고 넘어간다
-    setTimeout(() => onSelect(tier), 420);
+  const confirm = () => {
+    if (!picked || going) return;
+    setGoing(true);
+    setTimeout(() => onSelect(picked), 260);
   };
 
   return (
     <div
-      className="flex min-h-[100dvh] flex-col bg-white"
+      className="relative flex h-[100dvh] w-full overflow-hidden bg-black"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif" }}
     >
-      <header className="sticky top-0 z-30 bg-white">
-        <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
+      {TIER_OPTIONS.map((opt) => {
+        const premium = opt.key === '프리미엄 사회자';
+        const dimmed = picked !== null && picked !== opt.key;
+        return (
           <button
+            key={opt.key}
             type="button"
-            onClick={onBack}
-            aria-label="뒤로 가기"
-            className="-ml-1 flex h-10 w-10 items-center justify-center rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10"
+            onClick={() => setPicked(opt.key)}
+            aria-label={opt.key}
+            aria-pressed={picked === opt.key}
+            className={`wmc-tier relative flex h-full flex-1 flex-col items-center overflow-hidden px-3 text-center ${
+              premium ? 'text-white' : 'bg-[#F4F6F8] text-[#1A1A1A]'
+            } ${dimmed ? 'wmc-tier-dim' : ''}`}
+            style={{
+              paddingTop: 'calc(30px + env(safe-area-inset-top))',
+              paddingBottom: 'calc(130px + env(safe-area-inset-bottom))',
+            }}
           >
-            <ChevronLeft size={24} strokeWidth={2.2} />
-          </button>
-          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-6 w-auto" />
-          <div className="w-10" />
-        </div>
-      </header>
+            {/* ── 배경 ── */}
+            {premium ? (
+              <>
+                {/* 빌라드지디 영상 */}
+                <video
+                  src={TIER_PREMIUM_VIDEO}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                />
+                {/* 딤 — 영상 위 글씨 가독성 확보 */}
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/85" />
+                {/* 금색 광채 */}
+                <span className="wmc-gold-glow pointer-events-none absolute inset-0" />
+                {/* 금색 파티클 — 위로 천천히 떠오른다 */}
+                <span className="pointer-events-none absolute inset-0 overflow-hidden">
+                  {TIER_PARTICLES.map((p, i) => (
+                    <span
+                      key={i}
+                      className="wmc-gold-dot"
+                      style={{
+                        left: `${p.left}%`,
+                        width: p.size,
+                        height: p.size,
+                        animationDuration: `${p.dur}s`,
+                        animationDelay: `${p.delay}s`,
+                        opacity: p.opacity,
+                      }}
+                    />
+                  ))}
+                </span>
+              </>
+            ) : (
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-[#F4F6F8] to-[#E9EDF2]" />
+            )}
 
-      <div className="mx-auto w-full max-w-md px-6 pt-10 text-center">
-        <h1 className="text-[28px] font-extrabold leading-[1.3] text-[#1A1A1A]">
-          어떤 사회자를<br />찾고 계신가요?
-        </h1>
-        <p className="mt-3 text-[15px] text-[#9AA3B0]">선택하신 등급에 맞춰 사회자를 매칭해드려요</p>
-      </div>
-
-      {/* 좌/우 풀사이즈 버튼 — 남은 높이를 전부 차지한다 */}
-      <div className="mx-auto flex w-full max-w-md flex-1 gap-3 px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-8">
-        {TIER_OPTIONS.map((opt) => {
-          const isPicked = picked === opt.key;
-          const isOther = picked !== null && !isPicked;
-          const premium = opt.key === '프리미엄 사회자';
-          return (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => choose(opt.key)}
-              aria-label={opt.key}
-              className={`wmc-tier group relative flex flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px] px-4 py-8 text-center transition-all duration-[420ms] active:scale-[0.98] ${
-                isPicked ? 'wmc-tier-picked' : ''
-              } ${isOther ? 'scale-[0.94] opacity-40' : ''} ${
-                premium
-                  ? 'bg-[#181C24] text-white'
-                  : 'border border-[#E5E8EC] bg-[#F7F8FA] text-[#1A1A1A]'
-              }`}
-            >
+            {/* ── 내용 ── */}
+            <span className="relative z-10 flex w-full flex-col items-center">
               {premium && (
-                <span className="absolute right-3 top-3 rounded-full bg-[#3182F6] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white">
+                <span className="absolute right-0 top-0 rounded-full bg-[#C9A227] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-[0_2px_10px_rgba(201,162,39,0.5)]">
                   추천
                 </span>
               )}
 
               <span
-                className={`text-[11px] font-bold tracking-[0.18em] ${premium ? 'text-white/45' : 'text-[#B0B8C1]'}`}
+                className={`text-[11px] font-bold tracking-[0.18em] ${
+                  premium ? 'text-[#E8CE8A]' : 'text-[#B0B8C1]'
+                }`}
               >
                 {opt.eyebrow}
               </span>
 
-              <span className="mt-2 text-[26px] font-extrabold leading-tight">{opt.title}</span>
+              <span
+                className={`mt-1.5 text-[25px] font-extrabold leading-tight ${
+                  premium ? 'wmc-gold-text' : ''
+                }`}
+              >
+                {opt.title}
+              </span>
+
+              {/* 가격 */}
+              <span className="mt-2.5 flex flex-col items-center leading-none">
+                {opt.strikePrice && (
+                  <span className="mb-1.5 flex items-center gap-1.5">
+                    <span className="rounded bg-[#C9302C] px-1.5 py-[3px] text-[10px] font-bold text-white">특가</span>
+                    <span className="text-[13px] font-semibold text-white/45 line-through">{opt.strikePrice}</span>
+                  </span>
+                )}
+                <span className={`text-[19px] font-extrabold ${premium ? 'text-white' : 'text-[#1A1A1A]'}`}>
+                  {opt.price}
+                </span>
+                <span className={`mt-1.5 text-[12px] font-semibold ${premium ? 'text-white/60' : 'text-[#8B95A1]'}`}>
+                  부터~
+                </span>
+              </span>
+
+              <span className={`my-4 h-px w-10 ${premium ? 'bg-[#C9A227]/45' : 'bg-[#DDE2E8]'}`} />
 
               <span
-                className={`mt-3 whitespace-pre-line text-[14px] font-medium leading-[1.55] ${
-                  premium ? 'text-white/70' : 'text-[#6B7684]'
+                className={`whitespace-pre-line text-[12.5px] font-medium leading-[1.55] ${
+                  premium ? 'text-white/75' : 'text-[#6B7684]'
                 }`}
               >
                 {opt.desc}
               </span>
+            </span>
 
-              <span className={`my-6 h-px w-10 ${premium ? 'bg-white/20' : 'bg-[#E5E8EC]'}`} />
-
-              <span className="flex flex-col gap-2.5">
-                {opt.points.map((p) => (
-                  <span key={p} className="flex items-start gap-1.5 text-left text-[13px] font-semibold leading-snug">
-                    <Check
-                      size={15}
-                      strokeWidth={3}
-                      className={`mt-[2px] shrink-0 ${premium ? 'text-[#5AA0FF]' : 'text-[#3182F6]'}`}
-                    />
-                    <span className={premium ? 'text-white/85' : 'text-[#4E5968]'}>{p}</span>
-                  </span>
-                ))}
-              </span>
-
-              <span
-                className={`mt-8 inline-flex h-11 items-center justify-center rounded-[13px] px-6 text-[15px] font-bold ${
-                  premium ? 'bg-white text-[#181C24]' : 'bg-[#3182F6] text-white'
+            {/* ── 인물 — 아래에 붙어 바닥까지 채운다 ── */}
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] flex justify-center">
+              <img
+                src={opt.image}
+                alt=""
+                className={`h-auto w-full object-contain ${
+                  premium
+                    ? 'max-w-[250px] drop-shadow-[0_0_28px_rgba(201,162,39,0.30)]'
+                    : 'max-w-[300px]'
                 }`}
+                loading="eager"
+              />
+            </span>
+
+            {/* 선택 표시 */}
+            {picked === opt.key && (
+              <span
+                className={`absolute z-20 flex h-8 w-8 items-center justify-center rounded-full shadow-lg ${
+                  premium ? 'bg-[#C9A227] text-white' : 'bg-[#3182F6] text-white'
+                }`}
+                style={{ top: 'calc(60px + env(safe-area-inset-top))', left: 12 }}
               >
-                선택하기
+                <Check size={18} strokeWidth={3.2} />
               </span>
-            </button>
-          );
-        })}
+            )}
+
+            {/* 딤드 오버레이 — 고르지 않은 쪽 */}
+            <span
+              className={`pointer-events-none absolute inset-0 z-[15] bg-black transition-opacity duration-300 ${
+                dimmed ? 'opacity-55' : 'opacity-0'
+              }`}
+            />
+          </button>
+        );
+      })}
+
+      {/* 뒤로가기 */}
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="뒤로 가기"
+        className="absolute left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full text-[#3A414B] active:bg-black/10"
+        style={{ top: 'calc(8px + env(safe-area-inset-top))' }}
+      >
+        <ChevronLeft size={24} strokeWidth={2.2} />
+      </button>
+
+      {/* 하단 확정 버튼 — 고른 뒤에 올라온다 */}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-30 px-5 pt-10 transition-all duration-300 ${
+          picked ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
+        }`}
+        style={{
+          paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.92) 45%, rgba(0,0,0,0))',
+        }}
+      >
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!picked || going}
+          className="h-[56px] w-full rounded-[16px] bg-white text-[17px] font-bold text-[#111] transition active:scale-[0.98] disabled:opacity-70"
+        >
+          {going ? '잠시만요...' : `${picked ? picked.replace(' 사회자', '') : ''} 선택하기`}
+        </button>
       </div>
 
       <style jsx global>{`
-        .wmc-tier { will-change: transform, opacity; }
-        .wmc-tier-picked {
-          animation: wmcTierPick 0.42s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-          box-shadow: 0 18px 40px rgba(49, 130, 246, 0.22);
+        .wmc-tier-dim { filter: saturate(0.6); }
+        .wmc-gold-text {
+          background: linear-gradient(180deg, #F7E3A8 0%, #E3C169 45%, #C9A227 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
         }
-        @keyframes wmcTierPick {
-          0% { transform: scale(1); }
-          45% { transform: scale(1.045); }
-          100% { transform: scale(1.02); }
+        .wmc-gold-glow {
+          background:
+            radial-gradient(120% 45% at 50% 0%, rgba(201, 162, 39, 0.30), transparent 70%),
+            radial-gradient(90% 40% at 50% 100%, rgba(201, 162, 39, 0.20), transparent 70%);
+        }
+        .wmc-gold-dot {
+          position: absolute;
+          bottom: -12px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, #FFF6DA 0%, #EBCB78 45%, rgba(201, 162, 39, 0) 75%);
+          box-shadow: 0 0 10px rgba(240, 214, 140, 0.95), 0 0 22px rgba(201, 162, 39, 0.5);
+          animation-name: wmcGoldRise;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
+          will-change: transform, opacity;
+        }
+        @keyframes wmcGoldRise {
+          0%   { transform: translate3d(0, 0, 0) scale(0.7); opacity: 0; }
+          12%  { opacity: 1; }
+          50%  { transform: translate3d(10px, -46vh, 0) scale(1); }
+          88%  { opacity: 1; }
+          100% { transform: translate3d(-8px, -96vh, 0) scale(0.75); opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .wmc-tier, .wmc-tier-picked { transition: none !important; animation: none !important; }
+          .wmc-gold-dot { animation: none; opacity: 0.35 !important; }
         }
       `}</style>
     </div>
