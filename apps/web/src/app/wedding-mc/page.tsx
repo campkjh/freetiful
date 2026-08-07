@@ -1397,18 +1397,13 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
             onClick={() => setPicked(opt.key)}
             aria-label={opt.key}
             aria-pressed={picked === opt.key}
-            className={`wmc-tier relative flex h-full flex-1 flex-col items-center overflow-hidden px-3 text-center ${
-              premium ? 'text-white' : 'bg-[#F4F6F8] text-[#1A1A1A]'
-            } ${dimmed ? 'wmc-tier-dim' : ''}`}
-            style={{
-              paddingTop: 'calc(30px + env(safe-area-inset-top))',
-              paddingBottom: 'calc(130px + env(safe-area-inset-bottom))',
-            }}
+            className={`wmc-tier relative h-full flex-1 overflow-hidden text-center ${
+              premium ? 'bg-[#0B0D11]' : 'bg-[#E7EAEE]'
+            }`}
           >
             {/* ── 배경 ── */}
             {premium ? (
               <>
-                {/* 빌라드지디 영상 */}
                 <video
                   src={TIER_PREMIUM_VIDEO}
                   autoPlay
@@ -1418,11 +1413,10 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
                   preload="auto"
                   className="pointer-events-none absolute inset-0 h-full w-full object-cover"
                 />
-                {/* 딤 — 영상 위 글씨 가독성 확보 */}
-                <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/55 to-black/85" />
-                {/* 금색 광채 */}
+                {/* 영상 톤 정리 — 알록달록해지지 않게 금색으로 가라앉힌다 */}
+                <span className="pointer-events-none absolute inset-0 bg-[#3A2A08] mix-blend-color opacity-70" />
+                <span className="pointer-events-none absolute inset-0 bg-black/45" />
                 <span className="wmc-gold-glow pointer-events-none absolute inset-0" />
-                {/* 금색 파티클 — 위로 천천히 떠오른다 */}
                 <span className="pointer-events-none absolute inset-0 overflow-hidden">
                   {TIER_PARTICLES.map((p, i) => (
                     <span
@@ -1441,90 +1435,91 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
                 </span>
               </>
             ) : (
-              <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white via-[#F4F6F8] to-[#E9EDF2]" />
+              <>
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#FBFCFD] via-[#E4E8ED] to-[#C9D0D8]" />
+                {/* 은빛 파동 — 사선으로 은은하게 지나간다 */}
+                <span className="wmc-silver-wave pointer-events-none absolute inset-0" />
+                <span className="wmc-silver-wave wmc-silver-wave-2 pointer-events-none absolute inset-0" />
+              </>
             )}
 
-            {/* ── 내용 ── */}
-            <span className="relative z-10 flex w-full flex-col items-center">
-              {premium && (
-                <span className="absolute right-0 top-0 rounded-full bg-[#C9A227] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-[0_2px_10px_rgba(201,162,39,0.5)]">
-                  추천
-                </span>
-              )}
+            {/* ── 인물 — 화면의 70%, 좌우·아래는 잘려도 된다 ── */}
+            <span className="pointer-events-none absolute bottom-0 left-1/2 h-[70%] -translate-x-1/2">
+              <img
+                src={opt.image}
+                alt=""
+                className={`h-full w-auto max-w-none object-contain ${
+                  premium ? 'drop-shadow-[0_0_34px_rgba(201,162,39,0.30)]' : 'drop-shadow-[0_0_26px_rgba(90,105,125,0.22)]'
+                }`}
+                loading="eager"
+              />
+            </span>
 
+            {/* ── 하단 딤드 ── */}
+            <span
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[64%]"
+              style={{
+                background: premium
+                  ? 'linear-gradient(to top, #05070A 30%, rgba(5,7,10,0.88) 52%, rgba(5,7,10,0.45) 74%, rgba(5,7,10,0))'
+                  : 'linear-gradient(to top, #10141A 30%, rgba(16,20,26,0.86) 52%, rgba(16,20,26,0.42) 74%, rgba(16,20,26,0))',
+              }}
+            />
+
+            {/* ── 소개글 — 하단 ── */}
+            <span
+              className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center px-3"
+              style={{ paddingBottom: 'calc(112px + env(safe-area-inset-bottom))' }}
+            >
               <span
-                className={`text-[11px] font-bold tracking-[0.18em] ${
-                  premium ? 'text-[#E8CE8A]' : 'text-[#B0B8C1]'
+                className={`text-[10px] font-bold tracking-[0.28em] ${
+                  premium ? 'text-[#E3C577]' : 'text-[#AFBAC7]'
                 }`}
               >
                 {opt.eyebrow}
               </span>
 
               <span
-                className={`mt-1.5 text-[25px] font-extrabold leading-tight ${
-                  premium ? 'wmc-gold-text' : ''
+                className={`mt-2 text-[24px] font-extrabold leading-tight ${
+                  premium ? 'wmc-gold-text' : 'wmc-silver-text'
                 }`}
               >
                 {opt.title}
               </span>
 
+              <span className={`mt-3.5 h-px w-8 ${premium ? 'bg-[#C9A227]/50' : 'bg-white/25'}`} />
+
               {/* 가격 */}
-              <span className="mt-2.5 flex flex-col items-center leading-none">
+              <span className="mt-3.5 flex flex-col items-center leading-none">
                 {opt.strikePrice && (
-                  <span className="mb-1.5 flex items-center gap-1.5">
-                    <span className="rounded bg-[#C9302C] px-1.5 py-[3px] text-[10px] font-bold text-white">특가</span>
-                    <span className="text-[13px] font-semibold text-white/45 line-through">{opt.strikePrice}</span>
+                  <span className="mb-2 flex items-center gap-1.5">
+                    <span className="rounded-[3px] bg-[#C9302C] px-1.5 py-[3px] text-[9.5px] font-bold tracking-wide text-white">
+                      특가
+                    </span>
+                    <span className="text-[12px] font-semibold text-white/40 line-through">{opt.strikePrice}</span>
                   </span>
                 )}
-                <span className={`text-[19px] font-extrabold ${premium ? 'text-white' : 'text-[#1A1A1A]'}`}>
-                  {opt.price}
-                </span>
-                <span className={`mt-1.5 text-[12px] font-semibold ${premium ? 'text-white/60' : 'text-[#8B95A1]'}`}>
-                  부터~
-                </span>
+                <span className="text-[19px] font-extrabold text-white">{opt.price}</span>
+                <span className="mt-1.5 text-[11.5px] font-semibold text-white/50">부터~</span>
               </span>
 
-              <span className={`my-4 h-px w-10 ${premium ? 'bg-[#C9A227]/45' : 'bg-[#DDE2E8]'}`} />
-
-              <span
-                className={`whitespace-pre-line text-[12.5px] font-medium leading-[1.55] ${
-                  premium ? 'text-white/75' : 'text-[#6B7684]'
-                }`}
-              >
+              <span className="mt-4 whitespace-pre-line text-[12px] font-medium leading-[1.6] text-white/70">
                 {opt.desc}
               </span>
             </span>
 
-            {/* ── 인물 — 아래에 붙어 바닥까지 채운다 ── */}
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] flex justify-center">
-              <img
-                src={opt.image}
-                alt=""
-                className={`h-auto w-full object-contain ${
-                  premium
-                    ? 'max-w-[250px] drop-shadow-[0_0_28px_rgba(201,162,39,0.30)]'
-                    : 'max-w-[300px]'
-                }`}
-                loading="eager"
-              />
-            </span>
-
-            {/* 선택 표시 */}
-            {picked === opt.key && (
+            {premium && (
               <span
-                className={`absolute z-20 flex h-8 w-8 items-center justify-center rounded-full shadow-lg ${
-                  premium ? 'bg-[#C9A227] text-white' : 'bg-[#3182F6] text-white'
-                }`}
-                style={{ top: 'calc(60px + env(safe-area-inset-top))', left: 12 }}
+                className="absolute right-2.5 z-10 rounded-full bg-[#C9A227] px-2.5 py-1 text-[10px] font-bold tracking-wide text-white shadow-[0_2px_12px_rgba(201,162,39,0.55)]"
+                style={{ top: 'calc(14px + env(safe-area-inset-top))' }}
               >
-                <Check size={18} strokeWidth={3.2} />
+                추천
               </span>
             )}
 
-            {/* 딤드 오버레이 — 고르지 않은 쪽 */}
+            {/* 딤드 — 고르지 않은 쪽 (체크 표시 없이 이걸로 구분) */}
             <span
-              className={`pointer-events-none absolute inset-0 z-[15] bg-black transition-opacity duration-300 ${
-                dimmed ? 'opacity-55' : 'opacity-0'
+              className={`pointer-events-none absolute inset-0 z-20 bg-black transition-opacity duration-300 ${
+                dimmed ? 'opacity-60' : 'opacity-0'
               }`}
             />
           </button>
@@ -1536,20 +1531,20 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
         type="button"
         onClick={onBack}
         aria-label="뒤로 가기"
-        className="absolute left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full text-[#3A414B] active:bg-black/10"
+        className="absolute left-2 z-30 flex h-10 w-10 items-center justify-center rounded-full text-[#5A6472] active:bg-black/10"
         style={{ top: 'calc(8px + env(safe-area-inset-top))' }}
       >
         <ChevronLeft size={24} strokeWidth={2.2} />
       </button>
 
-      {/* 하단 확정 버튼 — 고른 뒤에 올라온다 */}
+      {/* 하단 확정 버튼 */}
       <div
         className={`absolute inset-x-0 bottom-0 z-30 px-5 pt-10 transition-all duration-300 ${
           picked ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
         }`}
         style={{
           paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
-          background: 'linear-gradient(to top, rgba(0,0,0,0.92) 45%, rgba(0,0,0,0))',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.95) 45%, rgba(0,0,0,0))',
         }}
       >
         <button
@@ -1563,16 +1558,21 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
       </div>
 
       <style jsx global>{`
-        .wmc-tier-dim { filter: saturate(0.6); }
         .wmc-gold-text {
-          background: linear-gradient(180deg, #F7E3A8 0%, #E3C169 45%, #C9A227 100%);
+          background: linear-gradient(180deg, #F9E7B4 0%, #E3C169 45%, #C9A227 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .wmc-silver-text {
+          background: linear-gradient(180deg, #FFFFFF 0%, #DCE3EB 45%, #A9B4C2 100%);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
         .wmc-gold-glow {
           background:
-            radial-gradient(120% 45% at 50% 0%, rgba(201, 162, 39, 0.30), transparent 70%),
+            radial-gradient(120% 45% at 50% 0%, rgba(201, 162, 39, 0.32), transparent 70%),
             radial-gradient(90% 40% at 50% 100%, rgba(201, 162, 39, 0.20), transparent 70%);
         }
         .wmc-gold-dot {
@@ -1593,8 +1593,36 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
           88%  { opacity: 1; }
           100% { transform: translate3d(-8px, -96vh, 0) scale(0.75); opacity: 0; }
         }
+        /* 신비로운 은빛 파동 — 사선 그라데이션이 천천히 흐른다 */
+        .wmc-silver-wave {
+          background: linear-gradient(
+            115deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0) 32%,
+            rgba(255, 255, 255, 0.85) 46%,
+            rgba(196, 214, 236, 0.55) 52%,
+            rgba(255, 255, 255, 0) 68%,
+            transparent 100%
+          );
+          background-size: 260% 260%;
+          animation: wmcSilverFlow 7.5s ease-in-out infinite;
+          mix-blend-mode: screen;
+          opacity: 0.75;
+          will-change: background-position;
+        }
+        .wmc-silver-wave-2 {
+          animation-duration: 11s;
+          animation-delay: 2.4s;
+          opacity: 0.45;
+          filter: blur(6px);
+        }
+        @keyframes wmcSilverFlow {
+          0%   { background-position: 120% 0%; }
+          100% { background-position: -60% 100%; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .wmc-gold-dot { animation: none; opacity: 0.35 !important; }
+          .wmc-silver-wave { animation: none; opacity: 0.3; }
         }
       `}</style>
     </div>
