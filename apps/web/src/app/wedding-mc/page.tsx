@@ -1506,19 +1506,23 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
 
               {/* 가격 */}
               <span className="mt-3.5 flex flex-col items-center leading-none">
-                {opt.strikePrice && (
-                  <span className="mb-2 flex items-center gap-1.5">
-                    <span className="rounded-[3px] bg-[#C9302C] px-1.5 py-[3px] text-[9.5px] font-bold tracking-wide text-white">
-                      특가
-                    </span>
-                    <span className="text-[12px] font-semibold text-white/40 line-through">{opt.strikePrice}</span>
-                  </span>
-                )}
+                {/* 특가 줄은 프리미엄에만 있지만, 자리는 양쪽 다 차지해야 좌우 높이가 맞는다 */}
+                <span className="mb-2 flex h-[19px] items-center gap-1.5">
+                  {opt.strikePrice && (
+                    <>
+                      <span className="rounded-[3px] bg-[#C9302C] px-1.5 py-[3px] text-[9.5px] font-bold tracking-wide text-white">
+                        특가
+                      </span>
+                      <span className="text-[12px] font-semibold text-white/40 line-through">{opt.strikePrice}</span>
+                    </>
+                  )}
+                </span>
                 <span className="text-[19px] font-extrabold text-white">{opt.price}</span>
                 <span className="mt-1.5 text-[11.5px] font-semibold text-white/50">부터~</span>
               </span>
 
-              <span className="mt-4 whitespace-pre-line text-[12px] font-medium leading-[1.6] text-white/70">
+              {/* 4줄분(12px * 1.6 * 4) 높이를 고정 — 줄 수가 달라도 위쪽 요소들이 같은 높이에 온다 */}
+              <span className="mt-4 flex min-h-[77px] items-start whitespace-pre-line text-[12px] font-medium leading-[1.6] text-white/70">
                 {opt.desc}
               </span>
             </span>
