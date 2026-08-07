@@ -1352,6 +1352,8 @@ const TIER_OPTIONS: {
   strikePrice?: string;
   desc: string;
   image: string;
+  /** 인물 이미지 높이(화면 대비). 프리미엄은 3명이 나란히 있어 더 키우면 양옆이 잘려나간다 */
+  imageHeight: string;
 }[] = [
   {
     key: '스탠다드 사회자',
@@ -1360,6 +1362,7 @@ const TIER_OPTIONS: {
     price: '19만 9,000원',
     desc: '프리티풀이 엄선한\n스탠다드 사회자',
     image: '/images/wedding-mc/tier-standard.webp',
+    imageHeight: '78%',
   },
   {
     key: '프리미엄 사회자',
@@ -1369,6 +1372,7 @@ const TIER_OPTIONS: {
     strikePrice: '49만 9,000원',
     desc: '어디서도 만나볼 수 없는\n방송사 3사 출신 포함\n경력 7년 이상의 베테랑\n프리미엄 사회자',
     image: '/images/wedding-mc/tier-premium.webp',
+    imageHeight: '53%',
   },
 ];
 
@@ -1444,7 +1448,10 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
             )}
 
             {/* ── 인물 — 화면의 70%, 좌우·아래는 잘려도 된다 ── */}
-            <span className="pointer-events-none absolute bottom-0 left-1/2 h-[70%] -translate-x-1/2">
+            <span
+              className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2"
+              style={{ height: opt.imageHeight }}
+            >
               <img
                 src={opt.image}
                 alt=""
@@ -1478,12 +1485,21 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
                 {opt.eyebrow}
               </span>
 
-              <span
-                className={`mt-2 text-[24px] font-extrabold leading-tight ${
-                  premium ? 'wmc-gold-text' : 'wmc-silver-text'
-                }`}
-              >
-                {opt.title}
+              {/* 프리미엄은 제목 좌우에 금색 월계수 */}
+              <span className="mt-2 flex items-center justify-center gap-2">
+                {premium && (
+                  <img src="/images/wedding-mc/tier-ornament-left.svg" alt="" className="h-[30px] w-auto" />
+                )}
+                <span
+                  className={`text-[24px] font-extrabold leading-tight ${
+                    premium ? 'wmc-gold-text' : 'wmc-silver-text'
+                  }`}
+                >
+                  {opt.title}
+                </span>
+                {premium && (
+                  <img src="/images/wedding-mc/tier-ornament-right.svg" alt="" className="h-[30px] w-auto" />
+                )}
               </span>
 
               <span className={`mt-3.5 h-px w-8 ${premium ? 'bg-[#C9A227]/50' : 'bg-white/25'}`} />
