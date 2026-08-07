@@ -1352,7 +1352,7 @@ const TIER_OPTIONS: {
   strikePrice?: string;
   desc: string;
   image: string;
-  /** 인물 이미지 높이(화면 대비). 프리미엄은 3명이 나란히 있어 더 키우면 양옆이 잘려나간다 */
+  /** 인물 이미지 높이(화면 대비). 프리미엄 78% 는 크게 보이는 대신 양옆 두 사람이 잘린다(의도된 선택) */
   imageHeight: string;
 }[] = [
   {
@@ -1372,7 +1372,7 @@ const TIER_OPTIONS: {
     strikePrice: '49만 9,000원',
     desc: '어디서도 만나볼 수 없는\n방송사 3사 출신 포함\n경력 7년 이상의 베테랑\n프리미엄 사회자',
     image: '/images/wedding-mc/tier-premium.webp',
-    imageHeight: '53%',
+    imageHeight: '78%',
   },
 ];
 
