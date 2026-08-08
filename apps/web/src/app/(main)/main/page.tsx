@@ -1512,7 +1512,6 @@ export default function HomePage() {
   const authUser = useAuthStore((s) => s.user);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
-  const [phonePreviewSrc, setPhonePreviewSrc] = useState<string | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
   const [popupBanner, setPopupBanner] = useState<{ id: string; imageUrl: string; linkUrl?: string | null } | null>(null);
   const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
@@ -1577,22 +1576,6 @@ export default function HomePage() {
     };
   }, [showOfficialOpenModal]);
 
-  useEffect(() => {
-    const isPhonePreview = new URLSearchParams(window.location.search).has('phonePreview');
-    if (isPhonePreview) {
-      setPhonePreviewSrc(null);
-      return;
-    }
-
-    const media = window.matchMedia('(min-width: 1024px)');
-    const syncPhonePreview = () => {
-      setPhonePreviewSrc(media.matches ? '/main?phonePreview=1' : null);
-    };
-
-    syncPhonePreview();
-    media.addEventListener('change', syncPhonePreview);
-    return () => media.removeEventListener('change', syncPhonePreview);
-  }, []);
 
   useEffect(() => {
     if (!authUser) {
@@ -2160,25 +2143,8 @@ export default function HomePage() {
         </div>
       )}
 
-      {phonePreviewSrc && (
-        <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">
-          <div aria-hidden="true" className="home-pc-floating-phone">
-            <div className="home-phone-preview-screen">
-              <iframe
-                src={phonePreviewSrc}
-                title="Freetiful mobile preview"
-                className="home-phone-preview-frame"
-                tabIndex={-1}
-              />
-            </div>
-            <div className="home-phone-frame-shell">
-              <span className="home-phone-frame-camera" />
-              <span className="home-phone-frame-button home-phone-frame-button-left-top" />
-              <span className="home-phone-frame-button home-phone-frame-button-left-mid" />
-              <span className="home-phone-frame-button home-phone-frame-button-right" />
-            </div>
-          </div>
-
+      {/* PC 우하단 앱 홍보 — 폰 목업(iframe)은 제거했다. hidden lg:flex 로 PC 에서만 보인다 */}
+      <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">
           <div className="home-floating-naver-search pointer-events-none" aria-hidden="true">
             <svg className="home-floating-naver-n" viewBox="0 0 398 398" focusable="false">
               <path d="M154.426 319.75H78.248V78.25H154.426L240.166 208.488V78.25H319.748V319.75H240.166L154.426 208.488V319.75Z" fill="#03EA6F" />
@@ -2245,8 +2211,7 @@ export default function HomePage() {
               </span>
             </a>
           </div>
-        </div>
-      )}
+      </div>
 
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
       <div
