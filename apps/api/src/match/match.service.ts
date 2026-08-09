@@ -118,11 +118,24 @@ export class MatchService {
     const [styleOptionIds, personalityOptionIds, requester] = await Promise.all([
       this.resolveStyleOptionIds(category.id, data.styleOptionIds),
       this.resolvePersonalityOptionIds(data.personalityOptionIds),
-      // 알림 문구용 고객명 + 테스트 판정에 함께 쓴다
-      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+      // 알림 문구용 고객명 + 테스트 판정 + 연락처 보강에 함께 쓴다
+      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true, phone: true } }),
     ]);
     const customerName = requester?.name?.trim() || '고객';
     const testLead = this.isTestLead(userId, requester?.name, data.rawUserInput);
+
+    // 폼에 적은 연락처를 계정에도 남긴다.
+    // 로그인 상태로 랜딩 폼을 내면 이 경로(createMatchRequest)를 타는데, 예전엔 번호를 버려서
+    // 소셜 가입 고객은 계정에 연락처가 영영 비어 있었다(어드민에서 연락 불가, 비회원 로그인도 불가).
+    if (!testLead && !requester?.phone) {
+      const typed = String(data.rawUserInput?.phone ?? '').replace(/[^0-9]/g, '');
+      if (typed.length >= 10 && typed.length <= 11) {
+        // phone 은 unique — 이미 다른 계정이 쓰고 있으면 조용히 넘어간다
+        this.prisma.user
+          .update({ where: { id: userId }, data: { phone: typed } })
+          .catch(() => {});
+      }
+    }
 
     const matchRequest = await this.prisma.matchRequest.create({
       data: {

@@ -74,8 +74,6 @@ export default function AdminSettlementsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
-  // 고객명 클릭 시 연락처를 펼쳐 보여줄 행 id
-  const [openPhoneId, setOpenPhoneId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
@@ -160,7 +158,7 @@ export default function AdminSettlementsPage() {
         { header: '프로', value: (row) => row.proProfile?.user?.name || '' },
         { header: '프로이메일', value: (row) => row.proProfile?.user?.email || '' },
         { header: '고객', value: (row) => row.payment?.user?.name || '' },
-        { header: '고객연락처', value: (row) => row.payment?.customerPhone || row.payment?.user?.phone || '' },
+        { header: '고객연락처', value: (row) => formatPhone(row.payment?.customerPhone || row.payment?.user?.phone) },
         { header: '행사', value: (row) => row.payment?.quotations?.[0]?.title || '' },
         { header: '행사일', value: (row) => formatExportDate(row.payment?.quotations?.[0]?.eventDate) },
         { header: '금액', value: (row) => row.amount },
@@ -249,6 +247,7 @@ export default function AdminSettlementsPage() {
               <tr>
                 <th className="text-left px-4 py-3">프로</th>
                 <th className="text-left px-4 py-3">고객</th>
+                <th className="text-left px-4 py-3">고객연락처</th>
                 <th className="text-left px-4 py-3">행사</th>
                 <th className="text-left px-4 py-3">행사일</th>
                 <th className="text-right px-4 py-3">금액</th>
@@ -259,36 +258,26 @@ export default function AdminSettlementsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-400">불러오는 중…</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">불러오는 중…</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-gray-400">정산 내역이 없습니다</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">정산 내역이 없습니다</td></tr>
               ) : items.map((it) => {
                 const quote = it.payment.quotations[0];
                 return (
                   <tr key={it.id} className="border-t border-gray-100 hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-medium text-gray-900">{it.proProfile?.user?.name || '—'}</td>
-                    {/* 고객명 클릭 → 연락처 토글(복사도 가능하게 tel 링크) */}
-                    <td className="px-4 py-3 text-gray-600">
-                      {it.payment.user?.name ? (
-                        <button
-                          type="button"
-                          onClick={() => setOpenPhoneId((cur) => (cur === it.id ? null : it.id))}
-                          className="text-left underline decoration-dotted underline-offset-4 hover:text-gray-900"
-                          title="클릭하면 연락처가 보여요"
+                    <td className="px-4 py-3 text-gray-600">{it.payment.user?.name || '—'}</td>
+                    {/* 연락처는 접지 않고 항상 보여준다 — 결제 시 필수로 받으므로 대부분 값이 있다 */}
+                    <td className="px-4 py-3">
+                      {(it.payment.customerPhone || it.payment.user?.phone) ? (
+                        <a
+                          href={`tel:${it.payment.customerPhone || it.payment.user?.phone}`}
+                          className="font-semibold text-[#3182F6] tabular-nums hover:underline"
                         >
-                          {it.payment.user.name}
-                        </button>
-                      ) : '—'}
-                      {openPhoneId === it.id && (
-                        <div className="mt-1 text-[12px]">
-                          {(it.payment.customerPhone || it.payment.user?.phone) ? (
-                            <a href={`tel:${it.payment.customerPhone || it.payment.user?.phone}`} className="font-semibold text-[#3182F6] tabular-nums">
-                              {formatPhone(it.payment.customerPhone || it.payment.user?.phone)}
-                            </a>
-                          ) : (
-                            <span className="text-gray-400">연락처 없음</span>
-                          )}
-                        </div>
+                          {formatPhone(it.payment.customerPhone || it.payment.user?.phone)}
+                        </a>
+                      ) : (
+                        <span className="text-gray-300">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[180px]">{quote?.title || '—'}</td>
