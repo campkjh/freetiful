@@ -1200,7 +1200,18 @@ export default function ProDetailPage() {
   }, [pro?.id]);
 
   const [activeImage, setActiveImage] = useState(0);
+  // PC 우측 스택 캐러셀 — 모바일 캐러셀(activeImage)은 스크롤로 움직이므로 상태를 분리한다
+  const [deskImage, setDeskImage] = useState(0);
+  const [deskPaused, setDeskPaused] = useState(false);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
+
+  // PC 스택 캐러셀 3초 자동 넘김 (마우스 올리면 멈춤)
+  const deskImageCount = pro?.images?.length ?? 0;
+  useEffect(() => {
+    if (deskPaused || deskImageCount < 2) return;
+    const t = setInterval(() => setDeskImage((i) => (i + 1) % deskImageCount), 3000);
+    return () => clearInterval(t);
+  }, [deskPaused, deskImageCount]);
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
@@ -1973,28 +1984,96 @@ export default function ProDetailPage() {
             </div>
 
             <aside className="space-y-7">
-              {/* 비율·라운드 모두 모바일 히어로와 동일(70:106 / 48px).
-                  aside 폭 360px 가 모바일 히어로 폭과 거의 같아 같은 크롭·같은 곡률로 보인다 */}
-              <button onClick={() => setImageModal(pro.images[activeImage] || pro.mainImage)} className="relative block aspect-[70/106] w-full overflow-hidden rounded-[48px] border border-gray-200 bg-gray-100 shadow-sm">
-                <Image src={pro.images[activeImage] || pro.mainImage} alt={pro.name} fill className="object-cover" sizes="360px" />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
-                  <p className="text-[13px] font-medium opacity-80">{pro.categoryName || '사회자'} {pro.name}</p>
-                  <p className="mt-1 line-clamp-2 text-[18px] font-bold leading-tight">{pro.description || pro.title}</p>
-                </div>
-                <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white">{activeImage + 1} / {pro.images.length}</span>
-              </button>
-
-              <div className="sticky top-[132px] rounded-lg border border-gray-200 bg-white shadow-sm">
-                <div className="p-5">
-                  <button
-                    onClick={handleInquiry}
-                    disabled={openingChat}
-                    className="h-[52px] w-full rounded-lg border border-gray-300 text-[15px] font-bold text-gray-950 transition hover:bg-gray-50 disabled:opacity-60"
+              {/* 스택 캐러셀 — 앞 사진 뒤로 다음 사진이 살짝 작게 겹쳐 보이고,
+                  3초마다 뒤 사진이 위로 올라오며 앞으로 나온다.
+                  비율·라운드는 모바일 히어로와 동일(70:106 / 48px). */}
+              {(() => {
+                const imgs = pro.images.length > 0 ? pro.images : [pro.mainImage];
+                const n = imgs.length;
+                const go = (dir: number) => setDeskImage((i) => (i + dir + n) % n);
+                return (
+                  <div
+                    className="relative pt-7"
+                    onMouseEnter={() => setDeskPaused(true)}
+                    onMouseLeave={() => setDeskPaused(false)}
                   >
-                    {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
-                  </button>
-                </div>
-              </div>
+                    <div className="relative aspect-[70/106] w-full">
+                      {imgs.map((src, i) => {
+                        const pos = (i - deskImage + n) % n;   // 0=앞, 1=바로 뒤
+                        const front = pos === 0;
+                        const behind = pos === 1 && n > 1;
+                        return (
+                          <button
+                            key={`${src}-${i}`}
+                            type="button"
+                            aria-hidden={!front}
+                            tabIndex={front ? 0 : -1}
+                            onClick={() => front && setImageModal(src)}
+                            className="absolute inset-0 block overflow-hidden rounded-[48px] border border-gray-200 bg-gray-100 shadow-sm transition-all duration-[650ms]"
+                            style={{
+                              // 뒤 카드는 조금 작게 + 위로 올라가 있어 앞 카드 위로 살짝 보인다
+                              transform: front
+                                ? 'scale(1) translateY(0)'
+                                : behind
+                                  ? 'scale(0.93) translateY(-26px)'
+                                  : 'scale(0.88) translateY(-38px)',
+                              opacity: front || behind ? 1 : 0,
+                              zIndex: front ? 20 : behind ? 10 : 0,
+                              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                              pointerEvents: front ? 'auto' : 'none',
+                            }}
+                          >
+                            <Image
+                              src={src}
+                              alt={front ? pro.name : ''}
+                              fill
+                              className="object-cover"
+                              sizes="360px"
+                              priority={i === 0}
+                            />
+                            {behind && <span className="absolute inset-0 bg-black/25" />}
+                          </button>
+                        );
+                      })}
+
+                      {/* 하단 딤드 — 예전엔 이름·소개글이 있던 자리, 이제 좌우 버튼이 들어간다 */}
+                      {n > 1 && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-center justify-between rounded-b-[48px] bg-gradient-to-t from-black/65 to-transparent px-5 pb-6 pt-12">
+                          <button
+                            type="button"
+                            aria-label="이전 사진"
+                            onClick={(e) => { e.stopPropagation(); go(-1); }}
+                            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md transition hover:bg-white/40 active:scale-95"
+                          >
+                            <ChevronLeft size={22} strokeWidth={2.4} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="다음 사진"
+                            onClick={(e) => { e.stopPropagation(); go(1); }}
+                            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md transition hover:bg-white/40 active:scale-95"
+                          >
+                            <ChevronRight size={22} strokeWidth={2.4} />
+                          </button>
+                        </div>
+                      )}
+
+                      <span className="absolute right-3 top-3 z-30 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white">
+                        {deskImage + 1} / {n}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 감싸던 카드 박스를 없애고 버튼만 남겼다 */}
+              <button
+                onClick={handleInquiry}
+                disabled={openingChat}
+                className="sticky top-[132px] h-[58px] w-full rounded-lg border border-gray-300 bg-white text-[17px] font-bold text-gray-950 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
+              </button>
             </aside>
           </div>
         </main>
