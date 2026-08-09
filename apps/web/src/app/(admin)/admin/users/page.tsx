@@ -15,6 +15,8 @@ interface UserItem {
   id: string;
   name: string;
   email: string;
+  /** 서버 목록 API 가 이미 내려주고 있다 (admin.service listUsers select) */
+  phone?: string | null;
   role: string;
   profileImageUrl: string | null;
   createdAt: string;
@@ -68,6 +70,15 @@ const roleLabel: Record<string, string> = {
   business: '비즈',
   admin: '관리자',
 };
+
+/** 저장은 숫자만(01012345678) 또는 하이픈 포함 — 보기 좋게 통일해서 표시 */
+function formatPhone(raw?: string | null): string {
+  const d = String(raw ?? '').replace(/[^0-9]/g, '');
+  if (!d) return '';
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return String(raw ?? '');
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -263,6 +274,7 @@ export default function AdminUsersPage() {
         { header: '유저ID', value: (row) => row.id },
         { header: '이름', value: (row) => row.name },
         { header: '이메일', value: (row) => row.email },
+        { header: '연락처', value: (row) => formatPhone(row.phone) },
         { header: '가입기기', value: (row) => row.signupDevice?.label || 'Web' },
         { header: '권한', value: (row) => roleLabel[row.role] || row.role },
         { header: '프로필상태', value: (row) => row.proProfile?.status || '' },
@@ -475,6 +487,7 @@ export default function AdminUsersPage() {
                   </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">연락처</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="가입기기">가입기기</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="권한">권한</AdminTerm></th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로프로필">프로프로필</AdminTerm></th>
@@ -487,7 +500,7 @@ export default function AdminUsersPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={9} className="px-4 py-3">
+                      <td colSpan={10} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="skeleton h-9 w-9 rounded-full" />
                           <div className="flex-1 space-y-2">
@@ -500,7 +513,7 @@ export default function AdminUsersPage() {
                     </tr>
                   ))
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={10} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className={`transition-colors ${selectedMap.has(user.id) ? 'bg-red-50/60' : 'hover:bg-gray-50'}`}>
                     <td className="w-10 px-3 py-3 text-center">
@@ -522,6 +535,15 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{user.email}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {user.phone ? (
+                        <a href={`tel:${user.phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">
+                          {formatPhone(user.phone)}
+                        </a>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold ${deviceColors[user.signupDevice?.platform || 'web'] || deviceColors.web}`}>
                         <Smartphone size={11} />
