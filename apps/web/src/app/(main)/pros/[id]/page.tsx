@@ -1703,6 +1703,33 @@ export default function ProDetailPage() {
                 <span className="text-[14px] text-gray-500">({displayReviewCount})</span>
               </div>
 
+              {/* 주요 경력 — 모바일과 같은 쓸려 나오는 연출(career-sweep), 한 줄씩 순차로 */}
+              {pro.career && pro.career.trim().length > 0 && (
+                <div
+                  className="mt-6 max-w-[780px] rounded-[20px] border border-white bg-[#F7FAFF] px-6 py-5"
+                  /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 naturalReveal 로 덮어써
+                     career-sweep 연출이 죽는다(모바일 블록은 main 밖이라 멀쩡했다) → 이 영역만 제외 */
+                  data-no-natural-reveal
+                >
+                  <ul className="space-y-2">
+                    {pro.career
+                      .split(/\n|\//)
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .slice(0, 6)
+                      .map((line, i) => (
+                        <li
+                          key={i}
+                          className="career-sweep text-[17px] font-semibold leading-[1.55]"
+                          style={{ animationDelay: `${0.4 + i * 0.22}s` }}
+                        >
+                          {line}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="pt-12">
                 <div className="mb-11">
                   <div className="mb-5 flex items-center justify-between">
