@@ -2047,6 +2047,12 @@ export default function ProDetailPage() {
                           >
                             <ChevronLeft size={22} strokeWidth={2.4} />
                           </button>
+
+                          {/* 화살표 사이 가운데 — 배경 없이 글씨만 */}
+                          <span className="text-[17px] font-bold tabular-nums text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]">
+                            {deskImage + 1} / {n}
+                          </span>
+
                           <button
                             type="button"
                             aria-label="다음 사진"
@@ -2057,10 +2063,6 @@ export default function ProDetailPage() {
                           </button>
                         </div>
                       )}
-
-                      <span className="absolute right-3 top-3 z-30 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white">
-                        {deskImage + 1} / {n}
-                      </span>
                     </div>
                   </div>
                 );
