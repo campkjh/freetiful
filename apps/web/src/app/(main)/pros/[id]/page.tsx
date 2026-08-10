@@ -1231,12 +1231,12 @@ export default function ProDetailPage() {
     return () => clearInterval(t);
   }, [deskPaused, deskImageCount]);
 
-  // 영상이 여러 개면 사진과 같은 리듬으로 순환 (영상은 더 길게 봐야 하니 6초)
+  // 영상이 여러 개면 순환 — 영상은 충분히 볼 시간이 필요해 20초
   const deskVideoCount =
     (pro?.uploadedVideos?.length ?? 0) + (pro?.youtubeVideos?.length ?? 0);
   useEffect(() => {
     if (deskVideoPaused || deskVideoCount < 2) return;
-    const t = setInterval(() => setDeskVideo((i) => (i + 1) % deskVideoCount), 6000);
+    const t = setInterval(() => setDeskVideo((i) => (i + 1) % deskVideoCount), 20000);
     return () => clearInterval(t);
   }, [deskVideoPaused, deskVideoCount]);
   const [headerSolid, setHeaderSolid] = useState(false);
@@ -1716,10 +1716,6 @@ export default function ProDetailPage() {
         <main className="mx-auto max-w-[1180px] px-8 pt-8">
           <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10">
             <div>
-              <div className="mb-5">
-                <p className="text-[13px] text-gray-500">사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
-              </div>
-
               {/* 제목 + (영상 있으면) 우측 16:9 스택 캐러셀 */}
               {(() => {
                 // 업로드 영상 먼저, 그 뒤 유튜브
@@ -1730,6 +1726,9 @@ export default function ProDetailPage() {
                 const vn = vids.length;
                 const titleBlock = (
                   <>
+                    <p className="mb-1.5 text-[13px] text-gray-500">
+                      사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}
+                    </p>
                     <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
                     <div className="mt-3 flex items-center gap-2">
                       <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
@@ -1740,7 +1739,10 @@ export default function ProDetailPage() {
                 );
                 if (vn === 0) return titleBlock;
                 return (
-                  <div className="flex items-start gap-6">
+                  // 행이 컬럼 맨 위에 오므로 영상 top 이 우측 프로필 사진 top 과 같아진다.
+                  // items-center — 경로+제목 덩어리가 영상 세로 가운데에 놓인다.
+                  // pt-7 = 우측 사진 카드의 겹침 여백과 같은 값 → 영상 top 이 사진 top 과 정확히 맞는다
+                  <div className="flex items-center gap-6 pt-7">
                     <div className="min-w-0 flex-1">{titleBlock}</div>
                     {/* pr-7 = 뒤 카드가 오른쪽으로 삐져나올 자리 (사진은 위로, 영상은 옆으로) */}
                     <div
