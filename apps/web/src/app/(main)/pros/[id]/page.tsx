@@ -964,10 +964,24 @@ function ZoomableImage({ src }: { src: string }) {
 
 function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   return (
-    <div className="flex items-center gap-0" style={{ fontSize: size }}>
+    <div className="flex items-center gap-0">
       {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i < Math.floor(value) ? BRAND : '#E5E7EB'}>
-          <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
+        // 별 모양은 제공받은 아이콘 그대로. 예전 자체 path 는 좌표 정밀도가 낮아
+        // iOS 사파리에서 뾰족한 부분이 뭉개져 깨져 보였다.
+        <svg
+          key={i}
+          width={size}
+          height={size}
+          viewBox="0 0 40 40"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
+          style={{ display: 'block', flexShrink: 0 }}
+        >
+          <path
+            d="M21.5409 6.54807L24.6489 12.8481C24.7724 13.0978 24.9547 13.3138 25.1801 13.4775C25.4055 13.6413 25.6672 13.7478 25.9429 13.7881L32.8939 14.7981C33.2111 14.8441 33.5092 14.9779 33.7543 15.1845C33.9994 15.391 34.1819 15.6621 34.281 15.9669C34.3802 16.2717 34.3921 16.5982 34.3153 16.9094C34.2386 17.2207 34.0764 17.5042 33.8469 17.7281L28.8159 22.6281C28.6168 22.8228 28.4678 23.0629 28.3818 23.3278C28.2957 23.5927 28.2752 23.8745 28.3219 24.1491L29.5099 31.0721C29.5639 31.388 29.5286 31.7128 29.4077 32.0097C29.2869 32.3067 29.0855 32.5639 28.8262 32.7523C28.5669 32.9408 28.26 33.053 27.9403 33.0763C27.6206 33.0996 27.3008 33.033 27.0169 32.8841L20.7999 29.6171C20.5532 29.4872 20.2787 29.4193 19.9999 29.4193C19.7211 29.4193 19.4466 29.4872 19.1999 29.6171L12.9819 32.8861C12.698 33.035 12.3782 33.1016 12.0585 33.0783C11.7388 33.055 11.4319 32.9428 11.1726 32.7543C10.9133 32.5659 10.7119 32.3087 10.5911 32.0117C10.4703 31.7148 10.4349 31.39 10.4889 31.0741L11.6769 24.1511C11.7236 23.8765 11.7031 23.5947 11.6171 23.3298C11.531 23.0649 11.3821 22.8248 11.1829 22.6301L6.15191 17.7301C5.92245 17.5062 5.76019 17.2227 5.68347 16.9114C5.60676 16.6002 5.61864 16.2737 5.71779 15.9689C5.81694 15.6641 5.99939 15.393 6.24452 15.1865C6.48965 14.9799 6.78768 14.8461 7.10491 14.8001L14.0559 13.7901C14.3316 13.7498 14.5933 13.6433 14.8187 13.4795C15.0441 13.3158 15.2264 13.0998 15.3499 12.8501L18.4579 6.55007C18.5997 6.26234 18.8191 6.02002 19.0914 5.8505C19.3637 5.68098 19.678 5.59103 19.9988 5.59082C20.3195 5.59061 20.634 5.68015 20.9065 5.84932C21.179 6.01849 21.3988 6.26053 21.5409 6.54807Z"
+            fill={i < Math.floor(value) ? '#FFCD00' : '#E5E7EB'}
+          />
         </svg>
       ))}
     </div>
@@ -1696,12 +1710,53 @@ export default function ProDetailPage() {
 	                </div>
               </div>
 
-              <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
-              <div className="mt-3 flex items-center gap-2">
-                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
-                <span className="text-[15px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                <span className="text-[14px] text-gray-500">({displayReviewCount})</span>
-              </div>
+              {/* 제목 + (영상 있으면) 우측 16:9 자동재생 */}
+              {(() => {
+                const upload = pro.uploadedVideos?.[0];
+                const yt = pro.youtubeVideos?.[0];
+                const hasVideo = !!upload || !!yt;
+                const titleBlock = (
+                  <>
+                    <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
+                    <div className="mt-3 flex items-center gap-2">
+                      <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
+                      <span className="text-[15px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
+                      <span className="text-[14px] text-gray-500">({displayReviewCount})</span>
+                    </div>
+                  </>
+                );
+                if (!hasVideo) return titleBlock;
+                return (
+                  <div className="flex items-start gap-6">
+                    <div className="min-w-0 flex-1">{titleBlock}</div>
+                    <div className="w-[300px] shrink-0 overflow-hidden rounded-xl bg-black shadow-sm">
+                      <div className="relative aspect-video w-full">
+                        {upload ? (
+                          // 업로드 영상 — 소리 없이 자동재생(브라우저가 muted 아니면 막는다)
+                          <video
+                            src={upload.url}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            controls
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${yt!.id}?autoplay=1&mute=1&loop=1&playlist=${yt!.id}&playsinline=1&rel=0&modestbranding=1`}
+                            title={yt!.title}
+                            allow="autoplay; encrypted-media; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 h-full w-full"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 주요 경력 — 모바일과 같은 쓸려 나오는 연출(career-sweep), 한 줄씩 순차로 */}
               {pro.career && pro.career.trim().length > 0 && (
@@ -1775,8 +1830,17 @@ export default function ProDetailPage() {
                                       <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
                                       <span className="text-[12px] text-gray-400">{review.date}</span>
                                     </div>
-                                    <p className="mt-3 line-clamp-3 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
-                                    <p className="mt-3 text-[12px] font-semibold text-gray-500">{review.name}</p>
+                                    {(review as typeof review & { scores?: Record<string, number> }).scores && (
+                                      <div className="mt-2 flex flex-wrap gap-1">
+                                        {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).slice(0, 3).map(([key, val]) => (
+                                          <span key={key} className="flex items-center rounded-[5px] bg-white px-1.5 text-[10px] font-medium text-gray-600" style={{ height: 20 }}>
+                                            {key} <span className="ml-1 font-bold text-[#3180F7]">{val}</span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <p className="mt-2 line-clamp-2 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
+                                    <p className="mt-2 text-[12px] font-semibold text-gray-500">{review.name}</p>
                                   </div>
                                 ))}
                               </div>
@@ -1983,6 +2047,16 @@ export default function ProDetailPage() {
                           <span className="text-[13px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
                           <span className="text-[12px] text-gray-400">{review.date}</span>
                         </div>
+                        {/* 항목별 점수(발성력·진행력 등) — 모바일에만 있던 걸 PC 에도 */}
+                        {(review as typeof review & { scores?: Record<string, number> }).scores && (
+                          <div className="mb-2 flex flex-wrap gap-1">
+                            {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
+                              <span key={key} className="flex items-center rounded-[5px] bg-gray-100 px-1.5 text-[10px] font-medium text-gray-600" style={{ height: 22 }}>
+                                {key} <span className="ml-1 font-bold text-[#3180F7]">{val}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-[14px] leading-relaxed text-gray-800">{review.content}</p>
                         {review.photos && review.photos.length > 0 && (
                           <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide">
@@ -2554,7 +2628,6 @@ export default function ProDetailPage() {
                 </div>
               )}
               <p className="text-[12px] text-gray-400 mb-2">
-                행사일 : {review.workDays}일 | 주문 금액 : <span className="font-bold text-gray-600">{review.orderRange}</span>
               </p>
               {review.badge && (
                 <span className="inline-block text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{review.badge}</span>
@@ -2866,7 +2939,6 @@ export default function ProDetailPage() {
                     <span className="text-[12px] text-gray-400">{review.date}</span>
                   </div>
                   <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
-                  <p className="text-[12px] text-gray-400">행사일 : {review.workDays}일 | 주문 금액 : {review.orderRange}</p>
                 </div>
               ))}
             </div>
