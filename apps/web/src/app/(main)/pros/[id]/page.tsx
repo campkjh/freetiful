@@ -1219,6 +1219,10 @@ export default function ProDetailPage() {
   const [deskPaused, setDeskPaused] = useState(false);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
 
+  // PC 제목 옆 영상 스택
+  const [deskVideo, setDeskVideo] = useState(0);
+  const [deskVideoPaused, setDeskVideoPaused] = useState(false);
+
   // PC 스택 캐러셀 3초 자동 넘김 (마우스 올리면 멈춤)
   const deskImageCount = pro?.images?.length ?? 0;
   useEffect(() => {
@@ -1226,6 +1230,15 @@ export default function ProDetailPage() {
     const t = setInterval(() => setDeskImage((i) => (i + 1) % deskImageCount), 3000);
     return () => clearInterval(t);
   }, [deskPaused, deskImageCount]);
+
+  // 영상이 여러 개면 사진과 같은 리듬으로 순환 (영상은 더 길게 봐야 하니 6초)
+  const deskVideoCount =
+    (pro?.uploadedVideos?.length ?? 0) + (pro?.youtubeVideos?.length ?? 0);
+  useEffect(() => {
+    if (deskVideoPaused || deskVideoCount < 2) return;
+    const t = setInterval(() => setDeskVideo((i) => (i + 1) % deskVideoCount), 6000);
+    return () => clearInterval(t);
+  }, [deskVideoPaused, deskVideoCount]);
   const [headerSolid, setHeaderSolid] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
@@ -1703,18 +1716,18 @@ export default function ProDetailPage() {
         <main className="mx-auto max-w-[1180px] px-8 pt-8">
           <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10">
             <div>
-              <div className="mb-5 flex items-center justify-between">
+              <div className="mb-5">
                 <p className="text-[13px] text-gray-500">사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}</p>
-	                <div className="flex items-center gap-5 text-[14px] font-bold text-gray-900">
-	                  <button onClick={handleShare}><Share2 size={18} /></button>
-	                </div>
               </div>
 
-              {/* 제목 + (영상 있으면) 우측 16:9 자동재생 */}
+              {/* 제목 + (영상 있으면) 우측 16:9 스택 캐러셀 */}
               {(() => {
-                const upload = pro.uploadedVideos?.[0];
-                const yt = pro.youtubeVideos?.[0];
-                const hasVideo = !!upload || !!yt;
+                // 업로드 영상 먼저, 그 뒤 유튜브
+                const vids: Array<{ kind: 'upload' | 'yt'; src: string; title: string }> = [
+                  ...(pro.uploadedVideos || []).map((v) => ({ kind: 'upload' as const, src: v.url, title: v.title })),
+                  ...(pro.youtubeVideos || []).map((v) => ({ kind: 'yt' as const, src: v.id, title: v.title })),
+                ];
+                const vn = vids.length;
                 const titleBlock = (
                   <>
                     <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
@@ -1725,33 +1738,61 @@ export default function ProDetailPage() {
                     </div>
                   </>
                 );
-                if (!hasVideo) return titleBlock;
+                if (vn === 0) return titleBlock;
                 return (
                   <div className="flex items-start gap-6">
                     <div className="min-w-0 flex-1">{titleBlock}</div>
-                    <div className="w-[300px] shrink-0 overflow-hidden rounded-xl bg-black shadow-sm">
+                    {/* pr-7 = 뒤 카드가 오른쪽으로 삐져나올 자리 (사진은 위로, 영상은 옆으로) */}
+                    <div
+                      className="relative w-[400px] shrink-0 pr-7"
+                      onMouseEnter={() => setDeskVideoPaused(true)}
+                      onMouseLeave={() => setDeskVideoPaused(false)}
+                    >
                       <div className="relative aspect-video w-full">
-                        {upload ? (
-                          // 업로드 영상 — 소리 없이 자동재생(브라우저가 muted 아니면 막는다)
-                          <video
-                            src={upload.url}
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                            preload="metadata"
-                            controls
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                        ) : (
-                          <iframe
-                            src={`https://www.youtube.com/embed/${yt!.id}?autoplay=1&mute=1&loop=1&playlist=${yt!.id}&playsinline=1&rel=0&modestbranding=1`}
-                            title={yt!.title}
-                            allow="autoplay; encrypted-media; picture-in-picture"
-                            allowFullScreen
-                            className="absolute inset-0 h-full w-full"
-                          />
-                        )}
+                        {vids.map((v, i) => {
+                          const pos = (i - deskVideo + vn) % vn;
+                          const front = pos === 0;
+                          const behind = pos === 1 && vn > 1;
+                          return (
+                            <div
+                              key={`${v.kind}-${v.src}-${i}`}
+                              className="absolute inset-0 overflow-hidden rounded-[48px] bg-black shadow-sm transition-all duration-[650ms]"
+                              style={{
+                                transform: front
+                                  ? 'scale(1) translateX(0)'
+                                  : behind
+                                    ? 'scale(0.93) translateX(30px)'
+                                    : 'scale(0.88) translateX(44px)',
+                                opacity: front || behind ? 1 : 0,
+                                zIndex: front ? 20 : behind ? 10 : 0,
+                                transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                                pointerEvents: front ? 'auto' : 'none',
+                              }}
+                            >
+                              {v.kind === 'upload' ? (
+                                <video
+                                  src={v.src}
+                                  autoPlay={front}
+                                  muted
+                                  loop
+                                  playsInline
+                                  preload="metadata"
+                                  controls={front}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                />
+                              ) : (
+                                <iframe
+                                  src={`https://www.youtube.com/embed/${v.src}?autoplay=${front ? 1 : 0}&mute=1&loop=1&playlist=${v.src}&playsinline=1&rel=0&modestbranding=1`}
+                                  title={v.title}
+                                  allow="autoplay; encrypted-media; picture-in-picture"
+                                  allowFullScreen
+                                  className="absolute inset-0 h-full w-full"
+                                />
+                              )}
+                              {behind && <span className="absolute inset-0 bg-black/30" />}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -2169,14 +2210,23 @@ export default function ProDetailPage() {
                 );
               })()}
 
-              {/* 감싸던 카드 박스를 없애고 버튼만 남겼다 */}
-              <button
-                onClick={handleInquiry}
-                disabled={openingChat}
-                className="sticky top-[132px] h-[58px] w-full rounded-lg border border-gray-300 bg-white text-[17px] font-bold text-gray-950 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
-              >
-                {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
-              </button>
+              {/* 감싸던 카드 박스를 없애고 버튼만 남겼다. 공유는 그 옆에 */}
+              <div className="sticky top-[132px] flex items-center gap-2">
+                <button
+                  onClick={handleInquiry}
+                  disabled={openingChat}
+                  className="h-[58px] flex-1 rounded-lg border border-gray-300 bg-white text-[17px] font-bold text-gray-950 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
+                </button>
+                <button
+                  onClick={handleShare}
+                  aria-label="공유하기"
+                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-900 shadow-sm transition hover:bg-gray-50"
+                >
+                  <Share2 size={20} />
+                </button>
+              </div>
             </aside>
           </div>
         </main>
