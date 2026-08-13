@@ -210,6 +210,38 @@ class MainActivity : ComponentActivity() {
 
                         addJavascriptInterface(WebAppInterface(), "Android")
 
+                        // 채팅 파일(PDF 등) 다운로드 — 리스너가 없으면 웹의 a[download]·blob 이
+                        // 조용히 무시되고, URL 을 그냥 로드하면 WebView 가 PDF 를 못 그려 원문이
+                        // 텍스트로 깨져 보인다. 시스템 다운로드에 넘겨 기본 뷰어로 열리게 한다.
+                        setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                            try {
+                                if (url.startsWith("blob:") || url.startsWith("data:")) {
+                                    // blob/data 는 DownloadManager 가 못 받는다 → 웹에서 처리하도록 둔다
+                                    return@setDownloadListener
+                                }
+                                val request = android.app.DownloadManager.Request(Uri.parse(url))
+                                request.setMimeType(mimeType)
+                                request.addRequestHeader("User-Agent", userAgent)
+                                val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                                request.setTitle(fileName)
+                                request.setNotificationVisibility(
+                                    android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                                )
+                                request.setDestinationInExternalPublicDir(
+                                    android.os.Environment.DIRECTORY_DOWNLOADS, fileName
+                                )
+                                val dm = context.getSystemService(DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                dm.enqueue(request)
+                                android.widget.Toast.makeText(
+                                    context, "다운로드를 시작합니다", android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                // 실패하면 외부 브라우저로 넘겨 최소한 열리게
+                                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) {}
+                            }
+                        }
+
                         webViewClient = object : WebViewClient() {
 
                             override fun shouldOverrideUrlLoading(
