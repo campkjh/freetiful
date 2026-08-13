@@ -9,7 +9,9 @@ import { apiClient } from '@/lib/api/client';
 interface PaymentItem {
   id: string;
   title: string;
+  /** 고객 화면이면 사회자 이름, 사회자 화면이면 고객 이름 */
   proName: string;
+  phone?: string;
   amount: number;
   status: string;
   date: string;
@@ -66,6 +68,7 @@ export default function PaymentHistoryPage() {
 
   const cached = useMemo(() => getCache(), []);
   const [payments, setPayments] = useState<PaymentItem[] | null>(cached);
+  const [viewerIsPro, setViewerIsPro] = useState(false);
   const [isLoading, setIsLoading] = useState(cached === null);
 
   useEffect(() => {
@@ -74,6 +77,8 @@ export default function PaymentHistoryPage() {
       apiClient.get('/api/v1/payment', { params: { limit: 50 } })
         .then((res) => {
           const data = res.data?.data || [];
+          const isPro = res.data?.viewerRole === 'pro';
+          setViewerIsPro(isPro);
           // 같은 quotation 에 대해 결제하기를 여러 번 눌러 pending 이 누적된 경우,
           // 하나의 row 로 통합한다 — 상태 우선순위: completed > refunded > escrowed > pending.
           const rankStatus = (s: string) =>
@@ -97,7 +102,11 @@ export default function PaymentHistoryPage() {
             return {
               id: p.id,
               title: p.description || q?.title || '결제',
-              proName: q?.proProfile?.user?.name || '',
+              // 사회자 계정이면 서버가 customer 를 실어준다 → 고객 이름을 보여준다
+              proName: isPro
+                ? (p.customer?.name || '고객')
+                : (q?.proProfile?.user?.name || ''),
+              phone: isPro ? (p.customerPhone || undefined) : undefined,
               amount: Number(p.amount ?? 0),
               status: p.status,
               date: new Date(p.createdAt).toLocaleDateString('ko-KR'),
@@ -124,7 +133,7 @@ export default function PaymentHistoryPage() {
           <button onClick={() => router.back()} className="p-1 -ml-1">
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-[18px] font-bold ml-2">결제/환불 내역</h1>
+          <h1 className="text-[18px] font-bold ml-2">{viewerIsPro ? '고객 결제 내역' : '결제/환불 내역'}</h1>
         </div>
       </div>
 
@@ -157,9 +166,17 @@ export default function PaymentHistoryPage() {
                   </span>
                 </div>
                 <p className="text-sm font-bold text-gray-900">{p.title}</p>
-                <p className="text-xs text-gray-500">{p.proName} · {p.method}</p>
+                <p className="text-xs text-gray-500">
+                  {viewerIsPro ? `고객 ${p.proName}` : p.proName}
+                  {p.method ? ` · ${p.method}` : ''}
+                </p>
+                {viewerIsPro && p.phone && (
+                  <a href={`tel:${p.phone}`} className="text-xs font-semibold text-[#3180F7]">
+                    {p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')}
+                  </a>
+                )}
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <span className="text-xs text-gray-400">결제금액</span>
+                  <span className="text-xs text-gray-400">{viewerIsPro ? '고객 결제금액' : '결제금액'}</span>
                   <span className="text-base font-bold text-gray-900">{p.amount.toLocaleString()}원</span>
                 </div>
                 {p.refundAmount && (

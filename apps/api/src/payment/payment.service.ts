@@ -497,9 +497,18 @@ export class PaymentService {
   async getPayments(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
 
+    // 사회자(프로)는 결제를 '하는' 쪽이 아니라 '받는' 쪽이다.
+    // userId 로만 찾으면 프로에겐 늘 빈 목록이라 "결제 내역이 안 뜬다"는 문의가 됐다.
+    // 프로 계정이면 본인이 받은 결제를 돌려준다.
+    const proProfile = await this.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    const where = proProfile ? { proProfileId: proProfile.id } : { userId };
+
     const [payments, total] = await Promise.all([
       this.prisma.payment.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -517,11 +526,30 @@ export class PaymentService {
           },
         },
       }),
-      this.prisma.payment.count({ where: { userId } }),
+      this.prisma.payment.count({ where }),
     ]);
 
+    // 프로 화면은 '누가 결제했는지'가 핵심 — Payment↔User 관계가 스키마에 없어 별도 조회 후 머지
+    let withCustomer: any[] = payments;
+    if (proProfile && payments.length > 0) {
+      const ids = Array.from(new Set(payments.map((p) => p.userId)));
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, profileImageUrl: true },
+      });
+      const map = new Map(users.map((u) => [u.id, u]));
+      withCustomer = payments.map((p) => ({
+        ...p,
+        customer: map.get(p.userId) || null,
+        // 프로 화면에서만 연락처를 함께 준다(본인이 받은 결제라 응대에 필요)
+        customerPhone: p.customerPhone || null,
+      }));
+    }
+
     return {
-      data: payments,
+      data: withCustomer,
+      // 프로 계정이면 '받은 결제' 목록이라는 표시
+      viewerRole: proProfile ? 'pro' : 'customer',
       total,
       page,
       limit,
