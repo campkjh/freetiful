@@ -504,7 +504,16 @@ export class PaymentService {
       where: { userId },
       select: { id: true },
     });
-    const where = proProfile ? { proProfileId: proProfile.id } : { userId };
+    // 어드민이 리뷰를 직접 등록할 때 만드는 0원 더미 결제(method='admin_review')는 실결제가 아니다.
+    // 어드민 지표·목록에서도 같은 방식으로 제외하고 있다.
+    const where: any = proProfile
+      ? {
+          proProfileId: proProfile.id,
+          method: { not: 'admin_review' },
+          // 프로 화면은 '받은 돈' 목록 — 아직 입금 전(pending/waiting_for_deposit)이나 실패는 뺀다
+          status: { in: ['completed', 'escrowed', 'settled', 'refunded'] as any },
+        }
+      : { userId, method: { not: 'admin_review' } };
 
     const [payments, total] = await Promise.all([
       this.prisma.payment.findMany({
