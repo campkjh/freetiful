@@ -12,6 +12,60 @@ import { X, Check, ChevronRight, ChevronDown, MapPin } from 'lucide-react';
 import { getWeddingPartnerImages } from '@/lib/wedding-partner-images';
 
 const BLOB = 'https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd';
+
+/**
+ * 화면에 들어올 때만 실제로 내려받는 영상.
+ *
+ * 예전엔 6개 영상(히어로 2 + 지점 5, 합계 200MB 남짓)이 전부 preload="auto" 라
+ * 오버레이가 열리기만 하면 통째로 다운로드됐다. Blob 아웃바운드가 11일에 608GB 나온 원인.
+ * IntersectionObserver 로 뷰포트에 들어올 때 src 를 붙이고, 벗어나면 재생을 멈춘다.
+ */
+function LazyVideo({
+  src,
+  className,
+  poster,
+}: {
+  src: string;
+  className?: string;
+  poster?: string;
+}) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setActive(true);
+          el.play().catch(() => {});
+        } else {
+          // 화면 밖이면 정지 — 보이지도 않는 영상이 대역폭을 계속 쓰지 않게
+          el.pause();
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.01 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      className={className}
+      poster={poster}
+      src={active ? src : undefined}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="none"
+    />
+  );
+}
+
 const HERO_VIDEO = `${BLOB}/villadegd-hero.mp4`;
 const LOGO_WHITE = `${BLOB}/villadegd-logo-white.png`;
 
@@ -122,7 +176,7 @@ export default function VilladegdEventOverlay() {
 
       {/* ── 히어로 (풀스크린 시네마틱 · 자동재생 영상 + 커튼) ── */}
       <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-black">
-        <video className="absolute inset-0 h-full w-full object-cover" src={HERO_VIDEO} autoPlay muted loop playsInline preload="auto" />
+        <LazyVideo className="absolute inset-0 h-full w-full object-cover" src={HERO_VIDEO} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/80" />
         <div className="vgd-curtain pointer-events-none absolute inset-0 z-20 bg-black" />
 
@@ -188,7 +242,7 @@ export default function VilladegdEventOverlay() {
 
               {/* 대표 미디어 — 영상 자동재생(무한 루프) */}
               <div className="vgd-rise mt-8 overflow-hidden rounded-[24px] bg-[#F2F4F6] shadow-[0_16px_50px_rgba(0,0,0,0.14)]">
-                <video className="aspect-video w-full object-cover" src={b.video} autoPlay muted loop playsInline preload="auto" poster={lead} />
+                <LazyVideo className="aspect-video w-full object-cover" src={b.video} poster={lead} />
               </div>
             </div>
 
@@ -217,7 +271,7 @@ export default function VilladegdEventOverlay() {
 
       {/* ── 클로징 CTA (히어로 영상 배경 + 짙은 딤드) ── */}
       <section className="relative flex min-h-[560px] items-center justify-center overflow-hidden bg-black px-6 py-24 text-center md:min-h-[640px]">
-        <video className="absolute inset-0 h-full w-full object-cover" src={HERO_VIDEO} autoPlay muted loop playsInline preload="auto" />
+        <LazyVideo className="absolute inset-0 h-full w-full object-cover" src={HERO_VIDEO} />
         <div className="absolute inset-0 bg-black/70" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/70" />
         <div className="relative z-10">
