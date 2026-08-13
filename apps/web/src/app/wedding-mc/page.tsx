@@ -1408,13 +1408,15 @@ function TierScreen({ onSelect, onBack }: { onSelect: (tier: McTier) => void; on
             {/* ── 배경 ── */}
             {premium ? (
               <>
+                {/* preload='auto' 로 두면 이 화면에 오지도 않은 사람까지 29MB 를 내려받는다.
+                    metadata 만 먼저 받고 재생 시점에 스트리밍한다. */}
                 <video
                   src={TIER_PREMIUM_VIDEO}
                   autoPlay
                   muted
                   loop
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   className="pointer-events-none absolute inset-0 h-full w-full object-cover"
                 />
                 {/* 영상 톤 정리 — 알록달록해지지 않게 금색으로 가라앉힌다 */}
