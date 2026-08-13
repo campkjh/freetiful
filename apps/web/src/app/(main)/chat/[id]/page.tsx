@@ -1437,9 +1437,32 @@ export default function ChatRoomPage() {
                           if (expired) { e.preventDefault(); return; }
                           if (isImageFile && href) { e.preventDefault(); setImagePreview(href); return; }
                           if (!href) return;
+                          e.preventDefault();
+
+                          // 안드로이드 앱(WebView)은 다운로드 리스너가 없어 blob 다운로드가 조용히 무시되고,
+                          // 그냥 URL 을 열면 WebView 가 PDF 를 못 그려서 원문이 텍스트로 깨져 보인다.
+                          // 앱이 intent:// 는 외부 앱으로 넘겨주므로(MainActivity.shouldOverrideUrlLoading)
+                          // 그 경로로 시스템 뷰어에 넘긴다.
+                          const inAndroidApp = typeof window !== 'undefined'
+                            && !!(window as unknown as { Android?: unknown }).Android;
+                          if (inAndroidApp) {
+                            try {
+                              const u = new URL(href, window.location.origin);
+                              const mime = /\.pdf$/i.test(msg.fileName || '') ? 'application/pdf' : '*/*';
+                              const intentUrl =
+                                `intent://${u.host}${u.pathname}${u.search}` +
+                                `#Intent;scheme=${u.protocol.replace(':', '')};` +
+                                `action=android.intent.action.VIEW;type=${mime};end`;
+                              window.location.href = intentUrl;
+                              return;
+                            } catch {
+                              window.location.href = href;
+                              return;
+                            }
+                          }
+
                           // href 가 cross-origin(Railway /uploads)이라 a[download] 가 무시됨 →
                           // fetch→blob(same-origin) 으로 다운로드 강제. 실패 시 새 탭 폴백.
-                          e.preventDefault();
                           try {
                             const resp = await fetch(href, { credentials: 'omit' });
                             if (!resp.ok) throw new Error(String(resp.status));
