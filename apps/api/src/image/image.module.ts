@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ImageService } from './image.service';
+import { VideoCompressService } from './video-compress.service';
 import { UploadController } from './upload.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
@@ -7,7 +8,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   controllers: [UploadController],
-  providers: [ImageService],
-  exports: [ImageService],
+  providers: [ImageService, VideoCompressService],
+  exports: [ImageService, VideoCompressService],
 })
 export class ImageModule {}
