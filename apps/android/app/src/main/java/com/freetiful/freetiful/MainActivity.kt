@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -38,28 +39,15 @@ import com.onesignal.OneSignal   // ✅ 추가
 
 class MainActivity : ComponentActivity() {
 
-    override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
-        } else if (::webView.isInitialized) {
-            // 뒤로 갈 히스토리가 없을 때 — 푸시 알림으로 채팅방에 cold start 진입한 경우
-            // 앱 종료 대신 채팅 목록으로 이동
-            val currentUrl = webView.url ?: ""
-            if (currentUrl.contains("/chat/")) {
-                navigateToInternalPath("/chat")
-            } else {
-                super.onBackPressed()
-            }
-        } else {
-            super.onBackPressed()
-        }
-    }
     private lateinit var webView: WebView
     private lateinit var loadingView: LottieAnimationView
     private lateinit var googleSignInClient: GoogleSignInClient
 
     private val GOOGLE_LOGIN_CODE = 1001
     private val FILE_CHOOSER_CODE = 2001
+
+    // 웹 ImageUploader가 최대 10장까지만 받으므로 사진 선택기도 동일하게 제한
+    private val MAX_PICK_IMAGES = 10
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var cameraImageUri: Uri? = null
@@ -79,6 +67,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingPushPath = consumePushTarget(intent)
+        registerBackHandler()
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             requestPermissions(
@@ -109,6 +98,39 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent { MainScreen() }
+    }
+
+    /**
+     * 뒤로가기 처리 — 어떤 경우에도 앱을 종료하지 않는다.
+     * targetSdk 36부터는 predictive back이 기본 활성화라 Activity.onBackPressed() 오버라이드가
+     * 더 이상 호출되지 않는다(뒤로가기가 WebView 히스토리를 건너뛰고 바로 앱 종료).
+     * OnBackPressedDispatcher는 신/구 방식 모두에서 호출되므로 여기로 옮긴다.
+     */
+    private fun registerBackHandler() {
+        onBackPressedDispatcher.addCallback(this) {
+            if (!::webView.isInitialized) return@addCallback
+
+            val currentUrl = webView.url ?: ""
+            when {
+                webView.canGoBack() -> webView.goBack()
+                // 뒤로 갈 히스토리가 없는 경우(푸시/딥링크로 cold start 진입 등) — 종료하지 않고 상위 화면으로
+                currentUrl.contains("/chat/") -> navigateToInternalPath("/chat")
+                !isHomeUrl(currentUrl) -> navigateToInternalPath("/main")
+                // 홈에서 더 뒤로 갈 곳이 없으면 아무것도 하지 않는다.
+                // finish()도 moveTaskToBack()도 하지 않으므로 뒤로가기로는 앱이 화면에서 사라지지 않는다.
+                // (앱을 닫는 건 홈 버튼·최근앱 등 사용자가 직접 하는 동작으로만)
+                else -> Unit
+            }
+        }
+    }
+
+    private fun isHomeUrl(url: String): Boolean {
+        val path = try {
+            Uri.parse(url).path.orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
+        return path.isEmpty() || path == "/" || path == "/main"
     }
 
     // 🔥 OneSignal v5: Player ID(구독 ID) 조회
@@ -180,31 +202,9 @@ class MainActivity : ComponentActivity() {
 
                                 this@MainActivity.filePathCallback?.onReceiveValue(null)
                                 this@MainActivity.filePathCallback = filePathCallback
+                                cameraImageUri = null
 
-                                val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-
-                                val contentValues = ContentValues().apply {
-                                    put(MediaStore.Images.Media.TITLE, "temp_image")
-                                }
-
-                                cameraImageUri = contentResolver.insert(
-                                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                    contentValues
-                                )
-
-                                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri)
-
-                                val galleryIntent = Intent(Intent.ACTION_GET_CONTENT)
-                                galleryIntent.addCategory(Intent.CATEGORY_OPENABLE)
-                                galleryIntent.type = "image/*"
-
-                                val chooserIntent = Intent(Intent.ACTION_CHOOSER)
-                                chooserIntent.putExtra(Intent.EXTRA_INTENT, galleryIntent)
-                                chooserIntent.putExtra(Intent.EXTRA_TITLE, "이미지 선택")
-                                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(takePictureIntent))
-
-                                startActivityForResult(chooserIntent, FILE_CHOOSER_CODE)
-                                return true
+                                return openFileChooser(fileChooserParams)
                             }
                         }
 
@@ -360,6 +360,110 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // ---------------- 파일/사진 선택 ----------------
+    /**
+     * input[type=file] 의 accept / capture 속성에 맞춰 알맞은 선택기를 띄운다.
+     *  - capture 지정(카메라 버튼) → 카메라 바로 실행
+     *  - accept 가 image, video 계열뿐 → 시스템 사진 선택기(갤러리)
+     *  - 그 외(문서 등) → 파일 탐색기
+     * 예전에는 항상 ACTION_GET_CONTENT를 띄워 '사진'을 눌러도 파일 탐색기가 나왔다.
+     */
+    private fun openFileChooser(params: WebChromeClient.FileChooserParams?): Boolean {
+        val visualMime = visualMimeFilter(params?.acceptTypes)
+        val allowMultiple = params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
+
+        if (params?.isCaptureEnabled == true && visualMime != null && launchCamera()) return true
+
+        val intent = if (visualMime != null) {
+            buildVisualPickerIntent(visualMime, allowMultiple)
+        } else {
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = params?.acceptTypes?.firstOrNull { it.isNotBlank() } ?: "*/*"
+                if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }
+        }
+
+        return try {
+            startActivityForResult(intent, FILE_CHOOSER_CODE)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FILE_CHOOSER", "선택기 실행 실패: ${e.message}", e)
+            // 콜백을 남겨두면 해당 input이 영구히 먹통이 되므로 반드시 비워준다
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = null
+            true
+        }
+    }
+
+    // accept 가 사진·동영상만 요구하면 그에 맞는 MIME 문자열, 그 외에는 null.
+    // 사진과 동영상을 모두 받는 경우는 와일드카드로 표시한다.
+    private fun visualMimeFilter(acceptTypes: Array<String>?): String? {
+        val types = acceptTypes?.filter { it.isNotBlank() }.orEmpty()
+        if (types.isEmpty()) return null
+        if (types.any { !it.startsWith("image/") && !it.startsWith("video/") }) return null
+
+        val hasImage = types.any { it.startsWith("image/") }
+        val hasVideo = types.any { it.startsWith("video/") }
+        return when {
+            hasImage && hasVideo -> "*/*"
+            hasImage -> "image/*"
+            hasVideo -> "video/*"
+            else -> null
+        }
+    }
+
+    private fun buildVisualPickerIntent(mime: String, allowMultiple: Boolean): Intent {
+        // Android 13+ 시스템 사진 선택기 — 권한 없이 카메라 롤을 그대로 보여준다
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            return Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                if (mime != "*/*") type = mime
+                if (allowMultiple) {
+                    putExtra(
+                        MediaStore.EXTRA_PICK_IMAGES_MAX,
+                        minOf(MAX_PICK_IMAGES, MediaStore.getPickImagesMaxLimit())
+                    )
+                }
+            }
+        }
+
+        // Android 12 이하 — 갤러리 앱 직접 호출(반환 URI에 임시 읽기 권한이 붙어 저장소 권한 불필요)
+        val collection = if (mime.startsWith("video/")) {
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        } else {
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        }
+        return Intent(Intent.ACTION_PICK).apply {
+            setDataAndType(collection, if (mime == "*/*") "image/*" else mime)
+            if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+    }
+
+    /** capture 지정 input — 카메라 실행. 실패하면 false를 돌려 일반 선택기로 폴백한다 */
+    private fun launchCamera(): Boolean {
+        return try {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "freetiful_${System.currentTimeMillis()}.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            }
+            val uri = contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            ) ?: return false
+
+            cameraImageUri = uri
+            startActivityForResult(
+                Intent(MediaStore.ACTION_IMAGE_CAPTURE).putExtra(MediaStore.EXTRA_OUTPUT, uri),
+                FILE_CHOOSER_CODE
+            )
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FILE_CHOOSER", "카메라 실행 실패: ${e.message}", e)
+            cameraImageUri = null
+            false
+        }
+    }
+
     private fun showLoading() {
         loadingView.visibility = View.VISIBLE
         loadingView.playAnimation()
@@ -419,14 +523,30 @@ class MainActivity : ComponentActivity() {
         }
 
         if (requestCode == FILE_CHOOSER_CODE) {
-            var result: Array<Uri>? = null
-            if (resultCode == RESULT_OK) {
-                if (data == null || data.data == null) {
-                    cameraImageUri?.let { result = arrayOf(it) }
-                } else {
-                    result = arrayOf(data.data!!)
+            val clipData = data?.clipData
+            val result: Array<Uri>? = if (resultCode != RESULT_OK) {
+                null
+            } else if (clipData != null && clipData.itemCount > 0) {
+                // 사진 선택기 다중 선택
+                Array(clipData.itemCount) { clipData.getItemAt(it).uri }
+            } else if (data?.data != null) {
+                arrayOf(data.data!!)
+            } else {
+                cameraImageUri?.let { arrayOf(it) }
+            }
+
+            // 카메라를 취소했으면 미리 만들어 둔 빈 MediaStore 항목을 지운다
+            if (result == null) {
+                cameraImageUri?.let {
+                    try {
+                        contentResolver.delete(it, null, null)
+                    } catch (e: Exception) {
+                        android.util.Log.w("FILE_CHOOSER", "빈 사진 항목 삭제 실패: ${e.message}")
+                    }
                 }
             }
+            cameraImageUri = null
+
             filePathCallback?.onReceiveValue(result)
             filePathCallback = null
         }
