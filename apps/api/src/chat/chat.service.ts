@@ -1249,8 +1249,11 @@ export class ChatService implements OnModuleInit {
         // processImage 실패(미지원 포맷 등) → 원본을 DB 에 저장해 /uploads/:id 로라도 서빙
         try {
           const m2 = dto.content.match(/^data:([^;]+);base64,(.+)$/i);
-          if (m2) finalContent = await this.imageService.saveRawMedia(Buffer.from(m2[2], 'base64'), m2[1]);
-          else throw e;
+          if (m2) {
+            const raw = Buffer.from(m2[2], 'base64');
+            finalContent = await this.imageService.saveRawMedia(raw, m2[1]);
+            this.queueVideoCompress(finalContent, m2[1], raw.length);
+          } else throw e;
         } catch {
           // 거대한 base64 를 content 로 흘리면(렌더 안 됨/DB·실시간 부하) 차라리 전송 실패 →
           // 클라이언트가 버블을 '전송 실패·재시도'로 유지(사진 사라짐 대신).
@@ -1272,6 +1275,8 @@ export class ChatService implements OnModuleInit {
           const buffer = Buffer.from(match[2], 'base64');
           const originalName = (dto as any)?.metadata?.fileName as string | undefined;
           finalContent = await this.imageService.saveRawMedia(buffer, mime, originalName);
+          // iOS 네이티브는 영상을 base64 로 보내 이 경로를 탄다 — 멀티파트(uploadMedia)와 동일하게 압축
+          this.queueVideoCompress(finalContent, mime, buffer.length);
         }
       } catch (e) {
         // 저장 실패 시 거대한 base64 를 그대로 DB/실시간에 흘리지 않도록 전송 자체를 실패시킴
@@ -1383,6 +1388,12 @@ export class ChatService implements OnModuleInit {
 
   // 멀티파트 미디어 업로드 → 공개 /uploads URL 반환 (메시지는 클라가 별도로 content=URL 로 전송).
   // 이미지: processImage(webp 변환), 동영상/파일: saveRawMedia(원본 DB 저장). 모두 DB 영구저장.
+  /** '/uploads/<id>' 에서 id 만 뽑아 영상 압축 큐에 넣는다(영상이 아니거나 작으면 무시됨) */
+  private queueVideoCompress(url: string, mimeType: string, size: number) {
+    if (!url?.startsWith('/uploads/')) return;
+    this.videoCompress.enqueue(url.slice('/uploads/'.length), mimeType, size);
+  }
+
   async uploadMedia(roomId: string, userId: string, file: Express.Multer.File, type?: string) {
     await this.verifyMembership(roomId, userId);
     if (!file || !file.buffer) {
@@ -1408,10 +1419,7 @@ export class ChatService implements OnModuleInit {
     const url = await this.imageService.saveRawMedia(file.buffer, mime || 'application/octet-stream', file.originalname);
     // 영상은 뒤에서 다시 인코딩해 용량을 줄인다(URL 은 그대로, 바이트만 교체).
     // 응답은 여기서 바로 나가므로 업로드 체감 속도에는 영향이 없다.
-    const uploadedId = url.startsWith('/uploads/') ? url.slice('/uploads/'.length) : '';
-    if (uploadedId) {
-      this.videoCompress.enqueue(uploadedId, mime, file.buffer.length);
-    }
+    this.queueVideoCompress(url, mime, file.buffer.length);
     return { url };
   }
 

@@ -10,6 +10,7 @@ import {
 import type { Multer } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageService, ImageProcessOptions } from '../image/image.service';
+import { VideoCompressService } from '../image/video-compress.service';
 import { DiscoveryService } from '../discovery/discovery.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 
@@ -66,6 +67,7 @@ export class ProService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private imageService: ImageService,
+    private videoCompress: VideoCompressService,
     private discovery: DiscoveryService,
     private chatRealtime: ChatRealtimeService,
   ) {}
@@ -630,6 +632,10 @@ export class ProService implements OnModuleInit {
     const isVideo = mime.startsWith('video/') || /\.(mp4|mov|m4v|webm|3gp)$/i.test(file.originalname || '');
     if (!isVideo) throw new BadRequestException('동영상 파일만 업로드할 수 있습니다.');
     const url = await this.imageService.saveRawMedia(file.buffer, mime || 'video/mp4', file.originalname);
+    // 소개 영상도 원본이 그대로 서빙되면 아웃바운드가 커진다 — 채팅과 동일하게 뒤에서 압축
+    if (url.startsWith('/uploads/')) {
+      this.videoCompress.enqueue(url.slice('/uploads/'.length), mime || 'video/mp4', file.buffer.length);
+    }
     return { url };
   }
 
