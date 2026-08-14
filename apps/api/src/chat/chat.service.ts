@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
+import { VideoCompressService } from '../image/video-compress.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChatRealtimeService } from './chat-realtime.service';
 import {
@@ -30,6 +31,7 @@ export class ChatService implements OnModuleInit {
     private notificationService: NotificationService,
     private imageService: ImageService,
     private chatRealtimeService: ChatRealtimeService,
+    private videoCompress: VideoCompressService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -1404,6 +1406,12 @@ export class ChatService implements OnModuleInit {
       }
     }
     const url = await this.imageService.saveRawMedia(file.buffer, mime || 'application/octet-stream', file.originalname);
+    // 영상은 뒤에서 다시 인코딩해 용량을 줄인다(URL 은 그대로, 바이트만 교체).
+    // 응답은 여기서 바로 나가므로 업로드 체감 속도에는 영향이 없다.
+    const uploadedId = url.startsWith('/uploads/') ? url.slice('/uploads/'.length) : '';
+    if (uploadedId) {
+      this.videoCompress.enqueue(uploadedId, mime, file.buffer.length);
+    }
     return { url };
   }
 
