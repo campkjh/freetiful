@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
@@ -18,8 +18,14 @@ import { randomUUID } from 'crypto';
  * URL 이 그대로라 이미 전송된 메시지도 자동으로 가벼워진다.
  */
 @Injectable()
-export class VideoCompressService {
+export class VideoCompressService implements OnModuleInit {
   private readonly logger = new Logger(VideoCompressService.name);
+
+  onModuleInit() {
+    const p = this.ffmpegPath();
+    // 배포 후 실제로 압축이 도는지 로그로 바로 확인할 수 있게 (없으면 조용히 스킵되므로)
+    this.logger.log(p ? `[영상압축] 활성 — ${p}` : '[영상압축] 비활성 — ffmpeg 없음(원본 그대로 저장)');
+  }
 
   /** 이 크기 아래는 건드리지 않는다 — 인코딩 비용이 이득보다 크다 */
   private static readonly MIN_BYTES = 6 * 1024 * 1024;
