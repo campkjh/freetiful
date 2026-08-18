@@ -363,7 +363,8 @@ class MainActivity : ComponentActivity() {
     // ---------------- 파일/사진 선택 ----------------
     /**
      * input[type=file] 의 accept / capture 속성에 맞춰 알맞은 선택기를 띄운다.
-     *  - capture 지정(카메라 버튼) → 카메라 바로 실행
+     *  - capture 지정 + video → 동영상 촬영
+     *  - capture 지정 + image → 사진 촬영
      *  - accept 가 image, video 계열뿐 → 시스템 사진 선택기(갤러리)
      *  - 그 외(문서 등) → 파일 탐색기
      * 예전에는 항상 ACTION_GET_CONTENT를 띄워 '사진'을 눌러도 파일 탐색기가 나왔다.
@@ -372,7 +373,10 @@ class MainActivity : ComponentActivity() {
         val visualMime = visualMimeFilter(params?.acceptTypes)
         val allowMultiple = params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
 
-        if (params?.isCaptureEnabled == true && visualMime != null && launchCamera()) return true
+        if (params?.isCaptureEnabled == true && visualMime != null) {
+            val captured = if (visualMime.startsWith("video/")) launchVideoCapture() else launchCamera()
+            if (captured) return true
+        }
 
         val intent = if (visualMime != null) {
             buildVisualPickerIntent(visualMime, allowMultiple)
@@ -436,6 +440,20 @@ class MainActivity : ComponentActivity() {
         return Intent(Intent.ACTION_PICK).apply {
             setDataAndType(collection, if (mime == "*/*") "image/*" else mime)
             if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+    }
+
+    /**
+     * capture 지정 + accept 가 video 계열 — 동영상 촬영.
+     * 저장 위치를 지정하지 않으면 카메라 앱이 갤러리에 저장하고 결과 URI를 돌려준다.
+     */
+    private fun launchVideoCapture(): Boolean {
+        return try {
+            startActivityForResult(Intent(MediaStore.ACTION_VIDEO_CAPTURE), FILE_CHOOSER_CODE)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("FILE_CHOOSER", "동영상 촬영 실행 실패: ${e.message}", e)
+            false
         }
     }
 

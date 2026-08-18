@@ -2220,6 +2220,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
+    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상 촬영', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
     { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
     // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController), 파일 수신 렌더는 유지

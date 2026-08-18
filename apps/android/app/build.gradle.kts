@@ -24,8 +24,8 @@ android {
         applicationId = "com.freetiful.freetiful"
         minSdk = 30
         targetSdk = 36
-        versionCode = 48
-        versionName = "2.0.4"
+        versionCode = 50
+        versionName = "2.0.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
