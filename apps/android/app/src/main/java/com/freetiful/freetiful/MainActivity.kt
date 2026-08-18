@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
     private val MAX_PICK_IMAGES = 10
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private var cameraImageUri: Uri? = null
+    private var captureOutputUri: Uri? = null
     private var pendingPushPath: String? = null
     private var pendingWebViewPermissionRequest: PermissionRequest? = null
 
@@ -202,7 +202,7 @@ class MainActivity : ComponentActivity() {
 
                                 this@MainActivity.filePathCallback?.onReceiveValue(null)
                                 this@MainActivity.filePathCallback = filePathCallback
-                                cameraImageUri = null
+                                captureOutputUri = null
 
                                 return openFileChooser(fileChooserParams)
                             }
@@ -445,14 +445,27 @@ class MainActivity : ComponentActivity() {
 
     /**
      * capture 지정 + accept 가 video 계열 — 동영상 촬영.
-     * 저장 위치를 지정하지 않으면 카메라 앱이 갤러리에 저장하고 결과 URI를 돌려준다.
+     * 카메라 앱에 따라 결과 Intent 에 촬영본 URI 를 담아주지 않는 경우가 있어
+     * (촬영하고 확인을 눌러도 아무 일도 일어나지 않던 원인) 저장 위치를 미리 정해두고
+     * 결과가 비어 있으면 그 URI 로 폴백한다. 사진 촬영과 동일한 방식.
      */
     private fun launchVideoCapture(): Boolean {
         return try {
-            startActivityForResult(Intent(MediaStore.ACTION_VIDEO_CAPTURE), FILE_CHOOSER_CODE)
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, "freetiful_${System.currentTimeMillis()}.mp4")
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            }
+            val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+            contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)?.let {
+                captureOutputUri = it
+                intent.putExtra(MediaStore.EXTRA_OUTPUT, it)
+            }
+
+            startActivityForResult(intent, FILE_CHOOSER_CODE)
             true
         } catch (e: Exception) {
             android.util.Log.e("FILE_CHOOSER", "동영상 촬영 실행 실패: ${e.message}", e)
+            captureOutputUri = null
             false
         }
     }
@@ -469,7 +482,7 @@ class MainActivity : ComponentActivity() {
                 contentValues
             ) ?: return false
 
-            cameraImageUri = uri
+            captureOutputUri = uri
             startActivityForResult(
                 Intent(MediaStore.ACTION_IMAGE_CAPTURE).putExtra(MediaStore.EXTRA_OUTPUT, uri),
                 FILE_CHOOSER_CODE
@@ -477,7 +490,7 @@ class MainActivity : ComponentActivity() {
             true
         } catch (e: Exception) {
             android.util.Log.e("FILE_CHOOSER", "카메라 실행 실패: ${e.message}", e)
-            cameraImageUri = null
+            captureOutputUri = null
             false
         }
     }
@@ -550,20 +563,25 @@ class MainActivity : ComponentActivity() {
             } else if (data?.data != null) {
                 arrayOf(data.data!!)
             } else {
-                cameraImageUri?.let { arrayOf(it) }
+                captureOutputUri?.let { arrayOf(it) }
             }
 
-            // 카메라를 취소했으면 미리 만들어 둔 빈 MediaStore 항목을 지운다
+            android.util.Log.d(
+                "FILE_CHOOSER",
+                "결과 resultCode=$resultCode uris=${result?.size ?: 0} data=${data?.data} output=$captureOutputUri"
+            )
+
+            // 촬영을 취소했으면 미리 만들어 둔 빈 MediaStore 항목을 지운다
             if (result == null) {
-                cameraImageUri?.let {
+                captureOutputUri?.let {
                     try {
                         contentResolver.delete(it, null, null)
                     } catch (e: Exception) {
-                        android.util.Log.w("FILE_CHOOSER", "빈 사진 항목 삭제 실패: ${e.message}")
+                        android.util.Log.w("FILE_CHOOSER", "빈 촬영 항목 삭제 실패: ${e.message}")
                     }
                 }
             }
-            cameraImageUri = null
+            captureOutputUri = null
 
             filePathCallback?.onReceiveValue(result)
             filePathCallback = null
