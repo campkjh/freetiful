@@ -18,6 +18,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
+import { CHAT_STICKERS } from '@/lib/chat-stickers';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
@@ -1318,6 +1319,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const recordingStartRef = useRef<number>(0);
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
+  // 이모티콘 시트
+  const [showStickers, setShowStickers] = useState(false);
+
   // 카메라 첨부 — 사진/동영상 중 무엇을 찍을지 먼저 고른다.
   // 안드로이드는 ACTION_IMAGE_CAPTURE 로 카메라를 열면 사진 모드로 고정되어
   // 카메라 앱 안에서 동영상으로 전환할 수 없으므로, 앱에서 미리 물어본다.
@@ -1867,6 +1871,30 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
+  // 이모티콘 전송 — 업로드 없이 사이트에 있는 스티커 URL 을 그대로 보낸다.
+  // 렌더는 isChatStickerUrl 로 판별해 말풍선/전체보기 없이 이미지만 띄운다.
+  const sendStickerMessage = async (src: string) => {
+    setShowStickers(false);
+    const saved = await useChatStore.getState().sendMessage({
+      type: 'image',
+      content: src,
+    }).catch(() => null);
+    if (!saved) {
+      toast.error('이모티콘 전송 실패');
+      return;
+    }
+    setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+      id: saved.id,
+      senderId: saved.senderId,
+      content: saved.content || src,
+      type: 'image',
+      createdAt: saved.createdAt,
+      isRead: saved.isRead,
+      isNew: true,
+    }]);
+    useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
+  };
+
   const handleLocationSend = () => {
     setShowAttach(false);
     if (!('geolocation' in navigator)) {
@@ -2226,7 +2254,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); setShowCameraChoice(true); } },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
     { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
+    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); setShowStickers(true); } },
     // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController), 파일 수신 렌더는 유지
   ];
 
@@ -2568,6 +2596,37 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </>
       )}
 
+      {/* ─── 이모티콘 시트 ─── */}
+      {showStickers && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
+            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            onClick={() => setShowStickers(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] pb-safe"
+            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-2" />
+            <div className="px-4 pb-6 max-h-[55vh] overflow-y-auto">
+              <div className="grid grid-cols-4 gap-2">
+                {CHAT_STICKERS.map((sticker, idx) => (
+                  <button
+                    key={sticker.id}
+                    onClick={(e) => { e.stopPropagation(); sendStickerMessage(sticker.src); }}
+                    className="aspect-square rounded-2xl p-1.5 active:scale-90 hover:bg-gray-100/70 transition-all"
+                    style={{ animation: `attachItemUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.02}s both` }}
+                  >
+                    <img src={sticker.src} alt={sticker.alt} draggable={false} className="w-full h-full object-contain select-none" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ─── 카메라 선택 (사진 촬영 / 동영상 촬영) ─── */}
       {showCameraChoice && (
         <>
@@ -2669,7 +2728,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {/* 숨겨진 파일 인풋 — 사진/동영상 다중 선택 가능 */}
       {/* 사진=이미지 전용(image/*) — 안드는 image/*+video/* 혼합 accept 면 갤러리 대신 카메라/파일 선택기가
           뜨고 다중선택도 안 되던 문제. 영상은 별도 '동영상' 메뉴(video/*)로 분리. */}
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
+      {/* '사진' 탭 — 앨범에 있는 사진과 동영상을 함께 고를 수 있어야 한다 */}
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const input = e.target; const f = input.files?.[0]; if (!f) return; (async () => { try { await handleImageSend(f); } finally { input.value = ''; } })(); }} />
 
       {/* ─── Recording UI (input bar replacement handled by parent, but we provide startRecording/stopRecording) ─── */}

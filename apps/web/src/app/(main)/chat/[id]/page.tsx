@@ -12,6 +12,7 @@ import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-p
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
 import { renderTextWithMentions } from './chat-text';
+import { isChatStickerUrl } from '@/lib/chat-stickers';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -1377,7 +1378,25 @@ export default function ChatRoomPage() {
                 >
                   <div className="relative min-w-0 max-w-[78%]">
                     {/* Message bubble */}
-                    {msg.type === 'image' ? (
+                    {msg.type === 'image' && isChatStickerUrl(msg.content) ? (
+                      /* 이모티콘 — 사진과 달리 말풍선/전체보기 없이 이미지만 */
+                      <div
+                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ WebkitTouchCallout: 'none' }}
+                        onPointerDown={(e) => handleLongPressStart(e, msg)}
+                        onPointerUp={handleLongPressCancel}
+                        onPointerLeave={handleLongPressCancel}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <img
+                          src={msg.content}
+                          alt="이모티콘"
+                          draggable={false}
+                          className="w-[150px] h-[150px] object-contain select-none"
+                          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                        />
+                      </div>
+                    ) : msg.type === 'image' ? (
                       <div
                         className={`relative select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
