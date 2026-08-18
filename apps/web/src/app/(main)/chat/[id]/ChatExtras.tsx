@@ -1318,6 +1318,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const recordingStartRef = useRef<number>(0);
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
+  // 카메라 첨부 — 사진/동영상 중 무엇을 찍을지 먼저 고른다.
+  // 안드로이드는 ACTION_IMAGE_CAPTURE 로 카메라를 열면 사진 모드로 고정되어
+  // 카메라 앱 안에서 동영상으로 전환할 수 없으므로, 앱에서 미리 물어본다.
+  const [showCameraChoice, setShowCameraChoice] = useState(false);
+
   // ─── Quote modal state ───
   const [quotePlan, setQuotePlan] = useState<string>('premium');
   const [quoteEventName, setQuoteEventName] = useState('');
@@ -2218,12 +2223,17 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const ATTACH_ITEMS = [
     // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
     ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
-    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
+    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); setShowCameraChoice(true); } },
     { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상 촬영', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
     { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
     { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
     // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController), 파일 수신 렌더는 유지
+  ];
+
+  // '카메라' 를 눌렀을 때 뜨는 2차 선택 — 사진 촬영 / 동영상 촬영
+  const CAMERA_CHOICE_ITEMS = [
+    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진 촬영', action: () => { pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
+    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상 촬영', action: () => { pickFilesViaInput({ accept: 'video/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
   ];
 
   const mentionList = chatPartner
@@ -2542,6 +2552,40 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 <button
                   key={item.label}
                   onClick={(e) => { e.stopPropagation(); item.action(); setShowAttach(false); }}
+                  className="flex items-center gap-4 w-full py-3.5 px-2 hover:bg-gray-100/60 active:scale-[0.98] rounded-xl transition-all"
+                  style={{
+                    animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s both`,
+                  }}
+                >
+                  <div className={`w-11 h-11 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
+                    {item.icon}
+                  </div>
+                  <span className="text-[17px] text-gray-900">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ─── 카메라 선택 (사진 촬영 / 동영상 촬영) ─── */}
+      {showCameraChoice && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
+            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            onClick={() => setShowCameraChoice(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] pb-safe"
+            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
+            <div className="px-4 pb-6">
+              {CAMERA_CHOICE_ITEMS.map((item, idx) => (
+                <button
+                  key={item.label}
+                  onClick={(e) => { e.stopPropagation(); setShowCameraChoice(false); item.action(); }}
                   className="flex items-center gap-4 w-full py-3.5 px-2 hover:bg-gray-100/60 active:scale-[0.98] rounded-xl transition-all"
                   style={{
                     animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s both`,
