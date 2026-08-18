@@ -1327,6 +1327,22 @@ export default function ChatExtras(props: ChatExtrasProps) {
   // 카메라 앱 안에서 동영상으로 전환할 수 없으므로, 앱에서 미리 물어본다.
   const [showCameraChoice, setShowCameraChoice] = useState(false);
 
+  // 시트가 열려 있을 때 뒤로가기는 '시트 닫기' 여야 한다.
+  // 히스토리 항목을 하나 쌓아두면 안드로이드 뒤로가기가 페이지 이동 대신
+  // popstate 로 들어와 시트만 닫힌다(그냥 두면 채팅방을 나가버림).
+  const sheetOpen = showAttach || showStickers || showCameraChoice;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    window.history.pushState({ ftSheet: true }, '');
+    const closeAll = () => { setShowAttach(false); setShowStickers(false); setShowCameraChoice(false); };
+    window.addEventListener('popstate', closeAll);
+    return () => {
+      window.removeEventListener('popstate', closeAll);
+      // 버튼으로 닫은 경우엔 쌓아둔 항목을 되돌린다 (뒤로가기로 닫혔으면 이미 없음)
+      if ((window.history.state as any)?.ftSheet) window.history.back();
+    };
+  }, [sheetOpen, setShowAttach]);
+
   // ─── Quote modal state ───
   const [quotePlan, setQuotePlan] = useState<string>('premium');
   const [quoteEventName, setQuoteEventName] = useState('');
