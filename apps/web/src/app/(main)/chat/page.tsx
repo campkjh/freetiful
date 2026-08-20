@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
 import { EmptyChatIcon, EmptySearchIcon } from '@/components/icons/color';
+import ChatRoomView from './[id]/page';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -201,6 +202,8 @@ export default function ChatListPage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
+  /** PC 우측 패널에 띄울 방 (카톡 PC 형태) */
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
   const [deletingRooms, setDeletingRooms] = useState(false);
@@ -419,9 +422,11 @@ export default function ChatListPage() {
               >
                 <div
                   className={`relative flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors overflow-hidden ${
-                    hasUnread ? 'bg-blue-50/40' : ''
-                  } ${
-                    !hasUnread ? 'hover:bg-gray-50' : 'hover:bg-blue-100/40'
+                    isPC && selectedRoomId === room.id
+                      ? 'bg-[#EAF2FF]'
+                      : hasUnread
+                        ? 'bg-blue-50/40 hover:bg-blue-100/40'
+                        : 'hover:bg-gray-50'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
@@ -433,7 +438,8 @@ export default function ChatListPage() {
                       toggleSelect(room.id);
                       return;
                     }
-                    if (isPC) router.push(`/chat/${room.id}`);
+                    // PC 는 카톡 PC 처럼 우측 패널에서 연다(페이지 이동 없음)
+                    if (isPC) setSelectedRoomId(room.id);
                   }}
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
                   onFocus={() => handlePrewarmRoom(room.id)}
@@ -644,15 +650,19 @@ export default function ChatListPage() {
           </div>
         </div>
 
-        {/* 우측: 대화 영역 */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
-          <div className="flex flex-1 items-center justify-center">
-            <div className="text-center">
-              <EmptyChatIcon size={72} className="mx-auto mb-4" />
-              <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
-              <p className="mt-1 text-[13px] text-[#A4ABBA]">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>
+        {/* 우측: 대화 영역 — 방을 고르면 그 자리에서 열린다 */}
+        <div className="relative flex flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
+          {selectedRoomId ? (
+            <ChatRoomView key={selectedRoomId} roomId={selectedRoomId} embedded />
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <EmptyChatIcon size={72} className="mx-auto mb-4" />
+                <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
+                <p className="mt-1 text-[13px] text-[#A4ABBA]">왼쪽 목록에서 대화를 고르면 여기에 열립니다</p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
