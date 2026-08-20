@@ -794,15 +794,8 @@ function ProCard({ pro, index }: {
       style={skipAnim ? undefined : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
       <div className="relative rounded-xl lg:rounded-full overflow-hidden bg-gray-100">
-        <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
-          <img
-            src={primaryImage}
-            alt={pro.name}
-            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-          />
-        </div>
-        {/* PC — BEST 결혼식 사회자 카드와 동일하게 사진 한 장(알약형). 3장 콜라주는 폐지 */}
-        <div className="hidden lg:block" style={{ aspectRatio: '3 / 4' }}>
+        {/* 모바일·PC 모두 사진 한 장. PC 는 BEST 결혼식 사회자 카드와 같은 알약형(3장 콜라주 폐지) */}
+        <div style={{ aspectRatio: '3 / 4' }}>
           <img
             src={primaryImage}
             alt={pro.name}
