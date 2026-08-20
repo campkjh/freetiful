@@ -2917,12 +2917,12 @@ export default function HomePage() {
           </div>
 
           {/* Desktop: 순위 카드 3열 — 화살표로 넘기고 펼쳐보기로 전부 본다 */}
-          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-2 gap-y-6 lg:grid lg:grid-cols-5">
+          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-4 gap-y-8 lg:grid lg:grid-cols-3">
             {bestWeddingPros.length === 0 && (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex gap-2">
-                  <div className="h-9 w-6 rounded-full bg-gray-200 animate-pulse" />
-                  <div className="h-[128px] w-[96px] rounded-full bg-gray-200 animate-pulse" />
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="h-12 w-9 rounded-full bg-gray-200 animate-pulse" />
+                  <div className="h-[234px] w-[176px] rounded-full bg-gray-200 animate-pulse" />
                   <div className="flex-1 py-1">
                     <div className="h-4 w-24 bg-gray-200 rounded-full animate-pulse" />
                     <div className="mt-3 h-3 w-20 bg-gray-100 rounded-full animate-pulse" />
@@ -2944,22 +2944,22 @@ export default function HomePage() {
                   e.preventDefault();
                   setQuickViewPro(pro);
                 }}
-                className="group flex w-fit gap-2"
+                className="group flex w-fit gap-3"
               >
                 <div className="flex items-center shrink-0">
-                  <span className="text-[34px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
+                  <span className="text-[44px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
                 </div>
-                <div className="w-[96px] h-[128px] rounded-full overflow-hidden shrink-0 bg-gray-100">
+                <div className="w-[176px] h-[234px] rounded-full overflow-hidden shrink-0 bg-gray-100">
                   <img
                     src={pro.images[0] || pro.image}
                     alt={pro.name}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                 </div>
-                <div className="flex min-w-0 max-w-[96px] flex-col justify-center py-0.5">
+                <div className="flex min-w-0 max-w-[130px] flex-col justify-center py-0.5">
                   <div>
-                    <p className="truncate text-[15px] font-bold leading-tight text-gray-900">{pro.name}</p>
-                    <p className="mt-1 truncate text-[12px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
+                    <p className="truncate text-[17px] font-bold leading-tight text-gray-900">{pro.name}</p>
+                    <p className="mt-1 truncate text-[13px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
                   </div>
                 </div>
               </Link>
