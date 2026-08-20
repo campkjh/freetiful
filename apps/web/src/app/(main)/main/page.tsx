@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -700,45 +700,93 @@ const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 
 function BusinessCard({
   biz,
+  index = 0,
 }: {
   biz: BusinessPartner;
+  index?: number;
 }) {
   const [hidden, setHidden] = useState(false);
-  if (hidden || !biz.images[0]) return null;
+  // 업체당 사진이 수십 장인 곳도 있어 순환은 앞의 4장까지만 (홈에서 다 받아올 이유가 없다)
+  const images = biz.images.slice(0, 4);
+  const count = images.length;
+
+  // 4초마다 다음 사진으로. 마지막 뒤에 첫 장을 복제해 두고 거기 닿으면
+  // 애니메이션을 끈 채 0 으로 되감아 '무한'으로 이어지게 한다.
+  const [slide, setSlide] = useState(0);
+  const [sliding, setSliding] = useState(true);
+  useEffect(() => {
+    if (count < 2) return;
+    // 카드마다 조금씩 어긋나게 돌려야 한 줄이 동시에 뒤집히지 않는다
+    const offset = (index % 4) * 700;
+    const start = setTimeout(() => {
+      setSlide((v) => v + 1);
+    }, 4000 + offset);
+    return () => clearTimeout(start);
+  }, [count, index, slide]);
+  useEffect(() => {
+    if (count < 2 || slide !== count) return;
+    const t = setTimeout(() => { setSliding(false); setSlide(0); }, 700);
+    return () => clearTimeout(t);
+  }, [slide, count]);
+  useEffect(() => {
+    if (sliding) return;
+    const r = requestAnimationFrame(() => setSliding(true));
+    return () => cancelAnimationFrame(r);
+  }, [sliding]);
+
+  if (hidden || !images[0]) return null;
+
+  const track = [...images, images[0]];
+  const cur = count > 0 ? slide % count : 0;
+
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
       {/* 상단 와이드 이미지 — 뒤로 사진 두 장이 겹쳐 보이는 카드 더미(PC 는 알약형) */}
       <div className="relative w-full pt-5 lg:pt-6">
-        {/* 뒤에 깔리는 두 장. 이미지가 부족하면 첫 장을 다시 쓴다 */}
-        {[2, 1].map((depth) => {
-          const src = biz.images[depth] || biz.images[0];
-          return (
-            <div
-              key={depth}
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
-              style={{
-                // 앞장(80%)보다 좁게 깔고, 흰 링으로 장끼리 경계를 만든다
-                width: depth === 2 ? '62%' : '71%',
-                aspectRatio: '2 / 1',
-                transform: `translateY(${depth === 2 ? 0 : 12}px)`,
-                opacity: depth === 2 ? 0.5 : 0.78,
-              }}
-            >
-              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
-            </div>
-          );
-        })}
+        {/* 뒤에 깔리는 두 장. 앞장이 넘어가면 따라 넘어간다 */}
+        {[2, 1].map((depth) => (
+          <div
+            key={depth}
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
+            style={{
+              // 앞장(80%)보다 좁게 깔고, 흰 링으로 장끼리 경계를 만든다
+              width: depth === 2 ? '62%' : '71%',
+              aspectRatio: '2 / 1',
+              transform: `translateY(${depth === 2 ? 0 : 12}px)`,
+              opacity: depth === 2 ? 0.5 : 0.78,
+            }}
+          >
+            <img
+              src={images[(cur + depth) % count] || images[0]}
+              alt=""
+              className="h-full w-full object-cover transition-opacity duration-500"
+              loading="lazy"
+            />
+          </div>
+        ))}
 
         <div className="relative mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full" style={{ aspectRatio: '2 / 1' }}>
-          {biz.images[0] ? (
-            <img
-              src={biz.images[0]}
-              alt={biz.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              onError={() => setHidden(true)}
-            />
-          ) : null}
+          <div
+            className="flex h-full"
+            style={{
+              width: `${track.length * 100}%`,
+              transform: `translateX(-${slide * (100 / track.length)}%)`,
+              transition: sliding ? 'transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+            }}
+          >
+            {track.map((src, i) => (
+              <img
+                key={`${src}-${i}`}
+                src={src}
+                alt={i === 0 ? biz.name : ''}
+                className="h-full object-cover"
+                style={{ width: `${100 / track.length}%` }}
+                loading={i === 0 ? undefined : 'lazy'}
+                onError={i === 0 ? () => setHidden(true) : undefined}
+              />
+            ))}
+          </div>
           {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
           <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm lg:hidden">
             <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
@@ -747,16 +795,16 @@ function BusinessCard({
       </div>
 
       {/* 이름 */}
-      <h4 className="mt-3 text-[16px] font-semibold text-gray-900 leading-[1.2] tracking-tight">{biz.name}</h4>
+      <h4 className="mt-3 text-center text-[16px] font-semibold leading-[1.2] tracking-tight text-gray-900">{biz.name}</h4>
 
       {/* 위치 */}
-      <div className="mt-1 flex items-center gap-1.5 text-[13px] text-gray-500 leading-tight">
+      <div className="mt-1 flex items-center justify-center gap-1.5 text-[13px] leading-tight text-gray-500">
         <PinLocationIcon size={14} className="shrink-0 text-gray-300" />
         <span>{biz.location}</span>
       </div>
 
       {/* 태그 — '인기' 는 노출하지 않는다 */}
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex flex-wrap justify-center gap-1">
         {biz.tags.filter((tag) => tag !== '인기').map((tag) => (
           <span
             key={tag}
@@ -768,6 +816,93 @@ function BusinessCard({
         ))}
       </div>
     </Link>
+  );
+}
+
+/**
+ * 웨딩 파트너 한 섹션(제목 + 가로 카드열).
+ * 전체보기 옆 화살표로 한 칸씩 밀어 본다 — 스크롤 위치를 알아야 해서
+ * 헤더와 카드열을 한 컴포넌트로 묶었다.
+ */
+function BusinessPartnerSection({
+  category, businesses, showDivider,
+}: {
+  category: string;
+  businesses: BusinessPartner[];
+  showDivider: boolean;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(false);
+
+  const syncEdges = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    setAtStart(el.scrollLeft <= 4);
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    syncEdges();
+    const el = rowRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', syncEdges, { passive: true });
+    return () => el.removeEventListener('scroll', syncEdges);
+  }, [syncEdges, businesses.length]);
+
+  const nudge = (dir: -1 | 1) => {
+    const el = rowRef.current;
+    if (!el) return;
+    // 카드 하나 + 간격만큼 민다
+    const step = (el.firstElementChild as HTMLElement | null)?.offsetWidth ?? el.clientWidth / 3;
+    el.scrollBy({ left: dir * (step + 8), behavior: 'smooth' });
+  };
+
+  const arrowCls =
+    'hidden h-9 w-9 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF] disabled:cursor-default disabled:text-[#D8DDE4] disabled:hover:bg-[#F2F3F5] lg:flex';
+
+  return (
+    <section>
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
+              <StoreIcon size={22} />
+            </span>
+            <div>
+              <h3 className="section-title">{category}</h3>
+              <p className="section-subtitle mt-1">프리티풀이 엄선한 {category} 업체를 만나보세요</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => nudge(-1)} disabled={atStart} className={arrowCls} aria-label={`이전 ${category}`}>
+              <ChevronLeftIcon size={16} />
+            </button>
+            <button type="button" onClick={() => nudge(1)} disabled={atEnd} className={arrowCls} aria-label={`다음 ${category}`}>
+              <ChevronRightIcon size={16} />
+            </button>
+            <Link
+              href={`/businesses?category=${encodeURIComponent(category)}`}
+              className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+              style={{ transition: 'color 0.3s' }}
+            >
+              전체보기 <ChevronRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </div>
+      <div
+        ref={rowRef}
+        className="-mx-[10px] flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-[10px] px-[10px] scrollbar-hide lg:gap-2"
+      >
+        {businesses.map((biz, i) => (
+          <div key={`${category}-${biz.id}`} className="w-[78%] shrink-0 snap-start lg:w-[calc((100%-16px)/3)]">
+            <BusinessCard biz={biz} index={i} />
+          </div>
+        ))}
+      </div>
+      {showDivider && <div className="my-6 border-t border-gray-100" />}
+    </section>
   );
 }
 
@@ -876,7 +1011,7 @@ const PRO_SECTION_PAGE_SIZE = 12;
  * 그 자리에서 넘겨보거나 한 번에 펼칠 수 있게 바꿨다.
  */
 function ProSectionPager({
-  page, pageCount, total, expanded, onPrev, onNext, onToggle,
+  page, pageCount, total, expanded, onPrev, onNext, onToggle, showExpand = true,
 }: {
   page: number;
   pageCount: number;
@@ -885,6 +1020,8 @@ function ProSectionPager({
   onPrev: () => void;
   onNext: () => void;
   onToggle: () => void;
+  /** false 면 화살표만 — BEST 처럼 '전부 펼치기'가 어울리지 않는 섹션용 */
+  showExpand?: boolean;
 }) {
   const arrowCls =
     'flex h-11 w-11 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF] disabled:cursor-default disabled:text-[#C7CBD3] disabled:hover:bg-[#F2F3F5]';
@@ -900,14 +1037,16 @@ function ProSectionPager({
           </button>
         </>
       )}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex h-11 items-center gap-2 rounded-full bg-[#F2F3F5] px-5 text-[14px] font-semibold text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
-      >
-        {expanded ? '접기' : `전체 ${total}개 펼쳐보기`}
-        <ChevronDownIcon size={18} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
-      </button>
+      {showExpand && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-11 items-center gap-2 rounded-full bg-[#F2F3F5] px-5 text-[14px] font-semibold text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
+        >
+          {expanded ? '접기' : `전체 ${total}개 펼쳐보기`}
+          <ChevronDownIcon size={18} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
     </div>
   );
 }
@@ -926,20 +1065,19 @@ function useProSectionPager(total: number, pageSize = PRO_SECTION_PAGE_SIZE) {
   }, [pageCount]);
   const slice = <T,>(list: T[]) =>
     expanded ? list : list.slice(page * pageSize, (page + 1) * pageSize);
-  /** 카드 래퍼에 그대로 펴 넣는다 — key 가 바뀌며 애니메이션이 다시 돈다 */
-  const itemProps = (index: number) => ({
-    key: `${expanded ? 'all' : page}-${index}`,
-    style: {
-      animation: `${move === -1 ? 'proPageFromLeft' : move === 1 ? 'proPageFromRight' : 'proPageExpand'} 0.42s cubic-bezier(0.16, 1, 0.3, 1) both`,
-      animationDelay: `${Math.min(index, 11) * 28}ms`,
-    } as CSSProperties,
+  /** key 가 바뀌면 리마운트되며 애니메이션이 다시 돈다(key 는 스프레드 금지) */
+  const itemKey = (index: number) => `${expanded ? 'all' : page}-${index}`;
+  const itemStyle = (index: number): CSSProperties => ({
+    animation: `${move === -1 ? 'proPageFromLeft' : move === 1 ? 'proPageFromRight' : 'proPageExpand'} 0.42s cubic-bezier(0.16, 1, 0.3, 1) both`,
+    animationDelay: `${Math.min(index, 11) * 28}ms`,
   });
   return {
     page,
     pageCount,
     expanded,
     slice,
-    itemProps,
+    itemKey,
+    itemStyle,
     /** 첫 페이지(펼치지 않은 상태)는 시작 위치라 진입 애니메이션을 걸지 않는다 */
     offset: expanded ? 0 : page * pageSize,
     onPrev: () => { setMove(-1); setPage((p) => Math.max(0, p - 1)); },
@@ -1922,7 +2060,9 @@ export default function HomePage() {
     const filled = filtered.length > 0 ? [...filtered, ...fallback] : prosData;
     return shuffleProsBySeed(filled, `${moreProsSeedRef.current}:event`);
   }, [prosData]);
-  const bestProsPager = useProSectionPager(bestWeddingPros.length, 3);
+  /** BEST 는 10위까지만, 한 페이지에 5명 */
+  const bestTop10 = useMemo(() => bestWeddingPros.slice(0, 10), [bestWeddingPros]);
+  const bestProsPager = useProSectionPager(bestTop10.length, 5);
   const moreProsPager = useProSectionPager(morePros.length);
   const eventProsPager = useProSectionPager(eventPros.length);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
@@ -2697,11 +2837,12 @@ export default function HomePage() {
             <ProSectionPager
               page={bestProsPager.page}
               pageCount={bestProsPager.pageCount}
-              total={bestWeddingPros.length}
+              total={bestTop10.length}
               expanded={bestProsPager.expanded}
               onPrev={bestProsPager.onPrev}
               onNext={bestProsPager.onNext}
               onToggle={bestProsPager.onToggle}
+              showExpand={false}
             />
           </div>
 
@@ -2744,12 +2885,12 @@ export default function HomePage() {
           </div>
 
           {/* Desktop: 순위 카드 3열 — 화살표로 넘기고 펼쳐보기로 전부 본다 */}
-          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-4 gap-y-6 lg:grid lg:grid-cols-3">
+          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-2 gap-y-6 lg:grid lg:grid-cols-5">
             {bestWeddingPros.length === 0 && (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="h-11 w-9 rounded-full bg-gray-200 animate-pulse" />
-                  <div className="h-[150px] w-[112px] rounded-full bg-gray-200 animate-pulse" />
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-2">
+                  <div className="h-9 w-6 rounded-full bg-gray-200 animate-pulse" />
+                  <div className="h-[128px] w-[96px] rounded-full bg-gray-200 animate-pulse" />
                   <div className="flex-1 py-1">
                     <div className="h-4 w-24 bg-gray-200 rounded-full animate-pulse" />
                     <div className="mt-3 h-3 w-20 bg-gray-100 rounded-full animate-pulse" />
@@ -2758,26 +2899,27 @@ export default function HomePage() {
                 </div>
               ))
             )}
-            {bestProsPager.slice(bestWeddingPros).map((pro, i) => (
+            {bestProsPager.slice(bestTop10).map((pro, i) => (
               <Link
-                {...bestProsPager.itemProps(i)}
+                key={bestProsPager.itemKey(i)}
+                style={bestProsPager.itemStyle(i)}
                 href={`/pros/${pro.id}`}
-                className="group flex w-fit gap-3"
+                className="group flex w-fit gap-2"
               >
                 <div className="flex items-center shrink-0">
-                  <span className="text-[44px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
+                  <span className="text-[34px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
                 </div>
-                <div className="w-[112px] h-[150px] rounded-full overflow-hidden shrink-0 bg-gray-100">
+                <div className="w-[96px] h-[128px] rounded-full overflow-hidden shrink-0 bg-gray-100">
                   <img
                     src={pro.images[0] || pro.image}
                     alt={pro.name}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                 </div>
-                <div className="flex min-w-0 max-w-[150px] flex-col justify-center py-0.5">
+                <div className="flex min-w-0 max-w-[96px] flex-col justify-center py-0.5">
                   <div>
-                    <p className="truncate text-[17px] font-bold leading-tight text-gray-900">{pro.name}</p>
-                    <p className="mt-1 truncate text-[13px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
+                    <p className="truncate text-[15px] font-bold leading-tight text-gray-900">{pro.name}</p>
+                    <p className="mt-1 truncate text-[12px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
                   </div>
                 </div>
               </Link>
@@ -2833,7 +2975,7 @@ export default function HomePage() {
                 </div>
               ))
             ) : moreProsPager.slice(morePros).map((pro, i) => (
-              <div {...moreProsPager.itemProps(i)}>
+              <div key={moreProsPager.itemKey(i)} style={moreProsPager.itemStyle(i)}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
@@ -2888,7 +3030,7 @@ export default function HomePage() {
                 </div>
               ))
             ) : eventProsPager.slice(eventPros).map((pro, i) => (
-              <div {...eventProsPager.itemProps(i)}>
+              <div key={eventProsPager.itemKey(i)} style={eventProsPager.itemStyle(i)}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
@@ -2900,38 +3042,12 @@ export default function HomePage() {
         {businessPartnerSections.length > 0 && (
           <>
             {businessPartnerSections.map((section, sectionIndex) => (
-              <section key={section.category}>
-                <div className="mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
-                        <StoreIcon size={22} />
-                      </span>
-                      <div>
-                        <h3 className="section-title">{section.category}</h3>
-                        <p className="section-subtitle mt-1">프리티풀이 엄선한 {section.category} 업체를 만나보세요</p>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/businesses?category=${encodeURIComponent(section.category)}`}
-                      className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
-                      style={{ transition: 'color 0.3s' }}
-                    >
-                      전체보기 <ChevronRight size={16} />
-                    </Link>
-                  </div>
-                </div>
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-[10px] px-[10px] snap-x snap-mandatory scroll-pl-[10px]">
-                  {section.businesses.slice(0, 8).map((biz) => (
-                    <div key={`${section.category}-${biz.id}`} className="shrink-0 w-[78%] snap-start lg:w-[32%]">
-                      <BusinessCard biz={biz} />
-                    </div>
-                  ))}
-                </div>
-                {sectionIndex < businessPartnerSections.length - 1 && (
-                  <div className="my-6 border-t border-gray-100" />
-                )}
-              </section>
+              <BusinessPartnerSection
+                key={section.category}
+                category={section.category}
+                businesses={section.businesses.slice(0, 8)}
+                showDivider={sectionIndex < businessPartnerSections.length - 1}
+              />
             ))}
             <div className="my-6 border-t border-gray-100" />
           </>

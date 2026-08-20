@@ -343,8 +343,16 @@ function ScheduleBanner({
   );
 }
 
-export default function ChatRoomPage() {
-  const { id: roomId } = useParams<{ id: string }>();
+/**
+ * 채팅방 화면.
+ *
+ * 기본은 /chat/[id] 라우트의 전체 화면이지만, PC 채팅 목록에서는 카톡 PC 처럼
+ * 우측 패널에 그대로 끼워 넣는다(embedded). 그때는 방 id 를 prop 으로 받고
+ * 전체화면 고정(fixed)·뒤로가기 버튼을 끈다.
+ */
+export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: { roomId?: string; embedded?: boolean } = {}) {
+  const routeParams = useParams<{ id: string }>();
+  const roomId = roomIdProp ?? routeParams?.id;
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlProName = searchParams.get('name') ? decodeURIComponent(searchParams.get('name')!) : null;
@@ -1076,7 +1084,7 @@ export default function ChatRoomPage() {
 
   if (showSkeleton) {
     return (
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]">
+      <div className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]`}>
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
@@ -1138,7 +1146,10 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]" style={{ bottom: keyboardOffset }}>
+    <div
+      className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]`}
+      style={embedded ? undefined : { bottom: keyboardOffset }}
+    >
       {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
       <div
         data-native-chat-gradient
@@ -1156,18 +1167,20 @@ export default function ChatRoomPage() {
       <div data-native-chat-header className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
         <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
           {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
-          <button
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.history.length > 1) {
-                router.back();
-              } else {
-                router.replace('/chat');
-              }
-            }}
-            className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
-          >
-            <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
-          </button>
+          {!embedded && (
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.replace('/chat');
+                }
+              }}
+              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+            >
+              <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
+            </button>
+          )}
 
           {/* 중앙 프로필 알약 (상대가 사회자일 때만 프로필 이동) */}
           <button
