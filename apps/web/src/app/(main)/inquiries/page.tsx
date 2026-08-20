@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { LayoutGroup, motion } from 'framer-motion';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -14,6 +15,7 @@ import {
   PinLocationIcon,
   DocumentIcon,
 } from '@/components/icons/mono';
+import { EmptyDocumentIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -327,27 +329,38 @@ export default function CustomerInquiriesPage() {
             <p className="mt-1 text-[14px] text-[#A4ABBA]">보낸 문의와 진행 상태를 한눈에 확인하세요</p>
           </div>
 
-          {/* 상태 탭 — 회색 트랙 위 흰 알약 */}
+          {/* 상태 탭 — 스크롤해도 따라오도록 고정. 흰 알약이 탭 사이를 미끄러진다 */}
           {cards.length > 0 && (
-            <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
-              {STATUS_TABS.map((tab) => {
-                const on = statusTab === tab;
-                const count = statusCounts[tab] || 0;
-                if (tab !== '전체' && count === 0) return null;
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setStatusTab(tab)}
-                    className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                      on ? 'bg-white font-bold text-[#2B313D] shadow-sm' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
-                    }`}
-                  >
-                    {tab}
-                    <span className={`text-[12px] tabular-nums ${on ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
-                  </button>
-                );
-              })}
+            <div className="sticky top-14 z-10 -mx-4 mb-4 bg-surface-50 px-4 py-2 lg:top-[72px] lg:mx-0 lg:px-0 lg:py-3">
+              <LayoutGroup id="inquiry-status-tabs">
+                <div className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
+                  {STATUS_TABS.map((tab) => {
+                    const on = statusTab === tab;
+                    const count = statusCounts[tab] || 0;
+                    if (tab !== '전체' && count === 0) return null;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setStatusTab(tab)}
+                        className={`relative flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                          on ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
+                        }`}
+                      >
+                        {on && (
+                          <motion.span
+                            layoutId="inquiry-status-pill"
+                            className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                          />
+                        )}
+                        <span className="relative">{tab}</span>
+                        <span className={`relative text-[12px] tabular-nums ${on ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </LayoutGroup>
             </div>
           )}
 
@@ -359,9 +372,7 @@ export default function CustomerInquiriesPage() {
             </div>
           ) : cards.length === 0 ? (
             <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-[24px] bg-white px-6 py-16 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F2F3F5]">
-                <DocumentIcon size={28} className="text-[#C8CEDA]" />
-              </div>
+              <EmptyDocumentIcon size={72} className="mb-4" />
               <p className="text-[17px] font-bold text-[#2B313D]">아직 문의한 사회자가 없습니다</p>
               <p className="mt-2 text-[14px] leading-6 text-[#A4ABBA]">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
               <Link
@@ -376,7 +387,7 @@ export default function CustomerInquiriesPage() {
               {statusTab} 상태인 문의가 없습니다
             </div>
           ) : (
-            <div className="space-y-3">
+            <div key={statusTab} className="space-y-3" style={{ animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
               {visibleCards.map((item) => {
                 const StatusIcon = getStatusIcon(item.status);
                 return (
@@ -384,47 +395,43 @@ export default function CustomerInquiriesPage() {
                     key={item.id}
                     type="button"
                     onClick={() => openInquiry(item)}
-                    className="group w-full rounded-[24px] bg-white p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.06)] active:scale-[0.995]"
+                    className="group flex w-full items-center gap-4 rounded-[20px] bg-white px-5 py-4 text-left transition-colors duration-200 hover:bg-[#FBFCFD]"
                   >
-                    <div className="flex items-start gap-4">
-                      <img
-                        src={getProfileImageUrl(item.proImage, item.proName)}
-                        alt=""
-                        className="h-14 w-14 shrink-0 rounded-[18px] bg-[#F2F3F5] object-cover"
-                        loading="lazy"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-[16px] font-bold text-[#2B313D]">{item.proName}</p>
-                            <p className="mt-0.5 truncate text-[13px] font-medium text-[#A4ABBA]">{item.category}</p>
-                          </div>
-                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold ${getStatusTone(item.status)}`}>
-                            <StatusIcon size={13} />
-                            {item.status}
-                          </span>
-                        </div>
+                    <img
+                      src={getProfileImageUrl(item.proImage, item.proName)}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
+                      loading="lazy"
+                    />
 
-                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl bg-[#F2F3F5] px-3 py-2.5">
-                          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#51535C]">
-                            <PinLocationIcon size={14} className="shrink-0 text-[#A4ABBA]" />
-                            <span className="truncate">{item.location}</span>
-                          </span>
-                          <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#A4ABBA]">
-                            <CalendarIcon size={14} className="shrink-0" />
-                            {item.eventDate} · {item.eventTime}
-                          </span>
-                        </div>
-
-                        {item.status === '거절' && item.declineReason && (
-                          <p className="mt-2 rounded-xl bg-[#FDECEC] px-3 py-2 text-left text-[12px] leading-5 text-[#B42318]">
-                            거절 사유: {item.declineReason}
-                          </p>
-                        )}
-
-                        <p className="mt-2.5 text-[11px] font-medium text-[#C8CEDA]">{item.createdAt} 신청</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-[15px] font-bold text-[#2B313D]">{item.proName}</span>
+                        <span className="shrink-0 text-[11px] text-[#D8DDE4]">·</span>
+                        <span className="truncate text-[12.5px] font-medium text-[#A4ABBA]">{item.category}</span>
                       </div>
-                      <ChevronRightIcon size={18} className="mt-9 shrink-0 text-[#C8CEDA] transition-transform duration-200 group-hover:translate-x-0.5" />
+
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-[#51535C]">
+                        <PinLocationIcon size={13} className="shrink-0 text-[#C8CEDA]" />
+                        <span className="truncate">{item.location}</span>
+                      </p>
+                      <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#A4ABBA]">
+                        <CalendarIcon size={13} className="shrink-0 text-[#C8CEDA]" />
+                        <span className="truncate">{item.eventDate} · {item.eventTime}</span>
+                        <span className="shrink-0 text-[#D8DDE4]">·</span>
+                        <span className="shrink-0">{item.createdAt} 신청</span>
+                      </p>
+
+                      {item.status === '거절' && item.declineReason && (
+                        <p className="mt-2 truncate text-[12px] text-[#E5484D]">거절 사유: {item.declineReason}</p>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${getStatusTone(item.status)}`}>
+                        {item.status}
+                      </span>
+                      <ChevronRightIcon size={16} className="text-[#D8DDE4] transition-transform duration-200 group-hover:translate-x-0.5" />
                     </div>
                   </button>
                 );
@@ -439,7 +446,8 @@ export default function CustomerInquiriesPage() {
         </div>
 
         {/* PC 우측 요약 — 자가견적의 '견적 요약' 자리와 같은 위치·톤 */}
-        <aside className="hidden lg:block">
+        {/* self-stretch 가 없으면 aside 높이가 내용과 같아져 sticky 가 붙을 자리가 없다 */}
+        <aside className="hidden lg:block lg:self-stretch">
           <div className="sticky top-[92px] space-y-4">
             <div className="rounded-[24px] bg-white p-5">
               <div className="flex items-center gap-2">

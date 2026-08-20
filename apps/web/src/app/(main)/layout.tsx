@@ -12,6 +12,7 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
+import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { getCachedUnreadCount } from '@/lib/api/notification.api';
 import { AlarmIcon } from '@/components/icons/mono';
@@ -448,31 +449,38 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             />
           </Link>
 
-          {/* 세그먼트 네비 — 회색 트랙 위에서 활성 탭만 흰 알약(제이씨랩 톤) */}
-          <nav className="flex items-center gap-1 rounded-[14px] bg-[#F2F3F5] p-1">
-            {NAV_ITEMS.map(({ href, label }) => {
-              const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
-              const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`relative flex items-center gap-1.5 rounded-[13px] px-4 py-1.5 text-[13px] transition-colors ${
-                    active
-                      ? 'bg-white font-bold text-[#2B313D] shadow-sm'
-                      : 'font-semibold text-[#A4ABBA] hover:text-[#2B313D]'
-                  }`}
-                >
-                  {label}
-                  {badge > 0 && (
-                    <span className="min-w-[18px] h-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white text-center">
-                      {badge > 99 ? '99+' : badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+          {/* 세그먼트 네비 — 회색 트랙 위에서 흰 알약이 탭 사이를 미끄러진다(제이씨랩 톤) */}
+          <LayoutGroup id="pc-nav">
+            <nav className="flex items-center gap-1 rounded-[14px] bg-[#F2F3F5] p-1">
+              {NAV_ITEMS.map(({ href, label }) => {
+                const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
+                const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`relative flex items-center gap-1.5 rounded-[13px] px-4 py-1.5 text-[13px] transition-colors duration-200 ${
+                      active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#2B313D]'
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="pc-nav-pill"
+                        className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <span className="relative">{label}</span>
+                    {badge > 0 && (
+                      <span className="relative min-w-[18px] h-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white text-center">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </LayoutGroup>
 
           <button
             type="button"

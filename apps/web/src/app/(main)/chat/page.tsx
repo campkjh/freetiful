@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
+import { EmptyChatIcon, EmptySearchIcon } from '@/components/icons/color';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -549,9 +550,9 @@ export default function ChatListPage() {
   return (
     <>
       {/* ═══ PC: 2-Panel Layout ═══ */}
-      <div className="hidden h-full min-h-0 bg-gray-100 lg:flex">
-        {/* 좌측: 채팅 목록 */}
-        <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
+      <div className="hidden h-full min-h-0 gap-4 py-5 lg:flex lg:min-h-[calc(100vh-140px)]">
+        {/* 좌측: 채팅 목록 — 헤더에서 띄우고 모서리를 둥글린 카드 */}
+        <div className="flex w-[360px] shrink-0 flex-col overflow-hidden rounded-[24px] bg-white">
           {/* 제목은 전역 헤더(홈·Biz·채팅…)와 겹쳐서 PC 에선 빼고, 검색·탭만 남긴다 */}
           <div className="px-5 pt-5 pb-3">
             <div className="relative mb-3">
@@ -600,7 +601,11 @@ export default function ChatListPage() {
               </div>
             </LayoutGroup>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div
+            key={`pc-${isPro ? proActiveTab : activeTab}`}
+            className="flex-1 overflow-y-auto"
+            style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+          >
             {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
               loadTimedOut ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -631,26 +636,21 @@ export default function ChatListPage() {
                 </div>
               )
             ) : sorted.length === 0 ? (
-              <div className="text-center py-16">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto">
-                  <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
-                  <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
-                </svg>
-                <p className="text-gray-400 text-[13px] mt-3">대화가 없습니다</p>
+              <div className="py-16 text-center">
+                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <EmptyChatIcon size={56} className="mx-auto" />}
+                <p className="mt-3 text-[13px] text-[#A4ABBA]">{search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
               </div>
             ) : renderChatList(true)}
           </div>
         </div>
 
         {/* 우측: 대화 영역 */}
-        <div className="flex-1 flex flex-col bg-white">
-          <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
+          <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
-                <MessageCircle size={38} className="text-[#9DBEF9]" />
-              </div>
-              <p className="text-gray-500 text-[15px] font-semibold">대화방을 선택하세요</p>
-              <p className="text-gray-400 text-[13px] mt-1">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>
+              <EmptyChatIcon size={72} className="mx-auto mb-4" />
+              <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
+              <p className="mt-1 text-[13px] text-[#A4ABBA]">목록을 누르면 저장되는 실제 채팅방으로 이동합니다</p>
             </div>
           </div>
         </div>
@@ -783,10 +783,9 @@ export default function ChatListPage() {
           )
         ) : sorted.length === 0 ? (
           <div className="text-center py-20">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="mx-auto mb-4">
-              <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#93C5FD"/>
-              <circle cx="8.5" cy="12" r="1.2" fill="white"/><circle cx="11.5" cy="12" r="1.2" fill="white"/><circle cx="14.5" cy="12" r="1.2" fill="white"/>
-            </svg>
+            {search
+              ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
+              : <EmptyChatIcon size={64} className="mx-auto mb-4" />}
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
           </div>
