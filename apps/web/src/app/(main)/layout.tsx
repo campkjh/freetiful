@@ -12,6 +12,9 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
+import NotificationDrawer from '@/components/NotificationDrawer';
+import { getCachedUnreadCount } from '@/lib/api/notification.api';
+import { AlarmIcon } from '@/components/icons/mono';
 
 type NavIconProps = { className?: string };
 
@@ -137,6 +140,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
   const [categoryDocked, setCategoryDocked] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifUnread, setNotifUnread] = useState(0);
 
   // 최초 마운트 시 한 번만 등장 애니메이션, 탭 전환 시 재실행 안함
   useEffect(() => {
@@ -403,6 +408,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, [pathname, hideNav]);
 
   useEffect(() => {
+    const sync = () => setNotifUnread(getCachedUnreadCount());
+    sync();
+    window.addEventListener('freetiful:notifications-changed', sync);
+    return () => window.removeEventListener('freetiful:notifications-changed', sync);
+  }, []);
+
+  useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
       // 홈 히어로의 카테고리 줄이 헤더 밑으로 지나간 뒤에 붙인다(왔다갔다 방지용 히스테리시스)
@@ -462,12 +474,20 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             })}
           </nav>
 
-          <Link
-            href="/notifications"
-            className="rounded-[14px] bg-[#2B313D] px-5 py-2 text-[13px] font-bold text-white transition-all hover:bg-[#3A414F] active:scale-95"
+          <button
+            type="button"
+            onClick={() => setNotifOpen(true)}
+            aria-label="알림 열기"
+            className="relative flex items-center gap-1.5 rounded-[14px] bg-[#2B313D] px-4 py-2 text-[13px] font-bold text-white transition-all hover:bg-[#3A414F] active:scale-95"
           >
+            <AlarmIcon size={16} />
             알림
-          </Link>
+            {notifUnread > 0 && (
+              <span className="min-w-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white">
+                {notifUnread > 99 ? '99+' : notifUnread}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* 스크롤을 내리면 홈 카테고리가 헤더에 이어붙는다 */}
@@ -499,6 +519,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           </div>
         )}
       </header>
+
+      {/* PC 알림 서랍 — 화면 전환 없이 오른쪽만 덮는다 */}
+      <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
       <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
