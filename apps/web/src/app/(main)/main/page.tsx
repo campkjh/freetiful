@@ -785,8 +785,6 @@ function ProCard({ pro, index }: {
 }) {
   const skipAnim = useHomeAnimationSkip();
   const primaryImage = pro.images[0] || pro.image || '/images/default-profile.png';
-  const secondaryImage = pro.images[1] || primaryImage;
-  const tertiaryImage = pro.images[2] || primaryImage;
   return (
     <Link
       href={`/pros/${pro.id}`}
@@ -795,7 +793,7 @@ function ProCard({ pro, index }: {
       className={`block group card-press ${skipAnim ? 'opacity-100' : 'opacity-0 animate-fade-in'}`}
       style={skipAnim ? undefined : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
-      <div className="relative rounded-xl overflow-hidden bg-gray-100">
+      <div className="relative rounded-xl lg:rounded-full overflow-hidden bg-gray-100">
         <div className="lg:hidden" style={{ aspectRatio: '3 / 4' }}>
           <img
             src={primaryImage}
@@ -803,20 +801,17 @@ function ProCard({ pro, index }: {
             className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         </div>
-        <div className="hidden lg:grid grid-cols-[1fr_0.5fr] gap-[2px] h-[220px]">
+        {/* PC — BEST 결혼식 사회자 카드와 동일하게 사진 한 장(알약형). 3장 콜라주는 폐지 */}
+        <div className="hidden lg:block" style={{ aspectRatio: '3 / 4' }}>
           <img
             src={primaryImage}
             alt={pro.name}
-            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
-          <div className="grid grid-rows-2 gap-[2px]">
-            <img src={secondaryImage} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
-            <img src={tertiaryImage} alt="" className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110" />
-          </div>
         </div>
         {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
         {pro.youtubeId && (
-          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center">
+          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center lg:hidden">
             <img
               src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
               alt=""
@@ -2403,18 +2398,19 @@ export default function HomePage() {
       </div>
 
       {/* ─── Desktop Hero (6032c0b reference) ─────────────────────── */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-b from-gray-50 to-white lg:block">
+      <div className="relative hidden overflow-hidden bg-white lg:block">
         <HomeHeroProfileMarquee images={heroProfileImages} />
         <div className="relative z-10 max-w-6xl mx-auto px-8 pt-8 pb-0 text-center">
           <Reveal>
+            {/* 알약형 검색 — 제이씨랩 가이드 검색과 동일한 톤(회색 트랙·테두리 없음) */}
             <Link
               href="/search"
               onMouseEnter={warmProsList}
-              className="mx-auto mb-10 flex max-w-xl items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-left shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md"
+              className="relative mx-auto mb-10 flex h-12 max-w-[520px] items-center rounded-full bg-[#F2F3F5] pl-12 pr-5 text-left transition-colors duration-200 hover:bg-[#E9EBEF]"
             >
-              <Search size={20} className="shrink-0 text-gray-400" />
-              <span className="flex min-w-0 items-center gap-1.5 text-[15px]">
-                <span className="shrink-0 text-gray-400">어떤 사회자를 찾으시나요?</span>
+              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 shrink-0 -translate-y-1/2 text-[#A4ABBA]" />
+              <span className="flex min-w-0 items-center gap-1.5 text-[14px]">
+                <span className="shrink-0 text-[#A4ABBA]">어떤 사회자를 찾으시나요?</span>
                 <span className="home-search-slot" aria-hidden="true">
                   <span className="home-search-slot-track">
                     {[...homeSearchSlotKeywords, homeSearchSlotKeywords[0]].map((keyword, index) => (
@@ -2641,9 +2637,9 @@ export default function HomePage() {
           <div ref={rankScrollRef} className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {bestWeddingPros.length === 0 && (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[280px] flex gap-3">
-                  <div className="h-9 w-8 rounded-full bg-gray-200 animate-pulse" />
-                  <div className="h-[106px] w-[80px] rounded-lg bg-gray-200 animate-pulse" />
+                <div key={i} className="flex-shrink-0 w-[340px] flex gap-4">
+                  <div className="h-11 w-9 rounded-full bg-gray-200 animate-pulse" />
+                  <div className="h-[150px] w-[112px] rounded-full bg-gray-200 animate-pulse" />
                   <div className="flex-1 py-1">
                     <div className="h-4 w-24 bg-gray-200 rounded-full animate-pulse" />
                     <div className="mt-3 h-3 w-20 bg-gray-100 rounded-full animate-pulse" />
@@ -2656,12 +2652,12 @@ export default function HomePage() {
               <Link
                 key={pro.id}
                 href={`/pros/${pro.id}`}
-                className="flex-shrink-0 w-[280px] snap-start flex gap-3 group"
+                className="flex-shrink-0 w-[340px] snap-start flex gap-4 group"
               >
                 <div className="flex items-center shrink-0">
-                  <span className="text-[36px] font-black text-gray-900 leading-none">{i + 1}</span>
+                  <span className="text-[44px] font-black text-gray-900 leading-none">{i + 1}</span>
                 </div>
-                <div className="w-[80px] h-[106px] rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                <div className="w-[112px] h-[150px] rounded-full overflow-hidden shrink-0 bg-gray-100">
                   <img
                     src={pro.images[0] || pro.image}
                     alt={pro.name}
@@ -2670,8 +2666,8 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
                   <div>
-                    <p className="text-[15px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-                    <p className="text-[12px] text-gray-400 mt-0.5 truncate">{formatCareerLabel(pro.experience)}</p>
+                    <p className="text-[17px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
+                    <p className="text-[13px] text-gray-400 mt-1 truncate">{formatCareerLabel(pro.experience)}</p>
                   </div>
                 </div>
               </Link>
@@ -2706,7 +2702,7 @@ export default function HomePage() {
             {apiPros === null ? (
               [1,2,3,4,5,6,7,8,9].map((i) => (
                 <div key={i} className={i >= 9 ? 'hidden lg:block' : ''}>
-                  <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
+                  <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
                   <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
                   <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
@@ -2742,18 +2738,19 @@ export default function HomePage() {
               </Link>
             </div>
           </Reveal>
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-7">
+          {/* Mobile: 3열, Desktop: 「더 많은 사회자」와 동일한 5열 */}
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
             {apiPros === null ? (
               [1,2,3,4,5,6,7,8,9].map((i) => (
                 <div key={i}>
-                  <div className="skeleton mb-2" style={{ width: '100%', aspectRatio: '3/4', borderRadius: 12 }} />
+                  <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
                   <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
                   <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
                 </div>
               ))
-            ) : eventPros.slice(0, 9).map((pro, i) => (
-              <div key={pro.id}>
+            ) : eventPros.slice(0, 10).map((pro, i) => (
+              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
