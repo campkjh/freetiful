@@ -353,18 +353,25 @@ export default function MyPage() {
 
 
   return (
-    <div className="bg-white min-h-screen pb-24" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div data-native-my-header className="sticky top-0 z-20 bg-white px-4">
+    <div
+      className="min-h-screen bg-white pb-24 lg:mx-auto lg:max-w-[880px] lg:bg-transparent lg:pb-16 lg:pt-8"
+      style={{ letterSpacing: '-0.02em' }}
+    >
+      {/* Header — PC 는 전역 헤더가 있어 sticky 바 대신 큰 제목만 */}
+      <div data-native-my-header className="sticky top-0 z-20 bg-white px-4 lg:hidden">
         <div className="h-[52px] flex items-center">
           <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
         </div>
+      </div>
+      <div className="mb-6 hidden lg:block">
+        <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">마이페이지</h1>
+        <p className="mt-1 text-[14px] text-[#A4ABBA]">내 정보와 이용 내역을 관리하세요</p>
       </div>
 
       {/* Profile — 로그인 안 되었으면 로그인 유도 */}
       {!isLoggedIn ? (
         <div className="px-4 pb-4 pt-2" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-          <div className="rounded-2xl bg-gray-50 p-5 text-center">
+          <div className="rounded-2xl bg-gray-50 p-5 text-center lg:rounded-[24px] lg:bg-white lg:py-12">
             <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
@@ -384,8 +391,8 @@ export default function MyPage() {
           </div>
         </div>
       ) : (
-      <div className="px-4 pb-3" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-        <Link href="/my/settings" className="flex items-center gap-3.5 active:opacity-80 transition-opacity">
+      <div className="px-4 pb-3 lg:mb-4 lg:rounded-[24px] lg:bg-white lg:p-5" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
+        <Link href="/my/settings" className="flex items-center gap-3.5 transition-opacity active:opacity-80 lg:hover:opacity-80">
           <div className="relative">
             <img src={getProfileImageUrl(user.image, user.email || user.name)} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = getProfileImageUrl(null, user.email || user.name); }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
             <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
@@ -460,10 +467,14 @@ export default function MyPage() {
 
       {/* Menu Sections */}
       {MENU_SECTIONS.map((section, si) => (
-        <div key={section.title} style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}>
-          {si > 0 && <div className="h-1.5 bg-gray-50" />}
-          <div className="px-4 pt-3 pb-0.5">
-            <p className="text-[12px] font-bold text-gray-400">{section.title}</p>
+        <div
+          key={section.title}
+          className="lg:mb-4 lg:rounded-[24px] lg:bg-white lg:px-2 lg:py-3"
+          style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}
+        >
+          {si > 0 && <div className="h-1.5 bg-gray-50 lg:hidden" />}
+          <div className="px-4 pt-3 pb-0.5 lg:pb-1.5 lg:pt-1">
+            <p className="text-[12px] font-bold text-gray-400 lg:text-[13px] lg:text-[#A4ABBA]">{section.title}</p>
           </div>
           {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
             // Partner registration conditional logic
@@ -472,7 +483,7 @@ export default function MyPage() {
               if (proProfileStatus === 'approved') return null;
               if (proProfileStatus === 'pending') {
                 return (
-                  <div key={label} className="flex items-center gap-3 px-4 py-2.5 w-full opacity-50 cursor-not-allowed">
+                  <div key={label} className="flex w-full cursor-not-allowed items-center gap-3 px-4 py-2.5 opacity-50 lg:rounded-xl lg:px-3 lg:py-3">
                     <Icon />
                     <span className="flex-1 text-[14px] text-gray-400">{label}</span>
                     <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full bg-blue-500">심사 중</span>
@@ -482,9 +493,9 @@ export default function MyPage() {
               }
               // Not submitted, show normally
               return (
-                <button key={label} onClick={handlePartnerApply} className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors">
+                <button key={label} onClick={handlePartnerApply} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]">
                   <Icon />
-                  <span className="flex-1 text-[14px] text-gray-900">{label}</span>
+                  <span className="flex-1 text-[14px] text-gray-900 lg:text-[15px]">{label}</span>
                   {badge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{badge}</span>}
                   <ChevronRight size={16} className="text-gray-300 shrink-0" />
                 </button>
@@ -496,7 +507,7 @@ export default function MyPage() {
             const inner = (
               <>
                 <Icon />
-                <span className="flex-1 text-[14px] text-gray-900">{label}</span>
+                <span className="flex-1 text-[14px] text-gray-900 lg:text-[15px]">{label}</span>
                 {displayBadge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{displayBadge}</span>}
                 <ChevronRight size={16} className="text-gray-300 shrink-0" />
               </>
@@ -511,14 +522,14 @@ export default function MyPage() {
                     e.preventDefault();
                     window.dispatchEvent(new Event('freetiful:show-login'));
                   }}
-                  className="flex items-center gap-3 px-4 py-2.5 w-full text-left active:bg-gray-50 transition-colors"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]"
                 >
                   {inner}
                 </button>
               );
             }
             return (
-              <Link key={label} href={resolvedHref} className="flex items-center gap-3 px-4 py-2.5 active:bg-gray-50 transition-colors">
+              <Link key={label} href={resolvedHref} className="flex items-center gap-3 px-4 py-2.5 transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]">
                 {inner}
               </Link>
             );
@@ -527,10 +538,13 @@ export default function MyPage() {
       ))}
 
       {/* Logout */}
-      <div className="h-1.5 bg-gray-50" />
-      <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full active:bg-gray-50 transition-colors">
-        <LogOut size={18} className="text-gray-400 shrink-0" />
-        <span className="text-[14px] text-gray-400">로그아웃</span>
+      <div className="h-1.5 bg-gray-50 lg:hidden" />
+      <button
+        onClick={handleLogout}
+        className="flex w-full items-center gap-3 px-4 py-3 transition-colors active:bg-gray-50 lg:justify-center lg:rounded-[14px] lg:bg-[#F2F3F5] lg:py-3.5 lg:hover:bg-[#E9EBEF]"
+      >
+        <LogOut size={18} className="text-gray-400 shrink-0 lg:text-[#51535C]" />
+        <span className="text-[14px] text-gray-400 lg:font-bold lg:text-[#51535C]">로그아웃</span>
       </button>
 
       <div className="px-4 pt-1 pb-8 flex justify-end">
