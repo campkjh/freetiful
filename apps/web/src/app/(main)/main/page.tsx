@@ -4,7 +4,17 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperti
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, Bell, ChevronRight, MapPin, X } from 'lucide-react';
+import { Search, Bell, ChevronRight, X } from 'lucide-react';
+import {
+  SearchIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  MicIcon,
+  UserIcon,
+  StoreIcon,
+  PinLocationIcon,
+} from '@/components/icons/mono';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
@@ -697,8 +707,8 @@ function BusinessCard({
   if (hidden || !biz.images[0]) return null;
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
-      {/* 상단 와이드 이미지 */}
-      <div className="relative w-full aspect-[2/1] rounded-xl overflow-hidden bg-gray-100">
+      {/* 상단 와이드 이미지 — PC 는 사회자 카드와 같은 알약형 */}
+      <div className="relative w-full aspect-[2/1] rounded-xl lg:rounded-full overflow-hidden bg-gray-100">
         {biz.images[0] ? (
           <img
             src={biz.images[0]}
@@ -707,15 +717,10 @@ function BusinessCard({
             onError={() => setHidden(true)}
           />
         ) : null}
-        {/* 좌측 상단 로고 마크 */}
-        <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+        {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
+        <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm lg:hidden">
           <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
         </div>
-        {biz.isPopular && (
-          <div className="absolute right-3 top-3 rounded-full bg-[#FF6B35] px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
-            인기
-          </div>
-        )}
       </div>
 
       {/* 이름 */}
@@ -723,20 +728,16 @@ function BusinessCard({
 
       {/* 위치 */}
       <div className="mt-1 flex items-center gap-1.5 text-[13px] text-gray-500 leading-tight">
-        <MapPin size={13} className="shrink-0 text-gray-300" />
+        <PinLocationIcon size={14} className="shrink-0 text-gray-300" />
         <span>{biz.location}</span>
       </div>
 
-      {/* 태그 */}
+      {/* 태그 — '인기' 는 노출하지 않는다 */}
       <div className="mt-2 flex flex-wrap gap-1">
-        {biz.tags.map((tag) => (
+        {biz.tags.filter((tag) => tag !== '인기').map((tag) => (
           <span
             key={tag}
-            className={`flex items-center rounded-[5px] px-1.5 text-[10px] font-medium ${
-              tag === '인기'
-                ? 'bg-[#FFF0E8] text-[#FF6B35]'
-                : 'bg-gray-100 text-gray-600'
-            }`}
+            className="flex items-center rounded-[5px] bg-gray-100 px-1.5 text-[10px] font-medium text-gray-600"
             style={{ height: 22 }}
           >
             {tag}
@@ -841,6 +842,72 @@ function ProCard({ pro, index }: {
       </div>
     </Link>
   );
+}
+
+/** PC 사회자 섹션 한 페이지에 깔리는 카드 수(6열 × 2줄) */
+const PRO_SECTION_PAGE_SIZE = 12;
+
+/**
+ * 사회자 섹션 헤더의 페이저 — 좌/우 화살표 + 「전체 N개 펼쳐보기」.
+ * 예전엔 목록 페이지로 보내는 '전체보기' 링크였는데, 홈을 벗어나지 않고
+ * 그 자리에서 넘겨보거나 한 번에 펼칠 수 있게 바꿨다.
+ */
+function ProSectionPager({
+  page, pageCount, total, expanded, onPrev, onNext, onToggle,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  expanded: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onToggle: () => void;
+}) {
+  const arrowCls =
+    'flex h-11 w-11 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF] disabled:cursor-default disabled:text-[#C7CBD3] disabled:hover:bg-[#F2F3F5]';
+  return (
+    <div className="hidden items-center gap-2 lg:flex">
+      {!expanded && pageCount > 1 && (
+        <>
+          <button type="button" onClick={onPrev} disabled={page === 0} className={arrowCls} aria-label="이전 사회자">
+            <ChevronLeftIcon size={18} />
+          </button>
+          <button type="button" onClick={onNext} disabled={page >= pageCount - 1} className={arrowCls} aria-label="다음 사회자">
+            <ChevronRightIcon size={18} />
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex h-11 items-center gap-2 rounded-full bg-[#F2F3F5] px-5 text-[14px] font-semibold text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
+      >
+        {expanded ? '접기' : `전체 ${total}개 펼쳐보기`}
+        <ChevronDownIcon size={18} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+    </div>
+  );
+}
+
+/** 섹션별 페이지·펼침 상태. 목록이 줄어들면 페이지를 범위 안으로 되돌린다. */
+function useProSectionPager(total: number) {
+  const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const pageCount = Math.max(1, Math.ceil(total / PRO_SECTION_PAGE_SIZE));
+  useEffect(() => {
+    setPage((p) => Math.min(p, pageCount - 1));
+  }, [pageCount]);
+  const slice = <T,>(list: T[]) =>
+    expanded ? list : list.slice(page * PRO_SECTION_PAGE_SIZE, (page + 1) * PRO_SECTION_PAGE_SIZE);
+  return {
+    page,
+    pageCount,
+    expanded,
+    slice,
+    onPrev: () => setPage((p) => Math.max(0, p - 1)),
+    onNext: () => setPage((p) => Math.min(pageCount - 1, p + 1)),
+    onToggle: () => { setExpanded((v) => !v); setPage(0); },
+  };
 }
 
 function ApplianceIconSwap() {
@@ -1817,6 +1884,8 @@ export default function HomePage() {
     const filled = filtered.length > 0 ? [...filtered, ...fallback] : prosData;
     return shuffleProsBySeed(filled, `${moreProsSeedRef.current}:event`);
   }, [prosData]);
+  const moreProsPager = useProSectionPager(morePros.length);
+  const eventProsPager = useProSectionPager(eventPros.length);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
   useEffect(() => {
@@ -2401,7 +2470,7 @@ export default function HomePage() {
               onMouseEnter={warmProsList}
               className="relative mx-auto mb-10 flex h-12 max-w-[520px] items-center rounded-full bg-[#F2F3F5] pl-12 pr-5 text-left transition-colors duration-200 hover:bg-[#E9EBEF]"
             >
-              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 shrink-0 -translate-y-1/2 text-[#A4ABBA]" />
+              <SearchIcon size={18} className="pointer-events-none absolute left-4 top-1/2 shrink-0 -translate-y-1/2 text-[#A4ABBA]" />
               <span className="flex min-w-0 items-center gap-1.5 text-[14px]">
                 <span className="shrink-0 text-[#A4ABBA]">어떤 사회자를 찾으시나요?</span>
                 <span className="home-search-slot" aria-hidden="true">
@@ -2675,34 +2744,48 @@ export default function HomePage() {
         <section>
           <Reveal>
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="section-title">프리티풀의 더 많은 사회자</h3>
-                <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
+              <div className="flex items-center gap-2.5">
+                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
+                  <UserIcon size={22} />
+                </span>
+                <div>
+                  <h3 className="section-title">프리티풀의 더 많은 사회자</h3>
+                  <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
+                </div>
               </div>
               <Link
                 href="/pros"
                 onMouseEnter={warmProsList}
                 onTouchStart={warmProsList}
-                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 lg:hidden"
                 style={{ transition: 'color 0.3s' }}
               >
                 전체보기 <ChevronRight size={16} />
               </Link>
+              <ProSectionPager
+                page={moreProsPager.page}
+                pageCount={moreProsPager.pageCount}
+                total={morePros.length}
+                expanded={moreProsPager.expanded}
+                onPrev={moreProsPager.onPrev}
+                onNext={moreProsPager.onNext}
+                onToggle={moreProsPager.onToggle}
+              />
             </div>
           </Reveal>
-          {/* Mobile: 3열, Desktop: 같은 카드 톤을 유지한 5열 */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
+          {/* Mobile: 3열, Desktop: 6열 */}
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-7">
             {apiPros === null ? (
-              [1,2,3,4,5,6,7,8,9].map((i) => (
-                <div key={i} className={i >= 9 ? 'hidden lg:block' : ''}>
+              [1,2,3,4,5,6,7,8,9,10,11,12].map((i) => (
+                <div key={i}>
                   <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
                   <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
                   <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
                 </div>
               ))
-            ) : morePros.slice(0, 10).map((pro, i) => (
-              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
+            ) : moreProsPager.slice(morePros).map((pro, i) => (
+              <div key={pro.id}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
@@ -2716,25 +2799,39 @@ export default function HomePage() {
         <section>
           <Reveal>
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="section-title">프리티풀의 행사 사회자</h3>
-                <p className="section-subtitle mt-1">기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요</p>
+              <div className="flex items-center gap-2.5">
+                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
+                  <MicIcon size={22} />
+                </span>
+                <div>
+                  <h3 className="section-title">프리티풀의 행사 사회자</h3>
+                  <p className="section-subtitle mt-1">기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요</p>
+                </div>
               </div>
               <Link
                 href={proCategoryHref('전문행사사회자')}
                 onMouseEnter={warmProsList}
                 onTouchStart={warmProsList}
-                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600"
+                className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 lg:hidden"
                 style={{ transition: 'color 0.3s' }}
               >
                 전체보기 <ChevronRight size={16} />
               </Link>
+              <ProSectionPager
+                page={eventProsPager.page}
+                pageCount={eventProsPager.pageCount}
+                total={eventPros.length}
+                expanded={eventProsPager.expanded}
+                onPrev={eventProsPager.onPrev}
+                onNext={eventProsPager.onNext}
+                onToggle={eventProsPager.onToggle}
+              />
             </div>
           </Reveal>
-          {/* Mobile: 3열, Desktop: 「더 많은 사회자」와 동일한 5열 */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-5 lg:gap-x-4 lg:gap-y-7">
+          {/* Mobile: 3열, Desktop: 「더 많은 사회자」와 동일한 6열 */}
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-7">
             {apiPros === null ? (
-              [1,2,3,4,5,6,7,8,9].map((i) => (
+              [1,2,3,4,5,6,7,8,9,10,11,12].map((i) => (
                 <div key={i}>
                   <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
                   <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
@@ -2742,8 +2839,8 @@ export default function HomePage() {
                   <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
                 </div>
               ))
-            ) : eventPros.slice(0, 10).map((pro, i) => (
-              <div key={pro.id} className={i >= 9 ? 'hidden lg:block' : ''}>
+            ) : eventProsPager.slice(eventPros).map((pro, i) => (
+              <div key={pro.id}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
@@ -2758,9 +2855,14 @@ export default function HomePage() {
               <section key={section.category}>
                 <div className="mb-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="section-title">{section.category}</h3>
-                      <p className="section-subtitle mt-1">프리티풀이 엄선한 {section.category} 업체를 만나보세요</p>
+                    <div className="flex items-center gap-2.5">
+                      <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
+                        <StoreIcon size={22} />
+                      </span>
+                      <div>
+                        <h3 className="section-title">{section.category}</h3>
+                        <p className="section-subtitle mt-1">프리티풀이 엄선한 {section.category} 업체를 만나보세요</p>
+                      </div>
                     </div>
                     <Link
                       href={`/businesses?category=${encodeURIComponent(section.category)}`}

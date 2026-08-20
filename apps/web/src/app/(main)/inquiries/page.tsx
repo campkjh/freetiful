@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Clock, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  ChatBubbleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  CalendarIcon,
+  PinLocationIcon,
+  DocumentIcon,
+} from '@/components/icons/mono';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -87,17 +98,20 @@ function formatTime(value?: string | null) {
 
 function getStatusTone(status: InquiryStatus) {
   if (status === '거래완료') return 'bg-[#EAF7EF] text-[#159947]';
-  if (status === '요청승인') return 'bg-[#EAF3FF] text-[#3180F7]';
+  if (status === '요청승인') return 'bg-[#EAF2FF] text-[#3180F7]';
   if (status === '거절') return 'bg-[#FDECEC] text-[#E5484D]';
-  return 'bg-gray-100 text-gray-500';
+  return 'bg-[#F2F3F5] text-[#51535C]';
 }
 
 function getStatusIcon(status: InquiryStatus) {
-  if (status === '거래완료') return CheckCircle2;
-  if (status === '요청승인') return MessageCircle;
-  if (status === '거절') return XCircle;
-  return Clock;
+  if (status === '거래완료') return CheckCircleIcon;
+  if (status === '요청승인') return ChatBubbleIcon;
+  if (status === '거절') return XCircleIcon;
+  return ClockIcon;
 }
+
+/** 상태 필터 탭 — '전체' 는 개수 합계 */
+const STATUS_TABS: (InquiryStatus | '전체')[] = ['전체', '요청중', '요청승인', '거래완료', '거절'];
 
 function buildCards(requests: any[]): InquiryCard[] {
   return requests.flatMap((request) => {
@@ -224,6 +238,7 @@ export default function CustomerInquiriesPage() {
 
   const cards = useMemo(() => buildCards(requests), [requests]);
 
+  const [statusTab, setStatusTab] = useState<InquiryStatus | '전체'>('전체');
   const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchivedInquiryIds()));
   const activeCards = useMemo(() => cards.filter((c) => !archivedIds.has(c.id)), [cards, archivedIds]);
   const archivedCards = useMemo(() => cards.filter((c) => archivedIds.has(c.id)), [cards, archivedIds]);
@@ -275,6 +290,17 @@ export default function CustomerInquiriesPage() {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, fetchMoreRequests]);
 
+  const statusCounts = useMemo(() => {
+    const base: Record<string, number> = { 전체: cards.length, 요청중: 0, 요청승인: 0, 거래완료: 0, 거절: 0 };
+    cards.forEach((c) => { base[c.status] = (base[c.status] || 0) + 1; });
+    return base;
+  }, [cards]);
+
+  const visibleCards = useMemo(
+    () => (statusTab === '전체' ? cards : cards.filter((c) => c.status === statusTab)),
+    [cards, statusTab],
+  );
+
   const openInquiry = (item: InquiryCard) => {
     if (item.roomId) {
       router.push(`/chat/${item.roomId}`);
@@ -284,81 +310,188 @@ export default function CustomerInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-28 lg:mx-auto lg:max-w-3xl">
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 bg-white/90 px-4 backdrop-blur">
+    <div className="min-h-screen pb-28 lg:pb-6">
+      {/* 모바일 전용 헤더 — PC 는 전역 헤더가 이미 있어 중복이라 숨긴다 */}
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 bg-white/90 px-4 backdrop-blur lg:hidden">
         <button type="button" onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-full active:bg-gray-100" aria-label="뒤로가기">
-          <ChevronLeft size={24} className="text-gray-800" />
+          <ChevronLeftIcon size={22} className="text-[#2B313D]" />
         </button>
-        <h1 className="text-[18px] font-bold text-gray-950">문의목록</h1>
+        <h1 className="text-[18px] font-bold text-[#2B313D]">문의목록</h1>
       </header>
 
-      <main className="px-4 pt-3">
-        {loading ? (
-          <div className="space-y-3">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="h-[118px] animate-pulse rounded-3xl bg-gray-50" />
-            ))}
+      <div className="mx-auto grid max-w-[1120px] items-start gap-8 px-4 pt-3 lg:grid-cols-[1fr_340px] lg:px-0 lg:pt-8">
+        <div className="min-w-0">
+          {/* PC 타이틀 */}
+          <div className="mb-6 hidden lg:block">
+            <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">문의목록</h1>
+            <p className="mt-1 text-[14px] text-[#A4ABBA]">보낸 문의와 진행 상태를 한눈에 확인하세요</p>
           </div>
-        ) : cards.length === 0 ? (
-          <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
-              <MessageCircle size={28} className="text-gray-300" />
+
+          {/* 상태 탭 — 회색 트랙 위 흰 알약 */}
+          {cards.length > 0 && (
+            <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
+              {STATUS_TABS.map((tab) => {
+                const on = statusTab === tab;
+                const count = statusCounts[tab] || 0;
+                if (tab !== '전체' && count === 0) return null;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setStatusTab(tab)}
+                    className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                      on ? 'bg-white font-bold text-[#2B313D] shadow-sm' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
+                    }`}
+                  >
+                    {tab}
+                    <span className={`text-[12px] tabular-nums ${on ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-[17px] font-bold text-gray-900">아직 문의한 사회자가 없습니다</p>
-            <p className="mt-2 text-[14px] leading-6 text-gray-400">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {cards.map((item) => {
-              const StatusIcon = getStatusIcon(item.status);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => openInquiry(item)}
-                  className="w-full rounded-3xl border border-[#F2F4F7] bg-white p-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] active:scale-[0.99] transition-transform"
-                >
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={getProfileImageUrl(item.proImage, item.proName)}
-                      alt=""
-                      className="h-14 w-14 rounded-2xl object-cover bg-gray-50"
-                      loading="lazy"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-[16px] font-bold text-[#2B313D]">{item.proName}</p>
-                          <p className="mt-0.5 truncate text-[13px] font-medium text-gray-400">{item.category}</p>
-                        </div>
-                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold ${getStatusTone(item.status)}`}>
-                          <StatusIcon size={13} />
-                          {item.status}
-                        </span>
-                      </div>
-                      <div className="mt-3 rounded-2xl bg-gray-50 px-3 py-2">
-                        <p className="truncate text-[13px] font-semibold text-gray-700">{item.location}</p>
-                        <p className="mt-0.5 text-[12px] font-medium text-gray-400">{item.eventDate} · {item.eventTime}</p>
-                      </div>
-                      {item.status === '거절' && item.declineReason && (
-                        <p className="mt-2 rounded-2xl bg-[#FDECEC] px-3 py-2 text-left text-[12px] leading-5 text-[#B42318]">
-                          거절 사유: {item.declineReason}
-                        </p>
-                      )}
-                    </div>
-                    <ChevronRight size={18} className="mt-9 shrink-0 text-gray-300" />
-                  </div>
-                </button>
-              );
-            })}
-            {hasMore && (
-              <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
-                {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />}
+          )}
+
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-[132px] animate-pulse rounded-[24px] bg-white" />
+              ))}
+            </div>
+          ) : cards.length === 0 ? (
+            <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-[24px] bg-white px-6 py-16 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F2F3F5]">
+                <DocumentIcon size={28} className="text-[#C8CEDA]" />
               </div>
-            )}
+              <p className="text-[17px] font-bold text-[#2B313D]">아직 문의한 사회자가 없습니다</p>
+              <p className="mt-2 text-[14px] leading-6 text-[#A4ABBA]">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
+              <Link
+                href="/pros"
+                className="mt-5 flex h-11 items-center justify-center rounded-[14px] bg-[#3180F7] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
+              >
+                사회자 둘러보기
+              </Link>
+            </div>
+          ) : visibleCards.length === 0 ? (
+            <div className="rounded-[24px] bg-white px-6 py-16 text-center text-[13px] text-[#A4ABBA]">
+              {statusTab} 상태인 문의가 없습니다
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleCards.map((item) => {
+                const StatusIcon = getStatusIcon(item.status);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => openInquiry(item)}
+                    className="group w-full rounded-[24px] bg-white p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.06)] active:scale-[0.995]"
+                  >
+                    <div className="flex items-start gap-4">
+                      <img
+                        src={getProfileImageUrl(item.proImage, item.proName)}
+                        alt=""
+                        className="h-14 w-14 shrink-0 rounded-[18px] bg-[#F2F3F5] object-cover"
+                        loading="lazy"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[16px] font-bold text-[#2B313D]">{item.proName}</p>
+                            <p className="mt-0.5 truncate text-[13px] font-medium text-[#A4ABBA]">{item.category}</p>
+                          </div>
+                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold ${getStatusTone(item.status)}`}>
+                            <StatusIcon size={13} />
+                            {item.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl bg-[#F2F3F5] px-3 py-2.5">
+                          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#51535C]">
+                            <PinLocationIcon size={14} className="shrink-0 text-[#A4ABBA]" />
+                            <span className="truncate">{item.location}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#A4ABBA]">
+                            <CalendarIcon size={14} className="shrink-0" />
+                            {item.eventDate} · {item.eventTime}
+                          </span>
+                        </div>
+
+                        {item.status === '거절' && item.declineReason && (
+                          <p className="mt-2 rounded-xl bg-[#FDECEC] px-3 py-2 text-left text-[12px] leading-5 text-[#B42318]">
+                            거절 사유: {item.declineReason}
+                          </p>
+                        )}
+
+                        <p className="mt-2.5 text-[11px] font-medium text-[#C8CEDA]">{item.createdAt} 신청</p>
+                      </div>
+                      <ChevronRightIcon size={18} className="mt-9 shrink-0 text-[#C8CEDA] transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </div>
+                  </button>
+                );
+              })}
+              {hasMore && (
+                <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
+                  {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#E9EBEF] border-t-[#A4ABBA]" />}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* PC 우측 요약 — 자가견적의 '견적 요약' 자리와 같은 위치·톤 */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-[92px] space-y-4">
+            <div className="rounded-[24px] bg-white p-5">
+              <div className="flex items-center gap-2">
+                <DocumentIcon size={18} className="text-[#51535C]" />
+                <h2 className="text-[15px] font-bold text-[#2B313D]">진행 현황</h2>
+                <span className="ml-auto rounded-full bg-[#F2F3F5] px-2 py-0.5 text-[11px] font-semibold text-[#51535C]">{cards.length}건</span>
+              </div>
+              <ul className="mt-3 flex flex-col gap-1">
+                {(['요청중', '요청승인', '거래완료', '거절'] as InquiryStatus[]).map((status) => {
+                  const Icon = getStatusIcon(status);
+                  return (
+                    <li key={status}>
+                      <button
+                        type="button"
+                        onClick={() => setStatusTab(statusTab === status ? '전체' : status)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[13px] transition-colors ${
+                          statusTab === status ? 'bg-[#F2F3F5]' : 'hover:bg-[#F2F3F5]'
+                        }`}
+                      >
+                        <span className={`flex h-6 w-6 items-center justify-center rounded-md ${getStatusTone(status)}`}>
+                          <Icon size={13} />
+                        </span>
+                        <span className="flex-1 text-left font-medium text-[#2B313D]">{status}</span>
+                        <span className="tabular-nums font-semibold text-[#51535C]">{statusCounts[status] || 0}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="rounded-[24px] bg-white p-5">
+              <p className="text-[13px] font-bold text-[#2B313D]">아직 답이 없나요?</p>
+              <p className="mt-1 text-[12px] leading-5 text-[#A4ABBA]">
+                사회자가 문의를 승인하면 채팅방이 열립니다. 여러 명에게 동시에 문의하면 더 빨리 답을 받을 수 있어요.
+              </p>
+              <Link
+                href="/pros"
+                className="mt-4 flex h-11 w-full items-center justify-center rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
+              >
+                사회자 더 찾아보기
+              </Link>
+              <Link
+                href="/chat"
+                className="mt-2 flex h-11 w-full items-center justify-center rounded-[14px] bg-[#F2F3F5] text-[13px] font-bold text-[#51535C] transition-colors hover:bg-[#E3E6EB]"
+              >
+                채팅으로 이동
+              </Link>
+            </div>
           </div>
-        )}
-      </main>
+        </aside>
+      </div>
     </div>
   );
 }
