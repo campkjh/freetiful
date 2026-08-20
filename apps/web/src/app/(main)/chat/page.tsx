@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { SearchIcon, CloseIcon } from '@/components/icons/mono';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -551,36 +552,44 @@ export default function ChatListPage() {
       <div className="hidden h-full min-h-0 bg-gray-100 lg:flex">
         {/* 좌측: 채팅 목록 */}
         <div className="w-[360px] bg-white border-r border-gray-200 flex flex-col shrink-0">
-          <div className="px-5 pt-6 pb-3">
-            <h1 className="text-[20px] font-extrabold text-gray-900 mb-3">{isPro ? '고객 문의' : '채팅'}</h1>
+          {/* 제목은 전역 헤더(홈·Biz·채팅…)와 겹쳐서 PC 에선 빼고, 검색·탭만 남긴다 */}
+          <div className="px-5 pt-5 pb-3">
             <div className="relative mb-3">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="검색"
-                className="w-full bg-gray-100 rounded-lg pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:ring-1 focus:ring-gray-300"
+                placeholder={isPro ? '고객 이름 검색' : '이름 또는 대화 내용 검색'}
+                className="h-10 w-full rounded-full bg-[#F2F3F5] pl-10 pr-9 text-[13px] text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] focus:bg-[#E9EBEF]"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="검색어 지우기"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A4ABBA] transition-colors hover:text-[#51535C]"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              )}
             </div>
             <LayoutGroup id="chat-tabs-desktop">
-              <div className="flex gap-1.5 flex-wrap">
+              <div className="flex w-full gap-1 rounded-2xl bg-[#F2F3F5] p-1">
                 {(isPro ? PRO_TABS : TABS).map((tab) => {
                   const active = isPro ? proActiveTab === tab : activeTab === tab;
                   return (
                     <button
                       key={tab}
                       onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                      className={`relative px-3 py-1.5 rounded-full text-[12px] font-medium isolate ${
-                        active ? 'text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      className={`relative flex-1 rounded-[13px] px-3 py-2 text-[13px] font-semibold transition-colors ${
+                        active ? 'text-[#2B313D]' : 'text-[#A4ABBA] hover:text-[#51535C]'
                       }`}
-                      style={{ transition: 'color 0.25s ease' }}
                     >
                       {active && (
                         <motion.span
                           layoutId="chat-tab-pill-desktop"
-                          className="absolute inset-0 bg-gray-900 rounded-full"
-                          style={{ zIndex: -1 }}
+                          className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
                           transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                         />
                       )}
