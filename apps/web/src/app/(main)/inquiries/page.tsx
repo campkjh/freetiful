@@ -34,6 +34,8 @@ type InquiryCard = {
   eventDate: string;
   eventTime: string;
   createdAt: string;
+  /** 화면 표기용 createdAt 과 별개로, 오래된 '요청중'을 걸러내기 위한 원본 시각 */
+  createdAtIso?: string;
   status: InquiryStatus;
   declineReason?: string;
 };
@@ -126,6 +128,7 @@ function buildCards(requests: any[]): InquiryCard[] {
       eventDate: formatEventDate(request.eventDate),
       eventTime: formatTime(request.eventTime),
       createdAt: formatDate(request.createdAt),
+      createdAtIso: request.createdAt,
     };
 
     const deliveryCards = deliveries.map((delivery: any) => {
@@ -163,6 +166,18 @@ function buildCards(requests: any[]): InquiryCard[] {
       status: paid ? '거래완료' : room?.id ? '요청승인' : '요청중',
     } as InquiryCard];
   });
+}
+
+/**
+ * 사회자가 일주일이 지나도록 답이 없는 '요청중'은 목록에서 내린다.
+ * 승인·거래완료·거절은 결과가 남아야 하므로 기간과 무관하게 유지한다.
+ */
+const PENDING_VISIBLE_DAYS = 7;
+function isFreshEnough(card: InquiryCard) {
+  if (card.status !== '요청중') return true;
+  const at = card.createdAtIso ? new Date(card.createdAtIso).getTime() : NaN;
+  if (!Number.isFinite(at)) return true; // 시각을 모르면 숨기지 않는다
+  return Date.now() - at < PENDING_VISIBLE_DAYS * 24 * 60 * 60 * 1000;
 }
 
 const ARCHIVED_INQUIRIES_KEY = 'freetiful_archived_inquiries';
@@ -238,7 +253,7 @@ export default function CustomerInquiriesPage() {
       .finally(() => setLoadingMore(false));
   }, [loadingMore, hasMore]);
 
-  const cards = useMemo(() => buildCards(requests), [requests]);
+  const cards = useMemo(() => buildCards(requests).filter(isFreshEnough), [requests]);
 
   const [statusTab, setStatusTab] = useState<InquiryStatus | '전체'>('전체');
   const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchivedInquiryIds()));
