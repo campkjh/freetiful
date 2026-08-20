@@ -99,6 +99,7 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
     <>
       {/* 딤 — 홈이 비쳐 보일 정도로만 */}
       <div
+        data-notification-drawer
         onClick={onClose}
         className={`fixed inset-0 z-[60] bg-black/25 transition-opacity duration-300 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
@@ -106,6 +107,7 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
         aria-hidden={!open}
       />
       <aside
+        data-notification-drawer
         className={`fixed right-0 top-0 z-[61] flex h-full w-[400px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] transition-transform duration-300 ease-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}

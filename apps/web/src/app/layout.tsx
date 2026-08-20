@@ -40,6 +40,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
         />
+        {/* iframe(홈 미리보기·마이 우측 칸) 여부를 첫 페인트 전에 표시한다.
+            useEffect 로 달면 한 프레임 동안 알림 서랍 그림자가 스쳐 보인다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(window.self!==window.top)document.documentElement.setAttribute('data-embedded','1')}catch(e){document.documentElement.setAttribute('data-embedded','1')}`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

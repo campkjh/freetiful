@@ -188,7 +188,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[#FAFBFC] pb-10 max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 border-b border-gray-100/60 bg-[#FAFBFC]/90 backdrop-blur-xl" data-native-back-header>
+      <div className="sticky top-0 z-10 bg-[#FAFBFC]/90 backdrop-blur-xl" data-native-back-header>
         <div className="flex items-center gap-3 px-4 h-[52px]">
           <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeftIcon size={22} className="text-[#2B313D]" /></button>
           <h1 className="text-[17px] font-bold text-gray-900">프로필 설정</h1>

@@ -1927,3 +1927,14 @@ html[data-embedded='1'] [class*='max-w-6xl'],
 html[data-embedded='1'] [class*='max-w-7xl'] {
   max-width: 100%;
 }
+
+/* 알림 서랍은 닫혀 있어도 화면 밖에서 왼쪽으로 그림자를 흘린다.
+   컴포넌트를 안 그리도록 해도 첫 프레임엔 보이므로 CSS 로도 막는다. */
+html[data-embedded='1'] [data-notification-drawer] {
+  display: none !important;
+}
+
+/* 상세 화면 헤더의 아래 구분선 — 칸 안에서는 선이 하나 더 있는 것처럼 보인다 */
+html[data-embedded='1'] [data-native-back-header] {
+  border-bottom: 0;
+}
