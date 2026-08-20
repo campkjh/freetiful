@@ -11,6 +11,7 @@ import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
+import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 
 type NavIconProps = { className?: string };
 
@@ -44,6 +45,22 @@ const MyNavIcon = ({ className }: NavIconProps) => (
     <path fillRule="evenodd" clipRule="evenodd" d="M16.0002 23.252C12.4482 23.252 9.48416 21.1706 8.80683 18.4053C8.65483 17.7813 9.25616 17.2026 10.0295 17.2026H21.9708C22.7442 17.2026 23.3455 17.7813 23.1935 18.4053C22.5162 21.1706 19.5522 23.252 16.0002 23.252ZM12.3815 10.1C12.9049 10.0996 13.4069 10.3072 13.7772 10.677C14.1476 11.0468 14.3558 11.5486 14.3562 12.072C14.3565 12.5953 14.149 13.0974 13.7791 13.4677C13.4093 13.838 12.9075 14.0463 12.3842 14.0466C12.125 14.0468 11.8684 13.9959 11.6289 13.8969C11.3894 13.7979 11.1718 13.6527 10.9884 13.4696C10.6181 13.0998 10.4099 12.598 10.4095 12.0746C10.4091 11.5513 10.6167 11.0492 10.9865 10.6789C11.3564 10.3086 11.8581 10.1003 12.3815 10.1ZM19.8948 10.1C20.1599 10.09 20.4242 10.1337 20.6721 10.2282C20.9199 10.3227 21.1461 10.4663 21.3372 10.6502C21.5283 10.8342 21.6803 11.0548 21.7843 11.2988C21.8882 11.5429 21.9418 11.8053 21.942 12.0706C21.9422 12.3358 21.8889 12.5984 21.7853 12.8426C21.6817 13.0868 21.53 13.3076 21.3391 13.4918C21.1483 13.676 20.9222 13.8198 20.6745 13.9147C20.4269 14.0096 20.1626 14.0535 19.8975 14.044C19.387 14.0255 18.9036 13.8099 18.5488 13.4424C18.1941 13.0748 17.9957 12.5841 17.9953 12.0733C17.995 11.5625 18.1927 11.0714 18.547 10.7034C18.9012 10.3354 19.3844 10.1191 19.8948 10.1ZM16.0002 1.30664C7.90016 1.30664 1.3335 7.87197 1.3335 15.9733C1.3335 24.0733 7.90016 30.64 16.0002 30.64C24.1002 30.64 30.6668 24.0733 30.6668 15.9733C30.6668 7.87197 24.1002 1.30664 16.0002 1.30664Z" fill="currentColor" />
   </svg>
 );
+
+/**
+ * 스크롤을 내리면 헤더에 붙는 카테고리 바.
+ * 홈 히어로의 카테고리 아이콘 줄이 화면 밖으로 나가는 순간 헤더 안으로 이어붙어
+ * 이동 경로가 끊기지 않게 한다. (PC 홈 전용)
+ */
+const HEADER_CATEGORIES: { name: string; img: string; href: string }[] = [
+  { name: '결혼식사회자', img: '/images/category-icons/wedding-mc.png', href: '/pros?category=%EA%B2%B0%ED%98%BC%EC%8B%9D%EC%82%AC%ED%9A%8C%EC%9E%90' },
+  { name: '행사사회자', img: '/images/category-icons/event-mc.png', href: '/pros?category=%EC%A0%84%EB%AC%B8%ED%96%89%EC%82%AC%EC%82%AC%ED%9A%8C%EC%9E%90' },
+  { name: '외국어사회자', img: '/images/category-icons/foreign-mc.png', href: '/pros?category=%EC%99%B8%EA%B5%AD%EC%96%B4%EC%82%AC%ED%9A%8C%EC%9E%90' },
+  ...WEDDING_PARTNER_CATEGORIES.filter((name) => name !== '가전').map((name) => ({
+    name,
+    img: `/images/category-icons/${WEDDING_PARTNER_CATEGORY_ICONS[name]}`,
+    href: `/businesses?category=${encodeURIComponent(name)}`,
+  })),
+];
 
 const USER_NAV_ITEMS = [
   { href: '/main',      icon: HomeNavIcon,      label: '홈' },
@@ -111,13 +128,15 @@ function queueIdleTask(callback: () => void, delay = 0, timeout = 3000) {
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // 홈은 흰 배경. 목록 화면들은 카드 구분을 위해 기존 연회색(#FAFBFC)을 유지한다.
+  const isHome = pathname === '/' || pathname === '/main';
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [categoryDocked, setCategoryDocked] = useState(false);
 
   // 최초 마운트 시 한 번만 등장 애니메이션, 탭 전환 시 재실행 안함
   useEffect(() => {
@@ -386,7 +405,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
-      setHeaderScrolled(currentY > 12);
+      // 홈 히어로의 카테고리 줄이 헤더 밑으로 지나간 뒤에 붙인다(왔다갔다 방지용 히스테리시스)
+      setCategoryDocked((prev) => (prev ? currentY > 420 : currentY > 520));
       if (currentY > lastScrollY.current && currentY > 80) {
         setNavVisible(false);
       } else {
@@ -399,18 +419,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-surface-50">
+    <div className={`min-h-screen ${isHome ? 'bg-white' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       <VilladegdEventOverlay />
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50`}>
-        <div
-          className={`mx-auto h-[72px] flex items-center justify-between transition-all duration-500 ease-out ${
-            headerScrolled
-              ? 'max-w-[760px] mt-2 px-6 rounded-full backdrop-blur-xl bg-white/75 shadow-[0_12px_40px_rgba(15,23,42,0.10)] border border-gray-200/60'
-              : 'max-w-7xl px-8 bg-white/80 backdrop-blur-xl border-b border-gray-100'
-          }`}
-        >
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-8">
           <Link href={homeHref} className="flex items-center" aria-label="Freetiful 홈">
             <Image
               src="/images/logo-freetiful-wordmark.svg"
@@ -422,22 +436,21 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             />
           </Link>
 
-          <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+          {/* 세그먼트 네비 — 회색 트랙 위에서 활성 탭만 흰 알약(제이씨랩 톤) */}
+          <nav className="flex items-center gap-1 rounded-[14px] bg-[#F2F3F5] p-1">
+            {NAV_ITEMS.map(({ href, label }) => {
               const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
               const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-full text-[14px] font-medium ${
+                  className={`relative flex items-center gap-1.5 rounded-[13px] px-4 py-1.5 text-[13px] transition-colors ${
                     active
-                      ? 'text-gray-900 bg-gray-100/80 font-bold'
-                      : 'text-gray-500 hover:text-gray-800 hover:bg-surface-100/80'
+                      ? 'bg-white font-bold text-[#2B313D] shadow-sm'
+                      : 'font-semibold text-[#A4ABBA] hover:text-[#2B313D]'
                   }`}
-                  style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
                 >
-                  <Icon className={`h-5 w-5 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
                   {label}
                   {badge > 0 && (
                     <span className="min-w-[18px] h-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white text-center">
@@ -448,7 +461,43 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+
+          <Link
+            href="/notifications"
+            className="rounded-[14px] bg-[#2B313D] px-5 py-2 text-[13px] font-bold text-white transition-all hover:bg-[#3A414F] active:scale-95"
+          >
+            알림
+          </Link>
         </div>
+
+        {/* 스크롤을 내리면 홈 카테고리가 헤더에 이어붙는다 */}
+        {isHome && (
+          <div
+            className={`overflow-hidden border-t border-gray-100 transition-all duration-500 ease-out ${
+              categoryDocked ? 'max-h-[64px] opacity-100' : 'max-h-0 border-t-transparent opacity-0'
+            }`}
+          >
+            {/* 오른쪽 끝에서 칩이 잘려 보이지 않도록 페이드로 마감한다 */}
+            <div
+              className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-8 py-2 scrollbar-hide"
+              style={{
+                maskImage: 'linear-gradient(to right, #000 calc(100% - 56px), transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 56px), transparent 100%)',
+              }}
+            >
+              {HEADER_CATEGORIES.map((c) => (
+                <Link
+                  key={c.name}
+                  href={c.href}
+                  className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#51535C] transition-colors hover:bg-[#F2F3F5] hover:text-[#2B313D]"
+                >
+                  <img src={c.img} alt="" className="h-6 w-6 shrink-0 rounded-full object-contain" />
+                  {c.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
