@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2, Sparkles } from 'lucide-react';
+import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
@@ -25,7 +25,6 @@ import GuestLoginForm from '@/components/GuestLoginForm';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
-const BRAND_LIGHT = '#EAF3FF';
 
 const proSearchHref = (category?: string, q?: string) => {
   const params = new URLSearchParams();
@@ -635,7 +634,7 @@ function RadarChart({ scores, empty = false }: { scores: { label: string; value:
   const accentColor = empty ? '#9CA3AF' : '#3180F7';
 
   return (
-    <div ref={ref} className="bg-gray-50 rounded-2xl p-5 mb-3">
+    <div ref={ref} className="bg-[#F7F8FA] rounded-2xl p-5 mb-3">
       <div className="flex items-center gap-3">
         {/* Left: total + tags */}
         <div className="flex-1 min-w-0">
@@ -749,7 +748,7 @@ function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
                 className="h-full rounded-full"
                 style={{
                   width: visible ? `${(item.value / 5) * 100}%` : '0%',
-                  background: 'linear-gradient(90deg, #3180F7, #6BA5FA)',
+                  background: BRAND,
                   transition: `width 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 150}ms`,
                 }}
               />
@@ -988,6 +987,49 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
+
+// ─── 화이트 카드 톤 공용 UI (표현 전용 — 제이씨랩 자가견적 톤) ───
+// 카드: 흰 배경 + 1px #EEF0F4 테두리 + 아주 옅은 그림자
+const CARD_CLS = 'rounded-[24px] border border-[#EEF0F4] bg-white shadow-[0_1px_4px_rgba(15,23,42,0.06)]';
+
+// 라운드 스퀘어클 아이콘 타일 (44px, #F2F4F6, radius 14) + 24px 아이콘
+function IconTile({ src, size = 44, icon = 24, className = '' }: { src: string; size?: number; icon?: number; className?: string }) {
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-[14px] bg-[#F2F4F6] ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <img src={src} alt="" width={icon} height={icon} />
+    </span>
+  );
+}
+
+// 영문 eyebrow + 진회색 섹션 타이틀 헤더 (size: lg=섹션 19px / sm=서브 섹션 15px)
+function SectionHead({
+  eyebrow,
+  title,
+  icon,
+  size = 'lg',
+  tileClassName,
+  className = '',
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  icon?: string;
+  size?: 'lg' | 'sm';
+  tileClassName?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-3 ${className}`}>
+      {icon && <IconTile src={icon} className={tileClassName} />}
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold uppercase text-[#8B95A1]" style={{ letterSpacing: '1px' }}>{eyebrow}</p>
+        <h2 className={`mt-0.5 font-extrabold leading-tight text-[#191F28] ${size === 'lg' ? 'text-[19px]' : 'text-[15px]'}`}>{title}</h2>
+      </div>
+    </div>
+  );
+}
 
 // ─── Page ───────────────────────────────────────────────────
 
@@ -1806,12 +1848,11 @@ export default function ProDetailPage() {
                 );
               })()}
 
-              {/* 주요 경력 — 모바일과 같은 쓸려 나오는 연출(career-sweep), 한 줄씩 순차로 */}
+              {/* 주요 경력 — 모바일과 같은 흰 카드 토큰(#EEF0F4 보더 + 진회색 텍스트) */}
               {pro.career && pro.career.trim().length > 0 && (
                 <div
-                  className="mt-6 max-w-[780px] rounded-[20px] border border-white bg-[#F7FAFF] px-6 py-5"
-                  /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 naturalReveal 로 덮어써
-                     career-sweep 연출이 죽는다(모바일 블록은 main 밖이라 멀쩡했다) → 이 영역만 제외 */
+                  className={`mt-6 max-w-[780px] px-6 py-5 ${CARD_CLS}`}
+                  /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 덮어쓰는 영역 → 제외 유지 */
                   data-no-natural-reveal
                 >
                   <ul className="space-y-2">
@@ -1821,11 +1862,7 @@ export default function ProDetailPage() {
                       .filter(Boolean)
                       .slice(0, 6)
                       .map((line, i) => (
-                        <li
-                          key={i}
-                          className="career-sweep text-[17px] font-semibold leading-[1.55]"
-                          style={{ animationDelay: `${0.4 + i * 0.22}s` }}
-                        >
+                        <li key={i} className="text-[17px] font-semibold leading-[1.55] text-[#333D4B]">
                           {line}
                         </li>
                       ))}
@@ -1842,26 +1879,26 @@ export default function ProDetailPage() {
                   <div className="relative overflow-hidden rounded-lg">
                     {displayReviews.length > 0 ? (
                       <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
-                        <div className="ai-review-summary-card relative flex h-[164px] flex-col overflow-hidden rounded-lg border p-5">
+                        <div className="relative flex h-[164px] flex-col overflow-hidden rounded-2xl border border-[#EEF0F4] bg-white p-5 shadow-[0_1px_4px_rgba(15,23,42,0.06)]" style={{ borderLeft: `3px solid ${BRAND}` }}>
                           <div className="relative z-10 flex items-center gap-2">
-                            <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center text-[#3180F7]">
-                              <Sparkles size={20} fill="#3180F7" stroke="#3180F7" strokeWidth={1.6} />
+                            <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center">
+                              <img src="/icons/pro-detail/sparkle.svg" alt="" width={20} height={20} />
                             </span>
                             <div>
                               <p className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</p>
-                              <p className="mt-0.5 text-[11px] font-medium text-[#6B8BB7]">
+                              <p className="mt-0.5 text-[11px] font-medium text-[#8B95A1]">
                                 고객 리뷰를 분석해 작성했어요
                                 <span className="ai-review-thinking-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
                               </p>
                             </div>
                           </div>
-                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-2 text-[14px] leading-relaxed text-gray-800">
+                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-2 text-[14px] leading-relaxed text-[#4E5968]">
                             {aiReviewSummary?.text}
                             <span className="ai-review-summary-cursor" aria-hidden="true" />
                           </p>
                           <div className="relative z-10 mt-auto flex flex-wrap gap-1 pt-2">
                             {aiReviewSummary?.keywords.map((keyword) => (
-                              <span key={keyword} className="ai-review-keyword-pill px-2 py-1 text-[11px] font-semibold text-gray-950">
+                              <span key={keyword} className="rounded-full bg-[#F2F4F6] px-2 py-1 text-[11px] font-semibold text-[#4E5968]">
                                 {keyword}
                               </span>
                             ))}
@@ -1998,7 +2035,7 @@ export default function ProDetailPage() {
                     <div className="rounded-lg border border-gray-200 p-5">
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-[17px] font-bold text-gray-950">포텐셜 점수</h3>
-                        <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-[12px] font-bold text-[#3180F7]">
+                        <span className="rounded-full bg-[#F2F4F6] px-3 py-1 text-[12px] font-bold text-[#3180F7]">
                           {hasAnyScore ? `${potentialScore}점` : '세부 평가 대기'}
                         </span>
                       </div>
@@ -2313,13 +2350,13 @@ export default function ProDetailPage() {
             <button
               key={i}
               onClick={() => setImageModal(src)}
-              className="relative shrink-0 snap-start overflow-hidden rounded-[48px] bg-gray-100 transition-transform duration-300 ease-out"
+              className="relative shrink-0 snap-start overflow-hidden rounded-[20px] bg-[#F2F4F6] transition-transform duration-300 ease-out"
               style={{ width: 'min(70vw, 420px)', aspectRatio: '70 / 106', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
             >
               {Math.abs(i - activeImage) <= 1 ? (
                 <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} sizes="70vw" />
               ) : (
-                <div className="w-full h-full bg-gray-100" />
+                <div className="w-full h-full bg-[#F2F4F6]" />
               )}
             </button>
           ))}
@@ -2333,8 +2370,8 @@ export default function ProDetailPage() {
                   const el = galleryRef.current as HTMLDivElement | null;
                   if (el) el.scrollTo({ left: i * (Math.min(el.clientWidth * 0.7, 420) + 12), behavior: 'smooth' });
                 }}
-                className="rounded-full transition-all duration-500"
-                style={{ width: i === activeImage ? 22 : 6, height: 6, backgroundColor: i === activeImage ? '#191F28' : '#C9CED6', transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
+                className="rounded-full transition-colors duration-300"
+                style={{ width: 6, height: 6, backgroundColor: i === activeImage ? '#191F28' : '#D5DAE0' }}
               />
             ))}
           </div>
@@ -2342,26 +2379,26 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-5">
+      <div className={`mx-4 mt-4 px-5 py-6 ${CARD_CLS}`}>
         {/* Pro row + prime */}
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
-              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-xl object-cover" />
-              <p className="text-[18px] font-bold text-gray-900">{pro.categoryName || '사회자'} {pro.name}</p>
+              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-[14px] object-cover" />
+              <p className="text-[18px] font-extrabold text-[#191F28]">{pro.categoryName || '사회자'} {pro.name}</p>
             </div>
             {pro.isPrime && (
-              <span className="flex items-center gap-1 bg-[#3180F7]/10 text-[#3180F7] text-[11px] font-bold px-2.5 py-1 rounded-full">
+              <span className="flex items-center gap-1 bg-[#F2F4F6] text-[#4E5968] text-[11px] font-bold px-2.5 py-1 rounded-full">
                 <img src="/images/verified-pro.svg" alt="" width={14} height={14} className="shrink-0" />
                 인증 사회자
               </span>
             )}
           </div>
-          {/* 태그: DB에서 등록된 실제 태그만 표시 */}
+          {/* 태그: DB에서 등록된 실제 태그만 표시 — 중성 회색 필 */}
           {Array.isArray(pro.tags) && pro.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-1">
+            <div className="flex flex-wrap gap-1.5 mt-2 mb-1">
               {pro.tags.map((t) => (
-                <span key={t} className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                <span key={t} className="text-[13px] font-semibold text-[#4E5968] bg-[#F2F4F6] px-2.5 py-1 rounded-full">
                   {t}
                 </span>
               ))}
@@ -2369,27 +2406,28 @@ export default function ProDetailPage() {
           )}
         </Reveal>
 
-        {/* Rating */}
+        {/* Rating — 별 + 큰 숫자 한 줄 */}
         <Reveal delay={100}>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mt-2 mb-1">
             <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
-            <span className="text-[16px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-            <span className="text-[14px] text-gray-400">({displayReviewCount})</span>
+            <span className="text-[18px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+            <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
           </div>
         </Reveal>
 
-        {/* ─── 주요 경력 ─── */}
+        {/* ─── 주요 경력 — 아이콘 타일 헤더 + 구분선 행 목록 ─── */}
         {pro.career && pro.career.trim().length > 0 && (
           <Reveal delay={150}>
-            <div className="mb-4 rounded-[24px] border border-white bg-[#F7FAFF] px-4 py-4">
-              <ul className="space-y-1.5">
+            <div className="mt-4 border-t border-[#F2F4F6] pt-4">
+              <SectionHead eyebrow="CAREER" title="주요 경력" icon="/icons/pro-detail/trophy.svg" size="sm" className="mb-1.5" />
+              <ul className="divide-y divide-[#F2F4F6]">
                 {pro.career
                   .split(/\n|\//)
                   .map((line) => line.trim())
                   .filter(Boolean)
                   .slice(0, 6)
                   .map((line, i) => (
-                    <li key={i} className="career-sweep text-[16px] font-semibold leading-[1.5]" style={{ animationDelay: `${0.4 + i * 0.22}s` }}>
+                    <li key={i} className="py-2.5 text-[14px] font-semibold leading-[1.6] text-[#333D4B]">
                       {line}
                     </li>
                   ))}
@@ -2405,15 +2443,15 @@ export default function ProDetailPage() {
 
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
-      <div className="sticky top-[60px] z-30 mt-5 bg-white border-b border-gray-200">
+      <div className="sticky top-[60px] z-30 mt-4 bg-white border-b border-[#EEF0F4]">
         <div className="flex relative">
           {detailSectionTabs.map((tab) => {
             return (
               <button
                 key={tab.id}
                 onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
-                className={`flex-1 py-4 text-[15px] font-semibold relative transition-colors duration-300 ${
-                  activeSection === tab.id ? 'text-[#3180F7]' : 'text-gray-400 hover:text-gray-600'
+                className={`flex-1 py-4 text-[15px] font-bold relative transition-colors duration-300 ${
+                  activeSection === tab.id ? 'text-[#191F28]' : 'text-[#8B95A1] hover:text-[#4E5968]'
                 }`}
               >
                 {tab.label}
@@ -2433,31 +2471,30 @@ export default function ProDetailPage() {
 
       {/* ─── 서비스 설명 Section ─── */}
       {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
-        <div ref={descRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
+        <div ref={descRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
           <Reveal>
-            <h2 className="text-[20px] font-bold text-gray-900 mb-5">서비스 설명</h2>
+            <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-5" />
           </Reveal>
 
         {pro.isPrime && (
           <Reveal delay={100}>
-            <div className="relative overflow-hidden rounded-xl p-5 mb-6 border border-[#3180F7]/15 bg-gradient-to-br from-[#EAF3FF]/40 via-white to-white">
-              {/* Glow accent */}
-              <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#3180F7]/10 blur-3xl pointer-events-none" />
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3180F7] bg-[#EAF3FF] px-2.5 py-1 rounded-full mb-3">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                Partners
-              </span>
-              <p className="text-[15px] font-bold text-gray-900 mb-3">
-                이 서비스는 프리티풀 엄선 <span className="text-[#3180F7]">상위 2% 사회자</span>가 제공해요
-              </p>
+            <div className="mb-6 rounded-2xl border border-[#EEF0F4] bg-[#F7F8FA] p-4">
+              <SectionHead
+                eyebrow="PARTNERS"
+                title={<>프리티풀 엄선 상위 <span className="text-[#3180F7]">2%</span> 사회자가 제공해요</>}
+                icon="/icons/pro-detail/certification.svg"
+                size="sm"
+                tileClassName="bg-white"
+                className="mb-3"
+              />
               <ul className="space-y-1.5">
                 {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item, i) => (
                   <li
                     key={item}
-                    className="flex items-center gap-2 text-[13px] text-gray-700 opacity-0"
+                    className="flex items-center gap-2 text-[13px] text-[#4E5968] opacity-0"
                     style={{ animation: `slideInLeft 0.6s ease-out ${300 + i * 100}ms forwards` }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3180F7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <img src="/icons/pro-detail/check.svg" alt="" width={14} height={14} className="shrink-0" />
                     {item}
                   </li>
                 ))}
@@ -2470,12 +2507,12 @@ export default function ProDetailPage() {
         {hasDescriptionContent && (
           <>
             {/* 설명 전문 표시 — 400px 클램프+더보기 제거(설명 짤림 QA) */}
-            <div className="pro-detail-html text-left text-[15px] leading-[1.8] text-gray-800 [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick}>
+            <div className="pro-detail-html text-left text-[15px] leading-[1.8] text-[#333D4B] [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-[#4E5968] [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick}>
               <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
             </div>
 
             {/* Image expand notice */}
-            <div className="mt-8 bg-gray-50 rounded-xl py-3 flex items-center justify-center gap-2 text-[13px] text-gray-400">
+            <div className="mt-8 bg-[#F7F8FA] rounded-2xl py-3 flex items-center justify-center gap-2 text-[13px] text-[#8B95A1]">
               이미지를 클릭해서 확대 할 수 있어요
               <ArrowUpRight size={14} />
             </div>
@@ -2485,7 +2522,7 @@ export default function ProDetailPage() {
         {/* 영상 리스트 (유튜브 + 업로드) */}
         {(pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
           <div className="mt-8">
-            <h3 className="text-[16px] font-bold text-gray-900 mb-3">영상</h3>
+            <SectionHead eyebrow="VIDEO" title="진행 영상" icon="/icons/pro-detail/play.svg" size="sm" className="mb-3" />
             <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
               {pro.youtubeVideos.map((video) => (
                 <div key={video.id} className="shrink-0 w-[260px] snap-start">
@@ -2519,7 +2556,7 @@ export default function ProDetailPage() {
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                  <p className="mt-2 text-[13px] font-medium text-[#4E5968] leading-tight line-clamp-1">{video.title}</p>
                 </div>
               ))}
               {pro.uploadedVideos.map((video) => (
@@ -2532,7 +2569,7 @@ export default function ProDetailPage() {
                     className="w-full rounded-xl bg-black object-contain"
                     style={{ maxHeight: '70vh' }}
                   />
-                  <p className="mt-2 text-[13px] font-medium text-gray-700 leading-tight line-clamp-1">{video.title}</p>
+                  <p className="mt-2 text-[13px] font-medium text-[#4E5968] leading-tight line-clamp-1">{video.title}</p>
                 </div>
               ))}
             </div>
@@ -2543,9 +2580,9 @@ export default function ProDetailPage() {
 
       {/* ─── 프리티풀의 다른 검증된 사회자 ─── */}
       {displayAlsoViewed.length > 0 && (
-        <div className="px-4 pt-10">
+        <div className="px-4 pt-8 pb-4">
           <Reveal>
-            <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-4"><span className="text-[#3180F7]">프리티풀</span>의 다른<br />검증된 사회자를 살펴보세요</h3>
+            <h3 className="text-[17px] font-extrabold text-[#191F28] leading-tight mb-4">프리티풀의 다른<br />검증된 사회자를 살펴보세요</h3>
           </Reveal>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
             {displayAlsoViewed.map((item) => (
@@ -2554,17 +2591,17 @@ export default function ProDetailPage() {
                 href={`/pros/${item.id}`}
                 className="shrink-0 w-[130px] snap-start group"
               >
-                <div className="relative rounded-xl overflow-hidden bg-gray-100" style={{ aspectRatio: '3/4' }}>
+                <div className="relative rounded-xl overflow-hidden bg-[#F2F4F6]" style={{ aspectRatio: '3/4' }}>
                   <Image src={item.image || '/images/default-profile.png'} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="mt-1.5">
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
-                  <p className="text-[13px] font-semibold text-gray-900 leading-tight">{item.category || '사회자'} {item.author}</p>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#4E5968] bg-[#F2F4F6] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
+                  <p className="text-[13px] font-semibold text-[#191F28] leading-tight">{item.category || '사회자'} {item.author}</p>
                   {item.rating && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />
-                      <span className="text-[11px] font-bold text-gray-900">{item.rating.toFixed(1)}</span>
-                      <span className="text-[10px] text-gray-400">({item.reviewCount})</span>
+                      <span className="text-[11px] font-bold text-[#191F28]">{item.rating.toFixed(1)}</span>
+                      <span className="text-[10px] text-[#8B95A1]">({item.reviewCount})</span>
                     </div>
                   )}
                 </div>
@@ -2577,36 +2614,65 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
 
       {/* ─── 사회자 정보 Section ─── */}
-      <div ref={infoRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-5">사회자 정보</h2>
+      <div ref={infoRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+        <SectionHead eyebrow="PROFILE" title="사회자 정보" icon="/icons/pro-detail/mic.svg" className="mb-5" />
 
-        <div className="flex items-center gap-4 mb-5">
-          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-xl object-cover" />
-          <div className="flex-1">
-            <p className="text-[15px] font-bold text-gray-900">{pro.name}</p>
+        <div className="flex items-center gap-4 mb-2">
+          <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-[14px] object-cover" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-extrabold text-[#191F28]">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
-              <span className="text-[12px] font-semibold text-gray-900">{pro.rating.toFixed(1)} ({displayReviewCount})</span>
-	            </div>
-            <p className="text-[11px] text-gray-400 mt-1">연락 가능 시간: {pro.expertStats.contactTime}</p>
-            <p className="text-[11px] text-gray-400">평균 응답 시간: {pro.expertStats.responseTime}</p>
+              <span className="text-[12px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+              <span className="text-[12px] text-[#8B95A1]">({displayReviewCount})</span>
+            </div>
           </div>
+        </div>
+
+        {/* 정보 행 — 아이콘 타일 + 라벨/값, 1px 구분선 */}
+        <div className="divide-y divide-[#F2F4F6]">
+          {[
+            { icon: '/icons/pro-detail/clock.svg', label: '연락 가능 시간', value: pro.expertStats.contactTime },
+            { icon: '/icons/pro-detail/chat.svg', label: '평균 응답 시간', value: pro.expertStats.responseTime },
+            { icon: '/icons/pro-detail/certification.svg', label: '파트너 인증', value: pro.isPrime ? '인증 완료' : '심사 완료' },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center gap-3 py-3">
+              <IconTile src={row.icon} />
+              <span className="text-[13px] text-[#8B95A1]">{row.label}</span>
+              <span className="ml-auto text-[14px] font-bold text-[#191F28]">{row.value}</span>
+            </div>
+          ))}
         </div>
 
       </div>
 
-      {/* ─── Divider ─── */}
-      <div className="h-2 bg-gray-50 mt-10" />
-
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className="mx-4 mt-5 rounded-[32px] border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_5px_12px_rgba(26,38,77,0.06)] px-5 py-6 scroll-mt-[120px]">
-        <h2 className="text-[20px] font-bold text-gray-900 mb-2">리뷰</h2>
+      <div ref={reviewsRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+        <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/star.svg" className="mb-4" />
 
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={20} />
-          <span className="text-[24px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-          <span className="text-[14px] text-gray-400">({displayReviewCount})</span>
+          <span className="text-[24px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+          <span className="text-[14px] text-[#8B95A1]">({displayReviewCount})</span>
         </div>
+
+        {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
+        {aiReviewSummary && (
+          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <img src="/icons/pro-detail/sparkle.svg" alt="" width={16} height={16} className="shrink-0" />
+              <span className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</span>
+            </div>
+            <p className="text-[14px] leading-[1.6] text-[#4E5968]">{aiReviewSummary.text}</p>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {aiReviewSummary.keywords.map((keyword) => (
+                <span key={keyword} className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12px] font-semibold text-[#4E5968]">
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <RadarChart scores={scoreItems} empty={!hasAnyScore} />
         {hasAnyScore && <ScoreBars items={scoreItems} />}
@@ -2614,66 +2680,68 @@ export default function ProDetailPage() {
 
         {/* Reviews list */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[16px] font-bold text-gray-900">전체 리뷰 {displayReviewCount}건</h3>
-          <button><ChevronRight size={20} className="text-gray-400" /></button>
+          <h3 className="text-[16px] font-extrabold text-[#191F28]">전체 리뷰 {displayReviewCount}건</h3>
+          <button><ChevronRight size={20} className="text-[#8B95A1]" /></button>
         </div>
 
         <div className="space-y-6">
           {hasReviewMetricOnly ? (
-            <div className="rounded-2xl bg-gray-50 px-4 py-5">
+            <div className="rounded-2xl bg-[#F7F8FA] px-4 py-5">
               <div className="mb-2 flex items-center gap-2">
                 <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
-                <span className="text-[13px] font-bold text-gray-900">{pro.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-400">({displayReviewCount})</span>
+                <span className="text-[13px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+                <span className="text-[12px] text-[#8B95A1]">({displayReviewCount})</span>
               </div>
-              <p className="text-[14px] leading-[1.7] text-gray-600">{metricOnlyReviewMessage}</p>
+              <p className="text-[14px] leading-[1.7] text-[#4E5968]">{metricOnlyReviewMessage}</p>
             </div>
           ) : displayReviews.length === 0 && (
-            <div className="rounded-2xl bg-gray-50 px-4 py-8 text-center">
-              <p className="text-[14px] font-semibold text-gray-700">아직 표시할 리뷰가 없습니다</p>
-              <p className="mt-1 text-[12px] text-gray-400">리뷰가 등록되면 이곳에 바로 보여집니다</p>
+            <div className="rounded-2xl bg-[#F7F8FA] px-4 py-8 text-center">
+              <p className="text-[14px] font-semibold text-[#191F28]">아직 표시할 리뷰가 없습니다</p>
+              <p className="mt-1 text-[12px] text-[#8B95A1]">리뷰가 등록되면 이곳에 바로 보여집니다</p>
             </div>
           )}
 
           {displayReviews.map((review) => (
-            <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0 relative">
+            <div key={review.id} className="pb-6 border-b border-[#F2F4F6] last:border-0 relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
-                  <span className="text-[14px] text-gray-600">{review.name}</span>
+                  <div className="w-9 h-9 rounded-full bg-[#F2F4F6] flex items-center justify-center">
+                    <img src="/icons/pro-detail/person.svg" alt="" width={20} height={20} />
+                  </div>
+                  <span className="text-[14px] text-[#4E5968]">{review.name}</span>
                 </div>
                 <div className="relative">
                   <button
                     onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#F2F4F6] transition-colors"
                   >
-                    <span className="text-[16px] text-gray-400 leading-none">⋯</span>
+                    <span className="text-[16px] text-[#8B95A1] leading-none">⋯</span>
                   </button>
                   {reviewMenu === review.id && (
-                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[120px]">
-                      <button onClick={() => { toast('리뷰를 신고했습니다', { icon: '🚨' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">신고하기</button>
-                      <button onClick={() => { toast('리뷰를 차단했습니다', { icon: '🚫' }); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">차단하기</button>
-                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50">복사하기</button>
+                    <div className="absolute right-0 top-8 bg-white border border-[#EEF0F4] rounded-xl shadow-lg py-1 z-20 min-w-[120px]">
+                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">신고하기</button>
+                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">차단하기</button>
+                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">복사하기</button>
                     </div>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 mb-2">
                 <StarRating value={parseFloat(review.rating.toFixed(1))} size={14} />
-                <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-gray-300">|</span>
-                <span className="text-[12px] text-gray-400">{review.date}</span>
+                <span className="text-[13px] font-bold text-[#191F28]">{review.rating.toFixed(1)}</span>
+                <span className="text-[12px] text-[#D5DAE0]">|</span>
+                <span className="text-[12px] text-[#8B95A1]">{review.date}</span>
               </div>
               {(review as typeof review & { scores?: Record<string, number> }).scores && (
                 <div className="flex flex-wrap gap-1 mb-2.5">
                   {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
-                    <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>
+                    <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-[#F2F4F6] text-[#4E5968] flex items-center" style={{ height: 22 }}>
                       {key} <span className="font-bold text-[#3180F7] ml-1">{val}</span>
                     </span>
                   ))}
                 </div>
               )}
-              <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
+              <p className="text-[14px] leading-[1.7] text-[#333D4B] mb-3 whitespace-pre-line">{review.content}</p>
               {review.photos && review.photos.length > 0 && (
                 <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
                   {review.photos.slice(0, 5).map((photo, index) => (
@@ -2690,15 +2758,15 @@ export default function ProDetailPage() {
               <p className="text-[12px] text-gray-400 mb-2">
               </p>
               {review.badge && (
-                <span className="inline-block text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{review.badge}</span>
+                <span className="inline-block text-[11px] text-[#4E5968] bg-[#F2F4F6] px-2 py-1 rounded-full">{review.badge}</span>
               )}
               {review.proReply && (
-                <div className="mt-3 bg-gray-50 rounded-xl p-4">
+                <div className="mt-3 bg-[#F7F8FA] rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-semibold text-gray-800">{pro.name}</span>
-                    <span className="text-[12px] text-gray-400">{review.proReply.date}</span>
+                    <span className="text-[13px] font-semibold text-[#191F28]">{pro.name}</span>
+                    <span className="text-[12px] text-[#8B95A1]">{review.proReply.date}</span>
                   </div>
-                  <p className="text-[13px] leading-[1.7] text-gray-700 whitespace-pre-line">{review.proReply.content}</p>
+                  <p className="text-[13px] leading-[1.7] text-[#4E5968] whitespace-pre-line">{review.proReply.content}</p>
                 </div>
               )}
             </div>
@@ -2708,7 +2776,7 @@ export default function ProDetailPage() {
         {displayReviewCount > 0 && (
           <button
             onClick={() => router.push(`/pros/${pro.id}/reviews`)}
-            className="w-full py-3.5 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all mt-5"
+            className="w-full py-3.5 border border-[#E5E8EB] rounded-2xl text-[14px] font-semibold text-[#4E5968] hover:bg-[#F7F8FA] active:scale-[0.98] transition-all mt-5"
           >
             리뷰 전체보기
           </button>
@@ -2716,7 +2784,8 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Expandable panels ─── */}
-      <div className="px-2.5 pt-8">
+      <div className={`mx-4 mt-4 px-5 py-6 ${CARD_CLS}`}>
+        <SectionHead eyebrow="GUIDE" title="상품 안내" icon="/icons/pro-detail/notice.svg" className="mb-1" />
         {[
           { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
           { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
@@ -2725,13 +2794,13 @@ export default function ProDetailPage() {
         ].map((panel) => {
           const isOpen = expandedPanel === panel.id;
           return (
-            <div key={panel.id} className="border-b border-gray-100 last:border-0">
+            <div key={panel.id} className="border-b border-[#F2F4F6] last:border-0">
               <button
                 onClick={() => setExpandedPanel(isOpen ? null : panel.id)}
                 className="w-full flex items-center justify-between py-4 text-left"
               >
-                <span className="text-[15px] font-medium text-gray-900">{panel.label}</span>
-                <ChevronDown size={20} className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#3180F7]' : ''}`} />
+                <span className="text-[15px] font-semibold text-[#191F28]">{panel.label}</span>
+                <ChevronDown size={20} className={`text-[#8B95A1] transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#3180F7]' : ''}`} />
               </button>
               <div
                 className="overflow-hidden transition-all duration-500"
@@ -2741,7 +2810,7 @@ export default function ProDetailPage() {
                   transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
               >
-                <div className="pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">{panel.content}</div>
+                <div className="pb-4 text-[13px] text-[#8B95A1] leading-[1.8] whitespace-pre-line">{panel.content}</div>
               </div>
             </div>
           );
@@ -2772,11 +2841,11 @@ export default function ProDetailPage() {
               <button
                 disabled={openingChat}
                 onClick={handleInquiry}
-                className="flex-1 rounded-[28px] border border-white/55 bg-[#2C53FF]/60 backdrop-blur-xl text-[16.5px] font-bold text-white shadow-[0_8px_24px_rgba(44,83,255,0.35)] active:scale-[0.99] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                className="flex-1 rounded-2xl bg-[#2C53FF] text-[16.5px] font-extrabold text-white shadow-[0_8px_20px_rgba(44,83,255,0.28)] active:scale-[0.99] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {openingChat ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
                     요청 중
                   </>
                 ) : (
@@ -2912,7 +2981,7 @@ export default function ProDetailPage() {
               onClick={handleCopyLink}
               className="w-full flex items-center gap-3 py-4 px-4 hover:bg-gray-50 rounded-xl transition-colors"
             >
-              <div className="w-11 h-11 rounded-full bg-[#EAF3FF] flex items-center justify-center">
+              <div className="w-11 h-11 rounded-[14px] bg-[#F2F4F6] flex items-center justify-center">
                 <Link2 size={20} className="text-[#3180F7]" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">링크 복사</span>
@@ -2941,7 +3010,7 @@ export default function ProDetailPage() {
           >
             <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
             <div className="text-center py-4">
-              <div className="w-16 h-16 rounded-full bg-[#EAF3FF] flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-[20px] bg-[#F2F4F6] flex items-center justify-center mx-auto mb-4">
                 <Phone size={28} className="text-[#3180F7]" />
               </div>
               <h3 className="text-[18px] font-bold text-gray-900 mb-2">전화 상담</h3>
@@ -2987,18 +3056,20 @@ export default function ProDetailPage() {
             </div>
             <div className="px-5 py-4 space-y-6">
               {displayReviews.map((review) => (
-                <div key={review.id} className="pb-6 border-b border-gray-100 last:border-0">
+                <div key={review.id} className="pb-6 border-b border-[#F2F4F6] last:border-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[14px]">🚀</div>
-                    <span className="text-[14px] text-gray-600">{review.name}</span>
+                    <div className="w-9 h-9 rounded-full bg-[#F2F4F6] flex items-center justify-center">
+                      <img src="/icons/pro-detail/person.svg" alt="" width={20} height={20} />
+                    </div>
+                    <span className="text-[14px] text-[#4E5968]">{review.name}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mb-3">
                     <StarRating value={parseFloat(review.rating.toFixed(1))} size={14} />
-                    <span className="text-[13px] font-bold text-gray-900">{review.rating.toFixed(1)}</span>
-                    <span className="text-[12px] text-gray-300">|</span>
-                    <span className="text-[12px] text-gray-400">{review.date}</span>
+                    <span className="text-[13px] font-bold text-[#191F28]">{review.rating.toFixed(1)}</span>
+                    <span className="text-[12px] text-[#D5DAE0]">|</span>
+                    <span className="text-[12px] text-[#8B95A1]">{review.date}</span>
                   </div>
-                  <p className="text-[14px] leading-[1.7] text-gray-800 mb-3 whitespace-pre-line">{review.content}</p>
+                  <p className="text-[14px] leading-[1.7] text-[#333D4B] mb-3 whitespace-pre-line">{review.content}</p>
                 </div>
               ))}
             </div>
@@ -3072,18 +3143,6 @@ export default function ProDetailPage() {
           scrollbar-width: none;
         }
         .hero-snap::-webkit-scrollbar { display: none; }
-        .career-sweep {
-          background-image: linear-gradient(90deg, #191F28 0%, #191F28 42%, #3182F6 50%, #B0B8C1 58%, #B0B8C1 100%);
-          background-size: 280% 100%;
-          background-position: 100% 0;
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          animation: careerSweep 1.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-        @keyframes careerSweep {
-          to { background-position: 0% 0; }
-        }
         .recent-reviews-carousel {
           animation: recentReviewsSlideLTR 34s linear infinite;
           will-change: transform;
@@ -3109,11 +3168,6 @@ export default function ProDetailPage() {
           right: 0;
           background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
         }
-        @keyframes aiReviewSummaryScan {
-          0% { transform: translateX(-120%) skewX(-14deg); opacity: 0; }
-          18% { opacity: 0.7; }
-          48%, 100% { transform: translateX(220%) skewX(-14deg); opacity: 0; }
-        }
         @keyframes aiReviewSummaryReveal {
           0% { clip-path: inset(0 100% 0 0); filter: blur(3px); opacity: 0.65; }
           100% { clip-path: inset(0 0 0 0); filter: blur(0); opacity: 1; }
@@ -3130,71 +3184,9 @@ export default function ProDetailPage() {
           0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(49,128,247,0)); }
           50% { transform: scale(1.08); filter: drop-shadow(0 4px 8px rgba(49,128,247,0.22)); }
         }
-        @keyframes aiReviewCardAura {
-          0%, 100% {
-            border-color: rgba(49,128,247,0.24);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72), 0 8px 24px rgba(49,128,247,0.08);
-            background-position: 0% 50%;
-          }
-          50% {
-            border-color: rgba(139,92,246,0.28);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.82), 0 10px 30px rgba(124,58,237,0.12);
-            background-position: 100% 50%;
-          }
-        }
-        @keyframes aiReviewWavePulse {
-          0% {
-            transform: translateX(-34%) scale(0.92);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translateX(10%) scale(1.08);
-            opacity: 0.42;
-          }
-          100% {
-            transform: translateX(42%) scale(1.18);
-            opacity: 0;
-          }
-        }
-        .ai-review-summary-card::before {
-          content: '';
-          position: absolute;
-          inset: -30% auto -30% -35%;
-          width: 42%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.76), rgba(139,92,246,0.12), transparent);
-          animation: aiReviewSummaryScan 3.8s ease-in-out infinite;
-          pointer-events: none;
-        }
-        .ai-review-summary-card::after {
-          content: '';
-          position: absolute;
-          inset: -42% -28% -42% -28%;
-          background:
-            linear-gradient(115deg, rgba(49,128,247,0) 0%, rgba(49,128,247,0.16) 32%, rgba(139,92,246,0.18) 54%, rgba(139,92,246,0) 76%),
-            linear-gradient(24deg, transparent 18%, rgba(49,128,247,0.08) 42%, rgba(139,92,246,0.1) 62%, transparent 84%);
-          mix-blend-mode: multiply;
-          animation: aiReviewWavePulse 5.6s ease-in-out infinite;
-          pointer-events: none;
-        }
-        .ai-review-summary-card {
-          border-color: rgba(49,128,247,0.24);
-          background:
-            linear-gradient(135deg, rgba(49,128,247,0.12) 0%, rgba(139,92,246,0.09) 48%, rgba(255,255,255,0.96) 100%),
-            linear-gradient(90deg, rgba(255,255,255,0.94), rgba(246,249,255,0.94));
-          background-size: 220% 220%, 100% 100%;
-          isolation: isolate;
-          animation: aiReviewCardAura 4.8s ease-in-out infinite;
-        }
         .ai-review-summary-icon {
           transform-origin: center;
           animation: aiReviewIconPulse 2s ease-in-out infinite;
-        }
-        .ai-review-keyword-pill {
-          border: 1px solid rgba(17,24,39,0.08);
-          border-radius: 10px;
-          background: rgba(17,24,39,0.08);
-          box-shadow: 0 3px 10px rgba(17,24,39,0.05);
-          backdrop-filter: blur(8px);
         }
         .ai-review-summary-copy {
           animation: aiReviewSummaryReveal 1.25s ease-out both;
@@ -3221,9 +3213,6 @@ export default function ProDetailPage() {
         }
         @media (prefers-reduced-motion: reduce) {
           .recent-reviews-carousel,
-          .ai-review-summary-card::before,
-          .ai-review-summary-card::after,
-          .ai-review-summary-card,
           .ai-review-summary-icon,
           .ai-review-summary-copy,
           .ai-review-summary-cursor,
