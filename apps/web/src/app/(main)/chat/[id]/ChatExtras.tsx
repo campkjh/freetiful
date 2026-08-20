@@ -2215,14 +2215,24 @@ export default function ChatExtras(props: ChatExtrasProps) {
     };
   };
 
-  const ATTACH_ITEMS = [
-    // 견적서 발송을 최상단으로 (프로에게 가장 중요한 액션)
-    ...(isPro ? [{ icon: <FileText size={24} className="text-white" />, bg: 'bg-[#3180F7]', label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
-    { icon: <Camera size={24} className="text-white" />, bg: 'bg-slate-700', label: '카메라', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
-    { icon: <ImageIcon size={24} className="text-white" />, bg: 'bg-slate-700', label: '사진', action: () => fileInputRef.current?.click() },
-    { icon: <Video size={24} className="text-white" />, bg: 'bg-slate-700', label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
-    { icon: <Smile size={24} className="text-white" />, bg: 'bg-slate-700', label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
-    // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController), 파일 수신 렌더는 유지
+  // 첨부 시트 — 컬러 원 아이콘 나열 대신 기능을 묶어 두 칸으로 보여준다(그룹 포커스)
+  // 파일/오디오 첨부는 웹(안드) 시트에서 제거(2026-07-04 요청) — iOS 네이티브 시트는 별개(ViewController)
+  const ATTACH_GROUPS: { title: string; items: { icon: JSX.Element; label: string; action: () => void }[] }[] = [
+    {
+      title: '사진 · 영상',
+      items: [
+        { icon: <Camera size={22} />, label: '카메라', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
+        { icon: <ImageIcon size={22} />, label: '사진', action: () => fileInputRef.current?.click() },
+        { icon: <Video size={22} />, label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
+      ],
+    },
+    {
+      title: isPro ? '업무' : '그 외',
+      items: [
+        ...(isPro ? [{ icon: <FileText size={22} />, label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
+        { icon: <Smile size={22} />, label: '이모티콘', action: () => { setShowAttach(false); toast('곧 제공될 예정입니다', { icon: '😊' }); } },
+      ],
+    },
   ];
 
   const mentionList = chatPartner
@@ -2532,26 +2542,29 @@ export default function ChatExtras(props: ChatExtrasProps) {
             onClick={() => setShowAttach(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-2xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] pb-safe"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl"
             style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
-            <div className="px-4 pb-6 max-h-[75vh] overflow-y-auto">
-              {ATTACH_ITEMS.map((item, idx) => (
-                <button
-                  key={item.label}
-                  onClick={(e) => { e.stopPropagation(); item.action(); setShowAttach(false); }}
-                  className="flex items-center gap-4 w-full py-3.5 px-2 hover:bg-gray-100/60 active:scale-[0.98] rounded-xl transition-all"
-                  style={{
-                    animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s both`,
-                  }}
-                >
-                  <div className={`w-11 h-11 rounded-full ${item.bg} flex items-center justify-center shrink-0`}>
-                    {item.icon}
+            <div className="mx-auto mb-4 mt-3 h-1 w-10 rounded-full bg-gray-300" />
+            <div className="max-h-[75vh] overflow-y-auto px-5 pb-6">
+              <div className="grid grid-cols-2 gap-x-5">
+                {ATTACH_GROUPS.filter((g) => g.items.length > 0).map((group, gi) => (
+                  <div key={group.title}>
+                    <p className="mb-1 px-2 text-[13px] font-medium text-gray-400">{group.title}</p>
+                    {group.items.map((item, idx) => (
+                      <button
+                        key={item.label}
+                        onClick={(e) => { e.stopPropagation(); item.action(); setShowAttach(false); }}
+                        className="flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-gray-100/60 active:scale-[0.98]"
+                        style={{ animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${(gi * 3 + idx) * 0.04}s both` }}
+                      >
+                        <span className="shrink-0 text-[#2B313D]">{item.icon}</span>
+                        <span className="text-[16px] font-medium text-gray-900">{item.label}</span>
+                      </button>
+                    ))}
                   </div>
-                  <span className="text-[17px] text-gray-900">{item.label}</span>
-                </button>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </>
