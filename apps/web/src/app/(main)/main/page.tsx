@@ -2917,10 +2917,11 @@ export default function HomePage() {
           </div>
 
           {/* Desktop: 순위 카드 3열 — 화살표로 넘기고 펼쳐보기로 전부 본다 */}
-          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-4 gap-y-8 lg:grid lg:grid-cols-3">
+          {/* grid 로는 마지막 줄(4·5)이 왼쪽으로 붙어서, 가운데 정렬되는 flex-wrap 으로 */}
+          <div ref={rankScrollRef} className="hidden gap-x-4 gap-y-8 lg:flex lg:flex-wrap lg:justify-center">
             {bestWeddingPros.length === 0 && (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex gap-3">
+                <div key={i} className="flex w-[366px] shrink-0 gap-3">
                   <div className="h-12 w-9 rounded-full bg-gray-200 animate-pulse" />
                   <div className="h-[234px] w-[176px] rounded-full bg-gray-200 animate-pulse" />
                   <div className="flex-1 py-1">
@@ -2944,7 +2945,7 @@ export default function HomePage() {
                   e.preventDefault();
                   setQuickViewPro(pro);
                 }}
-                className="group flex w-fit gap-3"
+                className="group flex w-[366px] shrink-0 gap-3"
               >
                 <div className="flex items-center shrink-0">
                   <span className="text-[44px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
