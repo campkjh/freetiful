@@ -707,19 +707,42 @@ function BusinessCard({
   if (hidden || !biz.images[0]) return null;
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
-      {/* 상단 와이드 이미지 — PC 는 사회자 카드와 같은 알약형 */}
-      <div className="relative w-full aspect-[2/1] rounded-xl lg:rounded-full overflow-hidden bg-gray-100">
-        {biz.images[0] ? (
-          <img
-            src={biz.images[0]}
-            alt={biz.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            onError={() => setHidden(true)}
-          />
-        ) : null}
-        {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
-        <div className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm lg:hidden">
-          <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
+      {/* 상단 와이드 이미지 — 뒤로 사진 두 장이 겹쳐 보이는 카드 더미(PC 는 알약형) */}
+      <div className="relative w-full pt-5 lg:pt-6">
+        {/* 뒤에 깔리는 두 장. 이미지가 부족하면 첫 장을 다시 쓴다 */}
+        {[2, 1].map((depth) => {
+          const src = biz.images[depth] || biz.images[0];
+          return (
+            <div
+              key={depth}
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
+              style={{
+                // 앞장(80%)보다 좁게 깔고, 흰 링으로 장끼리 경계를 만든다
+                width: depth === 2 ? '62%' : '71%',
+                aspectRatio: '2 / 1',
+                transform: `translateY(${depth === 2 ? 0 : 12}px)`,
+                opacity: depth === 2 ? 0.5 : 0.78,
+              }}
+            >
+              <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </div>
+          );
+        })}
+
+        <div className="relative mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full" style={{ aspectRatio: '2 / 1' }}>
+          {biz.images[0] ? (
+            <img
+              src={biz.images[0]}
+              alt={biz.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              onError={() => setHidden(true)}
+            />
+          ) : null}
+          {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
+          <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm lg:hidden">
+            <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
+          </div>
         </div>
       </div>
 
