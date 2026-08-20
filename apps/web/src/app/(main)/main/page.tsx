@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Bell, ChevronRight, X } from 'lucide-react';
 import ProQuickView from '@/components/ProQuickView';
+import { PartnerCategoryIcon } from '@/components/icons/partner';
 import {
   SearchIcon,
   ChevronLeftIcon,
@@ -13,7 +14,6 @@ import {
   ChevronDownIcon,
   MicIcon,
   UserIcon,
-  StoreIcon,
   PinLocationIcon,
 } from '@/components/icons/mono';
 import toast from 'react-hot-toast';
@@ -870,8 +870,8 @@ function BusinessPartnerSection({
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
-              <StoreIcon size={22} />
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
+              <PartnerCategoryIcon category={category} size={24} />
             </span>
             <div>
               <h3 className="section-title">{category}</h3>
