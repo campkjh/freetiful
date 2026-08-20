@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, LogOut, Star } from 'lucide-react';
+import { ChevronRight, LogOut, Star, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
@@ -319,6 +319,14 @@ export default function MyPage() {
     }
   };
 
+  /** PC 에서 오른쪽에 펼쳐 볼 하위 화면 — 페이지 이동 대신 반반으로 본다 */
+  const [detailHref, setDetailHref] = useState<string | null>(null);
+  const openDetailOnPC = (href: string) => (e: React.MouseEvent) => {
+    if (typeof window === 'undefined' || window.innerWidth < 1024) return;
+    e.preventDefault();
+    setDetailHref(href);
+  };
+
   // 로그아웃 확인 모달
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const handleLogout = () => setShowLogoutConfirm(true);
@@ -354,9 +362,13 @@ export default function MyPage() {
 
   return (
     <div
-      className="min-h-screen bg-white pb-24 lg:mx-auto lg:max-w-[880px] lg:bg-transparent lg:pb-16 lg:pt-8"
+      className={`min-h-screen bg-white pb-24 lg:mx-auto lg:bg-transparent lg:pb-16 lg:pt-8 ${
+        detailHref ? 'lg:max-w-none' : 'lg:max-w-[880px]'
+      }`}
       style={{ letterSpacing: '-0.02em' }}
     >
+    <div className="lg:flex lg:items-start lg:gap-6">
+    <div className={detailHref ? 'lg:w-[420px] lg:shrink-0' : 'lg:w-full'}>
       {/* Header — PC 는 전역 헤더가 있어 sticky 바 대신 큰 제목만 */}
       <div data-native-my-header className="sticky top-0 z-20 bg-white px-4 lg:hidden">
         <div className="h-[52px] flex items-center">
@@ -529,7 +541,14 @@ export default function MyPage() {
               );
             }
             return (
-              <Link key={label} href={resolvedHref} className="flex items-center gap-3 px-4 py-2.5 transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]">
+              <Link
+                key={label}
+                href={resolvedHref}
+                onClick={openDetailOnPC(resolvedHref)}
+                className={`flex items-center gap-3 px-4 py-2.5 transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 ${
+                  detailHref === resolvedHref ? 'lg:bg-[#EAF2FF]' : 'lg:hover:bg-[#F7F8FA]'
+                }`}
+              >
                 {inner}
               </Link>
             );
@@ -562,6 +581,28 @@ export default function MyPage() {
           </button>
         )}
       </div>
+
+    </div>
+
+      {/* PC — 고른 항목을 오른쪽에서 그대로 연다(페이지 이동 없음).
+          iframe 인 이유는 Tailwind 반응형이 뷰포트 기준이라, 좁은 칸에 그냥 끼우면
+          하위 화면이 PC 레이아웃으로 잡혀 깨지기 때문. iframe 은 제 뷰포트를 가진다. */}
+      {detailHref && (
+        <div className="hidden lg:block lg:flex-1">
+          <div className="sticky top-[92px] h-[calc(100vh-150px)] overflow-hidden rounded-[24px] bg-white">
+            <button
+              type="button"
+              onClick={() => setDetailHref(null)}
+              aria-label="닫기"
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#51535C] shadow-[0_4px_16px_rgba(15,23,42,0.12)] backdrop-blur transition-colors hover:bg-white"
+            >
+              <X size={18} />
+            </button>
+            <iframe key={detailHref} src={detailHref} title="상세" className="h-full w-full border-0" />
+          </div>
+        </div>
+      )}
+    </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes myFadeUp {
