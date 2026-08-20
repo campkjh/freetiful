@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
-import { EmptyChatIcon, EmptySearchIcon, EmptyChatDetailIcon } from '@/components/icons/color';
+import { EmptySearchIcon, MailBoxIcon } from '@/components/icons/color';
 import ChatRoomView from './[id]/page';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -643,7 +643,7 @@ export default function ChatListPage() {
               )
             ) : sorted.length === 0 ? (
               <div className="py-16 text-center">
-                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <EmptyChatIcon size={56} className="mx-auto" />}
+                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <MailBoxIcon size={56} className="mx-auto" />}
                 <p className="mt-3 text-[13px] text-[#A4ABBA]">{search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
               </div>
             ) : renderChatList(true)}
@@ -657,7 +657,7 @@ export default function ChatListPage() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
-                <EmptyChatDetailIcon size={76} className="mx-auto mb-4" />
+                <MailBoxIcon size={76} className="mx-auto mb-4" />
                 <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
                 <p className="mt-1 text-[13px] text-[#A4ABBA]">왼쪽 목록에서 대화를 고르면 여기에 열립니다</p>
               </div>
@@ -795,7 +795,7 @@ export default function ChatListPage() {
           <div className="text-center py-20">
             {search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
-              : <EmptyChatIcon size={64} className="mx-auto mb-4" />}
+              : <MailBoxIcon size={64} className="mx-auto mb-4" />}
             <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
             {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
           </div>

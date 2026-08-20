@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Search, Bell, ChevronRight, X } from 'lucide-react';
 import ProQuickView from '@/components/ProQuickView';
 import { PartnerCategoryIcon, ProsIcon, EventMcIcon } from '@/components/icons/partner';
+import { RankMedal } from '@/components/icons/color';
 import {
   SearchIcon,
   ChevronLeftIcon,
@@ -2948,11 +2949,19 @@ export default function HomePage() {
                 <div className="flex items-center shrink-0">
                   <span className="text-[44px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
                 </div>
-                <div className="w-[176px] h-[234px] rounded-full overflow-hidden shrink-0 bg-gray-100">
-                  <img
-                    src={pro.images[0] || pro.image}
-                    alt={pro.name}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                <div className="relative shrink-0">
+                  <div className="h-[234px] w-[176px] overflow-hidden rounded-full bg-gray-100">
+                    <img
+                      src={pro.images[0] || pro.image}
+                      alt={pro.name}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                  </div>
+                  {/* 순위 메달 — 사진 아래쪽에 겹쳐 올린다 */}
+                  <RankMedal
+                    rank={bestProsPager.offset + i + 1}
+                    size={56}
+                    className="pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 drop-shadow-[0_4px_10px_rgba(15,23,42,0.18)]"
                   />
                 </div>
                 <div className="flex min-w-0 max-w-[130px] flex-col justify-center py-0.5">
