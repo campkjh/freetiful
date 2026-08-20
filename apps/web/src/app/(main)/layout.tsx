@@ -144,7 +144,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   /** PC 사회자 미리보기처럼 iframe 안에 끼워 넣은 경우 — 오버레이/배너는 띄우지 않는다 */
   const [embedded, setEmbedded] = useState(false);
   useEffect(() => {
-    try { setEmbedded(window.self !== window.top); } catch { setEmbedded(true); }
+    let inFrame = true;
+    try { inFrame = window.self !== window.top; } catch { inFrame = true; }
+    setEmbedded(inFrame);
+    // 좁은 칸에 끼워 넣은 화면은 가운데 정렬된 max-w 컨테이너 때문에 양옆이 비어 보인다.
+    // 이 표시를 보고 globals.css 가 컨테이너를 펼친다.
+    if (inFrame) document.documentElement.setAttribute('data-embedded', '1');
+    return () => { if (inFrame) document.documentElement.removeAttribute('data-embedded'); };
   }, []);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);

@@ -55,7 +55,7 @@ export default function ProQuickView({
         aria-hidden={!open}
       />
       <aside
-        className={`fixed right-0 top-0 z-[61] hidden h-full w-[440px] max-w-[94vw] flex-col overflow-hidden bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.14)] transition-transform duration-300 ease-out lg:flex ${
+        className={`fixed right-0 top-0 z-[61] hidden h-full w-[max(440px,36vw)] max-w-[94vw] flex-col overflow-hidden bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.14)] transition-transform duration-300 ease-out lg:flex ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!open}

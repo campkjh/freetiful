@@ -9,6 +9,10 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
 import { getProfileImageUrl } from '@/lib/default-profile';
+import {
+  MyProfileIcon, MyPurchaseIcon, MyPaymentIcon, MySupportIcon, MyFaqIcon,
+  MyNoticeIcon, MyInviteIcon, MyTermsIcon, MyPartnerIcon,
+} from '@/components/icons/color';
 
 /* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
 // 이미지 기반 아이콘 헬퍼
@@ -157,30 +161,30 @@ const MENU_SECTIONS = [
   {
     title: '설정',
     items: [
-      { href: '/my/settings', icon: () => <ImgIcon src="/images/profile-settings.svg" />, label: '프로필 설정' },
+      { href: '/my/settings', icon: MyProfileIcon, label: '프로필 설정' },
     ],
   },
   {
     title: '나의 활동',
     items: [
-      { href: '/my/purchase-history', icon: () => <ImgIcon src="/images/purchase-history.svg" />, label: '구매 내역' },
-      { href: '/my/payment-history', icon: IconHistory, label: '결제/환불 내역' },
+      { href: '/my/purchase-history', icon: MyPurchaseIcon, label: '구매 내역' },
+      { href: '/my/payment-history', icon: MyPaymentIcon, label: '결제/환불 내역' },
     ],
   },
   {
     title: '고객지원',
     items: [
-      { href: '/my/support', icon: () => <ImgIcon src="/images/support.svg" />, label: '고객센터' },
-      { href: '/my/faq', icon: () => <ImgIcon src="/images/faq-icon.svg" />, label: 'FAQ' },
-      { href: '/my/announcements', icon: () => <ImgIcon src="/images/announcements.svg" />, label: '공지사항' },
+      { href: '/my/support', icon: MySupportIcon, label: '고객센터' },
+      { href: '/my/faq', icon: MyFaqIcon, label: 'FAQ' },
+      { href: '/my/announcements', icon: MyNoticeIcon, label: '공지사항' },
     ],
   },
   {
     title: '기타',
     items: [
-      { href: '/my/invite', icon: () => <ImgIcon src="/images/invite-friend.svg" />, label: '친구 초대', badge: '5,000원 이벤트' },
-      { href: '/my/terms', icon: IconFile, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: () => <ImgIcon src="/images/partners-apply.svg" />, label: '파트너 신청', action: 'partner' },
+      { href: '/my/invite', icon: MyInviteIcon, label: '친구 초대', badge: '5,000원 이벤트' },
+      { href: '/my/terms', icon: MyTermsIcon, label: '약관 및 정책' },
+      { href: '/pro-register/terms', icon: MyPartnerIcon, label: '파트너 신청', action: 'partner' },
     ],
   },
 ];
@@ -488,7 +492,7 @@ export default function MyPage() {
           <div className="px-4 pt-3 pb-0.5 lg:pb-1.5 lg:pt-1">
             <p className="text-[12px] font-bold text-gray-400 lg:text-[13px] lg:text-[#A4ABBA]">{section.title}</p>
           </div>
-          {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: () => JSX.Element; label: string; badge?: string; action?: string }) => {
+          {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: (p: { size?: number; className?: string }) => JSX.Element; label: string; badge?: string; action?: string }) => {
             // Partner registration conditional logic
             if (action === 'partner') {
               if (authUser?.role === 'pro' && proProfileStatus === null) return null;
