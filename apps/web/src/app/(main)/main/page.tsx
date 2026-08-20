@@ -955,10 +955,11 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
-function ProCard({ pro, index, onQuickView }: {
+function ProCard({ pro, index, onQuickView, onPreload }: {
   pro: ProData;
   index: number;
   onQuickView?: (pro: ProData) => void;
+  onPreload?: (proId: string) => void;
 }) {
   const skipAnim = useHomeAnimationSkip();
   const primaryImage = pro.images[0] || pro.image || '/images/default-profile.png';
@@ -966,7 +967,10 @@ function ProCard({ pro, index, onQuickView }: {
     <Link
       href={`/pros/${pro.id}`}
       onTouchStart={() => discoveryApi.getProDetail(pro.id)}
-      onMouseEnter={() => discoveryApi.getProDetail(pro.id)}
+      onMouseEnter={() => {
+        discoveryApi.getProDetail(pro.id);
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) onPreload?.(pro.id);
+      }}
       onClick={(e) => {
         // PC 는 홈을 두고 오른쪽 미리보기로. 모바일은 예전처럼 상세로 이동
         if (!onQuickView || typeof window === 'undefined' || window.innerWidth < 1024) return;
@@ -2091,6 +2095,8 @@ export default function HomePage() {
   const eventProsPager = useProSectionPager(eventPros.length);
   /** PC 홈에서 오른쪽으로 살짝 나오는 사회자 미리보기 */
   const [quickViewPro, setQuickViewPro] = useState<ProData | null>(null);
+  /** 마우스를 올린 사회자 — 클릭 전에 상세를 미리 받아 둔다(열 때 흰 화면 방지) */
+  const [quickViewPreloadId, setQuickViewPreloadId] = useState<string | null>(null);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
   useEffect(() => {
@@ -2930,6 +2936,9 @@ export default function HomePage() {
                 key={bestProsPager.itemKey(i)}
                 style={bestProsPager.itemStyle(i)}
                 href={`/pros/${pro.id}`}
+                onMouseEnter={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth >= 1024) setQuickViewPreloadId(pro.id);
+                }}
                 onClick={(e) => {
                   if (typeof window === 'undefined' || window.innerWidth < 1024) return;
                   e.preventDefault();
@@ -3007,7 +3016,7 @@ export default function HomePage() {
               ))
             ) : moreProsPager.slice(morePros).map((pro, i) => (
               <div key={moreProsPager.itemKey(i)} style={moreProsPager.itemStyle(i)}>
-                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} />
+                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} onPreload={setQuickViewPreloadId} />
               </div>
             ))}
           </div>
@@ -3062,7 +3071,7 @@ export default function HomePage() {
               ))
             ) : eventProsPager.slice(eventPros).map((pro, i) => (
               <div key={eventProsPager.itemKey(i)} style={eventProsPager.itemStyle(i)}>
-                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} />
+                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} onPreload={setQuickViewPreloadId} />
               </div>
             ))}
           </div>
@@ -3087,7 +3096,11 @@ export default function HomePage() {
       </div>
 
       {/* PC 사회자 미리보기 — 홈을 두고 오른쪽만 덮는다 */}
-      <ProQuickView pro={quickViewPro} onClose={() => setQuickViewPro(null)} />
+      <ProQuickView
+        pro={quickViewPro ? { id: quickViewPro.id, name: quickViewPro.name, image: quickViewPro.images[0] || quickViewPro.image } : null}
+        preloadId={quickViewPreloadId}
+        onClose={() => setQuickViewPro(null)}
+      />
     </div>
   );
 }

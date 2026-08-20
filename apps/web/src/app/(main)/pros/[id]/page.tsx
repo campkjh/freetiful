@@ -1244,6 +1244,11 @@ export default function ProDetailPage() {
   const authUser = useAuthStore((s) => s.user);
 
   const [openingChat, setOpeningChat] = useState(false);
+  /** 홈 미리보기 iframe 안인지 — 바깥에 닫기 버튼이 이미 있다 */
+  const [inFrame, setInFrame] = useState(false);
+  useEffect(() => {
+    try { setInFrame(window.self !== window.top); } catch { setInFrame(true); }
+  }, []);
   const [confirmInquiryOpen, setConfirmInquiryOpen] = useState(false);
   const [inquiryLocation, setInquiryLocation] = useState('');
   const [inquiryDate, setInquiryDate] = useState('');
@@ -2242,16 +2247,19 @@ export default function ProDetailPage() {
           headerSolid ? 'bg-white border-b border-gray-100 h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
         }`}
       >
-        <button
-          onClick={() => router.back()}
-          className={`flex items-center justify-center shrink-0 active:scale-90 transition-all ${
-            headerSolid
-              ? 'w-9 h-9 text-gray-900'
-              : 'w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-sm'
-          }`}
-        >
-          <ChevronLeft size={22} className="text-gray-900" />
-        </button>
+        {/* iframe(홈 미리보기) 안에서는 바깥 닫기 버튼과 겹쳐 어색하므로 숨긴다 */}
+        {!inFrame && (
+          <button
+            onClick={() => router.back()}
+            className={`flex items-center justify-center shrink-0 active:scale-90 transition-all ${
+              headerSolid
+                ? 'w-9 h-9 text-gray-900'
+                : 'w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-sm'
+            }`}
+          >
+            <ChevronLeft size={22} className="text-gray-900" />
+          </button>
+        )}
 
         {/* Scrolled state: Thumbnail + Title */}
         <div
