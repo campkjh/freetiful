@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Bell, ChevronRight, X } from 'lucide-react';
+import ProQuickView from '@/components/ProQuickView';
 import {
   SearchIcon,
   ChevronLeftIcon,
@@ -938,9 +939,10 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
-function ProCard({ pro, index }: {
+function ProCard({ pro, index, onQuickView }: {
   pro: ProData;
   index: number;
+  onQuickView?: (pro: ProData) => void;
 }) {
   const skipAnim = useHomeAnimationSkip();
   const primaryImage = pro.images[0] || pro.image || '/images/default-profile.png';
@@ -949,6 +951,12 @@ function ProCard({ pro, index }: {
       href={`/pros/${pro.id}`}
       onTouchStart={() => discoveryApi.getProDetail(pro.id)}
       onMouseEnter={() => discoveryApi.getProDetail(pro.id)}
+      onClick={(e) => {
+        // PC 는 홈을 두고 오른쪽 미리보기로. 모바일은 예전처럼 상세로 이동
+        if (!onQuickView || typeof window === 'undefined' || window.innerWidth < 1024) return;
+        e.preventDefault();
+        onQuickView(pro);
+      }}
       className={`block group card-press ${skipAnim ? 'opacity-100' : 'opacity-0 animate-fade-in'}`}
       style={skipAnim ? undefined : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
     >
@@ -2065,6 +2073,8 @@ export default function HomePage() {
   const bestProsPager = useProSectionPager(bestTop10.length, 5);
   const moreProsPager = useProSectionPager(morePros.length);
   const eventProsPager = useProSectionPager(eventPros.length);
+  /** PC 홈에서 오른쪽으로 살짝 나오는 사회자 미리보기 */
+  const [quickViewPro, setQuickViewPro] = useState<ProData | null>(null);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
 
   useEffect(() => {
@@ -2904,6 +2914,11 @@ export default function HomePage() {
                 key={bestProsPager.itemKey(i)}
                 style={bestProsPager.itemStyle(i)}
                 href={`/pros/${pro.id}`}
+                onClick={(e) => {
+                  if (typeof window === 'undefined' || window.innerWidth < 1024) return;
+                  e.preventDefault();
+                  setQuickViewPro(pro);
+                }}
                 className="group flex w-fit gap-2"
               >
                 <div className="flex items-center shrink-0">
@@ -2976,7 +2991,7 @@ export default function HomePage() {
               ))
             ) : moreProsPager.slice(morePros).map((pro, i) => (
               <div key={moreProsPager.itemKey(i)} style={moreProsPager.itemStyle(i)}>
-                <ProCard pro={pro} index={i} />
+                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} />
               </div>
             ))}
           </div>
@@ -3031,7 +3046,7 @@ export default function HomePage() {
               ))
             ) : eventProsPager.slice(eventPros).map((pro, i) => (
               <div key={eventProsPager.itemKey(i)} style={eventProsPager.itemStyle(i)}>
-                <ProCard pro={pro} index={i} />
+                <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} />
               </div>
             ))}
           </div>
@@ -3055,6 +3070,8 @@ export default function HomePage() {
         </LazySection>
       </div>
 
+      {/* PC 사회자 미리보기 — 홈을 두고 오른쪽만 덮는다 */}
+      <ProQuickView pro={quickViewPro} onClose={() => setQuickViewPro(null)} />
     </div>
   );
 }
