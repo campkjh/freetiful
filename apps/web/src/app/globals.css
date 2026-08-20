@@ -1914,10 +1914,16 @@ body::after {
 /* 홈 사회자 미리보기·마이페이지 우측 칸처럼 iframe 안에 끼워 넣은 화면.
    가운데 정렬된 좁은 컨테이너 때문에 양옆이 비고 경계가 그림자처럼 보여서 펼쳐 준다.
    모달(max-w-sm 등)은 건드리지 않는다. */
-html[data-embedded='1'] .max-w-md,
-html[data-embedded='1'] .max-w-lg,
-html[data-embedded='1'] .max-w-xl,
-html[data-embedded='1'] .max-w-2xl,
-html[data-embedded='1'] .max-w-3xl {
+/* sm:/lg: 같은 반응형 변형도 같이 잡아야 한다 — iframe 이 1024px 보다 넓으면
+   lg:max-w-2xl 이 적용돼 여전히 가운데로 좁아진다. 모달용 max-w-sm 은 제외. */
+html[data-embedded='1'] [class*='max-w-md'],
+html[data-embedded='1'] [class*='max-w-lg'],
+html[data-embedded='1'] [class*='max-w-xl'],
+html[data-embedded='1'] [class*='max-w-2xl'],
+html[data-embedded='1'] [class*='max-w-3xl'],
+html[data-embedded='1'] [class*='max-w-4xl'],
+html[data-embedded='1'] [class*='max-w-5xl'],
+html[data-embedded='1'] [class*='max-w-6xl'],
+html[data-embedded='1'] [class*='max-w-7xl'] {
   max-width: 100%;
 }

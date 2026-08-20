@@ -185,9 +185,9 @@ export default function SettingsPage() {
   const profilePreviewImage = getProfileImageUrl(profileImage, authUser?.id || authUser?.email || name);
 
   return (
-    <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
+    <div className="min-h-screen bg-[#FAFBFC] pb-10 max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100/60" data-native-back-header>
+      <div className="sticky top-0 z-10 border-b border-gray-100/60 bg-[#FAFBFC]/90 backdrop-blur-xl" data-native-back-header>
         <div className="flex items-center gap-3 px-4 h-[52px]">
           <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} className="text-gray-700" /></button>
           <h1 className="text-[17px] font-bold text-gray-900">프로필 설정</h1>
@@ -195,7 +195,7 @@ export default function SettingsPage() {
       </div>
 
       {/* ─── Profile Photo ──────────────────────────────────────────── */}
-      <div className="flex justify-center py-8">
+      <div className="mx-4 mt-4 flex justify-center rounded-[24px] bg-white py-8">
         <div className="relative">
           <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100">
             <img
@@ -221,39 +221,35 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="h-1.5 bg-gray-50" />
-
       {/* ─── Basic Info ──────────────────────────────────────────────── */}
-      <div className="px-4 py-5 space-y-4">
-        <p className="text-[13px] font-bold text-gray-500">기본 정보</p>
+      <div className="mx-4 mt-4 space-y-4 rounded-[24px] bg-white p-5">
+        <p className="text-[15px] font-bold text-[#2B313D]">기본 정보</p>
         <div>
-          <label className="block text-[13px] font-bold text-gray-700 mb-1.5">이름</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input text-[16px]" placeholder="이름을 입력하세요" />
+          <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이름</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" placeholder="이름을 입력하세요" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-gray-700 mb-1.5">이메일</label>
-          <input type="email" value={authUser?.email || ''} disabled className="input text-[16px] bg-gray-50 text-gray-400 cursor-not-allowed" />
-          <p className="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1"><Lock size={10} /> 이메일은 변경할 수 없습니다</p>
+          <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이메일</label>
+          <input type="email" value={authUser?.email || ''} disabled className="h-14 w-full cursor-not-allowed rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#A4ABBA] outline-none" />
+          <p className="mt-1.5 flex items-center gap-1 text-[12px] text-[#A4ABBA]"><Lock size={11} /> 이메일은 변경할 수 없습니다</p>
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-gray-700 mb-1.5">전화번호</label>
+          <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">전화번호</label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(formatPhone(e.target.value))}
-            className="input text-[16px]"
+            className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]"
             placeholder="010-0000-0000"
           />
         </div>
       </div>
 
-      <div className="h-1.5 bg-gray-50" />
-
       {/* ─── Refund Account ──────────────────────────────────────────── */}
-      <div className="px-4 py-5 space-y-3">
-        <p className="text-[13px] font-bold text-gray-500 flex items-center gap-1"><Wallet size={12} /> 환불 계좌</p>
+      <div className="mx-4 mt-4 space-y-3 rounded-[24px] bg-white p-5">
+        <p className="flex items-center gap-1.5 text-[15px] font-bold text-[#2B313D]"><Wallet size={15} className="text-[#A4ABBA]" /> 환불 계좌</p>
         {savedAccount ? (
-          <div className="border border-gray-100 rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-xl bg-[#F2F3F5] p-4">
             <div>
               <p className="text-[14px] font-semibold text-gray-900">{savedAccount.bank}</p>
               <p className="text-[13px] text-gray-500 mt-0.5">{savedAccount.number} · {savedAccount.holder}</p>
@@ -271,17 +267,17 @@ export default function SettingsPage() {
             </button>
           </div>
         ) : showBankForm ? (
-          <div className="border border-gray-100 rounded-2xl p-4 space-y-3">
-            <select value={bank} onChange={(e) => setBank(e.target.value)} className="input text-[16px]">
+          <div className="space-y-3 rounded-xl bg-[#F2F3F5] p-4">
+            <select value={bank} onChange={(e) => setBank(e.target.value)} className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]">
               <option value="">은행 선택</option>
               {['국민은행','신한은행','하나은행','우리은행','IBK기업','NH농협','카카오뱅크','토스뱅크','케이뱅크'].map((b) => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
-            <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="input text-[16px]" />
-            <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="input text-[16px]" />
+            <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
+            <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
             <div className="flex gap-2">
-              <button onClick={() => setShowBankForm(false)} className="flex-1 h-11 bg-gray-100 text-gray-600 font-bold rounded-xl text-[14px] active:scale-[0.98]">취소</button>
+              <button onClick={() => setShowBankForm(false)} className="h-11 flex-1 rounded-[14px] bg-white text-[14px] font-bold text-[#51535C] transition-colors hover:bg-[#E9EBEF] active:scale-[0.98]">취소</button>
               <button
                 onClick={() => {
                   if (!bank || !accountNumber || !accountHolder) {
@@ -295,36 +291,36 @@ export default function SettingsPage() {
                   setShowBankForm(false);
                   toast.success('계좌가 등록되었습니다');
                 }}
-                className="flex-1 h-11 bg-gray-900 text-white font-bold rounded-xl text-[14px] active:scale-[0.98]"
+                className="h-11 flex-1 rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
               >
                 등록
               </button>
             </div>
           </div>
         ) : (
-          <div className="border border-gray-100 rounded-2xl p-4">
-            <p className="text-[13px] text-gray-500">등록된 환불 계좌가 없습니다</p>
-            <button onClick={() => setShowBankForm(true)} className="text-[13px] text-gray-900 font-bold mt-2">계좌 등록하기</button>
+          <div className="rounded-xl bg-[#F2F3F5] p-4">
+            <p className="text-[13px] text-[#A4ABBA]">등록된 환불 계좌가 없습니다</p>
+            <button onClick={() => setShowBankForm(true)} className="mt-2 text-[13px] font-bold text-[#3180F7]">계좌 등록하기</button>
           </div>
         )}
       </div>
 
       {/* ─── Save ────────────────────────────────────────────────────── */}
-      <div className="px-4 py-6">
+      <div className="px-4 pt-5">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-[52px] bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
+          className="h-[52px] w-full rounded-[14px] bg-[#3180F7] text-[15px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98] disabled:opacity-60"
         >
           {saving ? '저장 중...' : '저장하기'}
         </button>
       </div>
 
-      <div className="px-4 pb-10 text-center">
+      <div className="px-4 pb-10 pt-4 text-center">
         <button
           type="button"
           onClick={() => setShowWithdraw(true)}
-          className="text-[13px] text-red-400 font-medium"
+          className="text-[13px] font-medium text-[#E5484D]/70 transition-colors hover:text-[#E5484D]"
         >
           회원 탈퇴
         </button>
