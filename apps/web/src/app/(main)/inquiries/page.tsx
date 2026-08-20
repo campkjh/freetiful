@@ -15,7 +15,7 @@ import {
   PinLocationIcon,
   DocumentIcon,
 } from '@/components/icons/mono';
-import { EmptyDocumentIcon } from '@/components/icons/color';
+import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -112,6 +112,14 @@ function getStatusIcon(status: InquiryStatus) {
   if (status === '요청승인') return ChatBubbleIcon;
   if (status === '거절') return XCircleIcon;
   return ClockIcon;
+}
+
+/** 진행 현황 목록에 쓰는 컬러 아이콘 — 상태색이 아이콘 자체에 들어 있다 */
+function getStatusColorIcon(status: InquiryStatus) {
+  if (status === '거래완료') return DoneIcon;
+  if (status === '요청승인') return RepliedIcon;
+  if (status === '거절') return DeclinedIcon;
+  return PendingIcon;
 }
 
 /** 상태 필터 탭 — '전체' 는 개수 합계 */
@@ -466,25 +474,23 @@ export default function CustomerInquiriesPage() {
           <div className="sticky top-[92px] space-y-4">
             <div className="rounded-[24px] bg-white p-5">
               <div className="flex items-center gap-2">
-                <DocumentIcon size={18} className="text-[#51535C]" />
+                <DocumentColorIcon size={20} />
                 <h2 className="text-[15px] font-bold text-[#2B313D]">진행 현황</h2>
                 <span className="ml-auto rounded-full bg-[#F2F3F5] px-2 py-0.5 text-[11px] font-semibold text-[#51535C]">{cards.length}건</span>
               </div>
               <ul className="mt-3 flex flex-col gap-1">
                 {(['요청중', '요청승인', '거래완료', '거절'] as InquiryStatus[]).map((status) => {
-                  const Icon = getStatusIcon(status);
+                  const Icon = getStatusColorIcon(status);
                   return (
                     <li key={status}>
                       <button
                         type="button"
                         onClick={() => setStatusTab(statusTab === status ? '전체' : status)}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[13px] transition-colors ${
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-[13px] transition-colors ${
                           statusTab === status ? 'bg-[#F2F3F5]' : 'hover:bg-[#F2F3F5]'
                         }`}
                       >
-                        <span className={`flex h-6 w-6 items-center justify-center rounded-md ${getStatusTone(status)}`}>
-                          <Icon size={13} />
-                        </span>
+                        <Icon size={22} />
                         <span className="flex-1 text-left font-medium text-[#2B313D]">{status}</span>
                         <span className="tabular-nums font-semibold text-[#51535C]">{statusCounts[status] || 0}</span>
                       </button>

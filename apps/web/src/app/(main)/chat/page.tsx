@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
-import { EmptyChatIcon, EmptySearchIcon } from '@/components/icons/color';
+import { EmptyChatIcon, EmptySearchIcon, EmptyChatDetailIcon } from '@/components/icons/color';
 import ChatRoomView from './[id]/page';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -657,7 +657,7 @@ export default function ChatListPage() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
-                <EmptyChatIcon size={72} className="mx-auto mb-4" />
+                <EmptyChatDetailIcon size={76} className="mx-auto mb-4" />
                 <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
                 <p className="mt-1 text-[13px] text-[#A4ABBA]">왼쪽 목록에서 대화를 고르면 여기에 열립니다</p>
               </div>
