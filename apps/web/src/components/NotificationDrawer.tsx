@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
 import { AlarmIcon, CloseIcon, ChevronRightIcon } from '@/components/icons/mono';
+import { EmptyAlarmIcon } from '@/components/icons/color';
 
 /**
  * PC 헤더의 알림 서랍.
@@ -145,12 +146,12 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
         <div className="min-h-0 flex-1 overflow-y-auto">
           {!authUser ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <AlarmIcon size={40} className="text-[#D8DDE4]" />
+              <EmptyAlarmIcon size={64} />
               <p className="text-[14px] text-[#A4ABBA]">로그인하면 알림을 받아볼 수 있어요</p>
             </div>
           ) : items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <AlarmIcon size={40} className="text-[#D8DDE4]" />
+              <EmptyAlarmIcon size={64} />
               <p className="text-[14px] text-[#A4ABBA]">{loading ? '알림을 불러오는 중이에요' : '아직 받은 알림이 없어요'}</p>
             </div>
           ) : (

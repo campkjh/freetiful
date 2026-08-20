@@ -889,24 +889,39 @@ function ProSectionPager({
   );
 }
 
-/** 섹션별 페이지·펼침 상태. 목록이 줄어들면 페이지를 범위 안으로 되돌린다. */
-function useProSectionPager(total: number) {
+/**
+ * 섹션별 페이지·펼침 상태. 목록이 줄어들면 페이지를 범위 안으로 되돌린다.
+ * move 는 마지막 조작(-1 이전 / 1 다음 / 0 펼침)이라 카드가 들어오는 방향을 정한다.
+ */
+function useProSectionPager(total: number, pageSize = PRO_SECTION_PAGE_SIZE) {
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  const pageCount = Math.max(1, Math.ceil(total / PRO_SECTION_PAGE_SIZE));
+  const [move, setMove] = useState<-1 | 0 | 1>(0);
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   useEffect(() => {
     setPage((p) => Math.min(p, pageCount - 1));
   }, [pageCount]);
   const slice = <T,>(list: T[]) =>
-    expanded ? list : list.slice(page * PRO_SECTION_PAGE_SIZE, (page + 1) * PRO_SECTION_PAGE_SIZE);
+    expanded ? list : list.slice(page * pageSize, (page + 1) * pageSize);
+  /** 카드 래퍼에 그대로 펴 넣는다 — key 가 바뀌며 애니메이션이 다시 돈다 */
+  const itemProps = (index: number) => ({
+    key: `${expanded ? 'all' : page}-${index}`,
+    style: {
+      animation: `${move === -1 ? 'proPageFromLeft' : move === 1 ? 'proPageFromRight' : 'proPageExpand'} 0.42s cubic-bezier(0.16, 1, 0.3, 1) both`,
+      animationDelay: `${Math.min(index, 11) * 28}ms`,
+    } as CSSProperties,
+  });
   return {
     page,
     pageCount,
     expanded,
     slice,
-    onPrev: () => setPage((p) => Math.max(0, p - 1)),
-    onNext: () => setPage((p) => Math.min(pageCount - 1, p + 1)),
-    onToggle: () => { setExpanded((v) => !v); setPage(0); },
+    itemProps,
+    /** 첫 페이지(펼치지 않은 상태)는 시작 위치라 진입 애니메이션을 걸지 않는다 */
+    offset: expanded ? 0 : page * pageSize,
+    onPrev: () => { setMove(-1); setPage((p) => Math.max(0, p - 1)); },
+    onNext: () => { setMove(1); setPage((p) => Math.min(pageCount - 1, p + 1)); },
+    onToggle: () => { setMove(0); setExpanded((v) => !v); setPage(0); },
   };
 }
 
@@ -1884,6 +1899,7 @@ export default function HomePage() {
     const filled = filtered.length > 0 ? [...filtered, ...fallback] : prosData;
     return shuffleProsBySeed(filled, `${moreProsSeedRef.current}:event`);
   }, [prosData]);
+  const bestProsPager = useProSectionPager(bestWeddingPros.length, 3);
   const moreProsPager = useProSectionPager(morePros.length);
   const eventProsPager = useProSectionPager(eventPros.length);
   const [businesses, setBusinesses] = useState<BusinessPartner[]>([]);
@@ -2652,9 +2668,18 @@ export default function HomePage() {
                 <p className="section-subtitle mt-1">검증된 인기 사회자</p>
               </div>
             </div>
-            <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5" style={{ transition: 'color 0.3s' }}>
+            <Link href="/pros" className="text-[13px] text-gray-400 font-medium flex items-center gap-0.5 hover:text-gray-600 pb-0.5 lg:hidden" style={{ transition: 'color 0.3s' }}>
               전체보기 <ChevronRight size={16} />
             </Link>
+            <ProSectionPager
+              page={bestProsPager.page}
+              pageCount={bestProsPager.pageCount}
+              total={bestWeddingPros.length}
+              expanded={bestProsPager.expanded}
+              onPrev={bestProsPager.onPrev}
+              onNext={bestProsPager.onNext}
+              onToggle={bestProsPager.onToggle}
+            />
           </div>
 
           {/* Mobile: pill-shaped 3:4 photos with rank badges */}
@@ -2695,11 +2720,11 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Desktop: 6032c0b horizontal rank cards */}
-          <div ref={rankScrollRef} className="hidden lg:flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+          {/* Desktop: 순위 카드 3열 — 화살표로 넘기고 펼쳐보기로 전부 본다 */}
+          <div ref={rankScrollRef} className="hidden justify-items-center gap-x-4 gap-y-6 lg:grid lg:grid-cols-3">
             {bestWeddingPros.length === 0 && (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[340px] flex gap-4">
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
                   <div className="h-11 w-9 rounded-full bg-gray-200 animate-pulse" />
                   <div className="h-[150px] w-[112px] rounded-full bg-gray-200 animate-pulse" />
                   <div className="flex-1 py-1">
@@ -2710,14 +2735,14 @@ export default function HomePage() {
                 </div>
               ))
             )}
-            {bestWeddingPros.slice(0, 5).map((pro, i) => (
+            {bestProsPager.slice(bestWeddingPros).map((pro, i) => (
               <Link
-                key={pro.id}
+                {...bestProsPager.itemProps(i)}
                 href={`/pros/${pro.id}`}
-                className="flex-shrink-0 w-[340px] snap-start flex gap-4 group"
+                className="group flex w-fit gap-3"
               >
                 <div className="flex items-center shrink-0">
-                  <span className="text-[44px] font-black text-gray-900 leading-none">{i + 1}</span>
+                  <span className="text-[44px] font-black leading-none text-gray-900">{bestProsPager.offset + i + 1}</span>
                 </div>
                 <div className="w-[112px] h-[150px] rounded-full overflow-hidden shrink-0 bg-gray-100">
                   <img
@@ -2726,10 +2751,10 @@ export default function HomePage() {
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
+                <div className="flex min-w-0 max-w-[150px] flex-col justify-center py-0.5">
                   <div>
-                    <p className="text-[17px] font-bold text-gray-900 leading-tight truncate">{pro.name}</p>
-                    <p className="text-[13px] text-gray-400 mt-1 truncate">{formatCareerLabel(pro.experience)}</p>
+                    <p className="truncate text-[17px] font-bold leading-tight text-gray-900">{pro.name}</p>
+                    <p className="mt-1 truncate text-[13px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
                   </div>
                 </div>
               </Link>
@@ -2785,7 +2810,7 @@ export default function HomePage() {
                 </div>
               ))
             ) : moreProsPager.slice(morePros).map((pro, i) => (
-              <div key={pro.id}>
+              <div {...moreProsPager.itemProps(i)}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
@@ -2840,7 +2865,7 @@ export default function HomePage() {
                 </div>
               ))
             ) : eventProsPager.slice(eventPros).map((pro, i) => (
-              <div key={pro.id}>
+              <div {...eventProsPager.itemProps(i)}>
                 <ProCard pro={pro} index={i} />
               </div>
             ))}
