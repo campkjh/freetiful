@@ -711,43 +711,38 @@ function BusinessCard({
   const images = biz.images.slice(0, 4);
   const count = images.length;
 
-  // 4초마다 다음 사진으로. 마지막 뒤에 첫 장을 복제해 두고 거기 닿으면
-  // 애니메이션을 끈 채 0 으로 되감아 '무한'으로 이어지게 한다.
-  const [slide, setSlide] = useState(0);
-  const [sliding, setSliding] = useState(true);
+  // 4초마다 맨 앞장이 걷히고 뒤에 있던 장이 앞으로 나온다(카드 더미를 한 장씩 넘기듯)
+  const [cur, setCur] = useState(0);
+  const [leaving, setLeaving] = useState<string | null>(null);
   useEffect(() => {
     if (count < 2) return;
-    // 카드마다 조금씩 어긋나게 돌려야 한 줄이 동시에 뒤집히지 않는다
+    // 카드마다 조금씩 어긋나게 돌려야 한 줄이 동시에 넘어가지 않는다
     const offset = (index % 4) * 700;
-    const start = setTimeout(() => {
-      setSlide((v) => v + 1);
+    const t = setTimeout(() => {
+      setLeaving(images[cur % count]);
+      setCur((v) => v + 1);
     }, 4000 + offset);
-    return () => clearTimeout(start);
-  }, [count, index, slide]);
-  useEffect(() => {
-    if (count < 2 || slide !== count) return;
-    const t = setTimeout(() => { setSliding(false); setSlide(0); }, 700);
     return () => clearTimeout(t);
-  }, [slide, count]);
+  }, [count, index, cur, images]);
   useEffect(() => {
-    if (sliding) return;
-    const r = requestAnimationFrame(() => setSliding(true));
-    return () => cancelAnimationFrame(r);
-  }, [sliding]);
+    if (!leaving) return;
+    const t = setTimeout(() => setLeaving(null), 560);
+    return () => clearTimeout(t);
+  }, [leaving]);
 
   if (hidden || !images[0]) return null;
 
-  const track = [...images, images[0]];
-  const cur = count > 0 ? slide % count : 0;
+  const at = (offsetFromFront: number) => images[(cur + offsetFromFront) % count];
+  const deckAnim = (name: string) => (cur === 0 ? undefined : `${name} 0.55s cubic-bezier(0.22, 1, 0.36, 1) both`);
 
   return (
     <Link href={`/businesses/${biz.id}`} className="block group">
       {/* 상단 와이드 이미지 — 뒤로 사진 두 장이 겹쳐 보이는 카드 더미(PC 는 알약형) */}
       <div className="relative w-full pt-5 lg:pt-6">
-        {/* 뒤에 깔리는 두 장. 앞장이 넘어가면 따라 넘어간다 */}
+        {/* 뒤에 깔리는 두 장 — 앞장이 걷히면 한 칸씩 앞으로 나온다 */}
         {[2, 1].map((depth) => (
           <div
-            key={depth}
+            key={`${depth}-${at(depth)}`}
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
             style={{
@@ -756,43 +751,41 @@ function BusinessCard({
               aspectRatio: '2 / 1',
               transform: `translateY(${depth === 2 ? 0 : 12}px)`,
               opacity: depth === 2 ? 0.5 : 0.78,
+              animation: deckAnim(depth === 2 ? 'bizDeckToBack' : 'bizDeckToMid'),
             }}
           >
-            <img
-              src={images[(cur + depth) % count] || images[0]}
-              alt=""
-              className="h-full w-full object-cover transition-opacity duration-500"
-              loading="lazy"
-            />
+            <img src={at(depth) || images[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
           </div>
         ))}
 
-        <div className="relative mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full" style={{ aspectRatio: '2 / 1' }}>
-          <div
-            className="flex h-full"
-            style={{
-              width: `${track.length * 100}%`,
-              transform: `translateX(-${slide * (100 / track.length)}%)`,
-              transition: sliding ? 'transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-            }}
-          >
-            {track.map((src, i) => (
-              <img
-                key={`${src}-${i}`}
-                src={src}
-                alt={i === 0 ? biz.name : ''}
-                className="h-full object-cover"
-                style={{ width: `${100 / track.length}%` }}
-                loading={i === 0 ? undefined : 'lazy'}
-                onError={i === 0 ? () => setHidden(true) : undefined}
-              />
-            ))}
-          </div>
+        {/* 앞장 — 뒤에서 앞으로 나오며 커진다 */}
+        <div
+          key={`front-${at(0)}`}
+          className="relative mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
+          style={{ aspectRatio: '2 / 1', animation: deckAnim('bizDeckToFront') }}
+        >
+          <img
+            src={at(0)}
+            alt={biz.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            onError={() => setHidden(true)}
+          />
           {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
           <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm lg:hidden">
             <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
           </div>
         </div>
+
+        {/* 걷히는 장 — 앞장 위에서 옅어지며 사라진다 */}
+        {leaving && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:top-6 lg:rounded-full"
+            style={{ aspectRatio: '2 / 1', animation: 'bizDeckLeave 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
+          >
+            <img src={leaving} alt="" className="h-full w-full object-cover" />
+          </div>
+        )}
       </div>
 
       {/* 이름 */}
