@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Lock, Wallet, Camera } from 'lucide-react';
+import { ChevronLeftIcon, CameraIcon, LockIcon, AccountIcon } from '@/components/icons/mono';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { usersApi } from '@/lib/api/users.api';
 import toast from 'react-hot-toast';
@@ -189,7 +190,7 @@ export default function SettingsPage() {
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-10 border-b border-gray-100/60 bg-[#FAFBFC]/90 backdrop-blur-xl" data-native-back-header>
         <div className="flex items-center gap-3 px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} className="text-gray-700" /></button>
+          <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeftIcon size={22} className="text-[#2B313D]" /></button>
           <h1 className="text-[17px] font-bold text-gray-900">프로필 설정</h1>
         </div>
       </div>
@@ -209,7 +210,7 @@ export default function SettingsPage() {
             onClick={() => fileInputRef.current?.click()}
             className="absolute bottom-0 right-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
           >
-            <Camera size={14} className="text-white" />
+            <CameraIcon size={15} className="text-white" />
           </button>
           <input
             ref={fileInputRef}
@@ -231,7 +232,7 @@ export default function SettingsPage() {
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이메일</label>
           <input type="email" value={authUser?.email || ''} disabled className="h-14 w-full cursor-not-allowed rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#A4ABBA] outline-none" />
-          <p className="mt-1.5 flex items-center gap-1 text-[12px] text-[#A4ABBA]"><Lock size={11} /> 이메일은 변경할 수 없습니다</p>
+          <p className="mt-1.5 flex items-center gap-1 text-[12px] text-[#A4ABBA]"><LockIcon size={12} /> 이메일은 변경할 수 없습니다</p>
         </div>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">전화번호</label>
@@ -247,7 +248,7 @@ export default function SettingsPage() {
 
       {/* ─── Refund Account ──────────────────────────────────────────── */}
       <div className="mx-4 mt-4 space-y-3 rounded-[24px] bg-white p-5">
-        <p className="flex items-center gap-1.5 text-[15px] font-bold text-[#2B313D]"><Wallet size={15} className="text-[#A4ABBA]" /> 환불 계좌</p>
+        <p className="flex items-center gap-1.5 text-[15px] font-bold text-[#2B313D]"><AccountIcon size={16} className="text-[#A4ABBA]" /> 환불 계좌</p>
         {savedAccount ? (
           <div className="flex items-center justify-between rounded-xl bg-[#F2F3F5] p-4">
             <div>

@@ -539,8 +539,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      {/* PC 알림 서랍 — 화면 전환 없이 오른쪽만 덮는다 */}
-      <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
+      {/* PC 알림 서랍 — 화면 전환 없이 오른쪽만 덮는다.
+          iframe 안에서는 띄우지 않는다: 닫혀 있어도 오른쪽 밖에 서 있는 서랍의
+          왼쪽 그림자(-12px/40px blur)가 칸 안으로 번져 세로 그림자처럼 보인다. */}
+      {!embedded && <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />}
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
       <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
