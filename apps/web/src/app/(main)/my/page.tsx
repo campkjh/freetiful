@@ -368,7 +368,7 @@ export default function MyPage() {
       style={{ letterSpacing: '-0.02em' }}
     >
     <div className="lg:flex lg:items-start lg:gap-6">
-    <div className={detailHref ? 'lg:w-[420px] lg:shrink-0' : 'lg:w-full'}>
+    <div className={`lg:transition-[width] lg:duration-300 lg:ease-out ${detailHref ? 'lg:w-[420px] lg:shrink-0' : 'lg:w-full'}`}>
       {/* Header — PC 는 전역 헤더가 있어 sticky 바 대신 큰 제목만 */}
       <div data-native-my-header className="sticky top-0 z-20 bg-white px-4 lg:hidden">
         <div className="h-[52px] flex items-center">
@@ -588,15 +588,18 @@ export default function MyPage() {
           iframe 인 이유는 Tailwind 반응형이 뷰포트 기준이라, 좁은 칸에 그냥 끼우면
           하위 화면이 PC 레이아웃으로 잡혀 깨지기 때문. iframe 은 제 뷰포트를 가진다. */}
       {detailHref && (
-        <div className="hidden lg:block lg:flex-1">
+        <div
+          className="hidden lg:block lg:min-w-0 lg:flex-1"
+          style={{ animation: 'myPaneIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+        >
           <div className="sticky top-[92px] h-[calc(100vh-150px)] overflow-hidden rounded-[24px] bg-white">
             <button
               type="button"
               onClick={() => setDetailHref(null)}
               aria-label="닫기"
-              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#51535C] shadow-[0_4px_16px_rgba(15,23,42,0.12)] backdrop-blur transition-colors hover:bg-white"
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
             >
-              <X size={18} />
+              <X size={17} />
             </button>
             <iframe key={detailHref} src={detailHref} title="상세" className="h-full w-full border-0" />
           </div>

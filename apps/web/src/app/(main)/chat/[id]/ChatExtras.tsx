@@ -2592,16 +2592,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {showAttach && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
-            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/10 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
             onClick={() => setShowAttach(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[380px] lg:origin-bottom-left lg:animate-[menuPop_0.22s_cubic-bezier(0.34,1.56,0.64,1)] lg:rounded-[24px] lg:pb-2 lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
             style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
-            <div className="mx-auto mb-4 mt-3 h-1 w-10 rounded-full bg-gray-300" />
-            <div className="max-h-[75vh] overflow-y-auto px-5 pb-6">
+            <div className="mx-auto mb-4 mt-3 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
+            <div className="max-h-[75vh] overflow-y-auto px-5 pb-6 lg:px-4 lg:pb-3 lg:pt-4">
               <div className="grid grid-cols-2 gap-x-5">
                 {ATTACH_GROUPS.filter((g) => g.items.length > 0).map((group, gi) => (
                   <div key={group.title}>
@@ -2660,16 +2659,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {showCameraChoice && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/10 animate-[fadeIn_0.25s_ease]"
-            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/10 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
             onClick={() => setShowCameraChoice(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[380px] lg:origin-bottom-left lg:animate-[menuPop_0.22s_cubic-bezier(0.34,1.56,0.64,1)] lg:rounded-[24px] lg:pb-2 lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
             style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3 mb-4" />
-            <div className="px-4 pb-6">
+            <div className="mx-auto mb-4 mt-3 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
+            <div className="px-4 pb-6 lg:pb-3 lg:pt-4">
               <p className="mb-1 px-2 text-[13px] font-medium text-gray-400">카메라</p>
               {CAMERA_CHOICE_ITEMS.map((item, idx) => (
                 <button

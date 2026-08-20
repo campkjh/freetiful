@@ -13,6 +13,12 @@ img:not([src]) {
 }
 
 /* Chip tab 전환 애니메이션 */
+/* 마이페이지 우측 패널 — 오른쪽에서 부드럽게 들어온다 */
+@keyframes myPaneIn {
+  from { opacity: 0; transform: translate3d(24px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* 웨딩 파트너 카드 더미 — 앞장이 사라지고 뒤에 있던 장이 앞으로 나온다 */
 @keyframes bizDeckLeave {
   from { opacity: 1; transform: scale(1) translateY(0); }
