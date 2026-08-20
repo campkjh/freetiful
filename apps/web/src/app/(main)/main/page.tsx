@@ -6,14 +6,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Bell, ChevronRight, X } from 'lucide-react';
 import ProQuickView from '@/components/ProQuickView';
-import { PartnerCategoryIcon } from '@/components/icons/partner';
+import { PartnerCategoryIcon, ProsIcon, EventMcIcon } from '@/components/icons/partner';
 import {
   SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  MicIcon,
-  UserIcon,
   PinLocationIcon,
 } from '@/components/icons/mono';
 import toast from 'react-hot-toast';
@@ -2976,8 +2974,8 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
-                  <UserIcon size={22} />
+                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
+                  <ProsIcon size={24} />
                 </span>
                 <div>
                   <h3 className="section-title">프리티풀의 더 많은 사회자</h3>
@@ -3031,8 +3029,8 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] lg:flex">
-                  <MicIcon size={22} />
+                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
+                  <EventMcIcon size={24} />
                 </span>
                 <div>
                   <h3 className="section-title">프리티풀의 행사 사회자</h3>
