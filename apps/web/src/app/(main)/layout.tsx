@@ -141,6 +141,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const [navExpanding, setNavExpanding] = useState(false);
   const [bizCollapsing, setBizCollapsing] = useState(false);
   const [categoryDocked, setCategoryDocked] = useState(false);
+  /** PC 사회자 미리보기처럼 iframe 안에 끼워 넣은 경우 — 오버레이/배너는 띄우지 않는다 */
+  const [embedded, setEmbedded] = useState(false);
+  useEffect(() => {
+    try { setEmbedded(window.self !== window.top); } catch { setEmbedded(true); }
+  }, []);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);
 
@@ -434,7 +439,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`min-h-screen ${isHome ? 'bg-white' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
-      <VilladegdEventOverlay />
+      {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
       <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-8">

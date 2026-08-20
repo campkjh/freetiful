@@ -702,9 +702,14 @@ const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 function BusinessCard({
   biz,
   index = 0,
+  wrapperClassName,
+  wrapperStyle,
 }: {
   biz: BusinessPartner;
   index?: number;
+  /** 가로열의 한 칸. 카드가 렌더되지 않을 땐 이 칸도 같이 사라져야 빈칸이 안 남는다 */
+  wrapperClassName?: string;
+  wrapperStyle?: CSSProperties;
 }) {
   const [hidden, setHidden] = useState(false);
   // 업체당 사진이 수십 장인 곳도 있어 순환은 앞의 4장까지만 (홈에서 다 받아올 이유가 없다)
@@ -735,7 +740,7 @@ function BusinessCard({
   const at = (offsetFromFront: number) => images[(cur + offsetFromFront) % count];
   const deckAnim = (name: string) => (cur === 0 ? undefined : `${name} 0.55s cubic-bezier(0.22, 1, 0.36, 1) both`);
 
-  return (
+  const card = (
     <Link href={`/businesses/${biz.id}`} className="block group">
       {/* 상단 와이드 이미지 — 뒤로 사진 두 장이 겹쳐 보이는 카드 더미(PC 는 알약형) */}
       <div className="relative w-full pt-5 lg:pt-6">
@@ -811,6 +816,9 @@ function BusinessCard({
       </div>
     </Link>
   );
+
+  if (!wrapperClassName && !wrapperStyle) return card;
+  return <div className={wrapperClassName} style={wrapperStyle}>{card}</div>;
 }
 
 /**
@@ -828,6 +836,8 @@ function BusinessPartnerSection({
   const rowRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
+  /** PC 한 줄에 놓을 칸 수 — 업체가 적으면 그만큼만 나눠 빈칸이 생기지 않게 */
+  const pcCols = Math.min(3, Math.max(1, businesses.length));
 
   const syncEdges = useCallback(() => {
     const el = rowRef.current;
@@ -889,10 +899,15 @@ function BusinessPartnerSection({
         ref={rowRef}
         className="-mx-[10px] flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-[10px] px-[10px] scrollbar-hide lg:gap-2"
       >
+        {/* 업체가 2곳뿐인 카테고리는 3칸으로 나누면 오른쪽이 비어 보인다 */}
         {businesses.map((biz, i) => (
-          <div key={`${category}-${biz.id}`} className="w-[78%] shrink-0 snap-start lg:w-[calc((100%-16px)/3)]">
-            <BusinessCard biz={biz} index={i} />
-          </div>
+          <BusinessCard
+            key={`${category}-${biz.id}`}
+            biz={biz}
+            index={i}
+            wrapperClassName="w-[78%] shrink-0 snap-start lg:w-[var(--pc-card-w)]"
+            wrapperStyle={{ ['--pc-card-w' as string]: `calc((100% - ${(pcCols - 1) * 8}px) / ${pcCols})` } as CSSProperties}
+          />
         ))}
       </div>
       {showDivider && <div className="my-6 border-t border-gray-100" />}
@@ -919,11 +934,19 @@ function getBusinessPartnerSections(businesses: BusinessPartner[]) {
     ...Array.from(grouped.keys()).filter((category) => !WEDDING_PARTNER_SECTION_ORDER.includes(category)),
   ];
 
+  // 스냅·헤어는 뒤쪽 업체가 먼저 보이도록 순서를 뒤집는다(요청)
+  const REVERSED_SECTIONS = ['스냅', '헤어'];
+
   return orderedCategories
-    .map((category) => ({
-      category,
-      businesses: sortPopularPartnersFirst(grouped.get(category) || []),
-    }))
+    .map((category) => {
+      // 사진이 없는 업체는 카드가 통째로 렌더되지 않아 줄에 빈칸만 남는다 → 아예 뺀다
+      const withImage = (grouped.get(category) || []).filter((b) => Boolean(b.images?.[0]));
+      const sorted = sortPopularPartnersFirst(withImage);
+      return {
+        category,
+        businesses: REVERSED_SECTIONS.includes(category) ? [...sorted].reverse() : sorted,
+      };
+    })
     .filter((section) => section.businesses.length > 0);
 }
 
