@@ -404,7 +404,8 @@ export default function ProRequestsPage() {
         <div className="flex h-[52px] items-center justify-between">
           <h1 className="text-[20px] font-bold text-[#2B313D]">새 요청</h1>
         </div>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+        {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약) */}
+        <div className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
           {TABS.map((tab) => {
             const active = filter === tab.key;
             const count = tab.key === 'all'
@@ -415,12 +416,14 @@ export default function ProRequestsPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => setFilter(tab.key)}
-                className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold transition active:scale-95 ${
-                  active ? 'bg-[#3180F7] text-white' : 'bg-[#F2F4F8] text-[#6B7684]'
+                className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                  active ? 'bg-white font-bold text-[#2B313D] shadow-sm' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
                 }`}
               >
                 {tab.label}
-                {count > 0 && <span className="ml-1.5 text-[11px]">{count}</span>}
+                {count > 0 && (
+                  <span className={`text-[12px] tabular-nums ${active ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
+                )}
               </button>
             );
           })}

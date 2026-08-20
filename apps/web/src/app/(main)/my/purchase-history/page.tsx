@@ -139,20 +139,17 @@ export default function PurchaseHistoryPage() {
           </button>
           <h1 className="text-[18px] font-bold ml-2">구매 내역</h1>
         </div>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-3">
+        {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약) */}
+        <div className="mx-4 mb-3 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
           {(['all', 'paid', 'upcoming', 'completed', 'refunded'] as Status[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`shrink-0 text-[12px] px-3 py-1.5 transition-colors ${
+              className={`shrink-0 flex-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
                 filter === s
-                  ? 'text-white font-bold'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-white font-bold text-[#2B313D] shadow-sm'
+                  : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
               }`}
-              style={{
-                borderRadius: 8,
-                ...(filter === s ? { backgroundColor: '#2B313D' } : {}),
-              }}
             >
               {s === 'all' ? '전체' : STATUS_MAP[s].label}
             </button>
