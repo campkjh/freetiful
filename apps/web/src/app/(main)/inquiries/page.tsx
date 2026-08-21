@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGroup, motion } from 'framer-motion';
 import {
-  ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   ChatBubbleIcon,
@@ -335,13 +334,10 @@ export default function CustomerInquiriesPage() {
   };
 
   return (
-    <div className="min-h-screen pb-28 lg:pb-6">
-      {/* 모바일 전용 헤더 — PC 는 전역 헤더가 이미 있어 중복이라 숨긴다 */}
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 bg-white/90 px-4 backdrop-blur lg:hidden">
-        <button type="button" onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-full active:bg-gray-100" aria-label="뒤로가기">
-          <ChevronLeftIcon size={22} className="text-[#2B313D]" />
-        </button>
-        <h1 className="text-[18px] font-bold text-[#2B313D]">문의목록</h1>
+    <div className="min-h-screen bg-white pb-28 lg:pb-6">
+      {/* 모바일 전용 헤더 — 새요청 탭과 같은 모양(흰 바탕·타이틀만). PC 는 전역 헤더가 있어 숨긴다 */}
+      <header className="sticky top-0 z-20 flex h-14 items-center bg-white px-4 lg:hidden">
+        <h1 className="text-[20px] font-bold text-[#2B313D]">문의목록</h1>
       </header>
 
       <div className="mx-auto grid max-w-[1120px] items-start gap-8 px-4 pt-3 lg:grid-cols-[1fr_340px] lg:px-0 lg:pt-8">
@@ -354,7 +350,7 @@ export default function CustomerInquiriesPage() {
 
           {/* 상태 탭 — 스크롤해도 따라오도록 고정. 흰 알약이 탭 사이를 미끄러진다 */}
           {cards.length > 0 && (
-            <div className="sticky top-14 z-10 -mx-4 mb-4 bg-surface-50 px-4 py-2 lg:top-[72px] lg:mx-0 lg:px-0 lg:py-3">
+            <div className="sticky top-14 z-10 -mx-4 mb-4 bg-white px-4 py-2 lg:top-[72px] lg:mx-0 lg:px-0 lg:py-3">
               <LayoutGroup id="inquiry-status-tabs">
                 <div className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
                   {STATUS_TABS.map((tab) => {
@@ -390,11 +386,11 @@ export default function CustomerInquiriesPage() {
           {loading ? (
             <div className="space-y-3">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-[132px] animate-pulse rounded-[24px] bg-white" />
+                <div key={item} className="h-[132px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
               ))}
             </div>
           ) : cards.length === 0 ? (
-            <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-[24px] bg-white px-6 py-16 text-center">
+            <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-6 py-16 text-center shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
               <EmptyDocumentIcon size={72} className="mb-4" />
               <p className="text-[17px] font-bold text-[#2B313D]">아직 문의한 사회자가 없습니다</p>
               <p className="mt-2 text-[14px] leading-6 text-[#A4ABBA]">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
@@ -406,7 +402,7 @@ export default function CustomerInquiriesPage() {
               </Link>
             </div>
           ) : visibleCards.length === 0 ? (
-            <div className="rounded-[24px] bg-white px-6 py-16 text-center text-[13px] text-[#A4ABBA]">
+            <div className="rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-6 py-16 text-center text-[13px] text-[#A4ABBA] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
               {statusTab} 상태인 문의가 없습니다
             </div>
           ) : (
@@ -418,7 +414,7 @@ export default function CustomerInquiriesPage() {
                     key={item.id}
                     type="button"
                     onClick={() => openInquiry(item)}
-                    className="group flex w-full items-center gap-4 rounded-[20px] bg-white px-5 py-4 text-left transition-colors duration-200 hover:bg-[#FBFCFD]"
+                    className="group flex w-full items-center gap-4 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-200 hover:bg-[#FBFCFD]"
                   >
                     <img
                       src={getProfileImageUrl(item.proImage, item.proName)}

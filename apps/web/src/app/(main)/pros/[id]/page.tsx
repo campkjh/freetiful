@@ -650,13 +650,13 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
  * 가장 많이 언급된 키워드일수록 크고 밝게, 어두운 판 위에 둥실 떠 있게 뒀다.
  */
 const KEYWORD_SLOTS = [
-  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·들여쓰기만 흔들었다
-  { x: 38, y: 43, size: 21, weight: 700, alpha: 1 },
-  { x: 52, y: 27, size: 17, weight: 700, alpha: 0.95 },
-  { x: 55, y: 59, size: 16, weight: 700, alpha: 0.92 },
-  { x: 40, y: 12, size: 14, weight: 600, alpha: 0.8 },
-  { x: 41, y: 75, size: 14, weight: 600, alpha: 0.82 },
-  { x: 57, y: 90, size: 13, weight: 600, alpha: 0.68 },
+  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다
+  { x: 38, y: 43, size: 21, weight: 700, color: '#1B64DA' },
+  { x: 52, y: 27, size: 17, weight: 700, color: '#191F28' },
+  { x: 55, y: 59, size: 16, weight: 700, color: '#7C5CE0' },
+  { x: 40, y: 12, size: 14, weight: 600, color: '#4E5968' },
+  { x: 41, y: 75, size: 14, weight: 600, color: '#6B7684' },
+  { x: 57, y: 90, size: 13, weight: 600, color: '#A4ABBA' },
 ];
 
 function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCount: number }) {
@@ -667,22 +667,24 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
     <div
       ref={ref as unknown as React.RefObject<HTMLDivElement>}
       data-kw-cloud
-      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] bg-[#0E1116]"
+      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] border border-[#EEF2F7] bg-white"
     >
       {/* 원에서 번져 나오는 빛 */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(52% 78% at 20% 50%, rgba(120,255,214,0.95) 0%, rgba(74,222,180,0.55) 26%, rgba(38,140,150,0.28) 48%, rgba(14,17,22,0) 72%)',
+            // 파랑이 중심, 위쪽으로 보라가 살짝 겹치며 번진다
+            'radial-gradient(46% 62% at 34% 22%, rgba(139,92,246,0.20) 0%, rgba(139,92,246,0.09) 34%, rgba(255,255,255,0) 68%), ' +
+            'radial-gradient(54% 80% at 20% 50%, rgba(49,128,247,0.26) 0%, rgba(49,128,247,0.14) 28%, rgba(49,128,247,0.05) 50%, rgba(255,255,255,0) 72%)',
           animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
         }}
       />
       {/* 가운데 어두운 원 */}
-      <div className="absolute left-[20%] top-1/2 flex h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#0E1116] text-center">
-        <span className="text-[11px] font-semibold text-white/55">언급 키워드</span>
-        <span className="mt-0.5 text-[17px] font-bold text-white">{shown.length}개</span>
-        <span className="mt-0.5 text-[10px] text-white/40">리뷰 {reviewCount}건</span>
+      <div className="absolute left-[20%] top-1/2 flex h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#F2F4F6] text-center">
+        <span className="text-[11px] font-semibold text-[#8B95A1]">언급 키워드</span>
+        <span className="mt-0.5 text-[17px] font-bold text-[#2B313D]">{shown.length}개</span>
+        <span className="mt-0.5 text-[10px] text-[#A4ABBA]">리뷰 {reviewCount}건</span>
       </div>
 
       {shown.map((keyword, i) => {
@@ -703,8 +705,7 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
               style={{
                 fontSize: slot.size,
                 fontWeight: slot.weight,
-                color: `rgba(255,255,255,${slot.alpha})`,
-                textShadow: '0 2px 14px rgba(0,0,0,0.45)',
+                color: slot.color,
                 animation: visible ? `kwFloat ${3.6 + i * 0.35}s ease-in-out ${i * 0.22}s infinite` : undefined,
               }}
             >

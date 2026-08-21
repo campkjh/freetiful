@@ -1137,16 +1137,12 @@ body::after {
     min-height: 100vh;
     min-height: 100dvh;
     color: #2B313D;
-    background:
-      radial-gradient(circle at 50% -8%, rgba(49,128,247,0.08), rgba(247,248,250,0) 34%),
-      #F7F8FA;
+    /* 회색 바탕 없이 흰 종이 한 장 — 카드의 얇은 테두리로만 구분한다 */
+    background: #FFFFFF;
   }
 
   .pro-toss-header {
-    background: rgba(255,255,255,0.9);
-    border-bottom: 0.6px solid rgba(231,235,242,0.82);
-    backdrop-filter: blur(18px) saturate(1.2);
-    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    background: #FFFFFF;
   }
 
   .pro-toss-card {
@@ -1306,7 +1302,7 @@ body::after {
   }
 
   html[data-platform="android"] .pro-toss-page {
-    background: #F7F8FA;
+    background: #FFFFFF;
   }
 
   html[data-platform="android"] .pro-toss-header,
