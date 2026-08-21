@@ -2359,13 +2359,13 @@ export default function ProDetailPage() {
             <button
               key={i}
               onClick={() => setImageModal(src)}
-              className="relative shrink-0 snap-start overflow-hidden rounded-[20px] bg-white transition-transform duration-300 ease-out"
+              className="relative shrink-0 snap-start overflow-hidden rounded-[44px] bg-white transition-transform duration-300 ease-out"
               style={{ width: 'min(70vw, 420px)', aspectRatio: '70 / 106', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
             >
               {Math.abs(i - activeImage) <= 1 ? (
                 <Image src={src} alt={pro.name} fill className="object-cover" priority={i === 0} sizes="70vw" />
               ) : (
-                <div className="w-full h-full bg-[#F2F4F6]" />
+                <div className="w-full h-full bg-white" />
               )}
             </button>
           ))}
