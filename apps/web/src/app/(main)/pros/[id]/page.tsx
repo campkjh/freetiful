@@ -654,14 +654,14 @@ const KEYWORD_SLOTS: {
 }[] = [
   // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다.
   // 위 두 개는 글자 안에서 색이 천천히 흘러간다(파랑↔보라, 보라↔주황).
-  { x: 38, y: 43, size: 24, weight: 700, color: '#1B64DA',
+  { x: 38, y: 42.8, size: 26, weight: 700, color: '#1B64DA',
     gradient: 'linear-gradient(90deg, #1B64DA 0%, #4A6BE0 26%, #7C5CE0 50%, #3F73E8 74%, #1B64DA 100%)' },
-  { x: 52, y: 27, size: 19, weight: 700, color: '#191F28' },
-  { x: 55, y: 59, size: 18, weight: 700, color: '#7C5CE0',
+  { x: 49, y: 26.4, size: 21, weight: 700, color: '#191F28' },
+  { x: 52, y: 59.2, size: 20, weight: 700, color: '#7C5CE0',
     gradient: 'linear-gradient(90deg, #7C5CE0 0%, #9B62D6 26%, #D4884F 50%, #A365D2 74%, #7C5CE0 100%)' },
-  { x: 40, y: 12, size: 16, weight: 600, color: '#4E5968' },
-  { x: 41, y: 75, size: 15, weight: 600, color: '#6B7684' },
-  { x: 57, y: 90, size: 14, weight: 600, color: '#A4ABBA' },
+  { x: 40, y: 10, size: 17, weight: 600, color: '#4E5968' },
+  { x: 41, y: 75.6, size: 16, weight: 600, color: '#6B7684' },
+  { x: 57, y: 92, size: 15, weight: 600, color: '#A4ABBA' },
 ];
 
 function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCount: number }) {
@@ -672,7 +672,7 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
     <div
       ref={ref as unknown as React.RefObject<HTMLDivElement>}
       data-kw-cloud
-      className="relative mb-4 h-[270px] w-full overflow-hidden rounded-[20px] bg-white"
+      className="relative mb-2 h-[250px] w-full overflow-hidden rounded-[20px] bg-white"
     >
       {/* 원에서 번져 나오는 빛 */}
       <div
@@ -681,8 +681,8 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
           background:
             // 파랑이 중심, 위쪽으로 보라가 살짝 겹치며 번진다.
             // 중심을 안쪽으로 넣고 반경을 줄여 가장자리에 닿기 전에 다 사그라들게 했다 — 잘려 보이지 않도록.
-            'radial-gradient(36% 46% at 38% 30%, rgba(139,92,246,0.22) 0%, rgba(139,92,246,0.09) 36%, rgba(255,255,255,0) 74%), ' +
-            'radial-gradient(40% 62% at 26% 50%, rgba(49,128,247,0.28) 0%, rgba(49,128,247,0.14) 30%, rgba(49,128,247,0.04) 52%, rgba(255,255,255,0) 76%)',
+            'radial-gradient(36% 40% at 38% 36%, rgba(139,92,246,0.22) 0%, rgba(139,92,246,0.09) 36%, rgba(255,255,255,0) 74%), ' +
+            'radial-gradient(40% 58% at 26% 50%, rgba(49,128,247,0.28) 0%, rgba(49,128,247,0.14) 30%, rgba(49,128,247,0.04) 52%, rgba(255,255,255,0) 76%)',
           animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
         }}
       />
@@ -2685,7 +2685,7 @@ export default function ProDetailPage() {
 
         {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
         {aiReviewSummary && (
-          <div className="mb-3 rounded-[20px] border border-[#F0E7F8] bg-gradient-to-b from-[#FBF3FB] via-[#FDF9FE] to-white p-4">
+          <div className="mb-2 rounded-[20px] border border-[#F0E7F8] bg-gradient-to-b from-[#FBF3FB] via-[#FDF9FE] to-white p-4">
             <div className="mb-2 flex items-center gap-1.5">
               <AiSparkle size={18} />
               <span className="text-[15px] font-bold text-[#2B313D]">
