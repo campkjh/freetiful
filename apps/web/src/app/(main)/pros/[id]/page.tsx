@@ -1694,7 +1694,7 @@ export default function ProDetailPage() {
   const aiReviewSummary = displayReviews.length > 0 ? buildAiReviewSummary(pro, displayReviews) : null;
 
   return (
-    <div className="bg-white" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white lg:bg-white" style={{ letterSpacing: '-0.02em' }}>
       <div className="hidden lg:block min-h-screen bg-white pb-24">
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
           <div className="mx-auto flex h-[58px] max-w-[1180px] items-center gap-7 px-8">
@@ -2259,14 +2259,14 @@ export default function ProDetailPage() {
                 <button
                   onClick={handleInquiry}
                   disabled={openingChat}
-                  className="h-[58px] flex-1 rounded-lg border border-gray-300 bg-white text-[17px] font-bold text-gray-950 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                  className="h-[58px] flex-1 rounded-[14px] bg-[#3180F7] text-[17px] font-bold text-white transition hover:bg-[#2470E6] disabled:opacity-60"
                 >
                   {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
                 </button>
                 <button
                   onClick={handleShare}
                   aria-label="공유하기"
-                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-900 shadow-sm transition hover:bg-gray-50"
+                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[14px] bg-[#F2F3F5] text-[#51535C] transition hover:bg-[#E9EBEF]"
                 >
                   <Share2 size={20} />
                 </button>
@@ -2443,29 +2443,28 @@ export default function ProDetailPage() {
 
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
-      <div className="sticky top-[60px] z-30 mt-4 bg-white border-b border-[#EEF0F4]">
-        <div className="flex relative">
-          {detailSectionTabs.map((tab) => {
-            return (
-              <button
-                key={tab.id}
-                onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
-                className={`flex-1 py-4 text-[15px] font-bold relative transition-colors duration-300 ${
-                  activeSection === tab.id ? 'text-[#191F28]' : 'text-[#8B95A1] hover:text-[#4E5968]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* 섹션 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
+      <div className="sticky top-[60px] z-30 mt-4 bg-white px-4 pb-2 pt-1">
+        <div className="relative flex gap-1 rounded-2xl bg-[#F2F3F5] p-1">
           <span
-            className="absolute bottom-[-1px] h-[2px] bg-[#3180F7] transition-all duration-500"
+            className="absolute bottom-1 top-1 rounded-[13px] bg-white shadow-sm transition-all duration-500"
             style={{
-              left: `${(activeSectionIndex * 100) / detailSectionTabs.length}%`,
-              width: `${100 / detailSectionTabs.length}%`,
+              left: `calc(4px + ${(activeSectionIndex * 100) / detailSectionTabs.length}% - ${(activeSectionIndex * 8) / detailSectionTabs.length}px)`,
+              width: `calc(${100 / detailSectionTabs.length}% - ${8 / detailSectionTabs.length}px)`,
               transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
             }}
           />
+          {detailSectionTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => scrollToSection(tab.id as 'desc' | 'info' | 'reviews')}
+              className={`relative flex-1 rounded-[13px] py-2 text-[13px] transition-colors duration-300 ${
+                activeSection === tab.id ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -2658,7 +2657,7 @@ export default function ProDetailPage() {
 
         {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
         {aiReviewSummary && (
-          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
+          <div className="mb-3 rounded-[20px] bg-[#F7F8FA] p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
             <div className="mb-1.5 flex items-center gap-1.5">
               <img src="/icons/pro-detail/sparkle.svg" alt="" width={16} height={16} className="shrink-0" />
               <span className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</span>
