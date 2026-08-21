@@ -989,6 +989,67 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 }
 
 
+/** 이름 옆 인증 뱃지 — 톱니 원 안에 체크 */
+function VerifiedBadge({ size = 18 }: { size?: number }) {
+  const points = Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    const r = i % 2 === 0 ? 12 : 10.4;
+    return `${(12 + Math.cos(a) * r).toFixed(2)},${(12 + Math.sin(a) * r).toFixed(2)}`;
+  }).join(' ');
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0" aria-label="인증 사회자">
+      <polygon points={points} fill="#3180F7" />
+      <path d="M8.4 12.2l2.5 2.5 4.7-5" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+/** 리뷰 이름 마스킹 — 첫 글자만 남긴다 */
+function maskReviewer(name?: string) {
+  const n = (name || '').trim();
+  if (!n) return '익명';
+  return `${n[0]}${'*'.repeat(Math.max(2, Math.min(5, n.length)))}`;
+}
+
+/**
+ * 별점 아래에 리뷰 카드들이 서로 어긋난 높이로 놓여 천천히 떠다닌다.
+ * 카드마다 주기와 시작 지연이 달라야 '두둥실' 느낌이 나서 인덱스로 어긋나게 준다.
+ */
+function FloatingReviewCards({ reviews }: { reviews: ProDetailData['reviews'] }) {
+  const items = (reviews || []).filter((r) => (r.content || '').trim()).slice(0, 6);
+  if (items.length === 0) return null;
+  return (
+    <div className="-mx-5 mt-3 overflow-x-auto px-5 pb-5 pt-1 scrollbar-hide">
+      <div className="flex items-start gap-3" style={{ width: 'max-content' }}>
+        {items.map((r, i) => {
+          const accent = i % 3 === 1;
+          return (
+            <div
+              key={r.id}
+              className={`review-float w-[232px] shrink-0 rounded-[20px] p-4 ${accent ? 'bg-[#3180F7]' : 'bg-[#F7F8FA]'}`}
+              style={{
+                marginTop: (i % 3) * 14,
+                animation: `reviewFloat ${(4.2 + (i % 3) * 0.9).toFixed(1)}s ease-in-out ${(i * 0.35).toFixed(2)}s infinite`,
+              }}
+            >
+              <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-1 ${accent ? 'bg-white/20' : 'bg-[#191F28]'}`}>
+                <StarRating value={r.rating} size={11} />
+              </span>
+              <p className={`mt-2.5 line-clamp-3 text-[13px] leading-[1.6] ${accent ? 'text-white' : 'text-[#4E5968]'}`}>
+                {r.content}
+              </p>
+              <div className={`mt-3 flex items-center justify-between text-[11px] ${accent ? 'text-white/75' : 'text-[#A4ABBA]'}`}>
+                <span>{maskReviewer(r.name)}</span>
+                <span>{r.date}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── 화이트 카드 톤 공용 UI (표현 전용 — 제이씨랩 자가견적 톤) ───
 // 카드: 흰 배경 + 1px #EEF0F4 테두리 + 아주 옅은 그림자
 /* 섹션을 카드로 묶지 않는다 — 흰 바탕에 이어지고, 사이는 회색 띠로만 나눈다 */
@@ -2394,7 +2455,10 @@ export default function ProDetailPage() {
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
               <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-[14px] object-cover" />
-              <p className="text-[18px] font-extrabold text-[#191F28]">{pro.categoryName || '사회자'} {pro.name}</p>
+              <p className="flex items-center gap-1 text-[18px] font-extrabold text-[#191F28]">
+                {pro.categoryName || '사회자'} {pro.name}
+                {pro.isPrime && <VerifiedBadge size={18} />}
+              </p>
             </div>
             {pro.isPrime && (
               <span className="flex items-center gap-1 bg-[#F2F4F6] text-[#4E5968] text-[11px] font-bold px-2.5 py-1 rounded-full">
@@ -2422,12 +2486,13 @@ export default function ProDetailPage() {
             <span className="text-[18px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
             <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
           </div>
+          <FloatingReviewCards reviews={displayReviews} />
         </Reveal>
 
         {/* ─── 주요 경력 — 아이콘 타일 헤더 + 구분선 행 목록 ─── */}
         {pro.career && pro.career.trim().length > 0 && (
           <Reveal delay={150}>
-            <div className="mt-4 border-t border-[#F2F4F6] pt-4">
+            <div className="mt-4 pt-4">
               <SectionHead eyebrow="CAREER" title="주요 경력" icon="/icons/pro-detail/trophy.svg" size="sm" className="mb-1.5" />
               <ul className="divide-y divide-[#F2F4F6]">
                 {pro.career
@@ -2861,7 +2926,7 @@ export default function ProDetailPage() {
               <button
                 disabled={openingChat}
                 onClick={handleInquiry}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[16.5px] font-bold text-white shadow-[0_8px_20px_rgba(49,128,247,0.28)] transition-all active:scale-[0.99] disabled:opacity-70"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[16.5px] font-bold text-white transition-all active:scale-[0.99] disabled:opacity-70"
               >
                 {openingChat ? (
                   <>

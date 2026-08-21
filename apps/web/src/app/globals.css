@@ -1972,3 +1972,12 @@ html[data-embedded='1'] [data-native-back-header] {
 .font-black {
   font-weight: 700;
 }
+
+/* 리뷰 카드 — 각자 다른 속도로 천천히 위아래로 떠다닌다 */
+@keyframes reviewFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-float { animation: none !important; }
+}
