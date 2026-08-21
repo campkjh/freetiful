@@ -134,6 +134,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // 홈은 흰 배경. 목록 화면들은 카드 구분을 위해 기존 연회색(#FAFBFC)을 유지한다.
   const isHome = pathname === '/' || pathname === '/main';
+  /** 사회자 상세는 화면 전체가 흰 카드라 뒤에 연회색이 깔리면 아래쪽이 회색으로 보인다 */
+  const whiteBackground = isHome || /^\/pros\/[^/]+/.test(pathname);
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
@@ -443,7 +445,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className={`min-h-screen ${isHome ? 'bg-white' : 'bg-surface-50'}`}>
+    <div className={`min-h-screen ${whiteBackground ? 'bg-white' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
