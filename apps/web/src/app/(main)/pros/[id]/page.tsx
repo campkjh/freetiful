@@ -2259,14 +2259,14 @@ export default function ProDetailPage() {
                 <button
                   onClick={handleInquiry}
                   disabled={openingChat}
-                  className="h-[58px] flex-1 rounded-[14px] bg-[#3180F7] text-[17px] font-bold text-white transition hover:bg-[#2470E6] disabled:opacity-60"
+                  className="h-[58px] flex-1 rounded-lg bg-[#3180F7] text-[17px] font-bold text-white transition hover:bg-[#2470E6] disabled:opacity-60"
                 >
                   {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
                 </button>
                 <button
                   onClick={handleShare}
                   aria-label="공유하기"
-                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[14px] bg-[#F2F3F5] text-[#51535C] transition hover:bg-[#E9EBEF]"
+                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-lg bg-[#F2F3F5] text-[#51535C] transition hover:bg-[#E9EBEF]"
                 >
                   <Share2 size={20} />
                 </button>
@@ -2657,7 +2657,7 @@ export default function ProDetailPage() {
 
         {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
         {aiReviewSummary && (
-          <div className="mb-3 rounded-[20px] bg-[#F7F8FA] p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
+          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
             <div className="mb-1.5 flex items-center gap-1.5">
               <img src="/icons/pro-detail/sparkle.svg" alt="" width={16} height={16} className="shrink-0" />
               <span className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</span>
