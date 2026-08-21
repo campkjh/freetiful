@@ -990,13 +990,16 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
 
 // ─── 화이트 카드 톤 공용 UI (표현 전용 — 제이씨랩 자가견적 톤) ───
 // 카드: 흰 배경 + 1px #EEF0F4 테두리 + 아주 옅은 그림자
-const CARD_CLS = 'rounded-[24px] border border-[#EEF0F4] bg-white shadow-[0_1px_4px_rgba(15,23,42,0.06)]';
+/* 섹션을 카드로 묶지 않는다 — 흰 바탕에 이어지고, 사이는 회색 띠로만 나눈다 */
+const CARD_CLS = 'bg-white';
+/* 섹션 사이 회색 구분 띠 */
+const SECTION_GAP_CLS = 'border-t-[10px] border-[#F2F4F6]';
 
 // 라운드 스퀘어클 아이콘 타일 (44px, #F2F4F6, radius 14) + 24px 아이콘
 function IconTile({ src, size = 44, icon = 24, className = '' }: { src: string; size?: number; icon?: number; className?: string }) {
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-[14px] bg-[#F2F4F6] ${className}`}
+      className={`flex shrink-0 items-center justify-center ${className}`}
       style={{ width: size, height: size }}
     >
       <img src={src} alt="" width={icon} height={icon} />
@@ -1013,7 +1016,8 @@ function SectionHead({
   tileClassName,
   className = '',
 }: {
-  eyebrow: string;
+  /** 더 이상 표시하지 않음(호출부 호환용) */
+  eyebrow?: string;
   title: ReactNode;
   icon?: string;
   size?: 'lg' | 'sm';
@@ -1024,8 +1028,8 @@ function SectionHead({
     <div className={`flex items-center gap-3 ${className}`}>
       {icon && <IconTile src={icon} className={tileClassName} />}
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-bold uppercase text-[#8B95A1]" style={{ letterSpacing: '1px' }}>{eyebrow}</p>
-        <h2 className={`mt-0.5 font-extrabold leading-tight text-[#191F28] ${size === 'lg' ? 'text-[19px]' : 'text-[15px]'}`}>{title}</h2>
+        {/* 영문 eyebrow 는 노출하지 않는다(요청) — prop 은 호출부 호환을 위해 남겨 둔다 */}
+        <h2 className={`font-extrabold leading-tight text-[#191F28] ${size === 'lg' ? 'text-[19px]' : 'text-[15px]'}`}>{title}</h2>
       </div>
     </div>
   );
@@ -1851,7 +1855,7 @@ export default function ProDetailPage() {
               {/* 주요 경력 — 모바일과 같은 흰 카드 토큰(#EEF0F4 보더 + 진회색 텍스트) */}
               {pro.career && pro.career.trim().length > 0 && (
                 <div
-                  className={`mt-6 max-w-[780px] px-6 py-5 ${CARD_CLS}`}
+                  className="mt-6 max-w-[780px]"
                   /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 덮어쓰는 영역 → 제외 유지 */
                   data-no-natural-reveal
                 >
@@ -2383,7 +2387,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className={`mx-4 mt-4 px-5 py-6 ${CARD_CLS}`}>
+      <div className={`px-5 py-6 ${SECTION_GAP_CLS} ${CARD_CLS}`}>
         {/* Pro row + prime */}
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
@@ -2478,7 +2482,7 @@ export default function ProDetailPage() {
 
       {/* ─── 서비스 설명 Section ─── */}
       {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
-        <div ref={descRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+        <div ref={descRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
           <Reveal>
             <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-5" />
           </Reveal>
@@ -2621,7 +2625,7 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
 
       {/* ─── 사회자 정보 Section ─── */}
-      <div ref={infoRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+      <div ref={infoRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
         <SectionHead eyebrow="PROFILE" title="사회자 정보" icon="/icons/pro-detail/mic.svg" className="mb-5" />
 
         <div className="flex items-center gap-4 mb-2">
@@ -2654,7 +2658,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className={`mx-4 mt-4 px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+      <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
         <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/star.svg" className="mb-4" />
 
         <div className="flex items-center gap-2 mb-3">
@@ -2791,7 +2795,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Expandable panels ─── */}
-      <div className={`mx-4 mt-4 px-5 py-6 ${CARD_CLS}`}>
+      <div className={`px-5 py-6 ${SECTION_GAP_CLS} ${CARD_CLS}`}>
         <SectionHead eyebrow="GUIDE" title="상품 안내" icon="/icons/pro-detail/notice.svg" className="mb-1" />
         {[
           { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
