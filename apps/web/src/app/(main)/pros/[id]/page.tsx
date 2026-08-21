@@ -961,7 +961,7 @@ function ZoomableImage({ src }: { src: string }) {
   );
 }
 
-function StarRating({ value, size = 14 }: { value: number; size?: number }) {
+function StarRating({ value, size = 14, twinkle = false }: { value: number; size?: number; /** 프로필 사진 아래 대표 별점에서만 켠다 */ twinkle?: boolean }) {
   return (
     <div className="flex items-center gap-0">
       {[0, 1, 2, 3, 4].map((i) => (
@@ -975,7 +975,7 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           shapeRendering="geometricPrecision"
-          className={i < Math.floor(value) ? 'star-twinkle' : undefined}
+          className={twinkle && i < Math.floor(value) ? 'star-twinkle' : undefined}
           style={{ display: 'block', flexShrink: 0, animationDelay: `${i * 140}ms` }}
         >
           <path
@@ -1019,7 +1019,7 @@ function FloatingReviewCards({ reviews }: { reviews: ProDetailData['reviews'] })
   const items = (reviews || []).filter((r) => (r.content || '').trim()).slice(0, 6);
   if (items.length === 0) return null;
   return (
-    <div className="-mx-5 mt-3 overflow-x-auto px-5 pb-5 pt-1 scrollbar-hide">
+    <div className="-mx-5 mt-2.5 overflow-x-auto px-5 pb-2 pt-1 scrollbar-hide">
       <div className="flex items-start gap-3" style={{ width: 'max-content' }}>
         {items.map((r, i) => {
           const accent = i % 3 === 1;
@@ -1032,10 +1032,8 @@ function FloatingReviewCards({ reviews }: { reviews: ProDetailData['reviews'] })
                 animation: `reviewFloat ${(4.2 + (i % 3) * 0.9).toFixed(1)}s ease-in-out ${(i * 0.35).toFixed(2)}s infinite`,
               }}
             >
-              <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-1 ${accent ? 'bg-white/20' : 'bg-[#191F28]'}`}>
-                <StarRating value={r.rating} size={11} />
-              </span>
-              <p className={`mt-2.5 line-clamp-3 text-[13px] leading-[1.6] ${accent ? 'text-white' : 'text-[#4E5968]'}`}>
+              <StarRating value={r.rating} size={12} />
+              <p className={`mt-2 line-clamp-3 text-[13px] leading-[1.6] ${accent ? 'text-white' : 'text-[#4E5968]'}`}>
                 {r.content}
               </p>
               <div className={`mt-3 flex items-center justify-between text-[11px] ${accent ? 'text-white/75' : 'text-[#A4ABBA]'}`}>
@@ -2346,7 +2344,7 @@ export default function ProDetailPage() {
         </main>
       </div>
 
-      <div className="lg:hidden bg-[#F7F8FA] min-h-screen" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
+      <div className="lg:hidden bg-white min-h-screen" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
       {/* ─── Top Header (Floating → Solid with thumbnail on scroll) ─── */}
       <div
         data-native-back-header
@@ -2454,7 +2452,6 @@ export default function ProDetailPage() {
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
-              <img src={pro.profileImage} alt="" className="w-10 h-10 rounded-[14px] object-cover" />
               <p className="flex items-center gap-1 text-[18px] font-extrabold text-[#191F28]">
                 {pro.categoryName || '사회자'} {pro.name}
                 {pro.isPrime && <VerifiedBadge size={18} />}
@@ -2482,7 +2479,7 @@ export default function ProDetailPage() {
         {/* Rating — 별 + 큰 숫자 한 줄 */}
         <Reveal delay={100}>
           <div className="flex items-center gap-2 mt-2 mb-1">
-            <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
+            <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} twinkle />
             <span className="text-[18px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
             <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
           </div>
@@ -2691,7 +2688,7 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
 
       {/* ─── 사회자 정보 Section ─── */}
-      <div ref={infoRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
+      <div ref={infoRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
         <SectionHead eyebrow="PROFILE" title="사회자 정보" icon="/icons/pro-detail/mic.svg" className="mb-5" />
 
         <div className="flex items-center gap-4 mb-2">
@@ -2724,7 +2721,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
+      <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
         <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/star.svg" className="mb-4" />
 
         <div className="flex items-center gap-2 mb-3">
@@ -2869,7 +2866,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Expandable panels ─── */}
-      <div className={`px-5 py-6 ${SECTION_GAP_CLS} ${CARD_CLS}`}>
+      <div className={`px-5 py-6 ${CARD_CLS}`}>
         <SectionHead eyebrow="GUIDE" title="상품 안내" icon="/icons/pro-detail/notice.svg" className="mb-1" />
         {[
           { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
