@@ -1938,3 +1938,21 @@ html[data-embedded='1'] [data-notification-drawer] {
 html[data-embedded='1'] [data-native-back-header] {
   border-bottom: 0;
 }
+
+/* 사회자 상세 주요 경력 — 밝은 띠가 글자 위를 지나가며 한 줄씩 드러난다 */
+@keyframes careerSweep {
+  from { background-position: 180% 0; opacity: 0.25; }
+  40%  { opacity: 1; }
+  to   { background-position: -60% 0; opacity: 1; }
+}
+.career-sweep {
+  background-image: linear-gradient(100deg, #333D4B 42%, #3180F7 50%, #333D4B 58%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: careerSweep 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .career-sweep { animation: none; color: #333D4B; }
+}

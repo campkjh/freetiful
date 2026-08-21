@@ -1862,7 +1862,11 @@ export default function ProDetailPage() {
                       .filter(Boolean)
                       .slice(0, 6)
                       .map((line, i) => (
-                        <li key={i} className="text-[17px] font-semibold leading-[1.55] text-[#333D4B]">
+                        <li
+                          key={i}
+                          className="career-sweep text-[17px] font-semibold leading-[1.55]"
+                          style={{ animationDelay: `${i * 120}ms` }}
+                        >
                           {line}
                         </li>
                       ))}
@@ -2427,7 +2431,11 @@ export default function ProDetailPage() {
                   .filter(Boolean)
                   .slice(0, 6)
                   .map((line, i) => (
-                    <li key={i} className="py-2.5 text-[14px] font-semibold leading-[1.6] text-[#333D4B]">
+                    <li
+                      key={i}
+                      className="career-sweep py-2.5 text-[14px] font-semibold leading-[1.6]"
+                      style={{ animationDelay: `${i * 120}ms` }}
+                    >
                       {line}
                     </li>
                   ))}
