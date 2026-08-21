@@ -2714,7 +2714,7 @@ export default function ProDetailPage() {
 
       {/* ─── 리뷰 Section ─── */}
       <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
-        <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/star.svg" className="mb-4" />
+        <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/eyes.svg" className="mb-4" />
 
         <div className="flex items-center gap-2 mb-3">
           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={20} />
@@ -2859,7 +2859,7 @@ export default function ProDetailPage() {
 
       {/* ─── Expandable panels ─── */}
       <div className={`px-5 py-6 ${CARD_CLS}`}>
-        <SectionHead eyebrow="GUIDE" title="상품 안내" icon="/icons/pro-detail/notice.svg" className="mb-1" />
+        <SectionHead eyebrow="GUIDE" title="사회자 FAQ" icon="/icons/pro-detail/bulb.svg" className="mb-1" />
         {[
           { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
           { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
@@ -2889,6 +2889,27 @@ export default function ProDetailPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* ─── 환불 규정 안내 (맨 하단) ─── */}
+      <div className="px-5 pb-8 pt-2">
+        <div className="flex items-start gap-3 rounded-[20px] bg-[#F7F8FA] p-4">
+          <img src="/icons/pro-detail/counselor.svg" alt="" width={40} height={40} className="shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-[#191F28]">환불 규정 안내</p>
+            <p className="mt-1 text-[13px] leading-[1.7] text-[#8B95A1]">
+              행사 7일 전까지 취소하면 전액 환불됩니다. 이후에는 행사일이 가까울수록 환불 비율이 줄어들며,
+              사회자 귀책으로 진행이 어려워진 경우에는 언제든 전액 환불됩니다.
+            </p>
+            <Link
+              href="/my/terms"
+              className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-bold text-[#3180F7]"
+            >
+              자세한 환불 규정 보기
+              <ChevronRight size={15} />
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* ─── Bottom Fixed Bar ─── */}
