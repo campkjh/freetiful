@@ -1998,3 +1998,13 @@ html[data-embedded='1'] [data-native-back-header] {
 @media (prefers-reduced-motion: reduce) {
   .sparkle-big, .sparkle-small { animation: none; opacity: 1; transform: none; }
 }
+
+/* 리뷰 언급 키워드 — 어두운 판 위에서 둥실 뜨는 글자와 번지는 빛 */
+@keyframes kwFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes kwGlow {
+  0%, 100% { opacity: 0.92; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}

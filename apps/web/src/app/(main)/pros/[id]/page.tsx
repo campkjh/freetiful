@@ -395,6 +395,42 @@ function buildAiReviewSummary(pro: ProDetailData, reviews: ProDetailData['review
   };
 }
 
+/** 리뷰 본문에서 자주 언급된 표현을 뽑아 많이 나온 순으로 돌려준다 */
+const REVIEW_KEYWORD_RULES: { label: string; pattern: RegExp }[] = [
+  { label: '편안함', pattern: /편안|편하|긴장|부드럽|안심/ },
+  { label: '매끄러운 진행', pattern: /매끄|자연스|막힘|물 흐르|무리 없/ },
+  { label: '유쾌한 위트', pattern: /위트|유머|웃음|재밌|재미|유쾌/ },
+  { label: '안정적인 목소리', pattern: /목소리|발성|성량|음성|딕션|톤/ },
+  { label: '꼼꼼한 준비', pattern: /꼼꼼|세심|준비|대본|미팅|리허설/ },
+  { label: '빠른 응답', pattern: /응답|빠르|바로|즉시|연락/ },
+  { label: '친절한 소통', pattern: /친절|상담|소통|배려|편하게 말/ },
+  { label: '분위기 리드', pattern: /분위기|센스|리드|조율|이끌/ },
+  { label: '시간 준수', pattern: /시간|정확|지연|딜레이|약속/ },
+  { label: '감동적인 순간', pattern: /감동|눈물|뭉클|울컥|따뜻/ },
+  { label: '하객 호응', pattern: /하객|손님|호응|박수|반응/ },
+  { label: '노련한 전문성', pattern: /프로|전문|노련|능숙|경력|베테랑/ },
+  { label: '깔끔한 진행', pattern: /깔끔|정돈|군더더기|담백/ },
+  { label: '또 부르고 싶은', pattern: /추천|또 |재의뢰|다시|강추/ },
+];
+
+function buildReviewKeywords(reviews: ProDetailData['reviews']) {
+  const texts = reviews.map((review) => review.content || '');
+  const counted = REVIEW_KEYWORD_RULES.map((rule) => ({
+    label: rule.label,
+    count: texts.filter((text) => rule.pattern.test(text)).length,
+  }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count - a.count);
+  const labels = counted.map((item) => item.label);
+  // 리뷰가 적어 뽑히는 게 없으면 기본 키워드로 채운다
+  const fallback = ['편안함', '매끄러운 진행', '친절한 소통', '꼼꼼한 준비', '분위기 리드'];
+  for (const label of fallback) {
+    if (labels.length >= 5) break;
+    if (!labels.includes(label)) labels.push(label);
+  }
+  return labels;
+}
+
 function mapRecommendedPros(items: any[] = [], currentId: string) {
   return items
     .filter((p: any) => p.id !== currentId)
@@ -606,156 +642,77 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
 
 // ─── Components ─────────────────────────────────────────────
 
-function RadarChart({ scores, empty = false }: { scores: { label: string; value: number }[]; empty?: boolean }) {
-  const { ref, visible } = useReveal(0.3);
-  const cx = 130;
-  const cy = 130;
-  const r = 95;
-  const n = scores.length;
-  const total = scores.reduce((sum, s) => sum + s.value * (100 / 5), 0);
-  const maxValue = Math.max(...scores.map((s) => s.value));
-  const bestIndices = empty ? [] : scores.map((s, i) => s.value === maxValue ? i : -1).filter((i) => i >= 0);
+/**
+ * 리뷰에서 자주 언급된 키워드.
+ *
+ * 예전엔 이 자리에 포텐셜 점수(레이더 차트 + 항목별 점수)가 있었는데,
+ * 숫자보다 "무슨 말을 들었는지"가 고르는 데 더 도움이 된다는 판단으로 바꿨다.
+ * 가장 많이 언급된 키워드일수록 크고 밝게, 어두운 판 위에 둥실 떠 있게 뒀다.
+ */
+const KEYWORD_SLOTS = [
+  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·들여쓰기만 흔들었다
+  { x: 38, y: 43, size: 21, weight: 700, alpha: 1 },
+  { x: 52, y: 27, size: 17, weight: 700, alpha: 0.95 },
+  { x: 55, y: 59, size: 16, weight: 700, alpha: 0.92 },
+  { x: 40, y: 12, size: 14, weight: 600, alpha: 0.8 },
+  { x: 41, y: 75, size: 14, weight: 600, alpha: 0.82 },
+  { x: 57, y: 90, size: 13, weight: 600, alpha: 0.68 },
+];
 
-  const getPoint = (i: number, scale: number) => {
-    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-    return { x: cx + Math.cos(angle) * r * scale, y: cy + Math.sin(angle) * r * scale };
-  };
-
-  // 빈 상태에서는 3점 수준의 회색 레이다를 형태만 잡아 보여줌
-  const placeholderValue = 3;
-  const dataPath = scores.map((s, i) => {
-    const v = empty ? placeholderValue : s.value;
-    const p = getPoint(i, visible ? v / 5 : 0);
-    return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`;
-  }).join(' ') + ' Z';
-
-  const fillColor = empty ? 'rgba(156,163,175,0.18)' : 'rgba(49,128,247,0.2)';
-  const strokeColor = empty ? '#9CA3AF' : '#3180F7';
-  const accentColor = empty ? '#9CA3AF' : '#3180F7';
+function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCount: number }) {
+  const { ref, visible } = useReveal(0.25);
+  const shown = items.slice(0, KEYWORD_SLOTS.length);
 
   return (
-    <div ref={ref} className="mb-3 py-2">
-      <div className="flex items-center gap-3">
-        {/* Left: total + tags */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-bold text-gray-500">총 포텐셜점수</p>
-          {empty ? (
-            <>
-              <p className="text-[28px] font-bold text-gray-300 leading-tight">—</p>
-              <p className="text-[12px] text-gray-400 mt-1 leading-snug">아직 충분한 평가가<br/>없습니다</p>
-            </>
-          ) : (
-            <>
-              <p className="text-[28px] font-bold text-[#3180F7] leading-tight">{Math.round(total)}점</p>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {scores.map((s) => (
-                  <span key={s.label} className="px-2 h-[26px] rounded-full bg-white text-[10px] font-medium text-gray-600 flex items-center gap-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                    {s.label} <span className="font-bold text-[#3180F7]">{s.value.toFixed(1)}</span>
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Right: radar chart SVG */}
-        <div className="shrink-0">
-          <svg width={160} height={160} viewBox="0 0 260 260" style={{ overflow: 'visible' }}>
-            {/* Grid lines */}
-            {[0.2, 0.4, 0.6, 0.8, 1].map((scale) => {
-              const path = scores.map((_, i) => { const p = getPoint(i, scale); return `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`; }).join(' ') + ' Z';
-              return <path key={scale} d={path} fill="none" stroke="#E5E7EB" strokeWidth="0.8" />;
-            })}
-
-            {/* Axis lines */}
-            {scores.map((_, i) => {
-              const p = getPoint(i, 1);
-              return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#E5E7EB" strokeWidth="0.8" />;
-            })}
-
-            {/* Data fill */}
-            <path
-              d={dataPath}
-              fill={fillColor}
-              stroke={strokeColor}
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeDasharray={empty ? '4 4' : undefined}
-              style={{ transition: 'all 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
-            />
-
-            {/* Data dots */}
-            {!empty && scores.map((s, i) => {
-              const p = getPoint(i, visible ? s.value / 5 : 0);
-              return (
-                <circle
-                  key={i}
-                  cx={p.x}
-                  cy={p.y}
-                  r={3}
-                  fill={accentColor}
-                  style={{ transition: `all 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 80}ms` }}
-                />
-              );
-            })}
-
-            {/* Labels + BEST badge */}
-            {scores.map((s, i) => {
-              const p = getPoint(i, 1.22);
-              const isBest = bestIndices.includes(i);
-              return (
-                <g key={i}>
-                  <text
-                    x={p.x}
-                    y={p.y}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-[13px] font-semibold"
-                    fill={empty ? '#9CA3AF' : (isBest ? '#1a1a1a' : '#6B7280')}
-                  >
-                    {s.label}
-                  </text>
-                  {isBest && visible && (
-                    <g style={{ animation: `bestBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.8 + i * 0.1}s both` }}>
-                      <g style={{ animation: 'bestFloat 2s ease-in-out infinite', transformOrigin: `${p.x}px ${p.y - 22}px` }}>
-                        <rect x={p.x - 24} y={p.y - 32} width={48} height={22} rx={11} fill="#1a1a1a" />
-                        <polygon points={`${p.x - 5},${p.y - 10} ${p.x + 5},${p.y - 10} ${p.x},${p.y - 5}`} fill="#1a1a1a" />
-                        <text x={p.x} y={p.y - 21} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="700" letterSpacing="0.5">BEST</text>
-                      </g>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-
+    <div
+      ref={ref as unknown as React.RefObject<HTMLDivElement>}
+      data-kw-cloud
+      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] bg-[#0E1116]"
+    >
+      {/* 원에서 번져 나오는 빛 */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(52% 78% at 20% 50%, rgba(120,255,214,0.95) 0%, rgba(74,222,180,0.55) 26%, rgba(38,140,150,0.28) 48%, rgba(14,17,22,0) 72%)',
+          animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
+        }}
+      />
+      {/* 가운데 어두운 원 */}
+      <div className="absolute left-[20%] top-1/2 flex h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#0E1116] text-center">
+        <span className="text-[11px] font-semibold text-white/55">언급 키워드</span>
+        <span className="mt-0.5 text-[17px] font-bold text-white">{shown.length}개</span>
+        <span className="mt-0.5 text-[10px] text-white/40">리뷰 {reviewCount}건</span>
       </div>
-    </div>
-  );
-}
 
-function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
-  const { ref, visible } = useReveal(0.3);
-  return (
-    <div ref={ref} className="mb-4">
-      {/* 막대 그래프 없이 항목·점수만 2×3 으로 (요청) */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        {items.map((item, i) => (
-          <div
-            key={item.label}
-            className="flex items-baseline justify-between border-b border-[#F2F4F6] pb-2"
+      {shown.map((keyword, i) => {
+        const slot = KEYWORD_SLOTS[i];
+        return (
+          <span
+            key={keyword}
+            className="absolute -translate-y-1/2 whitespace-nowrap"
             style={{
+              left: `${slot.x}%`,
+              top: `${slot.y}%`,
               opacity: visible ? 1 : 0,
-              transform: visible ? 'none' : 'translateY(6px)',
-              transition: `opacity .5s ease ${i * 70}ms, transform .5s cubic-bezier(0.22,1,0.36,1) ${i * 70}ms`,
+              transition: `opacity .6s ease ${i * 90}ms`,
             }}
           >
-            <span className="text-[13px] text-[#8B95A1]">{item.label}</span>
-            <span className="text-[15px] font-bold tabular-nums text-[#191F28]">{item.value.toFixed(1)}</span>
-          </div>
-        ))}
-      </div>
+            <span
+              className="block"
+              style={{
+                fontSize: slot.size,
+                fontWeight: slot.weight,
+                color: `rgba(255,255,255,${slot.alpha})`,
+                textShadow: '0 2px 14px rgba(0,0,0,0.45)',
+                animation: visible ? `kwFloat ${3.6 + i * 0.35}s ease-in-out ${i * 0.22}s infinite` : undefined,
+              }}
+            >
+              {keyword}
+            </span>
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -1745,7 +1702,6 @@ export default function ProDetailPage() {
     );
   }
 
-  const scoreLabels = ['경력', '만족도', '위트', '발성', '이미지', '구성력'];
   const displayReviews = pro.reviews.length > 0
     ? pro.reviews
     : buildReviewFallbacks({ id: pro.id, reviewCount: pro.reviewCount, rating: pro.rating });
@@ -1757,19 +1713,7 @@ export default function ProDetailPage() {
     { id: 'reviews', label: `리뷰 (${displayReviewCount})` },
   ];
   const activeSectionIndex = Math.max(0, detailSectionTabs.findIndex((tab) => tab.id === activeSection));
-  const reviewsWithScores = displayReviews.filter((r) => r.scores);
-  const ratingFallback = pro.reviewCount > 0 && pro.rating > 0 ? Math.min(5, Math.max(0, pro.rating)) : 0;
-  const scoreItems = scoreLabels.map((label) => {
-    const values = reviewsWithScores
-      .map((r) => r.scores?.[label])
-      .filter((v): v is number => v != null && v > 0);
-    return {
-      label,
-      value: values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : ratingFallback,
-    };
-  });
-  const hasAnyScore = scoreItems.some((item) => item.value > 0);
-  const potentialScore = Math.round(scoreItems.reduce((sum, item) => sum + item.value * 20, 0));
+  const reviewKeywords = buildReviewKeywords(displayReviews);
   const displayFaqs = pro.faqs.length > 0 ? pro.faqs : [
     {
       question: `${pro.categoryName || '사회자'} 섭외는 어떻게 진행되나요?`,
@@ -2123,13 +2067,9 @@ export default function ProDetailPage() {
                   <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-5">
                     <div className="rounded-lg border border-gray-200 p-5">
                       <div className="mb-3 flex items-center justify-between">
-                        <h3 className="text-[17px] font-bold text-gray-950">포텐셜 점수</h3>
-                        <span className="rounded-full bg-[#F2F4F6] px-3 py-1 text-[12px] font-bold text-[#3180F7]">
-                          {hasAnyScore ? `${potentialScore}점` : '세부 평가 대기'}
-                        </span>
+                        <h3 className="text-[17px] font-bold text-gray-950">고객이 자주 언급한 키워드</h3>
                       </div>
-                      <RadarChart scores={scoreItems} empty={!hasAnyScore} />
-                      {hasAnyScore && <ScoreBars items={scoreItems} />}
+                      <ReviewKeywordCloud items={reviewKeywords} reviewCount={displayReviewCount} />
                     </div>
                     <div className="rounded-lg border border-gray-200 p-5">
                       <div className="flex items-center gap-3">
@@ -2748,8 +2688,7 @@ export default function ProDetailPage() {
           </div>
         )}
 
-        <RadarChart scores={scoreItems} empty={!hasAnyScore} />
-        {hasAnyScore && <ScoreBars items={scoreItems} />}
+        <ReviewKeywordCloud items={reviewKeywords} reviewCount={displayReviewCount} />
 
 
         {/* Reviews list */}
