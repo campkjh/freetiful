@@ -989,6 +989,22 @@ function StarRating({ value, size = 14, twinkle = false }: { value: number; size
 }
 
 
+/** AI 요약 스파클 — 큰 별 하나에 작은 별 둘이 엇박으로 반짝인다 */
+function AiSparkle({ size = 18 }: { size?: number }) {
+  const star = (cx: number, cy: number, r: number) =>
+    `M ${cx} ${cy - r} Q ${cx + r * 0.18} ${cy - r * 0.18} ${cx + r} ${cy}` +
+    ` Q ${cx + r * 0.18} ${cy + r * 0.18} ${cx} ${cy + r}` +
+    ` Q ${cx - r * 0.18} ${cy + r * 0.18} ${cx - r} ${cy}` +
+    ` Q ${cx - r * 0.18} ${cy - r * 0.18} ${cx} ${cy - r} Z`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden="true">
+      <path d={star(10, 13, 8)} fill="#8B5CF6" className="sparkle-big" />
+      <path d={star(19, 5.5, 4)} fill="#C4A6FF" className="sparkle-small" style={{ animationDelay: '0.5s' }} />
+      <path d={star(20, 16, 2.6)} fill="#E0CCFF" className="sparkle-small" style={{ animationDelay: '1s' }} />
+    </svg>
+  );
+}
+
 /** 이름 옆 인증 뱃지 — 톱니 원 안에 체크 */
 function VerifiedBadge({ size = 18 }: { size?: number }) {
   const points = Array.from({ length: 12 }, (_, i) => {
@@ -2349,7 +2365,8 @@ export default function ProDetailPage() {
       <div
         data-native-back-header
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
-          headerSolid ? 'bg-white border-b border-gray-100 h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
+          /* 스크롤 시 아래 섹션 탭과 붙어 통짜로 보이도록 헤더 하단 보더는 두지 않는다 */
+          headerSolid ? 'bg-white h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
         }`}
       >
         {/* iframe(홈 미리보기) 안에서는 바깥 닫기 버튼과 겹쳐 어색하므로 숨긴다 */}
@@ -2732,9 +2749,9 @@ export default function ProDetailPage() {
 
         {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
         {aiReviewSummary && (
-          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4">
+          <div className="mb-3 rounded-[20px] border border-[#F0E7F8] bg-gradient-to-b from-[#FBF3FB] via-[#FDF9FE] to-white p-4">
             <div className="mb-2 flex items-center gap-1.5">
-              <img src="/icons/pro-detail/sparkle.svg" alt="" width={17} height={17} className="shrink-0" />
+              <AiSparkle size={18} />
               <span className="text-[15px] font-bold text-[#2B313D]">
                 고객들의 리뷰를 <span className="text-[#8B5CF6]">요약</span>했어요
               </span>

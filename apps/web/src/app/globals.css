@@ -1981,3 +1981,20 @@ html[data-embedded='1'] [data-native-back-header] {
 @media (prefers-reduced-motion: reduce) {
   .review-float { animation: none !important; }
 }
+
+/* AI 요약 스파클 — 큰 별과 작은 별이 번갈아 커졌다 작아졌다 한다 */
+@keyframes sparklePulseBig {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50%      { transform: scale(0.72) rotate(-12deg); opacity: 0.6; }
+}
+@keyframes sparklePulseSmall {
+  0%, 100% { transform: scale(0.65); opacity: 0.5; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+.sparkle-big,
+.sparkle-small { transform-box: fill-box; transform-origin: center; }
+.sparkle-big   { animation: sparklePulseBig 1.9s ease-in-out infinite; }
+.sparkle-small { animation: sparklePulseSmall 1.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sparkle-big, .sparkle-small { animation: none; opacity: 1; transform: none; }
+}
