@@ -2861,7 +2861,7 @@ export default function ProDetailPage() {
               <button
                 disabled={openingChat}
                 onClick={handleInquiry}
-                className="flex-1 rounded-2xl bg-[#2C53FF] text-[16.5px] font-extrabold text-white shadow-[0_8px_20px_rgba(44,83,255,0.28)] active:scale-[0.99] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[16.5px] font-bold text-white shadow-[0_8px_20px_rgba(49,128,247,0.28)] transition-all active:scale-[0.99] disabled:opacity-70"
               >
                 {openingChat ? (
                   <>
