@@ -649,11 +649,16 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
  * 숫자보다 "무슨 말을 들었는지"가 고르는 데 더 도움이 된다는 판단으로 바꿨다.
  * 가장 많이 언급된 키워드일수록 크고 밝게, 어두운 판 위에 둥실 떠 있게 뒀다.
  */
-const KEYWORD_SLOTS = [
-  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다
-  { x: 38, y: 43, size: 21, weight: 700, color: '#1B64DA' },
+const KEYWORD_SLOTS: {
+  x: number; y: number; size: number; weight: number; color: string; gradient?: string;
+}[] = [
+  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다.
+  // 위 두 개는 글자 안에서 색이 천천히 흘러간다(파랑↔보라, 보라↔주황).
+  { x: 38, y: 43, size: 21, weight: 700, color: '#1B64DA',
+    gradient: 'linear-gradient(90deg, #1B64DA 0%, #4A6BE0 26%, #7C5CE0 50%, #3F73E8 74%, #1B64DA 100%)' },
   { x: 52, y: 27, size: 17, weight: 700, color: '#191F28' },
-  { x: 55, y: 59, size: 16, weight: 700, color: '#7C5CE0' },
+  { x: 55, y: 59, size: 16, weight: 700, color: '#7C5CE0',
+    gradient: 'linear-gradient(90deg, #7C5CE0 0%, #9B62D6 26%, #D4884F 50%, #A365D2 74%, #7C5CE0 100%)' },
   { x: 40, y: 12, size: 14, weight: 600, color: '#4E5968' },
   { x: 41, y: 75, size: 14, weight: 600, color: '#6B7684' },
   { x: 57, y: 90, size: 13, weight: 600, color: '#A4ABBA' },
@@ -667,16 +672,17 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
     <div
       ref={ref as unknown as React.RefObject<HTMLDivElement>}
       data-kw-cloud
-      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] border border-[#EEF2F7] bg-white"
+      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] bg-white"
     >
       {/* 원에서 번져 나오는 빛 */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            // 파랑이 중심, 위쪽으로 보라가 살짝 겹치며 번진다
-            'radial-gradient(46% 62% at 34% 22%, rgba(139,92,246,0.20) 0%, rgba(139,92,246,0.09) 34%, rgba(255,255,255,0) 68%), ' +
-            'radial-gradient(54% 80% at 20% 50%, rgba(49,128,247,0.26) 0%, rgba(49,128,247,0.14) 28%, rgba(49,128,247,0.05) 50%, rgba(255,255,255,0) 72%)',
+            // 파랑이 중심, 위쪽으로 보라가 살짝 겹치며 번진다.
+            // 중심을 안쪽으로 넣고 반경을 줄여 가장자리에 닿기 전에 다 사그라들게 했다 — 잘려 보이지 않도록.
+            'radial-gradient(36% 46% at 38% 30%, rgba(139,92,246,0.22) 0%, rgba(139,92,246,0.09) 36%, rgba(255,255,255,0) 74%), ' +
+            'radial-gradient(40% 62% at 26% 50%, rgba(49,128,247,0.28) 0%, rgba(49,128,247,0.14) 30%, rgba(49,128,247,0.04) 52%, rgba(255,255,255,0) 76%)',
           animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
         }}
       />
@@ -705,8 +711,22 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
               style={{
                 fontSize: slot.size,
                 fontWeight: slot.weight,
-                color: slot.color,
-                animation: visible ? `kwFloat ${3.6 + i * 0.35}s ease-in-out ${i * 0.22}s infinite` : undefined,
+                // 그라데이션이 있으면 글자 자체를 창으로 삼아 색이 흐르게 한다
+                ...(slot.gradient
+                  ? {
+                      backgroundImage: slot.gradient,
+                      backgroundSize: '260% 100%',
+                      WebkitBackgroundClip: 'text' as const,
+                      backgroundClip: 'text' as const,
+                      color: 'transparent',
+                      WebkitTextFillColor: 'transparent',
+                    }
+                  : { color: slot.color }),
+                animation: visible
+                  ? `kwFloat ${3.6 + i * 0.35}s ease-in-out ${i * 0.22}s infinite${
+                      slot.gradient ? `, kwSpectrum ${7 + i * 1.2}s ease-in-out ${i * 0.4}s infinite` : ''
+                    }`
+                  : undefined,
               }}
             >
               {keyword}

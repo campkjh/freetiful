@@ -2004,3 +2004,9 @@ html[data-embedded='1'] [data-native-back-header] {
   0%, 100% { opacity: 0.92; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.04); }
 }
+
+/* 키워드 글자 안에서 색이 천천히 흘러간다 */
+@keyframes kwSpectrum {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
