@@ -2567,30 +2567,46 @@ export default function ProDetailPage() {
             <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-4" />
           </Reveal>
 
-          {/* 서비스 설명 맨 위에 진행 영상 한 편 — 업로드 영상이 있으면 그것부터, 없으면 유튜브 */}
-          {(pro.uploadedVideos.length > 0 || pro.youtubeVideos.length > 0) && (
-            <Reveal delay={60}>
-              <div className="mb-5 overflow-hidden rounded-[20px] bg-black" style={{ aspectRatio: '16 / 9' }}>
-                {pro.uploadedVideos.length > 0 ? (
-                  <video
-                    src={`${pro.uploadedVideos[0].url}#t=0.1`}
-                    className="h-full w-full object-cover"
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                ) : (
-                  <iframe
-                    src={`https://www.youtube.com/embed/${pro.youtubeVideos[0].id}?modestbranding=1&rel=0&playsinline=1`}
-                    title={pro.youtubeVideos[0].title}
-                    className="h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                )}
-              </div>
-            </Reveal>
-          )}
+          {/* 서비스 설명 맨 위에 진행 영상 — 여러 편이면 옆으로 넘겨 본다(업로드 먼저) */}
+          {(() => {
+            const clips = [
+              ...pro.uploadedVideos.map((v) => ({ key: v.url, kind: 'upload' as const, src: v.url, title: v.title })),
+              ...pro.youtubeVideos.map((v) => ({ key: v.id, kind: 'youtube' as const, src: v.id, title: v.title })),
+            ];
+            if (clips.length === 0) return null;
+            const single = clips.length === 1;
+            return (
+              <Reveal delay={60}>
+                <div className={`mb-5 flex gap-3 ${single ? '' : '-mx-5 snap-x snap-mandatory overflow-x-auto px-5 scrollbar-hide'}`}>
+                  {clips.map((clip) => (
+                    <div
+                      key={clip.key}
+                      className={`overflow-hidden rounded-[20px] bg-black ${single ? 'w-full' : 'w-[86%] shrink-0 snap-start'}`}
+                      style={{ aspectRatio: '16 / 9' }}
+                    >
+                      {clip.kind === 'upload' ? (
+                        <video
+                          src={`${clip.src}#t=0.1`}
+                          className="h-full w-full object-cover"
+                          controls
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${clip.src}?modestbranding=1&rel=0&playsinline=1`}
+                          title={clip.title}
+                          className="h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            );
+          })()}
 
         {pro.isPrime && (
           <Reveal delay={100}>
@@ -2635,62 +2651,6 @@ export default function ProDetailPage() {
           </>
         )}
 
-        {/* 영상 리스트 (유튜브 + 업로드) */}
-        {(pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
-          <div className="mt-8">
-            <SectionHead eyebrow="VIDEO" title="진행 영상" icon="/icons/pro-detail/play.svg" size="sm" className="mb-3" />
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x ml-[-2.5px] pl-[2.5px] pr-4">
-              {pro.youtubeVideos.map((video) => (
-                <div key={video.id} className="shrink-0 w-[260px] snap-start">
-                  <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
-                    {playingVideos.has(video.id) ? (
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
-                        className="relative w-full h-full block"
-                        aria-label={`${video.title} 재생`}
-                      >
-                        <img
-                          src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-                          <span className="w-11 h-11 rounded-full bg-white/95 flex items-center justify-center shadow-sm">
-                            <Play size={18} className="fill-gray-900 text-gray-900 ml-0.5" />
-                          </span>
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-2 text-[13px] font-medium text-[#4E5968] leading-tight line-clamp-1">{video.title}</p>
-                </div>
-              ))}
-              {pro.uploadedVideos.map((video) => (
-                <div key={video.url} className="shrink-0 w-[260px] snap-start">
-                  <video
-                    src={`${video.url}#t=0.1`}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="w-full rounded-xl bg-black object-contain"
-                    style={{ maxHeight: '70vh' }}
-                  />
-                  <p className="mt-2 text-[13px] font-medium text-[#4E5968] leading-tight line-clamp-1">{video.title}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         </div>
       )}
 
