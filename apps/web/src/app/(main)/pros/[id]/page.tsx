@@ -2698,26 +2698,26 @@ export default function ProDetailPage() {
       {displayAlsoViewed.length > 0 && (
         <div className="px-4 pt-8 pb-4">
           <Reveal>
-            <h3 className="text-[17px] font-extrabold text-[#191F28] leading-tight mb-4">프리티풀의 다른<br />검증된 사회자를 살펴보세요</h3>
+            <h3 className="mb-4 text-[20px] font-extrabold leading-tight text-[#191F28]">프리티풀의 다른<br />검증된 사회자를 살펴보세요</h3>
           </Reveal>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
             {displayAlsoViewed.map((item) => (
               <Link
                 key={item.id}
                 href={`/pros/${item.id}`}
-                className="shrink-0 w-[130px] snap-start group"
+                className="group w-[150px] shrink-0 snap-start"
               >
-                <div className="relative rounded-xl overflow-hidden bg-[#F2F4F6]" style={{ aspectRatio: '3/4' }}>
+                <div className="relative overflow-hidden rounded-[16px] bg-[#F2F4F6]" style={{ aspectRatio: '3/4' }}>
                   <Image src={item.image || '/images/default-profile.png'} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="mt-1.5">
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#4E5968] bg-[#F2F4F6] px-1.5 py-[2px] rounded-full mb-0.5"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
-                  <p className="text-[13px] font-semibold text-[#191F28] leading-tight">{item.category || '사회자'} {item.author}</p>
+                  <span className="mb-1 inline-flex items-center gap-0.5 rounded-full bg-[#F2F4F6] px-2 py-[3px] text-[11px] font-bold text-[#4E5968]"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
+                  <p className="text-[15px] font-semibold leading-tight text-[#191F28]">{item.category || '사회자'} {item.author}</p>
                   {item.rating && (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <StarRating value={parseFloat(item.rating.toFixed(1))} size={10} />
-                      <span className="text-[11px] font-bold text-[#191F28]">{item.rating.toFixed(1)}</span>
-                      <span className="text-[10px] text-[#8B95A1]">({item.reviewCount})</span>
+                    <div className="mt-1 flex items-center gap-1">
+                      <StarRating value={parseFloat(item.rating.toFixed(1))} size={13} />
+                      <span className="text-[13px] font-bold text-[#191F28]">{item.rating.toFixed(1)}</span>
+                      <span className="text-[12px] text-[#8B95A1]">({item.reviewCount})</span>
                     </div>
                   )}
                 </div>
