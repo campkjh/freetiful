@@ -997,7 +997,7 @@ const CARD_CLS = 'bg-white';
 const SECTION_GAP_CLS = 'border-t-[10px] border-[#F2F4F6]';
 
 // 라운드 스퀘어클 아이콘 타일 (44px, #F2F4F6, radius 14) + 24px 아이콘
-function IconTile({ src, size = 44, icon = 24, className = '' }: { src: string; size?: number; icon?: number; className?: string }) {
+function IconTile({ src, size = 26, icon = 24, className = '' }: { src: string; size?: number; icon?: number; className?: string }) {
   return (
     <span
       className={`flex shrink-0 items-center justify-center ${className}`}
@@ -1026,7 +1026,7 @@ function SectionHead({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center gap-1.5 ${className}`}>
       {icon && <IconTile src={icon} className={tileClassName} />}
       <div className="min-w-0 flex-1">
         {/* 영문 eyebrow 는 노출하지 않는다(요청) — prop 은 호출부 호환을 위해 남겨 둔다 */}
@@ -2359,7 +2359,7 @@ export default function ProDetailPage() {
             <button
               key={i}
               onClick={() => setImageModal(src)}
-              className="relative shrink-0 snap-start overflow-hidden rounded-[20px] bg-[#F2F4F6] transition-transform duration-300 ease-out"
+              className="relative shrink-0 snap-start overflow-hidden rounded-[20px] bg-white transition-transform duration-300 ease-out"
               style={{ width: 'min(70vw, 420px)', aspectRatio: '70 / 106', transform: `scale(${i === activeImage ? 1 : 0.9})` }}
             >
               {Math.abs(i - activeImage) <= 1 ? (
@@ -2388,7 +2388,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Main Content ─── */}
-      <div className={`px-5 py-6 ${SECTION_GAP_CLS} ${CARD_CLS}`}>
+      <div className={`px-5 py-6 ${CARD_CLS}`}>
         {/* Pro row + prime */}
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
@@ -2483,7 +2483,7 @@ export default function ProDetailPage() {
 
       {/* ─── 서비스 설명 Section ─── */}
       {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
-        <div ref={descRef} className={`px-5 py-6 scroll-mt-[120px] ${SECTION_GAP_CLS} ${CARD_CLS}`}>
+        <div ref={descRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
           <Reveal>
             <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-5" />
           </Reveal>
