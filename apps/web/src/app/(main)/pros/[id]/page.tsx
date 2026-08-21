@@ -634,7 +634,7 @@ function RadarChart({ scores, empty = false }: { scores: { label: string; value:
   const accentColor = empty ? '#9CA3AF' : '#3180F7';
 
   return (
-    <div ref={ref} className="bg-[#F7F8FA] rounded-2xl p-5 mb-3">
+    <div ref={ref} className="mb-3 py-2">
       <div className="flex items-center gap-3">
         {/* Left: total + tags */}
         <div className="flex-1 min-w-0">
@@ -739,21 +739,20 @@ function ScoreBars({ items }: { items: { label: string; value: number }[] }) {
   const { ref, visible } = useReveal(0.3);
   return (
     <div ref={ref} className="mb-4">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+      {/* 막대 그래프 없이 항목·점수만 2×3 으로 (요청) */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         {items.map((item, i) => (
-          <div key={item.label} className="flex items-center gap-2">
-            <span className="text-[12px] text-gray-500 w-14 shrink-0">{item.label}</span>
-            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: visible ? `${(item.value / 5) * 100}%` : '0%',
-                  background: BRAND,
-                  transition: `width 1.2s cubic-bezier(0.22, 1, 0.36, 1) ${i * 150}ms`,
-                }}
-              />
-            </div>
-            <span className="text-[12px] font-bold text-gray-900 tabular-nums">{item.value.toFixed(1)}</span>
+          <div
+            key={item.label}
+            className="flex items-baseline justify-between border-b border-[#F2F4F6] pb-2"
+            style={{
+              opacity: visible ? 1 : 0,
+              transform: visible ? 'none' : 'translateY(6px)',
+              transition: `opacity .5s ease ${i * 70}ms, transform .5s cubic-bezier(0.22,1,0.36,1) ${i * 70}ms`,
+            }}
+          >
+            <span className="text-[13px] text-[#8B95A1]">{item.label}</span>
+            <span className="text-[15px] font-bold tabular-nums text-[#191F28]">{item.value.toFixed(1)}</span>
           </div>
         ))}
       </div>
@@ -988,6 +987,27 @@ function StarRating({ value, size = 14, twinkle = false }: { value: number; size
   );
 }
 
+
+/**
+ * 주요 경력 — 파란 띠가 글자를 훑고 지나가며 한 줄씩 드러난다.
+ * 화면 밖에서 애니메이션이 이미 끝나 버리지 않도록, 보이기 시작할 때 시작한다.
+ */
+function CareerSweepList({ lines, size = 'sm' }: { lines: string[]; size?: 'sm' | 'lg' }) {
+  const { ref, visible } = useReveal(0.2);
+  return (
+    <ul ref={ref as unknown as React.RefObject<HTMLUListElement>} className={size === 'lg' ? 'space-y-2' : 'divide-y divide-[#F2F4F6]'}>
+      {lines.map((line, i) => (
+        <li
+          key={i}
+          className={`${visible ? 'career-sweep' : ''} ${size === 'lg' ? 'text-[17px] font-semibold leading-[1.55]' : 'py-2.5 text-[14px] font-semibold leading-[1.6]'}`}
+          style={visible ? { animationDelay: `${i * 120}ms` } : { color: '#333D4B' }}
+        >
+          {line}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** AI 요약 스파클 — 큰 별 하나에 작은 별 둘이 엇박으로 반짝인다 */
 function AiSparkle({ size = 18 }: { size?: number }) {
@@ -1935,22 +1955,7 @@ export default function ProDetailPage() {
                   /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 덮어쓰는 영역 → 제외 유지 */
                   data-no-natural-reveal
                 >
-                  <ul className="space-y-2">
-                    {pro.career
-                      .split(/\n|\//)
-                      .map((line) => line.trim())
-                      .filter(Boolean)
-                      .slice(0, 6)
-                      .map((line, i) => (
-                        <li
-                          key={i}
-                          className="career-sweep text-[17px] font-semibold leading-[1.55]"
-                          style={{ animationDelay: `${i * 120}ms` }}
-                        >
-                          {line}
-                        </li>
-                      ))}
-                  </ul>
+                  <CareerSweepList size="lg" lines={pro.career.split(/\n|\//).map((l) => l.trim()).filter(Boolean).slice(0, 6)} />
                 </div>
               )}
 
@@ -2508,22 +2513,7 @@ export default function ProDetailPage() {
           <Reveal delay={150}>
             <div className="mt-4 pt-4">
               <SectionHead eyebrow="CAREER" title="주요 경력" icon="/icons/pro-detail/trophy.svg" size="sm" className="mb-1.5" />
-              <ul className="divide-y divide-[#F2F4F6]">
-                {pro.career
-                  .split(/\n|\//)
-                  .map((line) => line.trim())
-                  .filter(Boolean)
-                  .slice(0, 6)
-                  .map((line, i) => (
-                    <li
-                      key={i}
-                      className="career-sweep py-2.5 text-[14px] font-semibold leading-[1.6]"
-                      style={{ animationDelay: `${i * 120}ms` }}
-                    >
-                      {line}
-                    </li>
-                  ))}
-              </ul>
+              <CareerSweepList lines={pro.career.split(/\n|\//).map((l) => l.trim()).filter(Boolean).slice(0, 6)} />
             </div>
           </Reveal>
         )}
