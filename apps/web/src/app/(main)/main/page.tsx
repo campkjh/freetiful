@@ -2917,7 +2917,7 @@ export default function HomePage() {
 
           {/* Desktop: 순위 카드 3열 — 화살표로 넘기고 펼쳐보기로 전부 본다 */}
           {/* grid 로는 마지막 줄(4·5)이 왼쪽으로 붙어서, 가운데 정렬되는 flex-wrap 으로 */}
-          <div ref={rankScrollRef} className="hidden gap-x-4 gap-y-8 lg:flex lg:flex-wrap lg:justify-center">
+          <div ref={rankScrollRef} className="hidden gap-x-4 gap-y-4 lg:flex lg:flex-wrap lg:justify-center">
             {bestWeddingPros.length === 0 && (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex w-[366px] shrink-0 gap-3">
