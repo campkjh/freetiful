@@ -1965,3 +1965,10 @@ html[data-embedded='1'] [data-native-back-header] {
 }
 .star-twinkle { animation: starTwinkle 2.6s ease-in-out infinite; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) { .star-twinkle { animation: none; } }
+
+/* 글자 두께 상한 700 — 800/900 은 화면에서 너무 두껍게 보인다(요청).
+   개별 화면에서 클래스를 일일이 바꾸지 않고 한 곳에서 눌러 둔다. */
+.font-extrabold,
+.font-black {
+  font-weight: 700;
+}
