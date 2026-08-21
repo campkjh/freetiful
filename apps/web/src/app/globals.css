@@ -1956,3 +1956,12 @@ html[data-embedded='1'] [data-native-back-header] {
 @media (prefers-reduced-motion: reduce) {
   .career-sweep { animation: none; color: #333D4B; }
 }
+
+/* 별점 — 채워진 별이 순서대로 반짝인다 */
+@keyframes starTwinkle {
+  0%, 70%, 100% { transform: scale(1); filter: brightness(1); }
+  80%           { transform: scale(1.18); filter: brightness(1.35); }
+  90%           { transform: scale(1); filter: brightness(1); }
+}
+.star-twinkle { animation: starTwinkle 2.6s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .star-twinkle { animation: none; } }

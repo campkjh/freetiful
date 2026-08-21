@@ -975,7 +975,8 @@ function StarRating({ value, size = 14 }: { value: number; size?: number }) {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           shapeRendering="geometricPrecision"
-          style={{ display: 'block', flexShrink: 0 }}
+          className={i < Math.floor(value) ? 'star-twinkle' : undefined}
+          style={{ display: 'block', flexShrink: 0, animationDelay: `${i * 140}ms` }}
         >
           <path
             d="M21.5409 6.54807L24.6489 12.8481C24.7724 13.0978 24.9547 13.3138 25.1801 13.4775C25.4055 13.6413 25.6672 13.7478 25.9429 13.7881L32.8939 14.7981C33.2111 14.8441 33.5092 14.9779 33.7543 15.1845C33.9994 15.391 34.1819 15.6621 34.281 15.9669C34.3802 16.2717 34.3921 16.5982 34.3153 16.9094C34.2386 17.2207 34.0764 17.5042 33.8469 17.7281L28.8159 22.6281C28.6168 22.8228 28.4678 23.0629 28.3818 23.3278C28.2957 23.5927 28.2752 23.8745 28.3219 24.1491L29.5099 31.0721C29.5639 31.388 29.5286 31.7128 29.4077 32.0097C29.2869 32.3067 29.0855 32.5639 28.8262 32.7523C28.5669 32.9408 28.26 33.053 27.9403 33.0763C27.6206 33.0996 27.3008 33.033 27.0169 32.8841L20.7999 29.6171C20.5532 29.4872 20.2787 29.4193 19.9999 29.4193C19.7211 29.4193 19.4466 29.4872 19.1999 29.6171L12.9819 32.8861C12.698 33.035 12.3782 33.1016 12.0585 33.0783C11.7388 33.055 11.4319 32.9428 11.1726 32.7543C10.9133 32.5659 10.7119 32.3087 10.5911 32.0117C10.4703 31.7148 10.4349 31.39 10.4889 31.0741L11.6769 24.1511C11.7236 23.8765 11.7031 23.5947 11.6171 23.3298C11.531 23.0649 11.3821 22.8248 11.1829 22.6301L6.15191 17.7301C5.92245 17.5062 5.76019 17.2227 5.68347 16.9114C5.60676 16.6002 5.61864 16.2737 5.71779 15.9689C5.81694 15.6641 5.99939 15.393 6.24452 15.1865C6.48965 14.9799 6.78768 14.8461 7.10491 14.8001L14.0559 13.7901C14.3316 13.7498 14.5933 13.6433 14.8187 13.4795C15.0441 13.3158 15.2264 13.0998 15.3499 12.8501L18.4579 6.55007C18.5997 6.26234 18.8191 6.02002 19.0914 5.8505C19.3637 5.68098 19.678 5.59103 19.9988 5.59082C20.3195 5.59061 20.634 5.68015 20.9065 5.84932C21.179 6.01849 21.3988 6.26053 21.5409 6.54807Z"
@@ -2669,10 +2670,18 @@ export default function ProDetailPage() {
 
         {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
         {aiReviewSummary && (
-          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4" style={{ borderLeft: `3px solid ${BRAND}` }}>
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <img src="/icons/pro-detail/sparkle.svg" alt="" width={16} height={16} className="shrink-0" />
-              <span className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</span>
+          <div className="mb-3 rounded-2xl border border-[#EEF0F4] bg-white p-4">
+            <div className="mb-2 flex items-center gap-1.5">
+              <img src="/icons/pro-detail/sparkle.svg" alt="" width={17} height={17} className="shrink-0" />
+              <span className="text-[15px] font-bold text-[#2B313D]">
+                고객들의 리뷰를 <span className="text-[#8B5CF6]">요약</span>했어요
+              </span>
+              <span
+                title="AI 가 실제 리뷰를 모아 요약한 내용이에요"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#C8CEDA] text-[10px] font-bold leading-none text-[#A4ABBA]"
+              >
+                i
+              </span>
             </div>
             <p className="text-[14px] leading-[1.6] text-[#4E5968]">{aiReviewSummary.text}</p>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
