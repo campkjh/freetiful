@@ -654,14 +654,14 @@ const KEYWORD_SLOTS: {
 }[] = [
   // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다.
   // 위 두 개는 글자 안에서 색이 천천히 흘러간다(파랑↔보라, 보라↔주황).
-  { x: 38, y: 43, size: 21, weight: 700, color: '#1B64DA',
+  { x: 38, y: 43, size: 24, weight: 700, color: '#1B64DA',
     gradient: 'linear-gradient(90deg, #1B64DA 0%, #4A6BE0 26%, #7C5CE0 50%, #3F73E8 74%, #1B64DA 100%)' },
-  { x: 52, y: 27, size: 17, weight: 700, color: '#191F28' },
-  { x: 55, y: 59, size: 16, weight: 700, color: '#7C5CE0',
+  { x: 52, y: 27, size: 19, weight: 700, color: '#191F28' },
+  { x: 55, y: 59, size: 18, weight: 700, color: '#7C5CE0',
     gradient: 'linear-gradient(90deg, #7C5CE0 0%, #9B62D6 26%, #D4884F 50%, #A365D2 74%, #7C5CE0 100%)' },
-  { x: 40, y: 12, size: 14, weight: 600, color: '#4E5968' },
-  { x: 41, y: 75, size: 14, weight: 600, color: '#6B7684' },
-  { x: 57, y: 90, size: 13, weight: 600, color: '#A4ABBA' },
+  { x: 40, y: 12, size: 16, weight: 600, color: '#4E5968' },
+  { x: 41, y: 75, size: 15, weight: 600, color: '#6B7684' },
+  { x: 57, y: 90, size: 14, weight: 600, color: '#A4ABBA' },
 ];
 
 function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCount: number }) {
@@ -672,7 +672,7 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
     <div
       ref={ref as unknown as React.RefObject<HTMLDivElement>}
       data-kw-cloud
-      className="relative mb-4 h-[250px] w-full overflow-hidden rounded-[20px] bg-white"
+      className="relative mb-4 h-[270px] w-full overflow-hidden rounded-[20px] bg-white"
     >
       {/* 원에서 번져 나오는 빛 */}
       <div
@@ -686,11 +686,11 @@ function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCou
           animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
         }}
       />
-      {/* 가운데 어두운 원 */}
-      <div className="absolute left-[20%] top-1/2 flex h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-[#F2F4F6] text-center">
-        <span className="text-[11px] font-semibold text-[#8B95A1]">언급 키워드</span>
-        <span className="mt-0.5 text-[17px] font-bold text-[#2B313D]">{shown.length}개</span>
-        <span className="mt-0.5 text-[10px] text-[#A4ABBA]">리뷰 {reviewCount}건</span>
+      {/* 가운데 원 — 빛에 흰 구멍을 뚫는다 */}
+      <div className="absolute left-[20%] top-1/2 flex h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white text-center">
+        <span className="text-[12px] font-semibold text-[#8B95A1]">언급 키워드</span>
+        <span className="mt-0.5 text-[19px] font-bold text-[#2B313D]">{shown.length}개</span>
+        <span className="mt-0.5 text-[11px] text-[#A4ABBA]">리뷰 {reviewCount}건</span>
       </div>
 
       {shown.map((keyword, i) => {
