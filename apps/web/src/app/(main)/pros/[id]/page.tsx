@@ -2564,8 +2564,33 @@ export default function ProDetailPage() {
       {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
         <div ref={descRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
           <Reveal>
-            <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-5" />
+            <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-4" />
           </Reveal>
+
+          {/* 서비스 설명 맨 위에 진행 영상 한 편 — 업로드 영상이 있으면 그것부터, 없으면 유튜브 */}
+          {(pro.uploadedVideos.length > 0 || pro.youtubeVideos.length > 0) && (
+            <Reveal delay={60}>
+              <div className="mb-5 overflow-hidden rounded-[20px] bg-black" style={{ aspectRatio: '16 / 9' }}>
+                {pro.uploadedVideos.length > 0 ? (
+                  <video
+                    src={`${pro.uploadedVideos[0].url}#t=0.1`}
+                    className="h-full w-full object-cover"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${pro.youtubeVideos[0].id}?modestbranding=1&rel=0&playsinline=1`}
+                    title={pro.youtubeVideos[0].title}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                )}
+              </div>
+            </Reveal>
+          )}
 
         {pro.isPrime && (
           <Reveal delay={100}>
