@@ -2858,11 +2858,11 @@ export default function ProDetailPage() {
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-bold text-[#191F28]">환불 규정 안내</p>
             <p className="mt-1 text-[13px] leading-[1.7] text-[#8B95A1]">
-              행사 7일 전까지 취소하면 전액 환불됩니다. 이후에는 행사일이 가까울수록 환불 비율이 줄어들며,
-              사회자 귀책으로 진행이 어려워진 경우에는 언제든 전액 환불됩니다.
+              예약금은 입금일로부터 4일 이내 100%, 5~7일 이내 50% 환불됩니다. 7일이 지나거나 사전미팅이 진행된 뒤에는
+              환불이 어렵고, 사회자 귀책으로 진행이 취소된 경우에는 전액 환불과 함께 보상이 이뤄집니다.
             </p>
             <Link
-              href="/my/terms"
+              href="/terms/refund"
               className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-bold text-[#3180F7]"
             >
               자세한 환불 규정 보기

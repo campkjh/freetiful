@@ -27,12 +27,17 @@ function parseDate(value: unknown) {
 export class PolicyService {
   constructor(private prisma: PrismaService) {}
 
+  // 기본 문서를 슬러그 단위로 채운다.
+  // 예전엔 테이블이 비었을 때만 채워서, 나중에 추가한 기본 문서(예: 환불 규정)가
+  // 이미 운영 중인 DB 에는 영영 들어가지 않았다. 이미 있는 슬러그는 건드리지 않는다.
   private async ensureDefaults() {
-    const count = await this.prisma.policyDocument.count();
-    if (count > 0) return;
+    const existing = await this.prisma.policyDocument.findMany({ select: { slug: true } });
+    const have = new Set(existing.map((row) => row.slug));
+    const missing = DEFAULT_POLICIES.filter((policy) => !have.has(policy.slug));
+    if (missing.length === 0) return;
 
     await this.prisma.policyDocument.createMany({
-      data: DEFAULT_POLICIES.map((policy) => ({
+      data: missing.map((policy) => ({
         slug: policy.slug,
         title: policy.title,
         summary: policy.summary,

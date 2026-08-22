@@ -7,6 +7,7 @@ const FOOTER_LINKS = {
     { label: '고객센터', href: '/my/support' },
     { label: '이용약관', href: '/terms/service' },
     { label: '개인정보 처리방침', href: '/terms/privacy' },
+    { label: '환불 규정', href: '/terms/refund' },
   ],
   회사: [
     { label: '회사 소개', href: '/biz' },
@@ -60,7 +61,7 @@ export default function Footer() {
             프리티풀은 통신판매중개자로서 통신판매의 당사자가 아니며 개별 판매자가 제공하는 서비스에 대한 이행, 계약사항 등과 관련한 의무와 책임은 거래 당사자에게 있습니다.
           </p>
           <div className="mt-3 space-y-1 text-[11px] text-gray-400 leading-relaxed">
-            <p>주식회사커넥트풀 ㅣ 서울시 중구 퇴계로36길 2, 충무로관 본관 130호</p>
+            <p>주식회사커넥트풀 ㅣ 대표자명 서나웅 ㅣ 서울시 중구 퇴계로36길 2, 충무로관 본관 130호</p>
             <p>E freetiful2025@gmail.com</p>
             <p>사업자등록번호 391-86-03659</p>
             <p>통신판매업신고번호 2026-서울중구-699호</p>

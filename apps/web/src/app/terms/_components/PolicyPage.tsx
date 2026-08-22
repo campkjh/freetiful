@@ -37,6 +37,7 @@ function formatDate(value?: string | null) {
 
 export function PolicyPage({ slug }: { slug: string }) {
   const router = useRouter();
+  const seeded = Boolean(DEFAULT_POLICY_MAP[slug]);
   const fallback = useMemo(() => {
     const seed = DEFAULT_POLICY_MAP[slug] || DEFAULT_POLICY_MAP.service;
     return toPolicy(seed);
@@ -55,12 +56,13 @@ export function PolicyPage({ slug }: { slug: string }) {
       .catch((error) => {
         if (!alive) return;
         if (error?.response?.status === 404) {
-          setPolicy({
-            slug,
-            title: fallback.title,
-            summary: '',
-            contentHtml: '<p>현재 게시 중인 약관 문서가 없습니다.</p>',
-          });
+          // 서버에 아직 안 올라간 문서라도 앱이 들고 있는 기본 문서가 있으면 그걸 보여준다.
+          // (없을 때만 빈 화면 안내 — 예전엔 기본 문서가 있어도 빈 화면이 나왔다)
+          setPolicy(
+            seeded
+              ? fallback
+              : { slug, title: fallback.title, summary: '', contentHtml: '<p>현재 게시 중인 약관 문서가 없습니다.</p>' },
+          );
           return;
         }
         setPolicy(fallback);
@@ -69,7 +71,7 @@ export function PolicyPage({ slug }: { slug: string }) {
         if (alive) setLoading(false);
       });
     return () => { alive = false; };
-  }, [fallback, slug]);
+  }, [fallback, seeded, slug]);
 
   const dateText = formatDate(policy.effectiveDate || policy.updatedAt);
 
