@@ -1117,7 +1117,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
   if (showSkeleton) {
     return (
-      <div className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]`}>
+      <div className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-white`}>
         {/* Top shimmer bar */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-50 overflow-hidden bg-gray-100">
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
@@ -1154,13 +1154,13 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           ].map((b, i) => (
             <div key={i} className={`flex items-end gap-2 ${b.mine ? 'flex-row-reverse' : 'flex-row'}`}>
               {!b.mine && <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse shrink-0" />}
-              <div className={`${b.w} ${b.h} rounded-2xl ${b.mine ? 'rounded-br-sm bg-[#3180F7]/15' : 'rounded-bl-sm bg-white'} animate-pulse`} />
+              <div className={`${b.w} ${b.h} rounded-2xl ${b.mine ? 'rounded-br-sm bg-[#3180F7]/12' : 'rounded-bl-sm bg-[#F2F3F5]'} animate-pulse`} />
             </div>
           ))}
         </div>
 
         {/* Input skeleton */}
-        <div className="px-3 pb-4 pb-safe pt-2 bg-[#F2F2F7]">
+        <div className="px-3 pb-4 pb-safe pt-2 bg-white">
           <div className="flex items-center gap-2 bg-white rounded-full px-4 h-12 shadow-sm border border-gray-200/60">
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
             <div className="flex-1 h-3 bg-gray-100 rounded-full animate-pulse" />
@@ -1180,25 +1180,15 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
   return (
     <div
-      className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-[#F2F2F7]`}
+      className={`${embedded ? 'absolute' : 'fixed'} inset-0 flex flex-col overflow-hidden bg-white`}
       style={embedded ? undefined : { bottom: keyboardOffset }}
     >
-      {/* ─── 헤더 상단 그라데이션 블러 (z-20) ─── */}
-      <div
-        data-native-chat-gradient
-        className="absolute left-0 right-0 top-0 h-[110px] z-20 pointer-events-none"
-        style={{
-          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
-        }}
-      />
+      {/* 헤더가 불투명한 흰 바라 위쪽 그라데이션 블러는 더 필요 없다 (네이티브 측정용 자리만 유지) */}
+      <div data-native-chat-gradient className="absolute left-0 right-0 top-0 h-0 z-20 pointer-events-none" />
 
       {/* ─── Header (Floating Pill) z-30 ─── */}
-      <div data-native-chat-header className="absolute left-0 right-0 top-0 z-30 pt-3 pb-2 pt-safe px-safe pointer-events-none">
-        <div className="mx-auto flex w-full max-w-[680px] items-center gap-2 px-3 pointer-events-auto sm:px-0">
+      <div data-native-chat-header className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe px-safe">
+        <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-1 px-2">
           {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
           {!embedded && (
             <button
@@ -1209,9 +1199,9 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   router.replace('/chat');
                 }
               }}
-              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#2B313D] transition-colors active:bg-[#F2F3F5]"
             >
-              <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
+              <ChevronLeft size={24} strokeWidth={2.2} />
             </button>
           )}
 
@@ -1219,20 +1209,20 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           <button
             type="button"
             onClick={openPartnerProfile}
-            className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12 min-w-0 active:scale-[0.98] transition-transform hover:bg-white"
+            className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[14px] px-1.5 transition-colors active:bg-[#F7F8FA]"
           >
             <div className="relative shrink-0">
-              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="w-9 h-9 rounded-full object-cover" />
+              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-9 w-9 rounded-full bg-[#F2F3F5] object-cover" />
             </div>
             <div className="flex-1 min-w-0 leading-tight">
               <div className="flex items-center gap-1.5">
-                <p className="text-[14px] font-bold text-gray-900 truncate">{chatPartner?.name || '...'}</p>
+                <p className="truncate text-[16px] font-bold text-[#2B313D]">{chatPartner?.name || '...'}</p>
                 {chatPartner && partnerRoleKnown && (
                   <span
-                    className="text-[9px] font-bold px-1.5 py-[1px] rounded shrink-0"
+                    className="shrink-0 rounded-full px-2 py-[2px] text-[10px] font-bold"
                     style={{
-                      color: partnerIsPro ? '#3180F7' : '#6B7280',
-                      backgroundColor: partnerIsPro ? '#EAF3FF' : '#F3F4F6',
+                      color: partnerIsPro ? '#3182F6' : '#51535C',
+                      backgroundColor: partnerIsPro ? '#EAF2FF' : '#F2F3F5',
                     }}
                   >
                     {partnerIsPro ? '사회자' : '고객'}
@@ -1246,9 +1236,9 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           <div className="relative shrink-0">
             <button
               onClick={() => setShowHeaderMenu(!showHeaderMenu)}
-              className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center active:scale-[0.88] transition-all hover:bg-white"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-[#8B95A1] transition-colors active:bg-[#F2F3F5]"
             >
-              <MoreVertical size={20} className="text-gray-600" />
+              <MoreVertical size={20} />
             </button>
           </div>
         </div>
@@ -1516,7 +1506,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onClick={async (e) => {
                           if (expired) { e.preventDefault(); return; }
@@ -1587,12 +1577,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       >
                         {msg.latitude !== undefined && msg.longitude !== undefined ? (
                           // Simple fallback for location - just show coordinates until NaverMapPreview loads
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
                             <MapPin size={18} />
                             <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         ) : (
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
                             <MapPin size={18} />
                             <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
@@ -1600,7 +1590,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#007AFF] text-white' : 'bg-white text-gray-900 shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1612,7 +1602,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                           type="button"
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => { e.stopPropagation(); handleVoicePlay(msg); }}
-                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20' : 'bg-[#007AFF]'}`}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform ${mine ? 'bg-white/20' : 'bg-[#3180F7]'}`}
                         >
                           {playingVoice === msg.id
                             ? <Pause size={16} className="text-white" />
@@ -1632,7 +1622,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                                   height: `${heights[idx]}%`,
                                   backgroundColor: mine
                                     ? (filled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.4)')
-                                    : (filled ? '#007AFF' : '#C7C7CC'),
+                                    : (filled ? '#3180F7' : '#C8CEDA'),
                                 }}
                               />
                             );
@@ -1646,9 +1636,9 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       <div
                         className={`max-w-full whitespace-pre-wrap break-words text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden [overflow-wrap:anywhere] ${
                           mine
-                            ? 'bg-[#007AFF] text-white rounded-[20px] rounded-br-[6px]'
-                            : 'bg-white text-gray-900 rounded-[20px] rounded-bl-[6px] shadow-[0_0.5px_1px_rgba(0,0,0,0.04)]'
-                        } ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#007AFF]/40' : ''}`}
+                            ? 'bg-[#3180F7] text-white rounded-[20px] rounded-br-[6px]'
+                            : 'bg-[#F2F3F5] text-[#2B313D] rounded-[20px] rounded-bl-[6px]'
+                        } ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
                         style={{
                           transformOrigin: mine ? 'right bottom' : 'left bottom',
                           WebkitTouchCallout: 'none',
@@ -1701,12 +1691,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         className="absolute inset-x-0 h-16 pointer-events-none z-20"
         style={{
           bottom: 0,
-          background: 'linear-gradient(to top, rgba(242,242,247,0.97) 0%, rgba(242,242,247,0) 100%)',
+          background: 'linear-gradient(to top, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0) 100%)',
         }}
       />
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
+      <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
         {/* 사회자가 등록해 둔 자주 묻는 질문 — 누르면 질문과 답이 바로 대화에 남는다 */}
         {!isPro && !isRecording && autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id)).length > 0 && (
           <div className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 sm:px-0">
@@ -1727,7 +1717,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             </div>
           </div>
         )}
-        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
+        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pb-1 pt-2 sm:px-0">
           {isRecording ? (
             // Recording UI
             <>
@@ -1782,12 +1772,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all hover:bg-white"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-transform active:scale-[0.9]"
               >
                 <Plus size={24} className="text-gray-600" />
               </button>
 
-              <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-[24px] border border-gray-200/60 bg-white/90 pl-5 pr-1.5 py-[7px] shadow-[0_4px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
+              <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-[20px] bg-[#F2F3F5] py-[7px] pl-4 pr-1.5">
                 <textarea
                   ref={inputRef}
                   rows={1}
