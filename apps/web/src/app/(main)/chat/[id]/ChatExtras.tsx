@@ -509,6 +509,41 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 }
 
 // ─── SystemMessageCard ───
+/** 견적 카드에 보여줄 행사일 — 시스템 페이로드에 없으면 견적 상세에서 끌어온다 */
+function formatQuoteEventDate(sys: SystemPayload, quoteDetail: any): string {
+  const raw =
+    sys.eventDate ||
+    quoteDetail?.request?.eventDate ||
+    quoteDetail?.eventDate ||
+    '';
+  if (!raw) return '사회자와 협의';
+  const date = new Date(raw);
+  const day = Number.isNaN(date.getTime())
+    ? String(raw)
+    : `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  const time = sys.eventTime || quoteDetail?.request?.eventTime || '';
+  return time ? `${day} ${time}` : day;
+}
+
+/**
+ * 직접 결제 유도 주의 안내.
+ *
+ * 안전결제를 피해 계좌로 직접 보내라고 하는 경우가 사고의 대부분이라,
+ * 견적 카드 뒤와 대화 중간중간에 같은 문구를 반복해서 깔아 둔다.
+ */
+export function SafePaymentNotice() {
+  return (
+    <div className="mx-2 my-2 rounded-[12px] bg-[#FFF4F4] px-4 py-3">
+      <p className="text-[12.5px] leading-[1.65] text-[#E5484D]">
+        ※ 주의. 상대방이 프리티풀 안전결제가 아닌 직접 결제를 유도하는 경우, 프리티풀에 신고해 주세요.{' '}
+        <Link href="/my/support" className="font-bold underline underline-offset-2">
+          신고하기
+        </Link>
+      </p>
+    </div>
+  );
+}
+
 export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false, refreshTick = 0 }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean; refreshTick?: number }) {
   const [isPaid, setIsPaid] = useState<boolean>(false);
   const [showQuoteDetail, setShowQuoteDetail] = useState(false);
@@ -563,332 +598,128 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
     const tpl = planTemplates.find((t) => t.planKey.toLowerCase() === planKey);
     const weddingTpl = getWeddingPlanTemplate(normalizeWeddingPlanKey(planKey));
     const planLabel = tpl?.label || weddingTpl?.label || (planKey ? planKey.charAt(0).toUpperCase() + planKey.slice(1) : '1부 예식');
-    const planColor = planKey === 'enterprise' ? '#F59E0B' : planKey === 'superior' || planKey === 'wedding_part12' ? '#8B5CF6' : '#3180F7';
 
     return (
       <>
+      {/* 안전 결제 카드 — 견적서를 보내면 이 카드가 대화에 남는다.
+          직접 송금 대신 플랫폼 결제로 유도하는 게 핵심이라, 무엇을·언제까지·얼마에
+          받는지를 한 장에 담고 결제 화면으로 바로 넘어가게 했다. */}
       <div
         ref={quoteRef}
         data-quote-card="true"
         data-near-center="false"
-        onClick={() => setShowQuoteDetail(true)}
-        className="quote-card-root my-2 ml-2 mr-auto max-w-[320px] cursor-pointer"
-        style={{
-          perspective: '650px',
-          perspectiveOrigin: '50% 45%',
-          transformStyle: 'preserve-3d',
-        }}
+        className="quote-card-root my-2 ml-2 mr-auto w-[min(320px,86%)] overflow-hidden rounded-[18px] bg-[#F2F3F5] animate-[bubblePop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]"
       >
-        <div className="flex items-center gap-4" style={{ transformStyle: 'preserve-3d' }}>
-          {/* ─── 좌측: 세로형 카드 컨테이너 (fly-in + float 합성) ─── */}
-          {/* 좌측으로 살짝 기울어진 래퍼 — 중앙일 때만 기울기 유지, 아니면 평면 */}
-          <div className="relative shrink-0 quote-card-tilt" style={{ transformStyle: 'preserve-3d' }}>
-          <div
-            className="relative quote-card-float"
-            style={{
-              width: 116,
-              height: 180,
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            {/* 카드 본체 — 프로필 사진으로 가득 찬 형태 */}
-            <div
-              className="absolute inset-0 rounded-[16px] overflow-hidden quote-card-body"
-              style={{
-                transformStyle: 'preserve-3d',
-                transformOrigin: 'center center',
-                boxShadow: '0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18)',
-                willChange: 'transform',
-                background: '#1F2937',
-              }}
-            >
-              {/* 프로필 사진 풀블리드 */}
-              {(() => {
-                const proImg = (sys as any)?.proImage
-                  || (isPro ? myProfileImage : chatPartner?.profileImageUrl)
-                  || '/images/default-profile.svg';
-                return (
-                  <img
-                    src={proImg}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
-                  />
-                );
-              })()}
+        <div className="px-4 pb-4 pt-4">
+          <p className="text-[17px] font-bold text-[#191F28]">프리티풀 안전 결제</p>
+          <p className="mt-1.5 text-[13px] leading-[1.55] text-[#8B95A1]">
+            행사 진행이 끝난 뒤 결제 대금이<br />
+            사회자에게 전달되기 때문에 안전하게 거래하실 수 있어요.
+          </p>
 
-              {/* 은은한 상단/하단 그라디언트 (사진 가독성 보조, 부유에 맞춰 진하기 변화) */}
-              <div
-                className="absolute inset-0 pointer-events-none quote-card-dim"
-                style={{
-                  borderRadius: 16,
-                  background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.3) 100%)',
-                }}
-              />
-
-              {/* 빛반사 shimmer — 자연스럽고 부드러운 빛번짐 (카드 안쪽으로만 clip) */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 16 }}>
-                <div
-                  className="absolute quote-card-shimmer"
-                  style={{
-                    inset: '-40% -50%',
-                    background: 'linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.04) 42%, rgba(255,255,255,0.10) 48%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.10) 52%, rgba(255,255,255,0.04) 58%, transparent 70%)',
-                    mixBlendMode: 'soft-light',
-                    filter: 'blur(3px)',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 바닥 그림자 — 전체적으로 더 옅게 */}
-            <div
-              className="absolute quote-card-shadow"
-              style={{
-                left: '50%',
-                bottom: -18,
-                width: 96,
-                height: 14,
-                background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0) 75%)',
-                transform: 'translateX(-50%)',
-                filter: 'blur(5px)',
-                pointerEvents: 'none',
-              }}
+          {/* 상품 — 썸네일 + 제목 */}
+          <div className="mt-4 flex items-start gap-3">
+            <img
+              src={(sys as any)?.proImage || (isPro ? myProfileImage : chatPartner?.profileImageUrl) || '/images/default-profile.svg'}
+              alt=""
+              className="h-[62px] w-[86px] shrink-0 rounded-[10px] bg-[#E4E7EB] object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
             />
-          </div>
+            <p className="min-w-0 flex-1 text-[14px] font-medium leading-[1.5] text-[#191F28]">
+              {sys.eventName || `${chatPartner?.name || '사회자'} 사회자가 행사를 진행해 드립니다`}
+            </p>
           </div>
 
-          {/* ─── 우측: 텍스트 스택 (순차 페이드인) + 결제 버튼 ─── */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1">
-            {/* 태그 (플랜명 + 추가옵션 수) — 알약 형태 / 살짝 딤드 */}
-            <div className="flex items-center gap-1" style={{ animation: 'quoteTextInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' }}>
-              <span
-                className="inline-block py-1 rounded-full leading-none"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  paddingLeft: 7,
-                  paddingRight: 7,
-                  color: 'rgba(0,0,0,0.7)',
-                  background: 'rgba(0,0,0,0.06)',
-                  border: '1px solid rgba(255,255,255,0.5)',
-                }}
-              >
+          {/* 조건 */}
+          <div className="mt-4 space-y-2.5">
+            <div>
+              <p className="text-[15px] font-bold text-[#191F28]">제공 서비스</p>
+              <p className="mt-1 text-[14px] text-[#333D4B]">
                 {planLabel}
-              </span>
-              {Array.isArray(sys.options) && sys.options.length > 0 && (
-                <span
-                  className="inline-block py-1 rounded-full leading-none"
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    paddingLeft: 6,
-                    paddingRight: 6,
-                    color: '#B45309',
-                    background: 'rgba(245, 158, 11, 0.12)',
-                    border: '1px solid rgba(245, 158, 11, 0.2)',
-                  }}
-                  title={sys.options.map((o) => `${o.name} +${o.price.toLocaleString()}원`).join(', ')}
-                >
-                  +{sys.options.length}
-                </span>
+                {Array.isArray(sys.options) && sys.options.length > 0 ? ` + 추가 ${sys.options.length}종` : ''}
+              </p>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-[15px] font-bold text-[#191F28]">행사일</p>
+              <p className="text-[14px] text-[#333D4B]">{formatQuoteEventDate(sys, quoteDetail)}</p>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-[15px] font-bold text-[#191F28]">금액</p>
+              <p className="text-[19px] font-bold tabular-nums text-[#191F28]">{formatKRW(sys.amount || 0)}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowQuoteDetail(true); }}
+            className="mt-1.5 flex items-center gap-1 text-[12px] text-[#A4ABBA]"
+          >
+            수수료 별도 안내
+            <span className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-[#C8CEDA] text-[10px] font-bold leading-none text-white">
+              ?
+            </span>
+          </button>
+
+          {/* 액션 */}
+          {!isPro && sys.quotationId ? (
+            isPaid ? (
+              <div className="mt-4 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[12px] bg-[#E9F8EF] text-[15px] font-bold text-[#12B76A]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.18" />
+                  <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                결제 완료
+              </div>
+            ) : isLatestQuote ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
+                }}
+                className="mt-4 h-[52px] w-full rounded-[12px] bg-[#191F28] text-[16px] font-bold text-white transition-transform active:scale-[0.99]"
+              >
+                거래 화면으로 이동
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="최신 견적서만 결제할 수 있어요"
+                className="mt-4 h-[52px] w-full cursor-not-allowed rounded-[12px] bg-[#E4E7EB] text-[15px] font-bold text-[#A4ABBA]"
+              >
+                만료된 견적
+              </button>
+            )
+          ) : null}
+
+          {isPro && sys.quotationId && (
+            <div
+              className={`mt-4 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[12px] text-[15px] font-bold ${
+                isPaid ? 'bg-[#E9F8EF] text-[#12B76A]' : 'bg-[#FFF6E5] text-[#D98A00]'
+              }`}
+            >
+              {isPaid ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.18" />
+                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  고객 결제 완료
+                </>
+              ) : (
+                <>
+                  <Clock size={15} />
+                  결제 대기 중
+                </>
               )}
             </div>
-            {/* 상품명 16pt weight 500 */}
-            <p
-              className="text-gray-900 leading-tight mt-0.5"
-              style={{
-                fontSize: 16,
-                fontWeight: 500,
-                animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.48s both',
-              }}
-            >
-              {sys.eventName || '행사 진행'}
-            </p>
-            {/* 금액 20pt weight 700 */}
-            <p
-              className="text-gray-900 tabular-nums"
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: '-0.02em',
-                animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.66s both',
-              }}
-            >
-              {formatKRW(sys.amount || 0)}
-            </p>
-            {!isPro && sys.quotationId && (
-              isPaid ? (
-                <div
-                  className="mt-2 self-start px-4 py-2.5 bg-emerald-50 text-emerald-600 text-[13px] font-bold inline-flex items-center gap-1.5"
-                  style={{ borderRadius: 12 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
-                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  결제완료
-                </div>
-              ) : isLatestQuote ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
-                  }}
-                  className="mt-2 self-start px-4 py-2.5 bg-[#3180F7] text-white text-[13px] font-bold active:scale-95 transition-transform shadow-[0_4px_12px_rgba(49,128,247,0.28)]"
-                  style={{ borderRadius: 12, animation: 'quoteTextInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.84s both' }}
-                >
-                  결제하기
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="mt-2 self-start px-4 py-2.5 bg-gray-100 text-gray-400 text-[13px] font-medium cursor-not-allowed"
-                  style={{ borderRadius: 12 }}
-                  title="최신 견적서만 결제 가능합니다"
-                >
-                  만료된 견적
-                </button>
-              )
-            )}
-            {/* 사회자 측 결제 상태 — 실시간 (15s 폴링 + focus 갱신) */}
-            {isPro && sys.quotationId && (
-              isPaid ? (
-                <div
-                  className="mt-2 self-start px-3.5 py-2 bg-emerald-50 text-emerald-600 text-[12px] font-bold inline-flex items-center gap-1.5"
-                  style={{ borderRadius: 12 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/>
-                    <path d="M8 12l3 3 5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  고객 결제완료
-                </div>
-              ) : (
-                <div
-                  className="mt-2 self-start px-3.5 py-2 bg-amber-50 text-amber-600 text-[12px] font-bold inline-flex items-center gap-1.5"
-                  style={{ borderRadius: 12 }}
-                >
-                  <Clock size={13} />
-                  결제 대기 중
-                </div>
-              )
-            )}
-          </div>
+          )}
         </div>
-        <style>{`
-          /* 카드 날아오기 — 2-3단계로 단순화해서 매우 자연스럽게 */
-          @keyframes quoteCardFly {
-            0% {
-              opacity: 0;
-              transform: translate3d(-260px, 10px, -220px) rotateY(72deg) rotateX(10deg) scale(0.55);
-              filter: blur(4px);
-            }
-            35% {
-              opacity: 1;
-              filter: blur(0);
-            }
-            100% {
-              opacity: 1;
-              /* 평면 상태로 착지 — 중앙이면 CSS rule 의 rotateY(32)/rotateX(8) 로 transition */
-              transform: translate3d(0, 0, 0) rotateY(0deg) rotateX(0deg) scale(1);
-              filter: blur(0);
-            }
-          }
-          .quote-card-root .quote-card-body {
-            animation: quoteCardFly 1.0s cubic-bezier(0.22, 1, 0.36, 1);
-          }
-          /* 기본 (중앙 아님) — 모든 3D/애니메이션 OFF, 평면 + 그림자 없음.
-             전환은 천천히 부드럽게 (뚝딱거리지 않게) */
-          .quote-card-root .quote-card-tilt {
-            transform: rotate(0deg);
-            transition: transform 1.1s cubic-bezier(0.4, 0, 0.15, 1);
-          }
-          .quote-card-root .quote-card-body {
-            transform: rotateY(0deg) rotateX(0deg);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            transition: transform 1.2s cubic-bezier(0.4, 0, 0.15, 1), box-shadow 1s cubic-bezier(0.4, 0, 0.15, 1);
-          }
-          .quote-card-root .quote-card-float { animation: none; }
-          .quote-card-root .quote-card-dim {
-            animation: none;
-            opacity: 0.5;
-            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1);
-          }
-          .quote-card-root .quote-card-shimmer {
-            animation: none;
-            opacity: 0;
-            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1);
-          }
-          .quote-card-root .quote-card-shadow {
-            animation: none;
-            opacity: 0;
-            transform: translateX(-50%) scaleX(0.7) scaleY(0.6);
-            filter: blur(2px);
-            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.15, 1), transform 0.9s cubic-bezier(0.4, 0, 0.15, 1), filter 0.9s ease;
-          }
-
-          /* 중앙 — 3D 기울기 + 부유/shimmer/shadow/dim 전부 ON */
-          .quote-card-root[data-near-center="true"] .quote-card-tilt {
-            transform: rotate(-4deg);
-          }
-          .quote-card-root[data-near-center="true"] .quote-card-body {
-            transform: rotateY(32deg) rotateX(8deg);
-            box-shadow: 0 14px 28px -12px rgba(0,0,0,0.18), 0 4px 10px -4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18);
-          }
-          .quote-card-root[data-near-center="true"] .quote-card-float {
-            animation: quoteCardFloat 4.5s ease-in-out 0.1s infinite alternate;
-          }
-          .quote-card-root[data-near-center="true"] .quote-card-dim {
-            animation: quoteCardDim 4.5s ease-in-out 0.1s infinite alternate;
-          }
-          .quote-card-root[data-near-center="true"] .quote-card-shimmer {
-            animation: quoteCardShimmer 7s cubic-bezier(0.45, 0, 0.55, 1) 0.6s infinite;
-            opacity: 1;
-          }
-          .quote-card-root[data-near-center="true"] .quote-card-shadow {
-            animation: quoteCardShadow 5s ease-in-out 0.1s infinite alternate;
-            opacity: 1;
-          }
-
-          /* 부유 — 더 확실하게 보이도록 진폭 증가 */
-          @keyframes quoteCardFloat {
-            0%   { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(0, -16px, 18px); }
-          }
-          /* 그림자 호흡 — 전체 옅게 */
-          @keyframes quoteCardShadow {
-            0%   { opacity: 0.72; transform: translateX(-50%) scaleX(0.6) scaleY(0.55); filter: blur(3px); }
-            100% { opacity: 0.3;  transform: translateX(-50%) scaleX(1.35) scaleY(1.25); filter: blur(9px); }
-          }
-          /* 빛반사 — 긴 쉼 + 은은한 페이드 인/아웃. 인위적인 "번쩍"이 아니라
-             햇빛이 사선으로 스며드는 느낌 */
-          @keyframes quoteCardShimmer {
-            0%   { transform: translate3d(-70%, -25%, 0); opacity: 0; }
-            25%  { opacity: 0; }
-            45%  { transform: translate3d(-10%, -5%, 0); opacity: 0.55; }
-            55%  { transform: translate3d(10%, 5%, 0); opacity: 0.55; }
-            75%  { transform: translate3d(70%, 25%, 0); opacity: 0; }
-            100% { transform: translate3d(70%, 25%, 0); opacity: 0; }
-          }
-          /* 딤 레이어 — 부유에 맞춰 은은하게 진해졌다 옅어짐 */
-          @keyframes quoteCardDim {
-            0%   { opacity: 0.5; }
-            100% { opacity: 1; }
-          }
-          /* 텍스트 — 우측에서 좌측으로 페이드인 (태그 전용) */
-          @keyframes quoteTextInRight {
-            0%   { opacity: 0; transform: translateX(14px); }
-            100% { opacity: 1; transform: translateX(0); }
-          }
-          /* 텍스트 — 아래에서 위로 부드럽게 */
-          @keyframes quoteTextInUp {
-            0%   { opacity: 0; transform: translateY(6px); }
-            100% { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
       </div>
+
+      {/* 직접 결제 유도 주의 — 견적 카드 뒤에 항상 붙는다 */}
+      <SafePaymentNotice />
       {showQuoteDetail && (
         <div
           className="fixed inset-0 z-[120] flex items-end bg-black/40"

@@ -16,6 +16,7 @@ import { isChatStickerUrl } from '@/lib/chat-stickers';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
+const SafePaymentNotice = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SafePaymentNotice })));
 
 // ── 채팅 메시지 localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ─────────────
 const MSG_CACHE_PREFIX = 'freetiful-chat-msg-cache-v1-';
@@ -1354,10 +1355,17 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.id || null;
             return dedupedMessages.map((msg, i) => {
             const showDate = shouldShowDateDivider(dedupedMessages, i);
+            // 직접 결제 유도 주의 — 대화가 길어져도 잊지 않도록 중간중간 다시 깔아 준다
+            const showSafetyNotice = i > 0 && i % 20 === 0;
 
             if (msg.type === 'system') {
               return (
                 <div key={msg.id}>
+                  {showSafetyNotice && (
+                    <Suspense fallback={null}>
+                      <SafePaymentNotice />
+                    </Suspense>
+                  )}
                   {showDate && (
                     <div className="text-center py-3">
                       <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
@@ -1378,6 +1386,11 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
             return (
               <div key={msg.id} id={`msg-${msg.id}`}>
+                {showSafetyNotice && (
+                  <Suspense fallback={null}>
+                    <SafePaymentNotice />
+                  </Suspense>
+                )}
                 {showDate && (
                   <div className="text-center py-3">
                     <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
