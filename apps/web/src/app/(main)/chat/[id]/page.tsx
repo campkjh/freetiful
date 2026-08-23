@@ -1453,15 +1453,6 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   onContextMenu={(e) => e.preventDefault()}
                 >
                   <div className="relative min-w-0 max-w-[78%]">
-                    {/* 자동응답으로 나간 메시지는 사람이 직접 쓴 것과 구분해 준다 */}
-                    {!mine && msg.autoReply && (
-                      <p className="mb-1 flex items-center gap-1 pl-1 text-[11px] font-semibold text-[#A4ABBA]">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                          <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="#A4ABBA" />
-                        </svg>
-                        자동응답 메시지
-                      </p>
-                    )}
                     {/* Message bubble */}
                     {msg.type === 'image' && isChatStickerUrl(msg.content) ? (
                       /* 이모티콘 — 사진과 달리 말풍선/전체보기 없이 이미지만 */
