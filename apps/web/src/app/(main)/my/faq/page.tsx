@@ -221,7 +221,7 @@ export default function FaqPage() {
         ))}
 
         {!loading && filtered.length === 0 && (
-          <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+          <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
             <EmptySearchIcon size={64} className="mb-3" />
             <p className="text-[15px] font-bold text-[#2B313D]">
               {faqs.length === 0 ? '등록된 FAQ가 없습니다' : '검색 결과가 없습니다'}

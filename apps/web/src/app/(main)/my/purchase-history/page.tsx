@@ -155,7 +155,7 @@ export default function PurchaseHistoryPage() {
           style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
         >
           {filtered.length === 0 ? (
-            <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+            <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
               <EmptyDocumentIcon size={64} className="mb-3" />
               <p className="text-[15px] font-bold text-[#2B313D]">구매 내역이 없습니다</p>
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">사회자를 섭외하면 이곳에서 확인할 수 있어요.</p>

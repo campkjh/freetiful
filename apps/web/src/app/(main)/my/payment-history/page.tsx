@@ -124,7 +124,7 @@ export default function PaymentHistoryPage() {
       ) : (
         <div className="space-y-3 px-4 pt-2">
           {!payments || payments.length === 0 ? (
-            <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+            <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
               <EmptyDocumentIcon size={64} className="mb-3" />
               <p className="text-[15px] font-bold text-[#2B313D]">결제 내역이 없습니다</p>
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">결제가 완료되면 이곳에서 확인할 수 있어요.</p>

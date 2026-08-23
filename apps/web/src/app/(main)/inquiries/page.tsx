@@ -390,7 +390,7 @@ export default function CustomerInquiriesPage() {
               ))}
             </div>
           ) : cards.length === 0 ? (
-            <div className="flex min-h-[46vh] flex-col items-center justify-center rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-6 py-16 text-center shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+            <div className="flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center">
               <EmptyDocumentIcon size={72} className="mb-4" />
               <p className="text-[17px] font-bold text-[#2B313D]">아직 문의한 사회자가 없습니다</p>
               <p className="mt-2 text-[14px] leading-6 text-[#A4ABBA]">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
@@ -402,7 +402,7 @@ export default function CustomerInquiriesPage() {
               </Link>
             </div>
           ) : visibleCards.length === 0 ? (
-            <div className="rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-6 py-16 text-center text-[13px] text-[#A4ABBA] shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+            <div className="px-6 py-24 text-center text-[13px] text-[#A4ABBA]">
               {statusTab} 상태인 문의가 없습니다
             </div>
           ) : (
@@ -414,39 +414,69 @@ export default function CustomerInquiriesPage() {
                     key={item.id}
                     type="button"
                     onClick={() => openInquiry(item)}
-                    className="group flex w-full items-center gap-4 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-200 hover:bg-[#FBFCFD]"
+                    className="group flex w-full flex-col gap-3 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-200 hover:bg-[#FBFCFD] lg:flex-row lg:items-center lg:gap-4"
                   >
-                    <img
-                      src={getProfileImageUrl(item.proImage, item.proName)}
-                      alt=""
-                      className="h-12 w-12 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
-                      loading="lazy"
-                    />
+                    {/* 윗줄 — 사회자 이름과 상태. 이름은 한 줄·한 폰트로 이어 쓴다 */}
+                    <div className="flex items-center gap-3 lg:min-w-0 lg:flex-1">
+                      <img
+                        src={getProfileImageUrl(item.proImage, item.proName)}
+                        alt=""
+                        className="h-11 w-11 shrink-0 rounded-full bg-[#F2F3F5] object-cover lg:h-12 lg:w-12"
+                        loading="lazy"
+                      />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-[15px] font-bold text-[#2B313D]">{item.proName}</span>
-                        <span className="shrink-0 text-[11px] text-[#D8DDE4]">·</span>
-                        <span className="truncate text-[12.5px] font-medium text-[#A4ABBA]">{item.category}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-bold text-[#2B313D]">
+                          {item.proName} {item.category}
+                        </p>
+
+                        {/* PC 는 폭이 넉넉해 한 줄로 붙인다 */}
+                        <p className="mt-1.5 hidden items-center gap-1.5 text-[13px] font-medium text-[#51535C] lg:flex">
+                          <PinLocationIcon size={13} className="shrink-0 text-[#C8CEDA]" />
+                          <span className="truncate">{item.location}</span>
+                        </p>
+                        <p className="mt-1 hidden items-center gap-1.5 text-[12px] text-[#A4ABBA] lg:flex">
+                          <CalendarIcon size={13} className="shrink-0 text-[#C8CEDA]" />
+                          <span className="truncate">{item.eventDate} · {item.eventTime}</span>
+                          <span className="shrink-0 text-[#D8DDE4]">·</span>
+                          <span className="shrink-0">{item.createdAt} 신청</span>
+                        </p>
+                        {item.status === '거절' && item.declineReason && (
+                          <p className="mt-2 hidden truncate text-[12px] text-[#E5484D] lg:block">
+                            거절 사유: {item.declineReason}
+                          </p>
+                        )}
                       </div>
 
-                      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-[#51535C]">
-                        <PinLocationIcon size={13} className="shrink-0 text-[#C8CEDA]" />
-                        <span className="truncate">{item.location}</span>
-                      </p>
-                      <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#A4ABBA]">
-                        <CalendarIcon size={13} className="shrink-0 text-[#C8CEDA]" />
-                        <span className="truncate">{item.eventDate} · {item.eventTime}</span>
-                        <span className="shrink-0 text-[#D8DDE4]">·</span>
-                        <span className="shrink-0">{item.createdAt} 신청</span>
-                      </p>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold lg:hidden ${getStatusTone(item.status)}`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
 
+                    {/* 모바일 — 한 줄에 다 우겨넣으면 '00.00 신청' 이 잘려서, 줄을 쌓는다 */}
+                    <div className="space-y-2 rounded-[16px] bg-[#F9FAFB] px-3.5 py-3 lg:hidden">
+                      <p className="flex items-start gap-2 text-[13px] font-semibold text-[#51535C]">
+                        <PinLocationIcon size={14} className="mt-[3px] shrink-0 text-[#C8CEDA]" />
+                        <span className="min-w-0 flex-1 break-keep">{item.location}</span>
+                      </p>
+                      <p className="flex items-start gap-2 text-[13px] font-semibold text-[#51535C]">
+                        <CalendarIcon size={14} className="mt-[3px] shrink-0 text-[#C8CEDA]" />
+                        <span className="min-w-0 flex-1 break-keep">{item.eventDate} · {item.eventTime}</span>
+                      </p>
+                      <p className="flex items-start gap-2 text-[12px] text-[#A4ABBA]">
+                        <ClockIcon size={14} className="mt-[2px] shrink-0 text-[#D8DDE4]" />
+                        <span className="min-w-0 flex-1 break-keep">{item.createdAt} 신청</span>
+                      </p>
                       {item.status === '거절' && item.declineReason && (
-                        <p className="mt-2 truncate text-[12px] text-[#E5484D]">거절 사유: {item.declineReason}</p>
+                        <p className="border-t border-[#EEF0F3] pt-2 text-[12px] leading-[1.6] text-[#E5484D]">
+                          거절 사유: {item.declineReason}
+                        </p>
                       )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
                       <span className={`rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${getStatusTone(item.status)}`}>
                         {item.status}
                       </span>

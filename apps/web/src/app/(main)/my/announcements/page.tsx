@@ -60,7 +60,7 @@ export default function AnnouncementsPage() {
           </div>
         )}
         {!loading && items.length === 0 && (
-          <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+          <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
             <EmptyDocumentIcon size={64} className="mb-3" />
             <p className="text-[15px] font-bold text-[#2B313D]">등록된 공지사항이 없습니다</p>
             <p className="mt-1.5 text-[13px] text-[#A4ABBA]">새로운 소식이 생기면 이곳에 알려드릴게요.</p>

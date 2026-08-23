@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pin, PinOff, Trash2, Archive, Search, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
+import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
 import { EmptySearchIcon, MailBoxIcon } from '@/components/icons/color';
 import ChatRoomView from './[id]/page';
@@ -411,7 +411,7 @@ export default function ChatListPage() {
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
     <>
-      <ul className="divide-y divide-gray-100">
+      <ul className="divide-y divide-[#F5F6F8]">
         <>
           {sorted.map((room) => {
             const hasUnread = room.unreadCount > 0;
@@ -425,8 +425,8 @@ export default function ChatListPage() {
                     isPC && selectedRoomId === room.id
                       ? 'bg-[#EAF2FF]'
                       : hasUnread
-                        ? 'bg-blue-50/40 hover:bg-blue-100/40'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-[#F5F9FF] hover:bg-[#EDF4FF]'
+                        : 'hover:bg-[#FBFCFD]'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
@@ -458,7 +458,7 @@ export default function ChatListPage() {
                     <div
                       className="pointer-events-none absolute inset-0"
                       style={{
-                        background: 'linear-gradient(90deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.03) 100%)',
+                        background: 'linear-gradient(90deg, rgba(49,128,247,0.07) 0%, rgba(49,128,247,0.02) 100%)',
                       }}
                       aria-hidden="true"
                     />
@@ -515,18 +515,18 @@ export default function ChatListPage() {
                     <>
                       <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
                         <div className="flex items-center gap-1 mb-0.5">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                            room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                          <span className={`shrink-0 rounded-full px-2 py-[3px] text-[10px] font-bold ${
+                            room.iAmPro ? 'bg-[#FFF6E5] text-[#D98A00]' : 'bg-[#EAF2FF] text-[#3182F6]'
                           }`}>
                             {room.iAmPro ? '고객' : 'PRO'}
                           </span>
-                          <p className="truncate text-[16px] font-semibold text-[#2B313D]">{room.otherUser.name}</p>
-                          <span className="ml-auto shrink-0 text-[14px] font-normal text-[#A4ABBA]">{room.lastMessageAt}</span>
+                          <p className="truncate text-[16px] font-bold text-[#2B313D]">{room.otherUser.name}</p>
+                          <span className="ml-auto shrink-0 text-[13px] text-[#A4ABBA]">{room.lastMessageAt}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`truncate pr-2 text-[14px] ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{room.unreadCount}</span>}
+                          <p className={`truncate pr-2 text-[14px] ${hasUnread ? 'font-semibold text-[#51535C]' : 'text-[#A4ABBA]'}`}>{room.lastMessage}</p>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {hasUnread && <span className="min-w-[20px] rounded-full bg-[#3180F7] px-1.5 py-0.5 text-center text-[11px] font-bold text-white">{room.unreadCount}</span>}
                           </div>
                         </div>
                       </Link>
@@ -538,7 +538,7 @@ export default function ChatListPage() {
                             className="shrink-0 p-1 overflow-hidden"
                             aria-label="고정 해제"
                           >
-                            <Pin size={16} className="text-gray-900 fill-gray-900" />
+                            <Pin size={16} className="fill-[#3180F7] text-[#3180F7]" />
                           </button>
                         )}
                       </>
@@ -668,46 +668,48 @@ export default function ChatListPage() {
 
       {/* ═══ Mobile ═══ */}
       <div data-native-chatlist-root className="lg:hidden bg-white min-h-screen pb-24">
-        <div data-native-chatlist-header className="px-4 pt-3 pb-2">
-          <div className="flex items-center justify-between h-[52px]">
-            <h1 className="text-[18px] font-bold text-gray-900">{isPro ? '고객 문의' : '채팅'}</h1>
+        <div data-native-chatlist-header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-2">
+          <div className="flex h-14 items-center justify-between">
+            <h1 className="text-[20px] font-bold text-[#2B313D]">{isPro ? '고객 문의' : '채팅'}</h1>
             <button
+              type="button"
               onClick={() => setShowSearch(!showSearch)}
-              className={`p-2 rounded-full transition-colors active:scale-90 ${showSearch ? 'bg-gray-100' : ''}`}
+              aria-label={showSearch ? '검색 닫기' : '검색'}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors active:scale-90 ${
+                showSearch ? 'bg-[#F2F3F5] text-[#2B313D]' : 'text-[#A4ABBA]'
+              }`}
             >
-              <>
-                {showSearch ? (
-                  <span
-                    key="x"
-                    className="block"
-                  >
-                    <X size={20} className="text-gray-500" />
-                  </span>
-                ) : (
-                  <span
-                    key="search"
-                    className="block"
-                  >
-                    <Search size={20} className="text-gray-500" />
-                  </span>
-                )}
-              </>
+              {showSearch ? <CloseIcon size={19} /> : <SearchIcon size={19} />}
             </button>
           </div>
-          <>
-            {showSearch && (
-              <div
-                key="search-input"
-                className="relative"
-              >
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 대화 내용 검색" className="w-full bg-gray-100 rounded-2xl pl-9 pr-9 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-gray-300" autoFocus />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X size={14} className="text-gray-400" /></button>}
-              </div>
-            )}
-          </>
+
+          {showSearch && (
+            <div className="relative mb-2">
+              <SearchIcon size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="이름 또는 대화 내용 검색"
+                autoFocus
+                className="h-12 w-full rounded-[14px] bg-[#F2F3F5] pl-11 pr-10 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] focus:bg-[#EDEFF2]"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="검색어 지우기"
+                  className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#A4ABBA] active:bg-[#E4E7EB]"
+                >
+                  <CloseIcon size={15} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(문의목록·새요청과 같은 결) */}
           <LayoutGroup id="chat-tabs-mobile">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
               {(isPro ? PRO_TABS : TABS).map((tab) => {
                 const active = isPro ? proActiveTab === tab : activeTab === tab;
                 return (
@@ -722,30 +724,27 @@ export default function ChatListPage() {
                       setEditMode(false);
                       setSelectedIds(new Set());
                     }}
-                    className={`relative shrink-0 px-4 py-2 rounded-full text-[14px] font-medium isolate active:scale-95 ${active ? 'text-white' : 'text-gray-500 bg-gray-100'}`}
-                    style={{ transition: 'color 0.25s ease, transform 0.15s ease' }}
+                    className={`relative flex shrink-0 flex-1 items-center justify-center rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                      active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA]'
+                    }`}
                   >
                     {active && (
                       <motion.span
                         layoutId="chat-tab-pill-mobile"
-                        className="absolute inset-0 bg-gray-900 rounded-full"
-                        style={{ zIndex: -1 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                        className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                       />
                     )}
-                    <span className="relative">{tab}</span>
+                    <span className="relative whitespace-nowrap">{tab}</span>
                   </button>
                 );
               })}
             </div>
           </LayoutGroup>
         </div>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <p
-            key={currentTab}
-            className="text-[13px] text-gray-400"
-          >
-            {currentTab} 채팅방 <span className="font-semibold text-gray-500">{sorted.length}</span>
+        <div className="px-5 pb-1 pt-3">
+          <p key={currentTab} className="text-[13px] text-[#A4ABBA]">
+            {currentTab} 채팅방 <span className="font-bold text-[#51535C]">{sorted.length}</span>
           </p>
         </div>
         <>
@@ -765,14 +764,14 @@ export default function ChatListPage() {
         {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
           loadTimedOut ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <p className="text-[14px] text-gray-400 text-center">채팅방을 불러오지 못했어요</p>
+              <p className="text-center text-[15px] font-bold text-[#2B313D]">채팅방을 불러오지 못했어요</p>
               <button
                 onClick={() => {
                   setLoadTimedOut(false);
                   setRoomsLoading(true);
                   fetchRooms({ limit: 50, force: true }).catch(() => {});
                 }}
-                className="px-5 py-2.5 bg-gray-900 text-white text-[14px] font-semibold rounded-2xl active:scale-95 transition-transform"
+                className="h-11 rounded-[14px] bg-[#3180F7] px-6 text-[14px] font-bold text-white transition-transform active:scale-95"
               >
                 다시 시도
               </button>
@@ -780,13 +779,13 @@ export default function ChatListPage() {
           ) : (
             <div className="space-y-0">
               {[1,2,3,4,5].map((i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 animate-pulse shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="h-4 w-24 bg-gray-100 rounded animate-pulse mb-2" />
-                    <div className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + i * 10}%` }} />
+                <div key={i} className="flex items-center gap-3 px-5 py-4">
+                  <div className="h-12 w-12 shrink-0 animate-pulse rounded-[20px] bg-[#F2F3F5]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 h-4 w-24 animate-pulse rounded-full bg-[#F2F3F5]" />
+                    <div className="h-3 animate-pulse rounded-full bg-[#F2F3F5]" style={{ width: `${50 + i * 10}%` }} />
                   </div>
-                  <div className="h-3 w-10 bg-gray-100 rounded animate-pulse shrink-0" />
+                  <div className="h-3 w-10 shrink-0 animate-pulse rounded-full bg-[#F2F3F5]" />
                 </div>
               ))}
             </div>
@@ -796,8 +795,8 @@ export default function ChatListPage() {
             {search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
               : <MailBoxIcon size={64} className="mx-auto mb-4" />}
-            <p className="text-gray-400 text-[14px]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
-            {!search && activeTab === '전체' && <Link href="/pros" className="text-gray-900 text-[14px] font-semibold mt-2 inline-block underline underline-offset-2">사회자 찾아보기</Link>}
+            <p className="text-[15px] font-bold text-[#2B313D]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
+            {!search && activeTab === '전체' && <Link href="/pros" className="mt-3 inline-flex h-11 items-center justify-center rounded-[14px] bg-[#3180F7] px-6 text-[14px] font-bold text-white">사회자 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}
       </div>
@@ -811,7 +810,7 @@ export default function ChatListPage() {
             onClick={() => setActionMenu(null)}
           />
           <div
-            className="fixed z-[60] bg-white/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/60 overflow-hidden min-w-[220px]"
+            className="fixed z-[60] min-w-[220px] overflow-hidden rounded-[20px] border border-[#EEF1F5] bg-white/95 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur-2xl"
             style={{
               left: Math.min(Math.max(16, actionMenu.x - 110), typeof window !== 'undefined' ? window.innerWidth - 236 : 0),
               top: Math.min(actionMenu.y - 20, typeof window !== 'undefined' ? window.innerHeight - 320 : 0),
@@ -821,16 +820,16 @@ export default function ChatListPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {[
-              { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-gray-800' },
-              { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-gray-800' },
-              { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-gray-800' },
-              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-red-500' },
+              { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-[#2B313D]' },
+              { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-[#2B313D]' },
+              { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-[#2B313D]' },
+              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-[#2B313D]' },
+              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-[#E5484D]' },
             ].map((item, idx) => (
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className={`flex items-center justify-between gap-3 px-4 py-3.5 text-[15px] hover:bg-gray-50 active:bg-gray-100 w-full font-medium ${idx > 0 ? 'border-t border-gray-100' : ''} ${item.className} ${item.className === 'text-red-500' ? 'hover:bg-red-50 active:bg-red-100' : ''}`}
+                className={`flex w-full items-center justify-between gap-3 px-5 py-3.5 text-[15px] font-semibold hover:bg-[#FBFCFD] active:bg-[#F2F3F5] ${idx > 0 ? 'border-t border-[#F5F6F8]' : ''} ${item.className}`}
                 style={{
                   animation: `chatActionItemFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${0.25 + idx * 0.04}s both`,
                 }}
