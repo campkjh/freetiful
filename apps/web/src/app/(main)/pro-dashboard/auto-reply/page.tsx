@@ -23,6 +23,7 @@ export default function AutoReplyPage() {
   const [quoteReply, setQuoteReply] = useState('');
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteEnabled, setQuoteEnabled] = useState(true);
+  const [autoApprove, setAutoApprove] = useState(false);
 
   useEffect(() => {
     autoReplyApi
@@ -35,6 +36,7 @@ export default function AutoReplyPage() {
         setQuoteReply(data.quoteReply || '');
         setQuoteAmount(data.quoteAmount ? String(data.quoteAmount) : '');
         setQuoteEnabled(data.quoteEnabled !== false);
+        setAutoApprove(Boolean(data.autoApprove));
         // 자동응답이 비어 있으면 이미 써 둔 프로필 FAQ 를 그대로 채워 준다
         setItems(
           data.items.length > 0
@@ -56,6 +58,7 @@ export default function AutoReplyPage() {
         quoteReply,
         quoteAmount: quoteAmount ? Number(quoteAmount.replace(/[^\d]/g, '')) : null,
         quoteEnabled,
+        autoApprove,
       });
       toast.success('저장했어요');
     } catch {
@@ -81,6 +84,28 @@ export default function AutoReplyPage() {
           질문들은 고객 화면에 버튼으로도 떠서 눌러 물어볼 수 있습니다. 사회자가 최근 3분 안에 직접 답한 방에는 끼어들지 않고,
           같은 답은 방마다 한 번만 나갑니다. 자동응답은 응답률과 평균 응답시간에 영향을 주지 않습니다.
         </p>
+
+        {/* 자동 승인 */}
+        <div>
+          <MySectionTitle>섭외 요청이 오면</MySectionTitle>
+          <div className={`${MY_CARD} p-5`}>
+            <label className="flex items-start justify-between gap-3">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-bold text-[#2B313D]">자동 승인</span>
+                <span className="mt-1 block text-[13px] leading-[1.7] text-[#8B95A1]">
+                  켜 두면 새 요청을 수락하지 않아도 대화방이 바로 열리고 인사말이 나갑니다.
+                  고객이 기다리지 않아도 되지만, 받을 수 없는 일정도 대화가 시작됩니다.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={autoApprove}
+                onChange={(e) => setAutoApprove(e.target.checked)}
+                className="mt-1 h-5 w-5 shrink-0 accent-[#3180F7]"
+              />
+            </label>
+          </div>
+        </div>
 
         {/* 인사말 */}
         <div>

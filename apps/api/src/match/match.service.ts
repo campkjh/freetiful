@@ -12,6 +12,7 @@ import { v4 as uuid } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
+import { ChatService } from '../chat/chat.service';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -62,6 +63,7 @@ export class MatchService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private chatRealtimeService: ChatRealtimeService,
+    private chatService: ChatService,
     private jwt: JwtService,
     private config: ConfigService,
   ) {}
@@ -206,6 +208,7 @@ export class MatchService {
         category.name,
         data.selectedProProfileIds,
         customerName,
+        userId,
       );
     }
 
@@ -368,6 +371,7 @@ export class MatchService {
     categoryName: string,
     selectedProProfileIds?: string[],
     customerName?: string,
+    customerUserId?: string,
   ) {
     let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
@@ -449,6 +453,21 @@ export class MatchService {
         )
         .catch(() => {});
     }
+    });
+
+    // 자동 승인을 켠 사회자는 기다리지 않고 바로 방을 열고 인사말을 보낸다.
+    // 한 번에 몰리지 않게 하나씩 순서대로 — 다수문의는 사회자 수가 많다.
+    setImmediate(() => {
+      void (async () => {
+        if (!customerUserId) return;
+        for (const target of validTargets) {
+          try {
+            await this.chatService.autoAcceptDelivery(target.userId, customerUserId, matchRequestId);
+          } catch {
+            // 한 명이 실패해도 나머지는 계속
+          }
+        }
+      })();
     });
 
     this.chatRealtimeService.emitMatchUpdated(

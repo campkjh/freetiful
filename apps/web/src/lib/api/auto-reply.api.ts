@@ -22,6 +22,8 @@ export interface AutoReplySettings {
   /** 적어 두면 답변과 함께 견적서까지 자동 발송 */
   quoteAmount: number | null;
   quoteEnabled: boolean;
+  /** 섭외 요청이 오면 승인 없이 바로 방을 열고 인사말을 보낸다 */
+  autoApprove: boolean;
   /** 이미 써 둔 프로필 FAQ — 자동응답이 비었을 때만 제안으로 내려온다 */
   faqSuggestions: { question: string; answer: string }[];
   suggestedQuestions: string[];
@@ -37,6 +39,7 @@ export const autoReplyApi = {
     quoteReply: string;
     quoteAmount: number | null;
     quoteEnabled: boolean;
+    autoApprove: boolean;
   }) =>
     apiClient.put<AutoReplySettings>(`${BASE}/me`, body).then((r) => r.data),
 

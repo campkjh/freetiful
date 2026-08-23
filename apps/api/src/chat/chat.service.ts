@@ -1207,6 +1207,28 @@ export class ChatService implements OnModuleInit {
     };
   }
 
+  /**
+   * 자동 승인 — 섭외 요청이 오면 사회자 대신 방을 열고 인사말까지 보낸다.
+   * 사회자가 '자동 승인' 을 켠 경우에만 돈다. 실패해도 요청 전달 자체는 그대로 간다.
+   */
+  async autoAcceptDelivery(proUserId: string, customerUserId: string, matchRequestId: string) {
+    const proProfile = await this.prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      select: { id: true, user: { select: { name: true } } },
+    });
+    if (!proProfile) return;
+    if (!(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return;
+
+    const room = await this.createRoomAsPro(proUserId, { customerUserId, matchRequestId } as any);
+    const roomId = (room as any)?.id;
+    if (!roomId) return;
+
+    const greeting = await this.autoReplyService.greetingFor(proProfile.id, proProfile.user?.name);
+    if (greeting) {
+      await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
+    }
+  }
+
   /** 사람이 치는 속도쯤으로 — 글자 수에 비례하되 0.9~3.2초 사이 */
   private typingDelayFor(text: string) {
     return Math.min(3200, Math.max(900, Math.round(text.length * 38)));

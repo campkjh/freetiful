@@ -87,12 +87,14 @@ export class AutoReplyService {
 
     const greetingRow = rows.find((row) => row.kind === 'greeting');
     const quoteRow = rows.find((row) => row.kind === 'quote');
+    const autoApproveRow = rows.find((row) => row.kind === 'autoapprove');
     const items = rows.filter((row) => row.kind === 'qa');
 
     return {
       greeting: greetingRow?.answer ?? '',
       greetingEnabled: greetingRow ? greetingRow.isEnabled : true,
       defaultGreeting: defaultGreeting(user?.name),
+      autoApprove: Boolean(autoApproveRow?.isEnabled),
       quoteReply: quoteRow?.answer ?? '',
       quoteAmount: quoteRow?.amount ?? null,
       quoteEnabled: quoteRow ? quoteRow.isEnabled : true,
@@ -129,6 +131,7 @@ export class AutoReplyService {
     const quoteAmountRaw = Number((body as any).quoteAmount);
     const quoteAmount = Number.isFinite(quoteAmountRaw) && quoteAmountRaw > 0 ? Math.round(quoteAmountRaw) : null;
     const quoteEnabled = (body as any).quoteEnabled !== false;
+    const autoApprove = (body as any).autoApprove === true;
 
     await this.prisma.$transaction([
       this.prisma.proAutoReply.deleteMany({ where: { proProfileId } }),
@@ -146,6 +149,9 @@ export class AutoReplyService {
             displayOrder: index,
             isEnabled: true,
           })),
+          ...(autoApprove
+            ? [{ proProfileId, kind: 'autoapprove', answer: 'on', isEnabled: true, displayOrder: 0 }]
+            : []),
           ...(quoteReply
             ? [{
                 proProfileId,
@@ -253,6 +259,15 @@ export class AutoReplyService {
       if (hit) return pick(hit, `intent:${intent.key}`);
     }
     return null;
+  }
+
+  /** 자동 승인 — 켜 두면 섭외 요청이 오는 즉시 방을 열고 인사말을 보낸다 */
+  async autoApproveEnabled(proProfileId: string) {
+    const row = await this.prisma.proAutoReply.findFirst({
+      where: { proProfileId, kind: 'autoapprove' },
+      select: { isEnabled: true },
+    });
+    return Boolean(row?.isEnabled);
   }
 
   /** 방이 열릴 때 내보낼 인사말 — 꺼져 있으면 null */
