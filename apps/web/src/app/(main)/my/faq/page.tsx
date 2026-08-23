@@ -3,7 +3,52 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronDown, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { faqApi, type Faq } from '@/lib/api/faq.api';
+
+/**
+ * 답변 안에 약관 이름이 나오면 눌러서 바로 열 수 있게 링크로 바꾼다.
+ *
+ * "자세한 내용은 홈화면의 플랫폼 환불규정을 확인해주세요" 같은 답변이 그냥 글자라서,
+ * 고객이 규정을 보려면 홈 맨 아래까지 스크롤해 찾아야 했다.
+ */
+const ANSWER_LINKS: { re: RegExp; href: string }[] = [
+  { re: /플랫폼\s?환불\s?규정|환불\s?규정/g, href: '/terms/refund' },
+  { re: /서비스\s?이용약관|이용약관/g, href: '/terms/service' },
+  { re: /개인정보\s?처리방침|개인정보\s?수집\s?및\s?이용약관/g, href: '/terms/privacy' },
+];
+
+function renderAnswer(text: string) {
+  const nodes: React.ReactNode[] = [];
+  let rest = text;
+  let key = 0;
+  while (rest) {
+    let best: { index: number; length: number; href: string } | null = null;
+    for (const { re, href } of ANSWER_LINKS) {
+      re.lastIndex = 0;
+      const found = re.exec(rest);
+      if (found && found[0] && (!best || found.index < best.index)) {
+        best = { index: found.index, length: found[0].length, href };
+      }
+    }
+    if (!best) {
+      nodes.push(rest);
+      break;
+    }
+    if (best.index > 0) nodes.push(rest.slice(0, best.index));
+    nodes.push(
+      <Link
+        key={key++}
+        href={best.href}
+        className="font-bold text-[#3180F7] underline underline-offset-2"
+      >
+        {rest.slice(best.index, best.index + best.length)}
+      </Link>,
+    );
+    rest = rest.slice(best.index + best.length);
+  }
+  return nodes;
+}
 
 interface Section {
   category: string;
@@ -159,7 +204,7 @@ export default function FaqPage() {
                     >
                       <div className="mx-4 border-t border-gray-100" />
                       <p className="px-4 pt-3 pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">
-                        {item.answer}
+                        {renderAnswer(item.answer)}
                       </p>
                     </div>
                   </div>
