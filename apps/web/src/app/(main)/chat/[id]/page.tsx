@@ -1306,8 +1306,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
             return (
             <div
-              className="sticky z-10 mb-4"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
+              className="sticky z-10 mb-3 -mt-[22px]"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 58px)' }}
             >
               <div className="overflow-hidden rounded-[20px] border-[0.6px] border-[#E9EDF3] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
                 {/* 접힌 상태에서도 무슨 행사·얼마인지는 보이게 */}
@@ -1810,7 +1810,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               {isPro && (
                 <button
                   onClick={() => setShowQuoteModal(true)}
-                  className="h-12 px-4 rounded-full bg-[#3180F7] text-white shadow-[0_4px_24px_rgba(49,128,247,0.25)] border border-blue-400/30 flex items-center justify-center gap-1.5 shrink-0 active:scale-[0.92] transition-all hover:bg-[#1f6fe5]"
+                  className="flex h-[50px] shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E4E7EB] bg-white px-4 text-[#51535C] transition-transform active:scale-[0.92]"
                   title="견적서 보내기"
                 >
                   <FileSignature size={18} />
