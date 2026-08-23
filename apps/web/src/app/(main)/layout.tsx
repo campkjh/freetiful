@@ -89,6 +89,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/my\/.+/,
   /^\/notifications/,
   /^\/pro-register/,
+  /^\/pro-dashboard\/auto-reply/,
   /^\/pros$/,
   /^\/businesses$/,
   /^\/biz/,

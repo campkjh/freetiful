@@ -2167,24 +2167,24 @@ export default function ChatExtras(props: ChatExtrasProps) {
     {
       title: '사진 · 영상',
       items: [
-        { icon: <Camera size={22} />, label: '카메라', action: () => { setShowAttach(false); setShowCameraChoice(true); } },
-        { icon: <ImageIcon size={22} />, label: '사진', action: () => fileInputRef.current?.click() },
-        { icon: <Video size={22} />, label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
+        { icon: <img src="/icons/chat-attach/camera.svg" alt="" width={24} height={24} className="shrink-0" />, label: '카메라', action: () => { setShowAttach(false); setShowCameraChoice(true); } },
+        { icon: <img src="/icons/chat-attach/picture.svg" alt="" width={24} height={24} className="shrink-0" />, label: '사진', action: () => fileInputRef.current?.click() },
+        { icon: <img src="/icons/chat-attach/video.svg" alt="" width={24} height={24} className="shrink-0" />, label: '동영상', action: () => { setShowAttach(false); pickFilesViaInput({ accept: 'video/*', multiple: true }, (files) => { (async () => { for (const f of files) await handleImageSend(f); })(); }); } },
       ],
     },
     {
       title: isPro ? '업무' : '그 외',
       items: [
-        ...(isPro ? [{ icon: <FileText size={22} />, label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
-        { icon: <Smile size={22} />, label: '이모티콘', action: () => { setShowAttach(false); setShowStickers(true); } },
+        ...(isPro ? [{ icon: <img src="/icons/chat-attach/quote.svg" alt="" width={24} height={24} className="shrink-0" />, label: '견적서 발송', action: () => { setShowAttach(false); setShowQuoteModal(true); } }] : []),
+        { icon: <img src="/icons/chat-attach/emoji.svg" alt="" width={24} height={24} className="shrink-0" />, label: '이모티콘', action: () => { setShowAttach(false); setShowStickers(true); } },
       ],
     },
   ];
 
   // '카메라' 를 눌렀을 때 뜨는 2차 선택 — 사진 촬영 / 동영상 촬영
   const CAMERA_CHOICE_ITEMS = [
-    { icon: <Camera size={22} />, label: '사진 촬영', action: () => { pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
-    { icon: <Video size={22} />, label: '동영상 촬영', action: () => { pickFilesViaInput({ accept: 'video/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
+    { icon: <img src="/icons/chat-attach/camera.svg" alt="" width={24} height={24} className="shrink-0" />, label: '사진 촬영', action: () => { pickFilesViaInput({ accept: 'image/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
+    { icon: <img src="/icons/chat-attach/video.svg" alt="" width={24} height={24} className="shrink-0" />, label: '동영상 촬영', action: () => { pickFilesViaInput({ accept: 'video/*', capture: 'environment' }, (files) => { if (files[0]) handleImageSend(files[0]); }); } },
   ];
 
   const mentionList = chatPartner

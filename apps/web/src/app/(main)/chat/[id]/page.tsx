@@ -479,6 +479,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
   const visibleAutoReplyItems = autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id));
   const hasAutoReplyChips = !isPro && visibleAutoReplyItems.length > 0;
+  const showQuoteInfo = isPro && roomMeta?.latestQuotation?.status !== 'paid' && Boolean(roomMeta?.matchRequest || roomMeta?.latestQuotation);
 
   const askAutoReply = useCallback(async (itemId: string) => {
     if (askingAutoReply) return;
@@ -1278,6 +1279,83 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         </div>
       )}
 
+      {/* ─── 고객 견적 정보 (헤더 바로 아래 고정) ─── */}
+      <div
+        className="absolute left-3 right-3 pointer-events-auto"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 60px)', zIndex: 25 }}
+      >
+        <div className="mx-auto w-full max-w-[680px]">
+      {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
+        const mr = roomMeta?.matchRequest;
+        const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+        // 행사 시각은 벽시계 값이라 시간대 변환하면 안 됨(로컬 변환 시 KST 에서 +9h 밀림)
+        const fmtTime = formatEventTime;
+        const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
+        const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
+        const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
+        const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
+        const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
+        return (
+        <div
+          className=""
+        >
+          <div className="overflow-hidden rounded-[20px] border-[0.6px] border-[#E9EDF3] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
+            {/* 접힌 상태에서도 무슨 행사·얼마인지는 보이게 */}
+            <button
+              type="button"
+              onClick={() => setQuoteInfoOpen((prev) => !prev)}
+              className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors active:bg-[#FBFCFD]"
+            >
+              <FileText size={17} className="shrink-0 text-[#3180F7]" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-bold text-[#8B95A1]">고객 견적 정보</span>
+                <span className="mt-0.5 block truncate text-[14px] font-bold text-[#2B313D]">{eventName}</span>
+              </span>
+              {roomMeta.latestQuotation?.amount != null && (
+                <span className="shrink-0 text-[15px] font-bold tabular-nums text-[#2B313D]">
+                  {Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원
+                </span>
+              )}
+              <ChevronDownIcon
+                size={18}
+                className={`shrink-0 text-[#C8CEDA] transition-transform duration-300 ${quoteInfoOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <div
+              className="overflow-hidden transition-all duration-300 ease-out"
+              style={{ maxHeight: quoteInfoOpen ? 240 : 0, opacity: quoteInfoOpen ? 1 : 0 }}
+            >
+              <div className="mx-4 border-t border-[#F2F4F7]" />
+              <div className="space-y-2 px-4 pb-3.5 pt-3">
+                <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
+                  <CalendarCheck size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
+                  <span className="min-w-0 flex-1">
+                    {eventDate
+                      ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim()
+                      : '일정 미입력'}
+                  </span>
+                </p>
+                {eventLocation && (
+                  <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
+                    <MapPin size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
+                    <span className="min-w-0 flex-1 break-keep">{eventLocation}</span>
+                  </p>
+                )}
+                {planLabel && (
+                  <span className="inline-block rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[12px] font-bold text-[#3182F6]">
+                    {planLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+        </div>
+      </div>
+
       {/* ─── Messages ─── */}
       <div
         ref={scrollContainerRef}
@@ -1289,80 +1367,13 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
             ? (scheduleBannerCollapsed ? 134 : 220)
-            : 80,
+            : showQuoteInfo
+              ? (quoteInfoOpen ? 250 : 136)
+              : 80,
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
         <div className="mx-auto w-full max-w-[680px]">
-          {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
-            const mr = roomMeta?.matchRequest;
-            const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-            // 행사 시각은 벽시계 값이라 시간대 변환하면 안 됨(로컬 변환 시 KST 에서 +9h 밀림)
-            const fmtTime = formatEventTime;
-            const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
-            const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
-            const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
-            const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
-            const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
-            return (
-            <div
-              className="sticky z-10 mb-3 -mt-[22px]"
-              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 58px)' }}
-            >
-              <div className="overflow-hidden rounded-[20px] border-[0.6px] border-[#E9EDF3] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
-                {/* 접힌 상태에서도 무슨 행사·얼마인지는 보이게 */}
-                <button
-                  type="button"
-                  onClick={() => setQuoteInfoOpen((prev) => !prev)}
-                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors active:bg-[#FBFCFD]"
-                >
-                  <FileText size={17} className="shrink-0 text-[#3180F7]" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[12px] font-bold text-[#8B95A1]">고객 견적 정보</span>
-                    <span className="mt-0.5 block truncate text-[14px] font-bold text-[#2B313D]">{eventName}</span>
-                  </span>
-                  {roomMeta.latestQuotation?.amount != null && (
-                    <span className="shrink-0 text-[15px] font-bold tabular-nums text-[#2B313D]">
-                      {Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원
-                    </span>
-                  )}
-                  <ChevronDownIcon
-                    size={18}
-                    className={`shrink-0 text-[#C8CEDA] transition-transform duration-300 ${quoteInfoOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                <div
-                  className="overflow-hidden transition-all duration-300 ease-out"
-                  style={{ maxHeight: quoteInfoOpen ? 240 : 0, opacity: quoteInfoOpen ? 1 : 0 }}
-                >
-                  <div className="mx-4 border-t border-[#F2F4F7]" />
-                  <div className="space-y-2 px-4 pb-3.5 pt-3">
-                    <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
-                      <CalendarCheck size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
-                      <span className="min-w-0 flex-1">
-                        {eventDate
-                          ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim()
-                          : '일정 미입력'}
-                      </span>
-                    </p>
-                    {eventLocation && (
-                      <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
-                        <MapPin size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
-                        <span className="min-w-0 flex-1 break-keep">{eventLocation}</span>
-                      </p>
-                    )}
-                    {planLabel && (
-                      <span className="inline-block rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[12px] font-bold text-[#3182F6]">
-                        {planLabel}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            );
-          })()}
           {messagesLoading && messages.length === 0 && (
             <div className="space-y-4 pt-4">
               {[1,2,3,4,5].map((i) => (

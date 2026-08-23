@@ -59,7 +59,7 @@ export default function AutoReplyPage() {
     'w-full rounded-[14px] bg-[#F2F3F5] px-4 py-3 text-[15px] font-medium text-[#2B313D] outline-none transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] focus:bg-[#EDEFF2]';
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-white pb-32 lg:pb-16" style={{ letterSpacing: '-0.02em' }}>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-16" style={{ letterSpacing: '-0.02em' }}>
       <MyDetailHeader title="자동응답 관리" />
 
       <div className="space-y-5 px-4 pt-2">
