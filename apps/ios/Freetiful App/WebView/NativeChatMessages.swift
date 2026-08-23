@@ -91,7 +91,7 @@ final class NativeChatMessagesView: UIView, UITableViewDataSource, UITableViewDe
 
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = UIColor(red: 0.969, green: 0.973, blue: 0.980, alpha: 1) // #F7F8FA
+        backgroundColor = .white // 웹 채팅방과 같은 흰 바탕
 
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
@@ -402,7 +402,7 @@ final class NativeChatBubbleCell: UITableViewCell {
         let mine = m.mine
         bubble.backgroundColor = mine
             ? UIColor(red: 0.192, green: 0.502, blue: 0.969, alpha: 1) // #3180F7
-            : UIColor(white: 0.92, alpha: 1)
+            : UIColor(red: 0.949, green: 0.953, blue: 0.961, alpha: 1) // #F2F3F5
         messageLabel.textColor = mine ? .white : UIColor(white: 0.1, alpha: 1)
         messageLabel.text = displayText(m)
         bubble.alpha = m.pending ? 0.6 : 1.0
@@ -980,12 +980,12 @@ final class NativeChatFileCell: UITableViewCell {
         fileDisplayName = m.fileName
         nameLabel.text = m.fileName.isEmpty ? "파일" : m.fileName
         if m.mine {
-            bubble.backgroundColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+            bubble.backgroundColor = UIColor(red: 0.192, green: 0.502, blue: 0.969, alpha: 1) // #3180F7
             icon.tintColor = .white
             nameLabel.textColor = .white
         } else {
-            bubble.backgroundColor = .white
-            icon.tintColor = UIColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1)
+            bubble.backgroundColor = UIColor(red: 0.949, green: 0.953, blue: 0.961, alpha: 1) // #F2F3F5
+            icon.tintColor = UIColor(red: 0.192, green: 0.502, blue: 0.969, alpha: 1) // #3180F7
             nameLabel.textColor = UIColor(white: 0.1, alpha: 1)
         }
         timeLabel.text = NativeChatFileCell.formatTime(m.createdAt)
