@@ -38,6 +38,12 @@ export class ChatRealtimeService {
     }
   }
 
+  /** 자동응답이 답을 준비하는 동안 상대 화면에 '입력 중' 을 띄운다 */
+  emitTyping(roomId: string, userId: string, isTyping: boolean) {
+    if (!this.server) return;
+    this.server.to(`room:${roomId}`).emit('userTyping', { userId, isTyping });
+  }
+
   emitToUsers(userIds: Array<string | null | undefined>, event: string, data: unknown) {
     for (const userId of new Set(userIds.filter(Boolean) as string[])) {
       this.emitToUser(userId, event, data);

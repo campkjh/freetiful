@@ -2067,3 +2067,9 @@ html[data-embedded='1'] [data-native-back-header] {
   .chat-empty-bubbles .ceb-dark-ghost,
   .chat-empty-bubbles .ceb-blue-ghost { opacity: 0; }
 }
+
+/* 상대가 입력 중 — 말풍선 안의 점 세 개 */
+@keyframes typingDot {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}

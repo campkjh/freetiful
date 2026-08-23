@@ -1207,6 +1207,49 @@ export class ChatService implements OnModuleInit {
     };
   }
 
+  /** 사람이 치는 속도쯤으로 — 글자 수에 비례하되 0.9~3.2초 사이 */
+  private typingDelayFor(text: string) {
+    return Math.min(3200, Math.max(900, Math.round(text.length * 38)));
+  }
+
+  /**
+   * 자동응답 한 덩어리를 사람처럼 보낸다 — '입력 중' 을 띄우고, 잠깐 뜸을 들이고, 문단은 나눠서.
+   * 버튼을 눌러 받는 안내문이 아니라 사회자가 직접 답하는 것처럼 보이는 게 목적이다.
+   */
+  private async sendAsHuman(
+    roomId: string,
+    proUserId: string,
+    text: string,
+    meta: Record<string, unknown>,
+  ) {
+    // 빈 줄로 나뉜 문단은 따로 보낸다(한 덩어리로 오면 붙여넣기처럼 보인다)
+    const chunks = text
+      .split(/\n{2,}/)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    const memberIds = await this.getRoomMemberIds(roomId);
+
+    for (const [index, chunk] of chunks.entries()) {
+      this.chatRealtimeService.emitTyping(roomId, proUserId, true);
+      await new Promise((resolve) => setTimeout(resolve, this.typingDelayFor(chunk)));
+      this.chatRealtimeService.emitTyping(roomId, proUserId, false);
+
+      const sent = await this.sendMessage(roomId, proUserId, {
+        type: 'text' as any,
+        content: chunk,
+        metadata: { ...meta, autoReplyPart: index },
+      } as any);
+      await this.chatRealtimeService.emitPersistedMessage(roomId, (sent as any).id, {
+        notifyUserIds: memberIds,
+        roomUpdatedUserIds: memberIds,
+        unreadUserIds: memberIds.filter((id) => id !== proUserId),
+        dashboardUserIds: memberIds,
+      });
+    }
+    return memberIds;
+  }
+
   /**
    * 고객이 보낸 말에 사회자 자동응답을 대신 내보낸다(백그라운드).
    *
@@ -1258,17 +1301,9 @@ export class ChatService implements OnModuleInit {
         const match = await this.autoReplyService.matchFor(room.proProfileId, text, room.user?.name);
         if (!match || usedIds.has(match.id)) return;
 
-        const replied = await this.sendMessage(roomId, proUserId, {
-          type: 'text' as any,
-          content: match.answer,
-          metadata: { autoReply: true, autoReplyId: match.id },
-        } as any);
-        const memberIds = await this.getRoomMemberIds(roomId);
-        await this.chatRealtimeService.emitPersistedMessage(roomId, (replied as any).id, {
-          notifyUserIds: memberIds,
-          roomUpdatedUserIds: memberIds,
-          unreadUserIds: memberIds.filter((id) => id !== proUserId),
-          dashboardUserIds: memberIds,
+        const memberIds = await this.sendAsHuman(roomId, proUserId, match.answer, {
+          autoReply: true,
+          autoReplyId: match.id,
         });
 
         // 견적 자동응답에 금액이 적혀 있으면 견적서까지 자동으로 보낸다
@@ -1343,18 +1378,7 @@ export class ChatService implements OnModuleInit {
       try {
         const greeting = await this.autoReplyService.greetingFor(proProfileId, proName);
         if (!greeting) return;
-        const message = await this.sendMessage(roomId, proUserId, {
-          type: 'text' as any,
-          content: greeting,
-          metadata: { autoReply: true },
-        } as any);
-        const memberIds = await this.getRoomMemberIds(roomId);
-        await this.chatRealtimeService.emitPersistedMessage(roomId, message.id, {
-          notifyUserIds: memberIds,
-          roomUpdatedUserIds: memberIds,
-          unreadUserIds: memberIds.filter((id) => id !== proUserId),
-          dashboardUserIds: memberIds,
-        });
+        await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
       } catch (error) {
         console.warn(`인사말 자동응답 실패 room=${roomId}: ${error}`);
       }

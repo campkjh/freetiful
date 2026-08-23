@@ -19,8 +19,6 @@ import {
 import { ChevronDownIcon } from '@/components/icons/mono';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
-import toast from 'react-hot-toast';
-import { autoReplyApi } from '@/lib/api/auto-reply.api';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
@@ -463,37 +461,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const partnerIsPro = iAmProInRoom === false;
   const partnerProfileId = chatPartner?.proProfileId || chatPartner?.id;
 
-  // ─── 사회자 자동응답 추천 질문 (고객 화면에만) ───
-  const [autoReplyItems, setAutoReplyItems] = useState<{ id: string; question: string }[]>([]);
-  const [askedAutoReplyIds, setAskedAutoReplyIds] = useState<string[]>([]);
-  const [askingAutoReply, setAskingAutoReply] = useState(false);
-  useEffect(() => {
-    if (isPro || !partnerIsPro || !partnerProfileId) return;
-    let alive = true;
-    autoReplyApi
-      .getPublic(partnerProfileId)
-      .then((items) => { if (alive) setAutoReplyItems(items); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [isPro, partnerIsPro, partnerProfileId]);
+  // 자동응답이 답을 준비하는 동안에도 '입력 중' 이 뜬다 — 사람이 치는 것처럼 보이게
+  const typingUsers = useChatStore((state) => state.typingUsers);
+  const partnerTyping = Array.from(typingUsers.entries()).some(([uid, on]) => on && uid !== MY_ID);
 
-  const visibleAutoReplyItems = autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id));
-  const hasAutoReplyChips = !isPro && visibleAutoReplyItems.length > 0;
   const showQuoteInfo = isPro && roomMeta?.latestQuotation?.status !== 'paid' && Boolean(roomMeta?.matchRequest || roomMeta?.latestQuotation);
 
-  const askAutoReply = useCallback(async (itemId: string) => {
-    if (askingAutoReply) return;
-    setAskingAutoReply(true);
-    setAskedAutoReplyIds((prev) => [...prev, itemId]);
-    try {
-      await autoReplyApi.ask(roomId, itemId);
-    } catch {
-      setAskedAutoReplyIds((prev) => prev.filter((id) => id !== itemId));
-      toast.error('잠시 후 다시 시도해주세요');
-    } finally {
-      setAskingAutoReply(false);
-    }
-  }, [askingAutoReply, roomId]);
   const openPartnerProfile = useCallback(() => {
     if (partnerIsPro && partnerProfileId) {
       router.push(`/pros/${partnerProfileId}`);
@@ -1362,7 +1335,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
-          paddingBottom: hasAutoReplyChips ? 132 : 80,
+          paddingBottom: 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1738,6 +1711,19 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             );
           });
           })()}
+          {partnerTyping && (
+            <div className="mb-[6px] flex justify-start">
+              <div className="flex items-center gap-[5px] rounded-[20px] rounded-bl-[6px] bg-[#F2F3F5] px-4 py-[14px]">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="block h-[7px] w-[7px] rounded-full bg-[#A4ABBA]"
+                    style={{ animation: `typingDot 1.1s ease-in-out ${i * 0.16}s infinite` }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -1753,28 +1739,6 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
       <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
-        {/* 사회자가 등록해 둔 자주 묻는 질문 — 누르면 질문과 답이 바로 대화에 남는다 */}
-        {hasAutoReplyChips && !isRecording && (
-          <div
-            className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 pt-4 sm:px-0"
-            style={{ background: 'linear-gradient(to top, #fff 42%, rgba(255,255,255,0) 100%)' }}
-          >
-            <div className="scrollbar-hide flex gap-1.5 overflow-x-auto">
-              {visibleAutoReplyItems
-                .map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => askAutoReply(item.id)}
-                    disabled={askingAutoReply}
-                    className="shrink-0 rounded-full border border-[#E4E7EB] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#51535C] transition-transform active:scale-95 disabled:opacity-60"
-                  >
-                    {item.question}
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 bg-white px-3 pointer-events-auto pb-1 pt-2 sm:px-0">
           {isRecording ? (
             // Recording UI
