@@ -1282,7 +1282,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       {/* ─── 고객 견적 정보 (헤더 바로 아래 고정) ─── */}
       <div
         className="absolute left-3 right-3 pointer-events-auto"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 60px)', zIndex: 25 }}
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 64px)', zIndex: 25 }}
       >
         <div className="mx-auto w-full max-w-[680px]">
       {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
