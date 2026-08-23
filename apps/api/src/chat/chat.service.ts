@@ -1207,6 +1207,131 @@ export class ChatService implements OnModuleInit {
     };
   }
 
+  /**
+   * 고객이 보낸 말에 사회자 자동응답을 대신 내보낸다(백그라운드).
+   *
+   * 사람이 붙어 있으면 끼어들지 않는다 — 사회자가 최근 3분 안에 직접 보낸 게 있으면 건너뛴다.
+   * 같은 답을 반복하지 않도록 방마다 항목당 1회, 전체 6회까지만.
+   */
+  private maybeAutoRespondInBackground(roomId: string, senderId: string, content?: string | null) {
+    const text = (content || '').trim();
+    if (!text) return;
+    void (async () => {
+      try {
+        const room = await this.prisma.chatRoom.findUnique({
+          where: { id: roomId },
+          select: {
+            id: true,
+            userId: true,
+            proProfileId: true,
+            matchRequest: { select: { eventDate: true, eventTime: true, eventLocation: true, eventCategory: { select: { name: true } } } },
+            proProfile: { select: { userId: true, user: { select: { profileImageUrl: true } } } },
+            user: { select: { name: true } },
+          },
+        });
+        if (!room || room.userId !== senderId) return;
+        const proUserId = room.proProfile?.userId;
+        if (!proUserId) return;
+
+        // 사회자가 직접 대화 중이면 끼어들지 않는다(자동응답으로 나간 건 사람이 아니다)
+        const recentHuman = await this.prisma.message.findFirst({
+          where: {
+            roomId,
+            senderId: proUserId,
+            createdAt: { gte: new Date(Date.now() - 3 * 60_000) },
+            NOT: { metadata: { path: ['autoReply'], equals: true } },
+          },
+          select: { id: true },
+        });
+        if (recentHuman) return;
+
+        const sentAuto = await this.prisma.message.findMany({
+          where: { roomId, senderId: proUserId, metadata: { path: ['autoReply'], equals: true } },
+          select: { metadata: true },
+          take: 20,
+        });
+        if (sentAuto.length >= 6) return;
+        const usedIds = new Set(
+          sentAuto.map((row) => (row.metadata as any)?.autoReplyId).filter(Boolean),
+        );
+
+        const match = await this.autoReplyService.matchFor(room.proProfileId, text, room.user?.name);
+        if (!match || usedIds.has(match.id)) return;
+
+        const replied = await this.sendMessage(roomId, proUserId, {
+          type: 'text' as any,
+          content: match.answer,
+          metadata: { autoReply: true, autoReplyId: match.id },
+        } as any);
+        const memberIds = await this.getRoomMemberIds(roomId);
+        await this.chatRealtimeService.emitPersistedMessage(roomId, (replied as any).id, {
+          notifyUserIds: memberIds,
+          roomUpdatedUserIds: memberIds,
+          unreadUserIds: memberIds.filter((id) => id !== proUserId),
+          dashboardUserIds: memberIds,
+        });
+
+        // 견적 자동응답에 금액이 적혀 있으면 견적서까지 자동으로 보낸다
+        if (match.kind === 'quote' && match.amount && match.amount > 0) {
+          const already = await this.prisma.quotation.findFirst({
+            where: { chatRoomId: roomId, proProfileId: room.proProfileId },
+            select: { id: true },
+          });
+          if (already) return;
+          const eventName = room.matchRequest?.eventCategory?.name
+            ? `${room.user?.name || '고객'}님의 ${room.matchRequest.eventCategory.name}`
+            : '행사 진행';
+          const quotation = await this.prisma.quotation.create({
+            data: {
+              proProfileId: room.proProfileId,
+              userId: room.userId,
+              amount: match.amount,
+              title: eventName,
+              description: '자동응답으로 발송된 견적서입니다.',
+              eventDate: room.matchRequest?.eventDate ?? undefined,
+              eventTime: room.matchRequest?.eventTime ?? undefined,
+              eventLocation: room.matchRequest?.eventLocation ?? undefined,
+              chatRoomId: roomId,
+            },
+            select: { id: true },
+          });
+          const quoteMessage = await this.sendMessage(roomId, proUserId, {
+            type: 'system' as any,
+            content: '견적서 발송',
+            metadata: {
+              autoReply: true,
+              autoReplyId: `${match.id}:quote`,
+              system: {
+                kind: 'quote',
+                eventName,
+                amount: match.amount,
+                quotationId: quotation.id,
+                eventDate: room.matchRequest?.eventDate ?? undefined,
+                eventLocation: room.matchRequest?.eventLocation ?? undefined,
+                proImage: room.proProfile?.user?.profileImageUrl ?? undefined,
+              },
+            },
+          } as any);
+          await this.chatRealtimeService.emitPersistedMessage(roomId, (quoteMessage as any).id, {
+            notifyUserIds: memberIds,
+            roomUpdatedUserIds: memberIds,
+            unreadUserIds: memberIds.filter((id) => id !== proUserId),
+            dashboardUserIds: memberIds,
+          });
+          this.notificationService.createNotification(
+            room.userId,
+            'system' as any,
+            '견적서가 도착했습니다',
+            `${match.amount.toLocaleString()}원 견적서가 도착했습니다.`,
+            { quotationId: quotation.id, roomId },
+          ).catch(() => {});
+        }
+      } catch (error) {
+        console.warn(`자동응답 실패 room=${roomId}: ${error}`);
+      }
+    })();
+  }
+
   /** 방이 열리자마자 사회자 인사말을 대신 내보낸다(백그라운드) */
   private sendGreetingInBackground(
     roomId: string,
@@ -1433,6 +1558,12 @@ export class ChatService implements OnModuleInit {
     if (clientMessageId) {
       this.setRecentClientMessage(`${roomId}:${userId}:${clientMessageId}`, payload);
     }
+
+    // 고객이 보낸 말이면 사회자 자동응답을 살펴본다(자동응답 자신은 제외 — 무한 루프 방지)
+    if (dto.type === 'text' && !(dto.metadata as any)?.autoReply) {
+      this.maybeAutoRespondInBackground(roomId, userId, finalContent);
+    }
+
     return payload;
   }
 

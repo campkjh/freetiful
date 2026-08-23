@@ -420,9 +420,14 @@ model ProFaq {
 model ProAutoReply {
   id           String   @id @default(uuid())
   proProfileId String
+  /// 'greeting' 첫 인사말 · 'qa' 질문답변 · 'quote' 견적 문의 자동응답(+자동 견적)
   kind         String   @default("qa")
   question     String?
   answer       String
+  /// 이 말이 나오면 이 답을 보낸다 — 쉼표로 구분
+  keywords     String?
+  /// kind='quote' 일 때 자동으로 발송할 견적 금액(비우면 안내 문구만)
+  amount       Int?
   displayOrder Int      @default(0)
   isEnabled    Boolean  @default(true)
   createdAt    DateTime @default(now())

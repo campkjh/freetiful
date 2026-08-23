@@ -6,6 +6,8 @@ export interface AutoReplyItem {
   id?: string;
   question: string;
   answer: string;
+  /** 이 말이 나오면 이 답을 보낸다 — 쉼표로 구분 */
+  keywords?: string;
   isEnabled?: boolean;
 }
 
@@ -15,6 +17,11 @@ export interface AutoReplySettings {
   /** 사회자가 인사말을 안 적었을 때 실제로 나가는 문구 */
   defaultGreeting: string;
   items: AutoReplyItem[];
+  /** 견적 문의가 오면 나갈 답변 */
+  quoteReply: string;
+  /** 적어 두면 답변과 함께 견적서까지 자동 발송 */
+  quoteAmount: number | null;
+  quoteEnabled: boolean;
   /** 이미 써 둔 프로필 FAQ — 자동응답이 비었을 때만 제안으로 내려온다 */
   faqSuggestions: { question: string; answer: string }[];
   suggestedQuestions: string[];
@@ -23,7 +30,14 @@ export interface AutoReplySettings {
 export const autoReplyApi = {
   getMine: () => apiClient.get<AutoReplySettings>(`${BASE}/me`).then((r) => r.data),
 
-  saveMine: (body: { greeting: string; greetingEnabled: boolean; items: AutoReplyItem[] }) =>
+  saveMine: (body: {
+    greeting: string;
+    greetingEnabled: boolean;
+    items: AutoReplyItem[];
+    quoteReply: string;
+    quoteAmount: number | null;
+    quoteEnabled: boolean;
+  }) =>
     apiClient.put<AutoReplySettings>(`${BASE}/me`, body).then((r) => r.data),
 
   /** 고객 화면에서 보여 줄 질문 목록 */

@@ -36,6 +36,24 @@ export const SUGGESTED_QUESTIONS = [
   '예약은 어떻게 확정되나요?',
 ];
 
+/**
+ * 고객이 실제로 쓰는 말 → 어떤 답을 보낼지.
+ * 문의 689건을 훑어 많이 나온 순서로 정리했고, 사회자가 키워드를 따로 적으면 그게 우선한다.
+ */
+export const INTENTS: { key: string; label: string; pattern: RegExp }[] = [
+  { key: 'quote', label: '견적·비용', pattern: /견적|비용|가격|금액|얼마|페이|사례비|출장비|추가금|얼마나\s*하|단가/ },
+  { key: 'schedule', label: '일정 가능 여부', pattern: /일정|가능하|가능할|가능한가|스케줄|날짜|비어|예약\s*(가능|되)/ },
+  { key: 'portfolio', label: '진행 영상·포트폴리오', pattern: /영상|포트폴리오|인스타|유튜브|sns|후기|리뷰|볼\s*수\s*있/i },
+  { key: 'script', label: '대본·멘트 준비', pattern: /대본|멘트|식순|리허설|사전\s*미팅|미팅|준비\s*해|준비되/ },
+  { key: 'process', label: '진행 방식', pattern: /진행\s*(방식|스타일|은|이|어떻)|어떻게\s*진행|스타일/ },
+];
+
+/** 고객 이름을 넣을 자리 — 사회자가 {고객명} 이라고 쓰면 치환한다 */
+function fillName(text: string, customerName?: string | null) {
+  const name = (customerName || '').trim();
+  return text.replace(/\{고객명\}/g, name || '고객');
+}
+
 type Item = { id?: string; question: string; answer: string };
 
 @Injectable()
@@ -68,16 +86,21 @@ export class AutoReplyService {
     ]);
 
     const greetingRow = rows.find((row) => row.kind === 'greeting');
+    const quoteRow = rows.find((row) => row.kind === 'quote');
     const items = rows.filter((row) => row.kind === 'qa');
 
     return {
       greeting: greetingRow?.answer ?? '',
       greetingEnabled: greetingRow ? greetingRow.isEnabled : true,
       defaultGreeting: defaultGreeting(user?.name),
+      quoteReply: quoteRow?.answer ?? '',
+      quoteAmount: quoteRow?.amount ?? null,
+      quoteEnabled: quoteRow ? quoteRow.isEnabled : true,
       items: items.map((row) => ({
         id: row.id,
         question: row.question ?? '',
         answer: row.answer,
+        keywords: row.keywords ?? '',
         isEnabled: row.isEnabled,
       })),
       // 아직 자동응답을 안 만든 사회자에게는 이미 써 둔 프로필 FAQ 를 그대로 제안한다
@@ -95,12 +118,17 @@ export class AutoReplyService {
     const greeting = String(body.greeting ?? '').trim().slice(0, 2000);
     const greetingEnabled = body.greetingEnabled !== false;
     const items = (Array.isArray(body.items) ? body.items : [])
-      .map((item) => ({
+      .map((item: any) => ({
         question: String(item?.question ?? '').trim().slice(0, 120),
         answer: String(item?.answer ?? '').trim().slice(0, 2000),
+        keywords: String(item?.keywords ?? '').trim().slice(0, 200) || null,
       }))
       .filter((item) => item.question && item.answer)
       .slice(0, 20);
+    const quoteReply = String((body as any).quoteReply ?? '').trim().slice(0, 2000);
+    const quoteAmountRaw = Number((body as any).quoteAmount);
+    const quoteAmount = Number.isFinite(quoteAmountRaw) && quoteAmountRaw > 0 ? Math.round(quoteAmountRaw) : null;
+    const quoteEnabled = (body as any).quoteEnabled !== false;
 
     await this.prisma.$transaction([
       this.prisma.proAutoReply.deleteMany({ where: { proProfileId } }),
@@ -114,9 +142,21 @@ export class AutoReplyService {
             kind: 'qa',
             question: item.question,
             answer: item.answer,
+            keywords: item.keywords,
             displayOrder: index,
             isEnabled: true,
           })),
+          ...(quoteReply
+            ? [{
+                proProfileId,
+                kind: 'quote',
+                question: '견적 문의',
+                answer: quoteReply,
+                amount: quoteAmount,
+                isEnabled: quoteEnabled,
+                displayOrder: 0,
+              }]
+            : []),
         ],
       }),
     ]);
@@ -159,6 +199,60 @@ export class AutoReplyService {
     });
     if (!row) throw new NotFoundException('질문을 찾을 수 없습니다');
     return { question: row.question ?? '', answer: row.answer };
+  }
+
+  /**
+   * 고객이 보낸 말에 맞는 자동응답 찾기.
+   * ① 사회자가 적은 키워드 ② 질문 문장과 겹치는 말 ③ 기본 인텐트 순으로 본다.
+   */
+  async matchFor(proProfileId: string, text: string, customerName?: string | null) {
+    const body = (text || '').trim();
+    if (body.length < 2 || body.length > 300) return null;
+
+    const rows = await this.prisma.proAutoReply.findMany({
+      where: { proProfileId, isEnabled: true, kind: { in: ['qa', 'quote'] } },
+      orderBy: { displayOrder: 'asc' },
+    });
+    if (rows.length === 0) return null;
+
+    const pick = (row: (typeof rows)[number], why: string) => ({
+      id: row.id,
+      kind: row.kind,
+      why,
+      answer: fillName(row.answer, customerName),
+      amount: row.amount ?? null,
+    });
+
+    // ① 사회자가 직접 적은 키워드
+    for (const row of rows) {
+      const words = (row.keywords || '')
+        .split(/[,\n]/)
+        .map((word) => word.trim())
+        .filter((word) => word.length >= 2);
+      if (words.some((word) => body.includes(word))) return pick(row, 'keyword');
+    }
+
+    // ② 질문 문장에서 두 글자 이상 겹치는 말
+    for (const row of rows) {
+      const tokens = (row.question || '')
+        .replace(/[?!.,]/g, ' ')
+        .split(/\s+/)
+        .map((token) => token.replace(/(이|가|은|는|을|를|에|의|도|으로|로|요)$/, ''))
+        .filter((token) => token.length >= 2);
+      if (tokens.length > 0 && tokens.some((token) => body.includes(token))) return pick(row, 'question');
+    }
+
+    // ③ 기본 인텐트 — '견적' 은 견적 자동응답, 나머지는 같은 뜻의 질문이 있으면 그 답
+    for (const intent of INTENTS) {
+      if (!intent.pattern.test(body)) continue;
+      if (intent.key === 'quote') {
+        const quoteRow = rows.find((row) => row.kind === 'quote');
+        if (quoteRow) return pick(quoteRow, 'intent:quote');
+      }
+      const hit = rows.find((row) => row.kind === 'qa' && intent.pattern.test(row.question || ''));
+      if (hit) return pick(hit, `intent:${intent.key}`);
+    }
+    return null;
   }
 
   /** 방이 열릴 때 내보낼 인사말 — 꺼져 있으면 null */

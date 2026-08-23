@@ -20,6 +20,9 @@ export default function AutoReplyPage() {
   const [defaultGreeting, setDefaultGreeting] = useState('');
   const [items, setItems] = useState<AutoReplyItem[]>([]);
   const [suggested, setSuggested] = useState<string[]>([]);
+  const [quoteReply, setQuoteReply] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteEnabled, setQuoteEnabled] = useState(true);
 
   useEffect(() => {
     autoReplyApi
@@ -29,6 +32,9 @@ export default function AutoReplyPage() {
         setGreetingEnabled(data.greetingEnabled);
         setDefaultGreeting(data.defaultGreeting || '');
         setSuggested(data.suggestedQuestions || []);
+        setQuoteReply(data.quoteReply || '');
+        setQuoteAmount(data.quoteAmount ? String(data.quoteAmount) : '');
+        setQuoteEnabled(data.quoteEnabled !== false);
         // 자동응답이 비어 있으면 이미 써 둔 프로필 FAQ 를 그대로 채워 준다
         setItems(
           data.items.length > 0
@@ -43,7 +49,14 @@ export default function AutoReplyPage() {
   const save = async () => {
     setSaving(true);
     try {
-      await autoReplyApi.saveMine({ greeting, greetingEnabled, items });
+      await autoReplyApi.saveMine({
+        greeting,
+        greetingEnabled,
+        items,
+        quoteReply,
+        quoteAmount: quoteAmount ? Number(quoteAmount.replace(/[^\d]/g, '')) : null,
+        quoteEnabled,
+      });
       toast.success('저장했어요');
     } catch {
       toast.error('저장에 실패했어요');
@@ -64,8 +77,9 @@ export default function AutoReplyPage() {
 
       <div className="space-y-5 px-4 pt-2">
         <p className="px-1 text-[13px] leading-[1.7] text-[#8B95A1]">
-          고객이 문의를 보내면 인사말이 먼저 나가고, 아래 질문들은 고객 화면에 버튼으로 떠서 누르면 바로 답이 갑니다.
-          자동응답은 응답률과 평균 응답시간에 영향을 주지 않습니다.
+          고객이 문의를 보내면 인사말이 먼저 나가고, 이후 고객이 보낸 말에서 아래 키워드가 잡히면 답이 바로 나갑니다.
+          질문들은 고객 화면에 버튼으로도 떠서 눌러 물어볼 수 있습니다. 사회자가 최근 3분 안에 직접 답한 방에는 끼어들지 않고,
+          같은 답은 방마다 한 번만 나갑니다. 자동응답은 응답률과 평균 응답시간에 영향을 주지 않습니다.
         </p>
 
         {/* 인사말 */}
@@ -103,6 +117,51 @@ export default function AutoReplyPage() {
           </div>
         </div>
 
+        {/* 견적 문의 자동응답 */}
+        <div>
+          <MySectionTitle>견적 문의가 오면</MySectionTitle>
+          <div className={`${MY_CARD} p-5`}>
+            <label className="mb-3 flex items-center justify-between">
+              <span className="text-[15px] font-bold text-[#2B313D]">견적 자동응답</span>
+              <input
+                type="checkbox"
+                checked={quoteEnabled}
+                onChange={(e) => setQuoteEnabled(e.target.checked)}
+                className="h-5 w-5 accent-[#3180F7]"
+              />
+            </label>
+            <p className="mb-2 text-[13px] leading-[1.7] text-[#8B95A1]">
+              &quot;견적이 얼마인가요?&quot; 처럼 비용을 묻는 말이 오면 이 답이 바로 나갑니다.
+              <br />
+              <span className="font-semibold text-[#51535C]">{'{고객명}'}</span> 이라고 쓰면 고객 이름이 들어갑니다.
+            </p>
+            <textarea
+              value={quoteReply}
+              onChange={(e) => setQuoteReply(e.target.value)}
+              rows={6}
+              placeholder={'안녕하세요 {고객명}님, 문의 주셔서 감사합니다.\n\n결혼식 사회는 20만원 ~ 30만원 선이며, 수도권과 비수도권에 따라 편차가 있습니다.\n행사 날짜와 장소를 알려주시면 정확한 견적을 보내드릴게요.'}
+              className={`${inputCls} resize-none leading-[1.7]`}
+            />
+
+            <div className="mt-4">
+              <p className="mb-1.5 text-[13px] font-bold text-[#A4ABBA]">견적서 자동 발송 금액</p>
+              <div className="relative">
+                <input
+                  value={quoteAmount ? Number(quoteAmount).toLocaleString() : ''}
+                  onChange={(e) => setQuoteAmount(e.target.value.replace(/[^\d]/g, ''))}
+                  inputMode="numeric"
+                  placeholder="비워 두면 답변만 나갑니다"
+                  className={`${inputCls} pr-10`}
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#A4ABBA]">원</span>
+              </div>
+              <p className="mt-1.5 text-[12px] leading-[1.6] text-[#A4ABBA]">
+                금액을 적으면 답변과 함께 견적서까지 자동으로 발송됩니다. 방마다 한 번만 나갑니다.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* 질문 목록 */}
         <div>
           <MySectionTitle>자주 묻는 질문 답변</MySectionTitle>
@@ -125,6 +184,12 @@ export default function AutoReplyPage() {
                   onChange={(e) => update(index, { question: e.target.value })}
                   placeholder="예) 견적이 어떻게 되나요?"
                   className={inputCls}
+                />
+                <input
+                  value={item.keywords || ''}
+                  onChange={(e) => update(index, { keywords: e.target.value })}
+                  placeholder="이 말이 오면 답한다 (쉼표로, 예: 대본, 멘트, 식순)"
+                  className={`${inputCls} mt-2`}
                 />
                 <textarea
                   value={item.answer}
