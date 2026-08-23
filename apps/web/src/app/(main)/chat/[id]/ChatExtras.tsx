@@ -509,6 +509,15 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 }
 
 // ─── SystemMessageCard ───
+/** 견적 카드 제목 — "홍길동님의 결혼식 사회 섭외건" 처럼 누구의 무슨 행사인지 한 줄로 */
+function quoteTitle(sys: SystemPayload, customerName?: string | null) {
+  const who = (customerName || '').trim();
+  const what = (sys.eventName || '').trim() || '행사';
+  // 이미 문장처럼 길게 들어온 견적명은 그대로 둔다
+  if (what.length > 12 || what.includes('섭외')) return what;
+  return who ? `${who}님의 ${what} 사회 섭외건` : `${what} 사회 섭외건`;
+}
+
 /** 견적 카드에 보여줄 행사일 — 시스템 페이로드에 없으면 견적 상세에서 끌어온다 */
 function formatQuoteEventDate(sys: SystemPayload, quoteDetail: any): string {
   const raw =
@@ -545,6 +554,7 @@ export function SafePaymentNotice() {
 }
 
 export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myProfileImage = null, isLatestQuote = false, refreshTick = 0 }: { msg: Message; isPro?: boolean; chatPartner?: ChatPartner | null; myProfileImage?: string | null; isLatestQuote?: boolean; refreshTick?: number }) {
+  const authUser = useAuthStore((state) => state.user);
   const [isPaid, setIsPaid] = useState<boolean>(false);
   const [showQuoteDetail, setShowQuoteDetail] = useState(false);
   const [quoteDetail, setQuoteDetail] = useState<any>(null);
@@ -608,7 +618,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
         ref={quoteRef}
         data-quote-card="true"
         data-near-center="false"
-        className="quote-card-root my-2 ml-2 mr-auto w-[min(320px,86%)] overflow-hidden rounded-[18px] bg-[#F2F3F5] animate-[bubblePop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]"
+        className="quote-card-root my-2 ml-2 mr-auto w-[min(320px,86%)] overflow-hidden rounded-[18px] border-[0.6px] border-[#EEF1F5] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] animate-[bubblePop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]"
       >
         <div className="px-4 pb-4 pt-4">
           <p className="text-[17px] font-bold text-[#191F28]">프리티풀 안전 결제</p>
@@ -626,7 +636,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
               onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
             />
             <p className="min-w-0 flex-1 text-[14px] font-medium leading-[1.5] text-[#191F28]">
-              {sys.eventName || `${chatPartner?.name || '사회자'} 사회자가 행사를 진행해 드립니다`}
+              {quoteTitle(sys, isPro ? chatPartner?.name : authUser?.name)}
             </p>
           </div>
 

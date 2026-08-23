@@ -2011,34 +2011,56 @@ html[data-embedded='1'] [data-native-back-header] {
   50% { background-position: 100% 50%; }
 }
 
-/* 채팅 빈 화면 — 말풍선 두 개가 서로 자리를 바꾼다 */
+/* 채팅 빈 화면 — 말풍선 두 개가 서로 자리를 바꾼다.
+   올라가는 쪽은 이동, 내려가는 쪽은 크로스페이드(참고 영상과 동일).
+   한 바퀴 1.8s · 전환 13%(≈0.23s) · 각 상태 유지 ≈0.65s */
 .chat-empty-bubbles .ceb {
   position: absolute;
   display: block;
   will-change: transform, opacity;
+  animation-duration: 1.8s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
-.chat-empty-bubbles .ceb-a {
-  z-index: 1;
-  animation: cebSwapA 3.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+.chat-empty-bubbles .ceb-dark       { animation-name: cebDark; }
+.chat-empty-bubbles .ceb-dark-ghost { animation-name: cebDarkGhost; }
+.chat-empty-bubbles .ceb-blue       { animation-name: cebBlue; }
+.chat-empty-bubbles .ceb-blue-ghost { animation-name: cebBlueGhost; }
+
+/* 남색 본체 — 35% 에 안 보이는 채로 아래로 내려가 서서히 나타나고,
+   85~98% 에 미끄러지며 위로 올라온다 */
+@keyframes cebDark {
+  0%, 34.9%  { transform: translateY(0);                 opacity: 1; z-index: 2; }
+  35%        { transform: translateY(var(--ceb-shift));  opacity: 0; z-index: 3; }
+  48%, 85%   { transform: translateY(var(--ceb-shift));  opacity: 1; z-index: 3; }
+  98%, 100%  { transform: translateY(0);                 opacity: 1; z-index: 2; }
 }
-.chat-empty-bubbles .ceb-b {
-  z-index: 2;
-  animation: cebSwapB 3.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+/* 남색 잔상 — 내려가는 동안 원래 자리에서 사라진다 */
+@keyframes cebDarkGhost {
+  0%, 34.9%  { opacity: 0; z-index: 2; }
+  35%        { opacity: 1; z-index: 2; }
+  48%, 100%  { opacity: 0; z-index: 2; }
 }
-@keyframes cebSwapA {
-  0%, 36%   { transform: translateY(0);                 opacity: 1;    z-index: 1; }
-  43%       { opacity: 0.35; }
-  50%, 86%  { transform: translateY(var(--ceb-shift));  opacity: 1;    z-index: 2; }
-  93%       { opacity: 0.35; }
-  100%      { transform: translateY(0);                 opacity: 1;    z-index: 1; }
+/* 파랑 본체 — 35~48% 에 미끄러지며 올라가고, 85% 에 안 보이는 채로 내려와 나타난다 */
+@keyframes cebBlue {
+  0%, 35%    { transform: translateY(0);                            opacity: 1; z-index: 3; }
+  48%, 84.9% { transform: translateY(calc(var(--ceb-shift) * -1));   opacity: 1; z-index: 2; }
+  85%        { transform: translateY(0);                            opacity: 0; z-index: 3; }
+  98%, 100%  { transform: translateY(0);                            opacity: 1; z-index: 3; }
 }
-@keyframes cebSwapB {
-  0%, 36%   { transform: translateY(0);                          opacity: 1;    z-index: 2; }
-  43%       { opacity: 0.35; }
-  50%, 86%  { transform: translateY(calc(var(--ceb-shift) * -1)); opacity: 1;   z-index: 1; }
-  93%       { opacity: 0.35; }
-  100%      { transform: translateY(0);                          opacity: 1;    z-index: 2; }
+/* 파랑 잔상 — 내려가는 동안 위쪽 자리에서 사라진다 */
+@keyframes cebBlueGhost {
+  0%, 84.9%  { transform: translateY(calc(var(--ceb-shift) * -1)); opacity: 0; z-index: 2; }
+  85%        { transform: translateY(calc(var(--ceb-shift) * -1)); opacity: 1; z-index: 2; }
+  98%, 100%  { transform: translateY(calc(var(--ceb-shift) * -1)); opacity: 0; z-index: 2; }
+}
+/* 이동 구간만 부드럽게 — 나머지는 유지 구간이라 선형이어도 티가 안 난다 */
+.chat-empty-bubbles .ceb-dark,
+.chat-empty-bubbles .ceb-blue {
+  animation-timing-function: cubic-bezier(0.45, 0, 0.35, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .chat-empty-bubbles .ceb { animation: none !important; }
+  .chat-empty-bubbles .ceb-dark-ghost,
+  .chat-empty-bubbles .ceb-blue-ghost { opacity: 0; }
 }
