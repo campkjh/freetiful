@@ -132,9 +132,17 @@ export default function VilladegdEventOverlay() {
     // 이 랜딩은 '앱 초기 진입 화면'으로 만든 것이라 모바일/앱 기준인데,
     // z-[120] 전면 오버레이가 PC 헤더 검색창까지 덮어 '클릭이 안 된다'로 보였다.
     if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) return;
-    // '앱/웹 초기 진입 화면'이라 진입할 때마다 노출한다(X 는 그 진입에서만 닫기).
-    // 영구 저장(localStorage)으로 한 번 닫으면 다시 안 뜨던 동작을 제거 —
-    // 네이티브 iOS(NativeVilladegdLanding.shouldPresent == true)와 동일한 기준.
+    // '앱/웹 초기 진입 화면' 이라 앱을 켤 때 한 번만 띄운다.
+    // 예전엔 마운트할 때마다 띄웠는데, 레이아웃 밖 화면(약관·로그인 등)을 다녀오면
+    // 레이아웃이 다시 마운트돼서 화면을 옮길 때마다 랜딩이 튀어나왔다.
+    // sessionStorage 라 앱을 다시 켜면(웹뷰 새 세션) 다시 뜬다 — 영구 차단은 아니다.
+    try {
+      const KEY = 'villadegd-landing-shown';
+      if (sessionStorage.getItem(KEY)) return;
+      sessionStorage.setItem(KEY, '1');
+    } catch {
+      // 프라이빗 모드 등으로 sessionStorage 를 못 쓰면 예전처럼 그냥 띄운다
+    }
     setOpen(true);
   }, []);
 

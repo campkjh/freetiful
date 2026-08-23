@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 
 const formatKRW = (value: number) => value.toLocaleString('ko-KR') + '원';
 
@@ -54,7 +55,10 @@ export default function CheckoutClient({
   const vatAmount = Math.round(supplyAmount * VAT_RATE);
   const displayAmount = supplyAmount + vatAmount; // 부가세 포함 총 결제금액(위젯·주문·표시 공통)
   const proName = pro?.user?.name || pro?.name || '사회자';
-  const planName = quoteDetail?.title || plan || '견적 결제';
+  // plan 은 'premium' 같은 원본 키라 그대로 두면 소문자 영문이 그대로 보인다
+  const planLabel = getWeddingPlanTemplate(normalizeWeddingPlanKey(plan))?.label
+    || (plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : '');
+  const planName = quoteDetail?.title || planLabel || '견적 결제';
   const orderName = useMemo(() => `${proName} 사회자 - ${planName}`.slice(0, 100), [planName, proName]);
 
   useEffect(() => {
@@ -179,20 +183,23 @@ export default function CheckoutClient({
           type="button"
           data-native-back-header
           onClick={() => router.back()}
-          className="mb-6 flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 active:scale-95"
+          className="-ml-2 mb-5 flex h-10 w-10 items-center justify-center rounded-full text-[#2B313D] transition-colors active:bg-[#F2F3F5]"
           aria-label="뒤로가기"
         >
-          <ChevronLeft size={24} className="text-gray-700" />
+          <ChevronLeft size={24} />
         </button>
 
         <div className="pb-8">
           <p className="text-[13px] font-bold text-[#3180F7]">프리티풀 안전결제</p>
-          <h1 className="mt-2 text-[24px] font-extrabold leading-tight text-gray-950">견적 결제</h1>
+          <h1 className="mt-1.5 text-[24px] font-bold leading-tight text-[#2B313D]">견적 결제</h1>
+          <p className="mt-1.5 text-[13px] leading-[1.7] text-[#8B95A1]">
+            행사 진행이 끝난 뒤 대금이 사회자에게 전달됩니다.
+          </p>
 
-          <section className="mt-6 rounded-[22px] border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-[12px] font-semibold text-gray-400">선택 서비스</p>
+          <section className="mt-6 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+            <p className="text-[13px] font-bold text-[#A4ABBA]">선택 서비스</p>
             <div className="mt-3 flex items-center gap-3">
-              <div className="h-14 w-14 overflow-hidden rounded-2xl bg-gray-100">
+              <div className="h-14 w-14 overflow-hidden rounded-[18px] bg-[#F2F3F5]">
                 <img
                   src={pro?.images?.[0]?.imageUrl || pro?.user?.profileImageUrl || '/images/default-profile.png'}
                   alt=""
@@ -201,15 +208,15 @@ export default function CheckoutClient({
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[16px] font-bold text-gray-950">{proName}</p>
-                <p className="mt-0.5 truncate text-[13px] font-medium text-gray-500">{planName}</p>
+                <p className="truncate text-[16px] font-bold text-[#2B313D]">{proName}</p>
+                <p className="mt-0.5 truncate text-[13px] font-medium text-[#8B95A1]">{planName}</p>
               </div>
             </div>
           </section>
 
           <section className="mt-6">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[17px] font-bold text-gray-950">연락처</h2>
+              <h2 className="text-[17px] font-bold text-[#2B313D]">연락처</h2>
               <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
             </div>
             <input
@@ -222,13 +229,13 @@ export default function CheckoutClient({
               onBlur={() => setPhoneTouched(true)}
               placeholder="010-1234-5678"
               aria-label="휴대폰번호"
-              className={`h-14 w-full rounded-2xl border px-4 text-[16px] font-medium text-gray-950 outline-none transition placeholder:text-gray-300 ${
+              className={`h-14 w-full rounded-[14px] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] ${
                 phoneTouched && !isValidPhone(phone)
-                  ? 'border-red-400 bg-red-50/40'
-                  : 'border-gray-200 bg-white focus:border-[#3180F7]'
+                  ? 'bg-[#FFF0F0] ring-1 ring-[#E5484D]'
+                  : 'bg-[#F2F3F5] focus:bg-[#EDEFF2]'
               }`}
             />
-            <p className={`mt-2 text-[13px] font-medium ${phoneTouched && !isValidPhone(phone) ? 'text-red-500' : 'text-gray-400'}`}>
+            <p className={`mt-2 text-[13px] font-medium ${phoneTouched && !isValidPhone(phone) ? 'text-[#E5484D]' : 'text-[#A4ABBA]'}`}>
               {phoneTouched && !isValidPhone(phone)
                 ? '휴대폰번호를 정확히 입력해주세요'
                 : '결제·환불 안내와 행사 확인을 위해 사용됩니다'}
@@ -237,30 +244,30 @@ export default function CheckoutClient({
 
           <section className="mt-6">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[17px] font-bold text-gray-950">결제 수단</h2>
+              <h2 className="text-[17px] font-bold text-[#2B313D]">결제 수단</h2>
               <span className="text-[13px] font-bold text-[#3180F7]">필수</span>
             </div>
             <div id="toss-payment-methods" />
             <div id="toss-agreement" className="mt-3" />
             {!widgetsReady && (
-              <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-5 text-center text-[13px] font-semibold text-gray-400">
+              <div className="mt-3 rounded-[16px] bg-[#F7F8FA] px-4 py-5 text-center text-[13px] font-semibold text-[#A4ABBA]">
                 결제창을 불러오는 중입니다...
               </div>
             )}
           </section>
 
-          <section className="mt-6 rounded-[22px] bg-gray-50 px-5 py-5">
-            <div className="flex items-center justify-between text-[13.5px] text-gray-500">
+          <section className="mt-6 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+            <div className="flex items-center justify-between text-[14px] text-[#8B95A1]">
               <span>공급가액</span>
               <span className="tabular-nums">{formatKRW(supplyAmount)}</span>
             </div>
-            <div className="mt-1.5 flex items-center justify-between text-[13.5px] text-gray-500">
+            <div className="mt-2 flex items-center justify-between text-[14px] text-[#8B95A1]">
               <span>부가세 (10%)</span>
               <span className="tabular-nums">{formatKRW(vatAmount)}</span>
             </div>
-            <div className="mt-3 border-t border-gray-200 pt-3 flex items-center justify-between">
-              <span className="text-[14px] font-semibold text-gray-500">총 결제금액</span>
-              <span className="text-[24px] font-extrabold text-gray-950 tabular-nums">{formatKRW(displayAmount)}</span>
+            <div className="mt-3.5 flex items-center justify-between border-t border-[#F2F4F7] pt-3.5">
+              <span className="text-[15px] font-bold text-[#2B313D]">총 결제금액</span>
+              <span className="text-[24px] font-bold tabular-nums text-[#2B313D]">{formatKRW(displayAmount)}</span>
             </div>
           </section>
 
@@ -268,9 +275,9 @@ export default function CheckoutClient({
             type="button"
             onClick={startPayment}
             disabled={payLoading || !widgetsReady}
-            className="fixed bottom-0 left-0 right-0 z-40 mx-auto h-[76px] max-w-[480px] border-t border-gray-100 bg-white px-5 pb-safe pt-3 disabled:opacity-70"
+            className="fixed bottom-0 left-0 right-0 z-40 mx-auto h-[80px] max-w-[480px] bg-white px-5 pb-safe pt-3 disabled:opacity-70"
           >
-            <span className="flex h-14 items-center justify-center rounded-2xl bg-[#3180F7] text-[16px] font-bold text-white active:scale-[0.98]">
+            <span className="flex h-[52px] items-center justify-center rounded-[14px] bg-[#3180F7] text-[16px] font-bold text-white transition-transform active:scale-[0.99]">
               {payLoading ? '결제 진행 중...' : `${formatKRW(displayAmount)} 결제하기`}
             </span>
           </button>
