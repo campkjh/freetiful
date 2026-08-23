@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Lock, Wallet, Camera } from 'lucide-react';
-import { ChevronLeftIcon, CameraIcon, LockIcon, AccountIcon } from '@/components/icons/mono';
+import { CameraIcon, LockIcon, AccountIcon } from '@/components/icons/mono';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { usersApi } from '@/lib/api/users.api';
 import toast from 'react-hot-toast';
+import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
 import { getProfileImageUrl } from '@/lib/default-profile';
 
 // 소셜 로그인 아이콘
@@ -186,19 +187,13 @@ export default function SettingsPage() {
   const profilePreviewImage = getProfileImageUrl(profileImage, authUser?.id || authUser?.email || name);
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC] pb-10 max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-[#FAFBFC]/90 backdrop-blur-xl" data-native-back-header>
-        <div className="flex items-center gap-3 px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeftIcon size={22} className="text-[#2B313D]" /></button>
-          <h1 className="text-[17px] font-bold text-gray-900">프로필 설정</h1>
-        </div>
-      </div>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-10 lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="프로필 설정" onBack={() => router.back()} />
 
       {/* ─── Profile Photo ──────────────────────────────────────────── */}
-      <div className="mx-4 mt-4 flex justify-center rounded-[24px] bg-white py-8">
+      <div className={`mx-4 mt-2 flex justify-center py-8 ${MY_CARD}`}>
         <div className="relative">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100">
+          <div className="h-24 w-24 overflow-hidden rounded-full bg-[#F2F3F5]">
             <img
               src={profilePreviewImage}
               alt="프로필"
@@ -208,7 +203,7 @@ export default function SettingsPage() {
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 right-0 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+            className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-[#3180F7] shadow-[0_4px_12px_rgba(49,128,247,0.35)] transition-transform active:scale-90"
           >
             <CameraIcon size={15} className="text-white" />
           </button>
@@ -223,7 +218,7 @@ export default function SettingsPage() {
       </div>
 
       {/* ─── Basic Info ──────────────────────────────────────────────── */}
-      <div className="mx-4 mt-4 space-y-4 rounded-[24px] bg-white p-5">
+      <div className={`mx-4 mt-4 space-y-4 p-5 ${MY_CARD}`}>
         <p className="text-[15px] font-bold text-[#2B313D]">기본 정보</p>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이름</label>
@@ -247,13 +242,13 @@ export default function SettingsPage() {
       </div>
 
       {/* ─── Refund Account ──────────────────────────────────────────── */}
-      <div className="mx-4 mt-4 space-y-3 rounded-[24px] bg-white p-5">
+      <div className={`mx-4 mt-4 space-y-3 p-5 ${MY_CARD}`}>
         <p className="flex items-center gap-1.5 text-[15px] font-bold text-[#2B313D]"><AccountIcon size={16} className="text-[#A4ABBA]" /> 환불 계좌</p>
         {savedAccount ? (
-          <div className="flex items-center justify-between rounded-xl bg-[#F2F3F5] p-4">
+          <div className="flex items-center justify-between rounded-[18px] bg-[#F7F8FA] p-4">
             <div>
-              <p className="text-[14px] font-semibold text-gray-900">{savedAccount.bank}</p>
-              <p className="text-[13px] text-gray-500 mt-0.5">{savedAccount.number} · {savedAccount.holder}</p>
+              <p className="text-[15px] font-bold text-[#2B313D]">{savedAccount.bank}</p>
+              <p className="mt-0.5 text-[13px] text-[#8B95A1]">{savedAccount.number} · {savedAccount.holder}</p>
             </div>
             <button
               onClick={() => {
@@ -262,13 +257,13 @@ export default function SettingsPage() {
                 try { localStorage.removeItem(refundAccountKey); } catch {}
                 toast.success('계좌가 삭제되었습니다');
               }}
-              className="text-[12px] text-red-500 font-bold"
+              className="text-[13px] font-bold text-[#E5484D]"
             >
               삭제
             </button>
           </div>
         ) : showBankForm ? (
-          <div className="space-y-3 rounded-xl bg-[#F2F3F5] p-4">
+          <div className="space-y-3">
             <select value={bank} onChange={(e) => setBank(e.target.value)} className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]">
               <option value="">은행 선택</option>
               {['국민은행','신한은행','하나은행','우리은행','IBK기업','NH농협','카카오뱅크','토스뱅크','케이뱅크'].map((b) => (
@@ -278,7 +273,7 @@ export default function SettingsPage() {
             <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
             <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
             <div className="flex gap-2">
-              <button onClick={() => setShowBankForm(false)} className="h-11 flex-1 rounded-[14px] bg-white text-[14px] font-bold text-[#51535C] transition-colors hover:bg-[#E9EBEF] active:scale-[0.98]">취소</button>
+              <button onClick={() => setShowBankForm(false)} className="h-11 flex-1 rounded-[14px] bg-[#F2F3F5] text-[14px] font-bold text-[#51535C] transition-colors hover:bg-[#E9EBEF] active:scale-[0.98]">취소</button>
               <button
                 onClick={() => {
                   if (!bank || !accountNumber || !accountHolder) {
@@ -299,7 +294,7 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : (
-          <div className="rounded-xl bg-[#F2F3F5] p-4">
+          <div className="rounded-[18px] bg-[#F7F8FA] p-4">
             <p className="text-[13px] text-[#A4ABBA]">등록된 환불 계좌가 없습니다</p>
             <button onClick={() => setShowBankForm(true)} className="mt-2 text-[13px] font-bold text-[#3180F7]">계좌 등록하기</button>
           </div>
@@ -331,11 +326,11 @@ export default function SettingsPage() {
       {showWithdraw && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" onClick={() => setShowWithdraw(false)}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">정말 탈퇴하시겠어요?</p>
-            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+          <div className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.18)]" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-2 text-center text-[17px] font-bold text-[#2B313D]">정말 탈퇴하시겠어요?</p>
+            <p className="mb-5 text-center text-[14px] leading-relaxed text-[#8B95A1]">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowWithdraw(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform">아니오</button>
+              <button onClick={() => setShowWithdraw(false)} className="h-12 flex-1 rounded-[14px] bg-[#F2F3F5] text-[15px] font-bold text-[#51535C] transition-transform active:scale-95">아니오</button>
               <button
                 onClick={() => {
                   setShowWithdraw(false);
@@ -347,7 +342,7 @@ export default function SettingsPage() {
                     localStorage.clear(); toast.success('회원 탈퇴가 완료되었습니다'); router.push('/');
                   }
                 }}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+                className="h-12 flex-1 rounded-[14px] bg-[#E5484D] text-[15px] font-bold text-white transition-transform active:scale-95"
               >탈퇴하기</button>
             </div>
           </div>
@@ -362,25 +357,25 @@ export default function SettingsPage() {
         >
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl"
+            className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.18)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">
+            <p className="mb-2 text-center text-[17px] font-bold text-[#2B313D]">
               {disconnectTarget} 연결을 끊으시겠어요?
             </p>
-            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">
+            <p className="mb-5 text-center text-[14px] leading-relaxed text-[#8B95A1]">
               연결을 끊으면 계정을<br />삭제하셔야 합니다.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setDisconnectTarget(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform"
+                className="h-12 flex-1 rounded-[14px] bg-[#F2F3F5] text-[15px] font-bold text-[#51535C] transition-transform active:scale-95"
               >
                 아니오
               </button>
               <button
                 onClick={executeDisconnect}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+                className="h-12 flex-1 rounded-[14px] bg-[#E5484D] text-[15px] font-bold text-white transition-transform active:scale-95"
               >
                 예
               </button>

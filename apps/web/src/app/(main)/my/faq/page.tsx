@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronDown, Search, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { LayoutGroup, motion } from 'framer-motion';
 import Link from 'next/link';
+import { ChevronDownIcon, CloseIcon, SearchIcon } from '@/components/icons/mono';
+import { EmptySearchIcon } from '@/components/icons/color';
+import { MY_CARD, MySectionTitle, MyDetailHeader } from '../_components/detail-ui';
 import { faqApi, type Faq } from '@/lib/api/faq.api';
 
 /**
@@ -56,7 +58,6 @@ interface Section {
 }
 
 export default function FaqPage() {
-  const router = useRouter();
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -109,90 +110,95 @@ export default function FaqPage() {
     .filter((s) => s.items.length > 0);
 
   return (
-    <div className="bg-white min-h-screen max-w-lg mx-auto pb-24" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100/60" data-native-back-header>
-        <div className="flex items-center px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform">
-            <ChevronLeft size={24} className="text-gray-700" />
-          </button>
-          <h1 className="text-[17px] font-bold ml-2 text-gray-900">자주 묻는 질문</h1>
-        </div>
-      </div>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="자주 묻는 질문" />
 
-      {/* 검색 */}
-      <div className="px-4 pt-4 pb-2">
+      {/* 검색 + 카테고리 — 스크롤해도 따라온다 */}
+      <div className="sticky top-14 z-10 bg-white px-4 pb-2 pt-1">
         <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <SearchIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="궁금한 내용을 검색해보세요"
-            className="w-full bg-gray-100 rounded-full pl-10 pr-9 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-gray-200 placeholder:text-gray-400 transition-all"
+            className="h-12 w-full rounded-[14px] bg-[#F2F3F5] pl-11 pr-10 text-[15px] font-medium text-[#2B313D] transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] focus:bg-[#EDEFF2] focus:outline-none"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 active:scale-90">
-              <X size={16} className="text-gray-400" />
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="검색어 지우기"
+              className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#A4ABBA] active:bg-[#E4E7EB]"
+            >
+              <CloseIcon size={15} />
             </button>
           )}
         </div>
-      </div>
 
-      {/* 카테고리 칩 */}
-      <div className="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide">
-        <button
-          onClick={() => setActiveCategory(null)}
-          className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all active:scale-95 ${
-            !activeCategory ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-          }`}
-        >
-          전체
-        </button>
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-            className={`shrink-0 px-4 py-2 rounded-full text-[13px] font-medium transition-all active:scale-95 ${
-              activeCategory === cat ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+        {/* 카테고리 — 회색 트랙 위로 흰 알약이 미끄러진다 */}
+        {categories.length > 0 && (
+          <LayoutGroup id="faq-category-tabs">
+            <div className="scrollbar-hide mt-2 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+              {[null, ...categories].map((cat) => {
+                const on = activeCategory === cat;
+                return (
+                  <button
+                    key={cat ?? 'all'}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={`relative flex shrink-0 flex-1 items-center justify-center rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                      on ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
+                    }`}
+                  >
+                    {on && (
+                      <motion.span
+                        layoutId="faq-category-pill"
+                        className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <span className="relative whitespace-nowrap">{cat ?? '전체'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </LayoutGroup>
+        )}
       </div>
 
       {/* FAQ 리스트 */}
-      <div className="px-4 pt-2 space-y-5">
+      <div
+        key={`${activeCategory ?? 'all'}`}
+        className="space-y-5 px-4 pt-2"
+        style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+      >
         {loading && (
-          <div className="text-center py-16">
-            <p className="text-[14px] text-gray-400">불러오는 중...</p>
+          <div className="space-y-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-[60px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+            ))}
           </div>
         )}
         {!loading && filtered.map((section) => (
           <div key={section.category}>
-            <p className="text-[11px] font-bold tracking-wider text-gray-400 uppercase mb-2 px-1">{section.category}</p>
-            <div className="space-y-2">
+            <MySectionTitle>{section.category}</MySectionTitle>
+            <div className="space-y-2.5">
               {section.items.map((item) => {
                 const id = item.id;
                 const isOpen = openId === id;
                 return (
-                  <div
-                    key={id}
-                    className={`rounded-2xl border transition-all duration-300 ${
-                      isOpen ? 'border-gray-200 shadow-sm bg-white' : 'border-gray-100 bg-white'
-                    }`}
-                  >
+                  <div key={id} className={MY_CARD}>
                     <button
                       onClick={() => setOpenId(isOpen ? null : id)}
-                      className="flex items-center justify-between w-full px-4 py-4 text-left active:bg-gray-50 rounded-2xl transition-colors"
+                      className="flex w-full items-center justify-between rounded-[24px] px-5 py-4 text-left transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD]"
                     >
-                      <span className={`text-[14px] pr-4 leading-snug ${isOpen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                      <span className={`pr-4 text-[15px] leading-snug ${isOpen ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#51535C]'}`}>
                         {item.question}
                       </span>
-                      <ChevronDown
+                      <ChevronDownIcon
                         size={18}
-                        className={`text-gray-400 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                        className={`shrink-0 text-[#C8CEDA] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                       />
                     </button>
                     <div
@@ -202,8 +208,8 @@ export default function FaqPage() {
                         opacity: isOpen ? 1 : 0,
                       }}
                     >
-                      <div className="mx-4 border-t border-gray-100" />
-                      <p className="px-4 pt-3 pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">
+                      <div className="mx-5 border-t border-[#F5F6F8]" />
+                      <p className="whitespace-pre-line px-5 pb-5 pt-3.5 text-[14px] leading-[1.8] text-[#51535C]">
                         {renderAnswer(item.answer)}
                       </p>
                     </div>
@@ -215,9 +221,13 @@ export default function FaqPage() {
         ))}
 
         {!loading && filtered.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-[14px] text-gray-400">
+          <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+            <EmptySearchIcon size={64} className="mb-3" />
+            <p className="text-[15px] font-bold text-[#2B313D]">
               {faqs.length === 0 ? '등록된 FAQ가 없습니다' : '검색 결과가 없습니다'}
+            </p>
+            <p className="mt-1.5 text-[13px] text-[#A4ABBA]">
+              {faqs.length === 0 ? '준비되는 대로 안내드릴게요.' : '다른 검색어로 찾아보시거나 고객센터로 문의해 주세요.'}
             </p>
           </div>
         )}

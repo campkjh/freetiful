@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Calendar } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
+import { CalendarIcon } from '@/components/icons/mono';
+import { EmptyDocumentIcon } from '@/components/icons/color';
+import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
 
 type Status = 'all' | 'paid' | 'upcoming' | 'completed' | 'refunded';
 
@@ -21,10 +23,10 @@ interface PurchaseItem {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  paid: { label: '결제완료', color: 'bg-blue-50 text-blue-600' },
-  upcoming: { label: '행사 예정', color: 'bg-green-50 text-green-600' },
-  completed: { label: '행사 완료', color: 'bg-gray-100 text-gray-600' },
-  refunded: { label: '환불됨', color: 'bg-red-50 text-red-500' },
+  paid: { label: '결제완료', color: 'bg-[#EAF2FF] text-[#3182F6]' },
+  upcoming: { label: '행사 예정', color: 'bg-[#E9F8EF] text-[#12B76A]' },
+  completed: { label: '행사 완료', color: 'bg-[#F2F3F5] text-[#51535C]' },
+  refunded: { label: '환불됨', color: 'bg-[#FFF0F0] text-[#E5484D]' },
 };
 
 const CACHE_KEY = 'freetiful-purchase-cache';
@@ -44,24 +46,9 @@ function setCache(data: PurchaseItem[]) {
 
 function Skeleton() {
   return (
-    <div className="px-4 py-4 space-y-3">
+    <div className="space-y-3 px-4 pt-2">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="border border-gray-100 p-4" style={{ borderRadius: 12 }}>
-          <div className="flex gap-3">
-            <div className="w-14 h-14 rounded-xl bg-gray-100 shrink-0 animate-pulse" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-2">
-                <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
-                <div className="h-5 w-14 bg-gray-100 rounded animate-pulse" />
-              </div>
-              <div className="h-3 w-40 bg-gray-100 rounded animate-pulse mb-3" />
-              <div className="flex items-center justify-between">
-                <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-gray-100 rounded animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <div key={i} className="h-[116px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
       ))}
     </div>
   );
@@ -131,18 +118,12 @@ export default function PurchaseHistoryPage() {
   const filtered = (purchases || []).filter((p) => filter === 'all' || p.status === filter);
 
   return (
-    <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white" data-native-back-header>
-        <div className="flex items-center h-[52px] px-4">
-          <button onClick={() => router.replace('/my')} className="p-1 -ml-1">
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-[18px] font-bold ml-2">구매 내역</h1>
-        </div>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
+      <div className="sticky top-0 z-20 bg-white" data-native-back-header>
+        <MyDetailHeader title="구매 내역" onBack={() => router.replace('/my')} />
         {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
         <LayoutGroup id="purchase-tabs">
-        <div className="mx-4 mb-3 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
+        <div className="scrollbar-hide mx-4 mb-2 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
           {(['all', 'paid', 'upcoming', 'completed', 'refunded'] as Status[]).map((s) => (
             <button
               key={s}
@@ -165,58 +146,58 @@ export default function PurchaseHistoryPage() {
         </LayoutGroup>
       </div>
 
-      {/* Divider */}
-      <div className="h-1.5 bg-gray-50" />
-
       {isLoading && !cached ? (
         <Skeleton />
       ) : (
-        <div className="px-4 py-4 space-y-3">
+        <div
+          key={filter}
+          className="space-y-3 px-4 pt-2"
+          style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+        >
           {filtered.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-400 text-sm">구매 내역이 없습니다</p>
+            <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+              <EmptyDocumentIcon size={64} className="mb-3" />
+              <p className="text-[15px] font-bold text-[#2B313D]">구매 내역이 없습니다</p>
+              <p className="mt-1.5 text-[13px] text-[#A4ABBA]">사회자를 섭외하면 이곳에서 확인할 수 있어요.</p>
             </div>
           ) : (
             filtered.map((item) => (
-              <div
-                key={item.id}
-                className="border border-gray-100 p-4"
-                style={{ borderRadius: 12 }}
-              >
+              <div key={item.id} className={`${MY_CARD} p-5`}>
                 <div className="flex gap-3">
-                  <img src={item.image} alt={item.proName} className="w-14 h-14 rounded-xl object-cover shrink-0 bg-gray-100" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-bold text-gray-900">{item.proName}</p>
+                  <img
+                    src={item.image}
+                    alt={item.proName}
+                    className="h-14 w-14 shrink-0 rounded-[18px] bg-[#F2F3F5] object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="truncate text-[15px] font-bold text-[#2B313D]">{item.proName}</p>
                       <span
-                        className={`text-[11px] font-bold px-2 py-0.5 ${STATUS_MAP[item.status]?.color || 'bg-gray-100 text-gray-500'}`}
-                        style={{ borderRadius: 6 }}
+                        className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${
+                          STATUS_MAP[item.status]?.color || 'bg-[#F2F3F5] text-[#51535C]'
+                        }`}
                       >
                         {STATUS_MAP[item.status]?.label || item.status}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">{item.service}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Calendar size={10} /> {item.eventDate}
+                    <p className="truncate text-[13px] font-medium text-[#8B95A1]">{item.service}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-[12px] text-[#A4ABBA]">
+                        <CalendarIcon size={13} className="text-[#C8CEDA]" /> {item.eventDate}
                       </span>
-                      <span className="text-sm font-bold text-gray-900">{item.amount.toLocaleString()}원</span>
+                      <span className="text-[15px] font-bold tabular-nums text-[#2B313D]">
+                        {item.amount.toLocaleString()}원
+                      </span>
                     </div>
                   </div>
                 </div>
                 {item.status === 'completed' && !item.hasReview && (
-                  <button
-                    className="w-full mt-3 py-2.5 text-sm font-bold text-white"
-                    style={{ backgroundColor: '#2B313D', borderRadius: 12 }}
-                  >
+                  <button className="mt-4 h-11 w-full rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors active:scale-[0.99] lg:hover:bg-[#2470E6]">
                     리뷰 작성하기
                   </button>
                 )}
                 {item.status === 'upcoming' && (
-                  <button
-                    className="w-full mt-3 py-2.5 text-sm font-bold text-gray-500 bg-gray-100"
-                    style={{ borderRadius: 12 }}
-                  >
+                  <button className="mt-4 h-11 w-full rounded-[14px] bg-[#F2F3F5] text-[14px] font-bold text-[#51535C] transition-colors active:scale-[0.99] lg:hover:bg-[#E9EBEF]">
                     일정 변경 요청
                   </button>
                 )}

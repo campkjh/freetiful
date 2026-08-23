@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 import { DEFAULT_POLICIES } from '@/lib/policies/default-policies';
+import { ChevronRightIcon } from '@/components/icons/mono';
+import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
 
 interface PolicyListItem {
   id?: string;
@@ -53,40 +54,34 @@ export default function TermsListPage() {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white flex items-center px-4 h-[52px]" data-native-back-header>
-        <button onClick={() => router.back()} className="p-1">
-          <ChevronLeft size={24} />
-        </button>
-        <h1 className="text-[18px] font-bold ml-2">약관 및 정책</h1>
-      </div>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="약관 및 정책" onBack={() => router.back()} />
 
-      {/* Section divider */}
-      <div className="h-1.5 bg-gray-50" />
+      <div className="px-4 pt-2">
+        <div className={`${MY_CARD} overflow-hidden`}>
+          {items.map((item, i) => (
+            <Link
+              key={item.slug}
+              href={`/terms/${item.slug}`}
+              className={`flex items-center justify-between gap-3 px-5 py-4 transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD] ${
+                i > 0 ? 'border-t border-[#F5F6F8]' : ''
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-semibold text-[#2B313D]">{item.title}</span>
+                <span className="mt-0.5 block text-[12px] text-[#A4ABBA]">
+                  시행일 {formatDate(item.effectiveDate) || '-'}
+                </span>
+              </span>
+              <ChevronRightIcon size={16} className="shrink-0 text-[#D8DDE4]" />
+            </Link>
+          ))}
+        </div>
 
-      {/* Terms list */}
-      <div>
-        {items.map((item) => (
-          <Link
-            key={item.slug}
-            href={`/terms/${item.slug}`}
-            className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100"
-          >
-            <div>
-              <p className="text-sm text-gray-900">{item.title}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">시행일: {formatDate(item.effectiveDate) || '-'}</p>
-            </div>
-            <ChevronRight size={16} className="text-gray-300" />
-          </Link>
-        ))}
-      </div>
-
-      <div className="px-4 py-6">
-        <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-          프리티풀 | 대표: 서나웅<br />
-          개인정보 보호책임자: 김정훈 이사 (운영관리팀)<br />
-          고객문의: Jaicylab0110@gmail.com
+        <p className="px-2 pt-6 text-center text-[12px] leading-[1.9] text-[#A4ABBA]">
+          프리티풀 | 대표 서나웅<br />
+          개인정보 보호책임자 김정훈 이사 (운영관리팀)<br />
+          고객문의 Jaicylab0110@gmail.com
         </p>
       </div>
     </div>

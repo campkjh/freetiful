@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronDown } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { announcementApi, type Announcement } from '@/lib/api/announcement.api';
+import { ChevronDownIcon } from '@/components/icons/mono';
+import { EmptyDocumentIcon } from '@/components/icons/color';
+import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
 
 const TAG_COLORS: Record<string, string> = {
-  '필독': 'bg-red-50 text-red-500',
-  '업데이트': 'bg-blue-50 text-blue-500',
-  '안내': 'bg-gray-100 text-gray-600',
-  '이벤트': 'bg-amber-50 text-amber-600',
-  '점검': 'bg-orange-50 text-orange-500',
+  '필독': 'bg-[#FFF0F0] text-[#E5484D]',
+  '업데이트': 'bg-[#EAF2FF] text-[#3182F6]',
+  '안내': 'bg-[#F2F3F5] text-[#51535C]',
+  '이벤트': 'bg-[#FFF6E5] text-[#D98A00]',
+  '점검': 'bg-[#FFF1E8] text-[#E8730C]',
 };
 
 function formatDate(iso: string): string {
@@ -26,7 +27,6 @@ function formatDate(iso: string): string {
 }
 
 export default function AnnouncementsPage() {
-  const router = useRouter();
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -47,27 +47,23 @@ export default function AnnouncementsPage() {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen max-w-lg mx-auto pb-24" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100/60" data-native-back-header>
-        <div className="flex items-center px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform">
-            <ChevronLeft size={24} className="text-gray-700" />
-          </button>
-          <h1 className="text-[17px] font-bold ml-2 text-gray-900">공지사항</h1>
-        </div>
-      </div>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="공지사항" />
 
       {/* 공지 리스트 */}
-      <div className="px-4 pt-4 space-y-2">
+      <div className="space-y-2.5 px-4 pt-2">
         {loading && (
-          <div className="text-center py-16">
-            <p className="text-[14px] text-gray-400">불러오는 중...</p>
+          <div className="space-y-2.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-[84px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+            ))}
           </div>
         )}
         {!loading && items.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-[14px] text-gray-400">등록된 공지사항이 없습니다</p>
+          <div className={`${MY_CARD} flex flex-col items-center justify-center px-6 py-16 text-center`}>
+            <EmptyDocumentIcon size={64} className="mb-3" />
+            <p className="text-[15px] font-bold text-[#2B313D]">등록된 공지사항이 없습니다</p>
+            <p className="mt-1.5 text-[13px] text-[#A4ABBA]">새로운 소식이 생기면 이곳에 알려드릴게요.</p>
           </div>
         )}
         {items.map((a) => {
@@ -75,46 +71,36 @@ export default function AnnouncementsPage() {
           const tag = a.tag || '안내';
           const date = formatDate(a.publishedAt || a.createdAt);
           return (
-            <div
-              key={a.id}
-              className={`rounded-2xl border transition-all duration-300 ${
-                isOpen ? 'border-gray-200 shadow-sm' : 'border-gray-100'
-              } bg-white`}
-            >
+            <div key={a.id} className={MY_CARD}>
               <button
                 onClick={() => setOpenId(isOpen ? null : a.id)}
-                className="flex items-start gap-3 w-full px-4 py-4 text-left active:bg-gray-50/60 rounded-2xl transition-colors"
+                className="flex w-full items-start gap-3 rounded-[24px] px-5 py-4 text-left transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD]"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TAG_COLORS[tag] || 'bg-gray-100 text-gray-500'}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-[3px] text-[11px] font-bold ${TAG_COLORS[tag] || 'bg-[#F2F3F5] text-[#51535C]'}`}>
                       {tag}
                     </span>
-                    <span className="text-[11px] text-gray-400">{date}</span>
                     {a.isPinned && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-pink-50 text-pink-500">고정</span>
+                      <span className="rounded-full bg-[#FDF0F7] px-2 py-[3px] text-[11px] font-bold text-[#E255A1]">고정</span>
                     )}
+                    <span className="text-[12px] text-[#A4ABBA]">{date}</span>
                   </div>
-                  <p className={`text-[14px] leading-snug ${
-                    isOpen ? 'font-bold text-gray-900' : 'font-medium text-gray-700'
-                  }`}>
+                  <p className={`text-[15px] leading-snug ${isOpen ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#51535C]'}`}>
                     {a.title}
                   </p>
                 </div>
-                <ChevronDown
+                <ChevronDownIcon
                   size={18}
-                  className={`text-gray-400 shrink-0 mt-1 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                  className={`mt-1 shrink-0 text-[#C8CEDA] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                 />
               </button>
               <div
                 className="overflow-hidden transition-all duration-400 ease-out"
-                style={{
-                  maxHeight: isOpen ? 9999 : 0,
-                  opacity: isOpen ? 1 : 0,
-                }}
+                style={{ maxHeight: isOpen ? 9999 : 0, opacity: isOpen ? 1 : 0 }}
               >
-                <div className="mx-4 border-t border-gray-100" />
-                <p className="px-4 pt-3 pb-4 text-[13px] text-gray-500 leading-[1.8] whitespace-pre-line">
+                <div className="mx-5 border-t border-[#F5F6F8]" />
+                <p className="whitespace-pre-line px-5 pb-5 pt-3.5 text-[14px] leading-[1.8] text-[#51535C]">
                   {a.content}
                 </p>
               </div>
