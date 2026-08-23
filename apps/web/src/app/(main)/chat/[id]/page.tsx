@@ -474,6 +474,9 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
     return () => { alive = false; };
   }, [isPro, partnerIsPro, partnerProfileId]);
 
+  const visibleAutoReplyItems = autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id));
+  const hasAutoReplyChips = !isPro && visibleAutoReplyItems.length > 0;
+
   const askAutoReply = useCallback(async (itemId: string) => {
     if (askingAutoReply) return;
     setAskingAutoReply(true);
@@ -1278,7 +1281,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
-          paddingBottom: 80,
+          paddingBottom: hasAutoReplyChips ? 132 : 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           paddingTop: roomMeta?.latestQuotation?.status === 'paid'
@@ -1708,11 +1711,10 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
       <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
         {/* 사회자가 등록해 둔 자주 묻는 질문 — 누르면 질문과 답이 바로 대화에 남는다 */}
-        {!isPro && !isRecording && autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id)).length > 0 && (
+        {hasAutoReplyChips && !isRecording && (
           <div className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 sm:px-0">
             <div className="scrollbar-hide flex gap-1.5 overflow-x-auto">
-              {autoReplyItems
-                .filter((item) => !askedAutoReplyIds.includes(item.id))
+              {visibleAutoReplyItems
                 .map((item) => (
                   <button
                     key={item.id}
