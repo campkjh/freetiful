@@ -3,14 +3,37 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import Link from 'next/link';
+import { Reply, TextSelect } from 'lucide-react';
 import {
-  X, Copy, Reply, Trash2, MoreVertical,
-  MapPin, FileText, Smile, Plus, Search, Bell, BellOff,
-  Flag, Pin, TextSelect, PinOff,
-  Camera, Mic, Image as ImageIcon, Video,
-  FileSignature, CreditCard, CheckCircle2, CalendarCheck,
-  AlarmClock, Sparkles, Star, RefreshCw, XCircle, Clock,
-} from 'lucide-react';
+  XIcon as X,
+  CopyIcon as Copy,
+  TrashIcon as Trash2,
+  DotsVerticalIcon as MoreVertical,
+  PinLocationIcon as MapPin,
+  DocumentIcon as FileText,
+  EmojiIcon as Smile,
+  PlusIcon as Plus,
+  SearchIcon as Search,
+  BellIcon as Bell,
+  BellOffIcon as BellOff,
+  FlagIcon as Flag,
+  PinIcon as Pin,
+  UnpinIcon as PinOff,
+  CameraIcon as Camera,
+  MicIcon as Mic,
+  PictureIcon as ImageIcon,
+  VideoIcon as Video,
+  ContractIcon as FileSignature,
+  CardIcon as CreditCard,
+  CheckCircleIcon as CheckCircle2,
+  CalendarCheckIcon as CalendarCheck,
+  BellIcon as AlarmClock,
+  TwinkleIcon as Sparkles,
+  StarIcon as Star,
+  RefreshIcon as RefreshCw,
+  XCircleIcon as XCircle,
+  ClockIcon as Clock,
+} from '@/components/icons/chat';
 import toast from 'react-hot-toast';
 import { quotationApi } from '@/lib/api/quotation.api';
 import { chatApi } from '@/lib/api/chat.api';

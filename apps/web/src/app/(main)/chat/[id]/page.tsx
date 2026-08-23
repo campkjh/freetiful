@@ -3,8 +3,18 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft, Mic, X, MoreVertical, Plus, MapPin, FileText, FileSignature, Play, Pause,
-} from 'lucide-react';
+  ArrowBackIcon as ChevronLeft,
+  MicIcon as Mic,
+  XIcon as X,
+  DotsVerticalIcon as MoreVertical,
+  PlusIcon as Plus,
+  PinLocationIcon as MapPin,
+  DocumentIcon as FileText,
+  ContractIcon as FileSignature,
+  PlayIcon as Play,
+  PauseIcon as Pause,
+  PaperPlaneIcon,
+} from '@/components/icons/chat';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import toast from 'react-hot-toast';
@@ -1127,7 +1137,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe">
           <div className="flex items-center gap-2 max-w-[680px] mx-auto">
             <button onClick={() => router.back()} className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0">
-              <ChevronLeft size={24} className="text-gray-600" strokeWidth={2.5} />
+              <ChevronLeft size={24} className="text-gray-600" />
             </button>
             <div className="flex-1 flex items-center gap-3 bg-white/90 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 pl-1.5 pr-4 h-12">
               <img src={skeletonImg} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
@@ -1201,7 +1211,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               }}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#2B313D] transition-colors active:bg-[#F2F3F5]"
             >
-              <ChevronLeft size={24} strokeWidth={2.2} />
+              <ChevronLeft size={20} />
             </button>
           )}
 
@@ -1772,12 +1782,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               )}
               <button
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-transform active:scale-[0.9]"
+                className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-transform active:scale-[0.9]"
               >
-                <Plus size={24} className="text-gray-600" />
+                <Plus size={22} />
               </button>
 
-              <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-[20px] bg-[#F2F3F5] py-[7px] pl-4 pr-1.5">
+              <div className="flex min-h-[50px] min-w-0 flex-1 items-end rounded-[22px] bg-[#F2F3F5] py-[7px] pl-4 pr-1.5">
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -1798,17 +1808,17 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                 {input.trim() ? (
                   <button
                     onClick={handleSend}
-                    className="w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-900 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform ml-1"
+                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3180F7] text-white transition-transform active:scale-[0.88]"
                   >
-                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                    <PaperPlaneIcon size={17} />
                   </button>
                 ) : (
                   <button
                     onClick={() => startRecordingRef.current?.()}
-                    className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center shrink-0 active:scale-[0.88] transition-all ml-1"
+                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8B95A1] transition-all active:scale-[0.88]"
                     title="음성 메시지 녹음"
                   >
-                    <Mic size={20} className="text-gray-600" />
+                    <Mic size={19} />
                   </button>
                 )}
               </div>
