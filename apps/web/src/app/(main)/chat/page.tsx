@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pin, PinOff, Trash2, Archive, X, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { SearchIcon, CloseIcon } from '@/components/icons/mono';
-import { EmptySearchIcon, MailBoxIcon } from '@/components/icons/color';
+import { EmptySearchIcon } from '@/components/icons/color';
+import ChatEmptyBubbles from '@/components/ChatEmptyBubbles';
 import ChatRoomView from './[id]/page';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -643,7 +644,7 @@ export default function ChatListPage() {
               )
             ) : sorted.length === 0 ? (
               <div className="py-16 text-center">
-                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <MailBoxIcon size={56} className="mx-auto" />}
+                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <ChatEmptyBubbles size={132} className="mx-auto" />}
                 <p className="mt-3 text-[13px] text-[#A4ABBA]">{search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
               </div>
             ) : renderChatList(true)}
@@ -657,9 +658,9 @@ export default function ChatListPage() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
-                <MailBoxIcon size={76} className="mx-auto mb-4" />
-                <p className="text-[15px] font-semibold text-[#51535C]">대화방을 선택하세요</p>
-                <p className="mt-1 text-[13px] text-[#A4ABBA]">왼쪽 목록에서 대화를 고르면 여기에 열립니다</p>
+                <ChatEmptyBubbles size={190} className="mx-auto mb-5" />
+                <p className="text-[16px] font-bold text-[#2B313D]">이어가던 대화를 다시 시작해 볼까요?</p>
+                <p className="mt-1.5 text-[13px] text-[#A4ABBA]">대화를 선택하고 자유롭게 이야기해 보세요.</p>
               </div>
             </div>
           )}
@@ -794,8 +795,11 @@ export default function ChatListPage() {
           <div className="text-center py-20">
             {search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
-              : <MailBoxIcon size={64} className="mx-auto mb-4" />}
-            <p className="text-[15px] font-bold text-[#2B313D]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '아직 대화가 없습니다'}</p>
+              : <ChatEmptyBubbles size={172} className="mx-auto mb-5" />}
+            <p className="text-[16px] font-bold text-[#2B313D]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '이어가던 대화를 다시 시작해 볼까요?'}</p>
+            {!search && isLoggedIn && activeTab !== '보관' && (
+              <p className="mt-1.5 text-[13px] text-[#A4ABBA]">마음에 드는 사회자에게 문의하면 여기에서 대화할 수 있어요.</p>
+            )}
             {!search && activeTab === '전체' && <Link href="/pros" className="mt-3 inline-flex h-11 items-center justify-center rounded-[14px] bg-[#3180F7] px-6 text-[14px] font-bold text-white">사회자 찾아보기</Link>}
           </div>
         ) : renderChatList(false)}
