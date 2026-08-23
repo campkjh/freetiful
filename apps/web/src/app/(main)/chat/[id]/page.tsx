@@ -14,7 +14,9 @@ import {
   PlayIcon as Play,
   PauseIcon as Pause,
   PaperPlaneIcon,
+  CalendarCheckIcon as CalendarCheck,
 } from '@/components/icons/chat';
+import { ChevronDownIcon } from '@/components/icons/mono';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import toast from 'react-hot-toast';
@@ -455,6 +457,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
+  const [quoteInfoOpen, setQuoteInfoOpen] = useState(false);
   const isPro = iAmProInRoom === true;
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;
@@ -1302,31 +1305,60 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
             const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
             return (
-            <div className="mb-4 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(49,128,247,0.08)]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-bold text-[#3180F7]">고객 견적 정보</p>
-                  <p className="mt-1 text-[14px] font-semibold text-gray-900 truncate">
-                    {eventName}
-                  </p>
-                  <p className="mt-1 text-[12px] text-gray-500">
-                    📅 {eventDate ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim() : '일정 미입력'}
-                  </p>
-                  {eventLocation && (
-                    <p className="mt-0.5 text-[12px] text-gray-500 truncate">📍 {eventLocation}</p>
-                  )}
-                  {planLabel && (
-                    <span className="mt-1 inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#3180F7]/10 text-[#3180F7]">
-                      {planLabel}
+            <div
+              className="sticky z-10 mb-4"
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 62px)' }}
+            >
+              <div className="overflow-hidden rounded-[20px] border-[0.6px] border-[#E9EDF3] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
+                {/* 접힌 상태에서도 무슨 행사·얼마인지는 보이게 */}
+                <button
+                  type="button"
+                  onClick={() => setQuoteInfoOpen((prev) => !prev)}
+                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors active:bg-[#FBFCFD]"
+                >
+                  <FileText size={17} className="shrink-0 text-[#3180F7]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12px] font-bold text-[#8B95A1]">고객 견적 정보</span>
+                    <span className="mt-0.5 block truncate text-[14px] font-bold text-[#2B313D]">{eventName}</span>
+                  </span>
+                  {roomMeta.latestQuotation?.amount != null && (
+                    <span className="shrink-0 text-[15px] font-bold tabular-nums text-[#2B313D]">
+                      {Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원
                     </span>
                   )}
-                </div>
-                {roomMeta.latestQuotation?.amount != null && (
-                  <div className="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-right">
-                    <p className="text-[11px] text-blue-500">최근 견적</p>
-                    <p className="text-[14px] font-bold text-[#3180F7]">{Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원</p>
+                  <ChevronDownIcon
+                    size={18}
+                    className={`shrink-0 text-[#C8CEDA] transition-transform duration-300 ${quoteInfoOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                <div
+                  className="overflow-hidden transition-all duration-300 ease-out"
+                  style={{ maxHeight: quoteInfoOpen ? 240 : 0, opacity: quoteInfoOpen ? 1 : 0 }}
+                >
+                  <div className="mx-4 border-t border-[#F2F4F7]" />
+                  <div className="space-y-2 px-4 pb-3.5 pt-3">
+                    <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
+                      <CalendarCheck size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
+                      <span className="min-w-0 flex-1">
+                        {eventDate
+                          ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim()
+                          : '일정 미입력'}
+                      </span>
+                    </p>
+                    {eventLocation && (
+                      <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
+                        <MapPin size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
+                        <span className="min-w-0 flex-1 break-keep">{eventLocation}</span>
+                      </p>
+                    )}
+                    {planLabel && (
+                      <span className="inline-block rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[12px] font-bold text-[#3182F6]">
+                        {planLabel}
+                      </span>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
             );
@@ -1709,10 +1741,13 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       />
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
+      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
         {/* 사회자가 등록해 둔 자주 묻는 질문 — 누르면 질문과 답이 바로 대화에 남는다 */}
         {hasAutoReplyChips && !isRecording && (
-          <div className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 sm:px-0">
+          <div
+            className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 pt-4 sm:px-0"
+            style={{ background: 'linear-gradient(to top, #fff 42%, rgba(255,255,255,0) 100%)' }}
+          >
             <div className="scrollbar-hide flex gap-1.5 overflow-x-auto">
               {visibleAutoReplyItems
                 .map((item) => (
@@ -1721,7 +1756,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                     type="button"
                     onClick={() => askAutoReply(item.id)}
                     disabled={askingAutoReply}
-                    className="shrink-0 rounded-full border border-[#E4E7EB] bg-white/95 px-3.5 py-2 text-[13px] font-semibold text-[#51535C] shadow-[0_2px_10px_rgba(15,23,42,0.06)] backdrop-blur transition-transform active:scale-95 disabled:opacity-60"
+                    className="shrink-0 rounded-full border border-[#E4E7EB] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#51535C] transition-transform active:scale-95 disabled:opacity-60"
                   >
                     {item.question}
                   </button>
@@ -1729,7 +1764,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             </div>
           </div>
         )}
-        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pb-1 pt-2 sm:px-0">
+        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 bg-white px-3 pointer-events-auto pb-1 pt-2 sm:px-0">
           {isRecording ? (
             // Recording UI
             <>

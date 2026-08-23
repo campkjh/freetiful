@@ -557,9 +557,9 @@ export default function ChatListPage() {
   return (
     <>
       {/* ═══ PC: 2-Panel Layout ═══ */}
-      <div className="hidden h-full min-h-0 gap-4 py-5 lg:flex lg:min-h-[calc(100vh-140px)]">
+      <div className="hidden h-full min-h-0 gap-4 py-5 lg:flex lg:h-[calc(100vh-140px)]">
         {/* 좌측: 채팅 목록 — 헤더에서 띄우고 모서리를 둥글린 카드 */}
-        <div className="flex w-[360px] shrink-0 flex-col overflow-hidden rounded-[24px] bg-white">
+        <div className="flex w-[360px] min-h-0 shrink-0 flex-col overflow-hidden rounded-[24px] bg-white">
           {/* 제목은 전역 헤더(홈·Biz·채팅…)와 겹쳐서 PC 에선 빼고, 검색·탭만 남긴다 */}
           <div className="px-5 pt-5 pb-3">
             <div className="relative mb-3">
@@ -610,7 +610,7 @@ export default function ChatListPage() {
           </div>
           <div
             key={`pc-${isPro ? proActiveTab : activeTab}`}
-            className="flex-1 overflow-y-auto"
+            className="min-h-0 flex-1 overflow-y-auto"
             style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
           >
             {(roomsLoading || !hasEverLoaded) && rooms.length === 0 && isLoggedIn ? (
@@ -652,7 +652,7 @@ export default function ChatListPage() {
         </div>
 
         {/* 우측: 대화 영역 — 방을 고르면 그 자리에서 열린다 */}
-        <div className="relative flex flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
           {selectedRoomId ? (
             <ChatRoomView key={selectedRoomId} roomId={selectedRoomId} embedded />
           ) : (
