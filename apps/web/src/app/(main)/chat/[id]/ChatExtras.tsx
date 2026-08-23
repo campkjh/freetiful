@@ -27,6 +27,7 @@ import {
   CardIcon as CreditCard,
   CheckCircleIcon as CheckCircle2,
   CalendarCheckIcon as CalendarCheck,
+  WonIcon,
   BellIcon as AlarmClock,
   TwinkleIcon as Sparkles,
   StarIcon as Star,
@@ -2401,13 +2402,26 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
       {/* ─── 견적서 작성 모달 (사회자 전용) ─── */}
       {showQuoteModal && (
-        <div className="fixed inset-0 z-[100] flex items-end bg-black/40" onClick={() => setShowQuoteModal(false)}>
-          <div className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto" onClick={(e) => { e.stopPropagation(); const t = e.target as HTMLElement; if (!t.closest('input,textarea,select,button,a')) (document.activeElement as HTMLElement | null)?.blur(); }} style={{ animation: 'sheetUp 0.3s ease' }}>
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h2 className="text-[18px] font-bold text-gray-900 mb-4">견적서 작성</h2>
+        <>
+        <div
+          className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/10 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
+          onClick={() => setShowQuoteModal(false)}
+        />
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-[28px] bg-white/95 px-5 pb-8 pt-5 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:max-h-[70vh] lg:w-[380px] lg:origin-bottom-left lg:animate-[menuPop_0.22s_cubic-bezier(0.34,1.56,0.64,1)] lg:rounded-[24px] lg:px-4 lg:pb-4 lg:pt-4"
+          onClick={(e) => { e.stopPropagation(); const t = e.target as HTMLElement; if (!t.closest('input,textarea,select,button,a')) (document.activeElement as HTMLElement | null)?.blur(); }}
+          style={{ animation: 'sheetUp 0.3s ease' }}
+        >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
+            <h2 className="mb-4 flex items-center gap-1.5 text-[17px] font-bold text-[#2B313D]">
+              <FileSignature size={18} className="text-[#3180F7]" />
+              견적서 작성
+            </h2>
 
             {/* 네이티브 견적서 폼과 동일한 인풋/내용 (네이티브가 기준) */}
-            <p className="text-[12px] font-bold text-gray-500 mb-1.5">견적 금액</p>
+            <p className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-[#8B95A1]">
+              <WonIcon size={13} className="text-[#C8CEDA]" /> 견적 금액
+            </p>
             <input
               type="text"
               inputMode="numeric"
@@ -2418,7 +2432,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
             />
 
             {/* ─── 행사 정보 ─── */}
-            <p className="text-[12px] font-bold text-gray-500 mb-1.5">행사 정보</p>
+            <p className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-[#8B95A1]">
+              <CalendarCheck size={13} className="text-[#C8CEDA]" /> 행사 정보
+            </p>
             <div className="space-y-2 mb-4">
               <input
                 type="text"
@@ -2481,8 +2497,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 '견적서 발송'
               )}
             </button>
-          </div>
         </div>
+        </>
       )}
 
       {/* ─── 첨부 메뉴 ─── */}
