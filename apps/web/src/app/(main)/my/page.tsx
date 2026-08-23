@@ -162,6 +162,7 @@ const MENU_SECTIONS = [
     title: '설정',
     items: [
       { href: '/my/settings', icon: MyProfileIcon, label: '프로필 설정' },
+      { href: '/pro-dashboard/auto-reply', icon: MyFaqIcon, label: '자동응답 관리', proOnly: true },
     ],
   },
   {
@@ -492,7 +493,9 @@ export default function MyPage() {
           <div className="px-4 pt-3 pb-0.5 lg:pb-1.5 lg:pt-1">
             <p className="text-[12px] font-bold text-gray-400 lg:text-[13px] lg:text-[#A4ABBA]">{section.title}</p>
           </div>
-          {section.items.map(({ href, icon: Icon, label, badge, action }: { href: string; icon: (p: { size?: number; className?: string }) => JSX.Element; label: string; badge?: string; action?: string }) => {
+          {section.items.map(({ href, icon: Icon, label, badge, action, proOnly }: { href: string; icon: (p: { size?: number; className?: string }) => JSX.Element; label: string; badge?: string; action?: string; proOnly?: boolean }) => {
+            // 사회자 전용 메뉴 — 승인된 사회자에게만
+            if (proOnly && !(authUser?.role === 'pro' || proProfileStatus === 'approved')) return null;
             // Partner registration conditional logic
             if (action === 'partner') {
               if (authUser?.role === 'pro' && proProfileStatus === null) return null;

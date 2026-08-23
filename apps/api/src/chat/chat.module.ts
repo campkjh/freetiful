@@ -7,9 +7,10 @@ import { ChatRealtimeService } from './chat-realtime.service';
 import { NotificationModule } from '../notification/notification.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ImageModule } from '../image/image.module';
+import { AutoReplyModule } from '../auto-reply/auto-reply.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule],
+  imports: [AuthModule, PrismaModule, NotificationModule, ImageModule, AutoReplyModule],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway, ChatRealtimeService],
   exports: [ChatService, ChatRealtimeService],

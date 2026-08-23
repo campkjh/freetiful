@@ -53,6 +53,8 @@ export interface Message {
   reaction?: string | null;
   isNew?: boolean;
   system?: SystemPayload;
+  /** 사회자 자동응답으로 나간 메시지 — 화면에 '자동응답' 표시를 단다 */
+  autoReply?: boolean;
   // 미디어 업로드 진행률 (낙관적 메시지에서만 사용): 0~100, 완료 시 undefined
   uploadProgress?: number;
   // 원본 파일 크기(byte) — 업로드 진행 오버레이에 "X.X / Y.Y MB" 표기용

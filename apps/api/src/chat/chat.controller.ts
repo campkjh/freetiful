@@ -104,6 +104,12 @@ export class ChatController {
     return message;
   }
 
+  @Post('rooms/:roomId/auto-reply')
+  @ApiOperation({ summary: '추천 질문 누르기 — 질문과 사회자 자동응답을 한 번에 남긴다' })
+  sendAutoReply(@Req() req, @Param('roomId') roomId: string, @Body() body: { itemId: string }) {
+    return this.chatService.sendAutoReply(roomId, req.user.id, String(body?.itemId || ''));
+  }
+
   @Post('rooms/:roomId/images')
   @ApiOperation({ summary: '채팅 이미지 업로드' })
   @ApiConsumes('multipart/form-data')

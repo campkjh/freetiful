@@ -309,6 +309,7 @@ model ProProfile {
   companyExperiences ProCompanyExperience[]
   services           ProService[]
   faqs               ProFaq[]
+  autoReplies        ProAutoReply[]
   matchDeliveries    MatchDelivery[]
   quotations         Quotation[]
   reviews            Review[]
@@ -413,6 +414,24 @@ model ProFaq {
   proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
 
   @@map("pro_faqs")
+}
+
+/// 사회자 자동응답 — 첫 인사말 1개(kind='greeting') + 자주 묻는 질문 답변 여러 개(kind='qa')
+model ProAutoReply {
+  id           String   @id @default(uuid())
+  proProfileId String
+  kind         String   @default("qa")
+  question     String?
+  answer       String
+  displayOrder Int      @default(0)
+  isEnabled    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@index([proProfileId, kind])
+  @@map("pro_auto_replies")
 }
 
 // ─── Business Profiles ───────────────────────────────────────────────────────

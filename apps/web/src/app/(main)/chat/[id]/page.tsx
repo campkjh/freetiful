@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import toast from 'react-hot-toast';
+import { autoReplyApi } from '@/lib/api/auto-reply.api';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
 import { preWarmChat, getPreWarmByProId, getPreWarmByRoomId } from '@/lib/chat-prewarm';
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
@@ -57,6 +59,7 @@ function mapApiMessage(m: MessageItem): Message {
     longitude: meta?.longitude as number | undefined,
     address: meta?.address as string | undefined,
     system: meta?.system as SystemPayload | undefined,
+    autoReply: meta?.autoReply === true,
   };
 }
 
@@ -446,6 +449,34 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;
   const partnerProfileId = chatPartner?.proProfileId || chatPartner?.id;
+
+  // ─── 사회자 자동응답 추천 질문 (고객 화면에만) ───
+  const [autoReplyItems, setAutoReplyItems] = useState<{ id: string; question: string }[]>([]);
+  const [askedAutoReplyIds, setAskedAutoReplyIds] = useState<string[]>([]);
+  const [askingAutoReply, setAskingAutoReply] = useState(false);
+  useEffect(() => {
+    if (isPro || !partnerIsPro || !partnerProfileId) return;
+    let alive = true;
+    autoReplyApi
+      .getPublic(partnerProfileId)
+      .then((items) => { if (alive) setAutoReplyItems(items); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isPro, partnerIsPro, partnerProfileId]);
+
+  const askAutoReply = useCallback(async (itemId: string) => {
+    if (askingAutoReply) return;
+    setAskingAutoReply(true);
+    setAskedAutoReplyIds((prev) => [...prev, itemId]);
+    try {
+      await autoReplyApi.ask(roomId, itemId);
+    } catch {
+      setAskedAutoReplyIds((prev) => prev.filter((id) => id !== itemId));
+      toast.error('잠시 후 다시 시도해주세요');
+    } finally {
+      setAskingAutoReply(false);
+    }
+  }, [askingAutoReply, roomId]);
   const openPartnerProfile = useCallback(() => {
     if (partnerIsPro && partnerProfileId) {
       router.push(`/pros/${partnerProfileId}`);
@@ -1403,6 +1434,15 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   onContextMenu={(e) => e.preventDefault()}
                 >
                   <div className="relative min-w-0 max-w-[78%]">
+                    {/* 자동응답으로 나간 메시지는 사람이 직접 쓴 것과 구분해 준다 */}
+                    {!mine && msg.autoReply && (
+                      <p className="mb-1 flex items-center gap-1 pl-1 text-[11px] font-semibold text-[#A4ABBA]">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                          <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="#A4ABBA" />
+                        </svg>
+                        자동응답 메시지
+                      </p>
+                    )}
                     {/* Message bubble */}
                     {msg.type === 'image' && isChatStickerUrl(msg.content) ? (
                       /* 이모티콘 — 사진과 달리 말풍선/전체보기 없이 이미지만 */
@@ -1667,6 +1707,26 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
       <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
+        {/* 사회자가 등록해 둔 자주 묻는 질문 — 누르면 질문과 답이 바로 대화에 남는다 */}
+        {!isPro && !isRecording && autoReplyItems.filter((item) => !askedAutoReplyIds.includes(item.id)).length > 0 && (
+          <div className="pointer-events-auto mx-auto w-full max-w-[680px] px-3 pb-1.5 sm:px-0">
+            <div className="scrollbar-hide flex gap-1.5 overflow-x-auto">
+              {autoReplyItems
+                .filter((item) => !askedAutoReplyIds.includes(item.id))
+                .map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => askAutoReply(item.id)}
+                    disabled={askingAutoReply}
+                    className="shrink-0 rounded-full border border-[#E4E7EB] bg-white/95 px-3.5 py-2 text-[13px] font-semibold text-[#51535C] shadow-[0_2px_10px_rgba(15,23,42,0.06)] backdrop-blur transition-transform active:scale-95 disabled:opacity-60"
+                  >
+                    {item.question}
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 px-3 pointer-events-auto pt-1 sm:px-0">
           {isRecording ? (
             // Recording UI

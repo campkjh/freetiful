@@ -11,6 +11,7 @@ import { ImageService } from '../image/image.service';
 import { VideoCompressService } from '../image/video-compress.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChatRealtimeService } from './chat-realtime.service';
+import { AutoReplyService } from '../auto-reply/auto-reply.service';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -32,6 +33,7 @@ export class ChatService implements OnModuleInit {
     private imageService: ImageService,
     private chatRealtimeService: ChatRealtimeService,
     private videoCompress: VideoCompressService,
+    private autoReplyService: AutoReplyService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -701,6 +703,10 @@ export class ChatService implements OnModuleInit {
       data: { lastMessageId: systemMessage.id, lastMessageAt: systemMessage.createdAt },
     });
 
+    // 사회자 인사말 자동응답 — 첫 문의에 몇 시간씩 답이 없는 게 이탈의 가장 큰 이유였다.
+    // 사회자가 따로 적어 두지 않았으면 기본 문구로 나간다. 실패해도 방 생성은 그대로 진행.
+    this.sendGreetingInBackground(room.id, dto.proProfileId, pro.userId, pro.user.name);
+
     // 룸 목록 캐시 무효화 (고객 + 전문가 양쪽)
     this.invalidateRoomsCache(userId);
     this.invalidateRoomsCache(pro.userId);
@@ -1199,6 +1205,73 @@ export class ChatService implements OnModuleInit {
       hasMore: messages.length === take,
       cursor: orderedMessages.length > 0 ? orderedMessages[0].createdAt.toISOString() : null,
     };
+  }
+
+  /** 방이 열리자마자 사회자 인사말을 대신 내보낸다(백그라운드) */
+  private sendGreetingInBackground(
+    roomId: string,
+    proProfileId: string,
+    proUserId: string,
+    proName?: string | null,
+  ) {
+    void (async () => {
+      try {
+        const greeting = await this.autoReplyService.greetingFor(proProfileId, proName);
+        if (!greeting) return;
+        const message = await this.sendMessage(roomId, proUserId, {
+          type: 'text' as any,
+          content: greeting,
+          metadata: { autoReply: true },
+        } as any);
+        const memberIds = await this.getRoomMemberIds(roomId);
+        await this.chatRealtimeService.emitPersistedMessage(roomId, message.id, {
+          notifyUserIds: memberIds,
+          roomUpdatedUserIds: memberIds,
+          unreadUserIds: memberIds.filter((id) => id !== proUserId),
+          dashboardUserIds: memberIds,
+        });
+      } catch (error) {
+        console.warn(`인사말 자동응답 실패 room=${roomId}: ${error}`);
+      }
+    })();
+  }
+
+  /**
+   * 고객이 추천 질문을 누르면 — 질문은 고객 이름으로, 답변은 사회자 이름으로 남긴다.
+   * 답변에 autoReply 표시를 달아 화면에서 '자동응답 메시지' 로 구분한다.
+   */
+  async sendAutoReply(roomId: string, userId: string, itemId: string) {
+    const room = await this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { id: true, userId: true, proProfileId: true, proProfile: { select: { userId: true } } },
+    });
+    if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다');
+    if (room.userId !== userId) throw new ForbiddenException('고객만 사용할 수 있습니다');
+    const proUserId = room.proProfile?.userId;
+    if (!proUserId) throw new NotFoundException('사회자를 찾을 수 없습니다');
+
+    const { question, answer } = await this.autoReplyService.answerOf(room.proProfileId, itemId);
+
+    const asked = await this.sendMessage(roomId, userId, {
+      type: 'text' as any,
+      content: question,
+    } as any);
+    const replied = await this.sendMessage(roomId, proUserId, {
+      type: 'text' as any,
+      content: answer,
+      metadata: { autoReply: true },
+    } as any);
+
+    const memberIds = await this.getRoomMemberIds(roomId);
+    for (const [message, senderId] of [[asked, userId], [replied, proUserId]] as const) {
+      await this.chatRealtimeService.emitPersistedMessage(roomId, (message as any).id, {
+        notifyUserIds: memberIds,
+        roomUpdatedUserIds: memberIds,
+        unreadUserIds: memberIds.filter((id) => id !== senderId),
+        dashboardUserIds: memberIds,
+      });
+    }
+    return { asked, replied };
   }
 
   async sendMessage(roomId: string, userId: string, dto: SendMessageDto) {
