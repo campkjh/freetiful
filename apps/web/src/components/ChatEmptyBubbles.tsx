@@ -30,8 +30,8 @@ function Bubble({ color, flip = false }: { color: string; flip?: boolean }) {
 }
 
 export default function ChatEmptyBubbles({ size = 168, className = '' }: { size?: number; className?: string }) {
-  const bubble = size * 0.58; // 아이콘이 정사각이라 가로=세로
-  const shift = bubble * 0.55; // 뒤로 밀려 올라가는 거리
+  const bubble = size * 0.64; // 아이콘이 정사각이라 가로=세로
+  const shift = bubble * 0.44; // 뒤로 밀려 올라가는 거리 — 두 말풍선이 살짝 겹치도록
 
   return (
     <div

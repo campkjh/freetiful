@@ -618,7 +618,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
         ref={quoteRef}
         data-quote-card="true"
         data-near-center="false"
-        className="quote-card-root my-2 ml-2 mr-auto w-[min(320px,86%)] overflow-hidden rounded-[18px] border-[0.6px] border-[#EEF1F5] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] animate-[bubblePop_0.45s_cubic-bezier(0.34,1.56,0.64,1)]"
+        className="quote-card-root my-2 ml-2 mr-auto w-[min(320px,86%)] overflow-hidden rounded-[18px] border-[0.6px] border-[#EEF1F5] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]"
       >
         <div className="px-4 pb-4 pt-4">
           <p className="text-[17px] font-bold text-[#191F28]">프리티풀 안전 결제</p>

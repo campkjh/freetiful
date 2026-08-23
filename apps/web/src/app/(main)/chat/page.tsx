@@ -643,7 +643,7 @@ export default function ChatListPage() {
                 </div>
               )
             ) : sorted.length === 0 ? (
-              <div className="py-16 text-center">
+              <div className="flex min-h-[280px] flex-col items-center justify-center py-10 text-center">
                 {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <ChatEmptyBubbles size={132} className="mx-auto" />}
                 <p className="mt-3 text-[13px] text-[#A4ABBA]">{search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
               </div>
@@ -792,10 +792,11 @@ export default function ChatListPage() {
             </div>
           )
         ) : sorted.length === 0 ? (
-          <div className="text-center py-20">
+          // 남는 공간 한가운데로 — 위에 붙여 두면 스티키 탭에 애니메이션이 잘린다
+          <div className="flex min-h-[calc(100dvh-320px)] flex-col items-center justify-center px-6 pb-10 text-center">
             {search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
-              : <ChatEmptyBubbles size={172} className="mx-auto mb-5" />}
+              : <ChatEmptyBubbles size={176} className="mx-auto mb-6" />}
             <p className="text-[16px] font-bold text-[#2B313D]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '이어가던 대화를 다시 시작해 볼까요?'}</p>
             {!search && isLoggedIn && activeTab !== '보관' && (
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">마음에 드는 사회자에게 문의하면 여기에서 대화할 수 있어요.</p>
