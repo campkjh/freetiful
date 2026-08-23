@@ -31,6 +31,8 @@ export interface SystemPayload {
   reviewUrl?: string;
   rating?: number;
   quotationId?: string;
+  paymentId?: string;
+  orderId?: string;
   proId?: string;
   proImage?: string | null;
 }

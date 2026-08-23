@@ -509,6 +509,14 @@ function useNearestQuoteCard<T extends HTMLElement>() {
 }
 
 // ─── SystemMessageCard ───
+/** 주문번호 — 토스에 넘긴 orderId(ORDER-{시각}-{8자리})에서 뒤 8자리만 보여 준다 */
+function orderNo(sys: SystemPayload) {
+  const raw = sys.orderId || sys.paymentId || sys.quotationId || '';
+  if (!raw) return '';
+  const tail = raw.split('-').pop() || raw;
+  return tail.slice(-8).toUpperCase();
+}
+
 /** 견적 카드 제목 — "홍길동님의 결혼식 사회 섭외건" 처럼 누구의 무슨 행사인지 한 줄로 */
 function quoteTitle(sys: SystemPayload, customerName?: string | null) {
   const who = (customerName || '').trim();
@@ -901,16 +909,41 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
   }
 
   if (sys.kind === 'payment_paid') {
-    const isDeposit = sys.paymentType === 'deposit';
+    // 결제가 끝나면 '무엇을 결제했는지' 가 대화에 남아야 한다 — 참고 화면과 같은 형태
+    const paidAt = new Date(msg.createdAt);
+    const stamp = Number.isNaN(paidAt.getTime())
+      ? ''
+      : `${String(paidAt.getFullYear()).slice(2)}.${String(paidAt.getMonth() + 1).padStart(2, '0')}.${String(paidAt.getDate()).padStart(2, '0')} ` +
+        `${String(paidAt.getHours()).padStart(2, '0')}:${String(paidAt.getMinutes()).padStart(2, '0')}`;
+    const no = orderNo(sys);
+
     return (
-      <div className={wrapperClass}>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3.5 flex items-center gap-3">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#43A047"/><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-bold text-gray-900">{isDeposit ? '예약금' : '잔금'} 결제 완료</p>
-            <p className="text-[13px] text-gray-500 tabular-nums">{formatKRW(sys.amount || 0)}</p>
+      <div className="my-2 ml-2 mr-auto w-[min(320px,86%)] rounded-[18px] bg-[#EDF7E6] px-4 py-4">
+        <p className="text-[15px] text-[#2F3A2A]">
+          <span className="font-bold">결제한 서비스</span>
+          {stamp && <span className="text-[14px]"> ({stamp})</span>}
+        </p>
+        <div className="mt-3 flex items-start gap-3">
+          <img
+            src={(sys as any)?.proImage || (isPro ? myProfileImage : chatPartner?.profileImageUrl) || '/images/default-profile.svg'}
+            alt=""
+            className="h-[62px] w-[78px] shrink-0 rounded-[10px] bg-white object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.svg'; }}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] leading-[1.5] text-[#191F28]">
+              {quoteTitle(sys, isPro ? chatPartner?.name : authUser?.name)}
+            </p>
+            {no && (
+              <p className="mt-1.5 text-[14px] font-bold text-[#191F28]">
+                주문번호: <span className="tabular-nums">{no}</span>
+              </p>
+            )}
           </div>
         </div>
+        <p className="mt-3 border-t border-[#DCEBD1] pt-2.5 text-[13px] font-bold text-[#2F3A2A]">
+          결제금액 <span className="tabular-nums">{formatKRW(sys.amount || 0)}</span>
+        </p>
       </div>
     );
   }

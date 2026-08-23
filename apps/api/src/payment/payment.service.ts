@@ -296,7 +296,7 @@ export class PaymentService {
    * 카드 즉시결제(confirm DONE)와 가상계좌 입금완료(웹훅 DONE) 양쪽에서 재사용한다.
    */
   private async runPaidSideEffects(
-    payment: { id: string; userId: string; proProfileId: string; quotationId: string | null; amount: number; platformFee: number | null; netAmount: number | null },
+    payment: { id: string; userId: string; proProfileId: string; quotationId: string | null; amount: number; platformFee: number | null; netAmount: number | null; pgTransactionId?: string | null },
     amount: number,
   ): Promise<{ chatRoomId: string | null }> {
     // 연관된 견적서 상태 조회
@@ -357,6 +357,8 @@ export class PaymentService {
               quotationId: paidQuotation?.id,
               amount,
               eventName: eventTitle,
+              // 채팅의 '결제한 서비스' 카드에 그대로 보여 줄 주문번호(토스에 넘긴 orderId)
+              orderId: payment.pgTransactionId || undefined,
             },
           },
         });
