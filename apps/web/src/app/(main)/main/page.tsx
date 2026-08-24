@@ -2331,42 +2331,93 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="bg-white min-h-screen w-full px-4 pt-16">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="skeleton" style={{ width: 100, height: 28 }} />
-          <div className="flex gap-2">
-            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-            <div className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+      <div className="bg-white min-h-screen w-full">
+        {/* 헤더 스켈레톤 — 로고 + 검색바 + 알림 */}
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2 lg:mx-auto lg:max-w-7xl lg:px-8 lg:pt-4 lg:pb-3">
+          <div className="skeleton shrink-0" style={{ width: 104, height: 24, borderRadius: 6 }} />
+          <div className="skeleton flex-1" style={{ height: 42, borderRadius: 9999 }} />
+          <div className="skeleton shrink-0" style={{ width: 36, height: 36, borderRadius: 9999 }} />
+        </div>
+
+        {/* 언더라인 탭 스켈레톤 */}
+        <div className="flex h-12 items-center gap-5 border-b border-[#F2F4F7] px-4 lg:mx-auto lg:max-w-7xl lg:px-8">
+          {[44, 92, 76, 92].map((w, i) => (
+            <div key={i} className="skeleton" style={{ width: w, height: 14, borderRadius: 6 }} />
+          ))}
+        </div>
+
+        <div className="space-y-5 px-[10px] pt-3 pb-6 lg:mx-auto lg:max-w-7xl lg:space-y-7 lg:px-8 lg:pt-4 lg:pb-12">
+          {/* 결혼식/행사 카드 스켈레톤 */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+            <div className="skeleton aspect-square rounded-2xl lg:rounded-[22px]" />
+            <div className="skeleton aspect-square rounded-2xl lg:rounded-[22px]" />
+            <div className="skeleton hidden aspect-square rounded-[22px] lg:block" />
           </div>
-        </div>
-        {/* Banner skeleton */}
-        <div className="skeleton mb-6" style={{ width: '100%', height: 160 }} />
-        {/* Category chips skeleton */}
-        <div className="flex gap-2 mb-6">
-          {[80, 60, 70, 90].map((w, i) => (
-            <div key={i} className="skeleton" style={{ width: w, height: 36, borderRadius: 18 }} />
-          ))}
-        </div>
-        {/* Card skeletons */}
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i}>
-              <div className="skeleton mb-2" style={{ width: '100%', height: 180 }} />
-              <div className="skeleton mb-1" style={{ width: '70%', height: 14 }} />
-              <div className="skeleton" style={{ width: '50%', height: 12 }} />
+
+          {/* 카테고리 아이콘 스켈레톤 */}
+          <div className="grid grid-cols-5 gap-x-2 gap-y-4 lg:grid-cols-10">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2">
+                <div className="skeleton" style={{ width: 52, height: 52, borderRadius: 9999 }} />
+                <div className="skeleton" style={{ width: 34, height: 10, borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
+
+          {/* 배너 스켈레톤 */}
+          <div className="skeleton w-full rounded-2xl lg:rounded-[22px]" style={{ aspectRatio: '1170/300' }} />
+
+          {/* BEST 결혼식 사회자 스켈레톤 */}
+          <div>
+            <div className="mb-3 flex items-center gap-2 lg:mb-4">
+              <div className="skeleton shrink-0" style={{ width: 40, height: 40, borderRadius: 9999 }} />
+              <div>
+                <div className="skeleton mb-1.5" style={{ width: 148, height: 16, borderRadius: 6 }} />
+                <div className="skeleton" style={{ width: 92, height: 12, borderRadius: 6 }} />
+              </div>
             </div>
-          ))}
+            <div className="grid grid-cols-3 gap-x-3 py-2 lg:hidden">
+              {[true, false, true].map((offset, i) => (
+                <div key={i} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
+                  <div className="skeleton w-full aspect-[3/4]" style={{ borderRadius: 9999 }} />
+                  <div className="skeleton mt-4" style={{ width: 64, height: 14, borderRadius: 6 }} />
+                  <div className="skeleton mt-2" style={{ width: 40, height: 10, borderRadius: 6 }} />
+                </div>
+              ))}
+            </div>
+            <div className="hidden gap-x-4 gap-y-4 lg:flex lg:flex-wrap lg:justify-center">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex w-[366px] shrink-0 gap-3">
+                  <div className="skeleton shrink-0" style={{ width: 36, height: 48, borderRadius: 9999 }} />
+                  <div className="skeleton shrink-0" style={{ width: 176, height: 234, borderRadius: 9999 }} />
+                  <div className="flex-1 py-1">
+                    <div className="skeleton" style={{ width: 96, height: 16, borderRadius: 6 }} />
+                    <div className="skeleton mt-3" style={{ width: 80, height: 12, borderRadius: 6 }} />
+                    <div className="skeleton mt-8" style={{ width: 64, height: 12, borderRadius: 6 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 사회자 카드 그리드 스켈레톤 */}
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-7">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i}>
+                <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
+                <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
+                <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
+                <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="home-pc-font-cap bg-white min-h-screen w-full"
-      style={{ transform: 'translateX(var(--home-shift, 0px))', transition: 'var(--home-shift-anim, none)' }}
-    >
+    <div className="home-pc-font-cap home-shift-mobile-only bg-white min-h-screen w-full">
       <SimpleMatchRequestModal
         open={simpleRequestOpen}
         requestType={simpleRequestType}

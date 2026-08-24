@@ -763,6 +763,15 @@ img:not([src]) {
   }
 }
 
+/* 홈 스와이프 드래그용 transform — PC 에서 항상 걸려 있으면 fixed 자식(퀵뷰 패널 등)의
+   containing block 이 이 div 로 바뀌어 화면 우측에 어긋난 채로 삐져나온다. 모바일에서만 적용. */
+@media (max-width: 1023.98px) {
+  .home-shift-mobile-only {
+    transform: translateX(var(--home-shift, 0px));
+    transition: var(--home-shift-anim, none);
+  }
+}
+
 @keyframes naturalReveal {
   0% {
     opacity: 0;
