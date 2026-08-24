@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -1555,6 +1556,18 @@ function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
 }
 
 // 네이티브 홈과 동일: 헤더 아래 고정 글래스 탭 + 좌우 스와이프 페이저 + 긴 세로 리스트 (모바일 전용)
+/**
+ * 홈 본문은 스와이프로 밀려야 하는데, transform 을 걸면 그 안의 position:fixed 가
+ * 뷰포트가 아니라 그 요소 기준이 돼서 헤더·탭바·하단바가 같이 밀리고 스크롤에서도 풀린다.
+ * 그래서 고정돼야 하는 것들만 body 로 빼서 그린다.
+ */
+function BodyPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted || typeof document === 'undefined') return null;
+  return createPortal(children, document.body);
+}
+
 function HomeSwipeTabs() {
   const [tab, setTab] = useState(0);
   const [pros, setPros] = useState<any[]>([]);
@@ -1726,13 +1739,11 @@ function HomeSwipeTabs() {
   );
 
   return (
-    <>
+    <BodyPortal>
       {/* 헤더+탭 통합 그라데이션 블러 — 콘텐츠가 뒤로 비치며 위로 갈수록 흐림 */}
       <div
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42]"
         style={{
-          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
-          transition: 'var(--home-shift-anim, none)',
           height: 106,
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
@@ -1742,21 +1753,12 @@ function HomeSwipeTabs() {
         }}
       />
       {/* 헤더 바로 아래 고정 글래스 탭바 */}
-      <div
-        className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white"
-        style={{ transform: 'translateX(calc(var(--home-shift, 0px) * -1))', transition: 'var(--home-shift-anim, none)' }}
-      >
-        {tabBar}
-      </div>
+      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white">{tabBar}</div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
         className="lg:hidden fixed inset-x-0 bottom-0 top-[102px] z-[40] overflow-hidden"
-        style={{
-          pointerEvents: open ? 'auto' : 'none',
-          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
-          transition: 'var(--home-shift-anim, none)',
-        }}
+        style={{ pointerEvents: open ? 'auto' : 'none' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -1798,16 +1800,13 @@ function HomeSwipeTabs() {
         <button
           type="button"
           onClick={() => goTab(0)}
-          className="lg:hidden fixed left-1/2 z-[46] flex items-center gap-1.5 rounded-full border border-white/25 bg-black/60 px-[18px] py-[11px] text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition active:scale-95"
-          style={{
-            bottom: 'calc(82px + env(safe-area-inset-bottom))',
-            transform: 'translateX(calc(-50% - var(--home-shift, 0px)))',
-          }}
+          className="lg:hidden fixed left-1/2 z-[46] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/25 bg-black/60 px-[18px] py-[11px] text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition active:scale-95"
+          style={{ bottom: 'calc(82px + env(safe-area-inset-bottom))' }}
         >
           <HomeGlyph className="h-3.5 w-3.5" /> 홈 전체
         </button>
       )}
-    </>
+    </BodyPortal>
   );
 }
 
@@ -2530,15 +2529,13 @@ export default function HomePage() {
       </div>
 
       {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
+      <BodyPortal>
       <div
         ref={headerRef}
         data-native-home-header
         className="lg:hidden fixed top-0 left-0 right-0 z-[44] px-[10px] pt-[12px] pb-[10px]"
         style={{
           background: 'transparent', // 통합 그라데이션 블러 레이어(HomeSwipeTabs)가 뒤에서 프로스트 처리
-          // 홈 본문이 스와이프로 밀려도 헤더는 제자리 — 부모 transform 만큼 되돌린다
-          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
-          transition: 'var(--home-shift-anim, none)',
         }}
       >
         <div className="flex items-center gap-2">
@@ -2597,6 +2594,7 @@ export default function HomePage() {
           </Link>
         </div>
       </div>
+      </BodyPortal>
       {/* Spacer for fixed header */}
       <div className="lg:hidden h-[106px]" />
 
