@@ -85,6 +85,7 @@ export default function AutoReplyPage() {
   const [previewText, setPreviewText] = useState('');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [personaError, setPersonaError] = useState(false);
 
   useEffect(() => {
     autoReplyApi
@@ -108,6 +109,13 @@ export default function AutoReplyPage() {
       .catch(() => toast.error('불러오지 못했어요'))
       .finally(() => setLoading(false));
 
+    loadPersona();
+  }, []);
+
+  /** 자아 설정 불러오기. 실패하면 기본값으로 덮어쓰지 않고 다시 시도할 수 있게 남겨 둔다
+   *  (기본값을 보여주고 저장하면 사회자가 예전에 해 둔 설정이 통째로 날아간다) */
+  const loadPersona = () => {
+    setPersonaError(false);
     autoReplyApi
       .getPersona()
       .then((data) => {
@@ -116,8 +124,11 @@ export default function AutoReplyPage() {
         setPersonaPresets(signaturePresets || []);
         setAiAvailable(Boolean(avail));
       })
-      .catch(() => {});
-  }, []);
+      .catch((e: any) => {
+        // 401 은 로그인 모달이 이미 덮고 있으므로 따로 알리지 않는다
+        if (e?.response?.status !== 401) setPersonaError(true);
+      });
+  };
 
   const save = async () => {
     setSaving(true);
@@ -211,6 +222,23 @@ export default function AutoReplyPage() {
         </div>
 
         {/* 자아(말투) — 사회자가 "나답게" 를 심는 곳 */}
+        {!persona && personaError && (
+          <div>
+            <MySectionTitle>내 자아 — 어떻게 말할지</MySectionTitle>
+            <div className={`${MY_CARD} flex items-center justify-between gap-3 p-5`}>
+              <p className="text-[13px] leading-[1.7] text-[#8B95A1]">
+                말투 설정을 불러오지 못했어요.
+              </p>
+              <button
+                type="button"
+                onClick={loadPersona}
+                className="h-10 shrink-0 rounded-[12px] bg-[#F2F3F5] px-4 text-[14px] font-bold text-[#51535C]"
+              >
+                다시 시도
+              </button>
+            </div>
+          </div>
+        )}
         {persona && (
           <div>
             <MySectionTitle>내 자아 — 어떻게 말할지</MySectionTitle>
