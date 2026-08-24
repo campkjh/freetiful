@@ -604,11 +604,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                 <span
                   data-fill-pill
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full shadow-[0_8px_22px_rgba(15,23,42,0.08)]"
+                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full"
                   style={{
                     left: `calc(8px + ${activeNavIndex} * ((100% - 16px) / ${NAV_ITEMS.length}))`,
                     width: `calc((100% - 16px) / ${NAV_ITEMS.length})`,
-                    backgroundColor: 'rgba(15, 23, 42, 0.07)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.11)',
                     border: '0.4px solid transparent',
                     boxSizing: 'border-box',
                     transformOrigin: 'center',
@@ -684,9 +684,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             }
             /* press 시 fill 알약: 네비바보다 살짝 크게 스케일업 + 배경 5% + 0.4px 보더, 바운스 후 복귀 */
             @keyframes pillPress {
-              0%   { transform: scale(1);   background-color: rgba(15,23,42,0.07); border-color: rgba(15,23,42,0); }
-              45%  { transform: scale(1.4); background-color: rgba(15,23,42,0.02); border-color: rgba(15,23,42,0.18); }
-              100% { transform: scale(1);   background-color: rgba(15,23,42,0.07); border-color: rgba(15,23,42,0); }
+              0%   { transform: scale(1);   background-color: rgba(15,23,42,0.11); border-color: rgba(15,23,42,0); }
+              45%  { transform: scale(1.4); background-color: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.18); }
+              100% { transform: scale(1);   background-color: rgba(15,23,42,0.11); border-color: rgba(15,23,42,0); }
             }
           `}</style>
         </nav>

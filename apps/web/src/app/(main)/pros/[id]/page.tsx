@@ -1003,18 +1003,49 @@ function AiSparkle({ size = 18 }: { size?: number }) {
   );
 }
 
-/** 이름 옆 인증 뱃지 — 톱니 원 안에 체크 */
-function VerifiedBadge({ size = 18 }: { size?: number }) {
-  const points = Array.from({ length: 12 }, (_, i) => {
+/** 톱니 원 뱃지 공통 외곽선 */
+function badgeRosettePoints() {
+  return Array.from({ length: 12 }, (_, i) => {
     const a = (i / 12) * Math.PI * 2;
     const r = i % 2 === 0 ? 12 : 10.4;
     return `${(12 + Math.cos(a) * r).toFixed(2)},${(12 + Math.sin(a) * r).toFixed(2)}`;
   }).join(' ');
+}
+
+/** 이름 옆 인증 뱃지 — 파란 M 배지 */
+function VerifiedMBadge({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0" aria-label="인증 사회자">
-      <polygon points={points} fill="#3180F7" />
-      <path d="M8.4 12.2l2.5 2.5 4.7-5" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <polygon points={badgeRosettePoints()} fill="#4A8DFF" />
+      <text x="12" y="16.4" textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff">M</text>
     </svg>
+  );
+}
+
+/** 이름 옆 인증 뱃지 — 골드 트로피 배지 */
+function VerifiedTrophyBadge({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0" aria-label="우수 사회자">
+      <polygon points={badgeRosettePoints()} fill="#22242B" />
+      <g fill="#F5C451">
+        <path d="M8.4 6.4h7.2l-.55 3.9a3.05 3.05 0 0 1-6.1 0l-.55-3.9z" />
+        <path d="M8.15 7.3H6.85a1.45 1.45 0 0 1 0-2.9h1.3v1.25H6.95a.2.2 0 0 0 0 .4h1.2v1.25z" />
+        <path d="M15.85 7.3h1.3a1.45 1.45 0 0 0 0-2.9h-1.3v1.25h1.2a.2.2 0 0 1 0 .4h-1.2v1.25z" />
+        <rect x="11" y="12.6" width="2" height="2.1" />
+        <rect x="9.3" y="15" width="5.4" height="1.15" rx="0.4" />
+        <rect x="8.2" y="16.35" width="7.6" height="1.15" rx="0.4" />
+      </g>
+    </svg>
+  );
+}
+
+/** 이름 옆 인증 뱃지 묶음 */
+function VerifiedBadge({ size = 18 }: { size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <VerifiedMBadge size={size} />
+      <VerifiedTrophyBadge size={size} />
+    </span>
   );
 }
 

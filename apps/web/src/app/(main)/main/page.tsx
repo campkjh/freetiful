@@ -749,7 +749,7 @@ function BusinessCard({
           <div
             key={`${depth}-${at(depth)}`}
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
+            className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
             style={{
               // 앞장(80%)보다 좁게 깔고, 흰 링으로 장끼리 경계를 만든다
               width: depth === 2 ? '62%' : '71%',
@@ -766,7 +766,7 @@ function BusinessCard({
         {/* 앞장 — 뒤에서 앞으로 나오며 커진다 */}
         <div
           key={`front-${at(0)}`}
-          className="relative mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:rounded-full"
+          className="relative mx-auto w-[80%] overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
           style={{ aspectRatio: '2 / 1', animation: deckAnim('bizDeckToFront') }}
         >
           <img
@@ -775,17 +775,13 @@ function BusinessCard({
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             onError={() => setHidden(true)}
           />
-          {/* 좌측 상단 로고 마크 — 알약형엔 모서리가 없어 PC 에선 숨긴다 */}
-          <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm lg:hidden">
-            <span className="text-[12px] font-black text-gray-900">{biz.name.charAt(0)}</span>
-          </div>
         </div>
 
         {/* 걷히는 장 — 앞장 위에서 옅어지며 사라진다 */}
         {leaving && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-[80%] overflow-hidden rounded-xl bg-gray-100 ring-4 ring-white lg:top-6 lg:rounded-full"
+            className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-[80%] overflow-hidden rounded-full bg-gray-100 ring-2 ring-white lg:top-6"
             style={{ aspectRatio: '2 / 1', animation: 'bizDeckLeave 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
           >
             <img src={leaving} alt="" className="h-full w-full object-cover" />
@@ -910,7 +906,7 @@ function BusinessPartnerSection({
           />
         ))}
       </div>
-      {showDivider && <div className="my-6 border-t border-gray-100" />}
+      {showDivider && <div className="my-2.5 border-t border-gray-100 lg:my-6" />}
     </section>
   );
 }
@@ -1740,17 +1736,10 @@ function HomeSwipeTabs() {
 
   return (
     <BodyPortal>
-      {/* 헤더+탭 통합 그라데이션 블러 — 콘텐츠가 뒤로 비치며 위로 갈수록 흐림 */}
+      {/* 헤더+탭 배경 — 스크롤해도 흐려지지 않는 불투명 흰색 */}
       <div
-        className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42]"
-        style={{
-          height: 106,
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
-          background: 'linear-gradient(to bottom, rgba(255,255,255,0.74), rgba(255,255,255,0.40))',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 62%, transparent 100%)',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 62%, transparent 100%)',
-        }}
+        className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
+        style={{ height: 106 }}
       />
       {/* 헤더 바로 아래 고정 글래스 탭바 */}
       <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white">{tabBar}</div>
