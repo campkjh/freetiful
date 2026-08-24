@@ -767,7 +767,9 @@ img:not([src]) {
    containing block 이 이 div 로 바뀌어 화면 우측에 어긋난 채로 삐져나온다. 모바일에서만 적용. */
 @media (max-width: 1023.98px) {
   .home-shift-mobile-only {
-    transform: translateX(var(--home-shift, 0px));
+    /* 유휴 상태 기본값은 none — 끌고 있을 때만 JS 가 translateX 를 넣는다.
+       translateX(0) 이 남아 있으면 fixed 자식의 기준이 뷰포트가 아니게 된다. */
+    transform: var(--home-transform, none);
     transition: var(--home-shift-anim, none);
   }
 }

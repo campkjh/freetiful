@@ -1391,6 +1391,7 @@ function SimpleMatchRequestModal({
   };
 
   return (
+    <BodyPortal>
     <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/45 px-4 pb-4 pt-10 backdrop-blur-[2px] lg:items-center lg:pb-10">
       <div className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
         <div className="mb-5 flex items-center justify-between">
@@ -1463,6 +1464,7 @@ function SimpleMatchRequestModal({
         </button>
       </div>
     </div>
+    </BodyPortal>
   );
 }
 
@@ -1628,9 +1630,24 @@ function HomeSwipeTabs() {
       '--home-shift-anim',
       dragX === 0 ? 'transform 0.34s cubic-bezier(0.22,0.61,0.36,1)' : 'none',
     );
+
+    // 안 끌고 있을 땐 transform 을 아예 없앤다.
+    // translateX(0px) 이라도 남아 있으면 그 안의 position:fixed 가 뷰포트가 아니라
+    // 이 div 를 기준으로 잡혀(안내 팝업 딤이 화면 전체를 덮고 팝업은 문서 맨 아래로 밀림),
+    // stacking context 까지 생겨 헤더·네비 위로 못 올라온다.
+    // 되돌아오는 애니메이션이 끝난 뒤에 걷어내야 마지막 프레임이 튀지 않는다.
+    const idle = tab === 0 && dragX === 0;
+    let timer = 0;
+    if (idle) {
+      timer = window.setTimeout(() => root.style.setProperty('--home-transform', 'none'), 380);
+    } else {
+      root.style.setProperty('--home-transform', 'translateX(var(--home-shift, 0px))');
+    }
     return () => {
+      if (timer) window.clearTimeout(timer);
       root.style.removeProperty('--home-shift');
       root.style.removeProperty('--home-shift-anim');
+      root.style.removeProperty('--home-transform');
     };
   }, [tab, dragX]);
 
@@ -2426,6 +2443,7 @@ export default function HomePage() {
       />
 
       {showOfficialOpenModal && popupBanner && (
+        <BodyPortal>
         <div
           role="dialog"
           aria-modal="true"
@@ -2496,6 +2514,7 @@ export default function HomePage() {
             }
           `}</style>
         </div>
+        </BodyPortal>
       )}
 
       {/* PC 우하단 앱 홍보 — 폰 목업(iframe)은 제거했다. hidden lg:flex 로 PC 에서만 보인다 */}
