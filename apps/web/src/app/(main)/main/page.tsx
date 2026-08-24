@@ -1560,12 +1560,14 @@ function HomeSwipeTabs() {
   const [pros, setPros] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [dragX, setDragX] = useState(0);
+  // 손가락을 대는 순간 옆 패널 목록을 미리 받아 둔다 — 끌 때 옆이 빈 흰 화면이면 '덮인다' 로 보인다
+  const [warm, setWarm] = useState(false);
   const touchRef = useRef<{ x: number; y: number; locked: 0 | 1 | -1 } | null>(null);
   const tabRef = useRef(0);
   useEffect(() => { tabRef.current = tab; }, [tab]);
 
   useEffect(() => {
-    if (tab === 0 || loaded) return;
+    if ((tab === 0 && !warm) || loaded) return;
     let cancelled = false;
     (async () => {
       try {
@@ -1575,7 +1577,7 @@ function HomeSwipeTabs() {
       } catch { if (!cancelled) setLoaded(true); }
     })();
     return () => { cancelled = true; };
-  }, [tab, loaded]);
+  }, [tab, loaded, warm]);
 
   const lowerCats = (p: any) => (Array.isArray(p.categories) ? p.categories : []).map((c: any) => String(typeof c === 'string' ? c : c?.name || c?.category?.name || '').toLowerCase());
   const lowerTags = (p: any) => (Array.isArray(p.tags) ? p.tags : []).map((t: any) => String(t).toLowerCase());
@@ -1600,6 +1602,23 @@ function HomeSwipeTabs() {
     return () => { el.style.overflow = prevHtml; body.style.overflow = prevBody; };
   }, [open]);
   const goTab = (i: number) => { setDragX(0); setTab(i); };
+
+  // 홈 본문을 손가락만큼 같이 밀어 준다.
+  // 예전엔 리스트 패널만 위를 덮어서 '화면이 덮인다' 는 느낌이었다 —
+  // 옆 화면이 밀고 들어오는 것처럼 보이려면 뒤 화면도 같이 빠져야 한다.
+  useEffect(() => {
+    const root = document.documentElement;
+    const shift = tab === 0 ? `${dragX}px` : '-100vw';
+    root.style.setProperty('--home-shift', shift);
+    root.style.setProperty(
+      '--home-shift-anim',
+      dragX === 0 ? 'transform 0.34s cubic-bezier(0.22,0.61,0.36,1)' : 'none',
+    );
+    return () => {
+      root.style.removeProperty('--home-shift');
+      root.style.removeProperty('--home-shift-anim');
+    };
+  }, [tab, dragX]);
 
   // 오버레이(리스트) 페이저 스와이프 — 1↔2↔3 + 1에서 우스와이프 → 전체(홈)
   const onTouchStart = (e: ReactTouchEvent) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY, locked: 0 }; };
@@ -1631,9 +1650,13 @@ function HomeSwipeTabs() {
   useEffect(() => {
     let s: { x: number; y: number; locked: 0 | 1 | -1; ignore: boolean } | null = null;
     const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    // 오른쪽 가장자리에서 시작한 스와이프만 다음 탭으로 — 화면 아무 데서나 끌리면
+    // 가로 스크롤·카드 조작과 헷갈린다
+    const EDGE = 56;
     const onStart = (e: TouchEvent) => {
       if (tabRef.current !== 0 || !isMobile()) { s = null; return; }
       const t = e.touches[0];
+      if (t.clientX < window.innerWidth - EDGE) { s = null; return; }
       const target = e.target as HTMLElement | null;
       const ignore = !!target?.closest?.('[data-hswipe-ignore]');
       s = { x: t.clientX, y: t.clientY, locked: 0, ignore };
@@ -1650,6 +1673,7 @@ function HomeSwipeTabs() {
       // 가로 스와이프 — 안드 웹뷰/브라우저의 뒤로가기 제스처·세로스크롤 가로채기 방지(non-passive preventDefault)
       // + 손가락 따라 패널을 끌어와(인터랙티브 드래그) '플로팅 덮기'가 아니라 페이지가 스와이프되게.
       e.preventDefault();
+      setWarm(true);
       setDragX(dx < 0 ? dx : dx * 0.3); // 탭0: 왼쪽(다음 탭)만 따라가고 오른쪽은 저항
     };
     const onEnd = (e: TouchEvent) => {
@@ -1670,9 +1694,9 @@ function HomeSwipeTabs() {
     };
   }, []);
 
-  // 웨딩파트너 글래스탭 디자인 — 알약 칩 (선택=다크, 그 외=라이트 글래스)
+  // 하단 보더형 탭 — 선택된 것 아래에만 굵은 밑줄
   const tabBar = (
-    <div className="flex items-center gap-2 overflow-x-auto px-[12px] py-[7px]" style={{ scrollbarWidth: 'none' }}>
+    <div className="flex h-12 items-stretch gap-5 overflow-x-auto px-4" style={{ scrollbarWidth: 'none' }}>
       {HOME_SWIPE_TABS.map((t, i) => {
         const active = i === tab;
         return (
@@ -1680,13 +1704,16 @@ function HomeSwipeTabs() {
             key={t}
             type="button"
             onClick={() => goTab(i)}
-            className={`shrink-0 whitespace-nowrap rounded-full px-[15px] py-[8px] text-[13.5px] font-bold transition-all ${
-              active
-                ? 'bg-[#1A1A1A] text-white shadow-[0_5px_14px_rgba(0,0,0,0.2)]'
-                : 'border border-white/70 bg-white/55 text-[#3A3A3A] backdrop-blur-sm'
+            className={`relative flex shrink-0 items-center whitespace-nowrap text-[15px] transition-colors ${
+              active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA]'
             }`}
           >
             {t}
+            <span
+              className={`absolute inset-x-0 bottom-0 h-[2.5px] rounded-full transition-all duration-300 ${
+                active ? 'bg-[#2B313D] opacity-100' : 'bg-transparent opacity-0'
+              }`}
+            />
           </button>
         );
       })}
@@ -1708,7 +1735,7 @@ function HomeSwipeTabs() {
         }}
       />
       {/* 헤더 바로 아래 고정 글래스 탭바 */}
-      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45]">{tabBar}</div>
+      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white">{tabBar}</div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
@@ -2329,7 +2356,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="home-pc-font-cap bg-white min-h-screen w-full">
+    <div
+      className="home-pc-font-cap bg-white min-h-screen w-full"
+      style={{ transform: 'translateX(var(--home-shift, 0px))', transition: 'var(--home-shift-anim, none)' }}
+    >
       <SimpleMatchRequestModal
         open={simpleRequestOpen}
         requestType={simpleRequestType}
