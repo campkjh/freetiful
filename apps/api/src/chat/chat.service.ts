@@ -1253,6 +1253,17 @@ export class ChatService implements OnModuleInit {
     const memberIds = await this.getRoomMemberIds(roomId);
 
     for (const [index, chunk] of chunks.entries()) {
+      // 보내는 도중에 사회자가 직접 답하면 남은 문단은 멈춘다.
+      // 문단마다 타이핑 연출이 붙어 총 십수 초가 걸리는데, 그 사이 사회자가 끼어들면
+      // 같은 사람이 이어서 엉뚱한 말을 하는 것처럼 보인다.
+      if (index > 0) {
+        const proSpoke = await this.prisma.message.findFirst({
+          where: { roomId, senderId: proUserId, createdAt: { gte: new Date(Date.now() - 60_000) } },
+          select: { metadata: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (proSpoke && (proSpoke.metadata as any)?.autoReply !== true) break;
+      }
       this.chatRealtimeService.emitTyping(roomId, proUserId, true);
       await new Promise((resolve) => setTimeout(resolve, this.typingDelayFor(chunk)));
       this.chatRealtimeService.emitTyping(roomId, proUserId, false);
@@ -1290,7 +1301,7 @@ export class ChatService implements OnModuleInit {
             userId: true,
             proProfileId: true,
             matchRequest: { select: { eventDate: true, eventTime: true, eventLocation: true, eventCategory: { select: { name: true } } } },
-            proProfile: { select: { userId: true, user: { select: { profileImageUrl: true } } } },
+            proProfile: { select: { userId: true, user: { select: { profileImageUrl: true, name: true } } } },
             user: { select: { name: true } },
           },
         });
@@ -1298,38 +1309,89 @@ export class ChatService implements OnModuleInit {
         const proUserId = room.proProfile?.userId;
         if (!proUserId) return;
 
-        // 사회자가 직접 대화 중이면 끼어들지 않는다(자동응답으로 나간 건 사람이 아니다)
-        const recentHuman = await this.prisma.message.findFirst({
+        // 사회자가 지금 방을 보고 있으면 끼어들지 않는다.
+        // AI 왕복 + 타이핑 연출로 최대 십수 초가 비는데, 그 사이 사회자가 직접 답하면
+        // 같은 이름·같은 사진이 30초 안에 서로 다른 말을 하게 된다(금액이 다르면 그 자리에서 분쟁).
+        const watching = await this.prisma.chatRoomMember.findFirst({
           where: {
             roomId,
-            senderId: proUserId,
-            createdAt: { gte: new Date(Date.now() - 3 * 60_000) },
-            NOT: { metadata: { path: ['autoReply'], equals: true } },
+            userId: proUserId,
+            lastReadAt: { gte: new Date(Date.now() - 60_000) },
           },
-          select: { id: true },
+          select: { userId: true },
         });
-        if (recentHuman) return;
+        if (watching) return;
+
+        // 사회자가 직접 대화 중이면 끼어들지 않는다.
+        // Prisma 의 JSON NOT 필터는 metadata 에 autoReply 키가 아예 없을 때(웹 클라가 보내는
+        // 일반 메시지) NULL 이 되어 조건에서 빠질 수 있어, JS 에서 직접 가른다.
+        const recentPro = await this.prisma.message.findMany({
+          where: { roomId, senderId: proUserId, createdAt: { gte: new Date(Date.now() - 3 * 60_000) } },
+          select: { metadata: true },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        });
+        if (recentPro.some((m) => (m.metadata as any)?.autoReply !== true)) return;
 
         const sentAuto = await this.prisma.message.findMany({
           where: { roomId, senderId: proUserId, metadata: { path: ['autoReply'], equals: true } },
           select: { metadata: true },
-          take: 20,
+          orderBy: { createdAt: 'desc' },
+          take: 30,
         });
-        if (sentAuto.length >= 6) return;
+        // 캡은 '메시지 행' 이 아니라 '답장 횟수' 로 센다.
+        // sendAsHuman 이 문단마다 행을 만들고 기본 인사말이 문단 3개라, 행으로 세면
+        // 인사말만으로 예산을 다 먹어 실제 답변이 한두 번밖에 못 나간다.
+        const turns = sentAuto.filter(
+          (m) => ((m.metadata as any)?.autoReplyPart ?? 0) === 0
+            && (m.metadata as any)?.autoReplyId !== 'greeting',
+        );
+        if (turns.length >= 4 || sentAuto.length >= 14) return;
         const usedIds = new Set(
           sentAuto.map((row) => (row.metadata as any)?.autoReplyId).filter(Boolean),
         );
 
-        const match = await this.autoReplyService.matchFor(room.proProfileId, text, room.user?.name);
-        if (!match || usedIds.has(match.id)) return;
+        const eventInfo = [
+          room.matchRequest?.eventCategory?.name ? `분야: ${room.matchRequest.eventCategory.name}` : '',
+          room.matchRequest?.eventDate ? `날짜: ${new Date(room.matchRequest.eventDate).toISOString().slice(0, 10)}` : '',
+          room.matchRequest?.eventLocation ? `장소: ${room.matchRequest.eventLocation}` : '',
+        ].filter(Boolean).join(' / ');
+
+        const match = await this.autoReplyService.decideReply({
+          proProfileId: room.proProfileId,
+          proName: room.proProfile?.user?.name,
+          roomId,
+          customerName: room.user?.name,
+          text,
+          eventInfo,
+          eventCategoryName: room.matchRequest?.eventCategory?.name,
+          alreadySentKeys: Array.from(usedIds) as string[],
+          alreadySentSummary: Array.from(usedIds).join(', '),
+        });
+        if (!match) return;
+
+        // 사람이 봐야 하는 내용이면 보내지 않고 사회자에게만 알린다
+        if (match.needsHuman) {
+          this.notificationService.createNotification(
+            proUserId,
+            'system' as any,
+            '직접 답변이 필요한 문의',
+            `${(room.user?.name || '고객')}님 문의: ${text.slice(0, 60)}`,
+            { roomId },
+          ).catch(() => {});
+          return;
+        }
 
         const memberIds = await this.sendAsHuman(roomId, proUserId, match.answer, {
           autoReply: true,
-          autoReplyId: match.id,
+          autoReplyId: match.key,
+          autoReplyWhy: match.why,
         });
 
-        // 견적 자동응답에 금액이 적혀 있으면 견적서까지 자동으로 보낸다
-        if (match.kind === 'quote' && match.amount && match.amount > 0) {
+        // 견적서 자동발송은 AI 판단으로 트리거하지 않는다.
+        // 사회자가 지정한 키워드나 견적 정규식에 걸린 경우에만 — 오늘과 같은 조건이다.
+        const quoteAllowed = match.why === 'keyword' || match.why === 'intent:quote';
+        if (quoteAllowed && match.kind === 'quote' && match.amount && match.amount > 0) {
           const already = await this.prisma.quotation.findFirst({
             where: { chatRoomId: roomId, proProfileId: room.proProfileId },
             select: { id: true },
@@ -1357,7 +1419,7 @@ export class ChatService implements OnModuleInit {
             content: '견적서 발송',
             metadata: {
               autoReply: true,
-              autoReplyId: `${match.id}:quote`,
+              autoReplyId: `${match.key}:quote`,
               system: {
                 kind: 'quote',
                 eventName,

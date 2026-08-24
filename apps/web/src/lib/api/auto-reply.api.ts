@@ -29,6 +29,42 @@ export interface AutoReplySettings {
   suggestedQuestions: string[];
 }
 
+export type PersonaTone = 'warm' | 'trust' | 'bright' | 'plain';
+export type PersonaCall = 'customer' | 'couple' | 'name';
+export type PersonaLength = 'short' | 'normal' | 'long';
+export type PersonaEmoji = 'none' | 'some' | 'many';
+export type PersonaGuard = 'price' | 'date' | 'promise' | 'other';
+
+/** 사회자가 심어 두는 '자아' — 말투·호칭·길이·안전장치 */
+export interface Persona {
+  /** AI 가 맥락을 보고 비슷한 뜻이면 알아서 답하게 한다 */
+  aiEnabled: boolean;
+  /** 보낼 때 어미·호칭까지 내 말투로 바꾼다 (이중 opt-in) */
+  aiAdaptEnabled: boolean;
+  personaText: string;
+  tone: PersonaTone;
+  call: PersonaCall;
+  length: PersonaLength;
+  emoji: PersonaEmoji;
+  signatures: string[];
+  banPhrases: string;
+  guards: PersonaGuard[];
+}
+
+export interface PersonaResponse extends Persona {
+  aiAvailable: boolean;
+  signaturePresets: string[];
+}
+
+export interface PreviewResult {
+  willReply: boolean;
+  answer?: string;
+  why?: string;
+  reason?: string;
+  risks?: string[];
+  aiUsed?: boolean;
+}
+
 export const autoReplyApi = {
   getMine: () => apiClient.get<AutoReplySettings>(`${BASE}/me`).then((r) => r.data),
 
@@ -42,6 +78,29 @@ export const autoReplyApi = {
     autoApprove: boolean;
   }) =>
     apiClient.put<AutoReplySettings>(`${BASE}/me`, body).then((r) => r.data),
+
+  getPersona: () => apiClient.get<PersonaResponse>(`${BASE}/me/persona`).then((r) => r.data),
+
+  savePersona: (body: Partial<Persona>) =>
+    apiClient.put<PersonaResponse>(`${BASE}/me/persona`, body).then((r) => r.data),
+
+  /** 프로필을 재료로 자아 초안을 대신 써 준다 */
+  draftPersona: () =>
+    apiClient
+      .post<{ personaText: string; tone?: PersonaTone; length?: PersonaLength; signatures?: string[]; needsProfile?: boolean; message?: string }>(
+        `${BASE}/me/persona-draft`,
+      )
+      .then((r) => r.data),
+
+  /** 적어 둔 문구를 내 말투로 다듬는다 (폼에만 반영, 저장은 따로) */
+  rewrite: (text: string) =>
+    apiClient
+      .post<{ text: string; changed: boolean; reason?: string; droppedFacts?: string[] }>(`${BASE}/me/rewrite`, { text })
+      .then((r) => r.data),
+
+  /** 이렇게 물어보면 뭐라고 답하는지 미리보기 */
+  preview: (text: string) =>
+    apiClient.post<PreviewResult>(`${BASE}/me/preview`, { text }).then((r) => r.data),
 
   /** 고객 화면에서 보여 줄 질문 목록 */
   getPublic: (proProfileId: string) =>
