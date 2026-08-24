@@ -1567,7 +1567,12 @@ function HomeSwipeTabs() {
   useEffect(() => { tabRef.current = tab; }, [tab]);
 
   useEffect(() => {
-    if ((tab === 0 && !warm) || loaded) return;
+    // 홈에 있을 때도 한가할 때 미리 받아 둔다 — 끌었을 때 옆이 빈 흰 화면이면 '덮인다' 로 보인다
+    if (loaded) return;
+    if (tab === 0 && !warm) {
+      const idle = window.setTimeout(() => setWarm(true), 1200);
+      return () => window.clearTimeout(idle);
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -1726,6 +1731,8 @@ function HomeSwipeTabs() {
       <div
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42]"
         style={{
+          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
+          transition: 'var(--home-shift-anim, none)',
           height: 106,
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
@@ -1735,12 +1742,21 @@ function HomeSwipeTabs() {
         }}
       />
       {/* 헤더 바로 아래 고정 글래스 탭바 */}
-      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white">{tabBar}</div>
+      <div
+        className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white"
+        style={{ transform: 'translateX(calc(var(--home-shift, 0px) * -1))', transition: 'var(--home-shift-anim, none)' }}
+      >
+        {tabBar}
+      </div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
         className="lg:hidden fixed inset-x-0 bottom-0 top-[102px] z-[40] overflow-hidden"
-        style={{ pointerEvents: open ? 'auto' : 'none' }}
+        style={{
+          pointerEvents: open ? 'auto' : 'none',
+          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
+          transition: 'var(--home-shift-anim, none)',
+        }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -1782,8 +1798,11 @@ function HomeSwipeTabs() {
         <button
           type="button"
           onClick={() => goTab(0)}
-          className="lg:hidden fixed left-1/2 z-[46] flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/25 bg-black/60 px-[18px] py-[11px] text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition active:scale-95"
-          style={{ bottom: 'calc(82px + env(safe-area-inset-bottom))' }}
+          className="lg:hidden fixed left-1/2 z-[46] flex items-center gap-1.5 rounded-full border border-white/25 bg-black/60 px-[18px] py-[11px] text-[13.5px] font-bold text-white shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition active:scale-95"
+          style={{
+            bottom: 'calc(82px + env(safe-area-inset-bottom))',
+            transform: 'translateX(calc(-50% - var(--home-shift, 0px)))',
+          }}
         >
           <HomeGlyph className="h-3.5 w-3.5" /> 홈 전체
         </button>
@@ -2517,6 +2536,9 @@ export default function HomePage() {
         className="lg:hidden fixed top-0 left-0 right-0 z-[44] px-[10px] pt-[12px] pb-[10px]"
         style={{
           background: 'transparent', // 통합 그라데이션 블러 레이어(HomeSwipeTabs)가 뒤에서 프로스트 처리
+          // 홈 본문이 스와이프로 밀려도 헤더는 제자리 — 부모 transform 만큼 되돌린다
+          transform: 'translateX(calc(var(--home-shift, 0px) * -1))',
+          transition: 'var(--home-shift-anim, none)',
         }}
       >
         <div className="flex items-center gap-2">
