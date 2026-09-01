@@ -461,6 +461,13 @@ export class MatchService {
       void (async () => {
         if (!customerUserId) return;
         for (const target of validTargets) {
+          // 고객이 루프 도중에 어느 사회자와 결제/매칭되면(요청이 'open' 이 아니게 되면),
+          // 남은 사회자에게는 자동 인사(=고객에게 가는 알림)를 더 이상 보내지 않는다.
+          const cur = await this.prisma.matchRequest.findUnique({
+            where: { id: matchRequestId },
+            select: { status: true },
+          });
+          if (cur?.status !== 'open') break;
           try {
             await this.chatService.autoAcceptDelivery(target.userId, customerUserId, matchRequestId);
           } catch {

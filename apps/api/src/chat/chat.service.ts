@@ -1219,6 +1219,13 @@ export class ChatService implements OnModuleInit {
     if (!proProfile) return;
     if (!(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return;
 
+    // 요청이 이미 매칭/취소/만료로 닫혔으면(고객이 다른 사회자와 결제 등) 자동 인사를 보내지 않는다.
+    const mr = await this.prisma.matchRequest.findUnique({
+      where: { id: matchRequestId },
+      select: { status: true },
+    });
+    if (mr && mr.status !== 'open') return;
+
     const room = await this.createRoomAsPro(proUserId, { customerUserId, matchRequestId } as any);
     const roomId = (room as any)?.id;
     if (!roomId) return;
@@ -1300,7 +1307,7 @@ export class ChatService implements OnModuleInit {
             id: true,
             userId: true,
             proProfileId: true,
-            matchRequest: { select: { eventDate: true, eventTime: true, eventLocation: true, eventCategory: { select: { name: true } } } },
+            matchRequest: { select: { status: true, eventDate: true, eventTime: true, eventLocation: true, eventCategory: { select: { name: true } } } },
             proProfile: { select: { userId: true, user: { select: { profileImageUrl: true, name: true } } } },
             user: { select: { name: true } },
           },
@@ -1308,6 +1315,20 @@ export class ChatService implements OnModuleInit {
         if (!room || room.userId !== senderId) return;
         const proUserId = room.proProfile?.userId;
         if (!proUserId) return;
+
+        // 이미 다른 사회자와 결제 매칭된 고객이면, 결제 상대가 아닌 이 사회자의 자동응답은 보내지 않는다.
+        // (요청이 'matched' 로 닫혔는데 이 방 사회자에게 완료된 결제가 없으면 = 고객이 안 고른 사회자)
+        if (room.matchRequest?.status === 'matched') {
+          const paidThisPro = await this.prisma.payment.findFirst({
+            where: {
+              userId: room.userId,
+              proProfileId: room.proProfileId,
+              status: { in: ['completed', 'escrowed', 'settled'] },
+            },
+            select: { id: true },
+          });
+          if (!paidThisPro) return;
+        }
 
         // 사회자가 지금 방을 보고 있으면 끼어들지 않는다.
         // AI 왕복 + 타이핑 연출로 최대 십수 초가 비는데, 그 사이 사회자가 직접 답하면

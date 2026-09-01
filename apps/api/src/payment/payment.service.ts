@@ -399,6 +399,38 @@ export class PaymentService {
       }
     } catch {}
 
+    // 결제로 매칭이 확정되면 그 매칭요청을 'matched' 로 닫는다.
+    // 안 그러면 요청이 계속 'open' 이라, 고객이 안 고른 다른 사회자들이 자동수락 인사·자동응답으로
+    // 이미 결제한 고객에게 계속 연락(=고객에게 알림)한다. 결제 상대(사회자)의 방/견적은 그대로 둔다.
+    try {
+      let matchRequestId: string | null = null;
+      if (paidQuotation?.matchDeliveryId) {
+        const delivery = await this.prisma.matchDelivery.findUnique({
+          where: { id: paidQuotation.matchDeliveryId },
+          select: { matchRequestId: true },
+        });
+        matchRequestId = delivery?.matchRequestId ?? null;
+      }
+      if (!matchRequestId) {
+        // 견적에 delivery 가 안 물려 있으면(자동응답 견적 등) 결제 상대 사회자와의 방에 물린 요청을 쓴다.
+        const linkedRoom = await this.prisma.chatRoom.findFirst({
+          where: { userId: payment.userId, proProfileId: payment.proProfileId, matchRequestId: { not: null } },
+          select: { matchRequestId: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        matchRequestId = linkedRoom?.matchRequestId ?? null;
+      }
+      if (matchRequestId) {
+        // status: 'open' 가드 — 취소/만료된 요청을 되살리지 않는다.
+        await this.prisma.matchRequest.updateMany({
+          where: { id: matchRequestId, status: 'open' },
+          data: { status: 'matched' },
+        });
+      }
+    } catch (e) {
+      this.logger.error(`결제 후 매칭요청 마감 실패: ${e}`);
+    }
+
     this.chatRealtimeService.emitDashboardUpdated([payment.userId, proUserId], {
       kind: 'payment',
       paymentId: payment.id,
