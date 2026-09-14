@@ -7,42 +7,32 @@ import { captureUtm } from '@/lib/landing-track';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
- * 등장: 타이틀 페이드업 → 서브타이틀 → 카드들 위→아래 순서로 우→좌 페이드슬라이드.
- * 번호 입력: 큰 숫자 + 밑줄 + 커스텀 숫자 키패드(토스식).
- * 의뢰: 비로그인 quickRequest(single, selectedProProfileIds).
+ * 등장: 타이틀 페이드업 → 서브 → 카드 위→아래 순서로 우→좌 페이드슬라이드.
+ * 모바일 최적화 + PC(넓은 화면)는 가운데 카드 프레임.
  * ──────────────────────────────────────────────────────────── */
 
-type Step = 'date' | 'region' | 'subregion' | 'venue' | 'ceremony' | 'part' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
+type Step = 'date' | 'region' | 'venue' | 'mood' | 'part' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
 
 const ICON = (n: string) => `/quick-match/icons/${n}.svg`;
 function Ic({ name, size = 24, color, className = '' }: { name: string; size?: number; color?: string; className?: string }) {
   return <i aria-hidden className={`qm-ic ${className}`} style={{ width: size, height: size, color, WebkitMaskImage: `url(${ICON(name)})`, maskImage: `url(${ICON(name)})` }} />;
 }
 
-const REGION_GROUPS: { key: string; label: string; match: string[]; subs: string[] }[] = [
-  { key: 'seoul', label: '서울권', match: ['수도권(서울/인천/경기)'], subs: ['강남·서초', '송파·강동', '마포·서대문', '용산·중구', '성동·광진', '영등포·구로', '노원·강북', '기타 서울'] },
-  { key: 'gyeonggi', label: '경기권', match: ['수도권(서울/인천/경기)'], subs: ['수원', '성남·분당', '고양·일산', '용인', '안양·평촌', '부천', '화성·동탄', '기타 경기'] },
-  { key: 'incheon', label: '인천권', match: ['수도권(서울/인천/경기)'], subs: ['송도', '부평', '계양', '기타 인천'] },
-  { key: 'gangwon', label: '강원권', match: ['강원도'], subs: ['춘천', '원주', '강릉', '기타 강원'] },
-  { key: 'chungcheong', label: '충청권', match: ['충청권'], subs: ['대전', '청주', '천안', '세종', '기타 충청'] },
-  { key: 'jeolla', label: '전라권', match: ['전라권'], subs: ['광주', '전주', '여수', '기타 전라'] },
-  { key: 'gyeongsang', label: '경상권', match: ['경상권'], subs: ['부산', '대구', '울산', '창원', '기타 경상'] },
-  { key: 'jeju', label: '제주', match: ['제주'], subs: ['제주시', '서귀포'] },
-];
 type Note = { title: string; body: string; list?: string[] };
-const CEREMONY_TYPES: { label: string; icon: string; note?: Note }[] = [
-  { label: '일반 예식장 (웨딩홀)', icon: 'diamond' },
-  { label: '호텔 예식', icon: 'building' },
-  { label: '하우스 · 스몰웨딩', icon: 'home' },
-  { label: '종교시설 (성당·교회)', icon: 'church', note: {
-    title: '성당·교회 예식은 미리 확인해주세요',
-    body: '종교시설은 예식 순서가 정해져 있어 외부 사회자를 두기 어려운 경우가 있어요. 섭외 전 예식장에 아래를 확인해주세요.',
-    list: ['외부 사회자 진행이 가능한지', '예식 시간·순서를 조율할 수 있는지'],
-  } },
-  { label: '야외 · 기타', icon: 'tree', note: {
-    title: '야외 예식은 이런 점을 확인해요',
-    body: '야외는 음향과 날씨의 영향을 크게 받아요. 야외 진행 경험이 있는 사회자를 우선 추천해드릴게요.',
-  } },
+
+const REGION_GROUPS: { key: string; label: string; match: string[] }[] = [
+  { key: 'sudogwon', label: '수도권', match: ['수도권(서울/인천/경기)'] },
+  { key: 'gangwon', label: '강원권', match: ['강원도'] },
+  { key: 'chungcheong', label: '충청권', match: ['충청권'] },
+  { key: 'jeolla', label: '전라권', match: ['전라권'] },
+  { key: 'gyeongsang', label: '경상권', match: ['경상권'] },
+  { key: 'jeju', label: '제주', match: ['제주'] },
+];
+const MOOD_OPTIONS: { label: string; icon: string; desc: string }[] = [
+  { label: '진중하고 격식있게', icon: 'crown', desc: '차분하고 우아한 분위기로' },
+  { label: '유쾌하고 밝게', icon: 'smile', desc: '웃음이 넘치는 즐거운 예식으로' },
+  { label: '위트있고 센스있게', icon: 'sparkle', desc: '지루하지 않은 재치있는 진행으로' },
+  { label: '감동적이고 따뜻하게', icon: 'heart', desc: '진심이 전해지는 뭉클한 예식으로' },
 ];
 const PART_OPTIONS: { label: string; note?: Note }[] = [
   { label: '1부 (본식)' },
@@ -97,6 +87,13 @@ function formatKDate(v: string) {
   const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(y, m - 1, d).getDay()];
   return `${y}년 ${m}월 ${d}일 (${wd})`;
 }
+function formatKTime(v: string) {
+  if (!v) return '';
+  const [h, m] = v.split(':').map(Number);
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${ampm} ${h12}:${String(m).padStart(2, '0')}`;
+}
 function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 function matchesGender(p: ProListItem, g: 'any' | 'male' | 'female') {
   if (g === 'any') return true;
@@ -109,7 +106,6 @@ function matchesRegion(p: ProListItem, group?: { match: string[] }) {
   const rs = p.regions || [];
   return rs.includes('전국가능') || rs.some((r) => group.match.includes(r));
 }
-/** 카드 등장 순서 지연 (위에서부터 하나씩) */
 const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
 
 /* ── 사회자 카드 ─────────────────────────────────────────── */
@@ -143,14 +139,23 @@ function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selecte
     </div>
   );
 }
+function NoteCard({ note }: { note: Note }) {
+  return (
+    <div className="qm-note">
+      <b>{note.title}</b>
+      <p>{note.body}</p>
+      {note.list && <ol>{note.list.map((t, i) => <li key={i}><span>{i + 1}.</span>{t}</li>)}</ol>}
+    </div>
+  );
+}
 
 export default function QuickMatchPage() {
   const [step, setStep] = useState<Step>('date');
   const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
   const [regionKey, setRegionKey] = useState('');
-  const [subRegion, setSubRegion] = useState('');
   const [venue, setVenue] = useState('');
-  const [ceremony, setCeremony] = useState('');
+  const [mood, setMood] = useState('');
   const [part, setPart] = useState('');
   const [gender, setGender] = useState<'any' | 'male' | 'female' | ''>('');
   const [pool, setPool] = useState<ProListItem[]>([]);
@@ -166,10 +171,15 @@ export default function QuickMatchPage() {
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
 
-  const advancingRef = useRef(false);
-  useEffect(() => { advancingRef.current = false; }, [step]);
-  function advance(next: Step) { if (advancingRef.current) return; advancingRef.current = true; setTimeout(() => setStep(next), 220); }
-  function back(to: Step) { advancingRef.current = true; setStep(to); }
+  // 단일선택 자동 진행. 빠른 연속 탭만 디바운스로 막고, 절대 영구히 막히지 않게 타임스탬프로 관리.
+  const lastAdvanceRef = useRef(0);
+  function advance(next: Step) {
+    const now = Date.now();
+    if (now - lastAdvanceRef.current < 350) return;
+    lastAdvanceRef.current = now;
+    setTimeout(() => setStep(next), 200);
+  }
+  function back(to: Step) { lastAdvanceRef.current = Date.now(); setStep(to); }
 
   function press(k: string) {
     setPhone((p) => {
@@ -226,7 +236,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, venue: venue.trim(), ceremony, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -245,12 +255,17 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="date">
           <Header onBack={() => { try { history.back(); } catch {} }} />
           <main className="qm-main">
-            <h1 className="qm-h1 qm-a-title">예식일이<br />언제인가요?</h1>
-            <p className="qm-sub qm-a-sub">날짜에 맞춰 가능한 사회자만 찾아드려요.</p>
+            <h1 className="qm-h1 qm-a-title">예식 일시가<br />언제인가요?</h1>
+            <p className="qm-sub qm-a-sub">날짜와 시간에 맞춰 가능한 사회자만 찾아드려요.</p>
             <label className="qm-datefield qm-a-item" style={stag(0)}>
               <Ic name="calendar" size={22} color={date ? '#3182F6' : '#8B95A1'} />
               <span className={date ? 'val' : 'ph'}>{date ? formatKDate(date) : '예식일을 선택해주세요'}</span>
               <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+            <label className="qm-datefield qm-a-item" style={stag(1)}>
+              <Ic name="clock" size={22} color={time ? '#3182F6' : '#8B95A1'} />
+              <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요 (선택)'}</span>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </label>
           </main>
           <Cta disabled={!date} onClick={() => setStep('region')}>다음</Cta>
@@ -261,12 +276,12 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="region">
           <Header onBack={() => back('date')} />
           <main className="qm-main">
-            <h1 className="qm-h1 qm-a-title">예식장은<br />어느 지역인가요?</h1>
+            <h1 className="qm-h1 qm-a-title">예식장은<br />어느 권역인가요?</h1>
             <p className="qm-sub qm-a-sub">가까운 지역의 사회자를 우선 추천해드려요.</p>
             <div className="qm-list">
               {REGION_GROUPS.map((g, i) => (
                 <button key={g.key} type="button" className={`qm-opt qm-a-item ${regionKey === g.key ? 'on' : ''}`} style={stag(i)}
-                  onClick={() => { setRegionKey(g.key); setSubRegion(''); advance('subregion'); }}>
+                  onClick={() => { setRegionKey(g.key); advance('venue'); }}>
                   <span className="qm-opt-t">{g.label}</span>
                   <span className="qm-chk-line">{regionKey === g.key && <Ic name="check" size={20} color="#3182F6" />}</span>
                 </button>
@@ -276,66 +291,44 @@ export default function QuickMatchPage() {
         </div>
       )}
 
-      {step === 'subregion' && (
-        <div className="qm-page" key="subregion">
-          <Header onBack={() => back('region')} />
-          <main className="qm-main">
-            <h1 className="qm-h1 qm-a-title">{group?.label} 중<br />어디에서 하시나요?</h1>
-            <p className="qm-sub qm-a-sub">예식장 위치를 알려주시면 더 정확해요.</p>
-            <div className="qm-list">
-              {(group?.subs || []).map((s, i) => (
-                <button key={s} type="button" className={`qm-opt qm-a-item ${subRegion === s ? 'on' : ''}`} style={stag(i)}
-                  onClick={() => { setSubRegion(s); advance('venue'); }}>
-                  <span className="qm-opt-t">{s}</span>
-                  <span className="qm-chk-line">{subRegion === s && <Ic name="check" size={20} color="#3182F6" />}</span>
-                </button>
-              ))}
-            </div>
-          </main>
-        </div>
-      )}
-
       {step === 'venue' && (
         <div className="qm-page" key="venue">
-          <Header onBack={() => back('subregion')} />
+          <Header onBack={() => back('region')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">예식장 이름을<br />알려주세요</h1>
             <p className="qm-sub qm-a-sub">예식장을 알면 더 잘 맞는 사회자를 찾아드려요. (선택)</p>
             <input className="qm-textinput qm-a-item" style={stag(0)} type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="예: 빌라드지디 청담" enterKeyHint="next" />
           </main>
-          <Cta disabled={false} onClick={() => setStep('ceremony')}>{venue.trim() ? '다음' : '건너뛰기'}</Cta>
+          <Cta disabled={false} onClick={() => setStep('mood')}>{venue.trim() ? '다음' : '건너뛰기'}</Cta>
         </div>
       )}
 
-      {step === 'ceremony' && (
-        <div className="qm-page" key="ceremony">
+      {step === 'mood' && (
+        <div className="qm-page" key="mood">
           <Header onBack={() => back('venue')} />
           <main className="qm-main">
-            <h1 className="qm-h1 qm-a-title">어떤 형태의<br />예식인가요?</h1>
-            <p className="qm-sub qm-a-sub">예식 분위기에 어울리는 사회자를 찾아드려요.</p>
+            <h1 className="qm-h1 qm-a-title">어떤 분위기의<br />예식을 원하세요?</h1>
+            <p className="qm-sub qm-a-sub">원하는 분위기에 어울리는 사회자를 찾아드려요.</p>
             <div className="qm-list">
-              {CEREMONY_TYPES.map((c, i) => {
-                const on = ceremony === c.label;
+              {MOOD_OPTIONS.map((m, i) => {
+                const on = mood === m.label;
                 return (
-                  <div className="qm-optwrap qm-a-item" style={stag(i)} key={c.label}>
-                    <button type="button" className={`qm-opt icon ${on ? 'on' : ''}`} onClick={() => setCeremony(c.label)}>
-                      <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
-                      <span className="qm-opt-t">{c.label}</span>
-                      <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
-                    </button>
-                    {on && c.note && <NoteCard note={c.note} />}
-                  </div>
+                  <button key={m.label} type="button" className={`qm-opt icon sub qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
+                    onClick={() => { setMood(m.label); advance('part'); }}>
+                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={m.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
+                    <span className="qm-opt-tt"><span className="qm-opt-t">{m.label}</span><span className="qm-opt-hint">{m.desc}</span></span>
+                    <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                  </button>
                 );
               })}
             </div>
           </main>
-          <Cta disabled={!ceremony} onClick={() => setStep('part')}>다음</Cta>
         </div>
       )}
 
       {step === 'part' && (
         <div className="qm-page" key="part">
-          <Header onBack={() => back('ceremony')} />
+          <Header onBack={() => back('mood')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">몇 부 진행이<br />필요하세요?</h1>
             <p className="qm-sub qm-a-sub">1부(본식)·2부(피로연) 중 필요한 진행을 알려주세요.</p>
@@ -478,10 +471,9 @@ export default function QuickMatchPage() {
           <h2 className="qm-h2 center">매칭 신청이<br />완료되었어요</h2>
           <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>
           <div className="qm-summary">
-            <div><span>예식일</span><b>{date ? formatKDate(date) : '-'}</b></div>
-            <div><span>지역</span><b>{[group?.label, subRegion].filter(Boolean).join(' ') || '-'}</b></div>
-            {venue.trim() && <div><span>예식장</span><b>{venue.trim()}</b></div>}
-            <div><span>진행</span><b>{part || '-'}</b></div>
+            <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
+            <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
+            <div><span>분위기</span><b>{mood || '-'}</b></div>
             <div><span>연락방식</span><b>{contact}</b></div>
           </div>
         </div>
@@ -490,15 +482,6 @@ export default function QuickMatchPage() {
   );
 }
 
-function NoteCard({ note }: { note: Note }) {
-  return (
-    <div className="qm-note">
-      <b>{note.title}</b>
-      <p>{note.body}</p>
-      {note.list && <ol>{note.list.map((t, i) => <li key={i}><span>{i + 1}.</span>{t}</li>)}</ol>}
-    </div>
-  );
-}
 function Header({ onBack }: { onBack: () => void }) {
   return <header className="qm-header"><button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button></header>;
 }
@@ -514,7 +497,6 @@ const CSS = `
 .qm-root b,.qm-root strong{font-weight:600;}
 .qm-page{display:flex;flex-direction:column;min-height:100dvh;}
 .qm-page.center{align-items:center;justify-content:center;text-align:center;padding:0 32px;animation:qm-pagefade .32s ease both;}
-/* 등장 애니메이션: 타이틀 페이드업 → 서브타이틀 → 카드 우→좌 슬라이드 */
 @keyframes qm-fadeup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes qm-slidein{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
 @keyframes qm-pagefade{from{opacity:0}to{opacity:1}}
@@ -531,12 +513,14 @@ const CSS = `
 .qm-h2{font-size:21px;font-weight:600;line-height:1.42;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
 .qm-h2.center{margin-top:26px;}
 .qm-sub{font-size:15px;color:var(--t-ph);margin:10px 0 0;line-height:1.5;}
-.qm-datefield{position:relative;display:flex;align-items:center;gap:12px;height:60px;margin-top:28px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;}
+.qm-datefield{position:relative;display:flex;align-items:center;gap:12px;height:60px;margin-top:16px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;}
+.qm-datefield:first-of-type{margin-top:28px;}
 .qm-datefield:focus-within{border-color:var(--blue);}
 .qm-datefield .ph{color:var(--t-ph);font-size:16px;}
 .qm-datefield .val{color:var(--t-strong);font-size:16px;font-weight:600;}
-.qm-datefield input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;background:none;}
+.qm-datefield input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;background:none;cursor:pointer;}
 .qm-list{margin-top:26px;display:flex;flex-direction:column;gap:10px;}
+.qm-optwrap{display:block;}
 .qm-opt{display:flex;align-items:center;gap:14px;width:100%;min-height:60px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;}
 .qm-opt:active{background:#F8F9FA;}
 .qm-opt.on{border-color:var(--blue);background:var(--blue-bg);}
@@ -544,11 +528,10 @@ const CSS = `
 .qm-opt-ic{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--divider);}
 .qm-opt-ic.on{background:#DCEBFF;}
 .qm-opt-t{flex:1;font-size:17px;font-weight:600;color:var(--t);}
-.qm-opt.on .qm-opt-t{color:var(--blue);font-weight:600;}
+.qm-opt.on .qm-opt-t{color:var(--blue);}
 .qm-opt-tt{flex:1;display:flex;flex-direction:column;gap:3px;}
 .qm-opt-hint{font-size:13px;font-weight:400;color:var(--t-ph);}
 .qm-chk-line{width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;}
-.qm-optwrap{display:block;}
 .qm-note{margin:8px 2px 0;padding:16px 18px;background:var(--divider);border-radius:14px;animation:qm-note-in .28s ease both;}
 .qm-note b{display:block;font-size:15px;color:var(--t-strong);}
 .qm-note p{margin:8px 0 0;font-size:14px;line-height:1.55;color:var(--t-sub);}
@@ -563,11 +546,10 @@ const CSS = `
 .qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
 .qm-cta:active:not(:disabled){transform:scale(.99);background:var(--blue-press);}
 .qm-cta:disabled{background:var(--bg-gray);color:var(--t-dis);cursor:default;}
-/* 번호 입력 (큰 숫자 + 밑줄 + 키패드) */
 .qm-bignum{margin-top:44px;padding-bottom:16px;border-bottom:2px solid var(--border);transition:border-color .15s;}
 .qm-bignum.on{border-color:var(--blue);}
 .qm-bignum-t{display:flex;align-items:center;font-size:28px;font-weight:600;letter-spacing:.5px;line-height:1;}
-.qm-bignum-t b{color:var(--t-strong);font-weight:600;}
+.qm-bignum-t b{color:var(--t-strong);}
 .qm-bignum-t i{color:var(--t-dis);font-style:normal;font-weight:600;}
 .qm-caret{width:2px;height:28px;background:var(--blue);margin-left:2px;animation:qm-blink 1s step-end infinite;}
 @keyframes qm-blink{50%{opacity:0}}
@@ -617,8 +599,21 @@ const CSS = `
 .qm-done-sub{margin-top:14px;font-size:15px;line-height:1.6;color:var(--t-weak);}
 .qm-done-sub .blue,.blue{color:var(--blue);}
 .qm-summary{margin-top:30px;width:100%;max-width:330px;background:#F9FAFB;border-radius:16px;padding:6px 18px;}
-.qm-summary>div{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--divider);}
+.qm-summary>div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--divider);}
 .qm-summary>div:last-child{border-bottom:0;}
-.qm-summary span{font-size:14px;color:var(--t-ph);}
-.qm-summary b{font-size:14px;font-weight:600;color:var(--t);}
+.qm-summary span{font-size:14px;color:var(--t-ph);flex:none;}
+.qm-summary b{font-size:14px;font-weight:600;color:var(--t);text-align:right;}
+/* ── PC(넓은 화면): 가운데 카드 프레임 ── */
+@media (min-width:768px){
+  .qm-root{max-width:none;background:#EBEEF3;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
+  .qm-page{width:100%;max-width:430px;height:min(824px,94vh);min-height:0;background:#fff;border-radius:28px;box-shadow:0 16px 50px rgba(17,24,39,.14);overflow:hidden;}
+  .qm-page.center{width:100%;max-width:430px;height:min(824px,94vh);}
+  .qm-main{overflow-y:auto;}
+  .qm-ctawrap{padding-bottom:18px;}
+  .qm-keypad{padding-bottom:10px;}
+  .qm-opt:hover:not(.on){border-color:#C4CCD4;background:#FBFCFD;}
+  .qm-cta:hover:not(:disabled){background:var(--blue-press);}
+  .qm-reroll:hover{background:var(--divider);}
+  .qm-header button:hover{background:var(--divider);}
+}
 `;
