@@ -13,5 +13,14 @@ export const metadata: Metadata = {
 };
 
 export default function QuickMatchLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      {/* 토스 톤앤매너용 Pretendard (토스 제품 폰트에 가장 가까운 웹폰트) */}
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      />
+      {children}
+    </>
+  );
 }
