@@ -12,7 +12,7 @@ import { captureUtm } from '@/lib/landing-track';
  * 의뢰: 비로그인 quickRequest(single, selectedProProfileIds).
  * ──────────────────────────────────────────────────────────── */
 
-type Step = 'date' | 'region' | 'subregion' | 'ceremony' | 'part' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
+type Step = 'date' | 'region' | 'subregion' | 'venue' | 'ceremony' | 'part' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
 
 const ICON = (n: string) => `/quick-match/icons/${n}.svg`;
 function Ic({ name, size = 24, color, className = '' }: { name: string; size?: number; color?: string; className?: string }) {
@@ -29,14 +29,32 @@ const REGION_GROUPS: { key: string; label: string; match: string[]; subs: string
   { key: 'gyeongsang', label: '경상권', match: ['경상권'], subs: ['부산', '대구', '울산', '창원', '기타 경상'] },
   { key: 'jeju', label: '제주', match: ['제주'], subs: ['제주시', '서귀포'] },
 ];
-const CEREMONY_TYPES: { label: string; icon: string }[] = [
+type Note = { title: string; body: string; list?: string[] };
+const CEREMONY_TYPES: { label: string; icon: string; note?: Note }[] = [
   { label: '일반 예식장 (웨딩홀)', icon: 'diamond' },
   { label: '호텔 예식', icon: 'building' },
   { label: '하우스 · 스몰웨딩', icon: 'home' },
-  { label: '종교시설 (성당·교회)', icon: 'church' },
-  { label: '야외 · 기타', icon: 'tree' },
+  { label: '종교시설 (성당·교회)', icon: 'church', note: {
+    title: '성당·교회 예식은 미리 확인해주세요',
+    body: '종교시설은 예식 순서가 정해져 있어 외부 사회자를 두기 어려운 경우가 있어요. 섭외 전 예식장에 아래를 확인해주세요.',
+    list: ['외부 사회자 진행이 가능한지', '예식 시간·순서를 조율할 수 있는지'],
+  } },
+  { label: '야외 · 기타', icon: 'tree', note: {
+    title: '야외 예식은 이런 점을 확인해요',
+    body: '야외는 음향과 날씨의 영향을 크게 받아요. 야외 진행 경험이 있는 사회자를 우선 추천해드릴게요.',
+  } },
 ];
-const PART_OPTIONS = ['1부 (본식)', '2부 (피로연)', '둘 다 (1부·2부)'];
+const PART_OPTIONS: { label: string; note?: Note }[] = [
+  { label: '1부 (본식)' },
+  { label: '2부 (피로연)', note: {
+    title: '2부는 진행 스타일이 본식과 달라요',
+    body: '2부는 게임·이벤트 등 캐주얼한 진행이 많아요. 2부 전문 진행이 가능한 사회자를 우선 보여드릴게요.',
+  } },
+  { label: '둘 다 (1부·2부)', note: {
+    title: '1부·2부는 필요한 진행 톤이 달라요',
+    body: '본식은 격식 있게, 2부는 유쾌하게. 두 분위기를 모두 잘 소화하는 사회자를 추천해드릴게요.',
+  } },
+];
 const GENDERS: { k: 'any' | 'male' | 'female'; label: string }[] = [
   { k: 'female', label: '여자 사회자' },
   { k: 'male', label: '남자 사회자' },
@@ -131,6 +149,7 @@ export default function QuickMatchPage() {
   const [date, setDate] = useState('');
   const [regionKey, setRegionKey] = useState('');
   const [subRegion, setSubRegion] = useState('');
+  const [venue, setVenue] = useState('');
   const [ceremony, setCeremony] = useState('');
   const [part, setPart] = useState('');
   const [gender, setGender] = useState<'any' | 'male' | 'female' | ''>('');
@@ -207,7 +226,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, ceremony, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, venue: venue.trim(), ceremony, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -266,7 +285,7 @@ export default function QuickMatchPage() {
             <div className="qm-list">
               {(group?.subs || []).map((s, i) => (
                 <button key={s} type="button" className={`qm-opt qm-a-item ${subRegion === s ? 'on' : ''}`} style={stag(i)}
-                  onClick={() => { setSubRegion(s); advance('ceremony'); }}>
+                  onClick={() => { setSubRegion(s); advance('venue'); }}>
                   <span className="qm-opt-t">{s}</span>
                   <span className="qm-chk-line">{subRegion === s && <Ic name="check" size={20} color="#3182F6" />}</span>
                 </button>
@@ -276,9 +295,21 @@ export default function QuickMatchPage() {
         </div>
       )}
 
+      {step === 'venue' && (
+        <div className="qm-page" key="venue">
+          <Header onBack={() => back('subregion')} />
+          <main className="qm-main">
+            <h1 className="qm-h1 qm-a-title">예식장 이름을<br />알려주세요</h1>
+            <p className="qm-sub qm-a-sub">예식장을 알면 더 잘 맞는 사회자를 찾아드려요. (선택)</p>
+            <input className="qm-textinput qm-a-item" style={stag(0)} type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="예: 빌라드지디 청담" enterKeyHint="next" />
+          </main>
+          <Cta disabled={false} onClick={() => setStep('ceremony')}>{venue.trim() ? '다음' : '건너뛰기'}</Cta>
+        </div>
+      )}
+
       {step === 'ceremony' && (
         <div className="qm-page" key="ceremony">
-          <Header onBack={() => back('subregion')} />
+          <Header onBack={() => back('venue')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">어떤 형태의<br />예식인가요?</h1>
             <p className="qm-sub qm-a-sub">예식 분위기에 어울리는 사회자를 찾아드려요.</p>
@@ -286,16 +317,19 @@ export default function QuickMatchPage() {
               {CEREMONY_TYPES.map((c, i) => {
                 const on = ceremony === c.label;
                 return (
-                  <button key={c.label} type="button" className={`qm-opt icon qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
-                    onClick={() => { setCeremony(c.label); advance('part'); }}>
-                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
-                    <span className="qm-opt-t">{c.label}</span>
-                    <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
-                  </button>
+                  <div className="qm-optwrap qm-a-item" style={stag(i)} key={c.label}>
+                    <button type="button" className={`qm-opt icon ${on ? 'on' : ''}`} onClick={() => setCeremony(c.label)}>
+                      <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
+                      <span className="qm-opt-t">{c.label}</span>
+                      <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                    </button>
+                    {on && c.note && <NoteCard note={c.note} />}
+                  </div>
                 );
               })}
             </div>
           </main>
+          <Cta disabled={!ceremony} onClick={() => setStep('part')}>다음</Cta>
         </div>
       )}
 
@@ -306,15 +340,21 @@ export default function QuickMatchPage() {
             <h1 className="qm-h1 qm-a-title">몇 부 진행이<br />필요하세요?</h1>
             <p className="qm-sub qm-a-sub">1부(본식)·2부(피로연) 중 필요한 진행을 알려주세요.</p>
             <div className="qm-list">
-              {PART_OPTIONS.map((p, i) => (
-                <button key={p} type="button" className={`qm-opt qm-a-item ${part === p ? 'on' : ''}`} style={stag(i)}
-                  onClick={() => { setPart(p); advance('gender'); }}>
-                  <span className="qm-opt-t">{p}</span>
-                  <span className="qm-chk-line">{part === p && <Ic name="check" size={20} color="#3182F6" />}</span>
-                </button>
-              ))}
+              {PART_OPTIONS.map((p, i) => {
+                const on = part === p.label;
+                return (
+                  <div className="qm-optwrap qm-a-item" style={stag(i)} key={p.label}>
+                    <button type="button" className={`qm-opt ${on ? 'on' : ''}`} onClick={() => setPart(p.label)}>
+                      <span className="qm-opt-t">{p.label}</span>
+                      <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                    </button>
+                    {on && p.note && <NoteCard note={p.note} />}
+                  </div>
+                );
+              })}
             </div>
           </main>
+          <Cta disabled={!part} onClick={() => setStep('gender')}>다음</Cta>
         </div>
       )}
 
@@ -440,6 +480,7 @@ export default function QuickMatchPage() {
           <div className="qm-summary">
             <div><span>예식일</span><b>{date ? formatKDate(date) : '-'}</b></div>
             <div><span>지역</span><b>{[group?.label, subRegion].filter(Boolean).join(' ') || '-'}</b></div>
+            {venue.trim() && <div><span>예식장</span><b>{venue.trim()}</b></div>}
             <div><span>진행</span><b>{part || '-'}</b></div>
             <div><span>연락방식</span><b>{contact}</b></div>
           </div>
@@ -449,6 +490,15 @@ export default function QuickMatchPage() {
   );
 }
 
+function NoteCard({ note }: { note: Note }) {
+  return (
+    <div className="qm-note">
+      <b>{note.title}</b>
+      <p>{note.body}</p>
+      {note.list && <ol>{note.list.map((t, i) => <li key={i}><span>{i + 1}.</span>{t}</li>)}</ol>}
+    </div>
+  );
+}
 function Header({ onBack }: { onBack: () => void }) {
   return <header className="qm-header"><button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button></header>;
 }
@@ -461,6 +511,7 @@ const CSS = `
  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
  -webkit-font-smoothing:antialiased;background:#fff;color:var(--t-strong);min-height:100dvh;max-width:520px;margin:0 auto;}
 .qm-ic{display:inline-block;background-color:currentColor;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;flex:none;}
+.qm-root b,.qm-root strong{font-weight:600;}
 .qm-page{display:flex;flex-direction:column;min-height:100dvh;}
 .qm-page.center{align-items:center;justify-content:center;text-align:center;padding:0 32px;animation:qm-pagefade .32s ease both;}
 /* 등장 애니메이션: 타이틀 페이드업 → 서브타이틀 → 카드 우→좌 슬라이드 */
@@ -497,6 +548,17 @@ const CSS = `
 .qm-opt-tt{flex:1;display:flex;flex-direction:column;gap:3px;}
 .qm-opt-hint{font-size:13px;font-weight:400;color:var(--t-ph);}
 .qm-chk-line{width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;}
+.qm-optwrap{display:block;}
+.qm-note{margin:8px 2px 0;padding:16px 18px;background:var(--divider);border-radius:14px;animation:qm-note-in .28s ease both;}
+.qm-note b{display:block;font-size:15px;color:var(--t-strong);}
+.qm-note p{margin:8px 0 0;font-size:14px;line-height:1.55;color:var(--t-sub);}
+.qm-note ol{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+.qm-note li{display:flex;gap:6px;font-size:14px;line-height:1.5;color:var(--t-sub);}
+.qm-note li span{flex:none;color:var(--t-weak);}
+@keyframes qm-note-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.qm-textinput{margin-top:36px;width:100%;border:0;border-bottom:2px solid var(--border);background:none;font-family:inherit;font-size:22px;font-weight:600;color:var(--t-strong);padding:0 2px 12px;outline:none;}
+.qm-textinput::placeholder{color:var(--t-dis);font-weight:600;}
+.qm-textinput:focus{border-color:var(--blue);}
 .qm-ctawrap{position:sticky;bottom:0;background:#fff;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 16px);flex:none;}
 .qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
 .qm-cta:active:not(:disabled){transform:scale(.99);background:var(--blue-press);}
