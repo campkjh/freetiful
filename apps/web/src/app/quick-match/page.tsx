@@ -6,24 +6,17 @@ import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm } from '@/lib/landing-track';
 
 /* ─────────────────────────────────────────────────────────────
- * 퀵매칭 — 토스 톤앤매너로 한 화면당 한 질문씩 물어보고,
- * 조건에 맞는 사회자 5명(각 영상)을 추천 → 선택 의뢰 → 연락방식.
- * 비로그인 quickRequest(single, selectedProProfileIds)로 실제 의뢰가 간다.
+ * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
+ * 등장: 타이틀 페이드업 → 서브타이틀 → 카드들 위→아래 순서로 우→좌 페이드슬라이드.
+ * 번호 입력: 큰 숫자 + 밑줄 + 커스텀 숫자 키패드(토스식).
+ * 의뢰: 비로그인 quickRequest(single, selectedProProfileIds).
  * ──────────────────────────────────────────────────────────── */
 
-type Step = 'date' | 'region' | 'subregion' | 'ceremony' | 'gender' | 'searching' | 'results' | 'contact' | 'done';
+type Step = 'date' | 'region' | 'subregion' | 'ceremony' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
 
 const ICON = (n: string) => `/quick-match/icons/${n}.svg`;
-
-/** 틴트 가능한 토스 아이콘 (CSS mask + currentColor) */
 function Ic({ name, size = 24, color, className = '' }: { name: string; size?: number; color?: string; className?: string }) {
-  return (
-    <i
-      aria-hidden
-      className={`qm-ic ${className}`}
-      style={{ width: size, height: size, color, WebkitMaskImage: `url(${ICON(name)})`, maskImage: `url(${ICON(name)})` }}
-    />
-  );
+  return <i aria-hidden className={`qm-ic ${className}`} style={{ width: size, height: size, color, WebkitMaskImage: `url(${ICON(name)})`, maskImage: `url(${ICON(name)})` }} />;
 }
 
 const REGION_GROUPS: { key: string; label: string; match: string[]; subs: string[] }[] = [
@@ -36,7 +29,6 @@ const REGION_GROUPS: { key: string; label: string; match: string[]; subs: string
   { key: 'gyeongsang', label: '경상권', match: ['경상권'], subs: ['부산', '대구', '울산', '창원', '기타 경상'] },
   { key: 'jeju', label: '제주', match: ['제주'], subs: ['제주시', '서귀포'] },
 ];
-
 const CEREMONY_TYPES: { label: string; icon: string }[] = [
   { label: '일반 예식장 (웨딩홀)', icon: 'diamond' },
   { label: '호텔 예식', icon: 'building' },
@@ -44,20 +36,18 @@ const CEREMONY_TYPES: { label: string; icon: string }[] = [
   { label: '종교시설 (성당·교회)', icon: 'church' },
   { label: '야외 · 기타', icon: 'tree' },
 ];
-
 const GENDERS: { k: 'any' | 'male' | 'female'; label: string }[] = [
   { k: 'female', label: '여자 사회자' },
   { k: 'male', label: '남자 사회자' },
   { k: 'any', label: '상관없어요' },
 ];
-
 const CONTACTS: { k: string; label: string; hint: string; icon: string }[] = [
   { k: '전화', label: '전화', hint: '사회자가 직접 전화드려요', icon: 'call' },
   { k: '문자', label: '문자', hint: '문자로 편하게 상담받아요', icon: 'message' },
   { k: '프리티풀 채팅', label: '프리티풀 채팅', hint: '앱에서 실시간으로 채팅해요', icon: 'chat' },
 ];
-
 const SEARCH_STEPS = ['예식 정보를 확인했어요', '선호 조건을 분석했어요', '조건에 맞는 사회자를 찾았어요'];
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
 
 /* ── helpers ─────────────────────────────────────────────── */
 function extractYoutubeId(url: string | null | undefined): string | undefined {
@@ -88,11 +78,7 @@ function formatKDate(v: string) {
   const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(y, m - 1, d).getDay()];
   return `${y}년 ${m}월 ${d}일 (${wd})`;
 }
-function shuffle<T>(a: T[]): T[] {
-  const r = [...a];
-  for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
-  return r;
-}
+function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 function matchesGender(p: ProListItem, g: 'any' | 'male' | 'female') {
   if (g === 'any') return true;
   const v = (p.gender || '').toLowerCase();
@@ -104,20 +90,19 @@ function matchesRegion(p: ProListItem, group?: { match: string[] }) {
   const rs = p.regions || [];
   return rs.includes('전국가능') || rs.some((r) => group.match.includes(r));
 }
+/** 카드 등장 순서 지연 (위에서부터 하나씩) */
+const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
 
 /* ── 사회자 카드 ─────────────────────────────────────────── */
-function ProCard({ pro, selected, onToggle }: { pro: ProListItem; selected: boolean; onToggle: () => void }) {
+function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selected: boolean; onToggle: () => void; style?: React.CSSProperties }) {
   const [playing, setPlaying] = useState(false);
   const ytId = extractYoutubeId(pro.youtubeUrl);
   const thumb = ytId ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg` : pro.profileImageUrl;
   return (
-    <div className={`qm-pro ${selected ? 'on' : ''}`}>
+    <div className={`qm-pro qm-a-item ${selected ? 'on' : ''}`} style={style}>
       <div className="qm-pro-video">
         {playing && ytId ? (
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
-            title={`${pro.name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen
-          />
+          <iframe src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`} title={`${pro.name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
         ) : (
           <button type="button" onClick={() => ytId && setPlaying(true)} aria-label={`${pro.name} 소개영상`}>
             {thumb ? <img src={thumb} alt={pro.name} /> : <div className="qm-pro-noimg">소개영상 준비중</div>}
@@ -130,9 +115,7 @@ function ProCard({ pro, selected, onToggle }: { pro: ProListItem; selected: bool
         <span className="qm-pro-body">
           <span className="qm-pro-name">
             사회자 {pro.name}
-            {pro.avgRating > 0 && (
-              <span className="qm-pro-rate"><Ic name="star" size={14} color="#FFC94D" />{pro.avgRating.toFixed(2)}<em>({pro.reviewCount})</em></span>
-            )}
+            {pro.avgRating > 0 && <span className="qm-pro-rate"><Ic name="star" size={14} color="#FFC94D" />{pro.avgRating.toFixed(2)}<em>({pro.reviewCount})</em></span>}
           </span>
           <span className="qm-pro-desc">{[pro.careerYears ? `경력 ${pro.careerYears}년` : '', pro.shortIntro || pro.mainExperience || ''].filter(Boolean).join(' · ')}</span>
         </span>
@@ -162,16 +145,19 @@ export default function QuickMatchPage() {
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
 
-  /* 단일선택 → 살짝 뒤 자동 진행 (토스 인터랙션).
-   * 전환 중 중복 탭이 다음 화면으로 새어 들어가지 않도록 락을 건다. */
   const advancingRef = useRef(false);
   useEffect(() => { advancingRef.current = false; }, [step]);
-  function advance(next: Step) {
-    if (advancingRef.current) return;
-    advancingRef.current = true;
-    setTimeout(() => setStep(next), 220);
-  }
+  function advance(next: Step) { if (advancingRef.current) return; advancingRef.current = true; setTimeout(() => setStep(next), 220); }
   function back(to: Step) { advancingRef.current = true; setStep(to); }
+
+  function press(k: string) {
+    setPhone((p) => {
+      const d = p.replace(/\D/g, '');
+      if (k === 'back') return normalizePhone(d.slice(0, -1));
+      if (d.length >= 11) return p;
+      return normalizePhone(d + k);
+    });
+  }
 
   async function loadPros(g: 'any' | 'male' | 'female') {
     setLoadErr(false);
@@ -210,26 +196,16 @@ export default function QuickMatchPage() {
     return out;
   }, [pool, offset]);
 
-  function toggle(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
+  function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function reroll() { if (rerolled) return; setRerolled(true); setOffset((o) => o + 5); setSelected(new Set()); }
 
   async function submit() {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10 || selected.size === 0 || !contact) return;
     setSubmitting(true);
-    const utm = {
-      utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '',
-      utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '',
-      landing_url: typeof window !== 'undefined' ? window.location.href : '',
-    };
+    const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({
-        phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected],
-        eventDate: date || undefined, eventLocation: [group?.label, subRegion].filter(Boolean).join(' ') || undefined,
-        rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, ceremony, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm },
-      });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, ceremony, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -238,6 +214,7 @@ export default function QuickMatchPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const R = 2 * Math.PI * 34;
+  const phoneDigits = phone.replace(/\D/g, '');
 
   return (
     <div className="qm-root">
@@ -247,9 +224,9 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="date">
           <Header onBack={() => { try { history.back(); } catch {} }} />
           <main className="qm-main">
-            <h1 className="qm-h1">예식일이<br />언제인가요?</h1>
-            <p className="qm-sub">날짜에 맞춰 가능한 사회자만 찾아드려요.</p>
-            <label className="qm-datefield">
+            <h1 className="qm-h1 qm-a-title">예식일이<br />언제인가요?</h1>
+            <p className="qm-sub qm-a-sub">날짜에 맞춰 가능한 사회자만 찾아드려요.</p>
+            <label className="qm-datefield qm-a-item" style={stag(0)}>
               <Ic name="calendar" size={22} color={date ? '#3182F6' : '#8B95A1'} />
               <span className={date ? 'val' : 'ph'}>{date ? formatKDate(date) : '예식일을 선택해주세요'}</span>
               <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
@@ -263,14 +240,14 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="region">
           <Header onBack={() => back('date')} />
           <main className="qm-main">
-            <h1 className="qm-h1">예식장은<br />어느 지역인가요?</h1>
-            <p className="qm-sub">가까운 지역의 사회자를 우선 추천해드려요.</p>
+            <h1 className="qm-h1 qm-a-title">예식장은<br />어느 지역인가요?</h1>
+            <p className="qm-sub qm-a-sub">가까운 지역의 사회자를 우선 추천해드려요.</p>
             <div className="qm-list">
-              {REGION_GROUPS.map((g) => (
-                <button key={g.key} type="button" className={`qm-opt ${regionKey === g.key ? 'on' : ''}`}
+              {REGION_GROUPS.map((g, i) => (
+                <button key={g.key} type="button" className={`qm-opt qm-a-item ${regionKey === g.key ? 'on' : ''}`} style={stag(i)}
                   onClick={() => { setRegionKey(g.key); setSubRegion(''); advance('subregion'); }}>
                   <span className="qm-opt-t">{g.label}</span>
-                  <span className={`qm-chk-line ${regionKey === g.key ? 'on' : ''}`}>{regionKey === g.key && <Ic name="check" size={20} color="#3182F6" />}</span>
+                  <span className="qm-chk-line">{regionKey === g.key && <Ic name="check" size={20} color="#3182F6" />}</span>
                 </button>
               ))}
             </div>
@@ -282,14 +259,14 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="subregion">
           <Header onBack={() => back('region')} />
           <main className="qm-main">
-            <h1 className="qm-h1">{group?.label} 중<br />어디에서 하시나요?</h1>
-            <p className="qm-sub">예식장 위치를 알려주시면 더 정확해요.</p>
+            <h1 className="qm-h1 qm-a-title">{group?.label} 중<br />어디에서 하시나요?</h1>
+            <p className="qm-sub qm-a-sub">예식장 위치를 알려주시면 더 정확해요.</p>
             <div className="qm-list">
-              {(group?.subs || []).map((s) => (
-                <button key={s} type="button" className={`qm-opt ${subRegion === s ? 'on' : ''}`}
+              {(group?.subs || []).map((s, i) => (
+                <button key={s} type="button" className={`qm-opt qm-a-item ${subRegion === s ? 'on' : ''}`} style={stag(i)}
                   onClick={() => { setSubRegion(s); advance('ceremony'); }}>
                   <span className="qm-opt-t">{s}</span>
-                  <span className={`qm-chk-line ${subRegion === s ? 'on' : ''}`}>{subRegion === s && <Ic name="check" size={20} color="#3182F6" />}</span>
+                  <span className="qm-chk-line">{subRegion === s && <Ic name="check" size={20} color="#3182F6" />}</span>
                 </button>
               ))}
             </div>
@@ -301,17 +278,17 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="ceremony">
           <Header onBack={() => back('subregion')} />
           <main className="qm-main">
-            <h1 className="qm-h1">어떤 형태의<br />예식인가요?</h1>
-            <p className="qm-sub">예식 분위기에 어울리는 사회자를 찾아드려요.</p>
+            <h1 className="qm-h1 qm-a-title">어떤 형태의<br />예식인가요?</h1>
+            <p className="qm-sub qm-a-sub">예식 분위기에 어울리는 사회자를 찾아드려요.</p>
             <div className="qm-list">
-              {CEREMONY_TYPES.map((c) => {
+              {CEREMONY_TYPES.map((c, i) => {
                 const on = ceremony === c.label;
                 return (
-                  <button key={c.label} type="button" className={`qm-opt icon ${on ? 'on' : ''}`}
+                  <button key={c.label} type="button" className={`qm-opt icon qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
                     onClick={() => { setCeremony(c.label); advance('gender'); }}>
                     <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
                     <span className="qm-opt-t">{c.label}</span>
-                    <span className={`qm-chk-line ${on ? 'on' : ''}`}>{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                    <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
                   </button>
                 );
               })}
@@ -324,14 +301,14 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="gender">
           <Header onBack={() => back('ceremony')} />
           <main className="qm-main">
-            <h1 className="qm-h1">선호하는<br />사회자 성별이 있나요?</h1>
-            <p className="qm-sub">원하시는 성별의 사회자를 우선 보여드려요.</p>
+            <h1 className="qm-h1 qm-a-title">선호하는<br />사회자 성별이 있나요?</h1>
+            <p className="qm-sub qm-a-sub">원하시는 성별의 사회자를 우선 보여드려요.</p>
             <div className="qm-list">
-              {GENDERS.map((g) => (
-                <button key={g.k} type="button" className={`qm-opt ${gender === g.k ? 'on' : ''}`}
+              {GENDERS.map((g, i) => (
+                <button key={g.k} type="button" className={`qm-opt qm-a-item ${gender === g.k ? 'on' : ''}`} style={stag(i)}
                   onClick={() => { setGender(g.k); advance('searching'); }}>
                   <span className="qm-opt-t">{g.label}</span>
-                  <span className={`qm-chk-line ${gender === g.k ? 'on' : ''}`}>{gender === g.k && <Ic name="check" size={20} color="#3182F6" />}</span>
+                  <span className="qm-chk-line">{gender === g.k && <Ic name="check" size={20} color="#3182F6" />}</span>
                 </button>
               ))}
             </div>
@@ -344,8 +321,7 @@ export default function QuickMatchPage() {
           <div className="qm-ringwrap">
             <svg viewBox="0 0 80 80" className="qm-ring">
               <circle cx="40" cy="40" r="34" fill="none" stroke="#EEF0F3" strokeWidth="6" />
-              <circle cx="40" cy="40" r="34" fill="none" stroke="#3182F6" strokeWidth="6" strokeLinecap="round"
-                strokeDasharray={R} strokeDashoffset={R * (1 - pct / 100)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .1s linear' }} />
+              <circle cx="40" cy="40" r="34" fill="none" stroke="#3182F6" strokeWidth="6" strokeLinecap="round" strokeDasharray={R} strokeDashoffset={R * (1 - pct / 100)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .1s linear' }} />
             </svg>
             <span className="qm-ring-ic"><Ic name="sparkle" size={30} color="#3182F6" /></span>
           </div>
@@ -369,18 +345,16 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="results">
           <Header onBack={() => back('gender')} />
           <main className="qm-main tight">
-            <h1 className="qm-h1">조건에 가장 잘 맞는<br />사회자 <b className="blue">{Math.min(5, displayed.length) || 5}명</b>을 찾았어요</h1>
-            <p className="qm-sub">영상을 보고 의뢰할 사회자를 선택하세요. 여러 명 선택할 수 있어요.</p>
-            <div className="qm-resbar">
+            <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{Math.min(5, displayed.length) || 5}명</b>을 찾았어요</h1>
+            <p className="qm-sub qm-a-sub">영상을 보고 의뢰할 사회자를 선택하세요. 여러 명 선택할 수 있어요.</p>
+            <div className="qm-resbar qm-a-item" style={stag(0)}>
               <span>{selected.size}명 선택됨</span>
-              <button type="button" className="qm-reroll" onClick={reroll} disabled={rerolled || pool.length <= 5}>
-                <Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}
-              </button>
+              <button type="button" className="qm-reroll" onClick={reroll} disabled={rerolled || pool.length <= 5}><Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>
             </div>
             {loadErr ? (
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
             ) : (
-              <div className="qm-pros">{displayed.map((p) => <ProCard key={p.id} pro={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} />)}</div>
+              <div className="qm-pros">{displayed.map((p, i) => <ProCard key={p.id} pro={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} style={stag(i + 1)} />)}</div>
             )}
           </main>
           <Cta disabled={selected.size === 0} onClick={() => setStep('contact')}>{selected.size > 0 ? `${selected.size}명에게 의뢰하기` : '사회자를 선택하세요'}</Cta>
@@ -391,30 +365,49 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="contact">
           <Header onBack={() => back('results')} />
           <main className="qm-main">
-            <h1 className="qm-h1">어떤 방식으로<br />연락받으시겠어요?</h1>
-            <p className="qm-sub">선택한 {selected.size}명의 사회자가 이 방법으로 연락드려요.</p>
+            <h1 className="qm-h1 qm-a-title">어떤 방식으로<br />연락받으시겠어요?</h1>
+            <p className="qm-sub qm-a-sub">선택한 {selected.size}명의 사회자가 이 방법으로 연락드려요.</p>
             <div className="qm-list">
-              {CONTACTS.map((c) => {
+              {CONTACTS.map((c, i) => {
                 const on = contact === c.k;
                 return (
-                  <button key={c.k} type="button" className={`qm-opt icon sub ${on ? 'on' : ''}`} onClick={() => setContact(c.k)}>
+                  <button key={c.k} type="button" className={`qm-opt icon sub qm-a-item ${on ? 'on' : ''}`} style={stag(i)} onClick={() => { setContact(c.k); advance('phone'); }}>
                     <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
-                    <span className="qm-opt-tt">
-                      <span className="qm-opt-t">{c.label}</span>
-                      <span className="qm-opt-hint">{c.hint}</span>
-                    </span>
-                    <span className={`qm-chk-line ${on ? 'on' : ''}`}>{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                    <span className="qm-opt-tt"><span className="qm-opt-t">{c.label}</span><span className="qm-opt-hint">{c.hint}</span></span>
+                    <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
                   </button>
                 );
               })}
             </div>
-            <div className="qm-field">
-              <label>연락받을 번호</label>
-              <input type="tel" inputMode="numeric" value={phone} onChange={(e) => setPhone(normalizePhone(e.target.value))} placeholder="010-0000-0000" />
-            </div>
-            <p className="qm-terms">신청 시 프리티풀 이용약관 및 개인정보 처리방침에 동의하는 것으로 간주됩니다. 남겨주신 번호는 매칭된 사회자 연결 목적으로만 사용돼요.</p>
           </main>
-          <Cta disabled={phone.replace(/\D/g, '').length < 10 || !contact || submitting} onClick={submit}>{submitting ? '신청 중…' : '매칭 신청하기'}</Cta>
+        </div>
+      )}
+
+      {step === 'phone' && (
+        <div className="qm-page" key="phone">
+          <Header onBack={() => back('contact')} />
+          <main className="qm-main">
+            <h1 className="qm-h1 qm-a-title">연락받을 번호를<br />입력해주세요</h1>
+            <p className="qm-sub qm-a-sub">{contact}(으)로 연락드려요. 매칭된 사회자 연결에만 사용돼요.</p>
+            <div className={`qm-bignum qm-a-item ${phoneDigits ? 'on' : ''}`} style={stag(0)}>
+              <span className="qm-bignum-t">
+                {phone ? <b>{phone}</b> : <i>010-0000-0000</i>}
+                <em className="qm-caret" />
+              </span>
+            </div>
+          </main>
+          <div className="qm-phone-bottom">
+            <div className="qm-cta-pad">
+              <button type="button" className="qm-cta" disabled={phoneDigits.length < 10 || submitting} onClick={submit}>{submitting ? '신청 중…' : '매칭 신청하기'}</button>
+            </div>
+            <div className="qm-keypad">
+              {KEYS.map((k, i) => (
+                <button type="button" key={i} className={`qm-key ${k === '' ? 'empty' : ''}`} disabled={k === ''} onClick={() => k && press(k)}>
+                  {k === 'back' ? <Ic name="backspace" size={26} color="#191F28" /> : k}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -434,20 +427,11 @@ export default function QuickMatchPage() {
   );
 }
 
-/* ── 공통 UI ─────────────────────────────────────────────── */
 function Header({ onBack }: { onBack: () => void }) {
-  return (
-    <header className="qm-header">
-      <button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button>
-    </header>
-  );
+  return <header className="qm-header"><button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button></header>;
 }
 function Cta({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <div className="qm-ctawrap">
-      <button type="button" className="qm-cta" disabled={disabled} onClick={onClick}>{children}</button>
-    </div>
-  );
+  return <div className="qm-ctawrap"><button type="button" className="qm-cta" disabled={disabled} onClick={onClick}>{children}</button></div>;
 }
 
 const CSS = `
@@ -455,10 +439,16 @@ const CSS = `
  font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
  -webkit-font-smoothing:antialiased;background:#fff;color:var(--t-strong);min-height:100dvh;max-width:520px;margin:0 auto;}
 .qm-ic{display:inline-block;background-color:currentColor;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;flex:none;}
-.qm-page{display:flex;flex-direction:column;min-height:100dvh;animation:qm-in .3s cubic-bezier(.22,.61,.36,1);}
-.qm-page.center{align-items:center;justify-content:center;text-align:center;padding:0 32px;}
-@keyframes qm-in{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
-.qm-header{height:56px;display:flex;align-items:center;padding:0 8px;}
+.qm-page{display:flex;flex-direction:column;min-height:100dvh;}
+.qm-page.center{align-items:center;justify-content:center;text-align:center;padding:0 32px;animation:qm-pagefade .32s ease both;}
+/* 등장 애니메이션: 타이틀 페이드업 → 서브타이틀 → 카드 우→좌 슬라이드 */
+@keyframes qm-fadeup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes qm-slidein{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
+@keyframes qm-pagefade{from{opacity:0}to{opacity:1}}
+.qm-a-title{animation:qm-fadeup .5s cubic-bezier(.22,.61,.36,1) both;}
+.qm-a-sub{animation:qm-fadeup .5s cubic-bezier(.22,.61,.36,1) .18s both;}
+.qm-a-item{animation:qm-slidein .46s cubic-bezier(.22,.61,.36,1) both;}
+.qm-header{height:56px;display:flex;align-items:center;padding:0 8px;flex:none;}
 .qm-header button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;border-radius:20px;cursor:pointer;}
 .qm-header button:active{background:var(--divider);}
 .qm-main{flex:1;padding:8px 24px 24px;}
@@ -468,13 +458,11 @@ const CSS = `
 .qm-h2{font-size:21px;font-weight:700;line-height:1.42;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
 .qm-h2.center{margin-top:26px;}
 .qm-sub{font-size:15px;color:var(--t-ph);margin:10px 0 0;line-height:1.5;}
-/* date */
 .qm-datefield{position:relative;display:flex;align-items:center;gap:12px;height:60px;margin-top:28px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;}
 .qm-datefield:focus-within{border-color:var(--blue);}
 .qm-datefield .ph{color:var(--t-ph);font-size:16px;}
 .qm-datefield .val{color:var(--t-strong);font-size:16px;font-weight:600;}
 .qm-datefield input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;background:none;}
-/* option list */
 .qm-list{margin-top:26px;display:flex;flex-direction:column;gap:10px;}
 .qm-opt{display:flex;align-items:center;gap:14px;width:100%;min-height:60px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;}
 .qm-opt:active{background:#F8F9FA;}
@@ -487,12 +475,24 @@ const CSS = `
 .qm-opt-tt{flex:1;display:flex;flex-direction:column;gap:3px;}
 .qm-opt-hint{font-size:13px;font-weight:400;color:var(--t-ph);}
 .qm-chk-line{width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;}
-/* CTA */
-.qm-ctawrap{position:sticky;bottom:0;background:#fff;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 16px);}
-.qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;}
+.qm-ctawrap{position:sticky;bottom:0;background:#fff;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 16px);flex:none;}
+.qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
 .qm-cta:active:not(:disabled){transform:scale(.99);background:var(--blue-press);}
 .qm-cta:disabled{background:var(--bg-gray);color:var(--t-dis);cursor:default;}
-/* searching */
+/* 번호 입력 (큰 숫자 + 밑줄 + 키패드) */
+.qm-bignum{margin-top:44px;padding-bottom:16px;border-bottom:2px solid var(--border);transition:border-color .15s;}
+.qm-bignum.on{border-color:var(--blue);}
+.qm-bignum-t{display:flex;align-items:center;font-size:28px;font-weight:600;letter-spacing:.5px;line-height:1;}
+.qm-bignum-t b{color:var(--t-strong);font-weight:600;}
+.qm-bignum-t i{color:var(--t-dis);font-style:normal;font-weight:600;}
+.qm-caret{width:2px;height:28px;background:var(--blue);margin-left:2px;animation:qm-blink 1s step-end infinite;}
+@keyframes qm-blink{50%{opacity:0}}
+.qm-phone-bottom{margin-top:auto;flex:none;}
+.qm-cta-pad{padding:0 20px 10px;}
+.qm-keypad{display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 6px);}
+.qm-key{height:62px;display:flex;align-items:center;justify-content:center;border:0;background:none;font-size:26px;font-weight:500;color:var(--t-strong);cursor:pointer;font-family:inherit;transition:background .1s;border-radius:14px;margin:2px 6px;}
+.qm-key:active:not(.empty){background:var(--divider);}
+.qm-key.empty{pointer-events:none;}
 .qm-ringwrap{position:relative;width:80px;height:80px;}
 .qm-ring{width:80px;height:80px;}
 .qm-ring-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
@@ -503,10 +503,9 @@ const CSS = `
 .qm-searchrow-ic{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none;}
 .qm-spin{width:15px;height:15px;border-radius:50%;border:2px solid #E5E8EB;border-top-color:var(--blue);animation:qm-spin .7s linear infinite;}
 @keyframes qm-spin{to{transform:rotate(360deg)}}
-/* results */
 .qm-resbar{display:flex;align-items:center;justify-content:space-between;margin:18px 4px 0;}
 .qm-resbar>span{font-size:13px;font-weight:600;color:var(--t-sub);}
-.qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;}
+.qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;}
 .qm-reroll:active{background:var(--divider);}
 .qm-reroll:disabled{opacity:.4;cursor:default;}
 .qm-pros{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
@@ -529,15 +528,7 @@ const CSS = `
 .qm-chk{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid #D1D6DB;display:flex;align-items:center;justify-content:center;}
 .qm-chk.on{border-color:var(--blue);background:var(--blue);}
 .qm-err{margin-top:40px;text-align:center;color:var(--t-ph);font-size:14px;line-height:1.6;}
-.qm-err button{margin-top:12px;background:var(--divider);color:var(--t-sub);font-weight:600;border:0;border-radius:12px;padding:9px 16px;cursor:pointer;}
-/* contact field */
-.qm-field{margin-top:26px;}
-.qm-field label{display:block;font-size:15px;font-weight:700;color:var(--t-strong);margin-bottom:10px;}
-.qm-field input{width:100%;height:56px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;font-size:16px;font-weight:500;color:var(--t-strong);background:#fff;outline:none;}
-.qm-field input:focus{border-color:var(--blue);}
-.qm-field input::placeholder{color:#C4CAD0;font-weight:400;}
-.qm-terms{margin-top:16px;font-size:12px;line-height:1.6;color:var(--t-dis);}
-/* done */
+.qm-err button{margin-top:12px;background:var(--divider);color:var(--t-sub);font-weight:600;border:0;border-radius:12px;padding:9px 16px;cursor:pointer;font-family:inherit;}
 .qm-done-ic{width:84px;height:84px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;}
 .qm-done-sub{margin-top:14px;font-size:15px;line-height:1.6;color:var(--t-weak);}
 .qm-done-sub .blue,.blue{color:var(--blue);}
