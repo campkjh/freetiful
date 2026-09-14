@@ -17,11 +17,6 @@ const ICON = (n: string) => `/quick-match/icons/${n}.svg`;
 function Ic({ name, size = 24, color, className = '' }: { name: string; size?: number; color?: string; className?: string }) {
   return <i aria-hidden className={`qm-ic ${className}`} style={{ width: size, height: size, color, WebkitMaskImage: `url(${ICON(name)})`, maskImage: `url(${ICON(name)})` }} />;
 }
-/** 원본 색을 살리는 컬러 아이콘 (mask 대신 img) */
-function ColorIc({ name, size = 24 }: { name: string; size?: number }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={`/quick-match/icons/color/${name}.svg`} width={size} height={size} alt="" aria-hidden style={{ display: 'block' }} />;
-}
 
 type Note = { title: string; body: string; list?: string[] };
 
@@ -35,8 +30,8 @@ const REGION_GROUPS: { key: string; label: string; match: string[] }[] = [
 ];
 const MOOD_OPTIONS: { label: string; icon: string; desc: string }[] = [
   { label: '진중하고 격식있게', icon: 'crown', desc: '차분하고 우아한 분위기로' },
-  { label: '유쾌하고 밝게', icon: 'party', desc: '웃음이 넘치는 즐거운 예식으로' },
-  { label: '위트있고 센스있게', icon: 'twinkle', desc: '지루하지 않은 재치있는 진행으로' },
+  { label: '유쾌하고 밝게', icon: 'smile', desc: '웃음이 넘치는 즐거운 예식으로' },
+  { label: '위트있고 센스있게', icon: 'sparkle', desc: '지루하지 않은 재치있는 진행으로' },
   { label: '감동적이고 따뜻하게', icon: 'heart', desc: '진심이 전해지는 뭉클한 예식으로' },
 ];
 const PART_OPTIONS: { label: string; note?: Note }[] = [
@@ -57,7 +52,7 @@ const GENDERS: { k: 'any' | 'male' | 'female'; label: string }[] = [
 ];
 const CONTACTS: { k: string; label: string; hint: string; icon: string }[] = [
   { k: '전화', label: '전화', hint: '사회자가 직접 전화드려요', icon: 'call' },
-  { k: '문자', label: '문자', hint: '문자로 편하게 상담받아요', icon: 'sms' },
+  { k: '문자', label: '문자', hint: '문자로 편하게 상담받아요', icon: 'message' },
   { k: '프리티풀 채팅', label: '프리티풀 채팅', hint: '앱에서 실시간으로 채팅해요', icon: 'chat' },
 ];
 const SEARCH_STEPS = ['예식 정보를 확인했어요', '선호 조건을 분석했어요', '조건에 맞는 사회자를 찾았어요'];
@@ -263,12 +258,12 @@ export default function QuickMatchPage() {
             <h1 className="qm-h1 qm-a-title">예식 일시가<br />언제인가요?</h1>
             <p className="qm-sub qm-a-sub">날짜와 시간에 맞춰 가능한 사회자만 찾아드려요.</p>
             <label className="qm-datefield qm-a-item" style={stag(0)}>
-              <ColorIc name="cal" size={24} />
+              <Ic name="calendar" size={22} color={date ? '#3182F6' : '#8B95A1'} />
               <span className={date ? 'val' : 'ph'}>{date ? formatKDate(date) : '예식일을 선택해주세요'}</span>
               <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
             <label className="qm-datefield qm-a-item" style={stag(1)}>
-              <ColorIc name="time" size={24} />
+              <Ic name="clock" size={22} color={time ? '#3182F6' : '#8B95A1'} />
               <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요 (선택)'}</span>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </label>
@@ -320,7 +315,7 @@ export default function QuickMatchPage() {
                 return (
                   <button key={m.label} type="button" className={`qm-opt icon sub qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
                     onClick={() => setMoods((prev) => { const n = new Set(prev); n.has(m.label) ? n.delete(m.label) : n.add(m.label); return n; })}>
-                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><ColorIc name={m.icon} size={26} /></span>
+                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={m.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
                     <span className="qm-opt-tt"><span className="qm-opt-t">{m.label}</span><span className="qm-opt-hint">{m.desc}</span></span>
                     <span className={`qm-chk ${on ? 'on' : ''}`}>{on && <Ic name="check" size={16} color="#fff" />}</span>
                   </button>
@@ -432,7 +427,7 @@ export default function QuickMatchPage() {
                 const on = contact === c.k;
                 return (
                   <button key={c.k} type="button" className={`qm-opt icon sub qm-a-item ${on ? 'on' : ''}`} style={stag(i)} onClick={() => { setContact(c.k); advance('phone'); }}>
-                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><ColorIc name={c.icon} size={26} /></span>
+                    <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
                     <span className="qm-opt-tt"><span className="qm-opt-t">{c.label}</span><span className="qm-opt-hint">{c.hint}</span></span>
                     <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
                   </button>
