@@ -453,9 +453,9 @@ const CSS = `
 .qm-header button:active{background:var(--divider);}
 .qm-main{flex:1;padding:8px 24px 24px;}
 .qm-main.tight{padding:8px 16px 24px;}
-.qm-h1{font-size:24px;font-weight:700;line-height:1.4;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
+.qm-h1{font-size:24px;font-weight:600;line-height:1.4;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
 .qm-h1 .blue{color:var(--blue);}
-.qm-h2{font-size:21px;font-weight:700;line-height:1.42;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
+.qm-h2{font-size:21px;font-weight:600;line-height:1.42;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
 .qm-h2.center{margin-top:26px;}
 .qm-sub{font-size:15px;color:var(--t-ph);margin:10px 0 0;line-height:1.5;}
 .qm-datefield{position:relative;display:flex;align-items:center;gap:12px;height:60px;margin-top:28px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;}
@@ -471,7 +471,7 @@ const CSS = `
 .qm-opt-ic{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--divider);}
 .qm-opt-ic.on{background:#DCEBFF;}
 .qm-opt-t{flex:1;font-size:17px;font-weight:600;color:var(--t);}
-.qm-opt.on .qm-opt-t{color:var(--blue);font-weight:700;}
+.qm-opt.on .qm-opt-t{color:var(--blue);font-weight:600;}
 .qm-opt-tt{flex:1;display:flex;flex-direction:column;gap:3px;}
 .qm-opt-hint{font-size:13px;font-weight:400;color:var(--t-ph);}
 .qm-chk-line{width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;}
@@ -496,7 +496,7 @@ const CSS = `
 .qm-ringwrap{position:relative;width:80px;height:80px;}
 .qm-ring{width:80px;height:80px;}
 .qm-ring-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
-.qm-pct{margin:14px 0 0;font-size:15px;font-weight:700;color:var(--blue);}
+.qm-pct{margin:14px 0 0;font-size:15px;font-weight:600;color:var(--blue);}
 .qm-searchlist{margin-top:34px;width:100%;max-width:280px;display:flex;flex-direction:column;gap:16px;}
 .qm-searchrow{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--t-dis);transition:color .3s;}
 .qm-searchrow.done{color:var(--t);font-weight:600;}
@@ -521,7 +521,7 @@ const CSS = `
 .qm-pro-ava{width:46px;height:46px;flex:none;border-radius:50%;overflow:hidden;background:var(--divider);}
 .qm-pro-ava img{width:100%;height:100%;object-fit:cover;}
 .qm-pro-body{flex:1;min-width:0;}
-.qm-pro-name{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--t-strong);}
+.qm-pro-name{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600;color:var(--t-strong);}
 .qm-pro-rate{display:flex;align-items:center;gap:2px;font-size:13px;font-weight:600;color:var(--t-strong);}
 .qm-pro-rate em{color:var(--t-ph);font-style:normal;font-weight:500;}
 .qm-pro-desc{display:block;margin-top:2px;font-size:13px;color:var(--t-weak);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
