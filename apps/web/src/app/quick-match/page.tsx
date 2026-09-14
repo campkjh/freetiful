@@ -12,7 +12,7 @@ import { captureUtm } from '@/lib/landing-track';
  * 의뢰: 비로그인 quickRequest(single, selectedProProfileIds).
  * ──────────────────────────────────────────────────────────── */
 
-type Step = 'date' | 'region' | 'subregion' | 'ceremony' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
+type Step = 'date' | 'region' | 'subregion' | 'ceremony' | 'part' | 'gender' | 'searching' | 'results' | 'contact' | 'phone' | 'done';
 
 const ICON = (n: string) => `/quick-match/icons/${n}.svg`;
 function Ic({ name, size = 24, color, className = '' }: { name: string; size?: number; color?: string; className?: string }) {
@@ -36,6 +36,7 @@ const CEREMONY_TYPES: { label: string; icon: string }[] = [
   { label: '종교시설 (성당·교회)', icon: 'church' },
   { label: '야외 · 기타', icon: 'tree' },
 ];
+const PART_OPTIONS = ['1부 (본식)', '2부 (피로연)', '둘 다 (1부·2부)'];
 const GENDERS: { k: 'any' | 'male' | 'female'; label: string }[] = [
   { k: 'female', label: '여자 사회자' },
   { k: 'male', label: '남자 사회자' },
@@ -131,6 +132,7 @@ export default function QuickMatchPage() {
   const [regionKey, setRegionKey] = useState('');
   const [subRegion, setSubRegion] = useState('');
   const [ceremony, setCeremony] = useState('');
+  const [part, setPart] = useState('');
   const [gender, setGender] = useState<'any' | 'male' | 'female' | ''>('');
   const [pool, setPool] = useState<ProListItem[]>([]);
   const [offset, setOffset] = useState(0);
@@ -205,7 +207,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, ceremony, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventLocation: [group?.label, subRegion].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, region: group?.label, subRegion, ceremony, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -285,7 +287,7 @@ export default function QuickMatchPage() {
                 const on = ceremony === c.label;
                 return (
                   <button key={c.label} type="button" className={`qm-opt icon qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
-                    onClick={() => { setCeremony(c.label); advance('gender'); }}>
+                    onClick={() => { setCeremony(c.label); advance('part'); }}>
                     <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={c.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
                     <span className="qm-opt-t">{c.label}</span>
                     <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
@@ -297,9 +299,28 @@ export default function QuickMatchPage() {
         </div>
       )}
 
+      {step === 'part' && (
+        <div className="qm-page" key="part">
+          <Header onBack={() => back('ceremony')} />
+          <main className="qm-main">
+            <h1 className="qm-h1 qm-a-title">몇 부 진행이<br />필요하세요?</h1>
+            <p className="qm-sub qm-a-sub">1부(본식)·2부(피로연) 중 필요한 진행을 알려주세요.</p>
+            <div className="qm-list">
+              {PART_OPTIONS.map((p, i) => (
+                <button key={p} type="button" className={`qm-opt qm-a-item ${part === p ? 'on' : ''}`} style={stag(i)}
+                  onClick={() => { setPart(p); advance('gender'); }}>
+                  <span className="qm-opt-t">{p}</span>
+                  <span className="qm-chk-line">{part === p && <Ic name="check" size={20} color="#3182F6" />}</span>
+                </button>
+              ))}
+            </div>
+          </main>
+        </div>
+      )}
+
       {step === 'gender' && (
         <div className="qm-page" key="gender">
-          <Header onBack={() => back('ceremony')} />
+          <Header onBack={() => back('part')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">선호하는<br />사회자 성별이 있나요?</h1>
             <p className="qm-sub qm-a-sub">원하시는 성별의 사회자를 우선 보여드려요.</p>
@@ -419,6 +440,7 @@ export default function QuickMatchPage() {
           <div className="qm-summary">
             <div><span>예식일</span><b>{date ? formatKDate(date) : '-'}</b></div>
             <div><span>지역</span><b>{[group?.label, subRegion].filter(Boolean).join(' ') || '-'}</b></div>
+            <div><span>진행</span><b>{part || '-'}</b></div>
             <div><span>연락방식</span><b>{contact}</b></div>
           </div>
         </div>
