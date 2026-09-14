@@ -155,7 +155,7 @@ export default function QuickMatchPage() {
   const [time, setTime] = useState('');
   const [regionKey, setRegionKey] = useState('');
   const [venue, setVenue] = useState('');
-  const [mood, setMood] = useState('');
+  const [moods, setMoods] = useState<Set<string>>(new Set());
   const [part, setPart] = useState('');
   const [gender, setGender] = useState<'any' | 'male' | 'female' | ''>('');
   const [pool, setPool] = useState<ProListItem[]>([]);
@@ -236,7 +236,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood, part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -308,21 +308,22 @@ export default function QuickMatchPage() {
           <Header onBack={() => back('venue')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">어떤 분위기의<br />예식을 원하세요?</h1>
-            <p className="qm-sub qm-a-sub">원하는 분위기에 어울리는 사회자를 찾아드려요.</p>
+            <p className="qm-sub qm-a-sub">원하는 분위기를 모두 선택하세요. 여러 개 선택할 수 있어요.</p>
             <div className="qm-list">
               {MOOD_OPTIONS.map((m, i) => {
-                const on = mood === m.label;
+                const on = moods.has(m.label);
                 return (
                   <button key={m.label} type="button" className={`qm-opt icon sub qm-a-item ${on ? 'on' : ''}`} style={stag(i)}
-                    onClick={() => { setMood(m.label); advance('part'); }}>
+                    onClick={() => setMoods((prev) => { const n = new Set(prev); n.has(m.label) ? n.delete(m.label) : n.add(m.label); return n; })}>
                     <span className={`qm-opt-ic ${on ? 'on' : ''}`}><Ic name={m.icon} size={22} color={on ? '#3182F6' : '#6B7684'} /></span>
                     <span className="qm-opt-tt"><span className="qm-opt-t">{m.label}</span><span className="qm-opt-hint">{m.desc}</span></span>
-                    <span className="qm-chk-line">{on && <Ic name="check" size={20} color="#3182F6" />}</span>
+                    <span className={`qm-chk ${on ? 'on' : ''}`}>{on && <Ic name="check" size={16} color="#fff" />}</span>
                   </button>
                 );
               })}
             </div>
           </main>
+          <Cta disabled={moods.size === 0} onClick={() => setStep('part')}>{moods.size > 0 ? `${moods.size}개 선택 · 다음` : '다음'}</Cta>
         </div>
       )}
 
@@ -473,7 +474,7 @@ export default function QuickMatchPage() {
           <div className="qm-summary">
             <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
             <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
-            <div><span>분위기</span><b>{mood || '-'}</b></div>
+            <div><span>분위기</span><b>{[...moods].join(', ') || '-'}</b></div>
             <div><span>연락방식</span><b>{contact}</b></div>
           </div>
         </div>
