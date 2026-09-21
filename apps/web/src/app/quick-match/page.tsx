@@ -316,12 +316,12 @@ export default function QuickMatchPage() {
             <label className="qm-datefield qm-a-item" style={stag(0)}>
               <Ic name="calendar" size={22} color={date ? '#3182F6' : '#8B95A1'} />
               <span className={date ? 'val' : 'ph'}>{date ? formatKDate(date) : '예식일을 선택해주세요'}</span>
-              <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
+              <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
             </label>
             <label className="qm-datefield qm-a-item" style={stag(1)}>
               <Ic name="clock" size={22} color={time ? '#3182F6' : '#8B95A1'} />
               <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요 (선택)'}</span>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
             </label>
           </main>
           <Cta disabled={!date} onClick={() => setStep('region')}>다음</Cta>
