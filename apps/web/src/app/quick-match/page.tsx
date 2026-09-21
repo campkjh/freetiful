@@ -576,14 +576,15 @@ const CSS = `
 .qm-reroll:active{background:var(--divider);}
 .qm-reroll:disabled{opacity:.4;cursor:default;}
 .qm-pros{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
-.qm-pro{border:1.5px solid var(--border);border-radius:18px;overflow:hidden;background:#fff;transition:border-color .15s,box-shadow .15s;}
-.qm-pro.on{border-color:var(--blue);box-shadow:0 0 0 1.5px var(--blue);}
+.qm-pro{border-radius:36px;overflow:hidden;background:#fff;box-shadow:0 14px 44px rgba(17,24,39,.12),0 4px 14px rgba(17,24,39,.05);transition:box-shadow .18s,transform .18s;}
+.qm-pro.on{box-shadow:0 0 0 2px var(--blue),0 14px 44px rgba(49,130,246,.20),0 4px 14px rgba(49,130,246,.08);}
 .qm-pro-video{position:relative;aspect-ratio:16/9;background:#000;}
 .qm-pro-video iframe,.qm-pro-video button,.qm-pro-video img{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .qm-pro-video img{object-fit:cover;}
 .qm-pro-video button{background:none;cursor:pointer;padding:0;}
+.qm-pro-video button::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(to top,rgba(0,0,0,.36) 0%,rgba(0,0,0,.07) 32%,rgba(0,0,0,0) 56%);}
 .qm-pro-noimg{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.4);font-size:14px;}
-.qm-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;}
+.qm-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;}
 .qm-pro-info{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:0;cursor:pointer;text-align:left;}
 .qm-pro-ava{width:46px;height:46px;flex:none;border-radius:50%;overflow:hidden;background:var(--divider);}
 .qm-pro-ava img{width:100%;height:100%;object-fit:cover;}
