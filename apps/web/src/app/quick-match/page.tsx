@@ -134,7 +134,13 @@ function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selecte
           </span>
           <span className="qm-pro-desc">{[pro.careerYears ? `경력 ${pro.careerYears}년` : '', pro.shortIntro || pro.mainExperience || ''].filter(Boolean).join(' · ')}</span>
         </span>
-        <span className={`qm-chk ${selected ? 'on' : ''}`}>{selected && <Ic name="check" size={16} color="#fff" />}</span>
+        <span className={`qm-pro-chk ${selected ? 'on' : ''}`}>
+          {selected && (
+            <svg viewBox="0 0 26 26" width="26" height="26" fill="none" aria-hidden="true">
+              <path d="M5 13.5 L10.5 19 L21 7.5" stroke="#3182F6" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+            </svg>
+          )}
+        </span>
       </button>
     </div>
   );
@@ -595,6 +601,9 @@ const CSS = `
 .qm-pro-desc{display:block;margin-top:2px;font-size:13px;color:var(--t-weak);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .qm-chk{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid #D1D6DB;display:flex;align-items:center;justify-content:center;}
 .qm-chk.on{border-color:var(--blue);background:var(--blue);}
+.qm-pro-chk{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;}
+.qm-pro-chk path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
+@keyframes qm-check-draw{to{stroke-dashoffset:0;}}
 .qm-err{margin-top:40px;text-align:center;color:var(--t-ph);font-size:14px;line-height:1.6;}
 .qm-err button{margin-top:12px;background:var(--divider);color:var(--t-sub);font-weight:600;border:0;border-radius:12px;padding:9px 16px;cursor:pointer;font-family:inherit;}
 .qm-done-ic{width:84px;height:84px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;}
