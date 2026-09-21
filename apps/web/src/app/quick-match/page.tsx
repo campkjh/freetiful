@@ -598,7 +598,7 @@ const CSS = `
 .qm-cta:disabled{background:var(--bg-gray);color:var(--t-dis);cursor:default;}
 .qm-btnrow{display:flex;gap:10px;}
 .qm-btnrow .qm-cta{flex:1;width:auto;}
-.qm-btnrow .qm-cta.ghost{flex:0 0 38%;background:var(--divider);color:var(--t-sub);}
+.qm-btnrow .qm-cta.ghost{background:var(--divider);color:var(--t-sub);}
 .qm-btnrow .qm-cta.ghost:active{transform:scale(.99);background:#E5E8EB;}
 .qm-bignum{margin-top:44px;padding-bottom:16px;border-bottom:2px solid var(--border);transition:border-color .15s;}
 .qm-bignum.on{border-color:var(--blue);}
