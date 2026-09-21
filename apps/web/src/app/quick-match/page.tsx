@@ -582,7 +582,7 @@ const CSS = `
 .qm-pro-video iframe,.qm-pro-video button,.qm-pro-video img{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .qm-pro-video img{object-fit:cover;}
 .qm-pro-video button{background:none;cursor:pointer;padding:0;}
-.qm-pro-video button::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(to top,rgba(0,0,0,.36) 0%,rgba(0,0,0,.07) 32%,rgba(0,0,0,0) 56%);}
+.qm-pro-video button::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(to top,rgba(255,255,255,.72) 0%,rgba(255,255,255,.18) 26%,rgba(255,255,255,0) 52%);}
 .qm-pro-noimg{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.4);font-size:14px;}
 .qm-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;}
 .qm-pro-info{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:0;cursor:pointer;text-align:left;}
