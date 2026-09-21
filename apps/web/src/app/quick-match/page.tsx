@@ -75,6 +75,15 @@ function extractYoutubeId(url: string | null | undefined): string | undefined {
   } catch {}
   return first.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
 }
+function extractYoutubeIds(url: string | null | undefined): string[] {
+  if (!url) return [];
+  const ids: string[] = [];
+  for (const tok of url.split(/\s+/)) {
+    const id = extractYoutubeId(tok.trim());
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
 function normalizePhone(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 11);
   if (d.length < 4) return d;
@@ -109,20 +118,51 @@ function matchesRegion(p: ProListItem, group?: { match: string[] }) {
 const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
 
 /* ── 사회자 카드 ─────────────────────────────────────────── */
-function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selected: boolean; onToggle: () => void; style?: React.CSSProperties }) {
+function VideoSlide({ id, name }: { id: string; name: string }) {
   const [playing, setPlaying] = useState(false);
-  const ytId = extractYoutubeId(pro.youtubeUrl);
-  const thumb = ytId ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg` : pro.profileImageUrl;
+  return (
+    <div className="qm-pro-slide">
+      {playing ? (
+        <iframe src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`} title={`${name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+      ) : (
+        <button type="button" onClick={() => setPlaying(true)} aria-label={`${name} 소개영상 재생`}>
+          <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt={name} loading="lazy" />
+          <span className="qm-play"><Ic name="play" size={22} color="#fff" /></span>
+        </button>
+      )}
+    </div>
+  );
+}
+function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selected: boolean; onToggle: () => void; style?: React.CSSProperties }) {
+  const ytIds = useMemo(() => extractYoutubeIds(pro.youtubeUrl), [pro.youtubeUrl]);
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+    setActive((prev) => (prev === i ? prev : i));
+  };
   return (
     <div className={`qm-pro qm-a-item ${selected ? 'on' : ''}`} style={style}>
       <div className="qm-pro-video">
-        {playing && ytId ? (
-          <iframe src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1&modestbranding=1`} title={`${pro.name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+        {ytIds.length > 0 ? (
+          <>
+            <div className="qm-pro-track" ref={trackRef} onScroll={onScroll}>
+              {ytIds.map((id) => <VideoSlide key={id} id={id} name={pro.name} />)}
+            </div>
+            {ytIds.length > 1 && (
+              <div className="qm-pro-dots">
+                {ytIds.map((id, i) => <span key={id} className={`qm-pro-dot ${i === active ? 'on' : ''}`} />)}
+              </div>
+            )}
+          </>
         ) : (
-          <button type="button" onClick={() => ytId && setPlaying(true)} aria-label={`${pro.name} 소개영상`}>
-            {thumb ? <img src={thumb} alt={pro.name} /> : <div className="qm-pro-noimg">소개영상 준비중</div>}
-            {ytId && <span className="qm-play"><Ic name="play" size={22} color="#fff" /></span>}
-          </button>
+          <div className="qm-pro-track">
+            <div className="qm-pro-slide">
+              {pro.profileImageUrl ? <img src={pro.profileImageUrl} alt={pro.name} /> : <div className="qm-pro-noimg">소개영상 준비중</div>}
+            </div>
+          </div>
         )}
       </div>
       <button type="button" className="qm-pro-info" onClick={onToggle}>
@@ -418,7 +458,10 @@ export default function QuickMatchPage() {
               <div className="qm-pros">{displayed.map((p, i) => <ProCard key={p.id} pro={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} style={stag(i + 1)} />)}</div>
             )}
           </main>
-          <Cta disabled={selected.size === 0} onClick={() => setStep('contact')}>{selected.size > 0 ? `${selected.size}명에게 의뢰하기` : '사회자를 선택하세요'}</Cta>
+          <div className="qm-ctawrap qm-btnrow">
+            <button type="button" className="qm-cta ghost" onClick={() => back('gender')}>이전으로</button>
+            <button type="button" className="qm-cta" onClick={() => { setSelected(new Set(displayed.map((p) => p.id))); setStep('contact'); }}>전체선택</button>
+          </div>
         </div>
       )}
 
@@ -553,6 +596,10 @@ const CSS = `
 .qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
 .qm-cta:active:not(:disabled){transform:scale(.99);background:var(--blue-press);}
 .qm-cta:disabled{background:var(--bg-gray);color:var(--t-dis);cursor:default;}
+.qm-btnrow{display:flex;gap:10px;}
+.qm-btnrow .qm-cta{flex:1;width:auto;}
+.qm-btnrow .qm-cta.ghost{flex:0 0 38%;background:var(--divider);color:var(--t-sub);}
+.qm-btnrow .qm-cta.ghost:active{transform:scale(.99);background:#E5E8EB;}
 .qm-bignum{margin-top:44px;padding-bottom:16px;border-bottom:2px solid var(--border);transition:border-color .15s;}
 .qm-bignum.on{border-color:var(--blue);}
 .qm-bignum-t{display:flex;align-items:center;font-size:28px;font-weight:600;letter-spacing:.5px;line-height:1;}
@@ -585,11 +632,17 @@ const CSS = `
 .qm-pro{border-radius:36px;overflow:hidden;background:#fff;box-shadow:0 14px 44px rgba(17,24,39,.12),0 4px 14px rgba(17,24,39,.05);transition:box-shadow .18s,transform .18s;}
 .qm-pro.on{box-shadow:0 0 0 2px var(--blue),0 14px 44px rgba(49,130,246,.20),0 4px 14px rgba(49,130,246,.08);}
 .qm-pro-video{position:relative;aspect-ratio:16/9;background:#000;}
+.qm-pro-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.qm-pro-track::-webkit-scrollbar{display:none;}
+.qm-pro-slide{position:relative;flex:0 0 100%;height:100%;scroll-snap-align:start;background:#000;}
 .qm-pro-video iframe,.qm-pro-video button,.qm-pro-video img{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .qm-pro-video img{object-fit:cover;}
 .qm-pro-video button{background:none;cursor:pointer;padding:0;}
 .qm-pro-video button::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(to top,rgba(255,255,255,1) 0%,rgba(255,255,255,.96) 9%,rgba(255,255,255,.72) 20%,rgba(255,255,255,.38) 36%,rgba(255,255,255,.12) 50%,rgba(255,255,255,0) 66%);}
 .qm-pro-noimg{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.4);font-size:14px;}
+.qm-pro-dots{position:absolute;left:0;right:0;bottom:9px;z-index:3;display:flex;justify-content:center;gap:5px;pointer-events:none;}
+.qm-pro-dot{width:6px;height:6px;border-radius:50%;background:rgba(25,31,40,.28);transition:width .2s,background .2s;}
+.qm-pro-dot.on{width:16px;border-radius:3px;background:var(--blue);}
 .qm-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;}
 .qm-pro-info{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:0;cursor:pointer;text-align:left;}
 .qm-pro-ava{width:46px;height:46px;flex:none;border-radius:50%;overflow:hidden;background:var(--divider);}
@@ -624,6 +677,7 @@ const CSS = `
   .qm-keypad{padding-bottom:10px;}
   .qm-opt:hover:not(.on){border-color:#C4CCD4;background:#FBFCFD;}
   .qm-cta:hover:not(:disabled){background:var(--blue-press);}
+  .qm-btnrow .qm-cta.ghost:hover{background:#E5E8EB;}
   .qm-reroll:hover{background:var(--divider);}
   .qm-header button:hover{background:var(--divider);}
 }
