@@ -593,7 +593,7 @@ const CSS = `
 .qm-textinput::placeholder{color:var(--t-dis);font-weight:600;}
 .qm-textinput:focus{border-color:var(--blue);}
 .qm-ctawrap{position:sticky;bottom:0;background:#fff;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 16px);flex:none;}
-.qm-cta{width:100%;height:56px;border:0;border-radius:14px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
+.qm-cta{width:100%;height:56px;border:0;border-radius:16px;background:var(--blue);color:#fff;font-size:17px;font-weight:600;cursor:pointer;transition:transform .05s,background .15s;font-family:inherit;}
 .qm-cta:active:not(:disabled){transform:scale(.99);background:var(--blue-press);}
 .qm-cta:disabled{background:var(--bg-gray);color:var(--t-dis);cursor:default;}
 .qm-btnrow{display:flex;gap:10px;}
