@@ -213,9 +213,11 @@ export default function QuickMatchPage() {
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pct, setPct] = useState(0);
+  const [selectingAll, setSelectingAll] = useState(false);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
+  useEffect(() => { if (step === 'results') setSelectingAll(false); }, [step]);
 
   // 단일선택 자동 진행. 빠른 연속 탭만 디바운스로 막고, 절대 영구히 막히지 않게 타임스탬프로 관리.
   const lastAdvanceRef = useRef(0);
@@ -275,6 +277,14 @@ export default function QuickMatchPage() {
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function reroll() { if (rerolled) return; setRerolled(true); setOffset((o) => o + 5); setSelected(new Set()); }
+  function selectAllAndGo() {
+    if (selectingAll) return;
+    setSelectingAll(true);
+    const ids = displayed.map((p) => p.id);
+    setSelected(new Set()); // 처음부터 하나씩 체크되는 애니메이션이 보이도록 초기화
+    ids.forEach((id, i) => setTimeout(() => setSelected((prev) => new Set(prev).add(id)), 60 + i * 130));
+    setTimeout(() => setStep('contact'), 60 + ids.length * 130 + 380);
+  }
 
   async function submit() {
     const digits = phone.replace(/\D/g, '');
@@ -459,8 +469,8 @@ export default function QuickMatchPage() {
             )}
           </main>
           <div className="qm-ctawrap qm-btnrow">
-            <button type="button" className="qm-cta ghost" onClick={() => back('gender')}>이전으로</button>
-            <button type="button" className="qm-cta" onClick={() => { setSelected(new Set(displayed.map((p) => p.id))); setStep('contact'); }}>전체선택</button>
+            <button type="button" className="qm-cta ghost" onClick={() => back('gender')} disabled={selectingAll}>이전으로</button>
+            <button type="button" className="qm-cta" onClick={selectAllAndGo} disabled={selectingAll}>{selectingAll ? '선택 중…' : '전체선택'}</button>
           </div>
         </div>
       )}
