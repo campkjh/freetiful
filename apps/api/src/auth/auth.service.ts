@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
 } from '@nestjs/common';
+import { generalProfileImage, isPlaceholderProfileImage } from '../common/default-avatar';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -289,7 +290,8 @@ export class AuthService {
         name: info.name ?? extras.email ?? '',
         email: extras.email,
         phone: extras.phone,
-        profileImageUrl: info.profileImageUrl,
+        // 신규 가입은 일반 유저 — 사진이 없거나 카카오 기본 이미지면 동물 프로필 랜덤 부여.
+        profileImageUrl: generalProfileImage(info.profileImageUrl),
         referralCode: this.generateReferralCode(),
         authProviders: {
           create: {
@@ -407,7 +409,7 @@ export class AuthService {
           data: {
             email: normalizedEmail ?? null,
             ...(info.name && !legacyUser.name ? { name: info.name } : {}),
-            ...(info.profileImageUrl && !legacyUser.profileImageUrl
+            ...(info.profileImageUrl && !isPlaceholderProfileImage(info.profileImageUrl) && !legacyUser.profileImageUrl
               ? { profileImageUrl: info.profileImageUrl }
               : {}),
           },

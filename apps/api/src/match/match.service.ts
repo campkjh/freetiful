@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { randomAnimalAvatar } from '../common/default-avatar';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -783,6 +784,7 @@ export class MatchService {
             role: 'general',
             name,
             phone,
+            profileImageUrl: randomAnimalAvatar(),
             referralCode: `FT${uuid().replace(/-/g, '').slice(0, 8).toUpperCase()}`,
           },
         });
