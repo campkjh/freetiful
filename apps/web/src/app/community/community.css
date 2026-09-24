@@ -1132,3 +1132,8 @@
 @media (prefers-reduced-motion: reduce) {
   .tcomp-sticky::after { transition: none; }
 }
+
+/* 모바일(햄버거 헤더): 헤더 아래 보더 없음 — 바로 밑 글쓰기 칸·페이드와 한 덩어리로 보이게. */
+@media (max-width: 1023.98px) {
+  .fcom .community-topbar { border-bottom: none; }
+}
