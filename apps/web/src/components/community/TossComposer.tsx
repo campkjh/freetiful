@@ -77,6 +77,9 @@ export default function TossComposer({
   const foldRef = useRef<HTMLDivElement | null>(null);
   const unfoldRef = useRef<HTMLDivElement | null>(null);
   const seqRef = useRef(0);
+  // 헤더 밑에 붙어 따라오는 칸(sticky). 붙어 있을 때만 아래로 배경색 그라데이션을 깐다.
+  const stickyRef = useRef<HTMLDivElement | null>(null);
+  const [stuck, setStuck] = useState(false);
 
   // 저장소(localStorage) 복원값은 클라이언트에만 있으니 마운트 뒤에 읽는다(하이드레이션 불일치 방지).
   useEffect(() => {
@@ -88,6 +91,30 @@ export default function TossComposer({
     foldRef.current?.toggleAttribute("inert", open);
     unfoldRef.current?.toggleAttribute("inert", !open);
   }, [open]);
+
+  // sticky 로 헤더 밑에 붙었는지 — 칸의 현재 top 이 sticky top 값과 같고 페이지가 내려가 있으면 붙은 것.
+  useEffect(() => {
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const el = stickyRef.current;
+      if (!el) return;
+      const stickTop = parseFloat(getComputedStyle(el).top) || 0;
+      const next = window.scrollY > 0 && el.getBoundingClientRect().top <= stickTop + 0.5;
+      setStuck((cur) => (cur === next ? cur : next));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   const subs = useMemo(
     () => groups.flatMap((m) => (m.children || []).map((c) => ({ id: c.id, name: c.name, majorName: m.name }))),
@@ -106,8 +133,23 @@ export default function TossComposer({
       setGroupId(contextGroupId);
       setGroupSource("context");
     }
-    setOpen(true);
-    window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 180);
+    const unfold = () => {
+      setOpen(true);
+      window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 180);
+    };
+    // 피드 중간에서 누르면(붙어 있는 상태) 맨 위로 부드럽게 올린 뒤 제자리에서 펼친다 —
+    // 펼친 작성기를 화면에 고정해 두면 키보드가 올라올 때 등록 버튼이 가려질 수 있어서.
+    if (stuck && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const t0 = performance.now();
+      const wait = () => {
+        if (window.scrollY <= 1 || performance.now() - t0 > 900) unfold();
+        else requestAnimationFrame(wait);
+      };
+      requestAnimationFrame(wait);
+      return;
+    }
+    unfold();
   }
 
   function collapse() {
@@ -297,6 +339,7 @@ export default function TossComposer({
   const busyImages = images.length + uploading;
 
   return (
+    <div ref={stickyRef} className={`tcomp-sticky${stuck && !open ? " is-stuck" : ""}${open ? " is-open" : ""}`}>
     <div className={`tcomp${open ? " is-open" : ""}`}>
       {/* 접힌 모습: 토스식 한 줄 입력 칸 */}
       <div className="tcomp-fold" ref={foldRef}>
@@ -538,6 +581,7 @@ export default function TossComposer({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
