@@ -1,17 +1,25 @@
 "use client";
 
-
 import { cfetch } from "@/lib/community/cfetch";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertModal from "@/components/AlertModal";
 import ReportBlockMenu from "@/components/ReportBlockMenu";
 import { clientCache } from "@/lib/clientCache";
-import KingBadges from "@/components/KingBadges";
-import NudgeBubble from "@/components/NudgeBubble";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
+import {
+  formatCount,
+  TossHeartIcon,
+  TossCommentIcon,
+  TossRepostIcon,
+  TossShareIcon,
+  DotsIcon,
+  BackIcon,
+  SmallHeartIcon,
+} from "@/components/community/TossIcons";
 
 // Android WebView often returns gallery files with an empty/generic MIME type,
 // so fall back to the file extension (same logic as the write form).
@@ -44,9 +52,15 @@ interface CommunityComment {
   likeCount: number;
   likedByMe: boolean;
   replies: CommunityComment[];
+  // 토스형 댓글 표시용
+  authorRole?: string | null;
+  authorBadges?: { key: string; label: string; tone: string }[];
+  isPostAuthor?: boolean;
+  isEdited?: boolean;
+  isActive?: boolean;
+  isBlocked?: boolean;
 }
 
-const TIERS = ["iron", "silver", "gold", "emerald", "diamond", "master", "grandmaster", "gongsin"];
 // 댓글 정렬(백엔드 CommentSort 키와 일치).
 const COMMENT_SORTS = [
   { key: "newest", label: "최신순" },
@@ -55,51 +69,6 @@ const COMMENT_SORTS = [
   { key: "recommended", label: "추천순" },
 ] as const;
 type CommentSortKey = (typeof COMMENT_SORTS)[number]["key"];
-function TierBadge({ tier }: { tier?: string }) {
-  if (!tier || !TIERS.includes(tier)) return null;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={`/icons/tier-${tier}.svg`} alt="" width={15} height={15} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4 }} />
-  );
-}
-
-// 프로필 사진(카톡)이 있으면 사진, 없으면 닉네임 첫 글자. 애플 로그인은 사진 없음 → 첫 글자.
-function MiniAvatar({ nickname, avatar, size = 30 }: { nickname: string; avatar?: string | null; size?: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        flexShrink: 0,
-        width: size,
-        height: size,
-        borderRadius: 999,
-        overflow: "hidden",
-        background: "var(--c-bg-muted)",
-        color: "var(--c-text)",
-        fontSize: Math.round(size * 0.44),
-        fontWeight: 700,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {avatar ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatar} alt="" referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-      ) : (
-        nickname.slice(0, 1)
-      )}
-    </span>
-  );
-}
-
-function QBadge({ answered }: { answered: boolean }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={answered ? "/icons/quiz-q-answered.svg" : "/icons/quiz-q-gray.svg"} alt={answered ? "답변완료" : "미답변"} width={20} height={20} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 6 }} />
-  );
-}
-
 interface PollOption {
   id: string;
   text: string;
@@ -154,6 +123,13 @@ interface CommunityPostDetail {
   imageUrls: string[];
   tags: CommunityTag[];
   pinnedCommentId?: string | null;
+  // 토스형 작성자 정보
+  authorRole?: string | null;
+  authorBadges?: { key: string; label: string; tone: string }[];
+  authorFollowerCount?: number;
+  authorIsFollowing?: boolean;
+  isMine?: boolean;
+  isEdited?: boolean;
 }
 
 // O / X 는 글자가 아니라 도형으로 그린다(목록 카드와 같은 모양).
@@ -172,16 +148,6 @@ function OXMark({ o, size = 22 }: { o: boolean; size?: number }) {
   );
 }
 
-// 이모지 대신 아이콘셋(public/icons/community/*.svg)으로 통일한다.
-const REACTIONS: { key: string; icon: string; label: string }[] = [
-  { key: "heart", icon: "heart-red", label: "좋아요" },
-  { key: "sad", icon: "emoji-cry", label: "슬퍼요" },
-  { key: "laugh", icon: "emoji-grin", label: "웃겨요" },
-  { key: "smile", icon: "emoji-ok", label: "좋아요" },
-  { key: "devil", icon: "emoji-fire", label: "화나요" },
-  { key: "skull", icon: "emoji-cold", label: "충격" },
-];
-
 interface CommunityPostDetailClientProps {
   postId: string;
 }
@@ -195,8 +161,6 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
   const [comment, setComment] = useState("");
   const [commentPosting, setCommentPosting] = useState(false);
   const [replyTargetId, setReplyTargetId] = useState("");
-  const [replyContent, setReplyContent] = useState("");
-  const [replyPosting, setReplyPosting] = useState(false);
   const [revealBlind, setRevealBlind] = useState(false);
   const [voting, setVoting] = useState(false);
   const [quizBusy, setQuizBusy] = useState<string | null>(null);
@@ -398,56 +362,6 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     }
   }
 
-  async function submitComment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const content = comment.trim();
-    if (!content) return;
-
-    setCommentPosting(true);
-    setMessage("");
-    try {
-      const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/comments`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "댓글을 저장하지 못했습니다.");
-      setComment("");
-      await loadDetail();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "댓글을 저장하지 못했습니다.");
-    } finally {
-      setCommentPosting(false);
-    }
-  }
-
-  async function submitReply(event: FormEvent<HTMLFormElement>, parentId: string) {
-    event.preventDefault();
-    const content = replyContent.trim();
-    if (!content) return;
-
-    setReplyPosting(true);
-    setMessage("");
-    try {
-      const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/comments`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, parentId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "답글을 저장하지 못했습니다.");
-      setReplyTargetId("");
-      setReplyContent("");
-      await loadDetail();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "답글을 저장하지 못했습니다.");
-    } finally {
-      setReplyPosting(false);
-    }
-  }
 
   async function react(type: string) {
     if (!post) return;
@@ -544,7 +458,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     setCommentActionBusy(true);
     setMessage("");
     try {
-      const response = await cfetch(`/api/admin/community-comments/${encodeURIComponent(commentId)}`, {
+      const response = await cfetch(`/api/community/comments/${encodeURIComponent(commentId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -591,7 +505,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     setCommentActionBusy(true);
     setMessage("");
     try {
-      const response = await cfetch(`/api/admin/community-comments/${encodeURIComponent(deleteCommentId)}`, {
+      const response = await cfetch(`/api/community/comments/${encodeURIComponent(deleteCommentId)}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -606,57 +520,253 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     }
   }
 
-  return (
-    <main className="community-detail-page">
-      <div className="community-detail-shell">
-        <header className="community-detail-topbar">
-          <button
-            type="button"
-            onClick={() => router.push("/community")}
-            aria-label="커뮤니티 목록으로 이동"
-            className="community-detail-icon-button"
-            style={iconButtonStyle}
-          >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M15 6L9 12L15 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {/* 헤더엔 'STADY / 커뮤니티' 대신 지금 보고 있는 글 제목을 둔다 — 스크롤을 내려도
-              무슨 글인지 알 수 있다. 제목이 길면 한 줄로 줄인다. */}
-          <h1 className="community-detail-title">
-            {post?.title ?? (loading ? "" : "커뮤니티")}
-          </h1>
-        </header>
+  // ── 토스형 상세: 팔로우·공유·더보기·하단 댓글바 ──
+  const [toast, setToast] = useState("");
+  const toastTimerRef = useRef(0);
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // 안드로이드 WebView 는 키보드가 떠도 레이아웃 뷰포트가 안 줄어 하단 바가 가려진다 → 겹친 만큼 올린다.
+  const kbMeasureRef = useRef<HTMLDivElement | null>(null);
+  const keyboardInset = useKeyboardInset(inputFocused, kbMeasureRef);
+  const tossTime = (d: string) => formatRelativeTime(d).replace(/ 전$/, "");
 
-        {message && (
-          <div style={{ border: "1px solid var(--c-brand-line-9)", background: "var(--c-brand-soft-4)", color: "var(--c-brand-deep-2)", borderRadius: 8, padding: 12, fontSize: 14, fontWeight: 500 }}>
-            {message}
-          </div>
-        )}
+  function showToast(text: string) {
+    setToast(text);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 1800);
+  }
+
+  async function toggleFollow() {
+    if (!post?.userId) return;
+    const prev = post;
+    const next = !post.authorIsFollowing;
+    setPost({
+      ...post,
+      authorIsFollowing: next,
+      authorFollowerCount: Math.max(0, (post.authorFollowerCount || 0) + (next ? 1 : -1)),
+    });
+    try {
+      const res = await cfetch("/api/community/follows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: post.userId }),
+      });
+      if (res.status === 401) {
+        setPost(prev);
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        showToast("로그인하면 팔로우할 수 있어요");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "팔로우하지 못했어요");
+      setPost((cur) =>
+        cur ? { ...cur, authorIsFollowing: data.following, authorFollowerCount: data.followerCount } : cur,
+      );
+      clientCache.clearPrefix("community-posts");
+    } catch (error) {
+      setPost(prev);
+      showToast(error instanceof Error ? error.message : "팔로우하지 못했어요");
+    }
+  }
+
+  const postUrl = () => `${window.location.origin}/community/${postId}`;
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(postUrl());
+      showToast("링크를 복사했어요");
+    } catch {
+      showToast("링크를 복사하지 못했어요");
+    }
+  }
+  async function sharePost() {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: post?.title ?? "프리티풀 커뮤니티", url: postUrl() });
+      } catch {
+        /* 사용자가 취소 */
+      }
+      return;
+    }
+    copyLink();
+  }
+
+  // 하단 댓글바 — 답글 대상이 있으면 답글로, 없으면 댓글로 등록.
+  const replyTarget = replyTargetId ? findComment(comments, replyTargetId) : null;
+  async function submitBottom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const content = comment.trim();
+    if (!content || commentPosting) return;
+    setCommentPosting(true);
+    setMessage("");
+    try {
+      const res = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(replyTargetId ? { content, parentId: replyTargetId } : { content }),
+      });
+      if (res.status === 401) {
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        showToast("로그인하면 댓글을 남길 수 있어요");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || data?.error || "댓글을 저장하지 못했어요");
+      setComment("");
+      setReplyTargetId("");
+      if (inputRef.current) inputRef.current.style.height = "";
+      await loadDetail();
+      clientCache.clearPrefix("community-posts");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "댓글을 저장하지 못했어요");
+    } finally {
+      setCommentPosting(false);
+    }
+  }
+  function startReply(target: CommunityComment) {
+    setReplyTargetId(target.id);
+    inputRef.current?.focus();
+  }
+  function focusComment() {
+    setReplyTargetId("");
+    inputRef.current?.focus();
+  }
+
+  const isOwner = !!post?.userId && currentUserId === post?.userId;
+  const canModerate = !!post && (isOwner || isAdmin);
+  const body = post
+    ? post.content.trim()
+      ? post.content.startsWith(post.title)
+        ? post.content
+        : `${post.title}\n\n${post.content}`
+      : ""
+    : "";
+  const badge = post?.authorBadges?.[0];
+  const commentTab = commentSort === "newest" || commentSort === "oldest" ? "newest" : "popular";
+
+  return (
+    <main className="tdet-page">
+      <div ref={kbMeasureRef} className="tdet-kb-measure" aria-hidden="true" />
+      <header className="tdet-topbar">
+        <button
+          type="button"
+          className="tdet-icon-btn tdet-back"
+          aria-label="커뮤니티 목록으로"
+          onClick={() => router.push("/community")}
+        >
+          <BackIcon />
+        </button>
+        <span className="tdet-topbar-title">{post?.groupName ?? ""}</span>
+        <div className="tdet-topbar-actions">
+          {post && (
+            <button type="button" className="tdet-icon-btn" aria-label="공유" onClick={sharePost}>
+              <TossShareIcon />
+            </button>
+          )}
+          {post && canModerate ? (
+            <div className="tdet-menu-wrap">
+              <button
+                type="button"
+                className="tdet-icon-btn"
+                aria-label="더보기"
+                aria-haspopup="menu"
+                aria-expanded={ownerMenuOpen}
+                onClick={() => setOwnerMenuOpen((v) => !v)}
+              >
+                <DotsIcon />
+              </button>
+              {ownerMenuOpen && (
+                <>
+                  <div className="tfeed-backdrop" onClick={() => setOwnerMenuOpen(false)} />
+                  <div className="tfeed-sort-menu tdet-owner-menu" role="menu">
+                    {isAdmin && !isOwner && <div className="tdet-menu-note">관리자 권한</div>}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="tfeed-sort-item"
+                      onClick={() => {
+                        setOwnerMenuOpen(false);
+                        startEdit();
+                      }}
+                    >
+                      수정하기
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="tfeed-sort-item tdet-danger"
+                      onClick={() => {
+                        setOwnerMenuOpen(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                    >
+                      삭제하기
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : post ? (
+            <span className="tdet-report">
+              <ReportBlockMenu
+                targetType="post"
+                postId={post.id}
+                targetUserId={post.userId}
+                targetNickname={post.nickname}
+                currentUserId={currentUserId}
+                onBlocked={() => router.push("/community")}
+                variant="dots"
+              />
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="tdet-shell">
+        {message && <div className="tdet-message">{message}</div>}
 
         {loading && !post ? (
-          <div style={panelStyle}>
-            <p style={{ margin: 0, color: "var(--c-text-3)", fontSize: 14 }}>게시글을 불러오는 중...</p>
-          </div>
+          <div className="tdet-state">게시글을 불러오는 중...</div>
         ) : post ? (
           <>
-            <article className="community-detail-panel community-post-detail-card" style={panelStyle}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ borderRadius: 999, border: "1px solid var(--c-bg-muted-6)", background: "transparent", color: "var(--c-text-2c)", padding: "7px 10px", fontSize: 13, fontWeight: 700 }}>{post.groupName}</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ color: "var(--c-text-4)", fontSize: 12 }} title={formatExactTime(post.createdAt)}>{formatRelativeTime(post.createdAt)}</span>
-                  <ReportBlockMenu
-                    targetType="post"
-                    postId={post.id}
-                    targetUserId={post.userId}
-                    targetNickname={post.nickname}
-                    currentUserId={currentUserId}
-                    // 차단하면 이 글 자체가 안 보이는 게 맞으므로 목록으로 되돌린다.
-                    onBlocked={() => router.push("/community")}
-                    variant="dots"
-                  />
-                </span>
+            <article className="tdet-post">
+              <div className="tdet-author">
+                <div className="tdet-ava-col">
+                  <div className="tcard-ava" aria-hidden="true">
+                    {post.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={post.avatar} alt="" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span>{post.nickname.slice(0, 1)}</span>
+                    )}
+                  </div>
+                  {post.authorRole && <span className="tcard-role">{post.authorRole}</span>}
+                </div>
+                <div className="tdet-who">
+                  <div className="tcard-name-row">
+                    <span className="tcard-name">{post.nickname}</span>
+                    {badge && <span className={`tcard-badge tone-${badge.tone}`}>{badge.label}</span>}
+                  </div>
+                  <div className="tcard-meta">
+                    <span title={formatExactTime(post.createdAt)}>
+                      {tossTime(post.createdAt)}
+                      {post.isEdited ? " (수정됨)" : ""}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>팔로워 {(post.authorFollowerCount || 0).toLocaleString("ko-KR")}</span>
+                  </div>
+                </div>
+                {!post.isMine && post.userId && (
+                  <button
+                    type="button"
+                    className={`tcard-follow${post.authorIsFollowing ? " is-on" : ""}`}
+                    onClick={toggleFollow}
+                  >
+                    {post.authorIsFollowing ? "팔로잉" : "팔로우"}
+                  </button>
+                )}
               </div>
+
               {editing ? (
                 <div style={{ display: "grid", gap: 10, margin: "12px 0" }}>
                   <input
@@ -775,61 +885,29 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                 </div>
               ) : (
                 <>
-                  <h2 style={{ margin: "10px 0 0", color: "var(--c-text)", fontSize: 24, lineHeight: 1.35, fontWeight: 700 }}>
-                    {post.groupSlug === "qna" && <QBadge answered={post.commentCount > 0} />}
-                    {post.title}
-                  </h2>
-                  <div style={{ margin: "10px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
-                    <MiniAvatar nickname={post.nickname} avatar={post.avatar} size={34} />
-                    <p style={{ margin: 0, color: "var(--c-text-4)", fontSize: 13, fontWeight: 500 }}>{post.nickname}<TierBadge tier={post.authorTier} /><KingBadges answer={post.authorIsAnswerKing} pick={post.authorIsPickKing} /> · 조회 {post.viewCount ?? 0}</p>
-                  </div>
-                  <p style={{ margin: "16px 0", color: "var(--c-text-2c)", fontSize: 16, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{post.content}</p>
-                  {(() => {
-                    const isOwner = !!post.userId && currentUserId === post.userId;
-                    if (!isOwner && !isAdmin) return null;
-                    // 관리자가 남의 글을 강제 편집/삭제하는 경우엔 라벨과 배지로 구분.
-                    const moderating = isAdmin && !isOwner;
-                    return (
-                      <div style={{ display: "flex", gap: 8, margin: "0 0 4px", alignItems: "center" }}>
-                        {moderating && (
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--c-danger-deep)", background: "var(--c-danger-soft-3)", borderRadius: 999, padding: "4px 10px" }}>
-                            관리자
-                          </span>
-                        )}
-                        <button type="button" onClick={startEdit} disabled={actionBusy} style={ownerBtnStyle(false)}>
-                          {moderating ? "강제 편집" : "편집"}
-                        </button>
-                        <button type="button" onClick={() => setShowDeleteConfirm(true)} disabled={actionBusy} style={ownerDangerStyle}>
-                          {moderating ? "강제 삭제" : "삭제"}
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
-              {!editing && post.imageUrls.length > 0 && (
-                <div className="community-detail-image-list" style={{ position: "relative" }}>
-                  {post.imageUrls.map((imageUrl, index) => (
-                    <img
-                      key={imageUrl}
-                      src={imageUrl}
-                      alt={`${post.title} 이미지 ${index + 1}`}
-                      // 첫 장은 바로 보이므로 즉시, 나머지는 스크롤해서 닿을 때만 받는다.
-                      loading={index === 0 ? "eager" : "lazy"}
-                      decoding="async"
-                      style={
-                        post.isBlinded && !revealBlind
-                          ? { filter: "blur(24px)", transform: "scale(1.04)" }
-                          : undefined
-                      }
-                    />
-                  ))}
-                  {post.isBlinded && !revealBlind && (
-                    <BlindNoiseCover onReveal={() => setRevealBlind(true)} />
-                  )}
-                </div>
-              )}
+                  {body && <p className="tdet-body">{body}</p>}
 
+                  {post.imageUrls.length > 0 && (
+                    <div className="tdet-images">
+                      {post.imageUrls.map((imageUrl, index) => (
+                        <div key={imageUrl} className="tdet-image">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imageUrl}
+                            alt={`${post.title} 이미지 ${index + 1}`}
+                            loading={index === 0 ? "eager" : "lazy"}
+                            decoding="async"
+                            style={post.isBlinded && !revealBlind ? { filter: "blur(24px)", transform: "scale(1.04)" } : undefined}
+                          />
+                          {post.isBlinded && !revealBlind && index === 0 && (
+                            <BlindNoiseCover onReveal={() => setRevealBlind(true)} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="tdet-extras">
               {post.quiz && post.quiz.questions.length > 0 && (
                 <div style={{ display: "grid", gap: 10 }}>
                   {post.quiz.questions.map((q) => {
@@ -864,7 +942,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                                   color: val ? "var(--c-quiz-o)" : "var(--c-quiz-x)",
                                   opacity: solved && !isAnswer ? (picked ? 0.55 : 0.32) : 1,
                                   fontSize: 18,
-                                  fontWeight: 800,
+                                  fontWeight: 700,
                                   cursor: solved ? "default" : "pointer",
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -906,7 +984,6 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                   </span>
                 </div>
               )}
-
               {post.poll && (
                 <div style={{ display: "grid", gap: 8 }}>
                   {post.poll.options.map((opt) => {
@@ -952,128 +1029,97 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                   </span>
                 </div>
               )}
+                  </div>
 
-              {post.tags.length > 0 && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {post.tags.map((tag) => (
-                    <span key={tag.id} style={tagBadgeStyle}>
-                      #{tag.name}
-                    </span>
-                  ))}
-                </div>
+                  {(post.groupName || post.tags.length > 0) && (
+                    <div className="tcard-chips tdet-chips">
+                      {post.groupName && <span className="tcard-cat">{post.groupName}</span>}
+                      {post.tags.map((tag) => (
+                        <span key={tag.id} className="tcard-tag">
+                          #{tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="tdet-views">조회 {(post.viewCount ?? 0).toLocaleString("ko-KR")}</div>
+
+                  <div className="tcard-actions tdet-actions">
+                    <button
+                      type="button"
+                      className={`tcard-act${post.myReaction ? " is-liked" : ""}`}
+                      aria-pressed={!!post.myReaction}
+                      aria-label="좋아요"
+                      onClick={() => react("heart")}
+                    >
+                      <TossHeartIcon filled={!!post.myReaction} />
+                      <span>{formatCount(post.likeCount || 0)}</span>
+                    </button>
+                    <button type="button" className="tcard-act" aria-label="댓글 쓰기" onClick={focusComment}>
+                      <TossCommentIcon />
+                      <span>{formatCount(post.commentCount || 0)}</span>
+                    </button>
+                    <button type="button" className="tcard-act" aria-label="링크 복사" onClick={copyLink}>
+                      <TossRepostIcon />
+                    </button>
+                    <button type="button" className="tcard-act" aria-label="공유" onClick={sharePost}>
+                      <TossShareIcon />
+                    </button>
+                  </div>
+                </>
               )}
+            </article>
 
-              <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                <NudgeBubble
-                  icon="xp-like"
-                  text="공감하면 작성자에게 경험치 +2"
-                  tailAlign="start"
-                  tailInset={18}
-                  compact
-                  style={{ justifySelf: "start", marginBottom: -4 }}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", position: "relative" }}>
-                  <button
-                    type="button"
-                    className="community-action-button"
-                    onClick={() => react("heart")}
-                    style={actionButtonStyle(!!post.myReaction)}
-                  >
-                    <ReactionIcon name={post.myReaction ? reactionIcon(post.myReaction) : "heart-grey"} size={18} />
-                    {post.myReaction ? reactionLabel(post.myReaction) : "좋아요"} {post.likeCount}
-                  </button>
-                  <span style={{ color: "var(--c-text-3)", fontSize: 13, fontWeight: 600 }}>댓글 {post.commentCount}</span>
-                </div>
-                {post.likeCount > 0 && (
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {REACTIONS.filter((r) => (post.reactionCounts[r.key] || 0) > 0).map((r) => (
-                      <span key={r.key} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--c-text-3)", fontWeight: 500 }}>
-                        <ReactionIcon name={r.icon} size={15} /> {post.reactionCounts[r.key]}
-                      </span>
-                    ))}
+            <section className="tdet-comments" aria-label="댓글">
+              <div className="tdet-comments-head">
+                <h2>
+                  댓글 <b>{post.commentCount}</b>
+                </h2>
+                {comments.length > 1 && (
+                  <div className="tdet-sort" role="tablist" aria-label="댓글 정렬">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={commentTab === "popular"}
+                      className={commentTab === "popular" ? "on" : ""}
+                      onClick={() => changeCommentSort("popular")}
+                    >
+                      인기순
+                    </button>
+                    <span aria-hidden="true">·</span>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={commentTab === "newest"}
+                      className={commentTab === "newest" ? "on" : ""}
+                      onClick={() => changeCommentSort("newest")}
+                    >
+                      최신순
+                    </button>
                   </div>
                 )}
               </div>
-            </article>
 
-            <section className="community-detail-panel" style={panelStyle}>
-              <h2 style={{ margin: 0, color: "var(--c-text)", fontSize: 18, fontWeight: 700 }}>댓글</h2>
-              <NudgeBubble
-                icon="xp-comment"
-                text="댓글 남기고 경험치 쌓기"
-                xp={3}
-                tailAlign="start"
-                tailInset={20}
-                style={{ justifySelf: "start", margin: "-6px 0 -8px" }}
-              />
-              <form onSubmit={submitComment} style={{ display: "grid", gap: 10 }}>
-                {me && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <MiniAvatar nickname={me.nickname} avatar={me.avatar} size={26} />
-                    <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--c-text-2c)" }}>{me.nickname}</span>
-                    <span style={{ fontSize: 12, color: "var(--c-text-5)" }}>(으)로 작성</span>
-                  </div>
-                )}
-                <textarea
-                  value={comment}
-                  onChange={(event) => setComment(event.target.value)}
-                  placeholder="댓글을 입력해주세요"
-                  rows={3}
-                  style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-                />
-                <button type="submit" className="community-primary-button" disabled={commentPosting || !comment.trim()} style={primaryButtonStyle}>
-                  {commentPosting ? "등록 중..." : "댓글 등록"}
-                </button>
-              </form>
-
-              {comments.length > 0 && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {COMMENT_SORTS.map((s) => {
-                    const on = commentSort === s.key;
-                    return (
-                      <button
-                        key={s.key}
-                        type="button"
-                        onClick={() => changeCommentSort(s.key)}
-                        aria-selected={on}
-                        style={{
-                          border: `1px solid ${on ? "var(--c-inverse)" : "var(--c-border)"}`,
-                          background: on ? "var(--c-inverse)" : "transparent",
-                          color: on ? "#fff" : "var(--c-text-3)",
-                          borderRadius: 999,
-                          padding: "6px 12px",
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {s.label}
-                      </button>
-                    );
-                  })}
+              {comments.length === 0 ? (
+                <div className="tdet-empty">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/icons/toss/sleeping.svg" alt="" width={48} height={48} />
+                  <p>
+                    아직 댓글이 없어요
+                    <br />
+                    첫 댓글을 남겨보세요
+                  </p>
                 </div>
-              )}
-
-              <div style={{ display: "grid", gap: 10 }}>
-                {comments.length === 0 ? (
-                  <div style={{ textAlign: "center" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/icons/toss/sleeping.svg" alt="" width={44} height={44} style={{ display: "block", margin: "0 auto 8px" }} />
-                    <p style={{ margin: 0, color: "var(--c-text-4)", fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>댓글이 자고있나봐요<br />깨워주세요!</p>
-                  </div>
-                ) : (
-                  comments.map((item) => (
+              ) : (
+                <div className="tdet-comment-list">
+                  {comments.map((item) => (
                     <CommentItem
                       key={item.id}
                       comment={item}
                       currentUserId={currentUserId}
-                      onBlocked={() => loadDetail()}
-                      replyTargetId={replyTargetId}
-                      replyContent={replyContent}
-                      replyPosting={replyPosting}
                       isAdmin={isAdmin}
-                      canPin={!!post && (isAdmin || (!!currentUserId && post.userId === currentUserId))}
-                      isPinned={post?.pinnedCommentId === item.id}
+                      canPin={isAdmin || isOwner}
+                      pinnedCommentId={post.pinnedCommentId ?? null}
                       pinBusy={pinBusy}
                       onTogglePin={togglePinComment}
                       editingCommentId={editingCommentId}
@@ -1091,151 +1137,75 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                       onSubmitEdit={submitCommentEdit}
                       onDelete={(id) => setDeleteCommentId(id)}
                       onToggleLike={toggleCommentLike}
-                      onOpenReply={(id) => {
-                        setReplyTargetId((current) => (current === id ? "" : id));
-                        setReplyContent("");
-                      }}
-                      onReplyChange={setReplyContent}
-                      onSubmitReply={submitReply}
+                      onReply={startReply}
+                      onBlocked={() => loadDetail()}
+                      tossTime={tossTime}
                     />
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
+
+            <form
+              className="tdet-inputbar"
+              style={keyboardInset ? { bottom: keyboardInset } : undefined}
+              onSubmit={submitBottom}
+            >
+              {replyTarget && (
+                <div className="tdet-replying">
+                  <span>
+                    <b>{replyTarget.nickname}</b>님에게 답글 남기는 중
+                  </span>
+                  <button type="button" aria-label="답글 취소" onClick={() => setReplyTargetId("")}>
+                    취소
+                  </button>
+                </div>
+              )}
+              <div className="tdet-inputrow">
+                <span className="tdet-me" aria-hidden="true">
+                  {me?.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={me.avatar} alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span>{(me?.nickname ?? "나").slice(0, 1)}</span>
+                  )}
+                </span>
+                <textarea
+                  ref={inputRef}
+                  value={comment}
+                  rows={1}
+                  onChange={(event) => {
+                    setComment(event.target.value);
+                    const el = event.target;
+                    el.style.height = "auto";
+                    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                  }}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={
+                    currentUserId
+                      ? replyTarget
+                        ? "답글을 입력하세요"
+                        : "댓글을 입력하세요"
+                      : "로그인하고 댓글을 남겨보세요"
+                  }
+                />
+                <button type="submit" className="tdet-send" disabled={commentPosting || !comment.trim()}>
+                  {commentPosting ? "등록 중" : "등록"}
+                </button>
+              </div>
+            </form>
           </>
         ) : (
-          <div style={panelStyle}>
-            <p style={{ margin: 0, color: "var(--c-text-3)", fontSize: 14 }}>게시글을 찾을 수 없습니다.</p>
-          </div>
+          <div className="tdet-state">게시글을 찾을 수 없어요.</div>
         )}
       </div>
-      <style>{`
-        .community-detail-page {
-          min-height: 100vh;
-          background: var(--c-bg);
-          color: var(--c-text);
-          padding: 0 16px calc(120px + env(safe-area-inset-bottom, 0px));
-        }
-        .community-detail-shell {
-          max-width: 760px;
-          margin: 0 auto;
-          display: grid;
-          gap: 14px;
-          padding-top: calc(62px + env(safe-area-inset-top, 0px));
-        }
-        .community-detail-topbar {
-          position: fixed;
-          top: 0;
-          left: 50%;
-          z-index: 80;
-          width: min(100vw, 720px);
-          max-width: 720px;
-          box-sizing: border-box;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin: 0;
-          transform: translateX(-50%);
-          padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
-          background: var(--c-bg-a88);
-          border-bottom: 1px solid rgba(229, 231, 235, 0.8);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-        }
-        .community-detail-icon-button {
-          flex-shrink: 0;
-          transition: background-color 0.14s ease, color 0.14s ease;
-        }
-        .community-detail-icon-button:active {
-          background: var(--c-bg-muted-20) !important;
-          color: var(--c-text-2) !important;
-        }
-        .community-detail-title {
-          margin: 0;
-          min-width: 0;
-          flex: 1;
-          color: var(--c-text);
-          font-size: 17px;
-          font-weight: 700;
-          letter-spacing: -0.3px;
-          line-height: 1.35;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        /* 넓은 화면에서 헤더가 24px 제목 + 두 줄 구성이라 지나치게 두꺼웠다.
-           한 줄 제목으로 바꾸면서 높이도 함께 낮춘다. */
-        @media (min-width: 720px) {
-          .community-detail-topbar {
-            padding: calc(12px + env(safe-area-inset-top, 0px)) 18px 12px;
-          }
-          .community-detail-title {
-            font-size: 18px;
-          }
-        }
-        .community-detail-panel {
-          animation: communityDetailIn 0.22s ease;
-        }
-        .community-post-detail-card {
-          margin-top: 14px;
-        }
-        .community-detail-image-list {
-          display: grid;
-          gap: 8px;
-        }
-        .community-detail-image-list img {
-          display: block;
-          width: 100%;
-          max-height: 620px;
-          object-fit: contain;
-          border: 1px solid var(--c-bg-muted-6);
-          border-radius: 8px;
-          background: var(--c-bg-soft);
-        }
-        .community-detail-icon-button:hover {
-          background: var(--c-bg-soft) !important;
-          border-color: var(--c-border-strong) !important;
-          transform: translateX(-1px);
-        }
-        .community-action-button,
-        .community-primary-button,
-        .community-reply-button,
-        .community-detail-icon-button {
-          transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
-        }
-        .community-action-button:hover,
-        .community-reply-button:hover {
-          border-color: var(--c-border-strong) !important;
-          box-shadow: 0 5px 13px rgba(15, 23, 42, 0.06);
-        }
-        .community-primary-button:hover:not(:disabled) {
-          box-shadow: 0 8px 18px rgba(55,135,255,0.24);
-        }
-        .community-primary-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .community-action-button:active,
-        .community-primary-button:active,
-        .community-reply-button:active,
-        .community-detail-icon-button:active {
-          transform: scale(0.97);
-        }
-        @keyframes communityDetailIn {
-          from { opacity: 0; transform: translateY(7px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @media (min-width: 900px) {
-          .community-detail-page {
-            padding-left: 24px;
-            padding-right: 24px;
-          }
-          .community-detail-topbar {
-            padding-left: 24px;
-            padding-right: 24px;
-          }
-        }
-      `}</style>
+
+      {toast && (
+        <div className="tfeed-toast" role="status">
+          {toast}
+        </div>
+      )}
 
       {showDeleteConfirm && (
         <AlertModal
@@ -1252,7 +1222,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
       {deleteCommentId && (
         <AlertModal
           title={"댓글을 삭제할까요?"}
-          subtitle={"대댓글도 함께 삭제되며 되돌릴 수 없어요."}
+          subtitle={"삭제한 댓글은 되돌릴 수 없어요."}
           onClose={() => setDeleteCommentId("")}
           buttons={[
             { label: "삭제", bgColor: "var(--c-danger-b)", color: "#fff", onClick: doDeleteComment },
@@ -1266,15 +1236,14 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
 
 interface CommentItemProps {
   comment: CommunityComment;
-  replyTargetId: string;
-  replyContent: string;
-  replyPosting: boolean;
+  depth?: number;
+  currentUserId: string | null;
   isAdmin: boolean;
   /** 글쓴이(또는 관리자)만 댓글을 고정할 수 있다. 답글은 대상이 아니다. */
-  canPin?: boolean;
-  isPinned?: boolean;
-  pinBusy?: boolean;
-  onTogglePin?: (id: string) => void;
+  canPin: boolean;
+  pinnedCommentId: string | null;
+  pinBusy: boolean;
+  onTogglePin: (id: string) => void;
   editingCommentId: string;
   editCommentContent: string;
   commentActionBusy: boolean;
@@ -1284,178 +1253,145 @@ interface CommentItemProps {
   onSubmitEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleLike: (id: string) => void;
-  onOpenReply: (id: string) => void;
-  onReplyChange: (value: string) => void;
-  onSubmitReply: (event: FormEvent<HTMLFormElement>, parentId: string) => void;
-  currentUserId: string | null;
+  onReply: (comment: CommunityComment) => void;
   /** 차단 후 댓글 목록을 다시 불러온다. */
   onBlocked: () => void;
+  tossTime: (d: string) => string;
 }
 
-function CommentItem({
-  comment,
-  replyTargetId,
-  replyContent,
-  replyPosting,
-  isAdmin,
-  canPin = false,
-  isPinned = false,
-  pinBusy = false,
-  onTogglePin,
-  editingCommentId,
-  editCommentContent,
-  commentActionBusy,
-  onStartEdit,
-  onEditChange,
-  onCancelEdit,
-  onSubmitEdit,
-  onDelete,
-  onToggleLike,
-  onOpenReply,
-  onReplyChange,
-  onSubmitReply,
-  currentUserId,
-  onBlocked,
-}: CommentItemProps) {
-  const isEditing = editingCommentId === comment.id;
+// 토스형 댓글 — 아바타 · 이름(작성자/역할/배지) · 본문 · 시간·좋아요·답글 달기 · 더보기
+function CommentItem(props: CommentItemProps) {
+  const { comment: c, depth = 0 } = props;
+  const isEditing = props.editingCommentId === c.id;
+  const isOwn = !!props.currentUserId && c.userId === props.currentUserId;
+  const dead = c.isActive === false || !!c.isBlocked;
+  const canEdit = !dead && (isOwn || props.isAdmin);
+  const isPinned = props.pinnedCommentId === c.id;
+  const badge = c.authorBadges?.[0];
   return (
-    <div style={isPinned ? { ...commentBoxStyle, background: "var(--c-warn-soft)", border: "1px solid var(--c-warn-line)", borderRadius: 14, padding: 14 } : commentBoxStyle}>
-      {isPinned && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/pin-star.svg" alt="" width={15} height={15} style={{ display: "block" }} />
-          <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--c-warn-d)" }}>고정</span>
+    <div className={`tcm${depth ? " is-reply" : ""}${isPinned ? " is-pinned" : ""}`}>
+      <div className="tcm-row">
+        <div className="tcm-ava" aria-hidden="true">
+          {c.avatar && !dead ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.avatar} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <span>{c.nickname.slice(0, 1)}</span>
+          )}
         </div>
-      )}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <MiniAvatar nickname={comment.nickname} avatar={comment.avatar} size={28} />
-          <strong style={{ color: "var(--c-text)", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{comment.nickname}<TierBadge tier={comment.authorTier} /><KingBadges answer={comment.authorIsAnswerKing} pick={comment.authorIsPickKing} /></strong>
-        </span>
-        <span style={{ color: "var(--c-text-4c)", fontSize: 12, flexShrink: 0 }} title={formatExactTime(comment.createdAt)}>{formatRelativeTime(comment.createdAt)}</span>
-      </div>
-      {isEditing ? (
-        <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-          <textarea
-            value={editCommentContent}
-            onChange={(event) => onEditChange(event.target.value)}
-            rows={3}
-            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-          />
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button type="button" onClick={onCancelEdit} style={{ ...smallActionButtonStyle(false), cursor: "pointer" }}>취소</button>
-            <button
-              type="button"
-              onClick={() => onSubmitEdit(comment.id)}
-              disabled={commentActionBusy || !editCommentContent.trim()}
-              style={{ ...smallActionButtonStyle(true), cursor: "pointer", opacity: commentActionBusy ? 0.6 : 1 }}
-            >
-              {commentActionBusy ? "저장 중..." : "저장"}
-            </button>
+        <div className="tcm-main">
+          {isPinned && (
+            <div className="tcm-pin">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/pin-star.svg" alt="" width={14} height={14} />
+              고정된 댓글
+            </div>
+          )}
+          <div className="tcm-name-row">
+            <span className="tcm-name">{c.nickname}</span>
+            {c.isPostAuthor && <span className="tcm-writer">작성자</span>}
+            {c.authorRole && <span className="tcm-role">{c.authorRole}</span>}
+            {badge && <span className={`tcard-badge tone-${badge.tone} tcm-badge`}>{badge.label}</span>}
+          </div>
+          {isEditing ? (
+            <div className="tcm-edit">
+              <textarea
+                value={props.editCommentContent}
+                onChange={(event) => props.onEditChange(event.target.value)}
+                rows={3}
+              />
+              <div className="tcm-edit-actions">
+                <button type="button" className="tcm-act" onClick={props.onCancelEdit}>
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="tcm-save"
+                  onClick={() => props.onSubmitEdit(c.id)}
+                  disabled={props.commentActionBusy || !props.editCommentContent.trim()}
+                >
+                  {props.commentActionBusy ? "저장 중" : "저장"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className={`tcm-text${dead ? " is-dead" : ""}`}>{c.content}</p>
+          )}
+          <div className="tcm-meta">
+            <span title={formatExactTime(c.createdAt)}>
+              {props.tossTime(c.createdAt)}
+              {c.isEdited ? " (수정됨)" : ""}
+            </span>
+            {!dead && !isEditing && (
+              <>
+                <button
+                  type="button"
+                  className={`tcm-like${c.likedByMe ? " is-on" : ""}`}
+                  aria-pressed={c.likedByMe}
+                  onClick={() => props.onToggleLike(c.id)}
+                >
+                  <SmallHeartIcon filled={c.likedByMe} />
+                  {c.likeCount > 0 ? c.likeCount : "좋아요"}
+                </button>
+                <button type="button" className="tcm-act" onClick={() => props.onReply(c)}>
+                  답글 달기
+                </button>
+                {props.canPin && depth === 0 && (
+                  <button
+                    type="button"
+                    className="tcm-act"
+                    disabled={props.pinBusy}
+                    onClick={() => props.onTogglePin(c.id)}
+                  >
+                    {isPinned ? "고정 해제" : "고정"}
+                  </button>
+                )}
+                {canEdit && (
+                  <>
+                    <button type="button" className="tcm-act" onClick={() => props.onStartEdit(c)}>
+                      수정
+                    </button>
+                    <button type="button" className="tcm-act tcm-danger" onClick={() => props.onDelete(c.id)}>
+                      삭제
+                    </button>
+                  </>
+                )}
+                {!isOwn && (
+                  <span className="tcm-report">
+                    <ReportBlockMenu
+                      targetType="comment"
+                      commentId={c.id}
+                      targetUserId={c.userId}
+                      targetNickname={c.nickname}
+                      currentUserId={props.currentUserId}
+                      onBlocked={props.onBlocked}
+                      compact
+                    />
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
-      ) : (
-        <p style={{ margin: "8px 0 0", color: "var(--c-text-2c)", fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{comment.content}</p>
-      )}
-      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <button type="button" className="community-action-button" onClick={() => onToggleLike(comment.id)} style={smallActionButtonStyle(comment.likedByMe)}>
-          공감 {comment.likeCount}
-        </button>
-        <button type="button" className="community-reply-button" onClick={() => onOpenReply(comment.id)} style={smallActionButtonStyle(false)}>
-          답글
-        </button>
-        <ReportBlockMenu
-          targetType="comment"
-          commentId={comment.id}
-          targetUserId={comment.userId}
-          targetNickname={comment.nickname}
-          currentUserId={currentUserId}
-          onBlocked={onBlocked}
-          compact
-        />
-        {canPin && (
-          <button
-            type="button"
-            onClick={() => onTogglePin?.(comment.id)}
-            disabled={pinBusy}
-            style={{
-              ...smallActionButtonStyle(isPinned),
-              display: "inline-flex", alignItems: "center", gap: 4,
-              cursor: pinBusy ? "default" : "pointer", opacity: pinBusy ? 0.6 : 1,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/pin-star.svg" alt="" width={14} height={14} style={{ display: "block" }} />
-            {isPinned ? "고정 해제" : "고정"}
-          </button>
-        )}
-        {isAdmin && !isEditing && (
-          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center" }}>
-            <span style={{ padding: "2px 7px", borderRadius: 999, background: "var(--c-brand-soft-3)", color: "var(--c-brand-deep)", fontSize: 10.5, fontWeight: 800 }}>관리자</span>
-            <button type="button" onClick={() => onStartEdit(comment)} style={{ border: "none", background: "none", color: "var(--c-brand)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: "4px 2px" }}>
-              수정
-            </button>
-            <button type="button" onClick={() => onDelete(comment.id)} style={{ border: "none", background: "none", color: "var(--c-danger-b)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: "4px 2px" }}>
-              삭제
-            </button>
-          </span>
-        )}
       </div>
-
-      {replyTargetId === comment.id && (
-        <form onSubmit={(event) => onSubmitReply(event, comment.id)} style={{ display: "grid", gap: 8, marginTop: 10 }}>
-          <NudgeBubble
-            icon="xp-comment"
-            text="답글도 경험치가 쌓여요"
-            xp={3}
-            tailAlign="start"
-            tailInset={16}
-            compact
-            style={{ justifySelf: "start", marginBottom: -6 }}
-          />
-          <textarea
-            value={replyContent}
-            onChange={(event) => onReplyChange(event.target.value)}
-            placeholder="답글을 입력해주세요"
-            rows={2}
-            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-          />
-          <button type="submit" className="community-primary-button" disabled={replyPosting || !replyContent.trim()} style={{ ...primaryButtonStyle, padding: "10px 12px", justifySelf: "end" }}>
-            {replyPosting ? "등록 중..." : "답글 등록"}
-          </button>
-        </form>
-      )}
-
-      {comment.replies.length > 0 && (
-        <div style={{ display: "grid", gap: 8, marginTop: 10, paddingLeft: 12, borderLeft: "2px solid var(--c-border)" }}>
-          {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              currentUserId={currentUserId}
-              onBlocked={onBlocked}
-              replyTargetId={replyTargetId}
-              replyContent={replyContent}
-              replyPosting={replyPosting}
-              isAdmin={isAdmin}
-              editingCommentId={editingCommentId}
-              editCommentContent={editCommentContent}
-              commentActionBusy={commentActionBusy}
-              onStartEdit={onStartEdit}
-              onEditChange={onEditChange}
-              onCancelEdit={onCancelEdit}
-              onSubmitEdit={onSubmitEdit}
-              onDelete={onDelete}
-              onToggleLike={onToggleLike}
-              onOpenReply={onOpenReply}
-              onReplyChange={onReplyChange}
-              onSubmitReply={onSubmitReply}
-            />
+      {c.replies.length > 0 && (
+        <div className="tcm-replies">
+          {c.replies.map((reply) => (
+            <CommentItem key={reply.id} {...props} comment={reply} depth={1} canPin={false} />
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function findComment(items: CommunityComment[], id: string): CommunityComment | null {
+  for (const item of items) {
+    if (item.id === id) return item;
+    const hit = findComment(item.replies || [], id);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function updateComment(
@@ -1469,31 +1405,6 @@ function updateComment(
   });
 }
 
-// 뒤로가기. 흰 면 + 테두리 원은 헤더에서 버튼만 도드라져 투박했다 —
-// 테두리를 없애고 은은한 회색 면에 회색 화살표로 낮춘다(누르면 한 톤 진해진다).
-const iconButtonStyle = {
-  width: 34,
-  height: 34,
-  border: "none",
-  borderRadius: 999,
-  background: "var(--c-bg-muted-3)",
-  color: "var(--c-text-3c)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-} as const;
-
-const panelStyle = {
-  display: "grid",
-  gap: 14,
-  // borderTop 제거: 위 요소(헤더/글 영역)의 border-bottom 과 겹쳐 줄이 2개로 보였다.
-  borderBottom: "1px solid var(--c-bg-muted-6)",
-  borderRadius: 0,
-  background: "transparent",
-  padding: "18px 0",
-} as const;
-
 const inputStyle = {
   width: "100%",
   border: "1px solid var(--c-border-strong)",
@@ -1504,43 +1415,6 @@ const inputStyle = {
   fontSize: 16,
   boxSizing: "border-box",
 } as const;
-
-const primaryButtonStyle = {
-  border: "none",
-  borderRadius: 999,
-  background: "var(--c-inverse)",
-  color: "#fff",
-  padding: "12px 14px",
-  fontSize: 16,
-  fontWeight: 700,
-  cursor: "pointer",
-} as const;
-
-const tagBadgeStyle = {
-  borderRadius: 999,
-  background: "transparent",
-  border: "1px solid var(--c-bg-muted-6)",
-  color: "var(--c-text-2d)",
-  padding: "5px 9px",
-  fontSize: 12,
-  fontWeight: 600,
-} as const;
-
-function actionButtonStyle(active: boolean) {
-  return {
-    border: `1px solid ${active ? "var(--c-inverse)" : "var(--c-border)"}`,
-    borderRadius: 999,
-    background: active ? "var(--c-inverse)" : "var(--c-bg)",
-    color: active ? "#fff" : "var(--c-text-2c)",
-    padding: "9px 12px",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-  } as const;
-}
 
 function ownerBtnStyle(primary: boolean) {
   return {
@@ -1553,40 +1427,6 @@ function ownerBtnStyle(primary: boolean) {
     fontWeight: 600,
     cursor: "pointer",
   } as const;
-}
-
-const ownerDangerStyle = {
-  border: "1px solid var(--c-danger-line)",
-  borderRadius: 999,
-  background: "var(--c-danger-soft)",
-  color: "var(--c-danger-c)",
-  padding: "8px 16px",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-} as const;
-
-// 리액션 키 → 아이콘 파일명(없으면 기본 하트).
-function reactionIcon(key: string) {
-  return REACTIONS.find((r) => r.key === key)?.icon || "heart-red";
-}
-
-function reactionLabel(key: string) {
-  return REACTIONS.find((r) => r.key === key)?.label || "좋아요";
-}
-
-// 리액션 아이콘 이미지(이모지 대체).
-function ReactionIcon({ name, size = 18 }: { name: string; size?: number }) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`/icons/community/${name}.svg`}
-      alt=""
-      width={size}
-      height={size}
-      style={{ display: "block", flexShrink: 0 }}
-    />
-  );
 }
 
 function pollOptionStyle(mine: boolean) {
@@ -1606,23 +1446,3 @@ function pollOptionStyle(mine: boolean) {
     width: "100%",
   } as const;
 }
-
-function smallActionButtonStyle(active: boolean) {
-  return {
-    border: `1px solid ${active ? "var(--c-inverse)" : "var(--c-border)"}`,
-    borderRadius: 999,
-    background: active ? "var(--c-inverse)" : "var(--c-bg)",
-    color: active ? "#fff" : "var(--c-text-2d)",
-    padding: "7px 10px",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-  } as const;
-}
-
-const commentBoxStyle = {
-  borderTop: "1px solid var(--c-bg-muted-6)",
-  borderRadius: 0,
-  background: "transparent",
-  padding: "12px 0",
-} as const;

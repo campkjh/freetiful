@@ -553,29 +553,63 @@ export class CommunityService implements OnModuleInit {
     return map;
   }
 
+  // 스타디 계약: { questions:[{id,text,myAnswer,correctAnswer,oCount,xCount}], solvedCount, correctCount, participantCount }
+  // 정답(correctAnswer)은 뷰어가 그 문제를 푼 뒤에만 공개한다.
   private async quizAggregates(posts: any[], viewerId?: string) {
     const map = new Map<string, any>();
     const quizPosts = posts.filter((p) => p.type === 'quiz');
     if (quizPosts.length === 0) return map;
     const ids = quizPosts.map((p) => p.id);
-    const myAnswers = viewerId
-      ? await this.prisma.communityQuizAnswer.findMany({
-          where: { postId: { in: ids }, userId: viewerId },
-        })
-      : [];
-    const myByQ = new Map(myAnswers.map((a) => [a.questionId, a.answer]));
+    const [answerGroups, participantRows, myAnswers] = await Promise.all([
+      this.prisma.communityQuizAnswer.groupBy({
+        by: ['questionId', 'answer'],
+        where: { postId: { in: ids } },
+        _count: { _all: true },
+      }),
+      this.prisma.communityQuizAnswer.groupBy({
+        by: ['postId', 'userId'],
+        where: { postId: { in: ids } },
+        _count: { _all: true },
+      }),
+      viewerId
+        ? this.prisma.communityQuizAnswer.findMany({ where: { postId: { in: ids }, userId: viewerId } })
+        : Promise.resolve([] as { questionId: string; answer: boolean }[]),
+    ]);
+    const ox = new Map<string, { o: number; x: number }>();
+    for (const r of answerGroups) {
+      const c = ox.get(r.questionId) || { o: 0, x: 0 };
+      if (r.answer) c.o += r._count._all;
+      else c.x += r._count._all;
+      ox.set(r.questionId, c);
+    }
+    const participants = new Map<string, number>();
+    for (const r of participantRows) participants.set(r.postId, (participants.get(r.postId) || 0) + 1);
+    const mine = new Map(myAnswers.map((a) => [a.questionId, a.answer]));
     for (const p of quizPosts) {
+      let solved = 0;
+      let correct = 0;
       const questions = (p.quizQuestions || []).map((q: any) => {
-        const answered = myByQ.has(q.id);
+        const my = mine.has(q.id) ? (mine.get(q.id) as boolean) : null;
+        if (my !== null) {
+          solved += 1;
+          if (my === q.answer) correct += 1;
+        }
+        const c = ox.get(q.id) || { o: 0, x: 0 };
         return {
           id: q.id,
           text: q.text,
-          answer: answered ? q.answer : null, // 정답은 응답 후에만 공개
-          myAnswer: answered ? myByQ.get(q.id) : null,
-          correct: answered ? myByQ.get(q.id) === q.answer : null,
+          myAnswer: my,
+          correctAnswer: my !== null ? q.answer : null,
+          oCount: c.o,
+          xCount: c.x,
         };
       });
-      map.set(p.id, { questions, answeredCount: questions.filter((q: any) => q.myAnswer !== null).length });
+      map.set(p.id, {
+        questions,
+        solvedCount: solved,
+        correctCount: correct,
+        participantCount: participants.get(p.id) || 0,
+      });
     }
     return map;
   }
@@ -710,7 +744,7 @@ export class CommunityService implements OnModuleInit {
     for (const t of REACTION_TYPES) counts[t] = 0;
     for (const r of reactionCounts) counts[r.type] = r._count._all;
 
-    const comments = await this.buildCommentTree(id, opts.sort, opts.viewerId);
+    const comments = await this.buildCommentTree(id, opts.sort, opts.viewerId, post.userId);
 
     return {
       post: {
@@ -723,7 +757,7 @@ export class CommunityService implements OnModuleInit {
     };
   }
 
-  private async buildCommentTree(postId: string, sort?: string, viewerId?: string) {
+  private async buildCommentTree(postId: string, sort?: string, viewerId?: string, postAuthorId?: string | null) {
     const blocked = await this.getBlockedIds(viewerId);
     const all = await this.prisma.communityComment.findMany({
       where: { postId },
@@ -755,6 +789,11 @@ export class CommunityService implements OnModuleInit {
         authorIsAdmin: a.isAdmin,
         authorIsAnswerKing: a.isAnswerKing,
         authorIsPickKing: a.isPickKing,
+        authorRole: a.roleLabel,
+        authorBadges: a.badges,
+        isPostAuthor: !!postAuthorId && c.userId === postAuthorId,
+        isEdited:
+          c.isActive && new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime() > 60_000,
         content: !c.isActive ? '삭제된 댓글입니다' : isBlocked ? '차단한 사용자의 댓글입니다' : c.content,
         isActive: c.isActive,
         isBlocked: !!isBlocked,

@@ -433,8 +433,14 @@ export default function CommunityComposeModal({
           quizItems: quizOn ? filledQuizItems : [],
         }),
       });
+      if (res.status === 401) {
+        // 로그인이 풀렸거나 비로그인 — 쓴 내용은 그대로 두고 로그인 시트를 띄운다.
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        setMessage("로그인하면 글을 올릴 수 있어요.");
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "게시글을 저장하지 못했어요.");
+      if (!res.ok) throw new Error(data.error || data.message || "게시글을 저장하지 못했어요.");
       clientCache.clearPrefix("community-");
       markWroteToday();
       onPosted?.();
@@ -909,7 +915,7 @@ function ComposeStyles() {
         border-bottom: 1px solid var(--c-bg-muted-6);
       }
       .cmp-cancel { justify-self: start; border: none; background: none; padding: 0; font-size: 16px; font-weight: 500; color: var(--c-text); cursor: pointer; }
-      .cmp-title { justify-self: center; font-size: 16px; font-weight: 800; color: var(--c-text); }
+      .cmp-title { justify-self: center; font-size: 16px; font-weight: 700; color: var(--c-text); }
       .cmp-head-right { justify-self: end; }
       .cmp-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
       .cmp-row { display: flex; gap: 12px; }
@@ -956,7 +962,7 @@ function ComposeStyles() {
       .cmp-attach-btn:disabled { opacity: 0.5; }
       .cmp-attach-btn { width: 40px; height: 40px; border-radius: 999px; }
       .cmp-attach-btn img { width: 26px; height: 26px; display: block; }
-      .cmp-gif { font-size: 12px; font-weight: 800; color: var(--c-text-4); border: 2px solid var(--c-text-4) !important; border-radius: 7px; width: 30px; height: 21px; opacity: 0.7; }
+      .cmp-gif { font-size: 12px; font-weight: 700; color: var(--c-text-4); border: 2px solid var(--c-text-4) !important; border-radius: 7px; width: 30px; height: 21px; opacity: 0.7; }
       /* 투표 · OX퀴즈 · 문제 오류 · 블라인드 칩 — 아이콘 + 글자, 손가락으로 누르기 좋게 키운다 */
       .cmp-chip {
         display: inline-flex; align-items: center; gap: 6px;
@@ -998,7 +1004,7 @@ function ComposeStyles() {
       .cmp-qpick-item { text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--c-border); background: var(--c-bg); cursor: pointer; }
       .cmp-qpick-item.is-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
       .cmp-qpick-count { font-size: 12.5px; font-weight: 700; color: var(--c-text-5); flex-shrink: 0; }
-      .cmp-qpick-label { margin: 6px 2px 0; font-size: 12.5px; font-weight: 800; color: var(--c-text-4); }
+      .cmp-qpick-label { margin: 6px 2px 0; font-size: 12.5px; font-weight: 700; color: var(--c-text-4); }
       .cmp-qpick-crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; font-weight: 700; color: var(--c-text-5); }
       .cmp-qpick-crumb button { border: none; background: none; padding: 2px 0; font: inherit; color: var(--c-brand); cursor: pointer; }
       .cmp-qpick-crumb button.is-now { color: var(--c-text-3); cursor: default; }

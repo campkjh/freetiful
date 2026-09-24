@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './community.css';
+import CommunityLoginSheet from '@/components/community/CommunityLoginSheet';
 
 export const metadata: Metadata = {
   title: '프리티풀 커뮤니티',
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function CommunityLayout({ children }: { children: React.ReactNode }) {
-  return <div className="fcom">{children}</div>;
+  return (
+    <div className="fcom">
+      {children}
+      <CommunityLoginSheet />
+    </div>
+  );
 }

@@ -2,6 +2,16 @@
 
 
 import { cfetch } from "@/lib/community/cfetch";
+import { useAuthStore } from "@/lib/store/auth.store";
+import {
+  formatCount,
+  TossHeartIcon,
+  TossCommentIcon,
+  TossRepostIcon,
+  TossShareIcon,
+  SortArrowsIcon,
+  MenuCheckIcon,
+} from "@/components/community/TossIcons";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
@@ -1138,7 +1148,14 @@ export default function CommunityClient() {
         <button
           type="button"
           className="community-floating-write"
-          onClick={() => setComposeOpen(true)}
+          onClick={() => {
+            // 비로그인이면 작성창 대신 로그인 시트부터(쓰고 나서 401 로 날리지 않게).
+            if (!useAuthStore.getState().accessToken) {
+              window.dispatchEvent(new Event("freetiful:show-login"));
+              return;
+            }
+            setComposeOpen(true);
+          }}
           style={floatingWriteButtonStyle}
         >
           게시글 +
@@ -1388,79 +1405,6 @@ function CategoryList({
   );
 }
 
-// ── 토스 커뮤니티식 피드 아이콘 ──
-function formatCount(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만`;
-  return String(n);
-}
-function TossHeartIcon({ filled }: { filled?: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
-      <path
-        d="M12 20.2s-7.6-4.5-7.6-10.1A4.35 4.35 0 0 1 12 7.4a4.35 4.35 0 0 1 7.6 2.7c0 5.6-7.6 10.1-7.6 10.1Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function TossCommentIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
-      <path
-        d="M12 4.3c4.4 0 7.9 3.2 7.9 7.2s-3.5 7.2-7.9 7.2c-1 0-2-.2-2.9-.5L5 19.6l1.1-3.3C4.9 15 4.1 13.3 4.1 11.5c0-4 3.5-7.2 7.9-7.2Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function TossRepostIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
-      <path
-        d="M16.2 4.6 18.8 7.2l-2.6 2.6M18.6 7.2H8.3A3.3 3.3 0 0 0 5 10.5v1M7.8 19.4 5.2 16.8l2.6-2.6M5.4 16.8h10.3a3.3 3.3 0 0 0 3.3-3.3v-1"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function TossShareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
-      <circle cx="17.5" cy="5.8" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="6.5" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="17.5" cy="18.2" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m8.6 10.8 6.8-3.8M8.6 13.2l6.8 3.8" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-function SortArrowsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-      <path
-        d="M8 19V5m0 0L4.8 8.2M8 5l3.2 3.2M16 5v14m0 0-3.2-3.2M16 19l3.2-3.2"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function MenuCheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
-      <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function SkeletonPost() {
   return (
     <div className="community-post-card community-skeleton-card" aria-hidden="true">
@@ -1583,7 +1527,7 @@ function FeedQuiz({
                       color: val ? "var(--c-quiz-o)" : "var(--c-quiz-x)",
                       opacity: solved && !isAnswer ? (picked ? 0.55 : 0.32) : 1,
                       fontSize: 17,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       cursor: solved ? "default" : "pointer",
                       flexShrink: 0,
                       display: "inline-flex",
@@ -2366,7 +2310,7 @@ function CommunityStyles() {
         background: none;
         padding: 0;
         font-size: 20px;
-        font-weight: 800;
+        font-weight: 700;
         letter-spacing: -0.3px;
         color: var(--c-text-5);
         cursor: pointer;
@@ -2820,7 +2764,7 @@ function CommunityStyles() {
         padding: 16px 16px 12px;
         border-bottom: 1px solid var(--c-bg-muted-6);
       }
-      .ccs-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--c-text); }
+      .ccs-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--c-text); }
       .ccs-sub {
         margin: 3px 0 0;
         font-size: 13px;
@@ -2929,8 +2873,8 @@ function CommunityStyles() {
         color: var(--c-text-4); cursor: pointer; -webkit-tap-highlight-color: transparent;
       }
       .ccs-action:disabled { opacity: 0.5; cursor: default; }
-      .ccs-action.is-primary { color: var(--c-brand); font-weight: 800; }
-      .ccs-action.is-danger { color: #D63A3A; font-weight: 800; }
+      .ccs-action.is-primary { color: var(--c-brand); font-weight: 700; }
+      .ccs-action.is-danger { color: #D63A3A; font-weight: 700; }
       .ccs-action-dot { font-size: 12px; color: var(--c-text-5); }
       .ccs-editbox { margin-top: 6px; }
       .ccs-edit {

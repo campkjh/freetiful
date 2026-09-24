@@ -439,7 +439,7 @@
 }
 .answer-king-text {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.2px;
   background-image: linear-gradient(
     110deg,
@@ -626,18 +626,32 @@
 }
 
 /* ── 데스크톱 카테고리 사이드바(사장 지정 이미지 스타일: 문서/상점 아이콘 + 이름 + N) ── */
-.fcom-catlist-title { margin: 0 0 8px; padding: 0 6px; font-size: 19px; font-weight: 800; color: var(--c-text); letter-spacing: -0.3px; }
-.fcom-catlist { display: flex; flex-direction: column; gap: 1px; }
-.fcom-cat { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: none; background: none; border-radius: 10px; cursor: pointer; text-align: left; color: var(--c-text-2d); font-size: 14.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
-.fcom-cat:hover { background: var(--c-bg-muted-2); }
-.fcom-cat.on { background: var(--c-brand-soft); color: var(--c-brand); font-weight: 700; }
+.fcom-catlist-title { margin: 0 0 8px; padding: 0 6px; font-size: 19px; font-weight: 700; color: var(--c-text); letter-spacing: -0.3px; }
+.fcom-catlist { display: flex; flex-direction: column; gap: 2px; }
+.fcom-cat { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: none; background: none; border-radius: 14px; cursor: pointer; text-align: left; color: var(--c-text-2d); font-size: 14.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
+.fcom-cat:hover { background: #F9FAFB; }
+/* 선택(포커스)된 항목 = 옅은 회색 면 + 진한 글자(파란 강조 대신). */
+.fcom-cat.on { background: #F2F4F6; color: #191F28; font-weight: 700; }
 .fcom-cat-ico { flex: none; width: 20px; height: 20px; display: block; }
 .fcom-cat-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fcom-cat-n { flex: none; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #F04452; color: #fff; font-size: 9.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.fcom-cat-n { flex: none; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #F04452; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 
 @media (min-width: 1024px) {
-  .fcom .community-layout { grid-template-columns: 236px minmax(0, 1fr); max-width: 1060px; margin: 0 auto; gap: 36px; }
-  .fcom .community-filter-panel { display: block; padding: 4px 0; }
+  .fcom .community-layout { grid-template-columns: 264px minmax(0, 1fr); max-width: 1096px; margin: 0 auto; gap: 36px; }
+  /* 사이드바를 한 덩어리 흰 카드로 묶는다 — 테두리 없이 아주 옅게 넓게 퍼지는 그림자만. */
+  .fcom .community-filter-panel {
+    display: block;
+    padding: 26px 16px 18px;
+    background: #fff;
+    border-radius: 32px;
+    box-shadow: 0 12px 48px rgba(17, 24, 39, .06), 0 2px 10px rgba(17, 24, 39, .025);
+    max-height: calc(100vh - 116px - env(safe-area-inset-top, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .fcom .community-filter-panel::-webkit-scrollbar { display: none; }
+  .fcom .fcom-catlist-title { padding: 0 14px; margin-bottom: 12px; }
 }
 
 /* ── 대분류 아코디언(데스크톱 사이드바) ── */
@@ -646,11 +660,11 @@
 .fcom-cat-major { font-weight: 600; color: var(--c-text); }
 .fcom-cat-caret { flex: none; color: var(--c-text-4b); transition: transform .18s ease; }
 .fcom-major.open .fcom-cat-caret { transform: rotate(90deg); }
-.fcom-subs { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px; padding-left: 31px; position: relative; }
-.fcom-subs::before { content: ''; position: absolute; left: 20px; top: 4px; bottom: 4px; width: 1px; background: var(--c-bg-muted-6); }
-.fcom-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: none; background: none; border-radius: 9px; cursor: pointer; text-align: left; color: var(--c-text-3); font-size: 13.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
-.fcom-sub:hover { background: var(--c-bg-muted-2); color: var(--c-text-2d); }
-.fcom-sub.on { background: var(--c-brand-soft); color: var(--c-brand); font-weight: 700; }
+.fcom-subs { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 8px; padding-left: 34px; position: relative; }
+.fcom-subs::before { content: ''; position: absolute; left: 25px; top: 6px; bottom: 6px; width: 1px; background: var(--c-bg-muted-6); }
+.fcom-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; border-radius: 12px; cursor: pointer; text-align: left; color: var(--c-text-3); font-size: 13.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
+.fcom-sub:hover { background: #F9FAFB; color: var(--c-text-2d); }
+.fcom-sub.on { background: #F2F4F6; color: #191F28; font-weight: 700; }
 
 /* ── 피드 상단: 소분류 칩(모바일) + 태그 칩 ── */
 .fcom-filterbar { display: grid; gap: 10px; padding: 12px 2px 14px; border-bottom: 1px solid var(--c-bg-muted-6); }
@@ -745,3 +759,137 @@
   .tcard-actions { gap: 20px; }
   .tcard-act { font-size: 16px; }
 }
+
+/* ═══ 토스 커뮤니티식 상세 (피드 카드와 같은 문법: 아바타·역할·배지·팔로우 / 본문 / 액션) ═══ */
+.tdet-page { min-height: 100vh; background: #fff; color: #191F28; }
+.tdet-kb-measure { position: fixed; top: 0; bottom: 0; left: 0; width: 0; visibility: hidden; pointer-events: none; }
+.tdet-topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 4px; height: 56px; padding: env(safe-area-inset-top, 0px) 8px 0; box-sizing: content-box; background: rgba(255, 255, 255, .96); -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px); }
+.tdet-icon-btn { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; border-radius: 12px; color: #191F28; cursor: pointer; transition: background .14s ease, transform .1s ease; }
+.tdet-icon-btn:active { transform: scale(.94); background: #F2F4F6; }
+.tdet-topbar-title { flex: 1; min-width: 0; padding-left: 2px; font-size: 17px; font-weight: 700; color: #191F28; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tdet-topbar-actions { flex: none; display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+.tdet-menu-wrap { position: relative; }
+.tfeed-sort-menu.tdet-owner-menu { left: auto; right: 0; min-width: 150px; }
+.tdet-menu-note { padding: 8px 12px 4px; font-size: 12.5px; font-weight: 600; color: #8B95A1; }
+.tfeed-sort-item.tdet-danger { color: #F04452; }
+/* 신고·차단 ⋯ 는 인라인 style(회색·작은 여백)이라 상단바 아이콘과 톤·터치영역을 맞춘다. */
+.tdet-report { display: inline-flex; }
+.tdet-report > button { width: 40px; height: 40px; justify-content: center; padding: 0 !important; margin: 0 !important; border-radius: 12px !important; color: #191F28 !important; }
+
+.tdet-shell { box-sizing: border-box; max-width: 720px; margin: 0 auto; padding: 0 20px calc(104px + env(safe-area-inset-bottom, 0px)); }
+.tdet-message { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: #FFEEEF; color: #F04452; font-size: 14px; font-weight: 600; }
+.tdet-state { padding: 96px 0; text-align: center; color: #8B95A1; font-size: 15px; }
+
+.tdet-post { padding: 10px 0 18px; }
+.tdet-author { display: flex; align-items: flex-start; gap: 12px; }
+.tdet-ava-col { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; }
+.tdet-who { flex: 1; min-width: 0; padding-top: 1px; }
+.tdet-body { margin: 20px 0 0; font-size: 17px; line-height: 1.7; color: #191F28; letter-spacing: -0.2px; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.tdet-images { margin-top: 16px; display: grid; gap: 8px; }
+.tdet-image { position: relative; overflow: hidden; border-radius: 16px; background: #F2F4F6; }
+.tdet-image img { display: block; width: 100%; height: auto; max-height: 760px; object-fit: cover; }
+.tdet-extras { margin-top: 16px; display: grid; gap: 12px; }
+.tdet-extras:empty { display: none; }
+.tdet-chips { margin-top: 18px; }
+.tdet-views { margin-top: 14px; font-size: 14px; color: #8B95A1; letter-spacing: -0.2px; }
+.tdet-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid #F2F4F6; }
+
+.tdet-comments { margin: 0 -20px; padding: 22px 20px 8px; border-top: 10px solid #F2F4F6; }
+.tdet-comments-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 4px; }
+.tdet-comments-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: #191F28; letter-spacing: -0.3px; }
+.tdet-comments-head h2 b { margin-left: 3px; font-weight: 600; color: #8B95A1; }
+.tdet-sort { display: flex; align-items: center; gap: 6px; color: #D1D6DB; font-size: 13px; }
+.tdet-sort button { border: none; background: none; padding: 4px 2px; font-size: 14.5px; font-weight: 600; color: #8B95A1; cursor: pointer; font-family: inherit; letter-spacing: -0.2px; }
+.tdet-sort button.on { color: #191F28; font-weight: 700; }
+.tdet-empty { padding: 36px 0 52px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; color: #8B95A1; font-size: 15px; line-height: 1.55; }
+.tdet-empty p { margin: 0; }
+.tdet-comment-list { display: flex; flex-direction: column; }
+
+.tcm { padding: 16px 0; }
+.tcm + .tcm { border-top: 1px solid #F2F4F6; }
+.tcm-row { display: flex; gap: 10px; }
+.tcm-ava { flex: none; width: 36px; height: 36px; border-radius: 50%; overflow: hidden; background: #F2F4F6; display: flex; align-items: center; justify-content: center; }
+.tcm-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tcm-ava span { font-size: 14px; font-weight: 700; color: #8B95A1; }
+.tcm.is-reply .tcm-ava { width: 28px; height: 28px; }
+.tcm.is-reply .tcm-ava span { font-size: 12px; }
+.tcm-main { flex: 1; min-width: 0; }
+.tcm-pin { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 12.5px; font-weight: 700; color: #3182F6; }
+.tcm-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 5px; min-height: 20px; }
+.tcm-name { font-size: 15px; font-weight: 700; color: #333D4B; letter-spacing: -0.2px; }
+.tcm-writer { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: #F2F4F6; color: #6B7684; font-size: 12px; font-weight: 700; }
+.tcm-role { font-size: 13px; font-weight: 600; color: #3182F6; }
+.tcard-badge.tcm-badge { height: 20px; padding: 0 6px; border-radius: 5px; font-size: 12px; }
+.tcm-text { margin: 4px 0 0; font-size: 16px; line-height: 1.6; color: #191F28; letter-spacing: -0.2px; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+.tcm-text.is-dead { color: #B0B8C1; }
+.tcm-meta { margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 12px; font-size: 13.5px; color: #8B95A1; letter-spacing: -0.2px; }
+.tcm-like, .tcm-act { display: inline-flex; align-items: center; gap: 3px; border: none; background: none; padding: 2px 0; color: #8B95A1; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; letter-spacing: -0.2px; transition: color .14s ease; }
+.tcm-like.is-on { color: #F04452; }
+.tcm-act.tcm-danger { color: #F04452; }
+.tcm-act:disabled { opacity: .5; cursor: default; }
+.tcm-report { display: inline-flex; margin-left: auto; }
+.tcm-replies { margin-top: 4px; padding-left: 46px; }
+.tcm-replies .tcm { padding: 12px 0 0; border-top: none; }
+.tcm-edit { margin-top: 6px; }
+.tcm-edit textarea { width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; border: 1px solid #E5E8EB; border-radius: 12px; padding: 10px 12px; font-size: 16px; line-height: 1.5; color: #191F28; font-family: inherit; outline: none; background: #fff; }
+.tcm-edit textarea:focus { border-color: #3182F6; }
+.tcm-edit-actions { margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
+.tcm-save { height: 32px; padding: 0 14px; border: none; border-radius: 8px; background: #3182F6; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.tcm-save:disabled { opacity: .4; cursor: default; }
+@media (hover: hover) {
+  .tcm-act:hover, .tcm-like:hover { color: #4E5968; }
+  .tcm-like.is-on:hover, .tcm-act.tcm-danger:hover { color: #E03340; }
+  .tdet-icon-btn:hover { background: #F2F4F6; }
+  .tdet-sort button:hover { color: #4E5968; }
+}
+
+.tdet-inputbar { position: fixed; left: 50%; bottom: 0; z-index: 45; width: 100%; max-width: 720px; transform: translateX(-50%); box-sizing: border-box; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #F2F4F6; }
+.tdet-replying { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; padding: 8px 12px; border-radius: 10px; background: #F2F4F6; font-size: 13.5px; color: #4E5968; }
+.tdet-replying b { color: #191F28; font-weight: 700; }
+.tdet-replying button { border: none; background: none; padding: 0; color: #6B7684; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.tdet-inputrow { display: flex; align-items: flex-end; gap: 10px; }
+.tdet-me { flex: none; width: 36px; height: 36px; margin-bottom: 2px; border-radius: 50%; overflow: hidden; background: #F2F4F6; display: flex; align-items: center; justify-content: center; }
+.tdet-me img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tdet-me span { font-size: 14px; font-weight: 700; color: #8B95A1; }
+.tdet-inputrow textarea { flex: 1; min-width: 0; height: 40px; min-height: 40px; max-height: 120px; resize: none; border: none; outline: none; border-radius: 20px; background: #F2F4F6; padding: 10px 16px; box-sizing: border-box; font-size: 16px; line-height: 20px; color: #191F28; font-family: inherit; }
+.tdet-inputrow textarea::placeholder { color: #8B95A1; }
+.tdet-send { flex: none; height: 40px; padding: 0 4px; border: none; background: none; color: #3182F6; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.tdet-send:disabled { color: #B0B8C1; cursor: default; }
+
+/* 넓은 화면의 오른쪽 상세 패널 안: 패널 자체 닫기(X)가 있으니 뒤로 버튼은 숨기고 그 자리를 비운다. */
+.fcom .community-panel-close { z-index: 50; }
+.community-panel .tdet-page { min-height: 0; }
+.community-panel .tdet-back { display: none; }
+.community-panel .tdet-topbar { padding: 0 56px 0 16px; }
+.community-panel .tdet-shell { max-width: none; padding-bottom: 0; }
+.community-panel .tdet-inputbar { position: sticky; left: auto; transform: none; width: auto; max-width: none; margin: 0 -20px; padding-bottom: 12px; }
+
+@media (max-width: 600px) {
+  .tdet-shell { padding-left: 16px; padding-right: 16px; }
+  .tdet-comments { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .tdet-body { font-size: 16.5px; }
+  .tcm-replies { padding-left: 42px; }
+}
+
+/* ── /community 로그인 시트((main) 레이아웃 밖이라 자체 보유) ── */
+.fcl-scrim { position: fixed; inset: 0; z-index: 700; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .4); animation: fclFade .22s ease; }
+.fcl-sheet { position: relative; width: 100%; max-width: 448px; box-sizing: border-box; padding: 20px 24px calc(24px + env(safe-area-inset-bottom, 0px)); background: #fff; border-radius: 24px 24px 0 0; animation: fclUp .34s cubic-bezier(.16, 1, .3, 1); }
+.fcl-grab { width: 40px; height: 4px; margin: 0 auto 22px; border-radius: 999px; background: #D1D6DB; }
+.fcl-logo { display: block; height: 36px; width: auto; margin: 0 auto 6px; }
+.fcl-sub { margin: 0 0 24px; text-align: center; font-size: 13.5px; color: #8B95A1; }
+.fcl-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; height: 52px; margin-bottom: 10px; border: none; border-radius: 16px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; transition: transform .1s ease; }
+.fcl-btn:active { transform: scale(.97); }
+.fcl-kakao { background: #FEE500; color: #191919; }
+.fcl-naver { background: #03C75A; color: #fff; }
+.fcl-guest { margin-top: 2px; }
+.fcl-cancel { width: 100%; margin-top: 8px; padding: 10px 0; border: none; background: none; color: #8B95A1; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+@keyframes fclFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fclUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (min-width: 640px) {
+  .fcl-scrim { align-items: center; }
+  .fcl-sheet { border-radius: 24px; }
+  .fcl-grab { display: none; }
+}
+
+/* 커뮤니티 전체 글자 굵기는 최대 700 — <b>/<strong> 의 기본값 bolder 는 부모가 600 이상이면 900 이 된다. */
+.fcom b, .fcom strong { font-weight: 700; }
