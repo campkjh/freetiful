@@ -212,6 +212,8 @@ export default function CommunityClient() {
   const [commentModalPost, setCommentModalPost] = useState<CommunityPost | null>(null);
   // 스레드 스타일 글 작성 모달.
   const [composeOpen, setComposeOpen] = useState(false);
+  // 모바일 카테고리 서랍(햄버거)
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // 다른 화면(문제 오류 건의 등)에서 ?compose=1&text=...&group=... 로 들어오면
   // 글쓰기 화면을 미리 채워서 연다.
   const [composePreset, setComposePreset] = useState<{ text: string; group: string } | null>(null);
@@ -662,6 +664,32 @@ export default function CommunityClient() {
     setSelectedGroupId(id);
     setSelectedTagId("");
   };
+  // 서랍에서 고르기: 대분류는 펼쳐서 소분류까지 고를 수 있게 열어 두고, 전체·소분류는 고르면 닫는다.
+  const pickFromDrawer = (id: string) => {
+    selectGroup(id);
+    const isMajorWithKids = groups.some((m) => m.id === id && (m.children || []).length > 0);
+    if (!isMajorWithKids) window.setTimeout(() => setDrawerOpen(false), 180);
+  };
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    // 넓은 화면으로 바뀌면(사이드바가 보이면) 서랍은 닫는다.
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onMq = () => {
+      if (mq.matches) setDrawerOpen(false);
+    };
+    mq.addEventListener("change", onMq);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onMq);
+    };
+  }, [drawerOpen]);
 
   // ── 토스식 피드 액션 ──
   const tossTime = (d: string) => formatRelativeTime(d).replace(/ 전$/, "");
@@ -760,14 +788,25 @@ export default function CommunityClient() {
           <div className="community-title-wrap">
             <h1 className="community-title">커뮤니티</h1>
           </div>
-          {/* 모바일: 제목 줄 아래 따로 있던 카테고리 탭을 헤더 한 줄로 합친다(세로 공간 절약). */}
-          <div className="community-mobile-filters">
-            <CategoryChips
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              onSelect={selectGroup}
-            />
-          </div>
+          {/* 모바일: 카테고리는 햄버거 → 왼쪽 서랍에서 고른다(헤더엔 지금 보는 카테고리 이름만). */}
+          <button
+            type="button"
+            className="fcom-burger"
+            aria-label="카테고리 열기"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen(true)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6.5h16M4 12h16M4 17.5h10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button type="button" className="fcom-mtitle" onClick={() => setDrawerOpen(true)}>
+            {activeMajor?.icon && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/icons/community/cat/${activeMajor.icon}.svg`} alt="" width={22} height={22} />
+            )}
+            <span>{selectedGroup?.name ?? "커뮤니티"}</span>
+          </button>
           {/* 넓은 화면: 아이콘 버튼 대신 헤더에 검색창을 그대로 편다. */}
           <div className="community-search-inline">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1157,6 +1196,53 @@ export default function CommunityClient() {
         </section>
       </div>
 
+      {/* 모바일 카테고리 서랍 — AnimatePresence 의 직계 자식이 Fragment 면 exit 뒤에 언마운트가 안 돼
+          투명한 딤이 화면을 덮은 채 남는다(탭 전부 먹힘). 요소마다 따로 감싼다. */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <motion.div
+            key="fcom-drawer-scrim"
+            className="fcom-drawer-scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            onClick={() => setDrawerOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {drawerOpen && (
+          <motion.aside
+            key="fcom-drawer"
+            className="fcom-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="커뮤니티 카테고리"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
+          >
+            <div className="fcom-drawer-head">
+              <h2>커뮤니티</h2>
+              <button type="button" className="fcom-drawer-close" aria-label="카테고리 닫기" onClick={() => setDrawerOpen(false)}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="fcom-drawer-body">
+              <CategoryList
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelect={pickFromDrawer}
+                layoutGroupId="fcom-drawer-cats"
+              />
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
       {toast && (
         <div className="tfeed-toast" role="status">
           {toast}
@@ -1258,76 +1344,6 @@ function LikerStack({ likers, count }: { likers: Liker[]; count: number }) {
   );
 }
 
-function CategoryChips({
-  groups,
-  selectedGroupId,
-  onSelect,
-  stacked = false,
-}: {
-  groups: CategoryGroup[];
-  selectedGroupId: string;
-  onSelect: (id: string) => void;
-  stacked?: boolean;
-}) {
-  const items = [
-    { id: "", name: "전체", emoji: null as string | null, childIds: [] as string[] },
-    ...groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      emoji: g.icon ?? null,
-      childIds: (g.children || []).map((c) => c.id),
-    })),
-  ];
-  // 가로로 더 볼 게 남았을 때만 우측을 페이드한다(끝까지 밀면 마지막 탭이 흐려지지 않게).
-  const railRef = useRef<HTMLElement | null>(null);
-  const [atEnd, setAtEnd] = useState(false);
-  useEffect(() => {
-    const el = railRef.current;
-    if (!el) return;
-    const update = () => setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [items.length]);
-
-  return (
-    <nav
-      ref={railRef}
-      className={`tabrail${stacked ? " is-stacked" : ""}${atEnd ? " is-end" : ""}`}
-      aria-label="커뮤니티 카테고리"
-    >
-      {items.map((it) => {
-        const on = selectedGroupId === it.id || it.childIds.includes(selectedGroupId);
-        return (
-          <button
-            key={it.id || "all"}
-            type="button"
-            className={`tabrail-item${on ? " is-on" : ""}`}
-            onClick={() => onSelect(it.id)}
-            aria-current={on ? "true" : undefined}
-          >
-            <span className="tabrail-ico">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={it.emoji ? `/icons/community/cat/${it.emoji}.svg` : `/icons/cg-all${on ? "-on" : ""}.svg`}
-                alt=""
-                width={it.emoji ? 28 : 24}
-                height={it.emoji ? 28 : 24}
-              />
-            </span>
-            <span className="tabrail-label">{it.name}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-// 데스크톱 좌측 카테고리: 대분류(토스 이모지) 아코디언 → 소분류. 선택된 대분류만 펼친다.
 // 사이드바 인터랙션 — 선택 알약이 항목 사이를 미끄러지듯 옮겨 가고(layoutId), 대분류를 열면 소분류가
 // 부드럽게 펼쳐지며 한 줄씩 들어온다. 이모지는 열릴 때 톡 튀고 hover 에 살짝 기울어진다.
 const CAT_EASE = [0.22, 1, 0.36, 1] as const;
@@ -1370,10 +1386,12 @@ function CategoryList({
   groups,
   selectedGroupId,
   onSelect,
+  layoutGroupId = "fcom-cats",
 }: {
   groups: CategoryGroup[];
   selectedGroupId: string;
   onSelect: (id: string) => void;
+  layoutGroupId?: string;
 }) {
   const activeMajorId =
     groups.find(
@@ -1381,7 +1399,7 @@ function CategoryList({
     )?.id ?? "";
   return (
     <MotionConfig reducedMotion="user">
-      <LayoutGroup id="fcom-cats">
+      <LayoutGroup id={layoutGroupId}>
         <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
           <motion.button
             type="button"
@@ -1427,7 +1445,6 @@ function CategoryList({
                     />
                   </motion.span>
                   <span className="fcom-cat-name">{m.name}</span>
-                  {(m.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
                   <motion.svg
                     className="fcom-cat-caret"
                     width="14"
@@ -1465,7 +1482,6 @@ function CategoryList({
                           >
                             {c.id === selectedGroupId && <CategoryPill radius={12} />}
                             <span className="fcom-cat-name">{c.name}</span>
-                            {(c.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
                           </motion.button>
                         ))}
                       </div>
