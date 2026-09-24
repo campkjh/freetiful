@@ -11,6 +11,8 @@ import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import TossPoll from "@/components/community/TossPoll";
+import TossLikers, { type TossLiker } from "@/components/community/TossLikers";
+import { useAuthStore } from "@/lib/store/auth.store";
 import {
   formatCount,
   TossHeartIcon,
@@ -131,6 +133,7 @@ interface CommunityPostDetail {
   authorIsFollowing?: boolean;
   isMine?: boolean;
   isEdited?: boolean;
+  likers?: TossLiker[];
 }
 
 // O / X 는 글자가 아니라 도형으로 그린다(목록 카드와 같은 모양).
@@ -365,25 +368,53 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
 
   async function react(type: string) {
     if (!post) return;
-    setMessage("");
+    const auth = useAuthStore.getState();
+    if (!auth.accessToken || !auth.user) {
+      window.dispatchEvent(new Event("freetiful:show-login"));
+      showToast("로그인하면 좋아요를 누를 수 있어요");
+      return;
+    }
+    const before = post;
     const nextType = post.myReaction === type ? null : type;
+    const meLiker = { userId: auth.user.id, nickname: auth.user.name || "나", avatar: auth.user.profileImageUrl || null };
+    // 낙관적 갱신 — 내 프사가 겹침 스택에 바로 붙는다.
+    setPost({
+      ...post,
+      myReaction: nextType,
+      likeCount: Math.max(0, post.likeCount + (nextType && !post.myReaction ? 1 : !nextType && post.myReaction ? -1 : 0)),
+      likers: nextType
+        ? [meLiker, ...(post.likers || []).filter((l) => l.userId !== meLiker.userId)].slice(0, 5)
+        : (post.likers || []).filter((l) => l.userId !== meLiker.userId),
+    });
     try {
       const response = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/like`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: nextType }),
       });
+      if (response.status === 401) {
+        setPost(before);
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        showToast("로그인하면 좋아요를 누를 수 있어요");
+        return;
+      }
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "공감을 처리하지 못했습니다.");
-      setPost({
-        ...post,
-        myReaction: data.myReaction ?? null,
-        reactionCounts: data.counts || {},
-        likeCount: data.total ?? 0,
-      });
+      if (!response.ok) throw new Error(data?.message || data?.error || "좋아요를 처리하지 못했어요");
+      setPost((cur) =>
+        cur
+          ? {
+              ...cur,
+              myReaction: data.myReaction ?? null,
+              reactionCounts: data.counts || {},
+              likeCount: data.total ?? 0,
+              likers: Array.isArray(data.likers) ? data.likers : cur.likers,
+            }
+          : cur
+      );
+      clientCache.clearPrefix("community-posts");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "공감을 처리하지 못했습니다.");
+      setPost(before);
+      showToast(error instanceof Error ? error.message : "좋아요를 처리하지 못했어요");
     }
   }
 
@@ -1003,6 +1034,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
 
                   <div className="tdet-views">조회 {(post.viewCount ?? 0).toLocaleString("ko-KR")}</div>
 
+                  <TossLikers likers={post.likers || []} count={post.likeCount || 0} />
                   <div className="tcard-actions tdet-actions">
                     <button
                       type="button"

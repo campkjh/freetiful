@@ -19,6 +19,7 @@ import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
 import TossPoll from "@/components/community/TossPoll";
+import TossLikers from "@/components/community/TossLikers";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { clientCache } from "@/lib/clientCache";
 import KingBadges from "@/components/KingBadges";
@@ -222,41 +223,68 @@ export default function CommunityClient() {
   // 목록에서 좋아요 토글(상세 진입 불필요). 낙관적 갱신 후 서버 결과로 확정.
   async function toggleLike(post: CommunityPost) {
     if (likingPostId) return;
+    const auth = useAuthStore.getState();
+    if (!auth.accessToken || !auth.user) {
+      window.dispatchEvent(new Event("freetiful:show-login"));
+      showToast("로그인하면 좋아요를 누를 수 있어요");
+      return;
+    }
     setLikingPostId(post.id);
     const wasLiked = !!post.myReaction;
-    // 낙관적 갱신
+    const meLiker: Liker = { userId: auth.user.id, nickname: auth.user.name || "나", avatar: auth.user.profileImageUrl || null };
+    // 낙관적 갱신 — 좋아요면 내 프사가 겹침 스택 맨 앞에 톡 붙고, 취소면 빠진다.
     setPosts((prev) =>
       prev.map((p) =>
         p.id === post.id
-          ? { ...p, myReaction: wasLiked ? null : "heart", likeCount: Math.max(0, (p.likeCount || 0) + (wasLiked ? -1 : 1)) }
+          ? {
+              ...p,
+              myReaction: wasLiked ? null : "heart",
+              likeCount: Math.max(0, (p.likeCount || 0) + (wasLiked ? -1 : 1)),
+              likers: wasLiked
+                ? (p.likers || []).filter((l) => l.userId !== meLiker.userId)
+                : [meLiker, ...(p.likers || []).filter((l) => l.userId !== meLiker.userId)].slice(0, 5),
+            }
           : p
       )
     );
+    const rollback = () =>
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id ? { ...p, myReaction: post.myReaction, likeCount: post.likeCount, likers: post.likers } : p
+        )
+      );
     try {
       const res = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/like`, {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: wasLiked ? null : "heart" }),
       });
+      if (res.status === 401) {
+        rollback();
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        showToast("로그인하면 좋아요를 누를 수 있어요");
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "공감을 처리하지 못했습니다.");
+      if (!res.ok) throw new Error(data?.message || data?.error || "좋아요를 처리하지 못했어요");
       // 서버 확정값으로 동기화
       setPosts((prev) => {
         const next = prev.map((p) =>
-          p.id === post.id ? { ...p, myReaction: data.myReaction ?? null, likeCount: data.total ?? p.likeCount } : p
+          p.id === post.id
+            ? {
+                ...p,
+                myReaction: data.myReaction ?? null,
+                likeCount: data.total ?? p.likeCount,
+                likers: Array.isArray(data.likers) ? data.likers : p.likers,
+              }
+            : p
         );
         clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
         return next;
       });
     } catch (error) {
-      // 실패 시 롤백
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id ? { ...p, myReaction: wasLiked ? "heart" : null, likeCount: post.likeCount } : p
-        )
-      );
-      setMessage(error instanceof Error ? error.message : "공감을 처리하지 못했습니다.");
+      rollback();
+      showToast(error instanceof Error ? error.message : "좋아요를 처리하지 못했어요");
     } finally {
       setLikingPostId(null);
     }
@@ -1134,6 +1162,7 @@ export default function CommunityClient() {
                           ))}
                         </div>
                       )}
+                      <TossLikers likers={post.likers || []} count={post.likeCount || 0} />
                       <div className="tcard-actions">
                         <button
                           type="button"
@@ -1317,28 +1346,6 @@ const GROUP_ICONS: Record<string, string> = {
 };
 function groupIcon(name: string): string {
   return GROUP_ICONS[name.trim()] ?? "cg-etc";
-}
-
-// 좋아요 3명 이상일 때 누른 사람 프로필을 겹쳐 보여준다(사진 없으면 첫 글자).
-function LikerStack({ likers, count }: { likers: Liker[]; count: number }) {
-  const show = likers.slice(0, 4);
-  return (
-    <div className="liker-stack" aria-label={`${count}명이 좋아요`}>
-      <span className="liker-avatars">
-        {show.map((u, i) => (
-          <span key={u.userId} className="liker-av" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: show.length - i }}>
-            {u.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={u.avatar} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="liker-letter">{u.nickname.slice(0, 1)}</span>
-            )}
-          </span>
-        ))}
-      </span>
-      <span className="liker-count">{count}명이 좋아요를 눌렀어요</span>
-    </div>
-  );
 }
 
 // 사이드바 인터랙션 — 선택 알약이 항목 사이를 미끄러지듯 옮겨 가고(layoutId), 대분류를 열면 소분류가

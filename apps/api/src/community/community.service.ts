@@ -446,10 +446,8 @@ export class CommunityService implements OnModuleInit {
     const pollAgg = await this.pollAggregates(postIds, viewerId);
     const quizAgg = await this.quizAggregates(posts, viewerId);
 
-    // 좋아요한 사람 스택(likeCount>=3 인 글만)
-    const likers = await this.likersForPosts(
-      posts.filter((p) => (likeCountMap.get(p.id) || 0) >= 3).map((p) => p.id),
-    );
+    // 좋아요한 사람 프로필 스택(좋아요가 하나라도 있는 글) — 최근 5명
+    const likers = await this.likersForPosts(posts.filter((p) => (likeCountMap.get(p.id) || 0) > 0).map((p) => p.id));
 
     return posts.map((p) => {
       const author = (p.userId && authors.get(p.userId)) || this.emptyAuthor();
@@ -532,28 +530,28 @@ export class CommunityService implements OnModuleInit {
     return map;
   }
 
+  // 글마다 최근에 좋아요 누른 5명(이름·프사만). 창 함수로 글당 5개만 읽고, 유저는 가볍게 조회한다.
   private async likersForPosts(postIds: string[]) {
-    const map = new Map<string, any[]>();
+    const map = new Map<string, { userId: string; nickname: string; avatar: string | null }[]>();
     if (postIds.length === 0) return map;
-    const likes = await this.prisma.communityPostLike.findMany({
-      where: { postId: { in: postIds } },
-      orderBy: { createdAt: 'desc' },
+    const rows = await this.prisma.$queryRaw<{ postId: string; userId: string }[]>`
+      SELECT "postId", "userId" FROM (
+        SELECT "postId", "userId", ROW_NUMBER() OVER (PARTITION BY "postId" ORDER BY "createdAt" DESC) AS rn
+        FROM community_post_likes
+        WHERE "postId" = ANY(${postIds})
+      ) t
+      WHERE t.rn <= 5
+      ORDER BY "postId", t.rn`;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(new Set(rows.map((r) => r.userId))) } },
+      select: { id: true, name: true, profileImageUrl: true },
     });
-    const byPost = new Map<string, string[]>();
-    for (const l of likes) {
-      const arr = byPost.get(l.postId) || [];
-      if (arr.length < 5) arr.push(l.userId);
-      byPost.set(l.postId, arr);
-    }
-    const authorMap = await this.mapAuthors(Array.from(new Set(likes.map((l) => l.userId))));
-    for (const [pid, uids] of byPost) {
-      map.set(
-        pid,
-        uids.map((uid) => {
-          const a = authorMap.get(uid) || this.emptyAuthor();
-          return { nickname: a.nickname, avatar: a.avatar };
-        }),
-      );
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    for (const r of rows) {
+      const u = userMap.get(r.userId);
+      const arr = map.get(r.postId) || [];
+      arr.push({ userId: r.userId, nickname: u?.name || '회원', avatar: u?.profileImageUrl || null });
+      map.set(r.postId, arr);
     }
     return map;
   }
@@ -979,12 +977,14 @@ export class CommunityService implements OnModuleInit {
     const mine = await this.prisma.communityPostLike.findUnique({
       where: { postId_userId: { postId, userId } },
     });
+    const likers = await this.likersForPosts(total > 0 ? [postId] : []);
     return {
       myReaction: mine?.type || null,
       counts,
       total,
       liked: !!mine,
       likeCount: total,
+      likers: likers.get(postId) || [],
     };
   }
 
