@@ -627,11 +627,11 @@
 
 /* ── 데스크톱 카테고리 사이드바(사장 지정 이미지 스타일: 문서/상점 아이콘 + 이름 + N) ── */
 .fcom-catlist-title { margin: 0 0 8px; padding: 0 6px; font-size: 19px; font-weight: 700; color: var(--c-text); letter-spacing: -0.3px; }
-.fcom-catlist { display: flex; flex-direction: column; gap: 2px; }
+.fcom-catlist { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 2px; }
 .fcom-cat { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: none; background: none; border-radius: 14px; cursor: pointer; text-align: left; color: var(--c-text-2d); font-size: 14.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
 .fcom-cat:hover { background: #F9FAFB; }
-/* 선택(포커스)된 항목 = 옅은 회색 면 + 진한 글자(파란 강조 대신). */
-.fcom-cat.on { background: #F2F4F6; color: #191F28; font-weight: 700; }
+/* 선택(포커스)된 항목 = 옅은 회색 알약(.fcom-cat-pill, 항목 사이를 미끄러져 이동) + 진한 글자. */
+.fcom-cat.on { background: transparent; color: #191F28; font-weight: 700; }
 .fcom-cat-ico { flex: none; width: 20px; height: 20px; display: block; }
 .fcom-cat-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fcom-cat-n { flex: none; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #F04452; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
@@ -658,13 +658,13 @@
 .fcom-major { display: flex; flex-direction: column; }
 .fcom-cat-emoji { flex: none; width: 22px; height: 22px; display: block; }
 .fcom-cat-major { font-weight: 600; color: var(--c-text); }
-.fcom-cat-caret { flex: none; color: var(--c-text-4b); transition: transform .18s ease; }
-.fcom-major.open .fcom-cat-caret { transform: rotate(90deg); }
-.fcom-subs { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 8px; padding-left: 34px; position: relative; }
-.fcom-subs::before { content: ''; position: absolute; left: 25px; top: 6px; bottom: 6px; width: 1px; background: var(--c-bg-muted-6); }
+.fcom-cat-caret { flex: none; color: var(--c-text-4b); }
+.fcom-subs-wrap { overflow: hidden; }
+.fcom-subs { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 8px 34px; position: relative; }
+.fcom-subs::before { content: ''; position: absolute; left: 25px; top: 8px; bottom: 14px; width: 1px; background: var(--c-bg-muted-6); }
 .fcom-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: none; border-radius: 12px; cursor: pointer; text-align: left; color: var(--c-text-3); font-size: 13.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
 .fcom-sub:hover { background: #F9FAFB; color: var(--c-text-2d); }
-.fcom-sub.on { background: #F2F4F6; color: #191F28; font-weight: 700; }
+.fcom-sub.on { background: transparent; color: #191F28; font-weight: 700; }
 
 /* ── 피드 상단: 소분류 칩(모바일) + 태그 칩 ── */
 .fcom-filterbar { display: grid; gap: 10px; padding: 12px 2px 14px; border-bottom: 1px solid var(--c-bg-muted-6); }
@@ -1028,4 +1028,20 @@
 @media (prefers-reduced-motion: reduce) {
   .tcomp-ai-ico, .tcomp-ai-ico .tcomp-star, .tcomp-ai-ico::after { animation: none !important; }
   .tcomp-ai-ico .tcomp-star-b { opacity: 0; }
+}
+
+/* ── 사이드바 인터랙션 ── */
+.fcom-cat, .fcom-sub { position: relative; transition: background .18s ease, color .18s ease; }
+.fcom-cat > :not(.fcom-cat-pill), .fcom-sub > :not(.fcom-cat-pill) { position: relative; z-index: 1; }
+.fcom-cat-pill { position: absolute; inset: 0; z-index: 0; background: #F2F4F6; pointer-events: none; }
+.fcom-cat.on:hover, .fcom-sub.on:hover { background: transparent; }
+.fcom-cat-emoji-wrap { flex: none; display: inline-flex; }
+.fcom-cat-emoji, .fcom-cat-ico { transition: transform .38s cubic-bezier(.34, 1.56, .64, 1); }
+@media (hover: hover) {
+  .fcom-cat:hover .fcom-cat-emoji, .fcom-cat:hover .fcom-cat-ico { transform: translateY(-1px) rotate(-8deg) scale(1.1); }
+  .fcom-sub:not(.on):hover { transform: translateX(2px); }
+}
+.fcom-sub { transition: background .18s ease, color .18s ease, transform .25s cubic-bezier(.22, 1, .36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .fcom-cat-emoji, .fcom-cat-ico, .fcom-sub { transition: none; }
 }

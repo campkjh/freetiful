@@ -148,22 +148,27 @@ ${text}
 
 형식: {"sub":"slug","tags":["태그", "..."]}`;
 
-    const models = [process.env.GEMINI_MODEL, 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash'].filter(
+    // 2.5-flash-lite 는 신규 사용자 차단(404), *-latest(3.x)는 thinkingBudget 을 받으면 400 → 모델별로 설정을 나눈다.
+    // 어떤 이유로든 실패하면 다음 모델로 넘어가고, 전체가 실패하면 규칙 폴백(글쓰기 흐름은 막지 않는다).
+    const models = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-flash-latest'].filter(
       Boolean,
     ) as string[];
-    for (const name of models) {
+    const deadline = Date.now() + 9000;
+    for (const name of Array.from(new Set(models))) {
+      const left = deadline - Date.now();
+      if (left < 800) break;
       try {
         const model = this.client.getGenerativeModel({
           model: name,
           generationConfig: {
             temperature: 0,
             responseMimeType: 'application/json',
-            thinkingConfig: { thinkingBudget: 0 },
+            ...(/2\.5/.test(name) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
           } as any,
         });
         const res = (await Promise.race([
           model.generateContent(prompt),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), Math.min(6000, left))),
         ])) as any;
         const parsed = JSON.parse(String(res.response.text() || '{}'));
         const subSlug = lockedSubSlug || String(parsed?.sub || '');
@@ -177,8 +182,7 @@ ${text}
           .slice(0, 3) as string[];
         return { subSlug, tagNames, source: 'ai' };
       } catch (e: any) {
-        const msg = String(e?.message || e);
-        if (!/503|429|504|UNAVAILABLE|overloaded|high demand|retry|timeout|not found|404/i.test(msg)) throw e;
+        this.logger.warn(`community suggest ${name} failed: ${String(e?.message || e).slice(0, 300)}`);
       }
     }
     return null;

@@ -14,6 +14,7 @@ import {
 } from "@/components/community/TossIcons";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "framer-motion";
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
@@ -1327,6 +1328,44 @@ function CategoryChips({
 }
 
 // 데스크톱 좌측 카테고리: 대분류(토스 이모지) 아코디언 → 소분류. 선택된 대분류만 펼친다.
+// 사이드바 인터랙션 — 선택 알약이 항목 사이를 미끄러지듯 옮겨 가고(layoutId), 대분류를 열면 소분류가
+// 부드럽게 펼쳐지며 한 줄씩 들어온다. 이모지는 열릴 때 톡 튀고 hover 에 살짝 기울어진다.
+const CAT_EASE = [0.22, 1, 0.36, 1] as const;
+const CAT_PILL_SPRING = { type: "spring", stiffness: 520, damping: 40, mass: 0.9 } as const;
+const SUBS_VARIANTS = {
+  collapsed: {
+    height: 0,
+    opacity: 0,
+    transition: { height: { duration: 0.3, ease: CAT_EASE }, opacity: { duration: 0.16 } },
+  },
+  expanded: {
+    height: "auto",
+    opacity: 1,
+    transition: {
+      height: { duration: 0.42, ease: CAT_EASE },
+      opacity: { duration: 0.22 },
+      staggerChildren: 0.035,
+      delayChildren: 0.06,
+    },
+  },
+};
+const SUB_ITEM_VARIANTS = {
+  collapsed: { opacity: 0, x: -8 },
+  expanded: { opacity: 1, x: 0, transition: { duration: 0.32, ease: CAT_EASE } },
+};
+
+function CategoryPill({ radius }: { radius: number }) {
+  return (
+    <motion.span
+      layoutId="fcom-cat-pill"
+      className="fcom-cat-pill"
+      style={{ borderRadius: radius }}
+      transition={CAT_PILL_SPRING}
+      aria-hidden="true"
+    />
+  );
+}
+
 function CategoryList({
   groups,
   selectedGroupId,
@@ -1341,62 +1380,104 @@ function CategoryList({
       (m) => m.id === selectedGroupId || (m.children || []).some((c) => c.id === selectedGroupId),
     )?.id ?? "";
   return (
-    <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
-      <button
-        type="button"
-        className={`fcom-cat${!selectedGroupId ? " on" : ""}`}
-        onClick={() => onSelect("")}
-        aria-current={!selectedGroupId ? "true" : undefined}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="fcom-cat-ico" src="/icons/community/cat-all.svg" alt="" width={20} height={20} />
-        <span className="fcom-cat-name">전체</span>
-      </button>
-      {groups.map((m) => {
-        const open = m.id === activeMajorId;
-        const majorOn = m.id === selectedGroupId;
-        return (
-          <div key={m.id} className={`fcom-major${open ? " open" : ""}`}>
-            <button
-              type="button"
-              className={`fcom-cat fcom-cat-major${majorOn ? " on" : ""}`}
-              onClick={() => onSelect(m.id)}
-              aria-expanded={open}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="fcom-cat-emoji"
-                src={m.icon ? `/icons/community/cat/${m.icon}.svg` : "/icons/community/cat-doc.svg"}
-                alt=""
-                width={22}
-                height={22}
-              />
-              <span className="fcom-cat-name">{m.name}</span>
-              {(m.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
-              <svg className="fcom-cat-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {open && (m.children || []).length > 0 && (
-              <div className="fcom-subs">
-                {(m.children || []).map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`fcom-sub${c.id === selectedGroupId ? " on" : ""}`}
-                    onClick={() => onSelect(c.id)}
-                    aria-current={c.id === selectedGroupId ? "true" : undefined}
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup id="fcom-cats">
+        <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
+          <motion.button
+            type="button"
+            className={`fcom-cat${!selectedGroupId ? " on" : ""}`}
+            onClick={() => onSelect("")}
+            aria-current={!selectedGroupId ? "true" : undefined}
+            whileTap={{ scale: 0.97 }}
+          >
+            {!selectedGroupId && <CategoryPill radius={14} />}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="fcom-cat-ico" src="/icons/community/cat-all.svg" alt="" width={20} height={20} />
+            <span className="fcom-cat-name">전체</span>
+          </motion.button>
+          {groups.map((m) => {
+            const open = m.id === activeMajorId;
+            const majorOn = m.id === selectedGroupId;
+            const kids = m.children || [];
+            return (
+              <div key={m.id} className={`fcom-major${open ? " open" : ""}`}>
+                <motion.button
+                  type="button"
+                  className={`fcom-cat fcom-cat-major${majorOn ? " on" : ""}`}
+                  onClick={() => onSelect(m.id)}
+                  aria-expanded={open}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {majorOn && <CategoryPill radius={14} />}
+                  {/* 열릴 때마다 다시 붙여서 '톡' 튀는 애니메이션을 한 번 재생한다. */}
+                  <motion.span
+                    key={open ? "open" : "closed"}
+                    className="fcom-cat-emoji-wrap"
+                    initial={open ? { scale: 0.62, rotate: -18 } : false}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 520, damping: 13 }}
                   >
-                    <span className="fcom-cat-name">{c.name}</span>
-                    {(c.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
-                  </button>
-                ))}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="fcom-cat-emoji"
+                      src={m.icon ? `/icons/community/cat/${m.icon}.svg` : "/icons/community/cat-doc.svg"}
+                      alt=""
+                      width={22}
+                      height={22}
+                    />
+                  </motion.span>
+                  <span className="fcom-cat-name">{m.name}</span>
+                  {(m.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
+                  <motion.svg
+                    className="fcom-cat-caret"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    initial={false}
+                    animate={{ rotate: open ? 90 : 0 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                  >
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </motion.svg>
+                </motion.button>
+                <AnimatePresence initial={false}>
+                  {open && kids.length > 0 && (
+                    <motion.div
+                      key="subs"
+                      className="fcom-subs-wrap"
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      variants={SUBS_VARIANTS}
+                    >
+                      <div className="fcom-subs">
+                        {kids.map((c) => (
+                          <motion.button
+                            key={c.id}
+                            type="button"
+                            variants={SUB_ITEM_VARIANTS}
+                            className={`fcom-sub${c.id === selectedGroupId ? " on" : ""}`}
+                            onClick={() => onSelect(c.id)}
+                            aria-current={c.id === selectedGroupId ? "true" : undefined}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            {c.id === selectedGroupId && <CategoryPill radius={12} />}
+                            <span className="fcom-cat-name">{c.name}</span>
+                            {(c.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            )}
-          </div>
-        );
-      })}
-    </nav>
+            );
+          })}
+        </nav>
+      </LayoutGroup>
+    </MotionConfig>
   );
 }
 
