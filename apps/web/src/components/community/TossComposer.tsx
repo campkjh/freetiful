@@ -3,7 +3,7 @@
 // 피드 상단 글쓰기 칸(토스 커뮤니티식). 누르면 그 자리에서 촤라락 펼쳐지며 아래 목록을 밀어낸다.
 //  · 사진 첨부(최대 5장) — 공용 업로드 경로(uploadCommunityImage)
 //  · 카테고리·태그는 AI 가 본문을 읽고 자동으로 채운다(POST /community/suggest). 직접 바꾸거나 뺄 수 있다.
-//  · 투표/OX 퀴즈 같은 확장 글쓰기는 기존 작성 모달('게시글 +')에 그대로 둔다.
+//  · 떠 있던 '게시글 +' 버튼은 없앴다 — 글쓰기 입구는 이 칸 하나(작성 모달은 ?compose=1 딥링크로만 남음).
 import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
@@ -305,8 +305,8 @@ export default function TossComposer({
                   onClick={() => setPickerOpen((v) => !v)}
                 >
                   {groupSource === "ai" && currentSub && (
-                    <span className="tcomp-ai-pill" aria-label="AI 추천">
-                      AI
+                    <span className="tcomp-ai-mini" aria-label="AI 추천">
+                      <AiStarSvg gradientId="tcompStarGradMini" />
                     </span>
                   )}
                   <span className="tcomp-cat-label">
@@ -392,11 +392,11 @@ export default function TossComposer({
 
             <div className="tcomp-tags" aria-live="polite">
               <span className="tcomp-tags-label">
-                <SparkleIcon />
+                <AiSparkle state={analyzing ? "thinking" : analyzedKey ? "done" : "idle"} />
                 AI 태그
               </span>
-              {tags.map((t) => (
-                <span key={t.id} className="tcomp-tag">
+              {tags.map((t, i) => (
+                <span key={t.id} className="tcomp-tag" style={{ animationDelay: `${120 + i * 70}ms` }}>
                   #{t.name}
                   <button type="button" aria-label={`${t.name} 태그 빼기`} onClick={() => removeTag(t.id)}>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -476,19 +476,34 @@ function Avatar({ me }: { me: { name: string; avatar: string | null } | null }) 
   );
 }
 
-function SparkleIcon() {
+// 4각 별(오목한 변) — 삼성 갤럭시 AI 느낌의 반짝이.
+const STAR_PATH =
+  "M12 1.6C12.62 7.3 16.7 11.38 22.4 12C16.7 12.62 12.62 16.7 12 22.4C11.38 16.7 7.3 12.62 1.6 12C7.3 11.38 11.38 7.3 12 1.6Z";
+
+function AiStarSvg({ gradientId, twin = false }: { gradientId: string; twin?: boolean }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
       <defs>
-        <linearGradient id="tcompSpark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3182F6" />
-          <stop offset="1" stopColor="#8E62F7" />
+        <linearGradient id={gradientId} x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#4B8DFF" />
+          <stop offset="0.55" stopColor="#6C74FF" />
+          <stop offset="1" stopColor="#9A5CF6" />
         </linearGradient>
       </defs>
-      <path
-        d="M12 2.5l2.1 5.6a3 3 0 0 0 1.8 1.8l5.6 2.1-5.6 2.1a3 3 0 0 0-1.8 1.8L12 21.5l-2.1-5.6a3 3 0 0 0-1.8-1.8L2.5 12l5.6-2.1a3 3 0 0 0 1.8-1.8L12 2.5z"
-        fill="url(#tcompSpark)"
-      />
+      {twin && <path className="tcomp-star tcomp-star-b" d={STAR_PATH} fill={`url(#${gradientId})`} />}
+      <path className="tcomp-star tcomp-star-a" d={STAR_PATH} fill={`url(#${gradientId})`} />
     </svg>
+  );
+}
+
+// AI 태그 아이콘: 평소엔 별 하나(은은히 숨쉬기) → 분석 중엔 두 개로 갈라져 서로 자리를 바꾸며 돈다
+// → 결과가 오면 하나로 합쳐지며 살짝 번쩍.
+function AiSparkle({ state }: { state: "idle" | "thinking" | "done" }) {
+  return (
+    <span className={`tcomp-ai-ico is-${state}`} aria-hidden="true">
+      <span className="tcomp-ai-star">
+        <AiStarSvg gradientId="tcompStarGrad" twin />
+      </span>
+    </span>
   );
 }

@@ -1156,23 +1156,6 @@ export default function CommunityClient() {
         </section>
       </div>
 
-      <div style={floatingWriteDockStyle}>
-        <button
-          type="button"
-          className="community-floating-write"
-          onClick={() => {
-            // 비로그인이면 작성창 대신 로그인 시트부터(쓰고 나서 401 로 날리지 않게).
-            if (!useAuthStore.getState().accessToken) {
-              window.dispatchEvent(new Event("freetiful:show-login"));
-              return;
-            }
-            setComposeOpen(true);
-          }}
-          style={floatingWriteButtonStyle}
-        >
-          게시글 +
-        </button>
-      </div>
       {toast && (
         <div className="tfeed-toast" role="status">
           {toast}
@@ -3098,29 +3081,4 @@ const emptyPanelStyle = {
 } as const;
 
 // 말풍선 넛지 + 글쓰기 버튼을 함께 띄우는 도크(둘을 세로로 쌓아 우하단 고정).
-const floatingWriteDockStyle = {
-  position: "fixed",
-  right: "max(18px, calc((100vw - 720px) / 2 + 18px))",
-  bottom: "calc(98px + env(safe-area-inset-bottom, 0px))",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-end",
-  gap: 6,
-  zIndex: 55,
-  // 도크의 빈 영역(말풍선 옆/아래)이 목록 터치를 먹지 않도록 버튼에서만 입력을 받는다.
-  pointerEvents: "none",
-} as const;
 
-const floatingWriteButtonStyle = {
-  pointerEvents: "auto",
-  border: "none",
-  borderRadius: 999,
-  background: "var(--c-inverse)",
-  color: "#fff",
-  padding: "13px 18px",
-  fontSize: 16,
-  fontWeight: 700,
-  cursor: "pointer",
-  boxShadow: "0 12px 26px rgba(17,24,39,0.24)",
-  zIndex: 55,
-} as const;

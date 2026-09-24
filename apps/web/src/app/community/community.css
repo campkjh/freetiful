@@ -934,7 +934,7 @@
 .tcomp-cat-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tcomp-cat-caret { flex: none; transition: transform .3s var(--tc-ease); }
 .tcomp-cat[aria-expanded="true"] .tcomp-cat-caret { transform: rotate(180deg); }
-.tcomp-ai-pill { flex: none; display: inline-flex; align-items: center; height: 16px; padding: 0 5px; border-radius: 5px; background: linear-gradient(135deg, #3182F6, #8E62F7); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0; }
+.tcomp-ai-mini { flex: none; display: inline-flex; width: 16px; height: 16px; padding: 2px; box-sizing: border-box; border-radius: 5px; background: linear-gradient(150deg, #FFFFFF 0%, #EEF1FF 55%, #F2EDFF 100%); box-shadow: inset 0 0 0 1px rgba(120, 110, 255, .16); }
 .tcomp-close { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 10px; background: none; color: #8B95A1; cursor: pointer; transition: background .15s ease, color .15s ease; }
 .tcomp-close:hover { background: #F2F4F6; color: #4E5968; }
 
@@ -960,7 +960,7 @@
 .tcomp-spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid #D1D6DB; border-top-color: #3182F6; animation: tcompSpin .8s linear infinite; }
 
 .tcomp-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-top: 12px; }
-.tcomp-tags-label { display: inline-flex; align-items: center; gap: 4px; margin-right: 2px; font-size: 13px; font-weight: 700; letter-spacing: -0.2px; background: linear-gradient(90deg, #3182F6, #8E62F7); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tcomp-tags-label { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; font-size: 13px; font-weight: 700; letter-spacing: -0.2px; color: #5B6CF9; }
 .tcomp-tag { display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 5px 0 10px; border-radius: 999px; background: #E8F3FF; color: #3182F6; font-size: 13.5px; font-weight: 600; letter-spacing: -0.2px; animation: tcompTagIn .45s var(--tc-ease) both; }
 .tcomp-tag button { width: 18px; height: 18px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: none; color: #3182F6; opacity: .6; cursor: pointer; }
 .tcomp-tag button:hover { opacity: 1; background: rgba(49, 130, 246, .12); }
@@ -997,4 +997,35 @@
   .tcomp-cta { height: 38px; padding: 0 12px; border-radius: 10px; font-size: 14.5px; }
   .tcomp-editor { padding: 14px 14px 12px; }
   .tcomp-input { font-size: 16px; }
+}
+
+/* ── AI 아이콘(첨부 시안: 연보라 스퀘클 타일 + 그라데이션 4각 별) ── */
+.tcomp-ai-ico { position: relative; flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: linear-gradient(150deg, #FFFFFF 0%, #EEF1FF 55%, #F2EDFF 100%); box-shadow: inset 0 0 0 1px rgba(120, 110, 255, .16), inset 0 1px 0 rgba(255, 255, 255, .95), 0 2px 8px rgba(99, 102, 241, .14); overflow: hidden; }
+.tcomp-ai-star { display: block; width: 15px; height: 15px; }
+.tcomp-ai-star svg { display: block; overflow: visible; }
+.tcomp-star { transform-box: fill-box; transform-origin: center; }
+/* 평소: 별 하나, 은은하게 숨쉬기 */
+.tcomp-ai-ico.is-idle .tcomp-star-b { opacity: 0; }
+.tcomp-ai-ico.is-idle .tcomp-star-a { animation: aiBreath 3.2s ease-in-out infinite; }
+/* 분석 중: 두 개로 갈라져 서로 자리를 바꾸며 교차 회전 */
+.tcomp-ai-ico.is-thinking .tcomp-star-a { animation: aiSplitA .32s cubic-bezier(.22, 1, .36, 1) both, aiCrossA 1.1s .32s ease-in-out infinite; }
+.tcomp-ai-ico.is-thinking .tcomp-star-b { animation: aiSplitB .32s cubic-bezier(.22, 1, .36, 1) both, aiCrossB 1.1s .32s ease-in-out infinite; }
+.tcomp-ai-ico.is-thinking { animation: aiTileBreath 1.1s ease-in-out infinite; }
+/* 결과 도착: 하나로 합쳐지며 살짝 커졌다 자리 잡고, 타일이 한 번 번쩍 */
+.tcomp-ai-ico.is-done .tcomp-star-a { animation: aiMergeA .72s cubic-bezier(.22, 1, .36, 1) both; }
+.tcomp-ai-ico.is-done .tcomp-star-b { animation: aiMergeB .56s cubic-bezier(.22, 1, .36, 1) both; }
+.tcomp-ai-ico::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, .38), rgba(75, 141, 255, .12) 45%, transparent 70%); opacity: 0; pointer-events: none; }
+.tcomp-ai-ico.is-done::after { animation: aiGlow .9s ease-out .22s; }
+@keyframes aiBreath { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.08) rotate(10deg); } }
+@keyframes aiTileBreath { 0%, 100% { box-shadow: inset 0 0 0 1px rgba(120, 110, 255, .16), inset 0 1px 0 rgba(255, 255, 255, .95), 0 2px 8px rgba(99, 102, 241, .14); } 50% { box-shadow: inset 0 0 0 1px rgba(120, 110, 255, .3), inset 0 1px 0 rgba(255, 255, 255, .95), 0 3px 12px rgba(124, 92, 255, .28); } }
+@keyframes aiSplitA { from { transform: translate(0, 0) scale(1) rotate(0deg); } to { transform: translate(-3.4px, -3.4px) scale(.62) rotate(45deg); } }
+@keyframes aiSplitB { from { opacity: 0; transform: translate(0, 0) scale(.6) rotate(0deg); } to { opacity: 1; transform: translate(3.6px, 3.6px) scale(.44) rotate(-45deg); } }
+@keyframes aiCrossA { 0% { transform: translate(-3.4px, -3.4px) scale(.62) rotate(45deg); } 50% { transform: translate(3.6px, 3.6px) scale(.44) rotate(135deg); } 100% { transform: translate(-3.4px, -3.4px) scale(.62) rotate(225deg); } }
+@keyframes aiCrossB { 0% { opacity: 1; transform: translate(3.6px, 3.6px) scale(.44) rotate(-45deg); } 50% { opacity: 1; transform: translate(-3.4px, -3.4px) scale(.62) rotate(-135deg); } 100% { opacity: 1; transform: translate(3.6px, 3.6px) scale(.44) rotate(-225deg); } }
+@keyframes aiMergeA { 0% { transform: translate(-3.4px, -3.4px) scale(.62) rotate(45deg); } 55% { transform: translate(0, 0) scale(1.2) rotate(98deg); } 100% { transform: translate(0, 0) scale(1) rotate(90deg); } }
+@keyframes aiMergeB { 0% { opacity: 1; transform: translate(3.6px, 3.6px) scale(.44) rotate(-45deg); } 60% { opacity: .75; transform: translate(0, 0) scale(.82) rotate(-80deg); } 100% { opacity: 0; transform: translate(0, 0) scale(1) rotate(-90deg); } }
+@keyframes aiGlow { 0% { opacity: 0; transform: scale(.55); } 35% { opacity: 1; } 100% { opacity: 0; transform: scale(1.45); } }
+@media (prefers-reduced-motion: reduce) {
+  .tcomp-ai-ico, .tcomp-ai-ico .tcomp-star, .tcomp-ai-ico::after { animation: none !important; }
+  .tcomp-ai-ico .tcomp-star-b { opacity: 0; }
 }
