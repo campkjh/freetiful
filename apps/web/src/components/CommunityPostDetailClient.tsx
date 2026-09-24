@@ -10,6 +10,7 @@ import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
+import TossPoll from "@/components/community/TossPoll";
 import {
   formatCount,
   TossHeartIcon,
@@ -162,7 +163,6 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
   const [commentPosting, setCommentPosting] = useState(false);
   const [replyTargetId, setReplyTargetId] = useState("");
   const [revealBlind, setRevealBlind] = useState(false);
-  const [voting, setVoting] = useState(false);
   const [quizBusy, setQuizBusy] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // 어떤 계정으로 쓰는지 보이도록 댓글 입력 위에 내 프로필을 띄운다.
@@ -409,25 +409,26 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     }
   }
 
+  // 투표 — 화면 반영은 TossPoll 이 낙관적으로 먼저 하고, 여기선 서버 결과를 돌려준다(실패는 throw → 되돌림).
   async function votePoll(optionId: string) {
-    if (!post || voting) return;
-    setVoting(true);
-    setMessage("");
-    try {
-      const response = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/vote`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optionId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "투표를 처리하지 못했습니다.");
-      setPost({ ...post, poll: data.poll });
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "투표를 처리하지 못했습니다.");
-    } finally {
-      setVoting(false);
+    if (!post) return null;
+    const response = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ optionId }),
+    });
+    if (response.status === 401) {
+      window.dispatchEvent(new Event("freetiful:show-login"));
+      showToast("로그인하면 투표할 수 있어요");
+      throw new Error("login required");
     }
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.poll) {
+      showToast(data?.message || data?.error || "투표를 처리하지 못했어요");
+      throw new Error("vote failed");
+    }
+    setPost((cur) => (cur ? { ...cur, poll: data.poll } : cur));
+    return data.poll as CommunityPoll;
   }
 
   async function toggleCommentLike(commentId: string) {
@@ -984,50 +985,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                   </span>
                 </div>
               )}
-              {post.poll && (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {post.poll.options.map((opt) => {
-                    const total = post.poll!.totalVotes;
-                    const pct = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
-                    const mine = post.poll!.myOptionId === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        disabled={voting}
-                        onClick={() => votePoll(opt.id)}
-                        style={pollOptionStyle(mine)}
-                      >
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            bottom: 0,
-                            width: `${pct}%`,
-                            background: mine ? "var(--c-brand-line-2)" : "var(--c-bg-muted)",
-                            borderRadius: 10,
-                            transition: "width 0.3s ease",
-                          }}
-                        />
-                        <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--c-text)" }}>
-                          {mine && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src="/icons/community/check.svg" alt="" width={16} height={16} style={{ display: "block", flexShrink: 0 }} />
-                          )}
-                          {opt.text}
-                        </span>
-                        <span style={{ position: "relative", fontWeight: 600, color: "var(--c-text-3)", fontSize: 13 }}>
-                          {pct}% · {opt.votes}표
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <span style={{ color: "var(--c-text-4)", fontSize: 13 }}>
-                    총 {post.poll.totalVotes}표
-                    {post.poll.myOptionId ? " · 투표 완료 (다시 누르면 변경)" : " · 항목을 눌러 투표하세요"}
-                  </span>
-                </div>
+              {post.poll && post.poll.options.length > 0 && (
+                <TossPoll poll={post.poll} onVote={votePoll} />
               )}
                   </div>
 
@@ -1429,20 +1388,3 @@ function ownerBtnStyle(primary: boolean) {
   } as const;
 }
 
-function pollOptionStyle(mine: boolean) {
-  return {
-    position: "relative",
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    border: `1px solid ${mine ? "var(--c-brand)" : "var(--c-border)"}`,
-    borderRadius: 10,
-    background: "var(--c-bg)",
-    padding: "12px 14px",
-    cursor: "pointer",
-    textAlign: "left",
-    width: "100%",
-  } as const;
-}

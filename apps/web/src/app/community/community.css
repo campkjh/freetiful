@@ -1063,3 +1063,56 @@
 .fcom-drawer-close { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 12px; background: none; color: #6B7684; cursor: pointer; transition: background .15s ease; }
 .fcom-drawer-close:active { background: #F2F4F6; }
 .fcom-drawer-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 24px; }
+
+/* ── 글쓰기 칸: 투표 만들기 ── */
+.tcomp-foot-l { display: flex; align-items: center; gap: 2px; }
+.tcomp-tool.is-on { background: #E8F3FF; color: #3182F6; }
+.tcomp-poll { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s var(--tc-ease); }
+.tcomp-poll.on { grid-template-rows: 1fr; }
+.tcomp-poll > div { min-height: 0; overflow: hidden; }
+.tcomp-poll-in { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 16px; background: #F9FAFB; }
+.tcomp-poll-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; font-size: 13.5px; font-weight: 700; color: #4E5968; letter-spacing: -0.2px; }
+.tcomp-poll-head button { padding: 2px 4px; border: none; background: none; color: #8B95A1; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.tcomp-poll-row { position: relative; display: flex; align-items: center; animation: tcompPollRowIn .38s var(--tc-ease) both; }
+.tcomp-poll-row input { flex: 1; min-width: 0; height: 46px; box-sizing: border-box; padding: 0 42px 0 14px; border: 1px solid #E5E8EB; border-radius: 12px; outline: none; background: #fff; color: #191F28; font-size: 16px; font-family: inherit; letter-spacing: -0.2px; transition: border-color .15s ease, box-shadow .15s ease; }
+.tcomp-poll-row input:focus { border-color: #3182F6; box-shadow: 0 0 0 3px rgba(49, 130, 246, .12); }
+.tcomp-poll-row input::placeholder { color: #B0B8C1; }
+.tcomp-poll-x { position: absolute; right: 10px; width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: #E5E8EB; color: #6B7684; cursor: pointer; }
+.tcomp-poll-add { height: 44px; border: 1px dashed #D1D6DB; border-radius: 12px; background: none; color: #6B7684; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s ease, border-color .15s ease; }
+.tcomp-poll-add:hover { background: #fff; border-color: #B0B8C1; }
+@keyframes tcompPollRowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* ═══ 토스식 투표(피드·상세 공용 TossPoll) ═══ */
+.tpoll { --tp-ease: cubic-bezier(.22, 1, .36, 1); display: grid; gap: 8px; max-width: 528px; margin-top: 14px; }
+.tpoll-opt { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 0 16px; box-sizing: border-box; border: 1px solid #E5E8EB; border-radius: 14px; background: #fff; color: #333D4B; font-size: 15.5px; font-weight: 600; letter-spacing: -0.2px; text-align: left; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; transition: border-color .35s var(--tp-ease), box-shadow .35s var(--tp-ease), background .25s ease, transform .2s var(--tp-ease); }
+.tpoll-opt:active { transform: scale(.985); }
+.tpoll.is-voted .tpoll-opt { border-color: transparent; background: #F9FAFB; }
+.tpoll-opt.is-mine { box-shadow: inset 0 0 0 1.5px #3182F6; }
+.tpoll-bar { position: absolute; top: 0; bottom: 0; left: 0; width: 0; border-radius: 13px; background: #EDEFF2; transition: width .85s var(--tp-ease), background .35s ease; }
+.tpoll-opt.is-lead .tpoll-bar { background: #E1EDFF; }
+.tpoll-opt.is-mine .tpoll-bar { background: #D6E7FF; }
+.tpoll-opt.is-pop .tpoll-bar::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .75) 50%, transparent 80%); transform: translateX(-100%); animation: tpollSheen .9s .45s ease-out both; }
+.tpoll-label { position: relative; z-index: 1; display: inline-flex; align-items: center; min-width: 0; }
+.tpoll-check { flex: none; display: inline-flex; width: 0; margin-right: 0; overflow: hidden; color: #3182F6; transition: width .35s var(--tp-ease), margin .35s var(--tp-ease); }
+.tpoll-opt.is-mine .tpoll-check { width: 18px; margin-right: 7px; }
+.tpoll-check svg path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset .5s var(--tp-ease) .12s; }
+.tpoll-opt.is-mine .tpoll-check svg path { stroke-dashoffset: 0; }
+.tpoll-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .3s ease; }
+.tpoll-opt.is-lead .tpoll-text, .tpoll-opt.is-mine .tpoll-text { color: #191F28; font-weight: 700; }
+.tpoll-pct { position: relative; z-index: 1; flex: none; font-size: 15px; font-weight: 600; color: #8B95A1; font-variant-numeric: tabular-nums; opacity: 0; transform: translateX(8px); transition: opacity .35s ease, transform .55s var(--tp-ease), color .3s ease; }
+.tpoll.is-voted .tpoll-pct { opacity: 1; transform: none; }
+.tpoll-opt.is-lead .tpoll-pct { color: #3182F6; font-weight: 700; }
+.tpoll-opt.is-pop { animation: tpollPop .55s var(--tp-ease); }
+.tpoll-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 2px 2px 0; font-size: 13px; color: #8B95A1; letter-spacing: -0.2px; font-variant-numeric: tabular-nums; }
+.tpoll-foot-note { animation: tpollFade .45s ease both; }
+@media (hover: hover) {
+  .tpoll:not(.is-voted) .tpoll-opt:hover { border-color: #D1D6DB; background: #F9FAFB; }
+  .tpoll.is-voted .tpoll-opt:not(.is-mine):hover { background: #F2F4F6; }
+}
+@keyframes tpollPop { 0% { transform: scale(.965); } 45% { transform: scale(1.015); } 100% { transform: scale(1); } }
+@keyframes tpollSheen { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@keyframes tpollFade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tpoll-opt, .tpoll-bar, .tpoll-pct, .tpoll-check, .tpoll-check svg path { transition: none; }
+  .tpoll-opt.is-pop, .tpoll-opt.is-pop .tpoll-bar::after { animation: none; }
+}

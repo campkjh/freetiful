@@ -63,6 +63,10 @@ export default function TossComposer({
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzedKey, setAnalyzedKey] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  // 투표 만들기(2~4개 항목)
+  const [pollOn, setPollOn] = useState(false);
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const pollFirstRef = useRef<HTMLInputElement | null>(null);
   const [posting, setPosting] = useState(false);
   const [message, setMessage] = useState("");
   const [me, setMe] = useState<{ name: string; avatar: string | null } | null>(null);
@@ -122,6 +126,8 @@ export default function TossComposer({
     setDismissed([]);
     setAnalyzedKey("");
     setPickerOpen(false);
+    setPollOn(false);
+    setPollOptions(["", ""]);
     setMessage("");
     if (inputRef.current) inputRef.current.style.height = "";
   }
@@ -211,6 +217,14 @@ export default function TossComposer({
     });
   }
 
+  function togglePoll() {
+    setPollOn((on) => {
+      if (!on) window.setTimeout(() => pollFirstRef.current?.focus({ preventScroll: true }), 260);
+      return !on;
+    });
+    setMessage("");
+  }
+
   async function submit() {
     if (!trimmed || posting || uploading > 0) return;
     setPosting(true);
@@ -229,6 +243,11 @@ export default function TossComposer({
         setMessage("카테고리를 골라주세요");
         return;
       }
+      const filledPoll = pollOptions.map((o) => o.trim()).filter(Boolean);
+      if (pollOn && filledPoll.length < 2) {
+        setMessage("투표 항목을 2개 이상 입력해주세요");
+        return;
+      }
       const res = await cfetch("/api/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,9 +257,9 @@ export default function TossComposer({
           content: trimmed,
           tagIds: tagList.map((t) => t.id).slice(0, 5),
           imageUrls: images.map((i) => i.url),
-          type: "normal",
+          type: pollOn ? "poll" : "normal",
           isBlinded: false,
-          pollOptions: [],
+          pollOptions: pollOn ? filledPoll.slice(0, 4) : [],
           quizItems: [],
         }),
       });
@@ -390,6 +409,49 @@ export default function TossComposer({
               </div>
             )}
 
+            <div className={`tcomp-poll${pollOn ? " on" : ""}`}>
+              <div>
+                <div className="tcomp-poll-in">
+                  <div className="tcomp-poll-head">
+                    <span>투표 항목</span>
+                    <button type="button" onClick={() => setPollOn(false)}>
+                      투표 빼기
+                    </button>
+                  </div>
+                  {pollOptions.map((value, i) => (
+                    <div key={i} className="tcomp-poll-row">
+                      <input
+                        ref={i === 0 ? pollFirstRef : undefined}
+                        value={value}
+                        maxLength={40}
+                        placeholder={`항목 ${i + 1}`}
+                        onChange={(event) =>
+                          setPollOptions((prev) => prev.map((v, k) => (k === i ? event.target.value : v)))
+                        }
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          className="tcomp-poll-x"
+                          aria-label={`항목 ${i + 1} 빼기`}
+                          onClick={() => setPollOptions((prev) => prev.filter((_, k) => k !== i))}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 4 && (
+                    <button type="button" className="tcomp-poll-add" onClick={() => setPollOptions((prev) => [...prev, ""])}>
+                      + 항목 추가
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="tcomp-tags" aria-live="polite">
               <span className="tcomp-tags-label">
                 <AiSparkle state={analyzing ? "thinking" : analyzedKey ? "done" : "idle"} />
@@ -422,6 +484,7 @@ export default function TossComposer({
             {message && <p className="tcomp-msg">{message}</p>}
 
             <div className="tcomp-foot">
+              <div className="tcomp-foot-l">
               <button
                 type="button"
                 className="tcomp-tool"
@@ -443,6 +506,21 @@ export default function TossComposer({
                 </span>
               </button>
               <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onPickFiles} />
+              <button
+                type="button"
+                className={`tcomp-tool${pollOn ? " is-on" : ""}`}
+                aria-pressed={pollOn}
+                onClick={togglePoll}
+              >
+                {/* 사장 제공 토스 mono 아이콘(icon-graph-bar-dynamic-rotate-mono) */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3 10.6196V13.3796C3 13.9196 3.42 14.3996 4.02 14.3996H10.56C11.1 14.3996 11.58 13.9796 11.58 13.3796V10.6196C11.58 10.0796 11.16 9.59961 10.56 9.59961H4.02C3.42 9.65961 3 10.0796 3 10.6196Z" fill={pollOn ? "#3182F6" : "#B0B8C1"} />
+                  <path d="M3 4.02V6.78C3 7.32 3.42 7.8 4.02 7.8H15.3C15.84 7.8 16.32 7.38 16.32 6.78V4.02C16.32 3.48 15.9 3 15.3 3H4.02C3.42 3 3 3.42 3 4.02Z" fill={pollOn ? "#3182F6" : "#B0B8C1"} fillOpacity="0.4" />
+                  <path d="M3 17.2802V20.0402C3 20.5802 3.42 21.0002 4.02 21.0002H20.04C20.58 21.0002 21.06 20.5802 21.06 19.9802V17.2202C21.06 16.6802 20.64 16.2002 20.04 16.2002H4.02C3.42 16.2602 3 16.7402 3 17.2802Z" fill={pollOn ? "#3182F6" : "#B0B8C1"} fillOpacity="0.7" />
+                </svg>
+                투표
+              </button>
+              </div>
               <div className="tcomp-foot-r">
                 <button type="button" className="tcomp-cancel" onClick={collapse}>
                   취소

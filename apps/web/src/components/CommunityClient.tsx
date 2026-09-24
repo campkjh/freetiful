@@ -18,6 +18,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "framer-motio
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
+import TossPoll from "@/components/community/TossPoll";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { clientCache } from "@/lib/clientCache";
 import KingBadges from "@/components/KingBadges";
@@ -205,7 +206,6 @@ export default function CommunityClient() {
   // 블라인드 노이즈를 탭해서 공개한 글 id 모음(피드에서 바로 걷기).
   const [revealedBlind, setRevealedBlind] = useState<Set<string>>(() => new Set());
   // 지금 투표 요청 중인 글 id(중복 클릭 방지).
-  const [votingPostId, setVotingPostId] = useState<string | null>(null);
   const [answeringQuizId, setAnsweringQuizId] = useState<string | null>(null);
   // 목록에서 바로 좋아요/댓글: 좋아요 진행중 글 id, 댓글 모달을 띄운 글.
   const [likingPostId, setLikingPostId] = useState<string | null>(null);
@@ -310,31 +310,31 @@ export default function CommunityClient() {
     }
   }
 
-  // 목록에서 바로 투표. 결과를 받아 해당 글의 poll 만 갱신한다(상세 진입 불필요).
+  // 목록에서 바로 투표 — 화면 반영은 TossPoll 이 낙관적으로 먼저 하고, 여기선 서버 결과로 글을 갱신해 돌려준다.
+  // 실패(비로그인 등)는 throw → TossPoll 이 원래대로 되돌린다.
   async function votePoll(postId: string, optionId: string) {
-    if (votingPostId) return;
-    setVotingPostId(postId);
-    setMessage("");
-    try {
-      const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/vote`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optionId }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "투표를 처리하지 못했습니다.");
-      setPosts((prev) => {
-        const next = prev.map((p) => (p.id === postId ? { ...p, poll: data.poll } : p));
-        // 현재 필터 조합의 캐시도 갱신해 탭 재진입 시 투표 상태가 유지되게 한다.
-        clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
-        return next;
-      });
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "투표를 처리하지 못했습니다.");
-    } finally {
-      setVotingPostId(null);
+    const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ optionId }),
+    });
+    if (response.status === 401) {
+      window.dispatchEvent(new Event("freetiful:show-login"));
+      showToast("로그인하면 투표할 수 있어요");
+      throw new Error("login required");
     }
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.poll) {
+      showToast(data?.message || data?.error || "투표를 처리하지 못했어요");
+      throw new Error("vote failed");
+    }
+    setPosts((prev) => {
+      const next = prev.map((p) => (p.id === postId ? { ...p, poll: data.poll } : p));
+      // 현재 필터 조합의 캐시도 갱신해 탭 재진입 시 투표 상태가 유지되게 한다.
+      clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
+      return next;
+    });
+    return data.poll as CommunityPoll;
   }
 
   useEffect(() => {
@@ -1083,11 +1083,7 @@ export default function CommunityClient() {
                         </>
                       )}
                       {post.type === "poll" && post.poll && post.poll.options.length > 0 && (
-                        <FeedPoll
-                          poll={post.poll}
-                          voting={votingPostId === post.id}
-                          onVote={(optionId) => votePoll(post.id, optionId)}
-                        />
+                        <TossPoll poll={post.poll} onVote={(optionId) => votePoll(post.id, optionId)} />
                       )}
                       {post.type === "quiz" && post.quiz && post.quiz.questions.length > 0 && (
                         <FeedQuiz
@@ -1665,106 +1661,6 @@ function FeedQuiz({
   );
 }
 
-// 목록 인라인 투표 카드 — 데일리 퀴즈 옵션 톤(둥근 면 + 결과 채움 바).
-// 투표 전엔 깔끔한 선택지, 투표 후엔 퍼센트 바 + 내 선택 강조(체크). 상세 진입 불필요.
-function FeedPoll({
-  poll,
-  voting,
-  onVote,
-}: {
-  poll: CommunityPoll;
-  voting: boolean;
-  onVote: (optionId: string) => void;
-}) {
-  const voted = poll.myOptionId !== null;
-  const total = poll.totalVotes;
-  return (
-    <div
-      className="feed-poll"
-      role="group"
-      aria-label="투표"
-      // 카드 클릭(상세 이동)으로 번지지 않게 막는다 — 여기선 투표만.
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-      style={{ display: "grid", gap: 7, margin: "2px 0" }}
-    >
-      {poll.options.map((opt) => {
-        const pct = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
-        const mine = poll.myOptionId === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            className="feed-poll-option press"
-            disabled={voting}
-            onClick={(event) => {
-              event.stopPropagation();
-              onVote(opt.id);
-            }}
-            style={{
-              position: "relative",
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              width: "100%",
-              minHeight: 46,
-              padding: "0 14px",
-              borderRadius: 14,
-              border: "none",
-              boxShadow: mine ? "inset 0 0 0 2px var(--c-brand)" : "none",
-              background: voted ? "var(--c-bg-soft-12)" : "var(--c-bg-muted-13)",
-              color: "var(--c-text-2e)",
-              fontSize: 15,
-              fontWeight: 600,
-              textAlign: "left",
-              cursor: voting ? "default" : "pointer",
-            }}
-          >
-            {voted && (
-              <span
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  width: `${pct}%`,
-                  background: mine ? "var(--c-brand-line-2)" : "var(--c-bg-muted)",
-                  transition: "width 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-            )}
-            <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-              {mine && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src="/icons/community/check.svg" alt="" width={16} height={16} style={{ display: "block", flexShrink: 0 }} />
-              )}
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opt.text}</span>
-            </span>
-            {voted && (
-              <span
-                style={{
-                  position: "relative",
-                  flexShrink: 0,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: mine ? "var(--c-brand-deep-2)" : "var(--c-text-4)",
-                }}
-              >
-                {pct}%
-              </span>
-            )}
-          </button>
-        );
-      })}
-      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-4)", paddingLeft: 2 }}>
-        {voted ? `총 ${total}표 · 다시 누르면 변경` : "눌러서 바로 투표"}
-      </span>
-    </div>
-  );
-}
 
 interface FeedComment {
   id: string;
