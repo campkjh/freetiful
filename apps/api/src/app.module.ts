@@ -28,6 +28,7 @@ import { BusinessInquiryModule } from './business-inquiry/business-inquiry.modul
 import { PolicyModule } from './policy/policy.module';
 import { AutoReplyModule } from './auto-reply/auto-reply.module';
 import { LandingModule } from './landing/landing.module';
+import { CommunityModule } from './community/community.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -61,6 +62,7 @@ import { HealthController } from './health.controller';
     PolicyModule,
     AutoReplyModule,
     LandingModule,
+    CommunityModule,
   ],
   controllers: [HealthController],
 })

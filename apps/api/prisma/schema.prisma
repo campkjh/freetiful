@@ -1122,3 +1122,252 @@ model AdSpend {
   @@unique([yearMonth, channel])
   @@map("ad_spends")
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 커뮤니티 (스타디 커뮤니티 이식) — 글/댓글/6종리액션/투표/OX퀴즈/블라인드/신고/차단/핀/조회수
+// 작성 주체 = 프리티풀 로그인 사용자(users). userId 는 users.id 참조(관계 미선언, 서비스에서 조인).
+// ═══════════════════════════════════════════════════════════════════
+
+model CommunityGroup {
+  id          String          @id @default(uuid())
+  name        String
+  slug        String          @unique
+  description String?
+  isActive    Boolean         @default(true)
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tags        CommunityTag[]
+  posts       CommunityPost[]
+
+  @@map("community_groups")
+}
+
+model CommunityTag {
+  id          String             @id @default(uuid())
+  groupId     String
+  name        String
+  slug        String
+  description String?
+  isActive    Boolean            @default(true)
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  group       CommunityGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  postTags    CommunityPostTag[]
+
+  @@unique([groupId, slug])
+  @@index([groupId])
+  @@map("community_tags")
+}
+
+model CommunityPost {
+  id            String                  @id @default(uuid())
+  userId        String?
+  groupId       String
+  title         String
+  content       String
+  type          String                  @default("normal") // normal | poll | quiz
+  isBlinded     Boolean                 @default(false)
+  isActive      Boolean                 @default(true)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  group         CommunityGroup          @relation(fields: [groupId], references: [id])
+  tags          CommunityPostTag[]
+  images        CommunityPostImage[]
+  comments      CommunityComment[]
+  likes         CommunityPostLike[]
+  pollOptions   CommunityPollOption[]
+  pollVotes     CommunityPollVote[]
+  quizQuestions CommunityQuizQuestion[]
+  view          CommunityPostView?
+  pinnedComment CommunityPinnedComment?
+
+  @@index([groupId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("community_posts")
+}
+
+model CommunityPostTag {
+  postId String
+  tagId  String
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    CommunityTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("community_post_tags")
+}
+
+model CommunityPostImage {
+  id        String        @id @default(uuid())
+  postId    String
+  imageUrl  String
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("community_post_images")
+}
+
+model CommunityComment {
+  id        String                  @id @default(uuid())
+  postId    String
+  parentId  String?
+  userId    String?
+  content   String
+  isActive  Boolean                 @default(true)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  post      CommunityPost           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent    CommunityComment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   CommunityComment[]      @relation("CommentReplies")
+  likes     CommunityCommentLike[]
+  pinnedIn  CommunityPinnedComment?
+
+  @@index([postId])
+  @@index([parentId])
+  @@map("community_comments")
+}
+
+model CommunityPostLike {
+  postId    String
+  userId    String
+  type      String        @default("heart") // heart | sad | laugh | smile | devil | skull
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("community_post_likes")
+}
+
+model CommunityCommentLike {
+  commentId String
+  userId    String
+  createdAt DateTime         @default(now())
+  comment   CommunityComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId])
+  @@map("community_comment_likes")
+}
+
+model CommunityReport {
+  id           String   @id @default(uuid())
+  targetType   String   @default("post") // post | comment
+  postId       String?
+  commentId    String?
+  userId       String? // 신고자
+  targetUserId String?
+  reason       String
+  detail       String?
+  status       String   @default("접수")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, targetType, postId, commentId], name: "report_once")
+  @@index([status])
+  @@map("community_reports")
+}
+
+model CommunityBlock {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+  @@index([blockerId])
+  @@map("community_blocks")
+}
+
+model CommunityPostView {
+  postId String        @id
+  count  Int           @default(0)
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("community_post_views")
+}
+
+model CommunityPinnedComment {
+  postId    String           @id
+  commentId String           @unique
+  createdAt DateTime         @default(now())
+  post      CommunityPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   CommunityComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("community_pinned_comments")
+}
+
+model CommunityPollOption {
+  id        String             @id @default(uuid())
+  postId    String
+  text      String
+  sortOrder Int                @default(0)
+  createdAt DateTime           @default(now())
+  post      CommunityPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes     CommunityPollVote[]
+
+  @@index([postId])
+  @@map("community_poll_options")
+}
+
+model CommunityPollVote {
+  postId    String
+  userId    String
+  optionId  String
+  createdAt DateTime            @default(now())
+  post      CommunityPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  option    CommunityPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([optionId])
+  @@map("community_poll_votes")
+}
+
+model CommunityQuizQuestion {
+  id        String                @id @default(uuid())
+  postId    String
+  text      String
+  answer    Boolean // O = true, X = false
+  sortOrder Int                   @default(0)
+  createdAt DateTime              @default(now())
+  post      CommunityPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  answers   CommunityQuizAnswer[]
+
+  @@index([postId])
+  @@map("community_quiz_questions")
+}
+
+model CommunityQuizAnswer {
+  questionId String
+  userId     String
+  postId     String
+  answer     Boolean
+  createdAt  DateTime              @default(now())
+  question   CommunityQuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, userId])
+  @@index([postId])
+  @@map("community_quiz_answers")
+}
+
+model CommunityQuizPostLog {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("community_quiz_post_logs")
+}
+
+model CommunityScoreBonus {
+  userId    String   @id
+  bonus     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("community_score_bonuses")
+}
