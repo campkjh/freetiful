@@ -16,6 +16,7 @@ import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
+import TossComposer from "@/components/community/TossComposer";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { clientCache } from "@/lib/clientCache";
 import KingBadges from "@/components/KingBadges";
@@ -870,6 +871,17 @@ export default function CommunityClient() {
               {message}
             </div>
           )}
+
+          {/* 토스식 글쓰기 칸 — 누르면 그 자리에서 펼쳐지며 아래 목록을 밀어낸다(AI 태그·사진 첨부). */}
+          <TossComposer
+            groups={groups}
+            contextGroupId={selectedGroupId}
+            onPosted={() => {
+              loadPosts();
+              loadWeeklyPopular();
+            }}
+            onToast={showToast}
+          />
 
           <div className="tfeed-sortbar">
             <div className="tfeed-sort-wrap">

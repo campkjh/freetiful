@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommunityAiService } from './community-ai.service';
+import { ImageService } from '../image/image.service';
 import {
   REACTION_TYPES,
   REPORT_REASONS,
@@ -41,7 +43,47 @@ type Author = {
 export class CommunityService implements OnModuleInit {
   private readonly logger = new Logger(CommunityService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ai: CommunityAiService,
+    private images: ImageService,
+  ) {}
+
+  // ── 글쓰기 보조 ──
+  // 본문 → 소분류 1개 + 대분류 태그 0~3개 추천(기존 목록 안에서만). groupId 가 소분류면 고정하고 태그만 고른다.
+  async suggestMeta(content: string, groupId?: string | null) {
+    const { groups } = await this.listGroups();
+    const majors = groups.map((m) => ({
+      id: m.id,
+      name: m.name,
+      tags: m.tags.map((t) => ({ id: t.id, name: t.name })),
+      subs: m.children.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
+    }));
+    const locked = groupId ? majors.flatMap((m) => m.subs).find((s) => s.id === groupId) ?? null : null;
+    const r = await this.ai.suggest(String(content || ''), majors, locked?.slug ?? null);
+    const major = majors.find((m) => m.subs.some((s) => s.slug === r.subSlug)) ?? null;
+    const sub = major?.subs.find((s) => s.slug === r.subSlug) ?? null;
+    const tagByName = new Map((major?.tags ?? []).map((t) => [t.name, t]));
+    return {
+      groupId: sub?.id ?? null,
+      groupName: sub?.name ?? null,
+      majorName: major?.name ?? null,
+      tags: r.tagNames.map((n) => tagByName.get(n)).filter(Boolean),
+      source: r.source,
+    };
+  }
+
+  // 커뮤니티 본문 이미지 업로드 — 공용 이미지 파이프라인(webp 변환·스토리지)을 그대로 쓴다.
+  async uploadImage(file: any) {
+    if (!file) throw new BadRequestException('이미지 파일이 필요합니다.');
+    const processed = await this.images.processImage(file, {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 82,
+      requireFace: false,
+    });
+    return { url: processed.webpPath || processed.path, width: processed.width, height: processed.height };
+  }
 
   async onModuleInit() {
     try {

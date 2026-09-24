@@ -50,7 +50,7 @@ export const TAXONOMY: MajorDef[] = [
       { name: '허니문 지역선정 이유', slug: 'honeymoon' },
       { name: '나의 시댁은/처가댁은', slug: 'inlaws' },
     ],
-    tags: ['스드메', '예식장', '상견례', '청첩장', '예산', '혼수'],
+    tags: ['스드메', '예식장', '사회자', '본식', '상견례', '청첩장', '예산', '혼수', '예물', '허니문'],
   },
   {
     name: '신혼생활',
@@ -62,7 +62,7 @@ export const TAXONOMY: MajorDef[] = [
       { name: '신랑신부 갈등과 해소', slug: 'conflict' },
       { name: '내 신랑·신부 자랑하기', slug: 'brag' },
     ],
-    tags: ['신혼집', '인테리어', '집들이', '부부', '살림'],
+    tags: ['신혼집', '인테리어', '집들이', '부부', '살림', '맞벌이', '재테크'],
   },
   {
     name: '임신·육아',
@@ -99,7 +99,7 @@ export const TAXONOMY: MajorDef[] = [
       { name: '법률/부동산/전문정보', slug: 'legal' },
       { name: '다이렉트 블로거', slug: 'blogger' },
     ],
-    tags: ['꿀팁', '후기', '추천', '맛집', '정보'],
+    tags: ['꿀팁', '후기', '추천', '맛집', '정보', '뷰티', '부동산'],
   },
   {
     name: '중고장터',

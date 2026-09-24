@@ -9,7 +9,10 @@ import {
   Query,
   Request,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -206,6 +209,24 @@ export class CommunityController {
   @ApiOperation({ summary: '내가 댓글 단 글 목록' })
   myComments(@Request() req: any) {
     return this.community.myComments(req.user.id);
+  }
+
+  // ── 글쓰기 보조: AI 카테고리·태그 추천 / 이미지 업로드 ──
+  @Post('suggest')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '본문으로 소분류·태그 추천(AI, 실패 시 규칙)' })
+  suggest(@Body() body: any) {
+    return this.community.suggestMeta(String(body?.content || ''), body?.groupId || null);
+  }
+
+  @Post('uploads')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @ApiOperation({ summary: '커뮤니티 이미지 업로드' })
+  upload(@UploadedFile() file: any) {
+    return this.community.uploadImage(file);
   }
 
   // ── 기타 ──
