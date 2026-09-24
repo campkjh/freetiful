@@ -1057,7 +1057,10 @@
   .fcom-mtitle span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 .fcom-drawer-scrim { position: fixed; inset: 0; z-index: 120; background: rgba(0, 0, 0, .36); }
-.fcom-drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 121; width: min(84vw, 320px); display: flex; flex-direction: column; box-sizing: border-box; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); background: #fff; border-radius: 0 28px 28px 0; box-shadow: 16px 0 48px rgba(17, 24, 39, .14); }
+.fcom-drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 121; width: min(84vw, 320px); display: flex; flex-direction: column; box-sizing: border-box; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); background: #fff; border-radius: 0 28px 28px 0; }
+/* 첫 페인트(하이드레이션 전)에도 닫혀 있게 — 그림자·위치는 framer 가 상태별로 준다. */
+.fcom-drawer:not([style]) { visibility: hidden; transform: translateX(-115%); }
+.fcom-drawer-scrim:not([style]) { visibility: hidden; opacity: 0; }
 .fcom-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 12px 10px 24px; }
 .fcom-drawer-head h2 { margin: 0; font-size: 21px; font-weight: 700; color: #191F28; letter-spacing: -0.4px; }
 .fcom-drawer-close { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 12px; background: none; color: #6B7684; cursor: pointer; transition: background .15s ease; }

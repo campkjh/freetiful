@@ -216,6 +216,10 @@ export default function CommunityClient() {
   const [composeOpen, setComposeOpen] = useState(false);
   // 모바일 카테고리 서랍(햄버거)
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    drawerRef.current?.toggleAttribute("inert", !drawerOpen);
+  }, [drawerOpen]);
   // 다른 화면(문제 오류 건의 등)에서 ?compose=1&text=...&group=... 로 들어오면
   // 글쓰기 화면을 미리 채워서 연다.
   const [composePreset, setComposePreset] = useState<{ text: string; group: string } | null>(null);
@@ -1222,53 +1226,54 @@ export default function CommunityClient() {
         </section>
       </div>
 
-      {/* 모바일 카테고리 서랍 — AnimatePresence 의 직계 자식이 Fragment 면 exit 뒤에 언마운트가 안 돼
-          투명한 딤이 화면을 덮은 채 남는다(탭 전부 먹힘). 요소마다 따로 감싼다. */}
-      <AnimatePresence>
-        {drawerOpen && (
-          <motion.div
-            key="fcom-drawer-scrim"
-            className="fcom-drawer-scrim"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            onClick={() => setDrawerOpen(false)}
+      {/* 모바일 카테고리 서랍 — 언마운트(AnimatePresence exit)에 기대지 않고 항상 붙여 둔 채 열림/닫힘만 애니메이션.
+          일부 모바일 웹뷰에서 exit 완료가 안 잡혀 닫힌 서랍이 화면 밖에 남고 그 그림자가 왼쪽에 비치던 버그 →
+          닫힐 때 그림자도 같이 걷고, 화면 밖으로 충분히 밀고, 끝나면 visibility:hidden. */}
+      <motion.div
+        className="fcom-drawer-scrim"
+        aria-hidden="true"
+        initial={false}
+        animate={drawerOpen ? "open" : "closed"}
+        variants={{
+          open: { opacity: 1, visibility: "visible" },
+          closed: { opacity: 0, transitionEnd: { visibility: "hidden" } },
+        }}
+        transition={{ duration: 0.22 }}
+        style={{ pointerEvents: drawerOpen ? "auto" : "none" }}
+        onClick={() => setDrawerOpen(false)}
+      />
+      <motion.aside
+        ref={drawerRef}
+        className="fcom-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="커뮤니티 카테고리"
+        aria-hidden={!drawerOpen}
+        initial={false}
+        animate={drawerOpen ? "open" : "closed"}
+        variants={{
+          open: { x: 0, boxShadow: "16px 0px 48px rgba(17, 24, 39, 0.14)", visibility: "visible" },
+          closed: { x: "-115%", boxShadow: "0px 0px 0px rgba(17, 24, 39, 0)", transitionEnd: { visibility: "hidden" } },
+        }}
+        transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
+      >
+        <div className="fcom-drawer-head">
+          <h2>커뮤니티</h2>
+          <button type="button" className="fcom-drawer-close" aria-label="카테고리 닫기" onClick={() => setDrawerOpen(false)}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="fcom-drawer-body">
+          <CategoryList
+            groups={groups}
+            selectedGroupId={selectedGroupId}
+            onSelect={pickFromDrawer}
+            layoutGroupId="fcom-drawer-cats"
           />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {drawerOpen && (
-          <motion.aside
-            key="fcom-drawer"
-            className="fcom-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-label="커뮤니티 카테고리"
-            initial={{ x: "-100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "-100%" }}
-            transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
-          >
-            <div className="fcom-drawer-head">
-              <h2>커뮤니티</h2>
-              <button type="button" className="fcom-drawer-close" aria-label="카테고리 닫기" onClick={() => setDrawerOpen(false)}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className="fcom-drawer-body">
-              <CategoryList
-                groups={groups}
-                selectedGroupId={selectedGroupId}
-                onSelect={pickFromDrawer}
-                layoutGroupId="fcom-drawer-cats"
-              />
-            </div>
-          </motion.aside>
-        )}
-      </AnimatePresence>
+        </div>
+      </motion.aside>
       {toast && (
         <div className="tfeed-toast" role="status">
           {toast}
@@ -3045,9 +3050,10 @@ function CommunityStyles() {
 const iconButtonStyle = {
   width: 40,
   height: 40,
-  border: "1px solid var(--c-border)",
+  marginRight: -8,
+  border: "none",
   borderRadius: 999,
-  background: "var(--c-bg)",
+  background: "transparent",
   color: "var(--c-text)",
   display: "flex",
   alignItems: "center",
