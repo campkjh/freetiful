@@ -164,12 +164,13 @@ export default function CommunityClient() {
   const topbarRef = useRef<HTMLElement | null>(null);
   // 캐시된 값으로 초기화 → 탭 재진입 시 즉시 표시(로딩/깜빡임 없음).
   const [groups, setGroups] = useState<CategoryGroup[]>(() => clientCache.get<CategoryGroup[]>("community-groups") ?? []);
-  const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(postsKey("", "")) ?? []);
+  const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(postsKey("", "", "", "latest")) ?? []);
   const [weeklyPosts, setWeeklyPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>("community-weekly") ?? []);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedTagId, setSelectedTagId] = useState("");
   // 토스식 정렬(인기순/최신순) + 정렬 메뉴 + 토스트
-  const [sortMode, setSortMode] = useState<"popular" | "latest">("popular");
+  // 기본 정렬 = 최신순(사장 지시 260925). 인기순은 메뉴에서 고른다.
+  const [sortMode, setSortMode] = useState<"popular" | "latest">("latest");
   const [sortOpen, setSortOpen] = useState(false);
   const [toast, setToast] = useState("");
   const toastTimerRef = useRef(0);
@@ -192,7 +193,7 @@ export default function CommunityClient() {
   // 내가 댓글 단 글 id → 내 최신 댓글 내용(카드 미리보기에 내 댓글을 보여준다).
   const [myCommentByPost, setMyCommentByPost] = useState<Map<string, string> | null>(null);
   // 캐시가 있으면 로딩 표시 안 함(데이터 변동 시에만 갱신).
-  const [loading, setLoading] = useState(() => !clientCache.has(postsKey("", "")));
+  const [loading, setLoading] = useState(() => !clientCache.has(postsKey("", "", "", "latest")));
   const [topbarHeight, setTopbarHeight] = useState(0);
   const weeklyTrackRef = useRef<HTMLDivElement | null>(null);
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
@@ -945,7 +946,7 @@ export default function CommunityClient() {
                 <>
                   <div className="tfeed-backdrop" onClick={() => setSortOpen(false)} />
                   <div className="tfeed-sort-menu" role="menu">
-                    {(["popular", "latest"] as const).map((mode) => {
+                    {(["latest", "popular"] as const).map((mode) => {
                       const on = !activeMineFilter && sortMode === mode;
                       return (
                         <button
