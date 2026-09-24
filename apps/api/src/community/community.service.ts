@@ -79,6 +79,21 @@ export class CommunityService implements OnModuleInit {
     };
   }
 
+  async listTags(groupId?: string) {
+    const tags = await this.prisma.communityTag.findMany({
+      where: { isActive: true, ...(groupId ? { groupId } : {}) },
+      orderBy: [{ groupId: 'asc' }, { sortOrder: 'asc' }],
+    });
+    return {
+      tags: tags.map((t) => ({
+        id: t.id,
+        groupId: t.groupId,
+        name: t.name,
+        slug: t.slug,
+      })),
+    };
+  }
+
   // ─── 차단 목록(내가 차단한 사람) ─────────────────────────────────
   private async getBlockedIds(viewerId?: string): Promise<Set<string>> {
     if (!viewerId) return new Set();

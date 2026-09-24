@@ -1,0 +1,2866 @@
+"use client";
+
+
+import { cfetch } from "@/lib/community/cfetch";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
+import CommunityComposeModal from "@/components/CommunityComposeModal";
+import BlindNoiseCover from "@/components/BlindNoiseCover";
+import { clientCache } from "@/lib/clientCache";
+import KingBadges from "@/components/KingBadges";
+import PullToRefresh from "@/components/PullToRefresh";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
+import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
+import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
+
+// 게시글 목록 캐시 키(필터 조합별).
+const postsKey = (groupId: string, q: string) =>
+  `community-posts:${groupId}:${q.trim()}`;
+
+interface CategoryGroup {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+}
+
+interface CommunityTag {
+  id: string;
+  groupId: string;
+  name: string;
+  slug: string;
+}
+
+interface CommunityPollOption {
+  id: string;
+  text: string;
+  sort_order: number;
+  votes: number;
+}
+interface CommunityPoll {
+  options: CommunityPollOption[];
+  totalVotes: number;
+  myOptionId: string | null;
+}
+
+interface CommunityQuizQuestion {
+  id: string;
+  text: string;
+  myAnswer: boolean | null;
+  correctAnswer: boolean | null;
+  oCount: number;
+  xCount: number;
+}
+
+interface CommunityQuiz {
+  questions: CommunityQuizQuestion[];
+  solvedCount: number;
+  correctCount: number;
+  participantCount: number;
+}
+
+interface CommunityTopComment {
+  id: string;
+  nickname: string;
+  content: string;
+  likeCount: number;
+  pinned: boolean;
+}
+
+interface Liker {
+  userId: string;
+  nickname: string;
+  avatar: string | null;
+}
+
+interface CommunityPost {
+  id: string;
+  userId?: string | null; // 작성자 id(API mapPost 가 내려준다) — 내 글 필터용
+  nickname: string;
+  avatar?: string | null;
+  likers?: Liker[];
+  authorTier?: string;
+  authorIsAdmin?: boolean;
+  authorIsAnswerKing?: boolean;
+  authorIsPickKing?: boolean;
+  groupName: string;
+  groupSlug?: string;
+  title: string;
+  content: string;
+  type?: string;
+  poll?: CommunityPoll | null;
+  quiz?: CommunityQuiz | null;
+  topComment?: CommunityTopComment | null;
+  myReaction?: string | null;
+  isBlinded?: boolean;
+  createdAt: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  imageUrls: string[];
+  tags: CommunityTag[];
+}
+
+const TIERS = ["iron", "silver", "gold", "emerald", "diamond", "master", "grandmaster", "gongsin"];
+function TierBadge({ tier }: { tier?: string }) {
+  if (!tier || !TIERS.includes(tier)) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`/icons/tier-${tier}.svg`} alt="" width={15} height={15} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 4, flexShrink: 0 }} />
+  );
+}
+
+function QBadge({ answered }: { answered: boolean }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={answered ? "/icons/quiz-q-answered.svg" : "/icons/quiz-q-gray.svg"} alt={answered ? "답변완료" : "미답변"} width={18} height={18} style={{ display: "inline-block", verticalAlign: "middle", marginRight: 5 }} />
+  );
+}
+
+export default function CommunityClient() {
+  const router = useRouter();
+  // 넓은 화면에서 목록 위에 띄우는 상세 패널(글 id). null 이면 닫힘.
+  const [panelPostId, setPanelPostId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!panelPostId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPanelPostId(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panelPostId]);
+  // 창이 좁아지면(태블릿 세로 회전 등) 패널을 닫는다 — 좁은 화면에서 38% 패널은 못 읽는다.
+  useEffect(() => {
+    if (!panelPostId) return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => { if (!mq.matches) setPanelPostId(null); };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [panelPostId]);
+  const topbarRef = useRef<HTMLElement | null>(null);
+  // 캐시된 값으로 초기화 → 탭 재진입 시 즉시 표시(로딩/깜빡임 없음).
+  const [groups, setGroups] = useState<CategoryGroup[]>(() => clientCache.get<CategoryGroup[]>("community-groups") ?? []);
+  const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(postsKey("", "")) ?? []);
+  const [weeklyPosts, setWeeklyPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>("community-weekly") ?? []);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  // 주간 인기글 옆 '내 글 / 내 댓글' 필터. 전체 탭·검색 없음일 때만 보인다.
+  // 글 상세로 갔다가 돌아와도 필터가 유지되도록 sessionStorage 에 두고 복원한다(스크롤 복원과 같은 방식).
+  // 초기값은 서버와 같게 "" 로 두고 마운트 후 복원한다(초기화 함수에서 sessionStorage 를 읽으면 하이드레이션 불일치).
+  const [mineFilter, setMineFilterState] = useState<"" | "posts" | "comments">("");
+  const setMineFilter = (v: "" | "posts" | "comments") => {
+    setMineFilterState(v);
+    try {
+      if (v) sessionStorage.setItem("community-mine-filter", v);
+      else sessionStorage.removeItem("community-mine-filter");
+    } catch { /* ignore */ }
+  };
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meLoaded, setMeLoaded] = useState(false);
+  // 내가 댓글 단 글 id → 내 최신 댓글 내용(카드 미리보기에 내 댓글을 보여준다).
+  const [myCommentByPost, setMyCommentByPost] = useState<Map<string, string> | null>(null);
+  // 캐시가 있으면 로딩 표시 안 함(데이터 변동 시에만 갱신).
+  const [loading, setLoading] = useState(() => !clientCache.has(postsKey("", "")));
+  const [topbarHeight, setTopbarHeight] = useState(0);
+  const weeklyTrackRef = useRef<HTMLDivElement | null>(null);
+  const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
+  const [weeklyAtEnd, setWeeklyAtEnd] = useState(false);
+  const scrollRestoredRef = useRef(false);
+  const restoreTimerRef = useRef<number | null>(null);
+  // 오늘 아직 글을 안 썼을 때만 글쓰기 말풍선을 띄운다(서버 렌더 깜빡임 방지로 기본 false).
+  const [showWriteNudge, setShowWriteNudge] = useState(false);
+  // 아래로 스크롤하면 카테고리 탭을 한 줄(아이콘+라벨)로 접어 헤더를 낮춘다.
+  const [compactHeader, setCompactHeader] = useState(false);
+  // 블라인드 노이즈를 탭해서 공개한 글 id 모음(피드에서 바로 걷기).
+  const [revealedBlind, setRevealedBlind] = useState<Set<string>>(() => new Set());
+  // 지금 투표 요청 중인 글 id(중복 클릭 방지).
+  const [votingPostId, setVotingPostId] = useState<string | null>(null);
+  const [answeringQuizId, setAnsweringQuizId] = useState<string | null>(null);
+  // 목록에서 바로 좋아요/댓글: 좋아요 진행중 글 id, 댓글 모달을 띄운 글.
+  const [likingPostId, setLikingPostId] = useState<string | null>(null);
+  const [commentModalPost, setCommentModalPost] = useState<CommunityPost | null>(null);
+  // 스레드 스타일 글 작성 모달.
+  const [composeOpen, setComposeOpen] = useState(false);
+  // 다른 화면(문제 오류 건의 등)에서 ?compose=1&text=...&group=... 로 들어오면
+  // 글쓰기 화면을 미리 채워서 연다.
+  const [composePreset, setComposePreset] = useState<{ text: string; group: string } | null>(null);
+
+  // 목록에서 좋아요 토글(상세 진입 불필요). 낙관적 갱신 후 서버 결과로 확정.
+  async function toggleLike(post: CommunityPost) {
+    if (likingPostId) return;
+    setLikingPostId(post.id);
+    const wasLiked = !!post.myReaction;
+    // 낙관적 갱신
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? { ...p, myReaction: wasLiked ? null : "heart", likeCount: Math.max(0, (p.likeCount || 0) + (wasLiked ? -1 : 1)) }
+          : p
+      )
+    );
+    try {
+      const res = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/like`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: wasLiked ? null : "heart" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "공감을 처리하지 못했습니다.");
+      // 서버 확정값으로 동기화
+      setPosts((prev) => {
+        const next = prev.map((p) =>
+          p.id === post.id ? { ...p, myReaction: data.myReaction ?? null, likeCount: data.total ?? p.likeCount } : p
+        );
+        clientCache.set(postsKey(selectedGroupId, query), next);
+        return next;
+      });
+    } catch (error) {
+      // 실패 시 롤백
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id ? { ...p, myReaction: wasLiked ? "heart" : null, likeCount: post.likeCount } : p
+        )
+      );
+      setMessage(error instanceof Error ? error.message : "공감을 처리하지 못했습니다.");
+    } finally {
+      setLikingPostId(null);
+    }
+  }
+
+  // 댓글 모달에서 댓글이 추가되면 목록 카드의 댓글 수도 +1.
+  function bumpCommentCount(postId: string, delta: number) {
+    setPosts((prev) => {
+      const next = prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount || 0) + delta) } : p));
+      clientCache.set(postsKey(selectedGroupId, query), next);
+      return next;
+    });
+  }
+
+  // 딥링크로 들어온 글쓰기 요청 — 한 번 열고 주소는 깨끗하게 되돌린다.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("compose") !== "1") return;
+    const preset = { text: sp.get("text") || "", group: sp.get("group") || "" };
+    const t = setTimeout(() => {
+      setComposePreset(preset);
+      setComposeOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  // 목록에서 바로 OX 퀴즈 풀기 — 문제 하나를 누르면 그 글의 quiz 만 갱신한다.
+  async function answerQuiz(postId: string, questionId: string, answer: boolean) {
+    if (answeringQuizId) return;
+    setAnsweringQuizId(questionId);
+    setMessage("");
+    try {
+      const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/quiz`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId, answer }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "퀴즈를 처리하지 못했습니다.");
+      setPosts((prev) => {
+        const next = prev.map((p) => (p.id === postId ? { ...p, quiz: data.quiz } : p));
+        clientCache.set(postsKey(selectedGroupId, query), next);
+        return next;
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "퀴즈를 처리하지 못했습니다.");
+    } finally {
+      setAnsweringQuizId(null);
+    }
+  }
+
+  // 목록에서 바로 투표. 결과를 받아 해당 글의 poll 만 갱신한다(상세 진입 불필요).
+  async function votePoll(postId: string, optionId: string) {
+    if (votingPostId) return;
+    setVotingPostId(postId);
+    setMessage("");
+    try {
+      const response = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/vote`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optionId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "투표를 처리하지 못했습니다.");
+      setPosts((prev) => {
+        const next = prev.map((p) => (p.id === postId ? { ...p, poll: data.poll } : p));
+        // 현재 필터 조합의 캐시도 갱신해 탭 재진입 시 투표 상태가 유지되게 한다.
+        clientCache.set(postsKey(selectedGroupId, query), next);
+        return next;
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "투표를 처리하지 못했습니다.");
+    } finally {
+      setVotingPostId(null);
+    }
+  }
+
+  useEffect(() => {
+    loadGroups();
+    loadWeeklyPopular();
+  }, []);
+
+  useEffect(() => {
+    try {
+      setShowWriteNudge(localStorage.getItem(WRITE_NUDGE_KEY) !== todayKey());
+    } catch {
+      setShowWriteNudge(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const topbar = topbarRef.current;
+    if (!topbar) return;
+
+    const updateTopbarHeight = () => {
+      setTopbarHeight(Math.ceil(topbar.getBoundingClientRect().height));
+    };
+
+    updateTopbarHeight();
+    window.addEventListener("resize", updateTopbarHeight);
+
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateTopbarHeight) : null;
+    observer?.observe(topbar);
+
+    return () => {
+      window.removeEventListener("resize", updateTopbarHeight);
+      observer?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroupId, query]);
+
+  // 상세에서 돌아온 경우 저장해 둔 필터를 복원하고, 필요한 데이터를 다시 받는다.
+  useEffect(() => {
+    let v: string | null = null;
+    try { v = sessionStorage.getItem("community-mine-filter"); } catch { /* ignore */ }
+    if (v === "posts" || v === "comments") {
+      setMineFilterState(v);
+      ensureMineData(v);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 접혔을 때 항목 너비(아이콘 30 + 여백 + 라벨). 라벨 길이가 제각각이라 실제로 재서 넣는다.
+  useEffect(() => {
+    const bar = topbarRef.current;
+    if (!bar) return;
+    // 라벨 폭은 화면 밖 프로브로 잰다. 레일이 숨겨진 상태(넓은 화면·회전 직후 등)에서
+    // scrollWidth 를 재면 0 이 되어 --cw 가 50px 로 굳고, 라벨이 옆 항목 위로 넘쳐
+    // "전체 [아이콘] 자유 [아이콘]…" 처럼 겹쳐 보였다. 프로브는 표시 여부와 무관하다.
+    const measure = () => {
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;font-size:12.5px;pointer-events:none;";
+      document.body.appendChild(probe);
+      bar.querySelectorAll<HTMLElement>(".tabrail-item").forEach((item) => {
+        const label = item.querySelector<HTMLElement>(".tabrail-label");
+        if (!label) return;
+        const cs = getComputedStyle(label);
+        probe.style.fontFamily = cs.fontFamily;
+        probe.style.fontWeight = cs.fontWeight;
+        probe.style.letterSpacing = cs.letterSpacing;
+        probe.textContent = label.textContent || "";
+        // 라벨 레이아웃 폰트는 12.5px 고정(축소는 transform: scale 로만) → 잰 폭이 곧 접힘 폭.
+        const w = Math.ceil(probe.getBoundingClientRect().width) || Math.ceil(label.scrollWidth);
+        if (w > 0) item.style.setProperty("--cw", `${38 + w + 12}px`);
+      });
+      probe.remove();
+    };
+    measure();
+    // 웹폰트가 늦게 오면 폭이 달라진다 → 로드 후 한 번 더. 회전·창 크기 변경 후에도 다시 잰다.
+    try { document.fonts?.ready.then(measure).catch(() => {}); } catch { /* ignore */ }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [groups]);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const dy = y - lastY;
+      // 손떨림 정도(6px 미만)는 방향으로 치지 않는다.
+      if (Math.abs(dy) < 6) return;
+      lastY = y;
+      // 최상단 근처에서는 항상 펼쳐둔다.
+      setCompactHeader(y > 60 && dy > 0);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // 상세에서 돌아왔을 때(목록 첫 로드 완료 시점) 저장해둔 스크롤 위치로 복원.
+  useEffect(() => {
+    if (scrollRestoredRef.current) return;
+    if (loading || posts.length === 0) return; // 실제 목록이 렌더된 뒤에만 복원
+    if (selectedGroupId || query.trim()) {
+      scrollRestoredRef.current = true;
+      return;
+    }
+    scrollRestoredRef.current = true;
+    let saved: string | null = null;
+    try { saved = sessionStorage.getItem("community-scroll"); } catch {}
+    if (!saved) return;
+    try { sessionStorage.removeItem("community-scroll"); } catch {}
+    const y = parseInt(saved, 10);
+    if (Number.isNaN(y) || y <= 0) return;
+    // 카드/이미지가 점차 렌더되며 목록 높이가 늘어나므로, 목표 위치에 닿을 때까지
+    // (또는 최대 ~1.2초) 반복 적용한다.
+    let tries = 0;
+    restoreTimerRef.current = window.setInterval(() => {
+      window.scrollTo(0, y);
+      tries += 1;
+      if (Math.abs(window.scrollY - y) <= 2 || tries >= 24) {
+        if (restoreTimerRef.current) window.clearInterval(restoreTimerRef.current);
+        restoreTimerRef.current = null;
+      }
+    }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, posts]);
+
+  useEffect(() => {
+    return () => {
+      if (restoreTimerRef.current) window.clearInterval(restoreTimerRef.current);
+    };
+  }, []);
+
+  async function loadGroups() {
+    try {
+      const response = await cfetch("/api/category-groups");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "카테고리를 불러오지 못했습니다.");
+      // "자유"를 맨 앞으로 (나머지는 기존 순서 유지).
+      const ordered = [...(data.groups || [])].sort((a, b) => {
+        if (a.name === "자유") return -1;
+        if (b.name === "자유") return 1;
+        return 0;
+      });
+      if (clientCache.set("community-groups", ordered)) setGroups(ordered);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "카테고리를 불러오지 못했습니다.");
+    }
+  }
+
+  async function toggleMineFilter(next: "posts" | "comments") {
+    const turnOff = mineFilter === next;
+    setMineFilter(turnOff ? "" : next);
+    if (turnOff) return;
+    await ensureMineData(next);
+  }
+
+  // 필터에 필요한 데이터(내 id, 내 댓글 글 목록)를 없을 때만 받는다.
+  async function ensureMineData(next: "posts" | "comments") {
+    if (!meLoaded) {
+      try {
+        const r = await cfetch("/api/auth/me", { credentials: "include" });
+        const d = r.ok ? await r.json() : null;
+        setMeId(d?.user?.id ?? null);
+      } catch {
+        setMeId(null);
+      } finally {
+        setMeLoaded(true);
+      }
+    }
+    if (next === "comments" && myCommentByPost === null) {
+      try {
+        const r = await cfetch("/api/me/comments", { credentials: "include" });
+        const d = r.ok ? await r.json() : { comments: [] };
+        const m = new Map<string, string>();
+        for (const c of d.comments || []) if (!m.has(c.postId)) m.set(c.postId, c.content); // 최신순이라 첫 것이 최신
+        setMyCommentByPost(m);
+      } catch {
+        setMyCommentByPost(new Map());
+      }
+    }
+  }
+
+  async function loadPosts() {
+    const key = postsKey(selectedGroupId, query);
+    // 캐시가 있으면 즉시 표시하고 로딩을 띄우지 않는다(백그라운드 재검증).
+    const cached = clientCache.get<CommunityPost[]>(key);
+    if (cached) {
+      setPosts(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    try {
+      const params = new URLSearchParams();
+      if (selectedGroupId) params.set("groupId", selectedGroupId);
+      if (query.trim()) params.set("q", query.trim());
+      const response = await cfetch(`/api/community/posts?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "게시글을 불러오지 못했습니다.");
+      const fresh = data.posts || [];
+      // 달라졌을 때만 갱신(데이터 변동 시에만 리렌더).
+      if (clientCache.set(key, fresh)) setPosts(fresh);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "게시글을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadWeeklyPopular() {
+    try {
+      const response = await cfetch("/api/community/posts?popular=week");
+      const data = await response.json();
+      if (response.ok) {
+        const fresh = data.posts || [];
+        if (clientCache.set("community-weekly", fresh)) setWeeklyPosts(fresh);
+      }
+    } catch {
+      // 주간 인기글은 보조 섹션이라 실패해도 조용히 무시한다.
+    }
+  }
+
+  // 필터는 전체 탭·검색 없음일 때만 유효(칩이 그때만 보이므로).
+  const activeMineFilter = !selectedGroupId && !query.trim() ? mineFilter : "";
+  const visiblePosts: CommunityPost[] =
+    activeMineFilter === "posts"
+      ? posts.filter((p) => !!meId && p.userId === meId)
+      : activeMineFilter === "comments"
+        ? posts
+            .filter((p) => !!myCommentByPost && myCommentByPost.has(p.id))
+            .map((p) => ({ ...p, topComment: { id: "mine-" + p.id, nickname: "내 댓글", content: myCommentByPost!.get(p.id) || "", likeCount: 0, pinned: false } }))
+        : posts;
+
+  function openPost(postId: string) {
+    // 넓은 화면에서는 페이지를 갈아엎지 않고 우측 패널로 연다 — 목록 자리를 지킨 채
+    // 글을 훑어볼 수 있다. 좁은 화면은 예전처럼 상세 페이지로 이동한다.
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      setPanelPostId(postId);
+      return;
+    }
+    // 상세로 가기 전 현재 스크롤 위치를 저장해 두고, 돌아오면 그 자리로 복원한다.
+    try { sessionStorage.setItem("community-scroll", String(window.scrollY)); } catch {}
+    router.push(`/community/${postId}`);
+  }
+
+  // 주간 인기글 슬라이드에서 현재 보이는(가장 왼쪽에 스냅된) 카드 인덱스를 추적해
+  // 하단 인디케이터에 반영한다.
+  function handleWeeklyScroll() {
+    const track = weeklyTrackRef.current;
+    if (!track) return;
+    const cards = Array.from(track.children) as HTMLElement[];
+    if (cards.length === 0) return;
+    const trackLeft = track.getBoundingClientRect().left;
+    let nearest = 0;
+    let min = Infinity;
+    cards.forEach((card, i) => {
+      const d = Math.abs(card.getBoundingClientRect().left - trackLeft);
+      if (d < min) { min = d; nearest = i; }
+    });
+    setWeeklyActiveIndex(nearest);
+    setWeeklyAtEnd(track.scrollLeft >= track.scrollWidth - track.clientWidth - 4);
+  }
+
+  // 주간 인기글 2.4초마다 자동 전환(자동 스와이프). 끝에 닿으면 방향을 뒤집어(핑퐁) 순환.
+  useEffect(() => {
+    if (weeklyPosts.length <= 1) return;
+    // 방향 전환 기준은 카드 '인덱스'가 아니라 실제 스크롤 경계(maxScroll·0)다.
+    // 태블릿처럼 뷰포트가 넓으면 마지막 카드들이 왼쪽 끝에 못 붙어(뒤에 콘텐츠가 없음)
+    // 스크롤은 maxScroll 에서 포화되는데, 왼쪽 최근접 카드 인덱스는 중간에서 멈춘다.
+    // 인덱스로만 뒤집으면 그 지점에서 매 틱 제자리 클램프 → '중간에서 멈춤'(태블릿 리포트 2026-08-27).
+    const EPS = 4;
+    let dir: 1 | -1 = 1;
+    const stepTo = (track: HTMLDivElement, cards: HTMLElement[], cur: number, d: 1 | -1) => {
+      const trackLeft = track.getBoundingClientRect().left;
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      const idx = Math.max(0, Math.min(cards.length - 1, cur + d));
+      const target = Math.max(
+        0,
+        Math.min(maxScroll, track.scrollLeft + (cards[idx].getBoundingClientRect().left - trackLeft))
+      );
+      return target;
+    };
+    const id = window.setInterval(() => {
+      const track = weeklyTrackRef.current;
+      if (!track) return;
+      const cards = Array.from(track.children) as HTMLElement[];
+      if (cards.length <= 1) return;
+      const trackLeft = track.getBoundingClientRect().left;
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      // 이미 경계에 닿아 있으면 먼저 방향을 뒤집는다.
+      if (dir === 1 && track.scrollLeft >= maxScroll - EPS) dir = -1;
+      else if (dir === -1 && track.scrollLeft <= EPS) dir = 1;
+      let cur = 0;
+      let min = Infinity;
+      cards.forEach((card, i) => {
+        const d = Math.abs(card.getBoundingClientRect().left - trackLeft);
+        if (d < min) { min = d; cur = i; }
+      });
+      let target = stepTo(track, cards, cur, dir);
+      // 클램프로 제자리면(경계에서 더 못 감) 방향을 뒤집어 반대편 카드로 간다 — 멈춤 방지.
+      if (Math.abs(target - track.scrollLeft) < EPS) {
+        dir = dir === 1 ? -1 : 1;
+        target = stepTo(track, cards, cur, dir);
+        if (Math.abs(target - track.scrollLeft) < EPS) return; // 이동할 곳이 없으면(카드 1~2개) 대기
+      }
+      track.scrollTo({ left: target, behavior: "smooth" });
+    }, 2400);
+    return () => window.clearInterval(id);
+  }, [weeklyPosts.length]);
+
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === selectedGroupId),
+    [groups, selectedGroupId]
+  );
+  // 목록 이미지는 전부 lazy 인데, 그중 처음 보이는 한 장만 예외로 즉시 받는다(LCP).
+  // 맨 위 글에 이미지가 없는 경우가 흔해서 "이미지가 있는 첫 글"을 기준으로 잡는다.
+  const firstImagePostIndex = useMemo(
+    () => posts.findIndex((post) => post.imageUrls.length > 0),
+    [posts]
+  );
+  return (
+    <main className="community-page" style={{ "--community-header-height": `${topbarHeight}px` } as CSSProperties}>
+      {/* 커뮤니티 진입 시 하단에서 올라오는 친구초대 시트(일주일 동안 안보기 지원) */}
+      {/* 첫 진입 배너(X = 3일 동안 안 보기) — 초대 시트보다 위에 뜬다 */}
+      <header ref={topbarRef} className={`community-topbar${compactHeader ? " is-compact" : ""}`}>
+        <div className="community-topbar-inner">
+          <div className="community-title-wrap">
+            <h1 className="community-title">커뮤니티</h1>
+          </div>
+          {/* 모바일: 제목 줄 아래 따로 있던 카테고리 탭을 헤더 한 줄로 합친다(세로 공간 절약). */}
+          <div className="community-mobile-filters">
+            <CategoryChips
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelect={(id) => setSelectedGroupId(id)}
+            />
+          </div>
+          {/* 넓은 화면: 아이콘 버튼 대신 헤더에 검색창을 그대로 편다. */}
+          <div className="community-search-inline">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
+              <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="무엇을 검색하실건가요?"
+              aria-label="커뮤니티 검색"
+            />
+            {query && (
+              <button type="button" className="community-search-clear" onClick={() => setQuery("")} aria-label="검색어 지우기">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="community-icon-button"
+            onClick={() => {
+              if (searchOpen) setQuery("");
+              setSearchOpen((current) => !current);
+            }}
+            aria-label="커뮤니티 검색"
+            title="검색"
+            style={iconButtonStyle}
+          >
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
+              <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        {searchOpen && (
+          <input
+            className="community-search-input"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={selectedGroup ? `${selectedGroup.name}에서 검색` : "커뮤니티 검색"}
+            autoFocus
+            style={searchStyle}
+          />
+        )}
+      </header>
+
+      <div className="community-layout">
+        <aside className="community-filter-panel">
+          <div className="community-filter-block">
+            <CategoryChips
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelect={(id) => setSelectedGroupId(id)}
+              stacked
+            />
+          </div>
+        </aside>
+
+        <section className="community-feed">
+          {message && (
+            <div className="community-message">
+              {message}
+            </div>
+          )}
+
+          {!selectedGroupId && !query.trim() && weeklyPosts.length > 0 && (
+            <section className="weekly-popular" aria-label="주간 인기글">
+              <h2 className="weekly-popular-title" role="tablist" aria-label="게시글 보기">
+                {/* 텍스트 탭 — 버튼 느낌 없이 글자만. 선택된 항목은 검정, 나머지는 회색. */}
+                {([
+                  { key: "", label: "주간 인기글" },
+                  { key: "posts", label: "내가 쓴 글" },
+                  { key: "comments", label: "내가 쓴 댓글" },
+                ] as const).map((t) => {
+                  const on = mineFilter === t.key;
+                  return (
+                    <button
+                      key={t.key || "weekly"}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      className={`wp-tab${on ? " is-on" : ""}`}
+                      onClick={() => (t.key ? toggleMineFilter(t.key) : setMineFilter(""))}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </h2>
+              {!mineFilter && (
+              <>
+              <div className="weekly-popular-viewport">
+                <div className="weekly-popular-track" ref={weeklyTrackRef} onScroll={handleWeeklyScroll}>
+                {weeklyPosts.map((post, index) => (
+                  <button
+                    key={post.id}
+                    type="button"
+                    className="weekly-popular-card"
+                    onClick={() => openPost(post.id)}
+                    // 비활성 카드는 '축소'가 아니라 '흐리게'로 구분한다. scale 은 슬라이드 중
+                    // 카드가 중심으로 줄며 빠져나가 좌측이 잘려 보였다(크기 변화=지오메트리 변형).
+                    style={{ opacity: index === weeklyActiveIndex ? 1 : 0.5 }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="weekly-popular-medal"
+                      src={`/icons/community/medal-${Math.min(index + 1, 5)}.svg`}
+                      alt={`${index + 1}위`}
+                      width={44}
+                      height={44}
+                    />
+                    <span className="weekly-popular-top">
+                      <span className="weekly-popular-group">{post.groupName}</span>
+                    </span>
+                    <span className="weekly-popular-card-title">{post.title}</span>
+                    <span className="weekly-popular-card-content">{post.content}</span>
+                    <span className="weekly-popular-card-metrics">
+                      <span><HeartIcon /> {post.likeCount || 0}</span>
+                      <span><CommentIcon /> {post.commentCount || 0}</span>
+                      <span><EyeIcon /> {post.viewCount || 0}</span>
+                    </span>
+                  </button>
+                ))}
+                </div>
+                <div className="weekly-edge weekly-edge-right" aria-hidden="true" style={{ opacity: weeklyAtEnd ? 0 : 1 }} />
+              </div>
+              {weeklyPosts.length > 1 && (
+                <div className="weekly-popular-dots" aria-hidden="true">
+                  {weeklyPosts.map((post, index) => (
+                    <span key={post.id} className={index === weeklyActiveIndex ? "weekly-dot active" : "weekly-dot"} />
+                  ))}
+                </div>
+              )}
+              </>
+              )}
+            </section>
+          )}
+
+          <div className="community-post-list">
+            {loading ? (
+              <>
+                <SkeletonPost />
+                <SkeletonPost />
+              </>
+            ) : visiblePosts.length === 0 ? (
+              <div style={emptyPanelStyle}>
+                <p style={{ margin: 0, color: "var(--c-text-3)", fontSize: 14, fontWeight: 500 }}>
+                  {activeMineFilter && meLoaded && !meId
+                    ? "로그인하면 내 글과 댓글을 모아볼 수 있어요."
+                    : activeMineFilter === "posts"
+                      ? "내가 쓴 글이 아직 없어요."
+                      : activeMineFilter === "comments"
+                        ? (myCommentByPost === null ? "불러오는 중이에요." : "댓글을 남긴 글이 아직 없어요.")
+                        : "아직 게시글이 없습니다."}
+                </p>
+              </div>
+            ) : (
+              visiblePosts.map((post, postIndex) => (
+                <article
+                  key={post.id}
+                  className="community-post-card"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${post.title} 상세 보기`}
+                  onClick={() => openPost(post.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openPost(post.id);
+                    }
+                  }}
+                >
+                  <div className="community-post-head">
+                    <div className="community-avatar" aria-hidden="true">
+                      {post.authorIsAdmin ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src="/icons/stady-app-icon.svg" alt="" className="community-avatar-img" />
+                      ) : post.avatar ? (
+                        // 카톡 등 프로필 사진. 없으면 닉네임 첫 글자.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={post.avatar} alt="" className="community-avatar-photo" referrerPolicy="no-referrer" />
+                      ) : (
+                        post.nickname.slice(0, 1)
+                      )}
+                    </div>
+                    <div>
+                      <p className="community-post-author">{post.nickname}<TierBadge tier={post.authorTier} /><KingBadges answer={post.authorIsAnswerKing} pick={post.authorIsPickKing} /></p>
+                      <p className="community-post-date" title={formatExactTime(post.createdAt)}>{formatRelativeTime(post.createdAt)}</p>
+                    </div>
+                    <span className="community-group-badge">{post.groupName}</span>
+                  </div>
+                  <h2 className="community-post-title">
+                    {post.type === "poll" && (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          marginRight: 6,
+                          padding: "2px 8px 2px 5px",
+                          borderRadius: 999,
+                          background: "var(--c-brand-soft-4)",
+                          color: "var(--c-brand-deep-2)",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/icons/community/chart-vote.svg" alt="" width={14} height={14} style={{ display: "block" }} />
+                        투표
+                      </span>
+                    )}
+                    {post.type === "quiz" && (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          marginRight: 6,
+                          padding: "2px 8px 2px 5px",
+                          borderRadius: 999,
+                          background: "var(--c-brand-soft-4)",
+                          color: "var(--c-brand-deep-2)",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/icons/community/ox-quiz.svg" alt="OX" width={15} height={15} style={{ display: "block" }} />
+                        퀴즈
+                      </span>
+                    )}
+                    {post.groupSlug === "qna" && <QBadge answered={post.commentCount > 0} />}
+                    {post.title}
+                  </h2>
+                  <p className="community-post-content">{post.content}</p>
+                  {post.type === "poll" && post.poll && post.poll.options.length > 0 && (
+                    <FeedPoll
+                      poll={post.poll}
+                      voting={votingPostId === post.id}
+                      onVote={(optionId) => votePoll(post.id, optionId)}
+                    />
+                  )}
+                  {post.type === "quiz" && post.quiz && post.quiz.questions.length > 0 && (
+                    <FeedQuiz
+                      quiz={post.quiz}
+                      busyQuestionId={answeringQuizId}
+                      onAnswer={(questionId, answer) => answerQuiz(post.id, questionId, answer)}
+                    />
+                  )}
+                  {post.imageUrls.length > 0 && (
+                    <div className={post.imageUrls.length === 1 ? "community-post-image-single" : "community-post-image-grid"}>
+                      {post.imageUrls.slice(0, 4).map((imageUrl, index) => (
+                        <div key={imageUrl} className="community-post-image-thumb">
+                          <img
+                            src={imageUrl}
+                            alt={post.isBlinded ? "스포일러 이미지" : `${post.title} 이미지 ${index + 1}`}
+                            // 목록은 최신 100개 글을 한 번에 그리는데 화면에 보이는 건 두세 개뿐이다.
+                            // lazy 가 없던 동안은 화면 밖 이미지까지 전부 즉시 받아서, 진입 1회에
+                            // 실측 53.6MB 를 내려받았다(초기 뷰포트에 실제로 필요한 건 ~3MB).
+                            // 썸네일 칸은 CSS 로 aspect-ratio 가 고정돼 있어 지연 로드해도 레이아웃이 밀리지 않는다.
+                            // 화면에 처음 보이는 이미지가 LCP 후보다. lazy 는 프리로드 스캐너가
+                            // 못 집어 시작이 늦으므로 그 한 장만 예외로 즉시 받는다.
+                            // (맨 위 카드에 이미지가 없는 경우가 흔해서 "첫 카드"가 아니라
+                            //  "이미지가 있는 첫 카드" 기준으로 잡는다.)
+                            loading={postIndex === firstImagePostIndex && index === 0 ? "eager" : "lazy"}
+                            fetchPriority={postIndex === firstImagePostIndex && index === 0 ? "high" : undefined}
+                            decoding="async"
+                            style={post.isBlinded && !revealedBlind.has(post.id) ? { filter: "blur(18px)", transform: "scale(1.05)" } : undefined}
+                          />
+                          {post.isBlinded && !revealedBlind.has(post.id) && (
+                            <BlindNoiseCover
+                              onReveal={() =>
+                                setRevealedBlind((prev) => {
+                                  const next = new Set(prev);
+                                  next.add(post.id);
+                                  return next;
+                                })
+                              }
+                            />
+                          )}
+                          {index === 3 && post.imageUrls.length > 4 && !(post.isBlinded && !revealedBlind.has(post.id)) && (
+                            <span>+{post.imageUrls.length - 4}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="community-post-tags">
+                    {post.tags.map((tag) => (
+                      <span key={tag.id} className="community-tag-badge">
+                        #{tag.name}
+                      </span>
+                    ))}
+                  </div>
+                  {post.topComment && (
+                    <div className="community-top-comment">
+                      {post.topComment.pinned && (
+                        <svg className="ctc-pin" width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                          <path d="M12 15v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      )}
+                      {!post.topComment.pinned && <CommentIcon />}
+                      <span className="ctc-body">
+                        <b>{post.topComment.nickname}</b> {post.topComment.content}
+                      </span>
+                      {post.commentCount > 1 && (
+                        <span className="ctc-more">댓글 {post.commentCount}</span>
+                      )}
+                    </div>
+                  )}
+                  {(post.likeCount || 0) >= 3 && (post.likers?.length || 0) > 0 && (
+                    <LikerStack likers={post.likers!} count={post.likeCount} />
+                  )}
+                  <div className="community-post-metrics">
+                    <button
+                      type="button"
+                      className={`community-metric-btn${post.myReaction ? " is-liked" : ""}`}
+                      aria-pressed={!!post.myReaction}
+                      disabled={likingPostId === post.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleLike(post);
+                      }}
+                    >
+                      <HeartIcon /> 좋아요 {post.likeCount || 0}
+                    </button>
+                    <button
+                      type="button"
+                      className="community-metric-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setCommentModalPost(post);
+                      }}
+                    >
+                      <CommentIcon /> 댓글 {post.commentCount || 0}
+                    </button>
+                    <span>
+                      <EyeIcon /> 조회 {post.viewCount || 0}
+                    </span>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div style={floatingWriteDockStyle}>
+        <button
+          type="button"
+          className="community-floating-write"
+          onClick={() => setComposeOpen(true)}
+          style={floatingWriteButtonStyle}
+        >
+          게시글 +
+        </button>
+      </div>
+      <CommunityStyles />
+      {/* 당겨서 새로고침 — 이모지가 통통 튀며 바뀐다(스피너 대신) */}
+      <PullToRefresh
+        offsetTop={topbarHeight}
+        onRefresh={async () => {
+          clientCache.clearPrefix("community-");
+          await Promise.all([loadPosts(), loadWeeklyPopular()]);
+        }}
+      />
+
+      {/* 넓은 화면 전용 상세 패널 — 목록을 그대로 둔 채 오른쪽을 덮는다.
+          상세 화면 컴포넌트를 그대로 재사용하고, 그 안의 fixed 상단바만 패널 기준으로 눕힌다. */}
+      {panelPostId && (
+        <>
+          <div
+            className="community-panel-scrim"
+            onClick={() => setPanelPostId(null)}
+            aria-hidden="true"
+          />
+          <aside className="community-panel" role="dialog" aria-label="게시글 상세" aria-modal="false">
+            <button
+              type="button"
+              className="community-panel-close press"
+              onClick={() => setPanelPostId(null)}
+              aria-label="상세 닫기"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </svg>
+            </button>
+            <div className="community-panel-body">
+              <CommunityPostDetailClient key={panelPostId} postId={panelPostId} />
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* 스레드 스타일 글 작성 모달 */}
+      {composeOpen && (
+        <CommunityComposeModal
+          initialContent={composePreset?.text}
+          initialGroupSlug={composePreset?.group}
+          onClose={() => { setComposeOpen(false); setComposePreset(null); }}
+          onPosted={() => { setComposeOpen(false); setComposePreset(null); loadPosts(); loadWeeklyPopular(); }}
+        />
+      )}
+
+      {/* 목록에서 바로 여는 댓글 모달(상세 진입 불필요) */}
+      {commentModalPost && (
+        <CommentModal
+          post={commentModalPost}
+          onClose={() => setCommentModalPost(null)}
+          onCountChange={(delta) => bumpCommentCount(commentModalPost.id, delta)}
+        />
+      )}
+    </main>
+  );
+}
+
+// 카테고리 이름별 아이콘(public/icons/cg-*.svg). 활성 칩은 배경이 어두워서
+// 흰색(-on) 버전을 쓴다. 표에 없는 새 카테고리는 태그 아이콘으로 대체.
+const GROUP_ICONS: Record<string, string> = {
+  자유게시판: "cg-free",
+  예식준비: "cg-admission",
+  사회자이야기: "cg-college",
+  "후기/자랑": "cg-suggest",
+  질문답변: "cg-question",
+  정보공유: "cg-notice",
+};
+function groupIcon(name: string): string {
+  return GROUP_ICONS[name.trim()] ?? "cg-etc";
+}
+
+// 좋아요 3명 이상일 때 누른 사람 프로필을 겹쳐 보여준다(사진 없으면 첫 글자).
+function LikerStack({ likers, count }: { likers: Liker[]; count: number }) {
+  const show = likers.slice(0, 4);
+  return (
+    <div className="liker-stack" aria-label={`${count}명이 좋아요`}>
+      <span className="liker-avatars">
+        {show.map((u, i) => (
+          <span key={u.userId} className="liker-av" style={{ marginLeft: i === 0 ? 0 : -8, zIndex: show.length - i }}>
+            {u.avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={u.avatar} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="liker-letter">{u.nickname.slice(0, 1)}</span>
+            )}
+          </span>
+        ))}
+      </span>
+      <span className="liker-count">{count}명이 좋아요를 눌렀어요</span>
+    </div>
+  );
+}
+
+function CategoryChips({
+  groups,
+  selectedGroupId,
+  onSelect,
+  stacked = false,
+}: {
+  groups: CategoryGroup[];
+  selectedGroupId: string;
+  onSelect: (id: string) => void;
+  stacked?: boolean;
+}) {
+  const items = [{ id: "", name: "전체", icon: "cg-all" }, ...groups.map((g) => ({ id: g.id, name: g.name, icon: groupIcon(g.name) }))];
+  // 가로로 더 볼 게 남았을 때만 우측을 페이드한다(끝까지 밀면 마지막 탭이 흐려지지 않게).
+  const railRef = useRef<HTMLElement | null>(null);
+  const [atEnd, setAtEnd] = useState(false);
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    const update = () => setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [items.length]);
+
+  return (
+    <nav
+      ref={railRef}
+      className={`tabrail${stacked ? " is-stacked" : ""}${atEnd ? " is-end" : ""}`}
+      aria-label="커뮤니티 카테고리"
+    >
+      {items.map((it) => {
+        const on = selectedGroupId === it.id;
+        return (
+          <button
+            key={it.id || "all"}
+            type="button"
+            className={`tabrail-item${on ? " is-on" : ""}`}
+            onClick={() => onSelect(it.id)}
+            aria-current={on ? "true" : undefined}
+          >
+            <span className="tabrail-ico">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/icons/${it.icon}${on ? "-on" : ""}.svg`} alt="" width={24} height={24} />
+            </span>
+            <span className="tabrail-label">{it.name}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function SkeletonPost() {
+  return (
+    <div className="community-post-card community-skeleton-card" aria-hidden="true">
+      <div className="community-skeleton-line" style={{ width: "38%" }} />
+      <div className="community-skeleton-line" style={{ width: "72%", height: 18 }} />
+      <div className="community-skeleton-line" style={{ width: "100%" }} />
+      <div className="community-skeleton-line" style={{ width: "58%" }} />
+    </div>
+  );
+}
+
+// 아이콘은 사용자가 준 토스 mono 세트(채움형). 색은 currentColor 로 둬서
+// 옆 수치 텍스트 색·다크모드를 그대로 따라간다.
+function HeartIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M10.9038 21.2884C11.5698 21.7284 12.4288 21.7284 13.0938 21.2884C15.2088 19.8924 19.8138 16.5554 21.7978 12.8214C24.4128 7.89542 21.3418 2.98242 17.2818 2.98242C14.9678 2.98242 13.5758 4.19142 12.8058 5.23042C12.4818 5.67542 11.8588 5.77442 11.4128 5.45042C11.3278 5.38942 11.2538 5.31442 11.1928 5.23042C10.4228 4.19142 9.03076 2.98242 6.71676 2.98242C2.65676 2.98242 -0.414244 7.89542 2.20176 12.8214C4.18376 16.5554 8.79076 19.8924 10.9038 21.2884Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function CommentIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12.0001 2C6.42809 2 1.91309 6.131 1.91309 11.126C1.91309 13.528 2.97009 15.737 4.69909 17.37L3.83409 21.405C3.73809 21.789 4.12209 22.077 4.50609 21.981L9.02109 19.868C9.98209 20.156 10.9421 20.252 11.9991 20.252C17.5711 20.252 22.0861 16.121 22.0861 11.126C22.0861 6.131 17.5721 2 12.0001 2Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path fillRule="evenodd" clipRule="evenodd" d="M12.1251 9.22461C10.5251 9.22461 9.2251 10.5246 9.2251 12.1246C9.2251 13.7246 10.5251 15.0246 12.1251 15.0246C13.7251 15.0246 15.0251 13.7246 15.0251 12.1246C15.0251 10.5246 13.7251 9.22461 12.1251 9.22461Z" fill="currentColor" />
+      <path fillRule="evenodd" clipRule="evenodd" d="M12.125 17.1248C9.325 17.1248 7.125 14.8248 7.125 12.1248C7.125 9.4248 9.425 7.1248 12.125 7.1248C14.825 7.1248 17.125 9.4248 17.125 12.1248C17.125 14.8248 14.925 17.1248 12.125 17.1248ZM23.125 10.8248C20.525 6.8248 16.425 4.4248 12.125 4.4248C7.825 4.4248 3.725 6.8248 1.125 10.8248C0.625 11.6248 0.625 12.6248 1.125 13.4248C3.725 17.4248 7.825 19.8248 12.125 19.8248C16.425 19.8248 20.525 17.4248 23.125 13.4248C23.725 12.6248 23.725 11.6248 23.125 10.8248Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// O / X 표시는 글자가 아니라 도형으로 그린다(폰트에 따라 모양이 달라지지 않게).
+function OXMark({ o, size = 20 }: { o: boolean; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block" }}>
+      {o ? (
+        <circle cx="12" cy="12" r="7.6" stroke="currentColor" strokeWidth="3.2" />
+      ) : (
+        <g stroke="currentColor" strokeWidth="3.2" strokeLinecap="round">
+          <line x1="6.2" y1="6.2" x2="17.8" y2="17.8" />
+          <line x1="17.8" y1="6.2" x2="6.2" y2="17.8" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+// 목록 인라인 OX 퀴즈 — 문제마다 O / X 버튼. 고르면 바로 정답·오답과 응답 비율이 보인다.
+// 한 번 고른 답은 못 바꾼다(서버도 같은 규칙). 카드 클릭(상세 이동)으로 번지지 않게 막는다.
+function FeedQuiz({
+  quiz,
+  busyQuestionId,
+  onAnswer,
+}: {
+  quiz: CommunityQuiz;
+  busyQuestionId: string | null;
+  onAnswer: (questionId: string, answer: boolean) => void;
+}) {
+  const total = quiz.questions.length;
+  return (
+    <div
+      className="feed-quiz"
+      role="group"
+      aria-label="OX 퀴즈"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      style={{ display: "grid", gap: 8, margin: "2px 0" }}
+    >
+      {quiz.questions.map((q) => {
+        const solved = q.myAnswer !== null;
+        const correct = solved && q.myAnswer === q.correctAnswer;
+        const answers = q.oCount + q.xCount;
+        return (
+          <div
+            key={q.id}
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: "2px 0",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--c-text-2e)", lineHeight: 1.45 }}>
+              {q.text}
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {([true, false] as const).map((val) => {
+                const picked = q.myAnswer === val;
+                const isAnswer = solved && q.correctAnswer === val;
+                const pct = answers > 0 ? Math.round(((val ? q.oCount : q.xCount) / answers) * 100) : 0;
+                return (
+                  <button
+                    key={String(val)}
+                    type="button"
+                    className="press"
+                    disabled={solved || busyQuestionId === q.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAnswer(q.id, val);
+                    }}
+                    style={{
+                      position: "relative",
+                      overflow: "hidden",
+                      // O / X 칸은 정사각(1:1)
+                      width: 44,
+                      height: 44,
+                      borderRadius: 13,
+                      border: "none",
+                      // 정답 칸은 그 칸의 색으로 테두리를 두르고, 내가 고른 오답은 흐리게 둔다.
+                      boxShadow: isAnswer
+                        ? `inset 0 0 0 2px ${val ? "var(--c-quiz-o-line)" : "var(--c-quiz-x-line)"}`
+                        : "none",
+                      background: val ? "var(--c-quiz-o-soft)" : "var(--c-quiz-x-soft)",
+                      color: val ? "var(--c-quiz-o)" : "var(--c-quiz-x)",
+                      opacity: solved && !isAnswer ? (picked ? 0.55 : 0.32) : 1,
+                      fontSize: 17,
+                      fontWeight: 800,
+                      cursor: solved ? "default" : "pointer",
+                      flexShrink: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <OXMark o={val} size={20} />
+                  </button>
+                );
+              })}
+              {solved ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, minWidth: 0 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: correct ? "var(--c-quiz-o)" : "var(--c-quiz-x)" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={correct ? "/icons/emoji/quiz-correct.svg" : "/icons/emoji/quiz-wrong.svg"}
+                      alt=""
+                      width={17}
+                      height={17}
+                      style={{ display: "block" }}
+                    />
+                    {correct ? "정답!" : "오답"}
+                  </span>
+                  <span style={{ color: "var(--c-text-4c)", fontWeight: 600 }}>
+                    O {answers > 0 ? Math.round((q.oCount / answers) * 100) : 0}% · X{" "}
+                    {answers > 0 ? Math.round((q.xCount / answers) * 100) : 0}%
+                  </span>
+                </span>
+              ) : (
+                <span style={{ fontSize: 12.5, color: "var(--c-text-4c)", fontWeight: 600 }}>O 또는 X를 골라보세요</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <p style={{ margin: 0, fontSize: 12.5, color: "var(--c-text-4c)", fontWeight: 700 }}>
+        {quiz.solvedCount > 0
+          ? `${total}문제 중 ${quiz.solvedCount}문제 풀이 · ${quiz.correctCount}개 정답`
+          : `${total}문제 · ${quiz.participantCount}명 참여`}
+      </p>
+    </div>
+  );
+}
+
+// 목록 인라인 투표 카드 — 데일리 퀴즈 옵션 톤(둥근 면 + 결과 채움 바).
+// 투표 전엔 깔끔한 선택지, 투표 후엔 퍼센트 바 + 내 선택 강조(체크). 상세 진입 불필요.
+function FeedPoll({
+  poll,
+  voting,
+  onVote,
+}: {
+  poll: CommunityPoll;
+  voting: boolean;
+  onVote: (optionId: string) => void;
+}) {
+  const voted = poll.myOptionId !== null;
+  const total = poll.totalVotes;
+  return (
+    <div
+      className="feed-poll"
+      role="group"
+      aria-label="투표"
+      // 카드 클릭(상세 이동)으로 번지지 않게 막는다 — 여기선 투표만.
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      style={{ display: "grid", gap: 7, margin: "2px 0" }}
+    >
+      {poll.options.map((opt) => {
+        const pct = total > 0 ? Math.round((opt.votes / total) * 100) : 0;
+        const mine = poll.myOptionId === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            className="feed-poll-option press"
+            disabled={voting}
+            onClick={(event) => {
+              event.stopPropagation();
+              onVote(opt.id);
+            }}
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              width: "100%",
+              minHeight: 46,
+              padding: "0 14px",
+              borderRadius: 14,
+              border: "none",
+              boxShadow: mine ? "inset 0 0 0 2px var(--c-brand)" : "none",
+              background: voted ? "var(--c-bg-soft-12)" : "var(--c-bg-muted-13)",
+              color: "var(--c-text-2e)",
+              fontSize: 15,
+              fontWeight: 600,
+              textAlign: "left",
+              cursor: voting ? "default" : "pointer",
+            }}
+          >
+            {voted && (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  width: `${pct}%`,
+                  background: mine ? "var(--c-brand-line-2)" : "var(--c-bg-muted)",
+                  transition: "width 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            )}
+            <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              {mine && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src="/icons/community/check.svg" alt="" width={16} height={16} style={{ display: "block", flexShrink: 0 }} />
+              )}
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opt.text}</span>
+            </span>
+            {voted && (
+              <span
+                style={{
+                  position: "relative",
+                  flexShrink: 0,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: mine ? "var(--c-brand-deep-2)" : "var(--c-text-4)",
+                }}
+              >
+                {pct}%
+              </span>
+            )}
+          </button>
+        );
+      })}
+      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--c-text-4)", paddingLeft: 2 }}>
+        {voted ? `총 ${total}표 · 다시 누르면 변경` : "눌러서 바로 투표"}
+      </span>
+    </div>
+  );
+}
+
+interface FeedComment {
+  id: string;
+  userId: string | null;
+  parentId: string | null;
+  nickname: string;
+  avatar?: string | null;
+  content: string;
+  createdAt: string;
+  likeCount: number;
+  likedByMe: boolean;
+  replies: FeedComment[];
+}
+
+// 댓글 정렬 옵션(백엔드 CommentSort 와 키 일치).
+const COMMENT_SORTS = [
+  { key: "newest", label: "최신순" },
+  { key: "oldest", label: "오래된순" },
+  { key: "popular", label: "인기순" },
+  { key: "recommended", label: "추천순" },
+] as const;
+type CommentSortKey = (typeof COMMENT_SORTS)[number]["key"];
+
+function countComments(list: FeedComment[]): number {
+  return list.reduce((sum, c) => sum + 1 + countComments(c.replies || []), 0);
+}
+
+function CommentRow({
+  c,
+  depth = 0,
+  meId,
+  onEdit,
+  onDelete,
+}: {
+  c: FeedComment;
+  depth?: number;
+  meId: string | null;
+  onEdit: (id: string, content: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const mine = !!meId && c.userId === meId;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(c.content);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function saveEdit() {
+    const next = draft.trim();
+    if (!next || busy) return;
+    setBusy(true);
+    try {
+      await onEdit(c.id, next);
+      setEditing(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function doDelete() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onDelete(c.id);
+    } finally {
+      setBusy(false);
+      setConfirmDel(false);
+    }
+  }
+
+  return (
+    <div style={{ paddingLeft: depth ? 14 : 0, marginTop: depth ? 10 : 0 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <span className="ccs-av" aria-hidden="true">
+          {c.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.avatar} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            c.nickname.slice(0, 1)
+          )}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="ccs-item">
+            <span className="ccs-name">{c.nickname}</span>
+            <span className="ccs-time">{formatRelativeTime(c.createdAt)}</span>
+            {mine && !editing && !confirmDel && (
+              <span className="ccs-actions">
+                <button type="button" className="ccs-action" onClick={() => { setDraft(c.content); setEditing(true); }}>수정</button>
+                <span className="ccs-action-dot">·</span>
+                <button type="button" className="ccs-action" onClick={() => setConfirmDel(true)}>삭제</button>
+              </span>
+            )}
+          </div>
+          {editing ? (
+            <div className="ccs-editbox">
+              <textarea
+                className="ccs-edit"
+                value={draft}
+                rows={2}
+                onChange={(e) => setDraft(e.target.value)}
+                onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; }}
+                aria-label="댓글 수정"
+                autoFocus
+              />
+              <div className="ccs-editbtns">
+                <button type="button" className="ccs-action" onClick={() => setEditing(false)} disabled={busy}>취소</button>
+                <button type="button" className="ccs-action is-primary" onClick={saveEdit} disabled={busy || !draft.trim()}>{busy ? "저장 중…" : "저장"}</button>
+              </div>
+            </div>
+          ) : (
+            <p className="ccs-content">{c.content}</p>
+          )}
+          {confirmDel && (
+            // 인앱 확인 — 안드로이드 WebView 는 window.confirm 이 동작하지 않는다.
+            <div className="ccs-confirm">
+              <span>댓글을 삭제할까요?</span>
+              <button type="button" className="ccs-action" onClick={() => setConfirmDel(false)} disabled={busy}>취소</button>
+              <button type="button" className="ccs-action is-danger" onClick={doDelete} disabled={busy}>{busy ? "삭제 중…" : "삭제"}</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {(c.replies || []).map((r) => (
+        <CommentRow key={r.id} c={r} depth={depth + 1} meId={meId} onEdit={onEdit} onDelete={onDelete} />
+      ))}
+    </div>
+  );
+}
+
+// 목록에서 상세 진입 없이 여는 댓글 모달(바텀시트) — 댓글 보기 + 작성.
+function CommentModal({
+  post,
+  onClose,
+  onCountChange,
+}: {
+  post: CommunityPost;
+  onClose: () => void;
+  onCountChange: (delta: number) => void; // 카드의 댓글 수 갱신(+1 등록, -1 삭제)
+}) {
+  const [comments, setComments] = useState<FeedComment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [sort, setSort] = useState<CommentSortKey>("popular");
+  const [meId, setMeId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // 안드로이드 WebView 는 키보드가 떠도 fixed 기준 화면을 줄이지 않아 입력창이 키보드 뒤로 숨는다.
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const keyboardInset = useKeyboardInset(true, overlayRef);
+
+  // 내 댓글에만 수정·삭제를 보이기 위해 내 id 를 받는다.
+  useEffect(() => {
+    let alive = true;
+    cfetch("/api/auth/me", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setMeId(d?.user?.id ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  async function editComment(id: string, content: string) {
+    setMsg("");
+    const res = await cfetch(`/api/community/comments/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setMsg(data.error || "댓글을 수정하지 못했습니다."); throw new Error("edit failed"); }
+    await load();
+  }
+
+  async function deleteComment(id: string) {
+    setMsg("");
+    const res = await cfetch(`/api/community/comments/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setMsg(data.error || "댓글을 삭제하지 못했습니다."); return; }
+    onCountChange(-1);
+    await load();
+  }
+
+  async function load(s: CommentSortKey = sort) {
+    try {
+      const res = await cfetch(
+        `/api/community/posts/${encodeURIComponent(post.id)}/comments?sort=${s}`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      if (res.ok) setComments(data.comments || []);
+    } catch {
+      /* 댓글을 못 받아도 모달은 열어둔다(작성은 가능) */
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load(sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, sort]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function submit() {
+    const content = text.trim();
+    if (!content || posting) return;
+    setPosting(true);
+    setMsg("");
+    try {
+      const res = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/comments`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "댓글을 저장하지 못했습니다.");
+      setText("");
+      if (inputRef.current) inputRef.current.style.height = "auto";
+      onCountChange(1);
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "댓글을 저장하지 못했습니다.");
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  const total = countComments(comments);
+
+  return (
+    <div ref={overlayRef} className="community-comment-modal" style={{ paddingBottom: keyboardInset }} onClick={onClose}>
+      {/* 키보드가 뜨면 남은 영역을 꽉 채운다 — 고정 높이로 두면 입력창이 시트 밖으로 밀려 잘린다. */}
+      <div
+        className="community-comment-sheet"
+        style={keyboardInset > 0 ? { height: "100%" } : undefined}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="댓글"
+      >
+        <div className="ccs-head">
+          <div style={{ minWidth: 0 }}>
+            <p className="ccs-title">댓글 {total}</p>
+            <p className="ccs-sub">{post.title}</p>
+          </div>
+          <button type="button" className="ccs-close" onClick={onClose} aria-label="닫기">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="ccs-sorts" role="tablist" aria-label="댓글 정렬">
+          {COMMENT_SORTS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={`ccs-sort${sort === s.key ? " is-on" : ""}`}
+              aria-selected={sort === s.key}
+              onClick={() => setSort(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="ccs-list">
+          {loading ? (
+            <p className="ccs-empty">불러오는 중이에요.</p>
+          ) : comments.length === 0 ? (
+            <div className="ccs-empty ccs-empty-sleep">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/toss/sleeping.svg" alt="" width={44} height={44} />
+              <p>댓글이 자고있나봐요<br />깨워주세요!</p>
+            </div>
+          ) : (
+            comments.map((c) => <CommentRow key={c.id} c={c} meId={meId} onEdit={editComment} onDelete={deleteComment} />)
+          )}
+        </div>
+        {msg && <p className="ccs-msg">{msg}</p>}
+        <div className="ccs-compose">
+          {/* 글자가 너비를 넘으면 줄바꿈되며 높이가 늘어난다(최대 120px, 그 뒤는 스크롤). Enter=등록, Shift+Enter=줄바꿈 */}
+          <textarea
+            ref={inputRef}
+            value={text}
+            rows={1}
+            onChange={(e) => setText(e.target.value)}
+            onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="댓글을 입력하세요"
+            className="ccs-input"
+            aria-label="댓글 입력"
+          />
+          <button type="button" className="ccs-submit" onClick={submit} disabled={posting || !text.trim()}>
+            등록
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommunityStyles() {
+  return (
+    <style>{`
+      /* ── 넓은 화면 상세 패널 ─────────────────────────────────
+         목록을 그대로 둔 채 오른쪽 38% 를 덮는다. 1024px 미만에서는 아예 쓰지 않는다
+         (openPost 가 그 폭에서는 기존처럼 상세 페이지로 보낸다). */
+      .community-panel-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: rgba(15, 23, 42, 0.28);
+        animation: communityPanelFade 0.18s ease;
+      }
+      .community-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 91;
+        width: 38%;
+        min-width: 420px;
+        height: 100vh;
+        background: var(--c-bg);
+        border-left: 1px solid var(--c-border);
+        box-shadow: -18px 0 44px rgba(15, 23, 42, 0.16);
+        display: flex;
+        flex-direction: column;
+        animation: communityPanelIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .community-panel-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      /* 상세 화면의 상단바는 뷰포트 기준 fixed(폭 720px)라 그대로 두면 패널 밖으로 삐져나간다.
+         패널 안에서는 흐름 위에 얹히는 sticky 로 눕힌다. */
+      .community-panel .community-detail-topbar {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        max-width: none;
+        left: auto;
+        transform: none;
+      }
+      /* 상세가 페이지 단독일 때 쓰는 상단 여백은 패널 안에서 불필요하다. */
+      .community-panel .community-detail-page {
+        padding-top: 0;
+        min-height: 0;
+      }
+      /* 상세 화면의 shell 은 '화면에 고정된 헤더' 자리를 비워두려고 padding-top 을 갖고 있다.
+         패널 안에서는 헤더를 sticky(문서 흐름 안)로 눕혔으므로 그 여백이 그대로 남으면
+         헤더 아래에 빈 줄이 하나 더 생겨 헤더가 두 개처럼 보인다 → 여백을 걷어낸다. */
+      .community-panel .community-detail-shell {
+        padding-top: 0;
+      }
+      .community-panel-close {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: none;
+        background: var(--c-bg-muted);
+        color: var(--c-text-3);
+        cursor: pointer;
+      }
+      @keyframes communityPanelIn {
+        from { transform: translateX(24px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes communityPanelFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .community-panel, .community-panel-scrim { animation: none; }
+      }
+
+      .community-page {
+        min-height: 100vh;
+        background: var(--c-bg);
+        color: var(--c-text);
+        padding-top: var(--community-header-height, 0px);
+        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+      }
+      .community-topbar {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        z-index: 80;
+        width: min(100vw, 720px);
+        max-width: 720px;
+        box-sizing: border-box;
+        display: grid;
+        gap: 12px;
+        transform: translateX(-50%);
+        background: var(--c-bg);
+        border-bottom: 1px solid var(--c-bg-muted-6);
+        padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
+        transition: gap 0.24s cubic-bezier(0.22, 1, 0.36, 1), padding 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      /* 스크롤을 내리면 카테고리 탭이 '아이콘 위·라벨 아래'에서 '아이콘 옆 라벨'로
+         접히며 헤더가 그만큼 낮아진다. flex-direction은 애니메이션이 안 되므로
+         라벨을 절대배치로 두고 위치·크기만 바꾼다 → 매 프레임 부드럽게 이어진다.
+         (--cw = 접혔을 때 항목 너비. 라벨 길이가 달라 마운트 후 JS로 재서 넣는다) */
+      .community-topbar .tabrail-item {
+        position: relative;
+        flex-direction: row;
+        justify-content: flex-start;
+        width: 64px;
+        height: 67px;
+        padding: 0;
+        transition: width 0.26s cubic-bezier(0.22, 1, 0.36, 1), height 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      /* 부드럽게: 위치·크기 변화를 레이아웃 속성(left/top/width/height/font-size) 대신
+         transform 으로 준다. font-size 애니메이션은 매 프레임 글자를 다시 래스터라이즈해
+         '프레임 보이는' 끊김의 주범이라 scale 로 대체한다. */
+      .community-topbar .tabrail-ico {
+        position: absolute;
+        left: 0;
+        top: 0;
+        /* 40px 아이콘을 64px 항목 안에서 가로 중앙·상단(4px)에 */
+        transform: translate(12px, 4px);
+        transform-origin: top left;
+        will-change: transform;
+        transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), background 0.16s ease;
+      }
+      .community-topbar .tabrail-label {
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 12.5px;
+        /* 항목(64px) 하단 중앙: 가로 중앙은 부모 폭에 의존하므로 %가 필요하지만,
+           transform 으로만 옮겨 레이아웃을 안 건드린다. */
+        transform: translate(calc(32px - 50%), 46px) scale(0.88);
+        transform-origin: left top;
+        will-change: transform;
+        transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), color 0.16s ease;
+      }
+      .community-topbar.is-compact .tabrail-item {
+        width: var(--cw, 96px);
+        height: 36px;
+      }
+      .community-topbar.is-compact .tabrail-ico {
+        transform: translate(3px, 3px) scale(0.75);
+      }
+      .community-topbar.is-compact .tabrail-label {
+        transform: translate(38px, 11px) scale(1);
+      }
+      /* 전역 .tabrail-item:active .tabrail-ico { transform: scale(0.94) } 가 위치 transform 을
+         덮어써 탭 누를 때 아이콘이 튀는 걸 막는다 — 위치는 유지하고 눌림만 살짝. */
+      .community-topbar .tabrail-item:active .tabrail-ico {
+        transform: translate(12px, 4px) scale(0.95);
+      }
+      .community-topbar.is-compact .tabrail-item:active .tabrail-ico {
+        transform: translate(3px, 3px) scale(0.71);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .community-topbar {
+          transition: none;
+        }
+      }
+      .community-topbar-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        /* grid 자식이라 min-width:auto 면 내용(탭 레일) 때문에 헤더가 화면 밖으로 넘친다. */
+        min-width: 0;
+        max-width: 1120px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      /* 폰에서는 숨기고 아이콘 버튼을 쓴다(아래 미디어쿼리에서 뒤바뀜). */
+      .community-search-inline {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        flex: 1 1 auto;
+        max-width: 420px;
+        margin-left: auto;
+        height: 44px;
+        padding: 0 14px;
+        border-radius: 14px;
+        background: var(--c-bg-muted-2);
+        border: 1px solid transparent;
+        color: var(--c-text-4b);
+        box-sizing: border-box;
+        transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      }
+      .community-search-inline:focus-within {
+        background: var(--c-bg);
+        border-color: var(--c-brand);
+        box-shadow: 0 0 0 3px rgba(55, 135, 255, 0.12);
+      }
+      .community-search-inline input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: none;
+        outline: none;
+        font-size: 15px;
+        font-family: inherit;
+        color: var(--c-text-b);
+        letter-spacing: -0.2px;
+      }
+      .community-search-inline input::placeholder {
+        color: var(--c-text-4b);
+      }
+      .community-search-clear {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: none;
+        border-radius: 999px;
+        background: var(--c-bg-muted-21);
+        color: #fff;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+      }
+      .community-eyebrow {
+        margin: 0 0 2px;
+        color: var(--c-text-4c);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .community-title {
+        margin: 0;
+        color: var(--c-text);
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .community-mobile-filters {
+        flex: 1;
+        min-width: 0;
+      }
+      /* 헤더 탭이 더 남아 있으면 우측을 그라데이션으로 흐려 '더 있음'을 보여준다.
+         끝까지 스크롤하면(is-end) 마스크를 걷어 마지막 탭이 또렷하게 보이게 한다. */
+      .community-topbar .tabrail:not(.is-end) {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+        mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+      }
+      /* 모바일에선 헤더 한 줄이 곧 탭 줄이다 — 제목은 숨기고 탭 + 검색 아이콘만 남긴다. */
+      .community-title-wrap { display: none; }
+      .community-layout {
+        display: grid;
+        gap: 14px;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 14px 16px 16px;
+      }
+      .community-filter-panel {
+        display: none;
+      }
+      .community-feed {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 4px;
+        min-width: 0;
+      }
+      .community-feed-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--c-bg-muted-6);
+        padding: 6px 2px 14px;
+      }
+      .community-summary-label {
+        margin: 0 0 3px;
+        color: var(--c-text-3);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .community-summary-title {
+        color: var(--c-text);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .community-summary-stats {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .community-stat-pill {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        border: 1px solid var(--c-bg-muted-8);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--c-text-3);
+        padding: 7px 9px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .community-stat-pill strong {
+        color: var(--c-text);
+      }
+      .weekly-popular {
+        margin: 2px 0 16px;
+      }
+      .weekly-popular-title {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--c-text);
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .wp-tab {
+        border: none;
+        background: none;
+        padding: 0;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+        color: var(--c-text-5);
+        cursor: pointer;
+        white-space: nowrap;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.15s ease;
+      }
+      .wp-tab.is-on { color: var(--c-text); }
+
+      .weekly-popular-viewport {
+        position: relative;
+      }
+      .weekly-edge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 34px;
+        pointer-events: none;
+        z-index: 2;
+        transition: opacity 0.3s ease;
+      }
+      .weekly-edge-right {
+        right: 0;
+        background: linear-gradient(to left, var(--c-bg) 0%, transparent 100%);
+      }
+      .weekly-popular-track {
+        display: flex;
+        gap: 12px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scroll-padding-left: 2px;
+        /* 메달이 카드 위로 살짝 걸쳐지므로(위로 삐져나옴) 트랙 상단 여백을 줘서 안 잘리게 */
+        padding: 20px 0 10px;
+        scrollbar-width: none;
+      }
+      .weekly-popular-track::-webkit-scrollbar { display: none; }
+      .weekly-popular-card {
+        position: relative;
+        scroll-snap-align: start;
+        flex: 0 0 82%;
+        max-width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        text-align: left;
+        padding: 16px;
+        border-radius: 24px;
+        border: 1px solid var(--c-bg-muted-6);
+        background: var(--c-bg);
+        cursor: pointer;
+        transition: opacity 0.35s ease;
+      }
+      /* 마지막 카드는 왼쪽 끝에 못 붙으므로(뒤 콘텐츠 없음) 오른쪽 끝 정렬로 스냅 →
+         스크롤 최대치가 유효한 스냅 지점이 돼 끝에서 되당겨지는 '뚜둑'이 사라진다. */
+      .weekly-popular-card:last-child {
+        scroll-snap-align: end;
+      }
+      /* 순위 메달 — 카드 좌상단 모서리에 살짝 걸쳐진(위로 삐져나온) 느낌 */
+      .weekly-popular-medal {
+        position: absolute;
+        top: -16px;
+        left: 6px;
+        width: 40px;
+        height: 40px;
+        z-index: 2;
+        pointer-events: none;
+        filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.1));
+      }
+      .weekly-popular-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        /* 좌상단 메달을 피해 그룹명을 오른쪽으로 */
+        padding-left: 38px;
+        min-height: 22px;
+      }
+      .weekly-popular-group {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--c-text-4);
+      }
+      .weekly-popular-card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--c-text);
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .weekly-popular-card-content {
+        font-size: 13px;
+        color: var(--c-text-3);
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .weekly-popular-card-metrics {
+        display: flex;
+        gap: 14px;
+        margin-top: 2px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--c-text-4);
+      }
+      .weekly-popular-card-metrics span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .weekly-popular-dots {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .weekly-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--c-bg-muted-22);
+        transition: width 0.2s ease, background 0.2s ease;
+      }
+      .weekly-dot.active {
+        width: 18px;
+        background: var(--c-brand);
+      }
+      .community-message {
+        border: 1px solid var(--c-brand-line-9);
+        background: var(--c-brand-soft-4);
+        color: var(--c-brand-deep-2);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .community-post-list {
+        display: grid;
+        gap: 0;
+      }
+      .community-post-card {
+        display: grid;
+        gap: 10px;
+        border-bottom: 1px solid var(--c-bg-muted-6);
+        background: transparent;
+        padding: 17px 2px 18px;
+        cursor: pointer;
+        animation: communityCardIn 0.22s ease;
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, background 0.18s ease;
+        /* 모바일 탭 시 회색 플래시(눌린 듯 어두워짐) 제거 */
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* 호버 반응(이동+음영)은 마우스가 있는 기기에서만. 터치에선 :hover 가 눌린 채로
+         남아 '어두워지고 살짝 밀리는' 잔상이 생겼다 → hover 가능 기기로 한정. */
+      @media (hover: hover) {
+        .community-post-card:hover {
+          transform: translateX(2px);
+          border-color: var(--c-border-strong-4);
+          background: var(--c-bg-soft-3);
+        }
+      }
+      .community-post-card:focus-visible,
+      .community-icon-button:focus-visible,
+      .tabrail-item:focus-visible,
+      .community-floating-write:focus-visible {
+        outline: 2px solid var(--c-inverse);
+        outline-offset: 3px;
+      }
+      .community-post-head {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+      }
+      .community-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: var(--c-bg-muted);
+        color: var(--c-text);
+        font-size: 15px;
+        font-weight: 700;
+        overflow: hidden;
+      }
+      .community-avatar-img {
+        width: 74%;
+        height: 74%;
+        object-fit: contain;
+        display: block;
+      }
+      /* 프로필 사진(카톡)은 원을 꽉 채운다. */
+      .community-avatar-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      /* 좋아요 누른 사람 겹친 프로필 */
+      .liker-stack {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .liker-avatars {
+        display: inline-flex;
+        align-items: center;
+      }
+      .liker-av {
+        position: relative;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--c-bg-muted);
+        border: 1.5px solid var(--c-bg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .liker-av img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .liker-letter {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--c-text-3);
+      }
+      .liker-count {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--c-text-4);
+      }
+      .community-post-author {
+        margin: 0;
+        color: var(--c-text);
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .community-post-date {
+        margin: 2px 0 0;
+        color: var(--c-text-4c);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .community-group-badge {
+        border-radius: 999px;
+        background: var(--c-bg-muted);
+        color: var(--c-text-2c);
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .community-post-title {
+        margin: 0;
+        color: var(--c-text);
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 700;
+      }
+      .community-post-content {
+        margin: 0;
+        color: var(--c-text-2d);
+        font-size: 14px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .community-post-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .community-post-image-single,
+      .community-post-image-grid {
+        display: grid;
+        gap: 6px;
+        max-width: 680px;
+      }
+      .community-post-image-single {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .community-post-image-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .community-post-image-thumb {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid var(--c-bg-muted-6);
+        background: var(--c-bg-soft);
+        aspect-ratio: 4 / 3;
+      }
+      .community-post-image-single .community-post-image-thumb {
+        aspect-ratio: 16 / 10;
+      }
+      .community-post-image-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .community-post-image-thumb span {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(17, 24, 39, 0.54);
+        color: #fff;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .community-tag-badge {
+        border-radius: 999px;
+        background: transparent;
+        border: 1px solid var(--c-bg-muted-6);
+        color: var(--c-text-3);
+        padding: 6px 9px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      /* 목록에서 미리 보는 '제일 상단 댓글' 1개 */
+      .community-top-comment {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        padding: 9px 12px;
+        border-radius: 12px;
+        background: var(--c-bg-soft-3);
+        color: var(--c-text-3);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .community-top-comment > svg {
+        flex-shrink: 0;
+        color: var(--c-text-4);
+      }
+      .community-top-comment .ctc-pin {
+        color: var(--c-brand);
+      }
+      .community-top-comment .ctc-body {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .community-top-comment .ctc-body b {
+        color: var(--c-text-2c);
+        font-weight: 700;
+        margin-right: 4px;
+      }
+      .community-top-comment .ctc-more {
+        flex-shrink: 0;
+        color: var(--c-text-4);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .community-post-metrics {
+        display: flex;
+        gap: 12px;
+        color: var(--c-text-3);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .community-post-metrics span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      /* 목록에서 바로 누르는 좋아요/댓글 버튼 — 텍스트처럼 보이되 눌리는 티(축소/음영)는 없앤다. */
+      .community-metric-btn {
+        appearance: none;
+        border: none;
+        background: none;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.15s ease;
+      }
+      .community-metric-btn:disabled {
+        cursor: default;
+      }
+      .community-metric-btn.is-liked {
+        color: var(--c-danger-b, #e8544e);
+      }
+      @media (hover: hover) {
+        .community-metric-btn:not(.is-liked):hover {
+          color: var(--c-text);
+        }
+      }
+      /* ── 목록 댓글 모달(바텀시트) ── */
+      .community-comment-modal {
+        position: fixed;
+        top: 0; right: 0; bottom: 0; left: 0; /* inset 단축은 구형 안드로이드 WebView 가 모른다 */
+        box-sizing: border-box; /* 키보드 높이를 padding-bottom 으로 받으므로 필요 */
+        z-index: 95;
+        background: rgba(15, 23, 42, 0.42);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        animation: communityPanelFade 0.16s ease;
+      }
+      .community-comment-sheet {
+        width: 100%;
+        max-width: 620px;
+        /* 기본 높이는 화면의 70% — 절반이면 댓글이 서너 개만 보여 너무 좁았다.
+           vh 대신 오버레이(top/bottom:0) 기준 % — 안드로이드 WebView vh 오계산 회피 */
+        height: 70%;
+        max-height: 88%;
+        display: flex;
+        flex-direction: column;
+        background: var(--c-bg);
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        box-shadow: 0 -14px 40px rgba(15, 23, 42, 0.18);
+        animation: communitySheetUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+      }
+      @media (min-width: 720px) {
+        .community-comment-modal { align-items: center; }
+        .community-comment-sheet { border-radius: 20px; height: auto; min-height: 50%; max-height: 74%; }
+      }
+      .ccs-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid var(--c-bg-muted-6);
+      }
+      .ccs-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--c-text); }
+      .ccs-sub {
+        margin: 3px 0 0;
+        font-size: 13px;
+        color: var(--c-text-4);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ccs-close {
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: none;
+        background: var(--c-bg-muted);
+        color: var(--c-text-3);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ccs-list {
+        flex: 1 1 auto;
+        /* 0 까지 줄어들 수 있어야 좁은 화면에서 입력창이 밀려나지 않는다. */
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .ccs-empty-sleep { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .ccs-empty-sleep img { display: block; }
+      .ccs-empty-sleep p { margin: 0; font-size: 14px; font-weight: 600; color: var(--c-text-4); line-height: 1.5; text-align: center; }
+      .ccs-empty {
+        margin: 0;
+        padding: 28px 0;
+        text-align: center;
+        color: var(--c-text-4);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .ccs-item { display: flex; align-items: center; gap: 6px; }
+      .ccs-name { font-size: 13px; font-weight: 700; color: var(--c-text); }
+      /* 댓글 아바타(사진 or 첫 글자) */
+      .ccs-av {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--c-bg-muted);
+        color: var(--c-text);
+        font-size: 13px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .ccs-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      /* 댓글 정렬 탭 */
+      .ccs-sorts {
+        display: flex;
+        gap: 6px;
+        padding: 10px 16px 2px;
+        flex-wrap: wrap;
+      }
+      .ccs-sort {
+        border: 1px solid var(--c-bg-muted-8);
+        background: transparent;
+        color: var(--c-text-3);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ccs-sort.is-on {
+        background: var(--c-inverse);
+        border-color: var(--c-inverse);
+        color: #fff;
+      }
+      .ccs-time { font-size: 12px; font-weight: 500; color: var(--c-text-4); }
+      .ccs-content {
+        margin: 3px 0 0;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--c-text-2d);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .ccs-msg {
+        margin: 0;
+        padding: 6px 16px;
+        color: var(--c-brand-deep-2);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .ccs-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+      .ccs-action {
+        border: none; background: none; padding: 0; font-size: 12px; font-weight: 600;
+        color: var(--c-text-4); cursor: pointer; -webkit-tap-highlight-color: transparent;
+      }
+      .ccs-action:disabled { opacity: 0.5; cursor: default; }
+      .ccs-action.is-primary { color: var(--c-brand); font-weight: 800; }
+      .ccs-action.is-danger { color: #D63A3A; font-weight: 800; }
+      .ccs-action-dot { font-size: 12px; color: var(--c-text-5); }
+      .ccs-editbox { margin-top: 6px; }
+      .ccs-edit {
+        width: 100%; box-sizing: border-box; min-height: 60px; max-height: 160px; resize: none;
+        border: 1px solid var(--c-brand); border-radius: 10px; padding: 9px 12px;
+        font-size: 16px; line-height: 1.45; color: var(--c-text); background: var(--c-bg); outline: none;
+      }
+      .ccs-editbtns { display: flex; justify-content: flex-end; gap: 14px; margin-top: 6px; }
+      .ccs-confirm {
+        margin-top: 8px; display: flex; align-items: center; gap: 12px;
+        padding: 8px 12px; border-radius: 10px; background: var(--c-bg-muted); font-size: 12.5px; color: var(--c-text-3);
+      }
+      .ccs-confirm span { flex: 1; }
+      .ccs-compose {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--c-bg-muted-6);
+        background: var(--c-bg);
+      }
+      .ccs-input {
+        flex: 1;
+        min-width: 0;
+        min-height: 44px;
+        max-height: 120px;
+        box-sizing: border-box;
+        border: 1px solid var(--c-border);
+        border-radius: 12px;
+        padding: 11px 14px;
+        font-size: 16px;
+        line-height: 1.4;
+        font-family: inherit;
+        color: var(--c-text);
+        background: var(--c-bg);
+        outline: none;
+        resize: none;
+        overflow-y: auto;
+      }
+      .ccs-input:focus { border-color: var(--c-brand); }
+      .ccs-submit {
+        flex-shrink: 0;
+        height: 44px;
+        padding: 0 18px;
+        border: none;
+        border-radius: 12px;
+        background: var(--c-inverse);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ccs-submit:disabled { opacity: 0.5; cursor: default; }
+      @keyframes communitySheetUp {
+        from { transform: translateY(28px); opacity: 0.6; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .community-icon-button:active,
+      .community-floating-write:active {
+        transform: scale(0.97);
+      }
+      .community-search-input {
+        animation: communitySearchIn 0.18s ease;
+      }
+      .community-icon-button:hover {
+        background: var(--c-bg-soft) !important;
+        border-color: var(--c-border-strong) !important;
+      }
+      .community-floating-write {
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, background 0.18s ease;
+      }
+      .community-floating-write:hover {
+        box-shadow: 0 18px 34px rgba(17, 24, 39, 0.28) !important;
+        transform: translateY(-1px);
+      }
+      .community-skeleton-card {
+        cursor: default;
+        background: transparent;
+      }
+      .community-skeleton-line {
+        height: 13px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--c-bg-muted), var(--c-bg-muted-20), var(--c-bg-muted));
+        background-size: 200% 100%;
+        animation: communitySkeleton 1.15s ease-in-out infinite;
+      }
+      @media (min-width: 720px) {
+        .community-topbar {
+          padding-left: 24px;
+          padding-right: 24px;
+        }
+        .community-mobile-filters {
+          display: none;
+        }
+        .community-title-wrap { display: block; }
+        /* 넓은 화면에선 검색 아이콘 버튼 대신 펼쳐진 검색창을 쓴다. */
+        .community-search-inline {
+          display: flex;
+        }
+        /* 아이콘 버튼은 인라인 style에 display:flex가 있어 !important가 필요하다. */
+        .community-topbar .community-icon-button,
+        .community-topbar .community-search-input {
+          display: none !important;
+        }
+        .community-layout {
+          grid-template-columns: 104px minmax(0, 1fr);
+          align-items: start;
+          gap: 28px;
+          padding: 22px 24px;
+        }
+        .community-filter-panel {
+          position: sticky;
+          top: calc(92px + env(safe-area-inset-top, 0px));
+          display: grid;
+          gap: 14px;
+          background: transparent;
+          padding: 4px 0;
+        }
+        .community-filter-block {
+          display: grid;
+          gap: 10px;
+        }
+        .community-filter-title {
+          margin: 0;
+          color: var(--c-text-4c);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .community-post-card {
+          padding: 20px 4px 21px;
+        }
+        .community-post-title {
+          font-size: 19px;
+        }
+      }
+      /* 태블릿(>=744px): 좌측 세로 네비 알약(84px offset) + app-body 중앙 정렬 +
+         app-shell 좌우 패딩(20px)을 반영해, 뷰포트 중앙 720px 고정이던 헤더를
+         아래 피드 콘텐츠 박스와 정확히 좌우 정렬한다. (104 = 84+20, 124 = 84+20+20) */
+      @media (min-width: 744px) {
+        .community-topbar {
+          left: calc(max(0px, (100vw - 1024px) / 2) + 104px + env(safe-area-inset-left, 0px));
+          width: calc(min(100vw, 1024px) - 124px - env(safe-area-inset-left, 0px));
+          max-width: none;
+          right: auto;
+          transform: none;
+        }
+      }
+      @media (min-width: 1180px) {
+        .community-topbar {
+          left: calc(max(0px, (100vw - 1280px) / 2) + 104px + env(safe-area-inset-left, 0px));
+          width: calc(min(100vw, 1280px) - 124px - env(safe-area-inset-left, 0px));
+        }
+      }
+      @keyframes communitySearchIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes communityCardIn {
+        from { opacity: 0; transform: translateY(7px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes communitySkeleton {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+      }
+    `}</style>
+  );
+}
+
+// 카테고리 알약 칩: 선택은 짙은 차콜, 나머지는 연회색(보더 없이 면으로만 구분).
+const iconButtonStyle = {
+  width: 40,
+  height: 40,
+  border: "1px solid var(--c-border)",
+  borderRadius: 999,
+  background: "var(--c-bg)",
+  color: "var(--c-text)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+} as const;
+
+const inputStyle = {
+  width: "100%",
+  border: "1px solid var(--c-border-strong)",
+  borderRadius: 8,
+  padding: "12px 13px",
+  color: "var(--c-text)",
+  fontSize: 16,
+  boxSizing: "border-box",
+} as const;
+
+const searchStyle = {
+  ...inputStyle,
+  maxWidth: 1120,
+  margin: "0 auto",
+  background: "var(--c-bg)",
+} as const;
+
+const emptyPanelStyle = {
+  display: "grid",
+  gap: 12,
+  borderTop: "1px solid var(--c-bg-muted-6)",
+  borderBottom: "1px solid var(--c-bg-muted-6)",
+  background: "transparent",
+  padding: "22px 2px",
+} as const;
+
+// 말풍선 넛지 + 글쓰기 버튼을 함께 띄우는 도크(둘을 세로로 쌓아 우하단 고정).
+const floatingWriteDockStyle = {
+  position: "fixed",
+  right: "max(18px, calc((100vw - 720px) / 2 + 18px))",
+  bottom: "calc(98px + env(safe-area-inset-bottom, 0px))",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: 6,
+  zIndex: 55,
+  // 도크의 빈 영역(말풍선 옆/아래)이 목록 터치를 먹지 않도록 버튼에서만 입력을 받는다.
+  pointerEvents: "none",
+} as const;
+
+const floatingWriteButtonStyle = {
+  pointerEvents: "auto",
+  border: "none",
+  borderRadius: 999,
+  background: "var(--c-inverse)",
+  color: "#fff",
+  padding: "13px 18px",
+  fontSize: 16,
+  fontWeight: 700,
+  cursor: "pointer",
+  boxShadow: "0 12px 26px rgba(17,24,39,0.24)",
+  zIndex: 55,
+} as const;

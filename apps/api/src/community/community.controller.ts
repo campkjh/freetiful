@@ -31,6 +31,12 @@ export class CommunityController {
     return this.community.listGroups();
   }
 
+  @Get('tags')
+  @ApiOperation({ summary: '태그 목록(그룹별)' })
+  listTags(@Query('groupId') groupId?: string) {
+    return this.community.listTags(groupId);
+  }
+
   // ── 피드 ──
   @Get('posts')
   @UseGuards(OptionalJwtAuthGuard)
