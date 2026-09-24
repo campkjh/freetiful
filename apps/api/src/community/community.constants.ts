@@ -65,7 +65,7 @@ export const TAXONOMY: MajorDef[] = [
     tags: ['신혼집', '인테리어', '집들이', '부부', '살림'],
   },
   {
-    name: '임신·출산·육아',
+    name: '임신·육아',
     slug: 'm-parenting',
     icon: 'baby',
     subs: [
