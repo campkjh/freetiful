@@ -38,6 +38,11 @@ export interface ChatRoomItem {
   hasQuoteInquiry?: boolean;
   /** 예약확정 탭에 노출할 방인지 */
   hasConfirmedBooking?: boolean;
+  /** 목록 카드: 내가 보낸 마지막 메시지(굵게) / 상대가 보낸 마지막 메시지(그 아래) — 시스템 메시지 제외 */
+  myLastMessage?: { type: string | null; content: string | null; createdAt: string } | null;
+  otherLastMessage?: { type: string | null; content: string | null; createdAt: string } | null;
+  /** 진행 단계 태그: 예약확정·견적수락·견적전송·환불·견적취소·견적만료·매칭·문의 */
+  stage?: string | null;
   matchRequest?: {
     id: string;
     type?: string | null;

@@ -29,6 +29,12 @@ interface ChatRoom {
   latestQuotationStatus?: string | null;
   hasQuoteInquiry?: boolean;
   hasConfirmedBooking?: boolean;
+  /** 목록 카드: 내가 보낸 마지막 메시지(굵게) / 상대가 보낸 마지막 메시지(그 아래) */
+  myLast?: string | null;
+  otherLast?: string | null;
+  /** 진행 단계 태그(매칭·견적전송·견적수락·예약확정 …) */
+  stage?: string | null;
+  lastMessageAtRaw?: string | null;
 }
 
 type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
@@ -36,7 +42,7 @@ type FilterTab = '전체' | '읽음' | '안 읽음' | '보관' | '숨김';
 type ProFilterTab = '전체' | '읽음' | '안 읽음' | '견적문의' | '예약확정' | '숨김';
 
 const ClientAvatar = ({ name }: { name: string }) => (
-  <div className="w-[48px] h-[48px] rounded-[20px] bg-gray-200 flex items-center justify-center shrink-0">
+  <div className="w-[44px] h-[44px] rounded-full bg-gray-200 flex items-center justify-center shrink-0">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
       <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
@@ -81,8 +87,40 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
     latestQuotationStatus: r.latestQuotationStatus ?? null,
     hasQuoteInquiry: !!r.hasQuoteInquiry,
     hasConfirmedBooking: !!r.hasConfirmedBooking,
+    myLast: r.myLastMessage ? lastMsgPreview(r.myLastMessage) || null : null,
+    otherLast: r.otherLastMessage ? lastMsgPreview(r.otherLastMessage) || null : null,
+    stage: r.stage ?? null,
+    lastMessageAtRaw: r.lastMessageAt ? String(r.lastMessageAt) : null,
   };
 }
+
+// 목록 시간: 방금 / N분 전 / N시간 전(오늘) / 어제 / M월 D일 / YY.M.D
+function chatTime(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sec = (now.getTime() - d.getTime()) / 1000;
+  if (sec < 60) return '방금';
+  if (sec < 3600) return `${Math.floor(sec / 60)}분 전`;
+  if (d.toDateString() === now.toDateString()) return `${Math.floor(sec / 3600)}시간 전`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return '어제';
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return `${String(d.getFullYear()).slice(2)}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+// 진행 단계 태그 색
+const STAGE_CLASS: Record<string, string> = {
+  예약확정: 'bg-[#E6F6EC] text-[#1FA35B]',
+  견적수락: 'bg-[#E8F3FF] text-[#3182F6]',
+  견적전송: 'bg-[#FFF1E0] text-[#E67700]',
+  매칭: 'bg-[#F2EEFF] text-[#7C4DFF]',
+  환불: 'bg-[#FFEEEF] text-[#F04452]',
+  견적취소: 'bg-[#FFEEEF] text-[#F04452]',
+};
+const stageClass = (stage: string) => STAGE_CLASS[stage] || 'bg-[#F2F4F6] text-[#6B7684]';
 
 function getInitialRoomsForCurrentUser() {
   // chat.store 가 모듈 로드 시점에 localStorage 캐시를 hydrate 하므로
@@ -106,6 +144,15 @@ export default function ChatListPage() {
   const fetchRooms = useChatStore((s) => s.fetchRooms);
   const deleteRoomFromStore = useChatStore((s) => s.deleteRoom);
   const apiRooms = useChatStore((s) => s.rooms);
+  // 상대가 입력 중인 방(목록에 인스타 DM처럼 점 3개) — 만료 시각이 지나면 저절로 사라지게 1초마다 다시 본다.
+  const typingRooms = useChatStore((s) => s.typingRooms);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    setNowTick(Date.now());
+    if (!Object.keys(typingRooms).length) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [typingRooms]);
   const storeRoomsLoading = useChatStore((s) => s.roomsLoading);
   const lastRoomsFetchAt = useChatStore((s) => s.lastRoomsFetchAt);
   // 한 번도 successful fetch 가 없었으면 + 과거에 채팅을 가진 적 없으면 → skeleton.
@@ -422,7 +469,7 @@ export default function ChatListPage() {
                 className="relative"
               >
                 <div
-                  className={`relative flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors overflow-hidden ${
+                  className={`relative flex items-start gap-3 px-5 py-[18px] cursor-pointer transition-colors overflow-hidden ${
                     isPC && selectedRoomId === room.id
                       ? 'bg-[#EAF2FF]'
                       : hasUnread
@@ -479,71 +526,111 @@ export default function ChatListPage() {
                       </button>
                     )}
                   </>
-                  {isPC ? (
-                    room.otherUser.profileImageUrl
-                      ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} className="w-[48px] h-[48px] rounded-[20px] object-cover shrink-0" />
-                      : <ClientAvatar name={room.otherUser.name} />
-                  ) : (
-                    <Link href={editMode ? '#' : `/chat/${room.id}`} className="shrink-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                      {room.otherUser.profileImageUrl
-                        ? <img src={room.otherUser.profileImageUrl} alt={room.otherUser.name} draggable={false} className="w-[48px] h-[48px] rounded-[20px] object-cover" />
-                        : <ClientAvatar name={room.otherUser.name} />
-                      }
-                    </Link>
-                  )}
-                  {isPC ? (
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                          room.iAmPro ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
-                        }`}>
-                          {room.iAmPro ? '고객' : 'PRO'}
-                        </span>
-                        <p className={`text-[14px] ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>
-                          {room.otherUser.role} {room.otherUser.name}님
-                        </p>
-                        <span className="text-[11px] text-gray-400">{room.lastMessageAt}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className={`text-[12px] truncate pr-2 ${hasUnread ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{room.lastMessage}</p>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {hasUnread && <span className="bg-[#007AFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">{room.unreadCount}</span>}
-                          {room.isPinned && <Pin size={12} className="text-gray-400 fill-gray-400" />}
+                  {(() => {
+                    const avatar = room.otherUser.profileImageUrl ? (
+                      <img
+                        src={room.otherUser.profileImageUrl}
+                        alt={room.otherUser.name}
+                        draggable={false}
+                        className="h-[44px] w-[44px] shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <ClientAvatar name={room.otherUser.name} />
+                    );
+                    const partnerTyping = (typingRooms[room.id] || 0) > nowTick;
+                    const body = (
+                      <div className="min-w-0 flex-1">
+                        {/* 한 줄 헤더: 이름 · 단계 태그 · | 새 메시지 N … 시간 */}
+                        <div className="flex items-center gap-1.5">
+                          <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{room.otherUser.name}</p>
+                          {room.stage && (
+                            <span className={`shrink-0 rounded-[6px] px-1.5 py-[3px] text-[12px] font-semibold ${stageClass(room.stage)}`}>
+                              {room.stage}
+                            </span>
+                          )}
+                          {hasUnread && (
+                            <>
+                              <span className="h-3 w-px shrink-0 bg-[#E5E8EB]" aria-hidden="true" />
+                              <span className="shrink-0 text-[14px] font-semibold text-[#3182F6]">새 메시지 {room.unreadCount}</span>
+                            </>
+                          )}
+                          <span className="ml-auto shrink-0 pl-2 text-[13px] text-[#8B95A1]">{chatTime(room.lastMessageAtRaw)}</span>
+                          {room.isPinned && <Pin size={13} className="shrink-0 fill-[#3180F7] text-[#3180F7]" />}
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <Link href={editMode ? '#' : `/chat/${room.id}`} className="flex-1 min-w-0" onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}>
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <span className={`shrink-0 rounded-full px-2 py-[3px] text-[10px] font-bold ${
-                            room.iAmPro ? 'bg-[#FFF6E5] text-[#D98A00]' : 'bg-[#EAF2FF] text-[#3182F6]'
-                          }`}>
-                            {room.iAmPro ? '고객' : 'PRO'}
-                          </span>
-                          <p className="truncate text-[16px] font-bold text-[#2B313D]">{room.otherUser.name}</p>
-                          <span className="ml-auto shrink-0 text-[13px] text-[#A4ABBA]">{room.lastMessageAt}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className={`truncate pr-2 text-[14px] ${hasUnread ? 'font-semibold text-[#51535C]' : 'text-[#A4ABBA]'}`}>{room.lastMessage}</p>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {hasUnread && <span className="min-w-[20px] rounded-full bg-[#3180F7] px-1.5 py-0.5 text-center text-[11px] font-bold text-white">{room.unreadCount}</span>}
-                          </div>
-                        </div>
-                      </Link>
-                      <>
-                        {!editMode && room.isPinned && (
-                          <button
-                            key="pin"
-                            onClick={(e) => { e.stopPropagation(); togglePin(room.id); }}
-                            className="shrink-0 p-1 overflow-hidden"
-                            aria-label="고정 해제"
-                          >
-                            <Pin size={16} className="fill-[#3180F7] text-[#3180F7]" />
-                          </button>
+                        {/* 굵게 = 내가 보낸 마지막 메시지 */}
+                        {room.myLast && (
+                          <p className="mt-1.5 truncate text-[15px] font-bold leading-[1.45] text-[#191F28]">{room.myLast}</p>
                         )}
+                        {/* 그 아래 = 상대가 보낸 마지막 메시지(입력 중이면 점 3개) */}
+                        {partnerTyping ? (
+                          <div className={`${room.myLast ? 'mt-1' : 'mt-1.5'} flex items-center gap-2`} aria-live="polite">
+                            <span className="inline-flex items-center gap-[3px] rounded-full bg-[#F2F3F5] px-2.5 py-[7px]" aria-hidden="true">
+                              {[0, 1, 2].map((i) => (
+                                <span
+                                  key={i}
+                                  className="block h-[5px] w-[5px] rounded-full bg-[#8B95A1]"
+                                  style={{ animation: `typingDot 1.1s ease-in-out ${i * 0.16}s infinite` }}
+                                />
+                              ))}
+                            </span>
+                            <span className="text-[13.5px] text-[#8B95A1]">입력 중</span>
+                          </div>
+                        ) : room.otherLast ? (
+                          <p
+                            className={`${room.myLast ? 'mt-0.5' : 'mt-1.5'} line-clamp-2 text-[14.5px] leading-[1.5] ${
+                              hasUnread ? 'text-[#333D4B]' : 'text-[#6B7684]'
+                            }`}
+                          >
+                            {room.otherLast}
+                          </p>
+                        ) : !room.myLast ? (
+                          <p className="mt-1.5 truncate text-[14px] text-[#8B95A1]">{room.lastMessage || '아직 대화가 없어요'}</p>
+                        ) : null}
+                      </div>
+                    );
+                    return isPC ? (
+                      <>
+                        {avatar}
+                        {body}
                       </>
-                    </>
+                    ) : (
+                      <>
+                        <Link
+                          href={editMode ? '#' : `/chat/${room.id}`}
+                          className="shrink-0"
+                          onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
+                        >
+                          {avatar}
+                        </Link>
+                        <Link
+                          href={editMode ? '#' : `/chat/${room.id}`}
+                          className="min-w-0 flex-1"
+                          onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
+                        >
+                          {body}
+                        </Link>
+                      </>
+                    );
+                  })()}
+                  {!editMode && (
+                    <button
+                      type="button"
+                      aria-label={`${room.otherUser.name}님 채팅방 메뉴`}
+                      className="-mr-2 -mt-1 shrink-0 rounded-full p-1.5 text-[#B0B8C1] transition-colors hover:bg-[#F2F4F6] hover:text-[#6B7684]"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setActionMenu({ room, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle cx="10" cy="4" r="1.7" fill="currentColor" />
+                        <circle cx="10" cy="10" r="1.7" fill="currentColor" />
+                        <circle cx="10" cy="16" r="1.7" fill="currentColor" />
+                      </svg>
+                    </button>
                   )}
                 </div>
               </li>
@@ -742,11 +829,6 @@ export default function ChatListPage() {
               })}
             </div>
           </LayoutGroup>
-        </div>
-        <div className="px-5 pb-1 pt-3">
-          <p key={currentTab} className="text-[13px] text-[#A4ABBA]">
-            {currentTab} 채팅방 <span className="font-bold text-[#51535C]">{sorted.length}</span>
-          </p>
         </div>
         <>
           {editMode && selectedIds.size > 0 && (

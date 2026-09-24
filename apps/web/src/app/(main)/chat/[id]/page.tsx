@@ -695,6 +695,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
     connect();
     joinRoom(roomId);
     return () => {
+      stopTyping();
       leaveRoom();
     };
   }, [authUser, roomId]);
@@ -779,6 +780,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const handleSend = useCallback((textArg?: unknown) => {
     const text = (typeof textArg === 'string' ? textArg : input).trim();
     if (!text) return;
+    stopTyping();
     const now = Date.now();
     if (lastSendRef.current?.text === text && now - lastSendRef.current.at < 1200) return;
     lastSendRef.current = { text, at: now };
@@ -988,9 +990,37 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   }, [messages, roomId]);
 
   // ─── Input change + mention detection ───
+  // '입력 중' 신호 — 상대 채팅방·채팅 목록에 점 3개가 뜬다. 키마다 보내지 않고 2.5초에 한 번만.
+  const typingSentAtRef = useRef(0);
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopTyping = useCallback(() => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (typingSentAtRef.current) {
+      typingSentAtRef.current = 0;
+      setTyping(false);
+    }
+  }, [setTyping]);
+  const pingTyping = (value: string) => {
+    if (!value.trim()) {
+      stopTyping();
+      return;
+    }
+    const now = Date.now();
+    if (now - typingSentAtRef.current > 2500) {
+      typingSentAtRef.current = now;
+      setTyping(true);
+    }
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(stopTyping, 3000);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
+    pingTyping(value);
 
     const cursorPos = e.target.selectionStart || value.length;
     const textBeforeCursor = value.slice(0, cursorPos);

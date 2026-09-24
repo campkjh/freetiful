@@ -218,6 +218,8 @@ interface ChatState {
 
   // Typing indicator
   typingUsers: Map<string, boolean>;
+  /** 채팅 목록용 '입력 중' — roomId → 만료 시각(ms). 신호가 끊겨도 8초 뒤엔 저절로 사라진다. */
+  typingRooms: Record<string, number>;
 
   // Actions
   connect: () => void;
@@ -282,6 +284,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messageCursor: null,
   messageCache: new Map(),
   typingUsers: new Map(),
+  typingRooms: {},
 
   connect: () => {
     const token = useAuthStore.getState().accessToken;
@@ -356,6 +359,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ...r,
                 ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
+                ...(message.type === 'system'
+                  ? {}
+                  : isMine
+                    ? { myLastMessage: { type: message.type, content: message.content, createdAt: message.createdAt } }
+                    : { otherLastMessage: { type: message.type, content: message.content, createdAt: message.createdAt } }),
                 lastMessageAt: message.createdAt,
                 unreadCount:
                   message.roomId === currentRoomId || isMine
@@ -369,6 +377,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return db - da;
         });
         writeRoomsCache(nextRooms);
+        // 상대가 메시지를 보냈으면 그 방의 '입력 중'은 끝.
+        if (!isMine && s.typingRooms[message.roomId]) {
+          const typingRooms = { ...s.typingRooms };
+          delete typingRooms[message.roomId];
+          return { rooms: nextRooms, typingRooms };
+        }
         return { rooms: nextRooms };
       });
       dispatchChatEvent('freetiful:chat-room-activity', {
@@ -493,6 +507,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ),
         }));
       }
+    });
+
+    // 채팅 목록에서 '입력 중' 점 3개 — 서버가 방 멤버 개인 소켓으로 보낸다.
+    socket.on('roomTyping', ({ roomId, userId, isTyping }: { roomId: string; userId: string; isTyping: boolean }) => {
+      if (userId === currentUserId()) return;
+      set((s) => {
+        const typingRooms = { ...s.typingRooms };
+        if (isTyping) typingRooms[roomId] = Date.now() + 8000;
+        else delete typingRooms[roomId];
+        return { typingRooms };
+      });
     });
 
     socket.on('userTyping', ({ userId, isTyping }: { userId: string; isTyping: boolean }) => {
@@ -762,6 +787,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ...r,
                 ...getRoomFlagsFromMessage(message),
                 lastMessage: { id: message.id, type: message.type, content: message.content, createdAt: message.createdAt },
+                ...(message.type === 'system'
+                  ? {}
+                  : { myLastMessage: { type: message.type, content: message.content, createdAt: message.createdAt } }),
                 lastMessageAt: message.createdAt,
                 unreadCount: 0,
               }

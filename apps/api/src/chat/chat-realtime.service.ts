@@ -6,6 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ChatRealtimeService {
   private server: Server | null = null;
   private readonly userSockets = new Map<string, Set<string>>();
+  // 방 멤버 id 캐시(1분) — '입력 중'은 키 입력마다 오므로 매번 DB 를 치지 않게.
+  private readonly roomMembers = new Map<string, { ids: string[]; at: number }>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -38,10 +40,28 @@ export class ChatRealtimeService {
     }
   }
 
-  /** 자동응답이 답을 준비하는 동안 상대 화면에 '입력 중' 을 띄운다 */
+  rememberRoomMembers(roomId: string, ids: string[]) {
+    this.roomMembers.set(roomId, { ids, at: Date.now() });
+  }
+
+  cachedRoomMembers(roomId: string): string[] | null {
+    const hit = this.roomMembers.get(roomId);
+    return hit && Date.now() - hit.at < 60_000 ? hit.ids : null;
+  }
+
+  /** 채팅 '목록' 화면에도 입력 중을 띄우도록 방 id 를 담아 멤버 개인 소켓으로 보낸다(본인 제외). */
+  emitRoomTyping(roomId: string, userId: string, isTyping: boolean, memberIds: string[]) {
+    for (const id of new Set(memberIds)) {
+      if (id !== userId) this.emitToUser(id, 'roomTyping', { roomId, userId, isTyping });
+    }
+  }
+
+  /** 자동응답이 답을 준비하는 동안 상대 화면(방 안·목록)에 '입력 중' 을 띄운다 */
   emitTyping(roomId: string, userId: string, isTyping: boolean) {
     if (!this.server) return;
     this.server.to(`room:${roomId}`).emit('userTyping', { userId, isTyping });
+    const ids = this.cachedRoomMembers(roomId);
+    if (ids) this.emitRoomTyping(roomId, userId, isTyping, ids);
   }
 
   emitToUsers(userIds: Array<string | null | undefined>, event: string, data: unknown) {

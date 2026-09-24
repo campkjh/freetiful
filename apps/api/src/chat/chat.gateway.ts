@@ -129,6 +129,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         Array.isArray((message as any).__participantIds)
           ? (message as any).__participantIds
           : await this.chatService.getRoomMemberIds(roomId);
+      this.chatRealtimeService.rememberRoomMembers(roomId, memberIds);
       for (const memberId of memberIds) {
         this.chatRealtimeService.emitToUser(memberId, 'newMessage', message);
       }
@@ -183,7 +184,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage('typing')
-  handleTyping(
+  async handleTyping(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { roomId: string; isTyping: boolean },
   ) {
@@ -193,6 +194,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       userId: client.userId,
       isTyping: data.isTyping,
     });
+
+    // 채팅 목록 화면에도(방 id 포함) — 이 방 멤버일 때만 보낸다(남의 방 '입력 중' 위조 방지).
+    let ids = this.chatRealtimeService.cachedRoomMembers(data.roomId);
+    if (!ids) {
+      try {
+        ids = await this.chatService.getRoomMemberIds(data.roomId);
+        this.chatRealtimeService.rememberRoomMembers(data.roomId, ids);
+      } catch {
+        return;
+      }
+    }
+    if (!ids.includes(client.userId)) return;
+    this.chatRealtimeService.emitRoomTyping(data.roomId, client.userId, !!data.isTyping, ids);
   }
 
   @SubscribeMessage('markRead')

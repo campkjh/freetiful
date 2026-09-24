@@ -998,6 +998,53 @@ export class ChatService implements OnModuleInit {
       [rooms, totalCount] = await loadRooms(legacyWhere);
     }
 
+    // 목록 카드용: 방마다 '내가 보낸 마지막 메시지'와 '상대가 보낸 마지막 메시지'(시스템 메시지 제외),
+    // 그리고 진행 단계 태그(견적서 상태 > 매칭 > 문의).
+    const roomIds = rooms.map((r) => r.id);
+    type SideRow = {
+      roomId: string;
+      myType: string | null; myContent: string | null; myAt: Date | null;
+      otherType: string | null; otherContent: string | null; otherAt: Date | null;
+    };
+    const [sideRows, quoteRows] = roomIds.length
+      ? await Promise.all([
+          this.prisma.$queryRaw<SideRow[]>`
+            SELECT r.id AS "roomId",
+              mine.type AS "myType", mine.content AS "myContent", mine."createdAt" AS "myAt",
+              oth.type AS "otherType", oth.content AS "otherContent", oth."createdAt" AS "otherAt"
+            FROM unnest(${roomIds}::text[]) AS r(id)
+            LEFT JOIN LATERAL (
+              SELECT m.type::text AS type, m.content, m."createdAt" FROM messages m
+              WHERE m."roomId" = r.id AND m."isDeleted" = false AND m.type <> 'system'
+                AND m."senderId" = ANY(${participantUserIds}::text[])
+              ORDER BY m."createdAt" DESC LIMIT 1
+            ) mine ON true
+            LEFT JOIN LATERAL (
+              SELECT m.type::text AS type, m.content, m."createdAt" FROM messages m
+              WHERE m."roomId" = r.id AND m."isDeleted" = false AND m.type <> 'system'
+                AND NOT (m."senderId" = ANY(${participantUserIds}::text[]))
+              ORDER BY m."createdAt" DESC LIMIT 1
+            ) oth ON true`.catch(() => [] as SideRow[]),
+          this.prisma.quotation
+            .findMany({
+              where: { chatRoomId: { in: roomIds } },
+              select: { chatRoomId: true, status: true },
+              orderBy: { createdAt: 'desc' },
+            })
+            .catch(() => [] as { chatRoomId: string | null; status: string }[]),
+        ])
+      : [[] as SideRow[], [] as { chatRoomId: string | null; status: string }[]];
+    const sideByRoom = new Map(sideRows.map((r) => [r.roomId, r]));
+    const QUOTE_TAIL: Record<string, string> = { refunded: '환불', cancelled: '견적취소', expired: '견적만료' };
+    const stageOf = (roomId: string, matchRequestId: string | null) => {
+      const qs = quoteRows.filter((q) => q.chatRoomId === roomId);
+      if (qs.some((q) => q.status === 'paid')) return '예약확정';
+      if (qs.some((q) => q.status === 'accepted')) return '견적수락';
+      if (qs.some((q) => q.status === 'pending')) return '견적전송';
+      if (qs.length) return QUOTE_TAIL[qs[0].status] ?? '견적';
+      return matchRequestId ? '매칭' : '문의';
+    };
+
     const data = rooms.map((room) => {
       const member = room.members.find((m) => m.userId === userId) ?? room.members[0];
       const lastMsg = room.messages[0];
@@ -1024,6 +1071,21 @@ export class ChatService implements OnModuleInit {
         iAmPro: isProUser,
         matchRequestId: room.matchRequestId,
         latestQuotationStatus: null,
+        myLastMessage: sideByRoom.get(room.id)?.myAt
+          ? {
+              type: sideByRoom.get(room.id)!.myType,
+              content: sideByRoom.get(room.id)!.myContent,
+              createdAt: sideByRoom.get(room.id)!.myAt,
+            }
+          : null,
+        otherLastMessage: sideByRoom.get(room.id)?.otherAt
+          ? {
+              type: sideByRoom.get(room.id)!.otherType,
+              content: sideByRoom.get(room.id)!.otherContent,
+              createdAt: sideByRoom.get(room.id)!.otherAt,
+            }
+          : null,
+        stage: stageOf(room.id, room.matchRequestId),
       };
     });
 
