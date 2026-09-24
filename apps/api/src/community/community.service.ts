@@ -14,6 +14,7 @@ import {
   QUIZ_MAX_POSTS_PER_DAY,
   tierForScore,
   DEFAULT_GROUPS,
+  LEGACY_GROUP_SLUGS,
   ReactionType,
 } from './community.constants';
 
@@ -40,23 +41,44 @@ export class CommunityService implements OnModuleInit {
     }
   }
 
-  // ─── 기본 카테고리 시드 ───────────────────────────────────────────
+  // ─── 기본 카테고리 시드/정합 ─────────────────────────────────────
+  // slug 기준 upsert(이름/순서 갱신·누락 생성) + 구 카테고리 정리.
   private async seedDefaultTaxonomy() {
-    const count = await this.prisma.communityGroup.count();
-    if (count > 0) return;
     for (let gi = 0; gi < DEFAULT_GROUPS.length; gi++) {
       const g = DEFAULT_GROUPS[gi];
-      const group = await this.prisma.communityGroup.create({
-        data: { name: g.name, slug: g.slug, description: g.description, sortOrder: gi },
+      const group = await this.prisma.communityGroup.upsert({
+        where: { slug: g.slug },
+        create: {
+          name: g.name,
+          slug: g.slug,
+          description: g.description,
+          sortOrder: gi,
+          isActive: true,
+        },
+        update: { name: g.name, sortOrder: gi, isActive: true },
       });
       for (let ti = 0; ti < g.tags.length; ti++) {
         const t = g.tags[ti];
-        await this.prisma.communityTag.create({
-          data: { groupId: group.id, name: t.name, slug: t.slug, sortOrder: ti },
-        });
+        await this.prisma.communityTag
+          .upsert({
+            where: { groupId_slug: { groupId: group.id, slug: t.slug } },
+            create: { groupId: group.id, name: t.name, slug: t.slug, sortOrder: ti },
+            update: { name: t.name, sortOrder: ti, isActive: true },
+          })
+          .catch(() => null);
       }
     }
-    this.logger.log(`community: seeded ${DEFAULT_GROUPS.length} default groups`);
+    // 구 카테고리(초기 6종 중 폐기) + 그 하위 글 정리. post.group 은 Restrict 라 글 먼저 삭제.
+    const legacy = await this.prisma.communityGroup.findMany({
+      where: { slug: { in: LEGACY_GROUP_SLUGS } },
+      select: { id: true },
+    });
+    const legacyIds = legacy.map((x) => x.id);
+    if (legacyIds.length) {
+      await this.prisma.communityPost.deleteMany({ where: { groupId: { in: legacyIds } } });
+      await this.prisma.communityGroup.deleteMany({ where: { id: { in: legacyIds } } });
+    }
+    this.logger.log(`community: taxonomy reconciled (${DEFAULT_GROUPS.length} groups)`);
   }
 
   // ─── 그룹/태그 ────────────────────────────────────────────────────
@@ -68,12 +90,19 @@ export class CommunityService implements OnModuleInit {
         tags: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
       },
     });
+    const counts = await this.prisma.communityPost.groupBy({
+      by: ['groupId'],
+      where: { isActive: true },
+      _count: { _all: true },
+    });
+    const cmap = new Map(counts.map((c) => [c.groupId, c._count._all]));
     return {
       groups: groups.map((g) => ({
         id: g.id,
         name: g.name,
         slug: g.slug,
         description: g.description,
+        postCount: cmap.get(g.id) || 0,
         tags: g.tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
       })),
     };

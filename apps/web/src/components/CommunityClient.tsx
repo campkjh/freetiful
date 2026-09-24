@@ -23,6 +23,7 @@ interface CategoryGroup {
   name: string;
   slug: string;
   description: string;
+  postCount?: number;
 }
 
 interface CommunityTag {
@@ -692,14 +693,12 @@ export default function CommunityClient() {
 
       <div className="community-layout">
         <aside className="community-filter-panel">
-          <div className="community-filter-block">
-            <CategoryChips
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              onSelect={(id) => setSelectedGroupId(id)}
-              stacked
-            />
-          </div>
+          <h2 className="fcom-catlist-title">커뮤니티</h2>
+          <CategoryList
+            groups={groups}
+            selectedGroupId={selectedGroupId}
+            onSelect={(id) => setSelectedGroupId(id)}
+          />
         </aside>
 
         <section className="community-feed">
@@ -1150,6 +1149,48 @@ function CategoryChips({
               <img src={`/icons/${it.icon}${on ? "-on" : ""}.svg`} alt="" width={24} height={24} />
             </span>
             <span className="tabrail-label">{it.name}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// 데스크톱 좌측 카테고리 세로 리스트(문서/상점 아이콘 + 이름 + N 배지).
+function CategoryList({
+  groups,
+  selectedGroupId,
+  onSelect,
+}: {
+  groups: CategoryGroup[];
+  selectedGroupId: string;
+  onSelect: (id: string) => void;
+}) {
+  const items = [
+    { id: "", name: "전체", icon: "cat-all", n: false },
+    ...groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      icon: g.slug === "market" ? "cat-store" : "cat-doc",
+      n: (g.postCount ?? 0) > 0,
+    })),
+  ];
+  return (
+    <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
+      {items.map((it) => {
+        const on = selectedGroupId === it.id;
+        return (
+          <button
+            key={it.id || "all"}
+            type="button"
+            className={`fcom-cat${on ? " on" : ""}`}
+            onClick={() => onSelect(it.id)}
+            aria-current={on ? "true" : undefined}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="fcom-cat-ico" src={`/icons/community/${it.icon}.svg`} alt="" width={20} height={20} />
+            <span className="fcom-cat-name">{it.name}</span>
+            {it.n && <span className="fcom-cat-n">N</span>}
           </button>
         );
       })}
