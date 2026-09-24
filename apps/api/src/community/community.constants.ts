@@ -33,38 +33,91 @@ export function tierForScore(score: number): string {
   return key;
 }
 
-// 기본 카테고리(그룹) — 프리티풀(예식/행사) 맞춤 웨딩·신혼 커뮤니티. 사장 지정 23종.
-export const DEFAULT_GROUPS: {
-  name: string;
-  slug: string;
-  icon?: string; // 프론트 리스트 아이콘 힌트(store 등)
-  description?: string;
-  tags: { name: string; slug: string }[];
-}[] = [
-  { name: '자유게시판', slug: 'free', tags: [] },
-  { name: '궁금한점 질문답변', slug: 'curious-qna', tags: [] },
-  { name: '힘들어요 위로해주세요', slug: 'comfort', tags: [] },
-  { name: '결혼·신혼·육아 일기', slug: 'diary', tags: [] },
-  { name: '예신·예랑 중고장터', slug: 'market', icon: 'store', tags: [] },
-  { name: '남들은 어떻게 하나요?', slug: 'others', tags: [] },
-  { name: '자주묻는질문(FAQ)', slug: 'faq', tags: [] },
-  { name: '다이어트 질문답변', slug: 'diet', tags: [] },
-  { name: '결혼준비 토론방', slug: 'prep-forum', tags: [] },
-  { name: '나의 시댁은/처가댁은', slug: 'inlaws', tags: [] },
-  { name: '선택장애 모여라', slug: 'choice', tags: [] },
-  { name: '내 신랑·신부 자랑하기', slug: 'brag', tags: [] },
-  { name: '나만의 요리비법', slug: 'recipe', tags: [] },
-  { name: '신랑신부 갈등과 해소', slug: 'conflict', tags: [] },
-  { name: '내가 결혼하는 이유', slug: 'why-marry', tags: [] },
-  { name: '허니문 지역선정 이유', slug: 'honeymoon', tags: [] },
-  { name: '결혼준비 자료실', slug: 'resources', tags: [] },
-  { name: '다이렉트 블로거', slug: 'blogger', tags: [] },
-  { name: '데이트 맛집 소개', slug: 'datefood', tags: [] },
-  { name: '신혼 게시판', slug: 'newlywed', tags: [] },
-  { name: '임신/출산/육아', slug: 'parenting', tags: [] },
-  { name: '미용/시술/건강관리', slug: 'beauty', tags: [] },
-  { name: '법률/부동산/전문정보', slug: 'legal', tags: [] },
+// 카테고리 계층 — 대분류(아이콘) → 소분류(글이 속하는 곳) + 대분류별 태그.
+// 소분류 slug 는 기존 23종을 그대로 재배치(기존 글 보존). 아이콘=public/icons/community/cat/{icon}.svg(토스 이모지).
+export type SubDef = { name: string; slug: string };
+export type MajorDef = { name: string; slug: string; icon: string; subs: SubDef[]; tags: string[] };
+
+export const TAXONOMY: MajorDef[] = [
+  {
+    name: '결혼준비',
+    slug: 'm-prep',
+    icon: 'ring',
+    subs: [
+      { name: '결혼준비 토론방', slug: 'prep-forum' },
+      { name: '결혼준비 자료실', slug: 'resources' },
+      { name: '선택장애 모여라', slug: 'choice' },
+      { name: '허니문 지역선정 이유', slug: 'honeymoon' },
+      { name: '나의 시댁은/처가댁은', slug: 'inlaws' },
+    ],
+    tags: ['스드메', '예식장', '상견례', '청첩장', '예산', '혼수'],
+  },
+  {
+    name: '신혼생활',
+    slug: 'm-newlywed',
+    icon: 'home',
+    subs: [
+      { name: '신혼 게시판', slug: 'newlywed' },
+      { name: '결혼·신혼·육아 일기', slug: 'diary' },
+      { name: '신랑신부 갈등과 해소', slug: 'conflict' },
+      { name: '내 신랑·신부 자랑하기', slug: 'brag' },
+    ],
+    tags: ['신혼집', '인테리어', '집들이', '부부', '살림'],
+  },
+  {
+    name: '임신·출산·육아',
+    slug: 'm-parenting',
+    icon: 'baby',
+    subs: [
+      { name: '임신/출산/육아', slug: 'parenting' },
+      { name: '다이어트 질문답변', slug: 'diet' },
+    ],
+    tags: ['임신', '출산', '육아', '태교', '산후조리'],
+  },
+  {
+    name: '자유소통',
+    slug: 'm-talk',
+    icon: 'chat',
+    subs: [
+      { name: '자유게시판', slug: 'free' },
+      { name: '궁금한점 질문답변', slug: 'curious-qna' },
+      { name: '힘들어요 위로해주세요', slug: 'comfort' },
+      { name: '남들은 어떻게 하나요?', slug: 'others' },
+      { name: '내가 결혼하는 이유', slug: 'why-marry' },
+    ],
+    tags: ['수다', '고민', '질문', '위로', '공감'],
+  },
+  {
+    name: '정보·꿀팁',
+    slug: 'm-info',
+    icon: 'bulb',
+    subs: [
+      { name: '자주묻는질문(FAQ)', slug: 'faq' },
+      { name: '나만의 요리비법', slug: 'recipe' },
+      { name: '데이트 맛집 소개', slug: 'datefood' },
+      { name: '미용/시술/건강관리', slug: 'beauty' },
+      { name: '법률/부동산/전문정보', slug: 'legal' },
+      { name: '다이렉트 블로거', slug: 'blogger' },
+    ],
+    tags: ['꿀팁', '후기', '추천', '맛집', '정보'],
+  },
+  {
+    name: '중고장터',
+    slug: 'm-market',
+    icon: 'store',
+    subs: [
+      { name: '예신·예랑 중고장터', slug: 'market' },
+      { name: '나눔', slug: 'share' },
+      { name: '삽니다', slug: 'buy' },
+    ],
+    tags: ['판매', '나눔', '삽니다', '웨딩용품', '직거래'],
+  },
 ];
+
+// 태그 slug — 한글 태그명을 그대로 식별자로 쓴다(그룹 내 unique).
+export function tagSlug(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, '-');
+}
 
 // 구 카테고리(초기 6종 중 새 목록에 없는 것) — 재구성 시 정리 대상.
 export const LEGACY_GROUP_SLUGS = ['wedding', 'mc', 'review', 'qna', 'info'];

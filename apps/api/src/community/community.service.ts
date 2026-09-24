@@ -13,7 +13,8 @@ import {
   QUIZ_MAX_QUESTIONS_PER_POST,
   QUIZ_MAX_POSTS_PER_DAY,
   tierForScore,
-  DEFAULT_GROUPS,
+  TAXONOMY,
+  tagSlug,
   LEGACY_GROUP_SLUGS,
   ReactionType,
 } from './community.constants';
@@ -44,30 +45,36 @@ export class CommunityService implements OnModuleInit {
   // ─── 기본 카테고리 시드/정합 ─────────────────────────────────────
   // slug 기준 upsert(이름/순서 갱신·누락 생성) + 구 카테고리 정리.
   private async seedDefaultTaxonomy() {
-    for (let gi = 0; gi < DEFAULT_GROUPS.length; gi++) {
-      const g = DEFAULT_GROUPS[gi];
-      const group = await this.prisma.communityGroup.upsert({
-        where: { slug: g.slug },
-        create: {
-          name: g.name,
-          slug: g.slug,
-          description: g.description,
-          sortOrder: gi,
-          isActive: true,
-        },
-        update: { name: g.name, sortOrder: gi, isActive: true },
+    // 대분류(parentId=null, icon) → 소분류(parentId=대분류) 트리 + 대분류별 태그.
+    for (let mi = 0; mi < TAXONOMY.length; mi++) {
+      const m = TAXONOMY[mi];
+      const major = await this.prisma.communityGroup.upsert({
+        where: { slug: m.slug },
+        create: { name: m.name, slug: m.slug, icon: m.icon, parentId: null, sortOrder: mi, isActive: true },
+        update: { name: m.name, icon: m.icon, parentId: null, sortOrder: mi, isActive: true },
       });
-      for (let ti = 0; ti < g.tags.length; ti++) {
-        const t = g.tags[ti];
+      for (let si = 0; si < m.subs.length; si++) {
+        const s = m.subs[si];
+        await this.prisma.communityGroup.upsert({
+          where: { slug: s.slug },
+          create: { name: s.name, slug: s.slug, parentId: major.id, sortOrder: si, isActive: true },
+          update: { name: s.name, parentId: major.id, icon: null, sortOrder: si, isActive: true },
+        });
+      }
+      for (let ti = 0; ti < m.tags.length; ti++) {
+        const name = m.tags[ti];
+        const slug = tagSlug(name);
         await this.prisma.communityTag
           .upsert({
-            where: { groupId_slug: { groupId: group.id, slug: t.slug } },
-            create: { groupId: group.id, name: t.name, slug: t.slug, sortOrder: ti },
-            update: { name: t.name, sortOrder: ti, isActive: true },
+            where: { groupId_slug: { groupId: major.id, slug } },
+            create: { groupId: major.id, name, slug, sortOrder: ti },
+            update: { name, sortOrder: ti, isActive: true },
           })
           .catch(() => null);
       }
     }
+    // 태그는 대분류에만 둔다 — 소분류에 남은 옛 태그 정리(멱등).
+    await this.prisma.communityTag.deleteMany({ where: { group: { parentId: { not: null } } } });
     // 구 카테고리(초기 6종 중 폐기) + 그 하위 글 정리. post.group 은 Restrict 라 글 먼저 삭제.
     const legacy = await this.prisma.communityGroup.findMany({
       where: { slug: { in: LEGACY_GROUP_SLUGS } },
@@ -78,12 +85,13 @@ export class CommunityService implements OnModuleInit {
       await this.prisma.communityPost.deleteMany({ where: { groupId: { in: legacyIds } } });
       await this.prisma.communityGroup.deleteMany({ where: { id: { in: legacyIds } } });
     }
-    this.logger.log(`community: taxonomy reconciled (${DEFAULT_GROUPS.length} groups)`);
+    this.logger.log(`community: taxonomy reconciled (${TAXONOMY.length} majors)`);
   }
 
   // ─── 그룹/태그 ────────────────────────────────────────────────────
+  // 대분류 트리: [{ ...대분류, icon, tags, children:[소분류] }]. postCount 는 하위 합산.
   async listGroups() {
-    const groups = await this.prisma.communityGroup.findMany({
+    const all = await this.prisma.communityGroup.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
       include: {
@@ -96,21 +104,58 @@ export class CommunityService implements OnModuleInit {
       _count: { _all: true },
     });
     const cmap = new Map(counts.map((c) => [c.groupId, c._count._all]));
+    const subsByParent = new Map<string, typeof all>();
+    for (const g of all) {
+      if (!g.parentId) continue;
+      const arr = subsByParent.get(g.parentId) || [];
+      arr.push(g);
+      subsByParent.set(g.parentId, arr);
+    }
+    const majors = all.filter((g) => !g.parentId);
     return {
-      groups: groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        slug: g.slug,
-        description: g.description,
-        postCount: cmap.get(g.id) || 0,
-        tags: g.tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
-      })),
+      groups: majors.map((m) => {
+        const children = (subsByParent.get(m.id) || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          slug: s.slug,
+          parentId: m.id,
+          postCount: cmap.get(s.id) || 0,
+        }));
+        return {
+          id: m.id,
+          name: m.name,
+          slug: m.slug,
+          icon: m.icon,
+          description: m.description,
+          postCount: children.reduce((a, c) => a + c.postCount, 0) + (cmap.get(m.id) || 0),
+          tags: m.tags.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+          children,
+        };
+      }),
     };
   }
 
+  // 대분류 id 면 하위 소분류 전체, 소분류 id 면 그 하나.
+  private async resolveGroupFilter(groupId: string): Promise<string[]> {
+    const children = await this.prisma.communityGroup.findMany({
+      where: { parentId: groupId, isActive: true },
+      select: { id: true },
+    });
+    return children.length ? [groupId, ...children.map((c) => c.id)] : [groupId];
+  }
+
+  // 태그는 대분류에 달려 있다 — 소분류 id 가 오면 부모 대분류의 태그를 준다.
   async listTags(groupId?: string) {
+    let gid = groupId;
+    if (gid) {
+      const g = await this.prisma.communityGroup.findUnique({
+        where: { id: gid },
+        select: { parentId: true },
+      });
+      if (g?.parentId) gid = g.parentId;
+    }
     const tags = await this.prisma.communityTag.findMany({
-      where: { isActive: true, ...(groupId ? { groupId } : {}) },
+      where: { isActive: true, ...(gid ? { groupId: gid } : {}) },
       orderBy: [{ groupId: 'asc' }, { sortOrder: 'asc' }],
     });
     return {
@@ -233,7 +278,7 @@ export class CommunityService implements OnModuleInit {
     const blocked = await this.getBlockedIds(viewerId);
 
     const where: any = { isActive: true };
-    if (groupId) where.groupId = groupId;
+    if (groupId) where.groupId = { in: await this.resolveGroupFilter(groupId) };
     if (tagId) where.tags = { some: { tagId } };
     if (q && q.trim()) {
       where.OR = [
@@ -492,6 +537,12 @@ export class CommunityService implements OnModuleInit {
     const title = (body.title || '').trim();
     const content = (body.content || '').trim();
     if (!body.groupId) throw new BadRequestException('카테고리를 선택해주세요.');
+    const target = await this.prisma.communityGroup.findUnique({
+      where: { id: body.groupId },
+      include: { children: { select: { id: true } } },
+    });
+    if (!target || !target.isActive) throw new BadRequestException('카테고리를 찾을 수 없어요.');
+    if (target.children.length > 0) throw new BadRequestException('소분류를 선택해주세요.');
     if (!title) throw new BadRequestException('제목을 입력해주세요.');
     if (!content && !(body.imageUrls?.length)) throw new BadRequestException('내용을 입력해주세요.');
 

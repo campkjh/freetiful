@@ -21,6 +21,9 @@ interface CategoryGroup {
   id: string;
   name: string;
   slug?: string;
+  icon?: string | null;
+  tags?: { id: string; name: string; slug: string }[];
+  children?: CategoryGroup[];
 }
 interface PickCategory { id: string; name: string; icon: string; sets: number }
 interface PickSet { id: string; title: string; total: number }
@@ -85,6 +88,7 @@ export default function CommunityComposeModal({
 }) {
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [groupId, setGroupId] = useState("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [content, setContent] = useState(initialContent ?? "");
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -143,7 +147,7 @@ export default function CommunityComposeModal({
         setGroups(gs);
         // 넘겨받은 카테고리(건의게시판 등)가 있으면 미리 골라둔다.
         if (initialGroupSlug) {
-          const hit = gs.find((g) => g.slug === initialGroupSlug);
+          const hit = gs.flatMap((m) => m.children || []).find((g) => g.slug === initialGroupSlug);
           if (hit) setGroupId(hit.id);
         }
       } catch {
@@ -328,7 +332,7 @@ export default function CommunityComposeModal({
 
   useEffect(() => {
     if (!pendingGroupSlug || groups.length === 0) return;
-    const hit = groups.find((g) => g.slug === pendingGroupSlug);
+    const hit = groups.flatMap((m) => m.children || []).find((g) => g.slug === pendingGroupSlug);
     if (!hit) return;
     const t = setTimeout(() => {
       setGroupId(hit.id);
@@ -339,7 +343,7 @@ export default function CommunityComposeModal({
 
   // 주제를 slug 로 고른다. 목록이 아직이면 기억해 뒀다 적용.
   function chooseGroup(slug: string) {
-    const hit = groups.find((g) => g.slug === slug);
+    const hit = groups.flatMap((m) => m.children || []).find((g) => g.slug === slug);
     if (hit) setGroupId(hit.id);
     else setPendingGroupSlug(slug);
   }
@@ -401,7 +405,9 @@ export default function CommunityComposeModal({
     !!content.trim() && !posting && !uploading
     && (!pollOn || filledPollOptions.length >= 2)
     && (!quizOn || filledQuizItems.length >= 1);
-  const selectedGroup = groups.find((g) => g.id === groupId);
+  // 글은 소분류에 쓴다 — 선택된 소분류와 그 부모(대분류, 태그 보유)를 함께 잡는다.
+  const selectedMajor = groups.find((m) => (m.children || []).some((c) => c.id === groupId));
+  const selectedGroup = selectedMajor?.children?.find((c) => c.id === groupId);
 
   async function submit() {
     if (!canPost) return;
@@ -419,7 +425,7 @@ export default function CommunityComposeModal({
           groupId,
           title: deriveTitle(content),
           content: content.trim(),
-          tagIds: [],
+          tagIds,
           imageUrls: images.map((i) => i.url),
           type: quizOn ? "quiz" : pollOn ? "poll" : "normal",
           isBlinded,
@@ -483,22 +489,62 @@ export default function CommunityComposeModal({
               <span className="cmp-nick">{nickname || "나"}</span>
               <span className="cmp-chevron">›</span>
               <button type="button" className={`cmp-cat${selectedGroup ? " is-set" : ""}`} onClick={() => setPickerOpen((v) => !v)}>
-                {selectedGroup ? selectedGroup.name : "커뮤니티 또는 주제"}
+                {selectedGroup ? `${selectedMajor?.name} › ${selectedGroup.name}` : "커뮤니티 또는 주제"}
               </button>
             </div>
 
             {pickerOpen && (
-              <div className="cmp-cat-list">
-                {groups.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    className={`cmp-cat-item${g.id === groupId ? " is-on" : ""}`}
-                    onClick={() => { setGroupId(g.id); setPickerOpen(false); setMessage(""); }}
-                  >
-                    {g.name}
-                  </button>
+              <div className="cmp-cat-tree">
+                {groups.map((m) => (
+                  <div key={m.id} className="cmp-cat-sec">
+                    <div className="cmp-cat-sec-h">
+                      {m.icon && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`/icons/community/cat/${m.icon}.svg`} alt="" width={18} height={18} />
+                      )}
+                      {m.name}
+                    </div>
+                    <div className="cmp-cat-list">
+                      {(m.children || []).map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          className={`cmp-cat-item${g.id === groupId ? " is-on" : ""}`}
+                          onClick={() => {
+                            if (g.id !== groupId) setTagIds([]);
+                            setGroupId(g.id);
+                            setPickerOpen(false);
+                            setMessage("");
+                          }}
+                        >
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
+              </div>
+            )}
+
+            {selectedMajor && (selectedMajor.tags || []).length > 0 && (
+              <div className="cmp-tags">
+                {(selectedMajor.tags || []).map((t) => {
+                  const on = tagIds.includes(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`cmp-tag${on ? " is-on" : ""}`}
+                      onClick={() =>
+                        setTagIds((prev) =>
+                          on ? prev.filter((x) => x !== t.id) : prev.length >= 5 ? prev : [...prev, t.id],
+                        )
+                      }
+                    >
+                      #{t.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -897,6 +943,13 @@ function ComposeStyles() {
         border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
       }
       .cmp-cat-item.is-on { background: var(--c-inverse); border-color: var(--c-inverse); color: #fff; }
+      .cmp-cat-tree { display: grid; gap: 12px; margin: 10px 0 4px; max-height: 44vh; overflow-y: auto; }
+      .cmp-cat-sec-h { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--c-text-2d); margin-bottom: 6px; }
+      .cmp-cat-sec-h img { display: block; }
+      .cmp-cat-sec .cmp-cat-list { margin: 0; }
+      .cmp-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+      .cmp-tag { border: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-text-3); font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+      .cmp-tag.is-on { border-color: var(--c-brand); background: var(--c-brand-soft); color: var(--c-brand); }
       .cmp-textarea {
         width: 100%; border: none; outline: none; resize: none; background: transparent;
         margin-top: 4px; padding: 0; font-family: inherit; font-size: 16px; line-height: 1.5;

@@ -639,3 +639,29 @@
   .fcom .community-layout { grid-template-columns: 236px minmax(0, 1fr); max-width: 1060px; margin: 0 auto; gap: 36px; }
   .fcom .community-filter-panel { display: block; padding: 4px 0; }
 }
+
+/* ── 대분류 아코디언(데스크톱 사이드바) ── */
+.fcom-major { display: flex; flex-direction: column; }
+.fcom-cat-emoji { flex: none; width: 22px; height: 22px; display: block; }
+.fcom-cat-major { font-weight: 600; color: var(--c-text); }
+.fcom-cat-caret { flex: none; color: var(--c-text-4b); transition: transform .18s ease; }
+.fcom-major.open .fcom-cat-caret { transform: rotate(90deg); }
+.fcom-subs { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px; padding-left: 31px; position: relative; }
+.fcom-subs::before { content: ''; position: absolute; left: 20px; top: 4px; bottom: 4px; width: 1px; background: var(--c-bg-muted-6); }
+.fcom-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: none; background: none; border-radius: 9px; cursor: pointer; text-align: left; color: var(--c-text-3); font-size: 13.5px; font-weight: 500; font-family: inherit; line-height: 1.25; transition: background .14s ease, color .14s ease; }
+.fcom-sub:hover { background: var(--c-bg-muted-2); color: var(--c-text-2d); }
+.fcom-sub.on { background: var(--c-brand-soft); color: var(--c-brand); font-weight: 700; }
+
+/* ── 피드 상단: 소분류 칩(모바일) + 태그 칩 ── */
+.fcom-filterbar { display: grid; gap: 10px; padding: 12px 2px 14px; border-bottom: 1px solid var(--c-bg-muted-6); }
+.fcom-subrow, .fcom-tagrow { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.fcom-subrow::-webkit-scrollbar, .fcom-tagrow::-webkit-scrollbar { display: none; }
+.fcom-chip { flex: none; border: 1px solid var(--c-border); background: var(--c-bg); color: var(--c-text-2d); font-size: 13.5px; font-weight: 600; padding: 7px 13px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .14s ease, color .14s ease, border-color .14s ease; }
+.fcom-chip.on { background: var(--c-inverse, #191F28); border-color: var(--c-inverse, #191F28); color: #fff; }
+.fcom-tag { flex: none; border: none; background: var(--c-bg-muted-2); color: var(--c-text-3); font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap; transition: background .14s ease, color .14s ease; }
+.fcom-tag.on { background: var(--c-brand-soft); color: var(--c-brand); }
+
+@media (min-width: 1024px) {
+  /* 데스크톱은 좌측 트리가 소분류를 보여주니 상단 소분류 칩은 숨긴다(태그만). */
+  .fcom .fcom-subrow { display: none; }
+}

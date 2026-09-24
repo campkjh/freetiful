@@ -15,15 +15,19 @@ import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 
 // 게시글 목록 캐시 키(필터 조합별).
-const postsKey = (groupId: string, q: string) =>
-  `community-posts:${groupId}:${q.trim()}`;
+const postsKey = (groupId: string, q: string, tagId = "") =>
+  `community-posts:${groupId}:${tagId}:${q.trim()}`;
 
 interface CategoryGroup {
   id: string;
   name: string;
   slug: string;
-  description: string;
+  description?: string | null;
   postCount?: number;
+  icon?: string | null;
+  parentId?: string;
+  tags?: { id: string; name: string; slug: string }[];
+  children?: CategoryGroup[];
 }
 
 interface CommunityTag {
@@ -143,6 +147,7 @@ export default function CommunityClient() {
   const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(postsKey("", "")) ?? []);
   const [weeklyPosts, setWeeklyPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>("community-weekly") ?? []);
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedTagId, setSelectedTagId] = useState("");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -214,7 +219,7 @@ export default function CommunityClient() {
         const next = prev.map((p) =>
           p.id === post.id ? { ...p, myReaction: data.myReaction ?? null, likeCount: data.total ?? p.likeCount } : p
         );
-        clientCache.set(postsKey(selectedGroupId, query), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
         return next;
       });
     } catch (error) {
@@ -234,7 +239,7 @@ export default function CommunityClient() {
   function bumpCommentCount(postId: string, delta: number) {
     setPosts((prev) => {
       const next = prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount || 0) + delta) } : p));
-      clientCache.set(postsKey(selectedGroupId, query), next);
+      clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
       return next;
     });
   }
@@ -269,7 +274,7 @@ export default function CommunityClient() {
       if (!response.ok) throw new Error(data.error || "퀴즈를 처리하지 못했습니다.");
       setPosts((prev) => {
         const next = prev.map((p) => (p.id === postId ? { ...p, quiz: data.quiz } : p));
-        clientCache.set(postsKey(selectedGroupId, query), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
         return next;
       });
     } catch (error) {
@@ -296,7 +301,7 @@ export default function CommunityClient() {
       setPosts((prev) => {
         const next = prev.map((p) => (p.id === postId ? { ...p, poll: data.poll } : p));
         // 현재 필터 조합의 캐시도 갱신해 탭 재진입 시 투표 상태가 유지되게 한다.
-        clientCache.set(postsKey(selectedGroupId, query), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
         return next;
       });
     } catch (error) {
@@ -342,7 +347,7 @@ export default function CommunityClient() {
   useEffect(() => {
     loadPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, query]);
+  }, [selectedGroupId, query, selectedTagId]);
 
   // 상세에서 돌아온 경우 저장해 둔 필터를 복원하고, 필요한 데이터를 다시 받는다.
   useEffect(() => {
@@ -488,7 +493,7 @@ export default function CommunityClient() {
   }
 
   async function loadPosts() {
-    const key = postsKey(selectedGroupId, query);
+    const key = postsKey(selectedGroupId, query, selectedTagId);
     // 캐시가 있으면 즉시 표시하고 로딩을 띄우지 않는다(백그라운드 재검증).
     const cached = clientCache.get<CommunityPost[]>(key);
     if (cached) {
@@ -500,6 +505,7 @@ export default function CommunityClient() {
     try {
       const params = new URLSearchParams();
       if (selectedGroupId) params.set("groupId", selectedGroupId);
+      if (selectedTagId) params.set("tagId", selectedTagId);
       if (query.trim()) params.set("q", query.trim());
       const response = await cfetch(`/api/community/posts?${params.toString()}`);
       const data = await response.json();
@@ -615,10 +621,22 @@ export default function CommunityClient() {
     return () => window.clearInterval(id);
   }, [weeklyPosts.length]);
 
-  const selectedGroup = useMemo(
-    () => groups.find((group) => group.id === selectedGroupId),
+  // 선택이 대분류든 소분류든, 그 대분류(태그·소분류 보유)를 잡는다.
+  const activeMajor = useMemo(
+    () =>
+      groups.find(
+        (m) => m.id === selectedGroupId || (m.children || []).some((c) => c.id === selectedGroupId),
+      ),
     [groups, selectedGroupId]
   );
+  const selectedGroup = useMemo(
+    () => groups.flatMap((m) => [m, ...(m.children || [])]).find((g) => g.id === selectedGroupId),
+    [groups, selectedGroupId]
+  );
+  const selectGroup = (id: string) => {
+    setSelectedGroupId(id);
+    setSelectedTagId("");
+  };
   // 목록 이미지는 전부 lazy 인데, 그중 처음 보이는 한 장만 예외로 즉시 받는다(LCP).
   // 맨 위 글에 이미지가 없는 경우가 흔해서 "이미지가 있는 첫 글"을 기준으로 잡는다.
   const firstImagePostIndex = useMemo(
@@ -639,7 +657,7 @@ export default function CommunityClient() {
             <CategoryChips
               groups={groups}
               selectedGroupId={selectedGroupId}
-              onSelect={(id) => setSelectedGroupId(id)}
+              onSelect={selectGroup}
             />
           </div>
           {/* 넓은 화면: 아이콘 버튼 대신 헤더에 검색창을 그대로 편다. */}
@@ -697,11 +715,50 @@ export default function CommunityClient() {
           <CategoryList
             groups={groups}
             selectedGroupId={selectedGroupId}
-            onSelect={(id) => setSelectedGroupId(id)}
+            onSelect={selectGroup}
           />
         </aside>
 
         <section className="community-feed">
+          {activeMajor && (
+            <div className="fcom-filterbar">
+              {(activeMajor.children || []).length > 0 && (
+                <div className="fcom-subrow">
+                  <button
+                    type="button"
+                    className={`fcom-chip${selectedGroupId === activeMajor.id ? " on" : ""}`}
+                    onClick={() => selectGroup(activeMajor.id)}
+                  >
+                    전체
+                  </button>
+                  {(activeMajor.children || []).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`fcom-chip${selectedGroupId === c.id ? " on" : ""}`}
+                      onClick={() => selectGroup(c.id)}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(activeMajor.tags || []).length > 0 && (
+                <div className="fcom-tagrow">
+                  {(activeMajor.tags || []).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`fcom-tag${selectedTagId === t.id ? " on" : ""}`}
+                      onClick={() => setSelectedTagId(selectedTagId === t.id ? "" : t.id)}
+                    >
+                      #{t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {message && (
             <div className="community-message">
               {message}
@@ -1111,7 +1168,15 @@ function CategoryChips({
   onSelect: (id: string) => void;
   stacked?: boolean;
 }) {
-  const items = [{ id: "", name: "전체", icon: "cg-all" }, ...groups.map((g) => ({ id: g.id, name: g.name, icon: groupIcon(g.name) }))];
+  const items = [
+    { id: "", name: "전체", emoji: null as string | null, childIds: [] as string[] },
+    ...groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      emoji: g.icon ?? null,
+      childIds: (g.children || []).map((c) => c.id),
+    })),
+  ];
   // 가로로 더 볼 게 남았을 때만 우측을 페이드한다(끝까지 밀면 마지막 탭이 흐려지지 않게).
   const railRef = useRef<HTMLElement | null>(null);
   const [atEnd, setAtEnd] = useState(false);
@@ -1135,7 +1200,7 @@ function CategoryChips({
       aria-label="커뮤니티 카테고리"
     >
       {items.map((it) => {
-        const on = selectedGroupId === it.id;
+        const on = selectedGroupId === it.id || it.childIds.includes(selectedGroupId);
         return (
           <button
             key={it.id || "all"}
@@ -1146,7 +1211,12 @@ function CategoryChips({
           >
             <span className="tabrail-ico">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/icons/${it.icon}${on ? "-on" : ""}.svg`} alt="" width={24} height={24} />
+              <img
+                src={it.emoji ? `/icons/community/cat/${it.emoji}.svg` : `/icons/cg-all${on ? "-on" : ""}.svg`}
+                alt=""
+                width={it.emoji ? 28 : 24}
+                height={it.emoji ? 28 : 24}
+              />
             </span>
             <span className="tabrail-label">{it.name}</span>
           </button>
@@ -1156,7 +1226,7 @@ function CategoryChips({
   );
 }
 
-// 데스크톱 좌측 카테고리 세로 리스트(문서/상점 아이콘 + 이름 + N 배지).
+// 데스크톱 좌측 카테고리: 대분류(토스 이모지) 아코디언 → 소분류. 선택된 대분류만 펼친다.
 function CategoryList({
   groups,
   selectedGroupId,
@@ -1166,32 +1236,64 @@ function CategoryList({
   selectedGroupId: string;
   onSelect: (id: string) => void;
 }) {
-  const items = [
-    { id: "", name: "전체", icon: "cat-all", n: false },
-    ...groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      icon: g.slug === "market" ? "cat-store" : "cat-doc",
-      n: (g.postCount ?? 0) > 0,
-    })),
-  ];
+  const activeMajorId =
+    groups.find(
+      (m) => m.id === selectedGroupId || (m.children || []).some((c) => c.id === selectedGroupId),
+    )?.id ?? "";
   return (
     <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
-      {items.map((it) => {
-        const on = selectedGroupId === it.id;
+      <button
+        type="button"
+        className={`fcom-cat${!selectedGroupId ? " on" : ""}`}
+        onClick={() => onSelect("")}
+        aria-current={!selectedGroupId ? "true" : undefined}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="fcom-cat-ico" src="/icons/community/cat-all.svg" alt="" width={20} height={20} />
+        <span className="fcom-cat-name">전체</span>
+      </button>
+      {groups.map((m) => {
+        const open = m.id === activeMajorId;
+        const majorOn = m.id === selectedGroupId;
         return (
-          <button
-            key={it.id || "all"}
-            type="button"
-            className={`fcom-cat${on ? " on" : ""}`}
-            onClick={() => onSelect(it.id)}
-            aria-current={on ? "true" : undefined}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="fcom-cat-ico" src={`/icons/community/${it.icon}.svg`} alt="" width={20} height={20} />
-            <span className="fcom-cat-name">{it.name}</span>
-            {it.n && <span className="fcom-cat-n">N</span>}
-          </button>
+          <div key={m.id} className={`fcom-major${open ? " open" : ""}`}>
+            <button
+              type="button"
+              className={`fcom-cat fcom-cat-major${majorOn ? " on" : ""}`}
+              onClick={() => onSelect(m.id)}
+              aria-expanded={open}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="fcom-cat-emoji"
+                src={m.icon ? `/icons/community/cat/${m.icon}.svg` : "/icons/community/cat-doc.svg"}
+                alt=""
+                width={22}
+                height={22}
+              />
+              <span className="fcom-cat-name">{m.name}</span>
+              {(m.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
+              <svg className="fcom-cat-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {open && (m.children || []).length > 0 && (
+              <div className="fcom-subs">
+                {(m.children || []).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`fcom-sub${c.id === selectedGroupId ? " on" : ""}`}
+                    onClick={() => onSelect(c.id)}
+                    aria-current={c.id === selectedGroupId ? "true" : undefined}
+                  >
+                    <span className="fcom-cat-name">{c.name}</span>
+                    {(c.postCount ?? 0) > 0 && <span className="fcom-cat-n">N</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>

@@ -1129,17 +1129,23 @@ model AdSpend {
 // ═══════════════════════════════════════════════════════════════════
 
 model CommunityGroup {
-  id          String          @id @default(uuid())
+  id          String           @id @default(uuid())
   name        String
-  slug        String          @unique
+  slug        String           @unique
   description String?
-  isActive    Boolean         @default(true)
-  sortOrder   Int             @default(0)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  // 계층: 대분류(parentId=null) → 소분류(parentId=대분류). 글은 소분류에 속한다.
+  parentId    String?
+  icon        String? // 대분류 아이콘 파일명(public/icons/community/cat/*.svg)
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  parent      CommunityGroup?  @relation("GroupTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    CommunityGroup[] @relation("GroupTree")
   tags        CommunityTag[]
   posts       CommunityPost[]
 
+  @@index([parentId])
   @@map("community_groups")
 }
 
