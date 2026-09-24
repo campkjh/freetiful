@@ -214,6 +214,7 @@ export default function QuickMatchPage() {
   const [submitting, setSubmitting] = useState(false);
   const [pct, setPct] = useState(0);
   const [selectingAll, setSelectingAll] = useState(false);
+  const [bgIdx, setBgIdx] = useState(0);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
@@ -274,6 +275,19 @@ export default function QuickMatchPage() {
     if (out.length < 5) out.push(...pool.slice(0, 5 - out.length));
     return out;
   }, [pool, offset]);
+
+  // 검색 화면 뒷배경: 사회자 프로필 사진들을 1초마다 크로스페이드로 순환
+  const bgImgs = useMemo(() => {
+    const seen = new Set<string>(); const out: string[] = [];
+    for (const p of pool) { const u = p.profileImageUrl; if (u && !seen.has(u)) { seen.add(u); out.push(u); } if (out.length >= 12) break; }
+    return out;
+  }, [pool]);
+  useEffect(() => {
+    if (step !== 'searching' || bgImgs.length === 0) return;
+    setBgIdx(0);
+    const id = setInterval(() => setBgIdx((i) => (i + 1) % bgImgs.length), 1000);
+    return () => clearInterval(id);
+  }, [step, bgImgs.length]);
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function reroll() { if (rerolled) return; setRerolled(true); setOffset((o) => o + 5); setSelected(new Set()); }
@@ -428,26 +442,33 @@ export default function QuickMatchPage() {
       )}
 
       {step === 'searching' && (
-        <div className="qm-page center" key="searching">
-          <div className="qm-ringwrap">
-            <svg viewBox="0 0 80 80" className="qm-ring">
-              <circle cx="40" cy="40" r="34" fill="none" stroke="#EEF0F3" strokeWidth="6" />
-              <circle cx="40" cy="40" r="34" fill="none" stroke="#3182F6" strokeWidth="6" strokeLinecap="round" strokeDasharray={R} strokeDashoffset={R * (1 - pct / 100)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .1s linear' }} />
-            </svg>
-            <span className="qm-ring-ic"><Ic name="sparkle" size={30} color="#3182F6" /></span>
+        <div className="qm-page center qm-searching" key="searching">
+          <div className="qm-search-bg" aria-hidden="true">
+            {bgImgs.map((src, i) => (
+              <span key={src} className={`qm-search-bgimg ${i === bgIdx ? 'on' : ''}`} style={{ backgroundImage: `url(${src})` }} />
+            ))}
           </div>
-          <h2 className="qm-h2 center">고객님의 예식에 알맞는<br />사회자를 찾고 있어요</h2>
-          <p className="qm-pct">{pct}% 진행 중</p>
-          <div className="qm-searchlist">
-            {SEARCH_STEPS.map((s, i) => {
-              const done = pct >= (i + 1) * 33;
-              return (
-                <div className={`qm-searchrow ${done ? 'done' : ''}`} key={s}>
-                  <span className="qm-searchrow-ic">{done ? <Ic name="check" size={18} color="#3182F6" /> : <span className="qm-spin" />}</span>
-                  <span>{s}</span>
-                </div>
-              );
-            })}
+          <div className="qm-search-fg">
+            <div className="qm-ringwrap">
+              <svg viewBox="0 0 80 80" className="qm-ring">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="#EEF0F3" strokeWidth="6" />
+                <circle cx="40" cy="40" r="34" fill="none" stroke="#3182F6" strokeWidth="6" strokeLinecap="round" strokeDasharray={R} strokeDashoffset={R * (1 - pct / 100)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .1s linear' }} />
+              </svg>
+              <span className="qm-ring-ic"><Ic name="sparkle" size={30} color="#3182F6" /></span>
+            </div>
+            <h2 className="qm-h2 center">고객님의 예식에 알맞는<br />사회자를 찾고 있어요</h2>
+            <p className="qm-pct">{pct}% 진행 중</p>
+            <div className="qm-searchlist">
+              {SEARCH_STEPS.map((s, i) => {
+                const done = pct >= (i + 1) * 33;
+                return (
+                  <div className={`qm-searchrow ${done ? 'done' : ''}`} key={s}>
+                    <span className="qm-searchrow-ic">{done ? <Ic name="check" size={18} color="#3182F6" /> : <span className="qm-spin" />}</span>
+                    <span>{s}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -633,6 +654,12 @@ const CSS = `
 .qm-searchrow-ic{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none;}
 .qm-spin{width:15px;height:15px;border-radius:50%;border:2px solid #E5E8EB;border-top-color:var(--blue);animation:qm-spin .7s linear infinite;}
 @keyframes qm-spin{to{transform:rotate(360deg)}}
+.qm-searching{position:relative;overflow:hidden;padding:0;}
+.qm-search-bg{position:absolute;inset:0;z-index:0;background:#EDF0F3;}
+.qm-search-bgimg{position:absolute;inset:0;background-size:cover;background-position:center 22%;opacity:0;transform:scale(1.08);filter:blur(2px);transition:opacity .9s ease;}
+.qm-search-bgimg.on{opacity:1;}
+.qm-search-bg::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.74);}
+.qm-search-fg{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;padding:0 32px;}
 .qm-resbar{display:flex;align-items:center;justify-content:space-between;margin:18px 4px 0;}
 .qm-resbar>span{font-size:13px;font-weight:600;color:var(--t-sub);}
 .qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;}
