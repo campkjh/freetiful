@@ -12,6 +12,7 @@ const PATH_MAP: [RegExp, string][] = [
   [/^\/api\/category-groups\b/, '/api/v1/community/groups'],
   [/^\/api\/tags\b/, '/api/v1/community/tags'],
   [/^\/api\/auth\/me\b/, '/api/v1/auth/me'],
+  [/^\/api\/me\/comments\b/, '/api/v1/community/me/comments'],
 ];
 
 function mapUrl(input: string): string {

@@ -1289,6 +1289,17 @@ model CommunityBlock {
   @@map("community_blocks")
 }
 
+// 팔로우(토스 커뮤니티식) — follower 가 following 을 팔로우.
+model CommunityFollow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("community_follows")
+}
+
 model CommunityPostView {
   postId String        @id
   count  Int           @default(0)

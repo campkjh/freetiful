@@ -121,3 +121,41 @@ export function tagSlug(name: string): string {
 
 // 구 카테고리(초기 6종 중 새 목록에 없는 것) — 재구성 시 정리 대상.
 export const LEGACY_GROUP_SLUGS = ['wedding', 'mc', 'review', 'qna', 'info'];
+
+// ─── 작성자 배지(토스 커뮤니티 '팔로워 부자'식) ─────────────────────
+// 이름 옆 색 배지. 우선순위 순서대로 판정해 첫 번째를 대표로 보여준다(배열 전체도 내려줌).
+// 임계값은 신생 커뮤니티 기준 — 활동이 쌓이면 올려도 된다.
+export const BADGE_THRESHOLDS = {
+  followerRich: 10, // 팔로워 N명 이상
+  likeRich: 30, // 받은 좋아요 N개 이상
+  commentRich: 30, // 쓴 댓글 N개 이상
+  heavyWriter: 10, // 쓴 글 N개 이상
+  newbieMaxPosts: 2, // 글 N개 이하 + 다른 배지 없음 → 새내기
+};
+
+export type BadgeTone = 'orange' | 'red' | 'blue' | 'purple' | 'green' | 'amber' | 'teal';
+export type BadgeKey =
+  | 'followerRich'
+  | 'likeRich'
+  | 'answerKing'
+  | 'pickKing'
+  | 'commentRich'
+  | 'heavyWriter'
+  | 'newbie';
+
+export const BADGES: Record<BadgeKey, { label: string; tone: BadgeTone }> = {
+  followerRich: { label: '팔로워 부자', tone: 'orange' },
+  likeRich: { label: '좋아요 부자', tone: 'red' },
+  answerKing: { label: '답변왕', tone: 'blue' },
+  pickKing: { label: '채택왕', tone: 'purple' },
+  commentRich: { label: '댓글 부자', tone: 'green' },
+  heavyWriter: { label: '열혈 작가', tone: 'amber' },
+  newbie: { label: '새내기', tone: 'teal' },
+};
+
+// 아바타 아래 역할 라벨(토스 '주주' 자리) — 프리티풀 회원 유형.
+export const ROLE_LABELS: Record<string, string> = {
+  pro: '사회자',
+  business: '업체',
+  admin: '운영자',
+};

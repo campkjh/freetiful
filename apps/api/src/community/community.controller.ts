@@ -47,8 +47,9 @@ export class CommunityController {
     @Query('tagId') tagId?: string,
     @Query('q') q?: string,
     @Query('popular') popular?: string,
+    @Query('sort') sort?: string,
   ) {
-    return this.community.listPosts({ groupId, tagId, q, popular, viewerId: req.user?.id });
+    return this.community.listPosts({ groupId, tagId, q, popular, sort, viewerId: req.user?.id });
   }
 
   @Post('posts')
@@ -188,6 +189,23 @@ export class CommunityController {
   @ApiOperation({ summary: '차단 토글' })
   toggleBlock(@Request() req: any, @Body() body: any) {
     return this.community.toggleBlock(req.user.id, body?.userId);
+  }
+
+  // ── 팔로우 ──
+  @Post('follows')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '팔로우 토글' })
+  toggleFollow(@Request() req: any, @Body() body: any) {
+    return this.community.toggleFollow(req.user.id, body?.userId);
+  }
+
+  @Get('me/comments')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내가 댓글 단 글 목록' })
+  myComments(@Request() req: any) {
+    return this.community.myComments(req.user.id);
   }
 
   // ── 기타 ──

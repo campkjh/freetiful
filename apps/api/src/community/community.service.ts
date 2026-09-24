@@ -17,6 +17,11 @@ import {
   tagSlug,
   LEGACY_GROUP_SLUGS,
   ReactionType,
+  BADGE_THRESHOLDS,
+  BADGES,
+  ROLE_LABELS,
+  BadgeKey,
+  BadgeTone,
 } from './community.constants';
 
 type Author = {
@@ -26,6 +31,10 @@ type Author = {
   tier: string;
   isAnswerKing: boolean;
   isPickKing: boolean;
+  roleLabel: string | null; // 아바타 아래 라벨(사회자/업체/운영자)
+  followerCount: number;
+  isFollowing: boolean; // 뷰어가 이 작성자를 팔로우 중
+  badges: { key: BadgeKey; label: string; tone: BadgeTone }[]; // 우선순위순, [0]이 대표
 };
 
 @Injectable()
@@ -179,7 +188,7 @@ export class CommunityService implements OnModuleInit {
   }
 
   // ─── 작성자 정보 + 티어 + 킹 배지 (배치) ─────────────────────────
-  private async mapAuthors(userIds: string[]): Promise<Map<string, Author>> {
+  private async mapAuthors(userIds: string[], viewerId?: string): Promise<Map<string, Author>> {
     const ids = Array.from(new Set(userIds.filter(Boolean)));
     const map = new Map<string, Author>();
     if (ids.length === 0) return map;
@@ -237,12 +246,38 @@ export class CommunityService implements OnModuleInit {
     );
     const pickKing = new Set(recentPins.filter((r) => Number(r.c) >= 5).map((r) => r.user_id));
 
+    // 팔로워 수 + 뷰어의 팔로우 여부
+    const [followerGroups, myFollows] = await Promise.all([
+      this.prisma.communityFollow.groupBy({
+        by: ['followingId'],
+        where: { followingId: { in: ids } },
+        _count: { _all: true },
+      }),
+      viewerId
+        ? this.prisma.communityFollow.findMany({
+            where: { followerId: viewerId, followingId: { in: ids } },
+            select: { followingId: true },
+          })
+        : Promise.resolve([] as { followingId: string }[]),
+    ]);
+    const fc = new Map(followerGroups.map((r) => [r.followingId, r._count._all]));
+    const followingSet = new Set(myFollows.map((r) => r.followingId));
+
     for (const u of users) {
-      const score =
-        (pc.get(u.id) || 0) * 10 +
-        (cc.get(u.id) || 0) * 3 +
-        (lr.get(u.id) || 0) * 2 +
-        (bn.get(u.id) || 0);
+      const postN = pc.get(u.id) || 0;
+      const commentN = cc.get(u.id) || 0;
+      const likeN = lr.get(u.id) || 0;
+      const followerN = fc.get(u.id) || 0;
+      const score = postN * 10 + commentN * 3 + likeN * 2 + (bn.get(u.id) || 0);
+      // 배지 — 우선순위 순서로 판정(대표는 [0]).
+      const keys: BadgeKey[] = [];
+      if (followerN >= BADGE_THRESHOLDS.followerRich) keys.push('followerRich');
+      if (likeN >= BADGE_THRESHOLDS.likeRich) keys.push('likeRich');
+      if (answerKing.has(u.id)) keys.push('answerKing');
+      if (pickKing.has(u.id)) keys.push('pickKing');
+      if (commentN >= BADGE_THRESHOLDS.commentRich) keys.push('commentRich');
+      if (postN >= BADGE_THRESHOLDS.heavyWriter) keys.push('heavyWriter');
+      if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
       map.set(u.id, {
         nickname: u.name || '사용자',
         avatar: u.profileImageUrl || null,
@@ -250,6 +285,10 @@ export class CommunityService implements OnModuleInit {
         tier: tierForScore(score),
         isAnswerKing: answerKing.has(u.id),
         isPickKing: pickKing.has(u.id),
+        roleLabel: ROLE_LABELS[u.role as string] || null,
+        followerCount: followerN,
+        isFollowing: followingSet.has(u.id),
+        badges: keys.map((k) => ({ key: k, ...BADGES[k] })),
       });
     }
     return map;
@@ -263,6 +302,10 @@ export class CommunityService implements OnModuleInit {
       tier: 'iron',
       isAnswerKing: false,
       isPickKing: false,
+      roleLabel: null,
+      followerCount: 0,
+      isFollowing: false,
+      badges: [],
     };
   }
 
@@ -272,9 +315,10 @@ export class CommunityService implements OnModuleInit {
     tagId?: string;
     q?: string;
     popular?: string;
+    sort?: string;
     viewerId?: string;
   }) {
-    const { groupId, tagId, q, popular, viewerId } = params;
+    const { groupId, tagId, q, popular, sort, viewerId } = params;
     const blocked = await this.getBlockedIds(viewerId);
 
     const where: any = { isActive: true };
@@ -289,12 +333,13 @@ export class CommunityService implements OnModuleInit {
     if (blocked.size) where.userId = { notIn: Array.from(blocked) };
 
     const isPopular = popular === 'week';
+    const isHot = !isPopular && sort === 'popular';
     const posts = await this.prisma.communityPost.findMany({
       where: isPopular
         ? { ...where, createdAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } }
         : where,
       orderBy: { createdAt: 'desc' },
-      take: isPopular ? 40 : 60,
+      take: isPopular ? 40 : isHot ? 300 : 60,
       include: {
         group: true,
         tags: { include: { tag: true } },
@@ -305,6 +350,16 @@ export class CommunityService implements OnModuleInit {
         _count: { select: { likes: true, comments: true } },
       },
     });
+
+    if (isHot) {
+      // 인기순 — (좋아요×3 + 댓글×2 + 조회×0.2 + 1) / (경과시간h + 2)^1.3 핫스코어(최근 인기글이 위로).
+      const now = Date.now();
+      const hot = (p: any) =>
+        ((p._count?.likes || 0) * 3 + (p._count?.comments || 0) * 2 + (p.view?.count || 0) * 0.2 + 1) /
+        Math.pow((now - new Date(p.createdAt).getTime()) / 3_600_000 + 2, 1.3);
+      posts.sort((a, b) => hot(b) - hot(a));
+      return { posts: await this.buildFeedPosts(posts.slice(0, 60), viewerId) };
+    }
 
     const mapped = await this.buildFeedPosts(posts, viewerId);
 
@@ -323,7 +378,7 @@ export class CommunityService implements OnModuleInit {
     if (posts.length === 0) return [];
     const postIds = posts.map((p) => p.id);
     const authorIds = posts.map((p) => p.userId).filter(Boolean);
-    const authors = await this.mapAuthors(authorIds);
+    const authors = await this.mapAuthors(authorIds, viewerId);
 
     // 뷰어 리액션
     const myReactions = viewerId
@@ -365,6 +420,12 @@ export class CommunityService implements OnModuleInit {
         authorIsAdmin: author.isAdmin,
         authorIsAnswerKing: author.isAnswerKing,
         authorIsPickKing: author.isPickKing,
+        authorRole: author.roleLabel,
+        authorBadges: author.badges,
+        authorFollowerCount: author.followerCount,
+        authorIsFollowing: author.isFollowing,
+        isMine: !!viewerId && p.userId === viewerId,
+        isEdited: new Date(p.updatedAt).getTime() - new Date(p.createdAt).getTime() > 60_000,
         groupId: p.groupId,
         groupName: p.group?.name || '',
         groupSlug: p.group?.slug || '',
@@ -974,6 +1035,31 @@ export class CommunityService implements OnModuleInit {
     }
     await this.prisma.communityBlock.create({ data: { blockerId: userId, blockedId: targetId } });
     return { blocked: true };
+  }
+
+  // ─── 팔로우 ───────────────────────────────────────────────────────
+  async toggleFollow(userId: string, targetId: string) {
+    if (!targetId) throw new BadRequestException('대상을 찾을 수 없어요.');
+    if (userId === targetId) throw new BadRequestException('자신은 팔로우할 수 없어요.');
+    const target = await this.prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!target) throw new NotFoundException('사용자를 찾을 수 없어요.');
+    const key = { followerId_followingId: { followerId: userId, followingId: targetId } };
+    const existing = await this.prisma.communityFollow.findUnique({ where: key });
+    if (existing) await this.prisma.communityFollow.delete({ where: key });
+    else await this.prisma.communityFollow.create({ data: { followerId: userId, followingId: targetId } });
+    const followerCount = await this.prisma.communityFollow.count({ where: { followingId: targetId } });
+    return { following: !existing, followerCount };
+  }
+
+  // 내가 댓글 단 글 목록('내가 쓴 댓글' 필터용) — 최신순.
+  async myComments(userId: string) {
+    const comments = await this.prisma.communityComment.findMany({
+      where: { userId, isActive: true, post: { isActive: true } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: { postId: true, content: true, createdAt: true },
+    });
+    return { comments };
   }
 
   // ─── 기타 ─────────────────────────────────────────────────────────

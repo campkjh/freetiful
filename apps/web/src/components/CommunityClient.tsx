@@ -15,8 +15,8 @@ import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 
 // 게시글 목록 캐시 키(필터 조합별).
-const postsKey = (groupId: string, q: string, tagId = "") =>
-  `community-posts:${groupId}:${tagId}:${q.trim()}`;
+const postsKey = (groupId: string, q: string, tagId = "", sort = "") =>
+  `community-posts:${groupId}:${tagId}:${sort}:${q.trim()}`;
 
 interface CategoryGroup {
   id: string;
@@ -105,6 +105,13 @@ interface CommunityPost {
   commentCount: number;
   imageUrls: string[];
   tags: CommunityTag[];
+  // 토스 커뮤니티식 작성자 정보
+  authorRole?: string | null; // 아바타 아래 라벨(사회자/업체/운영자)
+  authorBadges?: { key: string; label: string; tone: string }[]; // [0]=대표 배지
+  authorFollowerCount?: number;
+  authorIsFollowing?: boolean;
+  isMine?: boolean;
+  isEdited?: boolean;
 }
 
 const TIERS = ["iron", "silver", "gold", "emerald", "diamond", "master", "grandmaster", "gongsin"];
@@ -148,6 +155,11 @@ export default function CommunityClient() {
   const [weeklyPosts, setWeeklyPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>("community-weekly") ?? []);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedTagId, setSelectedTagId] = useState("");
+  // 토스식 정렬(인기순/최신순) + 정렬 메뉴 + 토스트
+  const [sortMode, setSortMode] = useState<"popular" | "latest">("popular");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  const toastTimerRef = useRef(0);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -219,7 +231,7 @@ export default function CommunityClient() {
         const next = prev.map((p) =>
           p.id === post.id ? { ...p, myReaction: data.myReaction ?? null, likeCount: data.total ?? p.likeCount } : p
         );
-        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
         return next;
       });
     } catch (error) {
@@ -239,7 +251,7 @@ export default function CommunityClient() {
   function bumpCommentCount(postId: string, delta: number) {
     setPosts((prev) => {
       const next = prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount || 0) + delta) } : p));
-      clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
+      clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
       return next;
     });
   }
@@ -274,7 +286,7 @@ export default function CommunityClient() {
       if (!response.ok) throw new Error(data.error || "퀴즈를 처리하지 못했습니다.");
       setPosts((prev) => {
         const next = prev.map((p) => (p.id === postId ? { ...p, quiz: data.quiz } : p));
-        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
         return next;
       });
     } catch (error) {
@@ -301,7 +313,7 @@ export default function CommunityClient() {
       setPosts((prev) => {
         const next = prev.map((p) => (p.id === postId ? { ...p, poll: data.poll } : p));
         // 현재 필터 조합의 캐시도 갱신해 탭 재진입 시 투표 상태가 유지되게 한다.
-        clientCache.set(postsKey(selectedGroupId, query, selectedTagId), next);
+        clientCache.set(postsKey(selectedGroupId, query, selectedTagId, sortMode), next);
         return next;
       });
     } catch (error) {
@@ -347,7 +359,7 @@ export default function CommunityClient() {
   useEffect(() => {
     loadPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, query, selectedTagId]);
+  }, [selectedGroupId, query, selectedTagId, sortMode]);
 
   // 상세에서 돌아온 경우 저장해 둔 필터를 복원하고, 필요한 데이터를 다시 받는다.
   useEffect(() => {
@@ -493,7 +505,7 @@ export default function CommunityClient() {
   }
 
   async function loadPosts() {
-    const key = postsKey(selectedGroupId, query, selectedTagId);
+    const key = postsKey(selectedGroupId, query, selectedTagId, sortMode);
     // 캐시가 있으면 즉시 표시하고 로딩을 띄우지 않는다(백그라운드 재검증).
     const cached = clientCache.get<CommunityPost[]>(key);
     if (cached) {
@@ -506,6 +518,7 @@ export default function CommunityClient() {
       const params = new URLSearchParams();
       if (selectedGroupId) params.set("groupId", selectedGroupId);
       if (selectedTagId) params.set("tagId", selectedTagId);
+      params.set("sort", sortMode);
       if (query.trim()) params.set("q", query.trim());
       const response = await cfetch(`/api/community/posts?${params.toString()}`);
       const data = await response.json();
@@ -637,6 +650,89 @@ export default function CommunityClient() {
     setSelectedGroupId(id);
     setSelectedTagId("");
   };
+
+  // ── 토스식 피드 액션 ──
+  const tossTime = (d: string) => formatRelativeTime(d).replace(/ 전$/, "");
+  function showToast(text: string) {
+    setToast(text);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 1800);
+  }
+  function chooseSort(mode: "popular" | "latest") {
+    setSortMode(mode);
+    setMineFilter("");
+    setSortOpen(false);
+  }
+  async function chooseMine(next: "posts" | "comments") {
+    setSortOpen(false);
+    setMineFilter(next);
+    await ensureMineData(next);
+  }
+  // 팔로우 — 같은 작성자의 모든 카드에 즉시 반영(낙관적), 실패하면 되돌린다.
+  async function toggleFollow(post: CommunityPost) {
+    const target = post.userId;
+    if (!target) return;
+    const next = !post.authorIsFollowing;
+    const snapshot = posts;
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.userId === target
+          ? {
+              ...p,
+              authorIsFollowing: next,
+              authorFollowerCount: Math.max(0, (p.authorFollowerCount || 0) + (next ? 1 : -1)),
+            }
+          : p,
+      ),
+    );
+    try {
+      const res = await cfetch("/api/community/follows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: target }),
+      });
+      if (res.status === 401) {
+        setPosts(snapshot);
+        window.dispatchEvent(new Event("freetiful:show-login"));
+        showToast("로그인하면 팔로우할 수 있어요");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "팔로우하지 못했어요");
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.userId === target
+            ? { ...p, authorIsFollowing: data.following, authorFollowerCount: data.followerCount }
+            : p,
+        ),
+      );
+      clientCache.clearPrefix("community-posts");
+    } catch (error) {
+      setPosts(snapshot);
+      showToast(error instanceof Error ? error.message : "팔로우하지 못했어요");
+    }
+  }
+  const postUrl = (id: string) => `${window.location.origin}/community/${id}`;
+  async function copyPostLink(post: CommunityPost) {
+    try {
+      await navigator.clipboard.writeText(postUrl(post.id));
+      showToast("링크를 복사했어요");
+    } catch {
+      showToast("링크를 복사하지 못했어요");
+    }
+  }
+  async function sharePost(post: CommunityPost) {
+    const url = postUrl(post.id);
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: post.title, url });
+      } catch {
+        /* 사용자가 취소 */
+      }
+      return;
+    }
+    copyPostLink(post);
+  }
   // 목록 이미지는 전부 lazy 인데, 그중 처음 보이는 한 장만 예외로 즉시 받는다(LCP).
   // 맨 위 글에 이미지가 없는 경우가 흔해서 "이미지가 있는 첫 글"을 기준으로 잡는다.
   const firstImagePostIndex = useMemo(
@@ -765,78 +861,73 @@ export default function CommunityClient() {
             </div>
           )}
 
-          {!selectedGroupId && !query.trim() && weeklyPosts.length > 0 && (
-            <section className="weekly-popular" aria-label="주간 인기글">
-              <h2 className="weekly-popular-title" role="tablist" aria-label="게시글 보기">
-                {/* 텍스트 탭 — 버튼 느낌 없이 글자만. 선택된 항목은 검정, 나머지는 회색. */}
-                {([
-                  { key: "", label: "주간 인기글" },
-                  { key: "posts", label: "내가 쓴 글" },
-                  { key: "comments", label: "내가 쓴 댓글" },
-                ] as const).map((t) => {
-                  const on = mineFilter === t.key;
-                  return (
-                    <button
-                      key={t.key || "weekly"}
-                      type="button"
-                      role="tab"
-                      aria-selected={on}
-                      className={`wp-tab${on ? " is-on" : ""}`}
-                      onClick={() => (t.key ? toggleMineFilter(t.key) : setMineFilter(""))}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </h2>
-              {!mineFilter && (
-              <>
-              <div className="weekly-popular-viewport">
-                <div className="weekly-popular-track" ref={weeklyTrackRef} onScroll={handleWeeklyScroll}>
-                {weeklyPosts.map((post, index) => (
-                  <button
-                    key={post.id}
-                    type="button"
-                    className="weekly-popular-card"
-                    onClick={() => openPost(post.id)}
-                    // 비활성 카드는 '축소'가 아니라 '흐리게'로 구분한다. scale 은 슬라이드 중
-                    // 카드가 중심으로 줄며 빠져나가 좌측이 잘려 보였다(크기 변화=지오메트리 변형).
-                    style={{ opacity: index === weeklyActiveIndex ? 1 : 0.5 }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      className="weekly-popular-medal"
-                      src={`/icons/community/medal-${Math.min(index + 1, 5)}.svg`}
-                      alt={`${index + 1}위`}
-                      width={44}
-                      height={44}
-                    />
-                    <span className="weekly-popular-top">
-                      <span className="weekly-popular-group">{post.groupName}</span>
-                    </span>
-                    <span className="weekly-popular-card-title">{post.title}</span>
-                    <span className="weekly-popular-card-content">{post.content}</span>
-                    <span className="weekly-popular-card-metrics">
-                      <span><HeartIcon /> {post.likeCount || 0}</span>
-                      <span><CommentIcon /> {post.commentCount || 0}</span>
-                      <span><EyeIcon /> {post.viewCount || 0}</span>
-                    </span>
-                  </button>
-                ))}
-                </div>
-                <div className="weekly-edge weekly-edge-right" aria-hidden="true" style={{ opacity: weeklyAtEnd ? 0 : 1 }} />
-              </div>
-              {weeklyPosts.length > 1 && (
-                <div className="weekly-popular-dots" aria-hidden="true">
-                  {weeklyPosts.map((post, index) => (
-                    <span key={post.id} className={index === weeklyActiveIndex ? "weekly-dot active" : "weekly-dot"} />
-                  ))}
-                </div>
+          <div className="tfeed-sortbar">
+            <div className="tfeed-sort-wrap">
+              <button
+                type="button"
+                className="tfeed-sort"
+                aria-haspopup="menu"
+                aria-expanded={sortOpen}
+                onClick={() => setSortOpen((v) => !v)}
+              >
+                {activeMineFilter === "posts"
+                  ? "내가 쓴 글"
+                  : activeMineFilter === "comments"
+                    ? "내가 쓴 댓글"
+                    : sortMode === "popular"
+                      ? "인기순"
+                      : "최신순"}
+                <SortArrowsIcon />
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="tfeed-backdrop" onClick={() => setSortOpen(false)} />
+                  <div className="tfeed-sort-menu" role="menu">
+                    {(["popular", "latest"] as const).map((mode) => {
+                      const on = !activeMineFilter && sortMode === mode;
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={on}
+                          className={`tfeed-sort-item${on ? " on" : ""}`}
+                          onClick={() => chooseSort(mode)}
+                        >
+                          {mode === "popular" ? "인기순" : "최신순"}
+                          {on && <MenuCheckIcon />}
+                        </button>
+                      );
+                    })}
+                    {!selectedGroupId && !query.trim() && (
+                      <>
+                        <div className="tfeed-sort-sep" />
+                        {([
+                          { key: "posts", label: "내가 쓴 글" },
+                          { key: "comments", label: "내가 쓴 댓글" },
+                        ] as const).map((t) => {
+                          const on = activeMineFilter === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={on}
+                              className={`tfeed-sort-item${on ? " on" : ""}`}
+                              onClick={() => chooseMine(t.key)}
+                            >
+                              {t.label}
+                              {on && <MenuCheckIcon />}
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                </>
               )}
-              </>
-              )}
-            </section>
-          )}
+            </div>
+          </div>
 
           <div className="community-post-list">
             {loading ? (
@@ -857,195 +948,187 @@ export default function CommunityClient() {
                 </p>
               </div>
             ) : (
-              visiblePosts.map((post, postIndex) => (
-                <article
-                  key={post.id}
-                  className="community-post-card"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${post.title} 상세 보기`}
-                  onClick={() => openPost(post.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openPost(post.id);
-                    }
-                  }}
-                >
-                  <div className="community-post-head">
-                    <div className="community-avatar" aria-hidden="true">
-                      {post.authorIsAdmin ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src="/icons/stady-app-icon.svg" alt="" className="community-avatar-img" />
-                      ) : post.avatar ? (
-                        // 카톡 등 프로필 사진. 없으면 닉네임 첫 글자.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={post.avatar} alt="" className="community-avatar-photo" referrerPolicy="no-referrer" />
-                      ) : (
-                        post.nickname.slice(0, 1)
-                      )}
+              visiblePosts.map((post, postIndex) => {
+                // 토스처럼 제목 없이 본문만 — 본문 첫 줄이 곧 제목(작성 모달이 첫 줄로 제목을 만든다).
+                // 제목을 따로 쓴 글(글쓰기 페이지)은 제목을 본문 앞에 붙인다.
+                const body = post.content.trim()
+                  ? post.content.startsWith(post.title)
+                    ? post.content
+                    : `${post.title}\n\n${post.content}`
+                  : "";
+                const badge = post.authorBadges?.[0];
+                const long = body.length > 220 || body.split("\n").length > 8;
+                const blindHidden = !!post.isBlinded && !revealedBlind.has(post.id);
+                return (
+                  <article
+                    key={post.id}
+                    className="tcard"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${post.title} 상세 보기`}
+                    onClick={() => openPost(post.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openPost(post.id);
+                      }
+                    }}
+                  >
+                    <div className="tcard-side">
+                      <div className="tcard-ava" aria-hidden="true">
+                        {post.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={post.avatar} alt="" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span>{post.nickname.slice(0, 1)}</span>
+                        )}
+                      </div>
+                      {post.authorRole && <span className="tcard-role">{post.authorRole}</span>}
                     </div>
-                    <div>
-                      <p className="community-post-author">{post.nickname}<TierBadge tier={post.authorTier} /><KingBadges answer={post.authorIsAnswerKing} pick={post.authorIsPickKing} /></p>
-                      <p className="community-post-date" title={formatExactTime(post.createdAt)}>{formatRelativeTime(post.createdAt)}</p>
-                    </div>
-                    <span className="community-group-badge">{post.groupName}</span>
-                  </div>
-                  <h2 className="community-post-title">
-                    {post.type === "poll" && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 3,
-                          marginRight: 6,
-                          padding: "2px 8px 2px 5px",
-                          borderRadius: 999,
-                          background: "var(--c-brand-soft-4)",
-                          color: "var(--c-brand-deep-2)",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/icons/community/chart-vote.svg" alt="" width={14} height={14} style={{ display: "block" }} />
-                        투표
-                      </span>
-                    )}
-                    {post.type === "quiz" && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 3,
-                          marginRight: 6,
-                          padding: "2px 8px 2px 5px",
-                          borderRadius: 999,
-                          background: "var(--c-brand-soft-4)",
-                          color: "var(--c-brand-deep-2)",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/icons/community/ox-quiz.svg" alt="OX" width={15} height={15} style={{ display: "block" }} />
-                        퀴즈
-                      </span>
-                    )}
-                    {post.groupSlug === "qna" && <QBadge answered={post.commentCount > 0} />}
-                    {post.title}
-                  </h2>
-                  <p className="community-post-content">{post.content}</p>
-                  {post.type === "poll" && post.poll && post.poll.options.length > 0 && (
-                    <FeedPoll
-                      poll={post.poll}
-                      voting={votingPostId === post.id}
-                      onVote={(optionId) => votePoll(post.id, optionId)}
-                    />
-                  )}
-                  {post.type === "quiz" && post.quiz && post.quiz.questions.length > 0 && (
-                    <FeedQuiz
-                      quiz={post.quiz}
-                      busyQuestionId={answeringQuizId}
-                      onAnswer={(questionId, answer) => answerQuiz(post.id, questionId, answer)}
-                    />
-                  )}
-                  {post.imageUrls.length > 0 && (
-                    <div className={post.imageUrls.length === 1 ? "community-post-image-single" : "community-post-image-grid"}>
-                      {post.imageUrls.slice(0, 4).map((imageUrl, index) => (
-                        <div key={imageUrl} className="community-post-image-thumb">
-                          <img
-                            src={imageUrl}
-                            alt={post.isBlinded ? "스포일러 이미지" : `${post.title} 이미지 ${index + 1}`}
-                            // 목록은 최신 100개 글을 한 번에 그리는데 화면에 보이는 건 두세 개뿐이다.
-                            // lazy 가 없던 동안은 화면 밖 이미지까지 전부 즉시 받아서, 진입 1회에
-                            // 실측 53.6MB 를 내려받았다(초기 뷰포트에 실제로 필요한 건 ~3MB).
-                            // 썸네일 칸은 CSS 로 aspect-ratio 가 고정돼 있어 지연 로드해도 레이아웃이 밀리지 않는다.
-                            // 화면에 처음 보이는 이미지가 LCP 후보다. lazy 는 프리로드 스캐너가
-                            // 못 집어 시작이 늦으므로 그 한 장만 예외로 즉시 받는다.
-                            // (맨 위 카드에 이미지가 없는 경우가 흔해서 "첫 카드"가 아니라
-                            //  "이미지가 있는 첫 카드" 기준으로 잡는다.)
-                            loading={postIndex === firstImagePostIndex && index === 0 ? "eager" : "lazy"}
-                            fetchPriority={postIndex === firstImagePostIndex && index === 0 ? "high" : undefined}
-                            decoding="async"
-                            style={post.isBlinded && !revealedBlind.has(post.id) ? { filter: "blur(18px)", transform: "scale(1.05)" } : undefined}
-                          />
-                          {post.isBlinded && !revealedBlind.has(post.id) && (
-                            <BlindNoiseCover
-                              onReveal={() =>
-                                setRevealedBlind((prev) => {
-                                  const next = new Set(prev);
-                                  next.add(post.id);
-                                  return next;
-                                })
-                              }
-                            />
-                          )}
-                          {index === 3 && post.imageUrls.length > 4 && !(post.isBlinded && !revealedBlind.has(post.id)) && (
-                            <span>+{post.imageUrls.length - 4}</span>
-                          )}
+                    <div className="tcard-main">
+                      <div className="tcard-head">
+                        <div className="tcard-who">
+                          <div className="tcard-name-row">
+                            <span className="tcard-name">{post.nickname}</span>
+                            {badge && <span className={`tcard-badge tone-${badge.tone}`}>{badge.label}</span>}
+                          </div>
+                          <div className="tcard-meta">
+                            <span title={formatExactTime(post.createdAt)}>
+                              {tossTime(post.createdAt)}
+                              {post.isEdited ? " (수정됨)" : ""}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>팔로워 {(post.authorFollowerCount || 0).toLocaleString("ko-KR")}</span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="community-post-tags">
-                    {post.tags.map((tag) => (
-                      <span key={tag.id} className="community-tag-badge">
-                        #{tag.name}
-                      </span>
-                    ))}
-                  </div>
-                  {post.topComment && (
-                    <div className="community-top-comment">
-                      {post.topComment.pinned && (
-                        <svg className="ctc-pin" width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                          <path d="M12 15v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
+                        {!post.isMine && post.userId && (
+                          <button
+                            type="button"
+                            className={`tcard-follow${post.authorIsFollowing ? " is-on" : ""}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFollow(post);
+                            }}
+                          >
+                            {post.authorIsFollowing ? "팔로잉" : "팔로우"}
+                          </button>
+                        )}
+                      </div>
+                      {body && (
+                        <>
+                          <p className={`tcard-body${long ? " is-clamped" : ""}`}>{body}</p>
+                          {long && <span className="tcard-more">더보기</span>}
+                        </>
                       )}
-                      {!post.topComment.pinned && <CommentIcon />}
-                      <span className="ctc-body">
-                        <b>{post.topComment.nickname}</b> {post.topComment.content}
-                      </span>
-                      {post.commentCount > 1 && (
-                        <span className="ctc-more">댓글 {post.commentCount}</span>
+                      {post.type === "poll" && post.poll && post.poll.options.length > 0 && (
+                        <FeedPoll
+                          poll={post.poll}
+                          voting={votingPostId === post.id}
+                          onVote={(optionId) => votePoll(post.id, optionId)}
+                        />
                       )}
+                      {post.type === "quiz" && post.quiz && post.quiz.questions.length > 0 && (
+                        <FeedQuiz
+                          quiz={post.quiz}
+                          busyQuestionId={answeringQuizId}
+                          onAnswer={(questionId, answer) => answerQuiz(post.id, questionId, answer)}
+                        />
+                      )}
+                      {post.imageUrls.length > 0 && (
+                        <div className={`tcard-media ${post.imageUrls.length === 1 ? "single" : "grid"}`}>
+                          {post.imageUrls.slice(0, 4).map((imageUrl, index) => (
+                            <div key={imageUrl} className="tcard-cell">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={imageUrl}
+                                alt={post.isBlinded ? "스포일러 이미지" : `${post.title} 이미지 ${index + 1}`}
+                                loading={postIndex === firstImagePostIndex && index === 0 ? "eager" : "lazy"}
+                                fetchPriority={postIndex === firstImagePostIndex && index === 0 ? "high" : undefined}
+                                decoding="async"
+                                style={blindHidden ? { filter: "blur(18px)", transform: "scale(1.05)" } : undefined}
+                              />
+                              {blindHidden && (
+                                <BlindNoiseCover
+                                  onReveal={() =>
+                                    setRevealedBlind((prev) => {
+                                      const next = new Set(prev);
+                                      next.add(post.id);
+                                      return next;
+                                    })
+                                  }
+                                />
+                              )}
+                              {index === 3 && post.imageUrls.length > 4 && !blindHidden && (
+                                <span className="tcard-cell-more">+{post.imageUrls.length - 4}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(post.groupName || post.tags.length > 0) && (
+                        <div className="tcard-chips">
+                          {post.groupName && <span className="tcard-cat">{post.groupName}</span>}
+                          {post.tags.map((tag) => (
+                            <span key={tag.id} className="tcard-tag">
+                              #{tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="tcard-actions">
+                        <button
+                          type="button"
+                          className={`tcard-act${post.myReaction ? " is-liked" : ""}`}
+                          aria-pressed={!!post.myReaction}
+                          aria-label="좋아요"
+                          disabled={likingPostId === post.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleLike(post);
+                          }}
+                        >
+                          <TossHeartIcon filled={!!post.myReaction} />
+                          <span>{formatCount(post.likeCount || 0)}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="tcard-act"
+                          aria-label="댓글"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setCommentModalPost(post);
+                          }}
+                        >
+                          <TossCommentIcon />
+                          <span>{formatCount(post.commentCount || 0)}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="tcard-act"
+                          aria-label="링크 복사"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            copyPostLink(post);
+                          }}
+                        >
+                          <TossRepostIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="tcard-act"
+                          aria-label="공유"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            sharePost(post);
+                          }}
+                        >
+                          <TossShareIcon />
+                        </button>
+                      </div>
                     </div>
-                  )}
-                  {(post.likeCount || 0) >= 3 && (post.likers?.length || 0) > 0 && (
-                    <LikerStack likers={post.likers!} count={post.likeCount} />
-                  )}
-                  <div className="community-post-metrics">
-                    <button
-                      type="button"
-                      className={`community-metric-btn${post.myReaction ? " is-liked" : ""}`}
-                      aria-pressed={!!post.myReaction}
-                      disabled={likingPostId === post.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleLike(post);
-                      }}
-                    >
-                      <HeartIcon /> 좋아요 {post.likeCount || 0}
-                    </button>
-                    <button
-                      type="button"
-                      className="community-metric-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setCommentModalPost(post);
-                      }}
-                    >
-                      <CommentIcon /> 댓글 {post.commentCount || 0}
-                    </button>
-                    <span>
-                      <EyeIcon /> 조회 {post.viewCount || 0}
-                    </span>
-                  </div>
-                </article>
-              ))
+                  </article>
+                );
+              })
             )}
           </div>
         </section>
@@ -1061,6 +1144,11 @@ export default function CommunityClient() {
           게시글 +
         </button>
       </div>
+      {toast && (
+        <div className="tfeed-toast" role="status">
+          {toast}
+        </div>
+      )}
       <CommunityStyles />
       {/* 당겨서 새로고침 — 이모지가 통통 튀며 바뀐다(스피너 대신) */}
       <PullToRefresh
@@ -1297,6 +1385,79 @@ function CategoryList({
         );
       })}
     </nav>
+  );
+}
+
+// ── 토스 커뮤니티식 피드 아이콘 ──
+function formatCount(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만`;
+  return String(n);
+}
+function TossHeartIcon({ filled }: { filled?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
+      <path
+        d="M12 20.2s-7.6-4.5-7.6-10.1A4.35 4.35 0 0 1 12 7.4a4.35 4.35 0 0 1 7.6 2.7c0 5.6-7.6 10.1-7.6 10.1Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function TossCommentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
+      <path
+        d="M12 4.3c4.4 0 7.9 3.2 7.9 7.2s-3.5 7.2-7.9 7.2c-1 0-2-.2-2.9-.5L5 19.6l1.1-3.3C4.9 15 4.1 13.3 4.1 11.5c0-4 3.5-7.2 7.9-7.2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function TossRepostIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
+      <path
+        d="M16.2 4.6 18.8 7.2l-2.6 2.6M18.6 7.2H8.3A3.3 3.3 0 0 0 5 10.5v1M7.8 19.4 5.2 16.8l2.6-2.6M5.4 16.8h10.3a3.3 3.3 0 0 0 3.3-3.3v-1"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function TossShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
+      <circle cx="17.5" cy="5.8" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="6.5" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.5" cy="18.2" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m8.6 10.8 6.8-3.8M8.6 13.2l6.8 3.8" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+function SortArrowsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+      <path
+        d="M8 19V5m0 0L4.8 8.2M8 5l3.2 3.2M16 5v14m0 0-3.2-3.2M16 19l3.2-3.2"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function MenuCheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+      <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

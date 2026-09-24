@@ -665,3 +665,83 @@
   /* 데스크톱은 좌측 트리가 소분류를 보여주니 상단 소분류 칩은 숨긴다(태그만). */
   .fcom .fcom-subrow { display: none; }
 }
+
+/* ═══ 토스 커뮤니티식 피드 카드 (사장 지정 스크린샷 기준) ═══ */
+.tcard { display: flex; gap: 12px; padding: 22px 4px 18px; border-bottom: 1px solid #F2F4F6; cursor: pointer; animation: communityCardIn .32s ease both; }
+.tcard:focus-visible { outline: 2px solid #3182F6; outline-offset: 2px; border-radius: 12px; }
+.tcard-side { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; }
+.tcard-ava { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #F2F4F6; display: flex; align-items: center; justify-content: center; }
+.tcard-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tcard-ava span { font-size: 18px; font-weight: 700; color: #8B95A1; }
+.tcard-role { margin-top: 6px; font-size: 13.5px; font-weight: 600; color: #3182F6; white-space: nowrap; letter-spacing: -0.2px; }
+.tcard-main { flex: 1; min-width: 0; }
+.tcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tcard-who { min-width: 0; padding-top: 1px; }
+.tcard-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tcard-name { font-size: 17px; font-weight: 700; color: #191F28; letter-spacing: -0.3px; }
+.tcard-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 7px; border-radius: 6px; font-size: 13.5px; font-weight: 600; letter-spacing: -0.2px; white-space: nowrap; }
+.tcard-badge.tone-orange { background: #FFF1E0; color: #FF8A00; }
+.tcard-badge.tone-red { background: #FFEEEF; color: #F04452; }
+.tcard-badge.tone-blue { background: #E8F3FF; color: #3182F6; }
+.tcard-badge.tone-purple { background: #F2EEFF; color: #7C4DFF; }
+.tcard-badge.tone-green { background: #E6F7EE; color: #03A94D; }
+.tcard-badge.tone-amber { background: #FFF6DB; color: #D99A00; }
+.tcard-badge.tone-teal { background: #E4F6F5; color: #0A9D96; }
+.tcard-meta { margin-top: 4px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 15px; color: #8B95A1; letter-spacing: -0.2px; }
+.tcard-follow { flex: none; height: 38px; padding: 0 14px; border: none; border-radius: 10px; background: #E8F3FF; color: #3182F6; font-size: 16px; font-weight: 600; letter-spacing: -0.2px; cursor: pointer; font-family: inherit; transition: background .15s ease, color .15s ease, transform .1s ease; }
+.tcard-follow:active { transform: scale(.97); }
+.tcard-follow.is-on { background: #F2F4F6; color: #6B7684; }
+.tcard-body { margin: 12px 0 0; font-size: 17.5px; line-height: 1.65; color: #191F28; letter-spacing: -0.3px; white-space: pre-wrap; word-break: break-word; }
+.tcard-body.is-clamped { display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
+.tcard-more { display: inline-block; margin-top: 2px; font-size: 15.5px; font-weight: 500; color: #8B95A1; }
+.tcard-media { margin-top: 14px; max-width: 528px; border-radius: 16px; overflow: hidden; background: #F2F4F6; }
+.tcard-media.single .tcard-cell { position: relative; }
+.tcard-media.single img { display: block; width: 100%; max-height: 600px; object-fit: cover; }
+.tcard-media.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.tcard-media.grid .tcard-cell { position: relative; aspect-ratio: 1; overflow: hidden; }
+.tcard-media.grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tcard-cell-more { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .42); color: #fff; font-size: 20px; font-weight: 700; }
+.tcard-chips { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.tcard-cat { font-size: 13px; font-weight: 600; color: #6B7684; background: #F2F4F6; padding: 4px 9px; border-radius: 6px; }
+.tcard-tag { font-size: 14px; font-weight: 600; color: #3182F6; }
+.tcard-actions { margin-top: 14px; display: flex; align-items: center; gap: 22px; }
+.tcard-act { display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; border: none; background: none; color: #6B7684; font-size: 17px; font-weight: 500; letter-spacing: -0.2px; cursor: pointer; font-family: inherit; transition: color .15s ease, transform .1s ease; }
+.tcard-act:active { transform: scale(.92); }
+.tcard-act.is-liked { color: #F04452; }
+.tcard-act:disabled { opacity: .6; }
+@media (hover: hover) {
+  .tcard:hover { background: #FAFBFC; }
+  .tcard-act:hover { color: #4E5968; }
+  .tcard-act.is-liked:hover { color: #E03340; }
+  .tcard-follow:hover { background: #D6E9FF; }
+  .tcard-follow.is-on:hover { background: #E8EBED; }
+}
+
+/* ── 정렬 드롭다운 '인기순 ↑↓' ── */
+.tfeed-sortbar { padding: 16px 0 2px; }
+.tfeed-sort-wrap { position: relative; display: inline-block; }
+.tfeed-sort { display: inline-flex; align-items: center; gap: 4px; height: 42px; padding: 0 14px; border: none; border-radius: 12px; background: #F2F4F6; color: #333D4B; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; cursor: pointer; font-family: inherit; }
+.tfeed-sort:active { background: #E8EBED; }
+.tfeed-backdrop { position: fixed; inset: 0; z-index: 55; }
+.tfeed-sort-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 172px; display: grid; padding: 6px; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .14), 0 1px 3px rgba(0, 0, 0, .06); animation: tfeedMenuIn .16s ease; }
+.tfeed-sort-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 12px; border: none; background: none; border-radius: 10px; color: #333D4B; font-size: 16px; font-weight: 500; text-align: left; cursor: pointer; font-family: inherit; }
+.tfeed-sort-item:hover { background: #F2F4F6; }
+.tfeed-sort-item.on { color: #3182F6; font-weight: 700; }
+.tfeed-sort-sep { height: 1px; margin: 4px 8px; background: #F2F4F6; }
+@keyframes tfeedMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── 토스트 ── */
+.tfeed-toast { position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); z-index: 300; transform: translateX(-50%); padding: 12px 18px; border-radius: 12px; background: rgba(25, 31, 40, .92); color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; pointer-events: none; animation: tfeedToastIn .2s ease; }
+@keyframes tfeedToastIn { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+@media (max-width: 600px) {
+  .tcard { padding: 18px 2px 14px; gap: 10px; }
+  .tcard-side { width: 42px; }
+  .tcard-ava { width: 42px; height: 42px; }
+  .tcard-name { font-size: 16px; }
+  .tcard-meta { font-size: 14px; }
+  .tcard-follow { height: 34px; padding: 0 12px; font-size: 15px; }
+  .tcard-body { font-size: 16.5px; }
+  .tcard-actions { gap: 20px; }
+  .tcard-act { font-size: 16px; }
+}
