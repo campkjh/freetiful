@@ -688,15 +688,6 @@ export default function CommunityComposeModal({
               </button>
               <button
                 type="button"
-                className="cmp-chip"
-                onClick={() => { setQPickOpen(true); setMessage(""); }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/compose/report.svg" alt="" width={20} height={20} />
-                문제 오류
-              </button>
-              <button
-                type="button"
                 className={`cmp-chip${isBlinded ? " is-on" : ""}`}
                 onClick={() => setIsBlinded((v) => !v)}
                 aria-pressed={isBlinded}
