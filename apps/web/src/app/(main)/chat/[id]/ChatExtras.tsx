@@ -1175,6 +1175,8 @@ export interface ChatExtrasProps {
   setShowHeaderMenu: React.Dispatch<React.SetStateAction<boolean>>;
   muted: boolean;
   setMuted: React.Dispatch<React.SetStateAction<boolean>>;
+  /** 알림 끄기/켜기(서버 저장) — 없으면 화면 상태만 바꾼다 */
+  onToggleMute?: () => void;
   showAttach: boolean;
   setShowAttach: React.Dispatch<React.SetStateAction<boolean>>;
   showQuoteModal: boolean;
@@ -1236,6 +1238,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     imagePreview, setImagePreview,
     showHeaderMenu, setShowHeaderMenu,
     muted, setMuted,
+    onToggleMute,
     showAttach, setShowAttach,
     showQuoteModal, setShowQuoteModal,
     showLocationPicker, setShowLocationPicker,
@@ -1975,7 +1978,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const invokeMenu = (id: string) => {
       switch (id) {
         case 'search': toast('곧 제공될 예정입니다', { icon: '🔍' }); break;
-        case 'mute': setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); break;
+        case 'mute': if (onToggleMute) onToggleMute(); else { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); } break;
         case 'profile':
           if (isPro) {
             toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
@@ -2333,7 +2336,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
             <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(0)}>
               <Search size={17} className="text-[#8B95A1]" /> 대화 내용 검색
             </button>
-            <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(1)}>
+            <button onClick={() => { if (onToggleMute) onToggleMute(); else { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); } setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(1)}>
               {muted ? <Bell size={17} className="text-[#8B95A1]" /> : <BellOff size={17} className="text-[#8B95A1]" />}
               {muted ? '알림 켜기' : '알림 끄기'}
             </button>

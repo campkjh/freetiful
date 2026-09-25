@@ -413,6 +413,22 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [muted, setMuted] = useState(false);
+  // 알림 끄기/켜기 — 서버(방 멤버 isMuted)에 저장하고 목록 스토어도 같이 바꾼다. 실패하면 되돌린다.
+  // (끈 방은 새 메시지 푸시·알림함이 안 온다 — 안 읽음 수는 그대로)
+  const toggleRoomMute = useCallback(() => {
+    if (!roomId || roomId.startsWith('pending-')) return;
+    const next = !muted;
+    const apply = (value: boolean) => {
+      setMuted(value);
+      useChatStore.setState((s) => ({ rooms: s.rooms.map((r) => (r.id === roomId ? { ...r, isMuted: value } : r)) }));
+    };
+    apply(next);
+    toast(next ? '이 채팅방 알림을 껐어요' : '이 채팅방 알림을 켰어요');
+    chatApi.setRoomMuted(roomId, next).catch(() => {
+      apply(!next);
+      toast.error('알림 설정을 바꾸지 못했어요');
+    });
+  }, [muted, roomId]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -514,6 +530,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           if (typeof storeRoom.iAmPro === 'boolean') {
             setIAmProInRoom(storeRoom.iAmPro);
           }
+          if (typeof storeRoom.isMuted === 'boolean') setMuted(storeRoom.isMuted);
         }
       }
       try {
@@ -529,6 +546,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         });
         // 현재 유저의 전역 role 이 아니라, 이 채팅방 안에서의 역할만 신뢰한다.
         setIAmProInRoom(Boolean(room.iAmPro));
+        setMuted(Boolean(room.isMuted));
         setRoomMeta({
           matchRequest: room.matchRequest ?? null,
           latestQuotation: room.latestQuotation ?? null,
@@ -1867,6 +1885,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           setShowHeaderMenu={setShowHeaderMenu}
           muted={muted}
           setMuted={setMuted}
+          onToggleMute={toggleRoomMute}
           showAttach={showAttach}
           setShowAttach={setShowAttach}
           showQuoteModal={showQuoteModal}

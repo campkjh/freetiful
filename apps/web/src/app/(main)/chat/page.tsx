@@ -12,6 +12,9 @@ import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { popItemDelay } from '@/lib/pop-menu';
+import ChatSwipeRow from '@/components/chat/ChatSwipeRow';
+import toast from 'react-hot-toast';
+import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 
 // ─── Types ────────────────────────────────────────────────
@@ -26,6 +29,8 @@ interface ChatRoom {
   isPinned: boolean;
   isArchived: boolean;
   isHidden?: boolean;
+  /** 이 방 알림 끔(서버 저장) */
+  isMuted?: boolean;
   matchRequestId?: string | null;
   latestQuotationStatus?: string | null;
   hasQuoteInquiry?: boolean;
@@ -81,6 +86,7 @@ function mapApiRoomToChatRoom(r: any): ChatRoom {
     lastMessage: lastMsgPreview(r.lastMessage),
     lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleDateString('ko-KR') : '',
     unreadCount: r.unreadCount,
+    isMuted: !!r.isMuted,
     isPinned: false,
     isArchived: false,
     isHidden: false,
@@ -408,6 +414,28 @@ export default function ChatListPage() {
     }
   };
 
+  // 알림 끄기/켜기 — 목록 스토어(서버 값)를 바로 바꾸고 API 로 저장, 실패하면 되돌린다
+  const handleToggleMute = (room: ChatRoom) => {
+    const next = !room.isMuted;
+    const apply = (value: boolean) =>
+      useChatStore.setState((s) => ({ rooms: s.rooms.map((r) => (r.id === room.id ? { ...r, isMuted: value } : r)) }));
+    apply(next);
+    toast(next ? '이 채팅방 알림을 껐어요' : '이 채팅방 알림을 켰어요');
+    chatApi.setRoomMuted(room.id, next).catch(() => {
+      apply(!next);
+      toast.error('알림 설정을 바꾸지 못했어요');
+    });
+  };
+
+  // 모바일 밀기 — 한 번에 한 줄만 열린다. 스크롤하면 닫는다
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openSwipeId) return;
+    const close = () => setOpenSwipeId(null);
+    window.addEventListener('scroll', close, { passive: true, once: true });
+    return () => window.removeEventListener('scroll', close);
+  }, [openSwipeId]);
+
   const handleHideRoom = (id: string) => {
     setRooms((prev) => prev.map((r) => r.id === id ? { ...r, isHidden: !r.isHidden } : r));
     setActionMenu(null);
@@ -481,6 +509,8 @@ export default function ChatListPage() {
                 key={room.id}
                 className="relative"
               >
+                {(() => {
+                const rowEl = (
                 <div
                   className={`relative flex items-start gap-3 px-5 py-[18px] cursor-pointer transition-colors overflow-hidden ${
                     isPC && selectedRoomId === room.id
@@ -556,6 +586,13 @@ export default function ChatListPage() {
                         {/* 한 줄 헤더: 이름 · 단계 태그 · | 새 메시지 N … 시간 */}
                         <div className="flex items-center gap-1.5">
                           <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{room.otherUser.name}</p>
+                          {room.isMuted && (
+                            <span
+                              aria-label="알림 꺼짐"
+                              className="h-[15px] w-[15px] shrink-0 bg-[#B0B8C1]"
+                              style={{ WebkitMaskImage: 'url(/icons/chat-kr/bell-off.svg)', maskImage: 'url(/icons/chat-kr/bell-off.svg)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat' }}
+                            />
+                          )}
                           {room.stage && (
                             <span className={`shrink-0 rounded-[6px] px-1.5 py-[3px] text-[12px] font-semibold ${stageClass(room.stage)}`}>
                               {room.stage}
@@ -611,6 +648,7 @@ export default function ChatListPage() {
                         <Link
                           href={editMode ? '#' : `/chat/${room.id}`}
                           className="shrink-0"
+                          draggable={false}
                           onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
                         >
                           {avatar}
@@ -618,6 +656,7 @@ export default function ChatListPage() {
                         <Link
                           href={editMode ? '#' : `/chat/${room.id}`}
                           className="min-w-0 flex-1"
+                          draggable={false}
                           onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
                         >
                           {body}
@@ -646,6 +685,32 @@ export default function ChatListPage() {
                     </button>
                   )}
                 </div>
+                );
+                // 모바일: 오른쪽→왼쪽으로 밀면 알림 끄기·삭제 동그라미가 순서대로 통통 튀며 나온다
+                if (isPC || editMode) return rowEl;
+                return (
+                  <ChatSwipeRow
+                    open={openSwipeId === room.id}
+                    onOpenChange={(o) => setOpenSwipeId(o ? room.id : null)}
+                    onSwipeStart={() => {
+                      handleLongPressEnd();
+                      if (openSwipeId && openSwipeId !== room.id) setOpenSwipeId(null);
+                    }}
+                    actions={[
+                      {
+                        key: 'mute',
+                        label: room.isMuted ? '알림 켜기' : '알림 끄기',
+                        bg: '#AFB2B9',
+                        icon: room.isMuted ? '/icons/chat-kr/bell.svg' : '/icons/chat-kr/bell-off.svg',
+                        onClick: () => handleToggleMute(room),
+                      },
+                      { key: 'delete', label: '채팅 삭제', bg: '#E84B3C', icon: '/icons/chat-kr/trash.svg', onClick: () => promptDeleteRoom(room) },
+                    ]}
+                  >
+                    {rowEl}
+                  </ChatSwipeRow>
+                );
+                })()}
               </li>
             );
           })}

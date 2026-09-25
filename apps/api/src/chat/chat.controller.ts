@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -64,6 +65,12 @@ export class ChatController {
   @ApiOperation({ summary: '채팅방 상세 조회' })
   getRoom(@Req() req, @Param('roomId') roomId: string) {
     return this.chatService.getRoomById(roomId, req.user.id);
+  }
+
+  @Patch('rooms/:roomId/mute')
+  @ApiOperation({ summary: '채팅방 알림 끄기/켜기 (내 측)' })
+  setRoomMuted(@Req() req, @Param('roomId') roomId: string, @Body() body: { muted?: boolean }) {
+    return this.chatService.setRoomMuted(roomId, req.user.id, body?.muted !== false);
   }
 
   @Delete('rooms/:roomId')

@@ -2117,3 +2117,25 @@ html[data-embedded='1'] [data-native-back-header] {
 @media (prefers-reduced-motion: reduce) {
   .pop-menu, .pop-menu-anim, .pop-menu-item { animation: none !important; }
 }
+
+/* ═══ 채팅 목록 밀기 버튼 (components/chat/ChatSwipeRow) — 작게 숨어 있다가
+   드러나는 순서대로(오른쪽→왼쪽) 통통 튀며 커지고, 닫힐 땐 도로 작아진다 ═══ */
+.swipe-act { transform: scale(0.35); opacity: 0; }
+.swipe-act.is-in { animation: swipeActPop 0.52s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.swipe-act.is-out { animation: swipeActOut 0.2s ease both; }
+.swipe-act:active { filter: brightness(0.92); }
+@keyframes swipeActPop {
+  0% { transform: scale(0.35); opacity: 0; }
+  45% { transform: scale(1.14); opacity: 1; }
+  70% { transform: scale(0.94); opacity: 1; }
+  88% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes swipeActOut {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.35); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-act.is-in { animation: none; transform: none; opacity: 1; }
+  .swipe-act.is-out { animation: none; }
+}

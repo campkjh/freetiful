@@ -25,6 +25,8 @@ export interface ChatRoomItem {
   } | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  /** 이 방 알림 끔(내 쪽) — 새 메시지 푸시·알림함을 건너뛴다 */
+  isMuted?: boolean;
   isFavorited: boolean;
   /** 룸에 연결된 프로 프로필 ID — 결제/프로필 이동 시 사용 */
   proProfileId?: string;
@@ -111,6 +113,10 @@ export const chatApi = {
 
   markAsRead: (roomId: string) =>
     apiClient.post(`${BASE}/rooms/${roomId}/read`),
+
+  /** 채팅방 알림 끄기/켜기(내 쪽) */
+  setRoomMuted: (roomId: string, muted: boolean) =>
+    apiClient.patch<{ roomId: string; isMuted: boolean }>(`${BASE}/rooms/${roomId}/mute`, { muted }),
 
   // Messages
   getMessages: (roomId: string, params?: { search?: string; before?: string; after?: string; limit?: number; cursor?: string }) =>

@@ -973,7 +973,7 @@ export class ChatService implements OnModuleInit {
         },
       },
       user: { select: { id: true, name: true, profileImageUrl: true } },
-      members: { where: { userId: { in: participantUserIds } }, select: { userId: true, unreadCount: true } },
+      members: { where: { userId: { in: participantUserIds } }, select: { userId: true, unreadCount: true, isMuted: true } },
       messages: {
         where: { isDeleted: false },
         orderBy: { createdAt: 'desc' as const },
@@ -1067,6 +1067,7 @@ export class ChatService implements OnModuleInit {
           : null,
         lastMessageAt: room.lastMessageAt,
         unreadCount: member?.unreadCount ?? 0,
+        isMuted: room.members.some((m) => m.isMuted),
         proProfileId: room.proProfileId,
         iAmPro: isProUser,
         matchRequestId: room.matchRequestId,
@@ -1151,12 +1152,25 @@ export class ChatService implements OnModuleInit {
       id: room.id,
       otherUser,
       unreadCount: member?.unreadCount ?? 0,
+      isMuted: room.members.some((m) => m.isMuted),
       iAmPro: isProUser, // 이 채팅방에서 내가 프로(사회자) 측인지
       proProfileId: room.proProfileId,
       matchRequestId: room.matchRequestId,
       matchRequest: room.matchRequest,
       latestQuotation: room.quotations[0] ?? null,
     };
+  }
+
+  /** 채팅방 알림 끄기/켜기 — 내 쪽(연결된 계정 포함) 멤버 행만 바꾼다 */
+  async setRoomMuted(roomId: string, userId: string, muted: boolean) {
+    const participantUserIds = await this.getChatParticipantUserIds(userId);
+    const result = await this.prisma.chatRoomMember.updateMany({
+      where: { roomId, userId: { in: participantUserIds } },
+      data: { isMuted: muted },
+    });
+    if (result.count === 0) throw new NotFoundException('채팅방을 찾을 수 없습니다');
+    for (const participantId of participantUserIds) this.invalidateRoomsCache(participantId);
+    return { roomId, isMuted: muted };
   }
 
   async deleteRoom(roomId: string, userId: string) {
@@ -1719,10 +1733,18 @@ export class ChatService implements OnModuleInit {
             data: { unreadCount: { increment: 1 } },
           })
         : Promise.resolve(),
-    ]).then(() => {
+    ]).then(async () => {
       for (const participantId of participantIds) {
         this.invalidateRoomsCache(participantId);
       }
+      // 알림 끈 방(받는 쪽 멤버 isMuted)은 새 메시지 알림(알림함·푸시)을 건너뛴다 — 안 읽음 수는 위에서 그대로 올랐다
+      const mutedReceiverIds = new Set(
+        receiverIds.length > 0
+          ? (await this.prisma.chatRoomMember
+              .findMany({ where: { roomId, userId: { in: receiverIds }, isMuted: true }, select: { userId: true } })
+              .catch(() => [] as { userId: string }[])).map((m) => m.userId)
+          : [],
+      );
       const senderName = message.sender?.name || '상대방';
       // 미디어 등은 URL/base64 원문 대신 라벨로 (푸시 알림 미리보기)
       const previewByType: Record<string, string> = {
@@ -1731,6 +1753,7 @@ export class ChatService implements OnModuleInit {
       };
       const preview = previewByType[dto.type] || (finalContent || '').slice(0, 40);
       for (const receiverId of receiverIds) {
+        if (mutedReceiverIds.has(receiverId)) continue;
         this.notificationService.createNotification(
           receiverId,
           'chat' as any,
