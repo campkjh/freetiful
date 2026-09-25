@@ -18,7 +18,7 @@ import { getCachedUnreadCount } from '@/lib/api/notification.api';
 import { AlarmIcon } from '@/components/icons/mono';
 
 // ─── 하단 탭 아이콘(토스 하단바 어법, 사장 레퍼런스 260926) ───
-// 평소엔 2px 선 아이콘, 선택된 탭만 채운 아이콘. 색은 currentColor(탭에서 #36373C).
+// 평소엔 가는 선(1.6) 아이콘, 선택된 탭만 채운 아이콘. 색은 currentColor(탭에서 쿨그레이 #4E5968).
 type TabIconProps = { active?: boolean; className?: string };
 
 const HomeTabIcon = ({ active, className }: TabIconProps) => (
@@ -27,7 +27,7 @@ const HomeTabIcon = ({ active, className }: TabIconProps) => (
       d="M4 10.3L12 4l8 6.3V19a1.6 1.6 0 0 1-1.6 1.6H15v-5a1.2 1.2 0 0 0-1.2-1.2h-3.6A1.2 1.2 0 0 0 9 15.6v5H5.6A1.6 1.6 0 0 1 4 19v-8.7z"
       fill={active ? 'currentColor' : 'none'}
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinejoin="round"
     />
   </svg>
@@ -41,7 +41,7 @@ const ForestTabIcon = ({ active, className }: TabIconProps) => (
       d="M20.7439 15.865L16.7249 10.853H17.7679C18.7749 10.853 19.3339 9.68802 18.7039 8.90202L12.9359 1.70902C12.4559 1.11002 11.5439 1.11002 11.0639 1.70902L5.29594 8.90202C4.66594 9.68702 5.22494 10.853 6.23194 10.853H7.27494L3.25594 15.865C2.62594 16.651 3.18494 17.816 4.19194 17.816H10.3319V22.057C10.3319 22.379 10.5929 22.641 10.9159 22.641H13.0839C13.4059 22.641 13.6679 22.38 13.6679 22.057V17.816H19.8079C20.8149 17.815 21.3739 16.65 20.7439 15.865Z"
       fill={active ? 'currentColor' : 'none'}
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="1.85"
       strokeLinejoin="round"
     />
   </svg>
@@ -49,8 +49,8 @@ const ForestTabIcon = ({ active, className }: TabIconProps) => (
 
 const ListTabIcon = ({ active, className }: TabIconProps) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-    <rect x="4.5" y="3.5" width="15" height="17" rx="3" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" />
-    <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" stroke={active ? '#fff' : 'currentColor'} strokeWidth="2" strokeLinecap="round" />
+    <rect x="4.5" y="3.5" width="15" height="17" rx="3" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" />
+    <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" stroke={active ? '#fff' : 'currentColor'} strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
 
@@ -62,7 +62,7 @@ const MatchTabIcon = ({ active, className }: TabIconProps) => (
       d="M19.0309 10.9337L14.3579 9.3017L15.7699 2.3297C15.9969 1.2057 14.6099 0.488704 13.8249 1.3227L4.51492 11.2107C4.38477 11.3489 4.29122 11.5174 4.24278 11.701C4.19434 11.8845 4.19255 12.0773 4.23756 12.2617C4.28257 12.4461 4.37296 12.6163 4.50052 12.7569C4.62807 12.8975 4.78874 13.004 4.96792 13.0667L9.63992 14.6987L8.22992 21.6707C8.00092 22.7937 9.38792 23.5107 10.1739 22.6777L19.4849 12.7877C20.0499 12.1877 19.8089 11.2047 19.0309 10.9337Z"
       fill={active ? 'currentColor' : 'none'}
       stroke="currentColor"
-      strokeWidth="2.3"
+      strokeWidth="1.9"
       strokeLinejoin="round"
     />
   </svg>
@@ -74,7 +74,7 @@ const ChatTabIcon = ({ active, className }: TabIconProps) => (
       d="M12 4c4.8 0 8.6 3.2 8.6 7.3s-3.8 7.3-8.6 7.3c-.9 0-1.8-.1-2.6-.3L5.2 20.4l.9-3.8C4.4 15.2 3.4 13.4 3.4 11.3 3.4 7.2 7.2 4 12 4z"
       fill={active ? 'currentColor' : 'none'}
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinejoin="round"
     />
   </svg>
@@ -89,8 +89,8 @@ const MyTabIcon = ({ active, className }: TabIconProps) => (
       </>
     ) : (
       <>
-        <circle cx="12" cy="8.2" r="3.6" stroke="currentColor" strokeWidth="2" />
-        <path d="M5 20c.6-3.5 3.5-5.8 7-5.8s6.4 2.3 7 5.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="8.2" r="3.6" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M5 20c.6-3.5 3.5-5.8 7-5.8s6.4 2.3 7 5.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       </>
     )}
   </svg>
@@ -606,7 +606,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             className="mx-auto max-w-[640px] rounded-t-[24px] bg-white pb-safe"
             style={{ boxShadow: '0 0 0 0.5px #E4E4E7, 0 -2px 12px rgba(0, 0, 0, 0.03)' }}
           >
-            <div className="flex h-[58px] items-stretch">
+            <div className="flex h-[58px] items-stretch px-3">
               {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
                 const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
                 const dot = (label === '새요청' && newRequestCount > 0) || (label === '채팅' && chatUnreadCount > 0);
@@ -616,7 +616,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     href={href}
                     data-nav={label}
                     aria-current={active ? 'page' : undefined}
-                    className="flex flex-1 flex-col items-center justify-center gap-[5px] text-[#36373C]"
+                    className="flex flex-1 flex-col items-center justify-center gap-[4px] text-[#4E5968]"
                     onPointerDown={(e) => {
                       // 누르는 순간 아이콘이 옆으로 쫀득하게 늘어났다 출렁이며 제자리(사장 지시 260926) — 같은 탭을 다시 눌러도 처음부터
                       const icon = e.currentTarget.querySelector<HTMLElement>('[data-tab-icon]');
@@ -626,8 +626,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                       icon.style.animation = 'tabJelly 0.64s linear both';
                     }}
                   >
-                    <span data-tab-icon className="relative block h-6 w-6" style={{ transformOrigin: '50% 60%' }}>
-                      <Icon active={active} className="h-6 w-6" />
+                    <span data-tab-icon className="relative block h-[26px] w-[26px]" style={{ transformOrigin: '50% 60%' }}>
+                      <Icon active={active} className="h-[26px] w-[26px]" />
                       {dot && (
                         <span
                           aria-label="새 알림"
@@ -635,7 +635,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                         />
                       )}
                     </span>
-                    <span className={`text-[12px] leading-[14px] tracking-[-0.2px] text-[#39383D] ${active ? 'font-semibold' : 'font-medium'}`}>
+                    <span className={`text-[11px] leading-[13px] tracking-[-0.2px] text-[#4E5968] ${active ? 'font-semibold' : 'font-medium'}`}>
                       {label}
                     </span>
                   </Link>
