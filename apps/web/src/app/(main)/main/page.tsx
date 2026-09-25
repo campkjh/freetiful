@@ -322,125 +322,6 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
   );
 }
 
-function MobileQuoteGradientFrame() {
-  const borderStyle = {
-    padding: '1.2px',
-    background: 'linear-gradient(135deg, rgba(49,128,247,0.52), rgba(104,222,255,0.22) 34%, rgba(255,255,255,0.86) 51%, rgba(49,128,247,0.48) 74%, rgba(123,97,255,0.26))',
-    WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
-    WebkitMaskComposite: 'xor',
-    maskComposite: 'exclude',
-  } as CSSProperties;
-
-  return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0 z-20 rounded-2xl opacity-90 transition-opacity duration-300 group-active:opacity-100"
-        style={borderStyle}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-[1] rounded-2xl opacity-70 transition-opacity duration-300 group-active:opacity-100"
-        style={{ background: 'radial-gradient(circle at 50% 100%, rgba(49,128,247,0.16), transparent 58%)' }}
-      />
-      <div className="pointer-events-none absolute -inset-10 z-10 -translate-x-[82%] rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] opacity-0 transition-all duration-500 group-active:translate-x-[82%] group-active:opacity-100" />
-    </>
-  );
-}
-
-function MobileFastQuoteBadge() {
-  return (
-    <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 rounded-full p-[1.2px] transition-transform duration-200 group-active:scale-[0.97]">
-      <span className="mobile-fast-quote-badge__inner relative z-10 block rounded-full px-2.5 py-[5px] text-[10px] font-bold leading-none text-[#0B58FF]">
-        빠른무료견적
-      </span>
-      <style jsx global>{`
-        @property --mobile-fast-quote-angle {
-          syntax: '<angle>';
-          inherits: false;
-          initial-value: 0deg;
-        }
-
-        @media (max-width: 1023px) {
-          .mobile-fast-quote-badge {
-            --mobile-fast-quote-angle: 0deg;
-            isolation: isolate;
-            background: conic-gradient(
-              from var(--mobile-fast-quote-angle),
-              rgba(49,128,247,0.12) 0deg,
-              rgba(49,128,247,0.18) 48deg,
-              rgba(104,222,255,0.96) 76deg,
-              rgba(49,128,247,0.92) 108deg,
-              rgba(49,128,247,0.16) 146deg,
-              rgba(49,128,247,0.12) 360deg
-            );
-            box-shadow:
-              0 8px 18px rgba(49, 128, 247, 0.16),
-              0 0 0 1px rgba(49, 128, 247, 0.08);
-            animation: mobileFastQuoteBorder 3.1s linear infinite;
-          }
-
-          .mobile-fast-quote-badge__inner {
-            background:
-              radial-gradient(circle at 18% 8%, rgba(104,222,255,0.22), transparent 36%),
-              linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,246,255,0.92));
-            box-shadow:
-              inset 0 0 0 1px rgba(255,255,255,0.78),
-              inset 0 -1px 4px rgba(49,128,247,0.1);
-            animation: mobileFastQuoteGlow 2.8s ease-in-out infinite;
-          }
-
-          .mobile-fast-quote-badge__inner::after {
-            content: '';
-            position: absolute;
-            inset: 1px;
-            border-radius: inherit;
-            background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.84) 45%, transparent 68%);
-            opacity: 0;
-            transform: translateX(-90%) skewX(-14deg);
-            animation: mobileFastQuoteShine 3.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-            pointer-events: none;
-          }
-
-          @keyframes mobileFastQuoteGlow {
-            0%, 100% {
-              color: #0b58ff;
-            }
-            50% {
-              color: #3180f7;
-              text-shadow: 0 0 8px rgba(49,128,247,0.22);
-            }
-          }
-
-          @keyframes mobileFastQuoteBorder {
-            to { --mobile-fast-quote-angle: 360deg; }
-          }
-
-          @keyframes mobileFastQuoteShine {
-            0%, 58% {
-              opacity: 0;
-              transform: translateX(-90%) skewX(-14deg);
-            }
-            68% {
-              opacity: 0.72;
-            }
-            88%, 100% {
-              opacity: 0;
-              transform: translateX(92%) skewX(-14deg);
-            }
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .mobile-fast-quote-badge,
-          .mobile-fast-quote-badge__inner,
-          .mobile-fast-quote-badge__inner::after {
-            animation: none !important;
-          }
-        }
-      `}</style>
-    </span>
-  );
-}
-
 function Logo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 275 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1216,8 +1097,11 @@ function CategorySwiper() {
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
                   style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.04}s forwards` }}
                 >
-                  <div className="relative flex h-[60px] w-[60px] items-center justify-center lg:h-16 lg:w-16 lg:overflow-hidden lg:rounded-full lg:bg-white lg:shadow-[0_8px_22px_rgba(15,23,42,0.08)] lg:ring-1 lg:ring-black/5">
-                    <HomeCategoryIcon item={item} />
+                  {/* 아이콘 뒤 연회색 둥근 타일(사장 레퍼런스 260925: 타일 #F6F6F6 · 모서리 약 1/3) — 투명 배경 일러스트를 72% 크기로 가운데 */}
+                  <div className="relative flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-[20px] bg-[#F6F6F6] lg:h-16 lg:w-16 lg:rounded-[21px]">
+                    <span className="relative block h-[44px] w-[44px] lg:h-[46px] lg:w-[46px]">
+                      <HomeCategoryIcon item={item} />
+                    </span>
                   </div>
                   <span className="mt-1 text-center text-[12px] font-medium leading-tight text-[#51535C] lg:text-[13px]">
                     {item.name}
@@ -2612,43 +2496,7 @@ export default function HomePage() {
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
-        {/* Category cards (결혼식사회자 영상 + 행사사회자) */}
-        <div className="px-[10px] pt-3 pb-1 lg:px-0 lg:pt-0 lg:pb-2">
-          <div className="grid grid-cols-2 gap-3 lg:gap-4">
-            <Link
-              href="/wedding-mc"
-              className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
-              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
-            >
-              <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
-              <MobileQuoteGradientFrame />
-              <MobileFastQuoteBadge />
-              <div className="absolute bottom-3 left-3 right-3 z-30 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
-                <div>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">전문결혼식</span>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
-                </div>
-                <ChevronRight size={20} className="text-[#2B313D]/80 shrink-0 lg:w-7 lg:h-7" />
-              </div>
-            </Link>
-            <button
-              type="button"
-              onClick={() => router.push('/corporate-mc')}
-              className="group relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
-              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
-            >
-              <img src="/images/category-icons/event-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-white" />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/30 to-transparent" />
-              <MobileQuoteGradientFrame />
-              <div className="leading-none relative z-30 pb-3">
-                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
-                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
+        {/* '전문결혼식/전문행사 사회자 찾기' 큰 카드 2장은 사장 지시로 뺐다(260925) — 탭·카테고리 칸이 바로 이어진다 */}
         {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
         <HomeSwipeTabs />
 

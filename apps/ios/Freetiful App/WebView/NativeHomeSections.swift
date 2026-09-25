@@ -175,8 +175,7 @@ final class NativeHomeAllView: UIView, UIScrollViewDelegate {
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
         ])
 
-        // 1) 히어로 카드
-        stack.addArrangedSubview(padded(buildHeroRow(), h: 16))
+        // 1) 히어로 카드('전문결혼식/전문행사 사회자 찾기')는 사장 지시로 뺐다(260925, 웹 홈과 같게)
 
         // 2) 카테고리 아이콘 그리드
         let icons = HomeCategoryIcons(imageBase: imageBase)
@@ -418,7 +417,11 @@ final class HomeCategoryIcons: UIView {
 
         let iconWrap = UIView()
         iconWrap.translatesAutoresizingMaskIntoConstraints = false
-        iconWrap.backgroundColor = .clear   // 회색 배경/라운드 제거
+        // 연회색 둥근 타일 위에 투명 배경 일러스트(웹 홈과 같게, 260925)
+        iconWrap.backgroundColor = UIColor(red: 246 / 255, green: 246 / 255, blue: 246 / 255, alpha: 1)
+        iconWrap.layer.cornerRadius = 20
+        iconWrap.layer.cornerCurve = .continuous
+        iconWrap.clipsToBounds = true
         iconWrap.isUserInteractionEnabled = false
         container.addSubview(iconWrap)
 
@@ -446,10 +449,10 @@ final class HomeCategoryIcons: UIView {
             iconWrap.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             iconWrap.widthAnchor.constraint(equalToConstant: 60),
             iconWrap.heightAnchor.constraint(equalToConstant: 60),
-            iv.topAnchor.constraint(equalTo: iconWrap.topAnchor),
-            iv.bottomAnchor.constraint(equalTo: iconWrap.bottomAnchor),
-            iv.leadingAnchor.constraint(equalTo: iconWrap.leadingAnchor),
-            iv.trailingAnchor.constraint(equalTo: iconWrap.trailingAnchor),
+            iv.topAnchor.constraint(equalTo: iconWrap.topAnchor, constant: 8),
+            iv.bottomAnchor.constraint(equalTo: iconWrap.bottomAnchor, constant: -8),
+            iv.leadingAnchor.constraint(equalTo: iconWrap.leadingAnchor, constant: 8),
+            iv.trailingAnchor.constraint(equalTo: iconWrap.trailingAnchor, constant: -8),
             label.topAnchor.constraint(equalTo: iconWrap.bottomAnchor, constant: 6),
             label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
