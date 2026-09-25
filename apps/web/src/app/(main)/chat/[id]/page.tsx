@@ -22,6 +22,7 @@ import { renderTextWithMentions } from './chat-text';
 import { isChatStickerUrl } from '@/lib/chat-stickers';
 import toast from 'react-hot-toast';
 import { popItemDelay } from '@/lib/pop-menu';
+import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -1484,6 +1485,13 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               (!!prevMsg && new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 3 * 60 * 1000);
             const showTime = !sameSender(nextMsg) || kstMinuteKey(nextMsg!.createdAt) !== kstMinuteKey(msg.createdAt);
             const showAvatar = !mine && groupStart;
+            // 말꼬리 — 묶음의 마지막 말풍선에만(다음 말이 다른 사람·날짜 바뀜·3분 넘게 뒤면 여기서 묶음 끝). 사진·영상·이모티콘은 없음
+            const groupEnd =
+              !sameSender(nextMsg) ||
+              shouldShowDateDivider(dedupedMessages, i + 1) ||
+              new Date(nextMsg!.createdAt).getTime() - new Date(msg.createdAt).getTime() > 3 * 60 * 1000;
+            const tailed = groupEnd && msg.type !== 'image' && msg.type !== 'video';
+            const tailCorner = tailed ? ` ${mine ? TAIL_CORNER_CLASS.mine : TAIL_CORNER_CLASS.other}` : '';
 
             return (
               <div key={msg.id} id={`msg-${msg.id}`}>
@@ -1591,8 +1599,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] select-none no-underline ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
-                        style={{ WebkitTouchCallout: 'none' }}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} select-none no-underline ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onClick={async (e) => {
                           if (expired) { e.preventDefault(); return; }
                           if (isImageFile && href) { e.preventDefault(); setImagePreview(href); return; }
@@ -1662,12 +1670,12 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       >
                         {msg.latitude !== undefined && msg.longitude !== undefined ? (
                           // Simple fallback for location - just show coordinates until NaverMapPreview loads
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
                             <MapPin size={18} />
                             <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
                         ) : (
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px] ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
+                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
                             <MapPin size={18} />
                             <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
                           </div>
@@ -1675,8 +1683,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px] select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
-                        style={{ WebkitTouchCallout: 'none' }}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px]${tailCorner} select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
                         onPointerLeave={handleLongPressCancel}
@@ -1723,7 +1731,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                           mine
                             ? 'bg-[#3180F7] text-white rounded-[20px]'
                             : 'bg-[#F2F3F5] text-[#191F28] rounded-[20px]'
-                        } ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
+                        }${tailCorner} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
                         style={{
                           transformOrigin: mine ? 'right bottom' : 'left bottom',
                           WebkitTouchCallout: 'none',
@@ -1753,6 +1761,15 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                           {renderTextWithMentions(msg.content)}
                         </div>
                       </div>
+                    )}
+
+                    {tailed && (
+                      <BubbleTail
+                        mine={mine}
+                        color={mine ? '#3180F7' : '#F2F3F5'}
+                        pop={!!msg.isNew}
+                        dim={msg.type === 'file' && !!msg.content && /^\/uploads\/chat-.*\.[a-z0-9]+$/i.test(msg.content)}
+                      />
                     )}
 
                     {/* Reaction badge */}
@@ -1813,12 +1830,16 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       )}
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
+      <div data-native-chat-footer className="pointer-events-none absolute left-0 right-0 z-30" style={{ bottom: 0 }}>
         {/* 답장 추천 — ✦ 누르면 AI 가 다시 추천, 칩을 누르면 바로 보낸다(당근 어법) */}
+        {/* 뒤 색 없음(사장 지시) — 대화 위에 칩만 떠 있고, 칩 밖은 터치가 대화로 통과한다. 입력 줄 그라데이션보다 위(z).
+            모바일은 칩이 화면 끝까지 흘러가게(여백은 줄 안쪽 패딩으로), PC 는 입력 줄과 같은 680 칸에 맞춘다 */}
         {showReplySuggest && (
+          <div className="relative z-[1] sm:px-3">
+          <div className="mx-auto w-full max-w-[680px]">
           <div
             aria-label="답장 추천"
-            className="mx-auto flex w-full max-w-[680px] items-center gap-2 overflow-x-auto px-3 pb-0.5 pt-2.5 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden"
+            className="pointer-events-auto flex w-max max-w-full items-center gap-2 overflow-x-auto pb-1 pl-[max(1.5rem,calc(env(safe-area-inset-left)_+_0.75rem))] pr-[max(1.5rem,calc(env(safe-area-inset-right)_+_0.75rem))] pt-2.5 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden"
           >
             {/* AI 아이콘 — 옅은 하늘색 둥근 타일 + 보라→파랑→하늘 그라데이션 네 갈래 별(사장이 준 아이콘) */}
             <button
@@ -1826,7 +1847,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               onClick={() => loadReplySuggest(true)}
               aria-label="AI 답장 다시 추천"
               title="AI 답장 다시 추천"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-[#E3EAF6] bg-gradient-to-b from-[#F8FBFF] to-[#EEF4FE] shadow-[0_2px_8px_rgba(80,110,200,0.12)] transition-transform active:scale-95"
+              className="pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-b from-[#F8FBFF] to-[#EEF4FE] transition-transform active:scale-95"
             >
               <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" className={suggestLoading ? 'animate-spin' : ''} style={suggestLoading ? { animationDuration: '1.1s' } : undefined}>
                 <defs>
@@ -1845,105 +1866,111 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                 key={`${t}-${i}`}
                 type="button"
                 onClick={() => { setSuggestUsed(true); handleSend(t); }}
-                className={`pop-menu-item h-11 shrink-0 rounded-full border border-[#EEF0F3] bg-white px-5 text-[16px] font-semibold text-[#191F28] transition-opacity active:bg-[#F7F8FA] ${suggestLoading ? 'opacity-50' : ''}`}
+                className={`pop-menu-item pointer-events-auto h-11 shrink-0 rounded-full border border-[#EEF0F3] bg-white px-5 text-[16px] font-semibold text-[#191F28] transition-opacity active:bg-[#F7F8FA] ${suggestLoading ? 'opacity-50' : ''}`}
                 style={popItemDelay(i)}
               >
                 {t}
               </button>
             ))}
           </div>
+          </div>
+          </div>
         )}
-        <div className="mx-auto flex w-full max-w-[680px] items-end gap-1 bg-white px-2 pointer-events-auto pb-1.5 pt-2 sm:px-0">
-          {isRecording ? (
-            // Recording UI
-            <>
-              <button
-                onClick={() => stopRecordingRef.current?.(true)}
-                className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
-                title="취소"
-              >
-                <X size={22} className="text-gray-500" />
-              </button>
-              <div className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-red-200/80 px-5 h-12 animate-[slideUp_0.2s_ease]">
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                </span>
-                <span className="text-[14px] font-bold text-red-500 tabular-nums">
-                  {formatVoiceDuration(recordingTime)}
-                </span>
-                <div className="flex-1 flex items-center gap-0.5 h-6">
-                  {Array.from({ length: 22 }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-1 bg-red-300 rounded-full"
-                      style={{
-                        height: `${30 + Math.abs(Math.sin((recordingTime + idx) * 0.6)) * 70}%`,
-                        animation: `voiceBar 0.6s ease-in-out ${idx * 0.04}s infinite alternate`,
-                      }}
-                    />
-                  ))}
-                </div>
+        {/* 입력 줄 — 흰 바탕은 여기만(가로 전체). 위쪽 끝은 대화가 자연스럽게 스며들게 흰 그라데이션 */}
+        <div className="pointer-events-auto relative bg-white pb-safe px-safe">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-full h-5 bg-gradient-to-b from-white/0 to-white" />
+          <div className="mx-auto flex w-full max-w-[680px] items-end gap-1 bg-white px-2 pointer-events-auto pb-1.5 pt-2 sm:px-0">
+            {isRecording ? (
+              // Recording UI
+              <>
                 <button
-                  onClick={() => stopRecordingRef.current?.(false)}
-                  className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-800 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
-                  title="전송"
+                  onClick={() => stopRecordingRef.current?.(true)}
+                  className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
+                  title="취소"
                 >
-                  <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                  <X size={22} className="text-gray-500" />
                 </button>
-              </div>
-            </>
-          ) : (
-            // Normal input UI — 당근식: + · 알약 입력칸(안에 스마일) · 전송
-            <>
-              <button
-                type="button"
-                aria-label="사진·장소·견적서 보내기"
-                onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="flex h-11 w-10 shrink-0 items-center justify-center text-[#4E5968] transition-opacity active:opacity-60"
-              >
-                <Plus size={26} />
-              </button>
-
-              <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-[22px] bg-[#F2F3F5] py-[6px] pl-4 pr-1">
-                <textarea
-                  ref={inputRef}
-                  rows={1}
-                  value={input}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => {
-                    // Korean IME: composition 중 Enter 는 마지막 자모 결합 trigger 라 send 하면 글자 중복 발생
-                    // (예: "테스트" + Enter → composition 의 "트" 가 한 번 더 인풋에 남아 다음 send 에 포함됨)
-                    // Shift+Enter 는 줄바꿈(기본동작 유지), Enter 만 전송.
-                    if (e.key !== 'Enter' || e.shiftKey) return;
-                    if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
-                    e.preventDefault();
-                    handleSend();
-                  }}
-                  placeholder="메시지 보내기"
-                  className="flex-1 min-w-0 resize-none self-center bg-transparent py-[3px] text-[16px] leading-[1.35] text-[#191F28] focus:outline-none placeholder:text-[#8B95A1] max-h-[120px] overflow-y-auto"
-                />
+                <div className="flex-1 flex items-center gap-3 bg-white/90 backdrop-blur-2xl rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-red-200/80 px-5 h-12 animate-[slideUp_0.2s_ease]">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                  </span>
+                  <span className="text-[14px] font-bold text-red-500 tabular-nums">
+                    {formatVoiceDuration(recordingTime)}
+                  </span>
+                  <div className="flex-1 flex items-center gap-0.5 h-6">
+                    {Array.from({ length: 22 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-1 bg-red-300 rounded-full"
+                        style={{
+                          height: `${30 + Math.abs(Math.sin((recordingTime + idx) * 0.6)) * 70}%`,
+                          animation: `voiceBar 0.6s ease-in-out ${idx * 0.04}s infinite alternate`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => stopRecordingRef.current?.(false)}
+                    className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-800 flex items-center justify-center shrink-0 active:scale-[0.88] transition-transform"
+                    title="전송"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9L15 3L9 15L8 10L3 9Z" fill="white" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Normal input UI — 당근식: + · 알약 입력칸(안에 스마일) · 전송
+              <>
                 <button
                   type="button"
-                  aria-label="이모티콘"
-                  onClick={(e) => { e.stopPropagation(); openStickersRef.current?.(); }}
-                  className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-opacity active:opacity-60"
+                  aria-label="사진·장소·견적서 보내기"
+                  onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
+                  className="flex h-11 w-10 shrink-0 items-center justify-center text-[#4E5968] transition-opacity active:opacity-60"
                 >
-                  <TintIcon src="/icons/chat-kr/emoji.svg" color="#6B7684" size={24} />
+                  <Plus size={26} />
                 </button>
-              </div>
 
-              <button
-                type="button"
-                aria-label="보내기"
-                onClick={handleSend}
-                disabled={!input.trim()}
-                className="flex h-11 w-10 shrink-0 items-center justify-center transition-transform active:scale-[0.9]"
-              >
-                <TintIcon src="/icons/chat-kr/send.svg" color={input.trim() ? '#3182F6' : '#C4C9D0'} size={26} />
-              </button>
-            </>
-          )}
+                <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-[22px] bg-[#F2F3F5] py-[6px] pl-4 pr-1">
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      // Korean IME: composition 중 Enter 는 마지막 자모 결합 trigger 라 send 하면 글자 중복 발생
+                      // (예: "테스트" + Enter → composition 의 "트" 가 한 번 더 인풋에 남아 다음 send 에 포함됨)
+                      // Shift+Enter 는 줄바꿈(기본동작 유지), Enter 만 전송.
+                      if (e.key !== 'Enter' || e.shiftKey) return;
+                      if (e.nativeEvent.isComposing || (e as any).keyCode === 229) return;
+                      e.preventDefault();
+                      handleSend();
+                    }}
+                    placeholder="메시지 보내기"
+                    className="flex-1 min-w-0 resize-none self-center bg-transparent py-[3px] text-[16px] leading-[1.35] text-[#191F28] focus:outline-none placeholder:text-[#8B95A1] max-h-[120px] overflow-y-auto"
+                  />
+                  <button
+                    type="button"
+                    aria-label="이모티콘"
+                    onClick={(e) => { e.stopPropagation(); openStickersRef.current?.(); }}
+                    className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-opacity active:opacity-60"
+                  >
+                    <TintIcon src="/icons/chat-kr/emoji.svg" color="#6B7684" size={24} />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="보내기"
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  className="flex h-11 w-10 shrink-0 items-center justify-center transition-transform active:scale-[0.9]"
+                >
+                  <TintIcon src="/icons/chat-kr/send.svg" color={input.trim() ? '#3182F6' : '#C4C9D0'} size={26} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
