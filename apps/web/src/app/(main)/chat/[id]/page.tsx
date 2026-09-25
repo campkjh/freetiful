@@ -4,19 +4,14 @@ import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowBackIcon as ChevronLeft,
-  MicIcon as Mic,
   XIcon as X,
   DotsVerticalIcon as MoreVertical,
   PlusIcon as Plus,
   PinLocationIcon as MapPin,
   DocumentIcon as FileText,
-  ContractIcon as FileSignature,
   PlayIcon as Play,
   PauseIcon as Pause,
-  PaperPlaneIcon,
-  CalendarCheckIcon as CalendarCheck,
 } from '@/components/icons/chat';
-import { ChevronDownIcon } from '@/components/icons/mono';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { chatApi, type ChatRoomItem, type MessageItem } from '@/lib/api/chat.api';
@@ -25,6 +20,7 @@ import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
 import { renderTextWithMentions } from './chat-text';
 import { isChatStickerUrl } from '@/lib/chat-stickers';
+import toast from 'react-hot-toast';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -144,25 +140,46 @@ const BROKEN_IMG_PLACEHOLDER =
     '<svg xmlns="http://www.w3.org/2000/svg" width="220" height="160"><rect width="100%" height="100%" rx="16" fill="#e5e7eb"/><text x="50%" y="50%" font-family="sans-serif" font-size="13" fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">이미지를 불러올 수 없습니다</text></svg>',
   );
 
+// 단색 SVG 를 원하는 색으로 칠하는 아이콘(CSS 마스크) — /icons/chat-kr/* (토스 mono)
+function TintIcon({ src, color, size = 24 }: { src: string; color: string; size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-block',
+        width: size,
+        height: size,
+        flexShrink: 0,
+        backgroundColor: color,
+        WebkitMaskImage: `url(${src})`,
+        maskImage: `url(${src})`,
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+      }}
+    />
+  );
+}
+
+// 말풍선 옆 시간(당근식): 오후 8:43 — KST 고정
+function formatBubbleTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Seoul' });
+}
+const kstDayKey = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+const kstMinuteKey = (dateStr: string) => `${kstDayKey(dateStr)} ${formatBubbleTime(dateStr)}`;
+
+// 날짜 구분선(당근식): 하루가 바뀔 때마다 '2026년 2월 11일'
 function formatDateDivider(dateStr: string) {
-  const d = new Date(dateStr);
-  // 안드 WebView 는 JS 타임존이 UTC 로 잡히는 경우가 있어 KST(Asia/Seoul) 고정으로 표시한다.
-  const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Seoul' });
-  // 오늘/어제 판정도 KST 날짜키(YYYY-MM-DD)로 — 자정 경계에서 라벨이 어긋나지 않게.
-  const kstKey = (dt: Date) => dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const now = new Date();
-  const dKey = kstKey(d);
-  if (dKey === kstKey(now)) return `(오늘) ${time}`;
-  if (dKey === kstKey(new Date(now.getTime() - 86400000))) return `(어제) ${time}`;
-  const [, mm, dd] = dKey.split('-');
-  return `${Number(mm)}월 ${Number(dd)}일 ${time}`;
+  const [yy, mm, dd] = kstDayKey(dateStr).split('-');
+  return `${Number(yy)}년 ${Number(mm)}월 ${Number(dd)}일`;
 }
 
 function shouldShowDateDivider(messages: Message[], index: number) {
   if (index === 0) return true;
-  const prev = new Date(messages[index - 1].createdAt);
-  const curr = new Date(messages[index].createdAt);
-  return curr.getTime() - prev.getTime() > 30 * 60 * 1000;
+  return kstDayKey(messages[index - 1].createdAt) !== kstDayKey(messages[index].createdAt);
 }
 
 function messageTime(message: Pick<Message, 'createdAt'>) {
@@ -275,89 +292,6 @@ function formatEventTimeShort(t: string | Date | null | undefined): string {
 
 // 채팅 헤더 바로 아래 fixed 위치에 도킹되는 스케줄 공지 — 결제 완료 시 노출.
 // 톤앤매너: 흰 배경 + 블루(#3180F7) 액센트, 백드롭 블러로 헤더와 같은 결.
-function ScheduleBanner({
-  roomMeta,
-  isPro,
-  chatPartner,
-  collapsed,
-  onToggle,
-}: {
-  roomMeta: Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null;
-  isPro: boolean;
-  chatPartner: ChatPartner | null;
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  const q = roomMeta?.latestQuotation;
-  if (!q || q.status !== 'paid') return null;
-
-  const mr = roomMeta?.matchRequest as any;
-  const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-  const dateSource = mr?.eventDate || raw.date || q.eventDate;
-  const timeSource = mr?.eventTime || raw.timeStart || q.eventTime;
-  const location = mr?.eventLocation || raw.location || (q as any).eventLocation;
-  const eventTitle = raw.eventName || q.title || mr?.eventCategory?.name || '행사 진행';
-
-  // 행사일: naive 날짜(UTC 자정 직렬화) → 기기 타임존 무관 저장값 그대로(UTC) + 연도 표기
-  const dateStr = dateSource
-    ? new Date(dateSource).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' })
-    : '일정 미정';
-  const timeShort = formatEventTimeShort(timeSource);
-  const timeSuffix = timeShort ? ` · ${timeShort}` : '';
-
-  return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        background: 'rgba(255,255,255,0.96)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
-        border: '1px solid rgba(49,128,247,0.18)',
-        boxShadow: '0 8px 24px rgba(49,128,247,0.10), 0 1px 0 rgba(0,0,0,0.02)',
-      }}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-2.5 active:bg-[#3180F7]/[0.04] transition-colors"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
-            <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#3180F7" strokeWidth="1.8" />
-            <path d="M3 10h18" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M8 3v4M16 3v4" stroke="#3180F7" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <p className="text-[12.5px] font-bold text-gray-900 truncate">
-            확정된 일정 · {dateStr}{timeSuffix}
-          </p>
-        </div>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          className="shrink-0 transition-transform"
-          style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
-        >
-          <path d="M6 9l6 6 6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {!collapsed && (
-        <div className="px-4 pb-3 pt-2 border-t border-gray-100 space-y-1">
-          <p className="text-[13.5px] font-semibold text-gray-900">{eventTitle}</p>
-          {location && <p className="text-[12px] text-gray-500 truncate">장소 · {location}</p>}
-          {q.amount != null && (
-            <p className="text-[12px] text-gray-600 tabular-nums">결제 완료 · {Number(q.amount).toLocaleString('ko-KR')}원</p>
-          )}
-          <p className="text-[11px] text-gray-400 mt-1">
-            {isPro ? '고객과 세부 진행 사항을 채팅으로 논의해주세요' : '사회자와 세부 진행 사항을 채팅으로 논의해주세요'}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /**
  * 채팅방 화면.
  *
@@ -455,7 +389,6 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [iAmProInRoom, setIAmProInRoom] = useState<boolean | null>(initialIAmProInRoom);
   const [roomMeta, setRoomMeta] = useState<Pick<ChatRoomItem, 'matchRequest' | 'latestQuotation'> | null>(initialRoomMeta);
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
-  const [quoteInfoOpen, setQuoteInfoOpen] = useState(false);
   const isPro = iAmProInRoom === true;
   const partnerRoleKnown = iAmProInRoom !== null;
   const partnerIsPro = iAmProInRoom === false;
@@ -464,8 +397,6 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   // 자동응답이 답을 준비하는 동안에도 '입력 중' 이 뜬다 — 사람이 치는 것처럼 보이게
   const typingUsers = useChatStore((state) => state.typingUsers);
   const partnerTyping = Array.from(typingUsers.entries()).some(([uid, on]) => on && uid !== MY_ID);
-
-  const showQuoteInfo = isPro && roomMeta?.latestQuotation?.status !== 'paid' && Boolean(roomMeta?.matchRequest || roomMeta?.latestQuotation);
 
   const openPartnerProfile = useCallback(() => {
     if (partnerIsPro && partnerProfileId) {
@@ -493,12 +424,36 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [scheduleBannerCollapsed, setScheduleBannerCollapsed] = useState(true);
 
   // ─── Refs ───
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // 당근식 상단(헤더+거래 카드+칩+안전결제 배너) 높이 — 메시지 목록 위 여백으로 쓴다.
+  // 첫 렌더는 스켈레톤이라 상단 영역이 나중에 붙는다 — 마운트 effect 가 아니라 콜백 ref 로 붙는 순간부터 잰다.
+  const [topHeight, setTopHeight] = useState(0);
+  const topRoRef = useRef<ResizeObserver | null>(null);
+  const topRef = useCallback((el: HTMLDivElement | null) => {
+    topRoRef.current?.disconnect();
+    topRoRef.current = null;
+    if (!el) return;
+    const measure = () => setTopHeight(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    topRoRef.current = ro;
+  }, []);
+  // 위로 많이 올렸을 때 '맨 아래로' 동그라미 버튼
+  const [showJump, setShowJump] = useState(false);
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 480);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+  // 입력창 스마일 → 이모티콘 시트(ChatExtras 가 여는 함수를 등록해 준다)
+  const openStickersRef = useRef<(() => void) | null>(null);
   const hasInitialScrolledRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1206,158 +1161,152 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       {/* 헤더가 불투명한 흰 바라 위쪽 그라데이션 블러는 더 필요 없다 (네이티브 측정용 자리만 유지) */}
       <div data-native-chat-gradient className="absolute left-0 right-0 top-0 h-0 z-20 pointer-events-none" />
 
-      {/* ─── Header (Floating Pill) z-30 ─── */}
-      <div data-native-chat-header className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe px-safe">
-        <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-1 px-2">
-          {/* 뒤로가기 — 푸시 알림 cold start 시 history 없으면 채팅 목록으로 */}
-          {!embedded && (
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.replace('/chat');
-                }
-              }}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#2B313D] transition-colors active:bg-[#F2F3F5]"
-            >
-              <ChevronLeft size={20} />
-            </button>
-          )}
-
-          {/* 중앙 프로필 알약 (상대가 사회자일 때만 프로필 이동) */}
-          <button
-            type="button"
-            onClick={openPartnerProfile}
-            className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[14px] px-1.5 transition-colors active:bg-[#F7F8FA]"
-          >
-            <div className="relative shrink-0">
-              <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-9 w-9 rounded-full bg-[#F2F3F5] object-cover" />
-            </div>
-            <div className="flex-1 min-w-0 leading-tight">
-              <div className="flex items-center gap-1.5">
-                <p className="truncate text-[16px] font-bold text-[#2B313D]">{chatPartner?.name || '...'}</p>
-                {chatPartner && partnerRoleKnown && (
-                  <span
-                    className="shrink-0 rounded-full px-2 py-[2px] text-[10px] font-bold"
-                    style={{
-                      color: partnerIsPro ? '#3182F6' : '#51535C',
-                      backgroundColor: partnerIsPro ? '#EAF2FF' : '#F2F3F5',
-                    }}
-                  >
-                    {partnerIsPro ? '사회자' : '고객'}
-                  </span>
-                )}
-              </div>
-            </div>
-          </button>
-
-          {/* 메뉴 버튼 */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowHeaderMenu(!showHeaderMenu)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-[#8B95A1] transition-colors active:bg-[#F2F3F5]"
-            >
-              <MoreVertical size={20} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 스케줄 공지 배너 (헤더 바로 아래 fixed) ─── */}
-      {roomMeta?.latestQuotation?.status === 'paid' && (
-        <div
-          className="absolute left-3 right-3 pointer-events-auto"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)', zIndex: 25 }}
-        >
-          <div className="mx-auto w-full max-w-[680px]">
-            <ScheduleBanner
-              roomMeta={roomMeta}
-              isPro={isPro}
-              chatPartner={chatPartner}
-              collapsed={scheduleBannerCollapsed}
-              onToggle={() => setScheduleBannerCollapsed((v) => !v)}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ─── 고객 견적 정보 (헤더 바로 아래 고정) ─── */}
-      <div
-        className="absolute left-3 right-3 pointer-events-auto"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 64px)', zIndex: 25 }}
-      >
-        <div className="mx-auto w-full max-w-[680px]">
-      {isPro && roomMeta?.latestQuotation?.status !== 'paid' && (roomMeta?.matchRequest || roomMeta?.latestQuotation) && (() => {
-        const mr = roomMeta?.matchRequest;
+      {/* ─── 상단(당근마켓 채팅방식): 헤더 + 거래 카드 + 칩 + 안전결제 배너 — z-30 ───
+          iOS 앱은 이 영역(data-native-chat-header)을 숨기고 네이티브 헤더를 덮는다. */}
+      {(() => {
+        const mr: any = roomMeta?.matchRequest;
+        const q: any = roomMeta?.latestQuotation;
         const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
-        // 행사 시각은 벽시계 값이라 시간대 변환하면 안 됨(로컬 변환 시 KST 에서 +9h 밀림)
-        const fmtTime = formatEventTime;
-        const eventDate = mr?.eventDate || roomMeta.latestQuotation?.eventDate || raw.date;
-        const eventTime = fmtTime(mr?.eventTime || roomMeta.latestQuotation?.eventTime || raw.timeStart);
-        const eventLocation = mr?.eventLocation || (roomMeta.latestQuotation as any)?.eventLocation || raw.location;
-        const eventName = roomMeta.latestQuotation?.title || raw.eventName || mr?.eventCategory?.name || '행사 정보 확인 필요';
+        const hasDeal = Boolean(mr || q);
+        const stage =
+          q?.status === 'paid' ? '예약확정'
+          : q?.status === 'accepted' ? '견적수락'
+          : q?.status === 'pending' ? '견적전송'
+          : q?.status === 'refunded' ? '환불'
+          : q?.status === 'cancelled' ? '견적취소'
+          : q?.status === 'expired' ? '견적만료'
+          : mr ? '매칭' : '문의';
+        const eventName = q?.title || raw.eventName || mr?.eventCategory?.name || '행사 사회';
         const planLabel: string | null = raw.planLabel || (raw.planKey === 'wedding_part12' ? '1부 + 2부' : raw.planKey === 'wedding_part1' ? '1부' : null);
+        const eventDate = mr?.eventDate || q?.eventDate || raw.date;
+        const eventTime = formatEventTime(mr?.eventTime || q?.eventTime || raw.timeStart);
+        const eventLocation: string = mr?.eventLocation || q?.eventLocation || raw.location || '';
+        const dateText = eventDate
+          ? `${new Date(eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'UTC' })}${eventTime ? ` ${eventTime}` : ''}`
+          : '';
+        const thumb = partnerIsPro ? chatPartner?.profileImageUrl : authUser?.profileImageUrl || chatPartner?.profileImageUrl;
+        const scrollToLatestQuote = () => {
+          const latest = [...messages]
+            .filter((m) => m.type === 'system' && m.system?.kind === 'quote')
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+          if (latest) document.getElementById(`msg-${latest.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+        const chips: { key: string; label: string; icon: string; onClick: () => void }[] = [];
+        if (isPro) chips.push({ key: 'send-quote', label: '견적서 보내기', icon: 'quote', onClick: () => setShowQuoteModal(true) });
+        if (q) chips.push({ key: 'view-quote', label: '견적서 보기', icon: 'quote', onClick: scrollToLatestQuote });
+        if (dateText) chips.push({ key: 'schedule', label: `일정 ${dateText}`, icon: 'calendar', onClick: () => (q ? scrollToLatestQuote() : undefined) });
+        if (!isPro && partnerIsPro) chips.push({ key: 'profile', label: '프로필 보기', icon: 'person', onClick: openPartnerProfile });
         return (
-        <div
-          className=""
-        >
-          <div className="overflow-hidden rounded-[20px] border-[0.6px] border-[#E9EDF3] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)]">
-            {/* 접힌 상태에서도 무슨 행사·얼마인지는 보이게 */}
+          <div ref={topRef} data-native-chat-header className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe px-safe">
+            <div className="mx-auto w-full max-w-[680px]">
+              {/* 헤더: 뒤로 · 가운데 이름+알약 / 부제 · ⋮ */}
+              <div className="relative flex h-14 items-center px-1">
+                {!embedded && (
+                  <button
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.history.length > 1) {
+                        router.back();
+                      } else {
+                        router.replace('/chat');
+                      }
+                    }}
+                    aria-label="뒤로"
+                    className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors active:bg-[#F2F3F5]"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openPartnerProfile}
+                  className="absolute left-1/2 top-1/2 flex max-w-[62%] -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-tight"
+                >
+                  <span className="flex min-w-0 max-w-full items-center gap-1.5">
+                    <span className="truncate text-[17px] font-bold text-[#191F28]">{chatPartner?.name || '...'}</span>
+                    {chatPartner && partnerRoleKnown && (
+                      <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[12.5px] font-bold text-[#3182F6]">
+                        {partnerIsPro ? '사회자' : '고객'}
+                      </span>
+                    )}
+                  </span>
+                  {eventLocation && (
+                    <span className="mt-[3px] max-w-full truncate text-[12.5px] text-[#8B95A1]">{eventLocation}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                  aria-label="채팅방 메뉴"
+                  className="relative z-[1] ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors active:bg-[#F2F3F5]"
+                >
+                  <MoreVertical size={22} />
+                </button>
+              </div>
+
+              {/* 거래 카드: 썸네일 · 단계+행사 / 금액+일정 */}
+              {hasDeal && (
+                <div className="flex items-center gap-3 px-4 pb-2.5 pt-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumb || '/images/default-profile.svg'}
+                    alt=""
+                    className="h-[46px] w-[46px] shrink-0 rounded-[8px] bg-[#F2F3F5] object-cover"
+                  />
+                  <div className="min-w-0 flex-1 leading-snug">
+                    <p className="truncate text-[15.5px] text-[#191F28]">
+                      <b className="mr-1 font-bold">{stage}</b>
+                      {eventName}
+                      {planLabel && <span className="text-[#8B95A1]"> · {planLabel}</span>}
+                    </p>
+                    <p className="truncate text-[15.5px]">
+                      {q?.amount != null ? (
+                        <b className="font-bold text-[#191F28]">{Number(q.amount).toLocaleString('ko-KR')}원</b>
+                      ) : (
+                        <b className="font-bold text-[#191F28]">견적 전</b>
+                      )}
+                      {dateText && <span className="ml-1 text-[#8B95A1]">({dateText})</span>}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 칩 */}
+              {chips.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {chips.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={c.onClick}
+                      className="flex h-11 shrink-0 items-center gap-1.5 rounded-[12px] border border-[#E5E8EB] bg-white px-3.5 text-[15px] font-bold text-[#191F28] transition-colors active:bg-[#F9FAFB]"
+                    >
+                      <TintIcon src={`/icons/chat-kr/${c.icon}.svg`} color="#191F28" size={18} />
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 안전결제 배너 — 배경은 가로 전체, 내용만 가운데 폭 */}
             <button
               type="button"
-              onClick={() => setQuoteInfoOpen((prev) => !prev)}
-              className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors active:bg-[#FBFCFD]"
+              onClick={() => {
+                if (q) scrollToLatestQuote();
+                else toast('견적서를 받으면 채팅 안에서 바로 안전결제할 수 있어요', { icon: '🛡️' });
+              }}
+              className="block w-full border-y border-[#E3EDFC] bg-[#EEF4FF] text-left"
             >
-              <FileText size={17} className="shrink-0 text-[#3180F7]" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-bold text-[#8B95A1]">고객 견적 정보</span>
-                <span className="mt-0.5 block truncate text-[14px] font-bold text-[#2B313D]">{eventName}</span>
+              <span className="mx-auto flex w-full max-w-[680px] items-center gap-2.5 px-4 py-3">
+                <TintIcon src="/icons/chat-kr/shield.svg" color="#3182F6" size={20} />
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[#1B64DA]">프리티풀 안전결제로 안전하게 예약하세요</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </span>
-              {roomMeta.latestQuotation?.amount != null && (
-                <span className="shrink-0 text-[15px] font-bold tabular-nums text-[#2B313D]">
-                  {Number(roomMeta.latestQuotation.amount).toLocaleString('ko-KR')}원
-                </span>
-              )}
-              <ChevronDownIcon
-                size={18}
-                className={`shrink-0 text-[#C8CEDA] transition-transform duration-300 ${quoteInfoOpen ? 'rotate-180' : ''}`}
-              />
             </button>
-
-            <div
-              className="overflow-hidden transition-all duration-300 ease-out"
-              style={{ maxHeight: quoteInfoOpen ? 240 : 0, opacity: quoteInfoOpen ? 1 : 0 }}
-            >
-              <div className="mx-4 border-t border-[#F2F4F7]" />
-              <div className="space-y-2 px-4 pb-3.5 pt-3">
-                <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
-                  <CalendarCheck size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
-                  <span className="min-w-0 flex-1">
-                    {eventDate
-                      ? `${new Date(eventDate).toLocaleDateString('ko-KR', { timeZone: 'UTC' })} ${eventTime}`.trim()
-                      : '일정 미입력'}
-                  </span>
-                </p>
-                {eventLocation && (
-                  <p className="flex items-start gap-2 text-[13px] font-medium text-[#4E5968]">
-                    <MapPin size={15} className="mt-[1px] shrink-0 text-[#C8CEDA]" />
-                    <span className="min-w-0 flex-1 break-keep">{eventLocation}</span>
-                  </p>
-                )}
-                {planLabel && (
-                  <span className="inline-block rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[12px] font-bold text-[#3182F6]">
-                    {planLabel}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
-        </div>
         );
       })()}
-        </div>
-      </div>
 
       {/* ─── Messages ─── */}
       <div
@@ -1368,11 +1317,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           paddingBottom: 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
-          paddingTop: roomMeta?.latestQuotation?.status === 'paid'
-            ? (scheduleBannerCollapsed ? 134 : 220)
-            : showQuoteInfo
-              ? (quoteInfoOpen ? 250 : 136)
-              : 80,
+          // 상단 영역(측정) + 공지 바가 있으면 그 높이만큼
+          paddingTop: (topHeight || 110) + 4 + (pinnedMessage ? 56 : 0),
         }}
         onClick={() => { setActionMenu(null); setShowAttach(false); }}
       >
@@ -1440,15 +1386,15 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
             if (msg.type === 'system') {
               return (
-                <div key={msg.id}>
+                <div key={msg.id} id={`msg-${msg.id}`} className="mt-2">
                   {showSafetyNotice && (
                     <Suspense fallback={null}>
                       <SafePaymentNotice />
                     </Suspense>
                   )}
                   {showDate && (
-                    <div className="text-center py-3">
-                      <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
+                    <div className="py-4 text-center">
+                      <span className="text-[13px] text-[#8B95A1]">{formatDateDivider(msg.createdAt)}</span>
                     </div>
                   )}
                   {msg.system ? (
@@ -1463,6 +1409,16 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             }
 
             const mine = isMine(msg);
+            // 당근식 묶음: 같은 사람이 연달아 보낸 말풍선은 프사를 첫 줄에만, 시간은 같은 분의 마지막 줄에만.
+            const prevMsg = i > 0 ? dedupedMessages[i - 1] : null;
+            const nextMsg = dedupedMessages[i + 1] || null;
+            const sameSender = (m: Message | null) => !!m && m.type !== 'system' && m.senderId === msg.senderId;
+            const groupStart =
+              showDate ||
+              !sameSender(prevMsg) ||
+              (!!prevMsg && new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 3 * 60 * 1000);
+            const showTime = !sameSender(nextMsg) || kstMinuteKey(nextMsg!.createdAt) !== kstMinuteKey(msg.createdAt);
+            const showAvatar = !mine && groupStart;
 
             return (
               <div key={msg.id} id={`msg-${msg.id}`}>
@@ -1472,17 +1428,31 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   </Suspense>
                 )}
                 {showDate && (
-                  <div className="text-center py-3">
-                    <span className="text-[11px] text-gray-400">{formatDateDivider(msg.createdAt)}</span>
+                  <div className="py-4 text-center">
+                    <span className="text-[13px] text-[#8B95A1]">{formatDateDivider(msg.createdAt)}</span>
                   </div>
                 )}
 
                 <div
-                  className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-[6px] relative select-none`}
+                  className={`flex ${mine ? 'justify-end' : 'justify-start'} ${groupStart && i > 0 ? 'mt-3.5' : 'mt-1'} relative select-none`}
                   style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <div className="relative min-w-0 max-w-[78%]">
+                  {!mine && (showAvatar ? (
+                    <button
+                      type="button"
+                      onClick={openPartnerProfile}
+                      aria-label={`${chatPartner?.name || '상대'} 프로필`}
+                      className="mr-2 h-10 w-10 shrink-0 self-start overflow-hidden rounded-full bg-[#F2F3F5]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-full w-full object-cover" />
+                    </button>
+                  ) : (
+                    <span className="mr-2 w-10 shrink-0" aria-hidden="true" />
+                  ))}
+                  <div className={`flex min-w-0 max-w-[78%] items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
+                  <div className="relative min-w-0">
                     {/* Message bubble */}
                     {msg.type === 'image' && isChatStickerUrl(msg.content) ? (
                       /* 이모티콘 — 사진과 달리 말풍선/전체보기 없이 이미지만 */
@@ -1686,8 +1656,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       <div
                         className={`max-w-full whitespace-pre-wrap break-words text-[16px] leading-[1.4] cursor-pointer select-none overflow-hidden [overflow-wrap:anywhere] ${
                           mine
-                            ? 'bg-[#3180F7] text-white rounded-[20px] rounded-br-[6px]'
-                            : 'bg-[#F2F3F5] text-[#2B313D] rounded-[20px] rounded-bl-[6px]'
+                            ? 'bg-[#3180F7] text-white rounded-[20px]'
+                            : 'bg-[#F2F3F5] text-[#191F28] rounded-[20px]'
                         } ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
                         style={{
                           transformOrigin: mine ? 'right bottom' : 'left bottom',
@@ -1727,14 +1697,19 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     )}
                   </div>
+                  {showTime && (
+                    <span className="shrink-0 pb-[3px] text-[12px] tabular-nums text-[#8B95A1]">{formatBubbleTime(msg.createdAt)}</span>
+                  )}
+                  </div>
                 </div>
               </div>
             );
           });
           })()}
           {partnerTyping && (
-            <div className="mb-[6px] flex justify-start">
-              <div className="flex items-center gap-[5px] rounded-[20px] rounded-bl-[6px] bg-[#F2F3F5] px-4 py-[14px]">
+            <div className="mt-3.5 flex justify-start">
+              <span className="mr-2 w-10 shrink-0" aria-hidden="true" />
+              <div className="flex items-center gap-[5px] rounded-[20px] bg-[#F2F3F5] px-4 py-[14px]">
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
@@ -1758,9 +1733,23 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         }}
       />
 
+      {/* ─── 맨 아래로(당근식 동그라미) ─── */}
+      {showJump && (
+        <button
+          type="button"
+          data-native-chat-gradient
+          aria-label="맨 아래로"
+          onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          className="absolute right-4 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.14)] animate-[fadeIn_0.2s_ease]"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+        >
+          <TintIcon src="/icons/chat-kr/arrow-down.svg" color="#191F28" size={22} />
+        </button>
+      )}
+
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
-      <div data-native-chat-footer className="absolute left-0 right-0 z-30 pb-safe px-safe" style={{ bottom: 0 }}>
-        <div className="mx-auto flex w-full max-w-[680px] items-end gap-2 bg-white px-3 pointer-events-auto pb-1 pt-2 sm:px-0">
+      <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
+        <div className="mx-auto flex w-full max-w-[680px] items-end gap-1 bg-white px-2 pointer-events-auto pb-1.5 pt-2 sm:px-0">
           {isRecording ? (
             // Recording UI
             <>
@@ -1801,26 +1790,18 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               </div>
             </>
           ) : (
-            // Normal input UI
+            // Normal input UI — 당근식: + · 알약 입력칸(안에 스마일) · 전송
             <>
-              {isPro && (
-                <button
-                  onClick={() => setShowQuoteModal(true)}
-                  className="flex h-[50px] shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E4E7EB] bg-white px-4 text-[#51535C] transition-transform active:scale-[0.92]"
-                  title="견적서 보내기"
-                >
-                  <FileSignature size={18} />
-                  <span className="hidden sm:inline text-[13px] font-bold">견적</span>
-                </button>
-              )}
               <button
+                type="button"
+                aria-label="사진·장소·견적서 보내기"
                 onClick={(e) => { e.stopPropagation(); setShowAttach(!showAttach); }}
-                className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-transform active:scale-[0.9]"
+                className="flex h-11 w-10 shrink-0 items-center justify-center text-[#4E5968] transition-opacity active:opacity-60"
               >
-                <Plus size={22} />
+                <Plus size={26} />
               </button>
 
-              <div className="flex min-h-[50px] min-w-0 flex-1 items-end rounded-[22px] bg-[#F2F3F5] py-[7px] pl-4 pr-1.5">
+              <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-[22px] bg-[#F2F3F5] py-[6px] pl-4 pr-1">
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -1835,26 +1816,28 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                     e.preventDefault();
                     handleSend();
                   }}
-                  placeholder="메시지 (@ 으로 멘션)"
-                  className="flex-1 min-w-0 resize-none self-center bg-transparent py-[3px] text-[16px] leading-[1.35] focus:outline-none placeholder:text-gray-400 max-h-[120px] overflow-y-auto"
+                  placeholder="메시지 보내기"
+                  className="flex-1 min-w-0 resize-none self-center bg-transparent py-[3px] text-[16px] leading-[1.35] text-[#191F28] focus:outline-none placeholder:text-[#8B95A1] max-h-[120px] overflow-y-auto"
                 />
-                {input.trim() ? (
-                  <button
-                    onClick={handleSend}
-                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3180F7] text-white transition-transform active:scale-[0.88]"
-                  >
-                    <PaperPlaneIcon size={17} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => startRecordingRef.current?.()}
-                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8B95A1] transition-all active:scale-[0.88]"
-                    title="음성 메시지 녹음"
-                  >
-                    <Mic size={19} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  aria-label="이모티콘"
+                  onClick={(e) => { e.stopPropagation(); openStickersRef.current?.(); }}
+                  className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-opacity active:opacity-60"
+                >
+                  <TintIcon src="/icons/chat-kr/emoji.svg" color="#6B7684" size={24} />
+                </button>
               </div>
+
+              <button
+                type="button"
+                aria-label="보내기"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                className="flex h-11 w-10 shrink-0 items-center justify-center transition-transform active:scale-[0.9]"
+              >
+                <TintIcon src="/icons/chat-kr/send.svg" color={input.trim() ? '#3182F6' : '#C4C9D0'} size={26} />
+              </button>
             </>
           )}
         </div>
@@ -1893,6 +1876,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           recordingTime={recordingTime}
           setRecordingTime={setRecordingTime}
           onRegisterRecording={({ start, stop }) => { startRecordingRef.current = start; stopRecordingRef.current = stop; }}
+          onRegisterStickers={(open) => { openStickersRef.current = open; }}
+          topOffset={topHeight}
           playingVoice={playingVoice}
           setPlayingVoice={setPlayingVoice}
           voicePlayProgress={voicePlayProgress}

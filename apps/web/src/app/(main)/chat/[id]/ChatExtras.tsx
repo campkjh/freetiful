@@ -572,6 +572,30 @@ function formatQuoteEventDate(sys: SystemPayload, quoteDetail: any): string {
  * 안전결제를 피해 계좌로 직접 보내라고 하는 경우가 사고의 대부분이라,
  * 견적 카드 뒤와 대화 중간중간에 같은 문구를 반복해서 깔아 둔다.
  */
+// 단색 SVG 를 원하는 색으로 칠하는 아이콘(CSS 마스크) — 토스 mono 아이콘 세트용
+export function TintIcon({ src, color, size = 24 }: { src: string; color: string; size?: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-block',
+        width: size,
+        height: size,
+        flexShrink: 0,
+        backgroundColor: color,
+        WebkitMaskImage: `url(${src})`,
+        maskImage: `url(${src})`,
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+      }}
+    />
+  );
+}
+
 export function SafePaymentNotice() {
   return (
     <div className="mx-2 my-2 rounded-[12px] bg-[#FFF4F4] px-4 py-3">
@@ -1154,6 +1178,10 @@ export interface ChatExtrasProps {
   recordingTime: number;
   setRecordingTime: React.Dispatch<React.SetStateAction<number>>;
   onRegisterRecording?: (fns: { start: () => void; stop: (cancel: boolean) => void }) => void;
+  /** 입력창 안 스마일 버튼이 이모티콘 시트를 열 수 있게 여는 함수를 넘겨준다. */
+  onRegisterStickers?: (open: () => void) => void;
+  /** 상단 영역(헤더+거래 카드+칩+배너) 높이 — 공지 바를 그 바로 아래에 붙인다 */
+  topOffset?: number;
   // Voice playback
   playingVoice: string | null;
   setPlayingVoice: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1203,6 +1231,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
     isRecording, setIsRecording,
     recordingTime, setRecordingTime,
     onRegisterRecording,
+    onRegisterStickers,
+    topOffset,
     playingVoice, setPlayingVoice,
     voicePlayProgress, setVoicePlayProgress,
     mentionQuery, setMentionQuery,
@@ -1489,6 +1519,52 @@ export default function ChatExtras(props: ChatExtrasProps) {
   useEffect(() => {
     onRegisterRecording?.({ start: startRecording, stop: stopRecording });
   }, []);
+
+  // 입력창 스마일 버튼 → 이모티콘 시트
+  useEffect(() => {
+    onRegisterStickers?.(() => {
+      setShowAttach(false);
+      setShowStickers(true);
+    });
+  }, []);
+
+  // ─── + 시트 '최근 사진' ───
+  // 웹은 기기 사진첩을 직접 못 읽으니, 전체보기·앨범으로 고른 사진/영상을 이 줄에 모아(번호 표시) 한 번에 보낸다.
+  const [picked, setPicked] = useState<{ id: string; file: File; url: string; video: boolean }[]>([]);
+  const pickRef = useRef<HTMLInputElement | null>(null);
+  const clearPicked = () =>
+    setPicked((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.url));
+      return [];
+    });
+  const addPicked = (files: File[]) =>
+    setPicked((prev) =>
+      [
+        ...prev,
+        ...files.map((f) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          file: f,
+          url: URL.createObjectURL(f),
+          video: f.type.startsWith('video/'),
+        })),
+      ].slice(0, 10),
+    );
+  const removePicked = (id: string) =>
+    setPicked((prev) => {
+      const hit = prev.find((p) => p.id === id);
+      if (hit) URL.revokeObjectURL(hit.url);
+      return prev.filter((p) => p.id !== id);
+    });
+  const sendPicked = async () => {
+    const files = picked.map((p) => p.file);
+    setShowAttach(false);
+    clearPicked();
+    for (const f of files) await handleImageSend(f);
+  };
+  useEffect(() => {
+    if (!showAttach && picked.length) clearPicked();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAttach]);
 
   const togglePlayVoice = (msgId: string, url: string) => {
     if (playingVoice && playingVoice !== msgId) {
@@ -2239,7 +2315,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {pinnedMessage && (
         <button
           onClick={() => scrollToMessage(pinnedMessage.id)}
-          className="fixed left-0 right-0 top-[72px] z-30 flex items-center gap-3 px-4 py-2.5 bg-amber-50/90 backdrop-blur border-b border-amber-100 active:bg-amber-100 transition-colors animate-[slideUp_0.3s_ease]"
+          style={{ top: topOffset || 72 }}
+          className="absolute left-0 right-0 z-30 flex items-center gap-3 px-4 py-2.5 bg-amber-50/90 backdrop-blur border-b border-amber-100 active:bg-amber-100 transition-colors animate-[slideUp_0.3s_ease]"
         >
           <Pin size={16} className="text-amber-600 shrink-0 rotate-45" />
           <div className="flex-1 min-w-0 text-left">
@@ -2501,37 +2578,92 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </>
       )}
 
-      {/* ─── 첨부 메뉴 ─── */}
+      {/* ─── 첨부 메뉴(+) — 당근마켓 시트 레이아웃, 색만 파랑 ─── */}
       {showAttach && (
         <>
           <div
-            className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/10 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
+            className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/30 lg:bg-transparent"
             onClick={() => setShowAttach(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white/95 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[380px] lg:origin-bottom-left lg:animate-[menuPop_0.22s_cubic-bezier(0.34,1.56,0.64,1)] lg:rounded-[24px] lg:pb-2 lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.08)] lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[400px] lg:rounded-[28px] lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
             style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mb-4 mt-3 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
-            <div className="max-h-[75vh] overflow-y-auto px-5 pb-6 lg:px-4 lg:pb-3 lg:pt-4">
-              <div className="grid grid-cols-2 gap-x-5">
-                {ATTACH_GROUPS.filter((g) => g.items.length > 0).map((group, gi) => (
-                  <div key={group.title}>
-                    <p className="mb-1 px-2 text-[13px] font-medium text-gray-400">{group.title}</p>
-                    {group.items.map((item, idx) => (
-                      <button
-                        key={item.label}
-                        onClick={(e) => { e.stopPropagation(); item.action(); setShowAttach(false); }}
-                        className="flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-gray-100/60 active:scale-[0.98]"
-                        style={{ animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${(gi * 3 + idx) * 0.04}s both` }}
-                      >
-                        <span className="shrink-0 text-[#2B313D]">{item.icon}</span>
-                        <span className="text-[16px] font-medium text-gray-900">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
+            <div className="mx-auto mt-2.5 h-[5px] w-10 rounded-full bg-[#D1D6DB] lg:hidden" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-4">
+              <p className="text-[19px] font-bold text-[#191F28]">최근 사진</p>
+              <button
+                type="button"
+                disabled={!picked.length}
+                onClick={sendPicked}
+                className={`h-9 rounded-full px-4 text-[15px] font-bold transition-colors ${
+                  picked.length ? 'bg-[#3182F6] text-white active:bg-[#1B64DA]' : 'bg-[#F2F4F6] text-[#C4C9D0]'
+                }`}
+              >
+                보내기{picked.length ? ` ${picked.length}` : ''}
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto px-5 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                aria-label="카메라"
+                onClick={() => { setShowAttach(false); setShowCameraChoice(true); }}
+                className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
+              >
+                <TintIcon src="/icons/chat-kr/camera.svg" color="#191F28" size={30} />
+              </button>
+              {picked.map((p, i) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-label={`선택한 ${p.video ? '영상' : '사진'} ${i + 1} 빼기`}
+                  onClick={() => removePicked(p.id)}
+                  className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[18px] bg-[#F2F4F6] animate-[attachItemUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]"
+                >
+                  {p.video ? (
+                    <video src={p.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.url} alt="" className="h-full w-full object-cover" />
+                  )}
+                  <span className="absolute right-1.5 top-1.5 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-white bg-[#3182F6] text-[11px] font-bold text-white">
+                    {i + 1}
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => pickRef.current?.click()}
+                className="flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
+              >
+                <TintIcon src="/icons/chat-kr/gallery.svg" color="#4E5968" size={26} />
+                <span className="text-[13.5px] font-medium text-[#4E5968]">전체보기</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-y-5 px-2 pb-8">
+              {[
+                { key: 'album', label: '앨범', icon: 'gallery', color: '#4E5968', action: () => pickRef.current?.click() },
+                { key: 'emoji', label: '이모티콘', icon: 'emoji', color: '#3182F6', action: () => { setShowAttach(false); setShowStickers(true); } },
+                { key: 'place', label: '장소', icon: 'pin', color: '#15B86C', action: () => handleLocationSend() },
+                ...(isPro
+                  ? [{ key: 'quote', label: '견적서', icon: 'quote', color: '#3182F6', action: () => { setShowAttach(false); setShowQuoteModal(true); } }]
+                  : []),
+                { key: 'voice', label: '음성', icon: 'mic', color: '#3182F6', action: () => { setShowAttach(false); startRecording(); } },
+              ].map((a, idx) => (
+                <button
+                  key={a.key}
+                  type="button"
+                  onClick={a.action}
+                  className="flex flex-col items-center gap-2 transition-transform active:scale-95"
+                  style={{ animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.04}s both` }}
+                >
+                  <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-[#F4F5F7]">
+                    <TintIcon src={`/icons/chat-kr/${a.icon}.svg`} color={a.color} size={28} />
+                  </span>
+                  <span className="text-[14.5px] text-[#4E5968]">{a.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </>
@@ -2667,6 +2799,19 @@ export default function ChatExtras(props: ChatExtrasProps) {
       {/* '사진' 탭 — 앨범에 있는 사진과 동영상을 함께 고를 수 있어야 한다 */}
       <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={(e) => { const input = e.target; const files = Array.from(input.files || []); (async () => { try { for (const f of files) await handleImageSend(f); } finally { input.value = ''; } })(); }} />
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const input = e.target; const f = input.files?.[0]; if (!f) return; (async () => { try { await handleImageSend(f); } finally { input.value = ''; } })(); }} />
+      {/* + 시트 '앨범·전체보기' — 바로 보내지 않고 '최근 사진' 줄에 번호 붙여 모은 뒤 시트의 보내기로 한 번에 */}
+      <input
+        ref={pickRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          e.target.value = '';
+          if (files.length) addPicked(files);
+        }}
+      />
 
       {/* ─── Recording UI (input bar replacement handled by parent, but we provide startRecording/stopRecording) ─── */}
       {/* The recording bar is rendered in the parent page.tsx since it replaces the input bar */}
