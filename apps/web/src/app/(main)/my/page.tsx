@@ -3,128 +3,25 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, LogOut, Star, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
 import { getProfileImageUrl } from '@/lib/default-profile';
-import {
-  MyProfileIcon, MyPurchaseIcon, MyPaymentIcon, MySupportIcon, MyFaqIcon,
-  MyNoticeIcon, MyInviteIcon, MyTermsIcon, MyPartnerIcon,
-} from '@/components/icons/color';
 
-/* ─── 플랫 컬러 아이콘 (첨부 이미지 톤앤매너) ─── */
-// 이미지 기반 아이콘 헬퍼
-const ImgIcon = ({ src }: { src: string }) => (
-  <img src={src} alt="" width={20} height={20} className="shrink-0" style={{ objectFit: 'contain' }} />
-);
-
-const IconCard = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="5" width="20" height="14" rx="3" fill="#3B82F6"/>
-    <rect x="2" y="9" width="20" height="3" fill="#2563EB"/>
-    <rect x="5" y="15" width="6" height="2" rx="1" fill="white" opacity="0.7"/>
-  </svg>
-);
-const IconHistory = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="12" r="10" fill="#3B82F6"/>
-    <path d="M12 7v5l3.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-  </svg>
-);
-const IconWallet = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="6" width="20" height="14" rx="3" fill="#10B981"/>
-    <path d="M2 6h20V4a2 2 0 00-2-2H4a2 2 0 00-2 2v2z" fill="#059669"/>
-    <text x="8" y="16" fill="white" fontSize="9" fontWeight="bold" fontFamily="system-ui">₩</text>
-  </svg>
-);
-const IconTicket = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="5" width="20" height="14" rx="3" fill="#F59E0B"/>
-    <circle cx="2" cy="12" r="3" fill="white"/>
-    <circle cx="22" cy="12" r="3" fill="white"/>
-    <rect x="10" y="8" width="4" height="8" rx="1" fill="white" opacity="0.5"/>
-  </svg>
-);
-const IconSettings = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M2 7.5A4.5 4.5 0 016.5 3h11A4.5 4.5 0 0122 7.5v9a4.5 4.5 0 01-4.5 4.5h-11A4.5 4.5 0 012 16.5v-9z" fill="#4B5563"/>
-    <circle cx="12" cy="12.5" r="4" stroke="white" strokeWidth="2" fill="none"/>
-    <circle cx="12" cy="12.5" r="1.5" fill="white"/>
-    <path d="M9 3h6v1.5a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 4.5V3z" fill="#4B5563"/>
-  </svg>
-);
-const IconBell = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M12 2.5c-4 0-7 3.2-7 7v4.5L3 16.5V18h18v-1.5L19 14V9.5c0-3.8-3-7-7-7z" fill="#F6C754"/>
-    <circle cx="12" cy="19.5" r="2.5" fill="#E8A23E"/>
-  </svg>
-);
-const IconHeadphones = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M4 13v-1a8 8 0 0116 0v1" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round"/>
-    <rect x="2" y="13" width="5" height="7" rx="2.5" fill="#4B8DF8"/>
-    <rect x="17" y="13" width="5" height="7" rx="2.5" fill="#4B8DF8"/>
-  </svg>
-);
-const IconHelp = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="12" cy="12" r="10" fill="#F59E0B"/>
-    <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="13" fontWeight="bold" fontFamily="system-ui">?</text>
-  </svg>
-);
-const IconMegaphone = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M7 14v5.5a2 2 0 002 2h0a2 2 0 002-2V14" fill="#F87171"/>
-    <rect x="3" y="8" width="7" height="8" rx="2" fill="#FCA5A5"/>
-    <path d="M10 9c0 0 5-3 9-4.5v15c-4-1.5-9-4.5-9-4.5V9z" fill="#EF4444"/>
-    <rect x="19" y="9" width="3" height="6" rx="1.5" fill="#DC2626"/>
-  </svg>
-);
-const IconUsers = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <circle cx="9" cy="7" r="4" fill="#818CF8"/>
-    <rect x="2" y="14" width="14" height="8" rx="4" fill="#818CF8"/>
-    <circle cx="18" cy="8" r="3" fill="#C4B5FD"/>
-    <rect x="12" y="15" width="11" height="7" rx="3.5" fill="#C4B5FD"/>
-  </svg>
-);
-const IconFile = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M6 2h8l6 6v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" fill="#D1D5DB"/>
-    <path d="M14 2l6 6h-4a2 2 0 01-2-2V2z" fill="#9CA3AF"/>
-    <rect x="7" y="12" width="10" height="1.5" rx="0.75" fill="white"/>
-    <rect x="7" y="15" width="7" height="1.5" rx="0.75" fill="white"/>
-  </svg>
-);
-const IconBriefcase = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <rect x="2" y="7" width="20" height="13" rx="3" fill="#6366F1"/>
-    <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" stroke="#4F46E5" strokeWidth="2"/>
-    <rect x="10" y="11" width="4" height="3" rx="1" fill="white" opacity="0.6"/>
-  </svg>
-);
-const IconUser = () => (
-  <svg width={22} height={22} viewBox="0 0 24 24" fill="none" className="shrink-0">
-    <path d="M7.5 4A7.5 7.5 0 0119.3 8" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M19.3 8l1.2-3.2M19.3 8l-3.3-.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 20A7.5 7.5 0 014.7 16" stroke="#4B8DF8" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M4.7 16l-1.2 3.2M4.7 16l3.3.8" stroke="#4B8DF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+/* ════════════════════════════════════════════════════════════════
+ * 마이페이지 — 원라인솔루션 '일반바' 마이 탭 구성 그대로 (2026-09-25 사장 지시).
+ * 토스 '전체' 탭 어법:
+ *  · 위: 이름 크게 + 회색 한 줄 + 오른쪽 **글자 링크**(설정 | 로그아웃). 자주 안 쓰는 건 버튼을 안 준다.
+ *  · 가운데: '자주 쓰는 것' **타일 판**(흰 둥근 사각 + 컬러 아이콘 + 아래 라벨).
+ *  · 아래: 흰 카드 **목록**(왼쪽 회색 아이콘 칩 · 굵은 제목 · 오른쪽 회색 설명 — 들어가기 전에 뭘 하는지 안다).
+ *  · 회색 바탕(#F4F6FA) 위 흰 면. 아이콘은 토스 컬러 원본(public/icons/toss) — 회색으로 깎으면 타일이 한 덩어리로 보인다.
+ * 등장은 퀵매칭 어법: 제목 아래→위 페이드, 나머지 오른쪽→왼쪽 슬라이드(순차).
+ * ⚠ iOS 앱의 /my 는 네이티브(NativeMyContent)라 이 화면은 웹·안드로이드에서만 보인다.
+ * ════════════════════════════════════════════════════════════════ */
 
 const PRO_CATEGORY_CACHE_KEY = 'freetiful-my-pro-category';
-
-function readStoredProCategory() {
-  if (typeof window === 'undefined') return '사회자';
-  try {
-    return localStorage.getItem(PRO_CATEGORY_CACHE_KEY) || '사회자';
-  } catch {
-    return '사회자';
-  }
-}
 
 function writeStoredProProfileStatus(status: 'draft' | 'pending' | 'approved' | 'rejected' | null) {
   if (typeof window === 'undefined') return;
@@ -157,87 +54,72 @@ function clearStoredProModeForCurrentAccount() {
   } catch {}
 }
 
-const MENU_SECTIONS = [
-  {
-    title: '설정',
-    items: [
-      { href: '/my/settings', icon: MyProfileIcon, label: '프로필 설정' },
-      { href: '/pro-dashboard/auto-reply', icon: MyFaqIcon, label: '자동응답 관리', proOnly: true },
-    ],
-  },
-  {
-    title: '나의 활동',
-    items: [
-      { href: '/my/purchase-history', icon: MyPurchaseIcon, label: '구매 내역' },
-      { href: '/my/payment-history', icon: MyPaymentIcon, label: '결제/환불 내역' },
-    ],
-  },
-  {
-    title: '고객지원',
-    items: [
-      { href: '/my/support', icon: MySupportIcon, label: '고객센터' },
-      { href: '/my/faq', icon: MyFaqIcon, label: 'FAQ' },
-      { href: '/my/announcements', icon: MyNoticeIcon, label: '공지사항' },
-    ],
-  },
-  {
-    title: '기타',
-    items: [
-      { href: '/my/invite', icon: MyInviteIcon, label: '친구 초대', badge: '5,000원 이벤트' },
-      { href: '/my/terms', icon: MyTermsIcon, label: '약관 및 정책' },
-      { href: '/pro-register/terms', icon: MyPartnerIcon, label: '파트너 신청', action: 'partner' },
-    ],
-  },
-];
-
-// 긴 이메일은 20자에서 잘라 ... 붙임 (실제 이메일 그대로 보여주면 공간 넘침)
-function truncateEmail(email: string, max = 20): string {
+// 긴 이메일은 잘라 ... 붙임 (실제 이메일 그대로 보여주면 공간 넘침)
+function truncateEmail(email: string, max = 24): string {
   if (!email) return '';
   return email.length <= max ? email : email.slice(0, max) + '...';
 }
 
+const TOSS = (name: string) => `/icons/toss/${name}.svg`;
+
+type MyRow = {
+  k: string;
+  icon: string;
+  title: string;
+  desc?: string;
+  href?: string;
+  onClick?: () => void;
+  badge?: string;
+  disabled?: boolean;
+  danger?: boolean;
+};
+
+const MY_CSS = `
+@keyframes myFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mySlideIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes myPaneIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+.my-a-title { animation: myFadeUp .5s cubic-bezier(.22,.61,.36,1) both; }
+.my-a-sub { animation: myFadeUp .5s cubic-bezier(.22,.61,.36,1) .18s both; }
+/* fill backwards — 끝나면 빠져서 눌림(active:scale) 효과가 산다 */
+.my-a-item { animation: mySlideIn .46s cubic-bezier(.22,.61,.36,1) backwards; }
+.my-noanim .my-a-title, .my-noanim .my-a-sub, .my-noanim .my-a-item { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .my-a-title, .my-a-sub, .my-a-item { animation: none !important; } }
+`;
+
 export default function MyPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: '게스트', email: '', image: getProfileImageUrl(null, 'guest'), linkedAccounts: [] as string[], role: 'general' });
+  const [user, setUser] = useState({ name: '게스트', email: '', image: getProfileImageUrl(null, 'guest'), role: 'general' });
   const authUser = useAuthStore((s) => s.user);
-  const authHydrated = useAuthStore((s) => s.hasHydrated);
   const { logout: authLogout } = useAuth();
   const router = useRouter();
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
   const [proRegistrationPending, setProRegistrationPending] = useState(() => readStoredProProfileStatus() === 'pending');
 
-  // 최근 30초 이내 방문 시 진입 애니메이션 스킵 (하위 페이지 뒤로가기 중복 방지)
-  const skipAnim = (() => {
+  // 최근 30초 이내 방문이면 등장 애니 생략(하위 페이지 뒤로가기 때마다 다시 흔들리지 않게) — 마운트 때 한 번만 정한다
+  const [skipAnim] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
       const last = Number(sessionStorage.getItem('my-page-visited-at') || '0');
-      const skip = last && Date.now() - last < 30000;
       sessionStorage.setItem('my-page-visited-at', String(Date.now()));
-      return !!skip;
+      return Boolean(last && Date.now() - last < 30000);
     } catch { return false; }
-  })();
-  const animOrNone = (base: React.CSSProperties) => skipAnim ? undefined : base;
+  });
 
   useEffect(() => {
-    let cancelled = false;
     const loggedIn = authUser !== null;
     setIsLoggedIn(loggedIn);
 
     if (authUser) {
-      // Use real API data
       setUser({
         name: authUser.name || '게스트',
         email: authUser.email || '',
         image: getProfileImageUrl(authUser.profileImageUrl, authUser.id || authUser.email || authUser.name),
-        linkedAccounts: [],
         role: authUser.role,
       });
     } else {
       setProProfileStatus(null);
       setProRegistrationPending(false);
     }
-
-    return () => { cancelled = true; };
   }, [authUser]);
 
   useEffect(() => {
@@ -311,9 +193,11 @@ export default function MyPage() {
     return () => { cancelled = true; };
   }, [isLoggedIn, authUser]);
 
+  const showLogin = () => window.dispatchEvent(new Event('freetiful:show-login'));
+
   const handlePartnerApply = () => {
     if (!authUser) {
-      window.dispatchEvent(new Event('freetiful:show-login'));
+      showLogin();
       return;
     }
 
@@ -364,262 +248,270 @@ export default function MyPage() {
     return () => { try { delete (window as any).__freetifulMyProfilePost; delete (window as any).__freetifulLogout; } catch {} };
   }, [isLoggedIn, user, proProfileStatus, proRegistrationPending]);
 
+  // ─── 메뉴 구성 ───
+  const isProUser = authUser?.role === 'pro' || proProfileStatus === 'approved';
+  const profileHref = authUser?.role === 'pro' ? '/my/pro-edit' : '/my/settings';
+  const roleLabel = user.role === 'pro' ? '사회자' : user.role === 'admin' ? '관리자' : '일반회원';
+
+  // 자주 쓰는 것 — 한 줄 4칸
+  const tiles: { k: string; icon: string; label: string; href: string }[] = isProUser
+    ? [
+        { k: 'profile', icon: 'account', label: '프로필 편집', href: profileHref },
+        { k: 'autoreply', icon: 'chat', label: '자동응답', href: '/pro-dashboard/auto-reply' },
+        { k: 'purchase', icon: 'ledger', label: '구매 내역', href: '/my/purchase-history' },
+        { k: 'support', icon: 'headphone', label: '고객센터', href: '/my/support' },
+      ]
+    : [
+        { k: 'purchase', icon: 'ledger', label: '구매 내역', href: '/my/purchase-history' },
+        { k: 'payment', icon: 'pay-card', label: '결제·환불', href: '/my/payment-history' },
+        { k: 'invite', icon: 'gift', label: '친구 초대', href: '/my/invite' },
+        { k: 'support', icon: 'headphone', label: '고객센터', href: '/my/support' },
+      ];
+
+  // 파트너 신청 — 사회자 승인 전만. 심사 중이면 누를 수 없게
+  const partnerRow: MyRow | null = (() => {
+    if (authUser?.role === 'pro' && proProfileStatus === null) return null;
+    if (proProfileStatus === 'approved') return null;
+    if (proProfileStatus === 'pending') {
+      return { k: 'partner', icon: 'crown-gold', title: '파트너 신청', desc: '심사를 기다리는 중', badge: '심사 중', disabled: true };
+    }
+    return { k: 'partner', icon: 'crown-gold', title: '파트너 신청', desc: '사회자로 활동하기', onClick: handlePartnerApply };
+  })();
+
+  const sections: { title: string; rows: MyRow[] }[] = [
+    {
+      title: '나의 활동',
+      rows: [
+        { k: 'purchase', icon: 'ledger', title: '구매 내역', desc: '구매한 서비스 · 견적', href: '/my/purchase-history' },
+        { k: 'payment', icon: 'pay-card', title: '결제/환불 내역', desc: '결제 · 환불 기록', href: '/my/payment-history' },
+      ],
+    },
+    {
+      title: '설정',
+      rows: [
+        { k: 'profile', icon: 'account', title: '프로필 설정', desc: isProUser ? '사회자 프로필 · 소개' : '사진 · 이름 · 연락처', href: profileHref },
+        ...(isProUser ? [{ k: 'autoreply', icon: 'chat', title: '자동응답 관리', desc: '견적 문의에 자동 답장', href: '/pro-dashboard/auto-reply' }] : []),
+        { k: 'notif', icon: 'alarm', title: '알림 설정', desc: '푸시 · 소식 받기', href: '/my/notifications' },
+      ],
+    },
+    {
+      title: '고객지원',
+      rows: [
+        { k: 'support', icon: 'headphone', title: '고객센터', desc: '1:1 문의', href: '/my/support' },
+        { k: 'faq', icon: 'question', title: 'FAQ', desc: '자주 묻는 질문', href: '/my/faq' },
+        { k: 'notice', icon: 'loudspeaker', title: '공지사항', desc: '새 소식 · 업데이트', href: '/my/announcements' },
+      ],
+    },
+    {
+      title: '기타',
+      rows: [
+        { k: 'invite', icon: 'gift', title: '친구 초대', desc: '초대하고 혜택 받기', badge: '5,000원 이벤트', href: '/my/invite' },
+        { k: 'terms', icon: 'document', title: '약관 및 정책', desc: '이용약관 · 개인정보', href: '/my/terms' },
+        ...(partnerRow ? [partnerRow] : []),
+      ],
+    },
+  ];
+
+  // 순차 등장 — 위에서부터 차례로 번호를 매긴다
+  let order = 0;
+  const slide = () => ({ animationDelay: `${0.3 + (order++) * 0.04}s` });
+
+  const rowInner = (row: MyRow) => (
+    <>
+      <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[#F7F8FA]">
+        {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 SVG, 컬러 그대로 */}
+        <img src={TOSS(row.icon)} alt="" className="h-[24px] w-[24px]" />
+      </span>
+      {/* 제목은 필요한 만큼 가져가고, 남는 폭은 설명이 받는다(모자라면 설명이 먼저 줄어든다) */}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className={`truncate text-[16px] font-semibold ${row.danger ? 'text-[#F04452]' : 'text-[#191F28]'}`}>{row.title}</span>
+        {row.badge && (
+          <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[11.5px] font-bold text-[#3182F6]">{row.badge}</span>
+        )}
+      </span>
+      {row.desc && <span className="min-w-0 flex-1 truncate text-right text-[13px] text-[#A4ABBA]">{row.desc}</span>}
+    </>
+  );
+
+  const renderRow = (row: MyRow, i: number, arr: MyRow[]) => {
+    const line = i < arr.length - 1 ? 'border-b border-[#F2F4F6]' : '';
+    const base = `flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${line}`;
+    if (row.disabled) {
+      return (
+        <div key={row.k} className={`${base} cursor-not-allowed opacity-50`}>
+          {rowInner(row)}
+        </div>
+      );
+    }
+    if (row.onClick || !isLoggedIn || !row.href) {
+      return (
+        <button
+          key={row.k}
+          type="button"
+          onClick={() => (row.onClick ? row.onClick() : showLogin())}
+          className={`${base} active:bg-[#F7F8FA] lg:hover:bg-[#F9FAFB]`}
+        >
+          {rowInner(row)}
+        </button>
+      );
+    }
+    return (
+      <Link
+        key={row.k}
+        href={row.href}
+        onClick={openDetailOnPC(row.href)}
+        className={`${base} active:bg-[#F7F8FA] ${detailHref === row.href ? 'lg:bg-[#EAF2FF]' : 'lg:hover:bg-[#F9FAFB]'}`}
+      >
+        {rowInner(row)}
+      </Link>
+    );
+  };
 
   return (
     <div
-      className={`min-h-screen bg-white pb-24 lg:mx-auto lg:bg-transparent lg:pb-16 lg:pt-8 ${
-        detailHref ? 'lg:max-w-none' : 'lg:max-w-[880px]'
-      }`}
+      className={`min-h-screen bg-[#F4F6FA] pb-28 lg:mx-auto lg:bg-transparent lg:pb-16 lg:pt-8 ${
+        detailHref ? 'lg:max-w-none' : 'lg:max-w-[680px]'
+      } ${skipAnim ? 'my-noanim' : ''}`}
       style={{ letterSpacing: '-0.02em' }}
     >
-    <div className="lg:flex lg:items-start lg:gap-6">
-    <div className={`lg:transition-[width] lg:duration-300 lg:ease-out ${detailHref ? 'lg:w-[420px] lg:shrink-0' : 'lg:w-full'}`}>
-      {/* Header — PC 는 전역 헤더가 있어 sticky 바 대신 큰 제목만 */}
-      <div data-native-my-header className="sticky top-0 z-20 bg-white px-4 lg:hidden">
-        <div className="h-[52px] flex items-center">
-          <h1 className="text-[18px] font-bold text-gray-900">마이페이지</h1>
-        </div>
-      </div>
-      <div className="mb-6 hidden lg:block">
-        <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">마이페이지</h1>
-        <p className="mt-1 text-[14px] text-[#A4ABBA]">내 정보와 이용 내역을 관리하세요</p>
-      </div>
-
-      {/* Profile — 로그인 안 되었으면 로그인 유도 */}
-      {!isLoggedIn ? (
-        <div className="px-4 pb-4 pt-2" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-          <div className="rounded-2xl bg-gray-50 p-5 text-center lg:rounded-[24px] lg:bg-white lg:py-12">
-            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="8" r="4" fill="#9CA3AF" />
-                <path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" />
-              </svg>
-            </div>
-            <p className="text-[16px] font-bold text-gray-900 mb-1">로그인이 필요합니다</p>
-            <p className="text-[13px] text-gray-400 mb-4">로그인하고 다양한 서비스를 이용해보세요</p>
-            <button
-              onClick={() => {
-                window.dispatchEvent(new Event('freetiful:show-login'));
-              }}
-              className="inline-block bg-gray-900 text-white font-semibold text-[14px] px-6 py-2.5 rounded-xl active:scale-[0.97] transition-transform"
-            >
-              로그인 / 회원가입
-            </button>
-          </div>
-        </div>
-      ) : (
-      <div className="px-4 pb-3 lg:mb-4 lg:rounded-[24px] lg:bg-white lg:p-5" style={animOrNone({ animation: 'myFadeUp 0.5s ease forwards' })}>
-        <Link href="/my/settings" className="flex items-center gap-3.5 transition-opacity active:opacity-80 lg:hover:opacity-80">
-          <div className="relative">
-            <img src={getProfileImageUrl(user.image, user.email || user.name)} alt={user.name} onError={(e) => { (e.target as HTMLImageElement).src = getProfileImageUrl(null, user.email || user.name); }} className="w-[56px] h-[56px] rounded-full object-cover bg-gray-100" />
-            <div className="absolute -bottom-0.5 -right-0.5 bg-white rounded-full p-0.5">
-              <div className="w-4.5 h-4.5 bg-[#2B313D] rounded-full flex items-center justify-center" style={{ width: 18, height: 18 }}>
-                <Star size={9} className="text-white fill-white" />
-              </div>
+      <style dangerouslySetInnerHTML={{ __html: MY_CSS }} />
+      <div className="lg:flex lg:items-start lg:gap-6">
+        <div className={`lg:transition-[width] lg:duration-300 lg:ease-out ${detailHref ? 'lg:w-[440px] lg:shrink-0' : 'lg:w-full'}`}>
+          {/* 헤더 — 회색 바탕 그대로(흰 바를 따로 두지 않는다). PC 는 전역 헤더가 있어 숨긴다 */}
+          <div data-native-my-header className="sticky top-0 z-20 bg-[#F4F6FA]/95 px-4 backdrop-blur lg:hidden">
+            <div className="flex h-[52px] items-center">
+              <h1 className="text-[20px] font-bold tracking-[-0.02em] text-[#2B313D]">마이페이지</h1>
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[17px] font-bold text-gray-900">{user.name}</p>
-              {user.linkedAccounts.includes('kakao') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-[#FEE500] flex items-center justify-center shrink-0">
-                  <svg width="11" height="10" viewBox="0 0 24 22" fill="#3C1E1E"><path d="M12 1C5.37 1 0 5.13 0 10.2c0 3.26 2.17 6.12 5.44 7.74l-1.1 4.07c-.1.36.31.65.63.44l4.83-3.2c.72.1 1.46.15 2.2.15 6.63 0 12-4.13 12-9.2S18.63 1 12 1z"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('google') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0">
-                  <svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('naver') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-[#03C75A] flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 20 20" fill="white"><path d="M13.56 10.7L6.17 0H0v20h6.44V9.3L13.83 20H20V0h-6.44z"/></svg>
-                </span>
-              )}
-              {user.linkedAccounts.includes('apple') && (
-                <span className="w-[20px] h-[20px] rounded-full bg-black flex items-center justify-center shrink-0">
-                  <svg width="10" height="12" viewBox="0 0 17 20" fill="white"><path d="M13.25 10.06c-.02-2.08 1.7-3.08 1.78-3.13-1-1.42-2.5-1.62-3.04-1.64-1.28-.13-2.53.76-3.18.76-.66 0-1.66-.75-2.74-.73A4.05 4.05 0 002.63 7.5C.86 10.53 2.18 14.95 3.88 17.38c.85 1.2 1.85 2.53 3.16 2.48 1.28-.05 1.76-.8 3.3-.8s1.98.8 3.32.77c1.37-.02 2.23-1.2 3.06-2.41.98-1.38 1.38-2.73 1.4-2.8-.03-.01-2.67-1.02-2.7-4.06-.02-2.55 2.08-3.78 2.18-3.84-1.2-1.76-3.06-1.96-3.72-2z"/></svg>
-                </span>
-              )}
-            </div>
-            <p className="text-[13px] text-gray-400 mt-0.5">{truncateEmail(user.email)}</p>
-          </div>
-          <ChevronRight size={20} className="text-gray-300 shrink-0" />
-        </Link>
 
-        {/* Pro Registration Pending Banner */}
-        {proRegistrationPending && proProfileStatus !== 'approved' && (
-          <div
-            className="mt-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3.5"
-            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
-          >
-            <div className="flex items-center gap-1.5">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="4" y="2" width="16" height="20" rx="2.5" fill="#93C5FD"/>
-                <rect x="4" y="2" width="16" height="6" rx="2.5" fill="#60A5FA"/>
-                <rect x="7.5" y="11" width="9" height="1.5" rx="0.75" fill="white" opacity="0.7"/>
-                <rect x="7.5" y="14.5" width="6" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
-                <circle cx="18" cy="18" r="5" fill="#3B82F6"/>
-                <path d="M15.5 18l1.5 1.5 3-3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <p className="text-[14px] font-bold text-blue-700">사회자 양식 제출완료!</p>
-            </div>
-            <p className="text-[12px] text-blue-500 mt-1 ml-[26px]">심사를 기다려주세요. 7일 이내에 결과를 알려드립니다.</p>
-          </div>
-        )}
-
-        {/* Pro Rejected Banner */}
-        {proProfileStatus === 'rejected' && (
-          <div
-            className="mt-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3.5"
-            style={animOrNone({ animation: 'myFadeUp 0.5s ease 0.08s both' })}
-          >
-            <p className="text-[14px] font-bold text-red-700">파트너 신청이 반려되었습니다</p>
-            <p className="text-[12px] text-red-500 mt-1">신청 조건을 재확인 후 다시 신청해 주세요.</p>
-          </div>
-        )}
-
-      </div>
-      )}
-
-      {/* Menu Sections */}
-      {MENU_SECTIONS.map((section, si) => (
-        <div
-          key={section.title}
-          className="lg:mb-4 lg:rounded-[24px] lg:bg-white lg:px-2 lg:py-3"
-          style={animOrNone({ animation: `myFadeUp 0.4s ease ${0.2 + si * 0.08}s both` })}
-        >
-          {si > 0 && <div className="h-1.5 bg-gray-50 lg:hidden" />}
-          <div className="px-4 pt-3 pb-0.5 lg:pb-1.5 lg:pt-1">
-            <p className="text-[12px] font-bold text-gray-400 lg:text-[13px] lg:text-[#A4ABBA]">{section.title}</p>
-          </div>
-          {section.items.map(({ href, icon: Icon, label, badge, action, proOnly }: { href: string; icon: (p: { size?: number; className?: string }) => JSX.Element; label: string; badge?: string; action?: string; proOnly?: boolean }) => {
-            // 사회자 전용 메뉴 — 승인된 사회자에게만
-            if (proOnly && !(authUser?.role === 'pro' || proProfileStatus === 'approved')) return null;
-            // Partner registration conditional logic
-            if (action === 'partner') {
-              if (authUser?.role === 'pro' && proProfileStatus === null) return null;
-              if (proProfileStatus === 'approved') return null;
-              if (proProfileStatus === 'pending') {
-                return (
-                  <div key={label} className="flex w-full cursor-not-allowed items-center gap-3 px-4 py-2.5 opacity-50 lg:rounded-xl lg:px-3 lg:py-3">
-                    <Icon />
-                    <span className="flex-1 text-[14px] text-gray-400">{label}</span>
-                    <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full bg-blue-500">심사 중</span>
-                    <ChevronRight size={16} className="text-gray-300 shrink-0" />
+          <div className="px-4 pb-4 pt-2 lg:px-0 lg:pt-0">
+            {/* 이름 줄 — 토스는 여기에 버튼을 안 두고 글자 링크만 둔다 */}
+            {isLoggedIn ? (
+              <div className="flex items-start gap-3">
+                <div className="my-a-title min-w-0 flex-1">
+                  <div className="truncate text-[22px] font-bold tracking-[-0.02em] text-[#191F28]">{user.name}</div>
+                  <div className="mt-1 truncate text-[13.5px] text-[#A4ABBA]">
+                    {[truncateEmail(user.email), roleLabel].filter(Boolean).join(' · ')}
                   </div>
-                );
-              }
-              // Not submitted, show normally
-              return (
-                <button key={label} onClick={handlePartnerApply} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]">
-                  <Icon />
-                  <span className="flex-1 text-[14px] text-gray-900 lg:text-[15px]">{label}</span>
-                  {badge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{badge}</span>}
-                  <ChevronRight size={16} className="text-gray-300 shrink-0" />
-                </button>
-              );
-            }
-
-            const displayBadge = badge;
-            const resolvedHref = label === '프로필 설정' && authUser?.role === 'pro' ? '/my/pro-edit' : href;
-            const inner = (
+                </div>
+                <div className="my-a-sub flex shrink-0 items-center gap-2 pt-1 text-[14px] font-medium text-[#8B95A1]">
+                  <Link href="/my/settings" onClick={openDetailOnPC('/my/settings')} className="active:text-[#4E5968]">설정</Link>
+                  <span className="text-[#E5E8EB]">|</span>
+                  <button type="button" onClick={handleLogout} className="active:text-[#4E5968]">로그아웃</button>
+                </div>
+              </div>
+            ) : (
               <>
-                <Icon />
-                <span className="flex-1 text-[14px] text-gray-900 lg:text-[15px]">{label}</span>
-                {displayBadge && <span className="text-[11px] text-white font-medium px-2.5 py-0.5 rounded-full" style={{ backgroundColor: '#2B313D' }}>{displayBadge}</span>}
-                <ChevronRight size={16} className="text-gray-300 shrink-0" />
-              </>
-            );
-
-            // 미로그인 상태에서 메뉴 항목 클릭 시 → 네이티브 로그인 팝업 (또는 웹 모달)
-            if (!isLoggedIn) {
-              return (
+                <div className="my-a-title">
+                  <div className="text-[22px] font-bold tracking-[-0.02em] text-[#191F28]">로그인이 필요해요</div>
+                  <div className="mt-1 text-[13.5px] text-[#A4ABBA]">로그인하고 프리티풀의 다양한 서비스를 이용해 보세요</div>
+                </div>
                 <button
-                  key={label}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.dispatchEvent(new Event('freetiful:show-login'));
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 lg:hover:bg-[#F7F8FA]"
+                  type="button"
+                  onClick={showLogin}
+                  className="my-a-sub mt-4 h-[52px] w-full rounded-[16px] bg-[#3182F6] text-[16px] font-semibold text-white transition-colors active:bg-[#2272EB]"
                 >
-                  {inner}
+                  로그인 / 회원가입
                 </button>
-              );
-            }
-            return (
-              <Link
-                key={label}
-                href={resolvedHref}
-                onClick={openDetailOnPC(resolvedHref)}
-                className={`flex items-center gap-3 px-4 py-2.5 transition-colors active:bg-gray-50 lg:rounded-xl lg:px-3 lg:py-3 ${
-                  detailHref === resolvedHref ? 'lg:bg-[#EAF2FF]' : 'lg:hover:bg-[#F7F8FA]'
-                }`}
-              >
-                {inner}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+              </>
+            )}
 
-      {/* Logout */}
-      <div className="h-1.5 bg-gray-50 lg:hidden" />
-      <button
-        onClick={handleLogout}
-        className="flex w-full items-center gap-3 px-4 py-3 transition-colors active:bg-gray-50 lg:justify-center lg:rounded-[14px] lg:bg-[#F2F3F5] lg:py-3.5 lg:hover:bg-[#E9EBEF]"
-      >
-        <LogOut size={18} className="text-gray-400 shrink-0 lg:text-[#51535C]" />
-        <span className="text-[14px] text-gray-400 lg:font-bold lg:text-[#51535C]">로그아웃</span>
-      </button>
+            {/* 사회자 신청 상태 — 흰 카드 한 줄 */}
+            {isLoggedIn && proRegistrationPending && proProfileStatus !== 'approved' && (
+              <div className="my-a-item mt-5 flex items-center gap-3 rounded-[18px] bg-white px-4 py-3.5" style={slide()}>
+                <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[#F7F8FA]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={TOSS('document')} alt="" className="h-[24px] w-[24px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-semibold text-[#191F28]">사회자 양식 제출 완료</span>
+                  <span className="mt-0.5 block text-[12.5px] text-[#A4ABBA]">심사를 기다려 주세요 · 7일 이내 결과를 알려 드려요</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[11.5px] font-bold text-[#3182F6]">심사 중</span>
+              </div>
+            )}
+            {isLoggedIn && proProfileStatus === 'rejected' && (
+              <div className="my-a-item mt-5 flex items-center gap-3 rounded-[18px] bg-white px-4 py-3.5" style={slide()}>
+                <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[#FFF2F3]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={TOSS('document')} alt="" className="h-[24px] w-[24px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-semibold text-[#F04452]">파트너 신청이 반려되었어요</span>
+                  <span className="mt-0.5 block text-[12.5px] text-[#A4ABBA]">신청 조건을 확인하고 다시 신청해 주세요</span>
+                </span>
+              </div>
+            )}
 
-      <div className="px-4 pt-1 pb-8 flex justify-end">
-        {isLoggedIn ? (
-          <Link href="/my/notifications" className="text-[11px] font-medium text-gray-300 active:text-gray-400 transition-colors">
-            알림 설정
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event('freetiful:show-login'))}
-            className="text-[11px] font-medium text-gray-300 active:text-gray-400 transition-colors"
-          >
-            알림 설정
-          </button>
-        )}
-      </div>
+            {/* 자주 쓰는 것 — 타일 판 */}
+            <div className="my-a-sub mt-6 text-[15px] font-semibold text-[#2B313D]">자주 쓰는 것</div>
+            <div className="mt-2.5 grid grid-cols-4 gap-2">
+              {tiles.map((t) => {
+                const inner = (
+                  <>
+                    <span className="flex h-[58px] w-[58px] items-center justify-center rounded-[18px] bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={TOSS(t.icon)} alt="" className="h-[30px] w-[30px]" />
+                    </span>
+                    <span className="text-[12px] font-medium text-[#51535C]">{t.label}</span>
+                  </>
+                );
+                const cls = 'my-a-item flex flex-col items-center gap-1.5 rounded-[16px] py-1 transition-transform active:scale-95';
+                return isLoggedIn ? (
+                  <Link key={t.k} href={t.href} onClick={openDetailOnPC(t.href)} className={cls} style={slide()}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <button key={t.k} type="button" onClick={showLogin} className={cls} style={slide()}>
+                    {inner}
+                  </button>
+                );
+              })}
+            </div>
 
-    </div>
+            {/* 목록 — 오른쪽 회색 설명이 '들어가면 뭘 하는지'를 말한다 */}
+            {sections.map((section) => (
+              <div key={section.title}>
+                <div className="my-a-item mt-6 text-[15px] font-semibold text-[#2B313D]" style={slide()}>{section.title}</div>
+                <div className="my-a-item mt-2.5 overflow-hidden rounded-[18px] bg-white" style={slide()}>
+                  {section.rows.map(renderRow)}
+                </div>
+              </div>
+            ))}
 
-      {/* PC — 고른 항목을 오른쪽에서 그대로 연다(페이지 이동 없음).
-          iframe 인 이유는 Tailwind 반응형이 뷰포트 기준이라, 좁은 칸에 그냥 끼우면
-          하위 화면이 PC 레이아웃으로 잡혀 깨지기 때문. iframe 은 제 뷰포트를 가진다. */}
-      {detailHref && (
-        <div
-          className="hidden lg:block lg:min-w-0 lg:flex-1"
-          style={{ animation: 'myPaneIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
-        >
-          <div className="sticky top-[92px] h-[calc(100vh-150px)] overflow-hidden rounded-[24px] bg-white">
-            <button
-              type="button"
-              onClick={() => setDetailHref(null)}
-              aria-label="닫기"
-              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
-            >
-              <X size={17} />
-            </button>
-            <iframe key={detailHref} src={detailHref} title="상세" className="h-full w-full border-0" />
+            {isLoggedIn && (
+              <>
+                <div className="my-a-item mt-6 text-[15px] font-semibold text-[#2B313D]" style={slide()}>계정</div>
+                <div className="my-a-item mt-2.5 overflow-hidden rounded-[18px] bg-white" style={slide()}>
+                  {renderRow({ k: 'logout', icon: 'logout', title: '로그아웃', danger: true, onClick: handleLogout }, 0, [])}
+                </div>
+              </>
+            )}
           </div>
         </div>
-      )}
-    </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes myFadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}} />
+        {/* PC — 고른 항목을 오른쪽에서 그대로 연다(페이지 이동 없음).
+            iframe 인 이유는 Tailwind 반응형이 뷰포트 기준이라, 좁은 칸에 그냥 끼우면
+            하위 화면이 PC 레이아웃으로 잡혀 깨지기 때문. iframe 은 제 뷰포트를 가진다. */}
+        {detailHref && (
+          <div
+            className="hidden lg:block lg:min-w-0 lg:flex-1"
+            style={{ animation: 'myPaneIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+          >
+            <div className="sticky top-[92px] h-[calc(100vh-150px)] overflow-hidden rounded-[24px] bg-white">
+              <button
+                type="button"
+                onClick={() => setDetailHref(null)}
+                aria-label="닫기"
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#F2F3F5] text-[#51535C] transition-colors hover:bg-[#E9EBEF]"
+              >
+                <X size={17} />
+              </button>
+              <iframe key={detailHref} src={detailHref} title="상세" className="h-full w-full border-0" />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ─── 로그아웃 확인 모달 ─────────────────────────────────────── */}
       {showLogoutConfirm && (
@@ -629,24 +521,24 @@ export default function MyPage() {
         >
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl"
+            className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-[16px] font-bold text-gray-900 text-center mb-5">
+            <p className="mb-5 text-center text-[17px] font-bold text-[#191F28]">
               로그아웃 하시겠어요?
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform"
+                className="h-[52px] flex-1 rounded-[16px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition-transform active:scale-95"
               >
                 아니오
               </button>
               <button
                 onClick={executeLogout}
-                className="flex-1 py-3 rounded-xl bg-gray-900 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+                className="h-[52px] flex-1 rounded-[16px] bg-[#3182F6] text-[16px] font-semibold text-white transition-transform active:scale-95"
               >
-                예
+                로그아웃
               </button>
             </div>
           </div>
