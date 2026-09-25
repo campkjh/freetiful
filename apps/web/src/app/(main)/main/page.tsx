@@ -1132,31 +1132,6 @@ function ApplianceIconSwap() {
   );
 }
 
-function LanguageBadge() {
-  const languages = ['English', '中文', '日本語', 'ภาษาไทย', 'العربية', 'Español'];
-  const [idx, setIdx] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => setIdx((i) => (i + 1) % languages.length), 2000);
-    return () => clearInterval(timer);
-  }, [languages.length]);
-
-  return (
-    <span className="home-category-language-badge absolute bottom-0 left-1/2 z-20 -translate-x-1/2 overflow-hidden rounded-full">
-      <span
-        className="home-category-language-badge-track"
-        style={{ transform: `translateY(-${idx * 16}px)` }}
-      >
-        {languages.map((lang) => (
-          <span key={lang} className="home-category-language-badge-item">
-            {lang}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}
-
 type HomeCategoryItem = { name: string; img: string; href: string };
 const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
 
@@ -1243,7 +1218,6 @@ function CategorySwiper() {
                 >
                   <div className="relative flex h-[60px] w-[60px] items-center justify-center lg:h-16 lg:w-16 lg:overflow-hidden lg:rounded-full lg:bg-white lg:shadow-[0_8px_22px_rgba(15,23,42,0.08)] lg:ring-1 lg:ring-black/5">
                     <HomeCategoryIcon item={item} />
-                    {item.name === '외국어사회자' && <LanguageBadge />}
                   </div>
                   <span className="mt-1 text-center text-[12px] font-medium leading-tight text-[#51535C] lg:text-[13px]">
                     {item.name}
