@@ -517,7 +517,7 @@ export default function ChatListPage() {
                       ? 'bg-[#EAF2FF]'
                       : hasUnread && isPC
                         ? 'bg-[#F5F9FF] hover:bg-[#EDF4FF]'
-                        : 'bg-white hover:bg-[#FBFCFD]'
+                        : 'bg-white lg:hover:bg-[#FBFCFD]'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
