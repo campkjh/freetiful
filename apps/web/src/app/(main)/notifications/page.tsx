@@ -411,8 +411,9 @@ export default function NotificationsPage() {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            {/* 토스 '알림 ⌄' 메뉴 — 작게 시작해 정비율로 커지고(제목 쪽에서), 항목은 오른쪽→왼쪽으로 촤라락 (globals .pop-menu) */}
-            <div className="pop-menu absolute left-2 top-full z-50 w-max min-w-[184px] py-2" style={{ transformOrigin: '32px 0' }} role="menu">
+            {/* 토스 '알림 ⌄' 메뉴 — 작게 시작해 정비율로 커지고(제목 쪽에서), 항목은 오른쪽→왼쪽으로 촤라락 (globals .pop-menu).
+                모서리는 이 메뉴만 24(사장 지시) — 공통 .pop-menu(18)가 뒤에 선언돼 클래스로는 안 덮여 인라인으로 */}
+            <div className="pop-menu absolute left-2 top-full z-50 w-max min-w-[184px] overflow-hidden py-2" style={{ transformOrigin: '32px 0', borderRadius: 24 }} role="menu">
               {FILTERS.map((f, i) => {
                 const on = filter === f.k;
                 return (
