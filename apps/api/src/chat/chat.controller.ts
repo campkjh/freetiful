@@ -67,6 +67,12 @@ export class ChatController {
     return this.chatService.getRoomById(roomId, req.user.id);
   }
 
+  @Get('rooms/:roomId/reply-suggestions')
+  @ApiOperation({ summary: '답장 추천(당근식) — 내 역할·최근 대화로 짧은 답장 3개' })
+  getReplySuggestions(@Req() req, @Param('roomId') roomId: string, @Query('refresh') refresh?: string) {
+    return this.chatService.getReplySuggestions(roomId, req.user.id, refresh === '1' || refresh === 'true');
+  }
+
   @Patch('rooms/:roomId/mute')
   @ApiOperation({ summary: '채팅방 알림 끄기/켜기 (내 측)' })
   setRoomMuted(@Req() req, @Param('roomId') roomId: string, @Body() body: { muted?: boolean }) {

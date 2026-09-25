@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ChatReplySuggestService, type ReplyRole, type ReplyTurn } from './chat-reply-suggest.service';
 import { ImageService } from '../image/image.service';
 import { VideoCompressService } from '../image/video-compress.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -34,6 +35,7 @@ export class ChatService implements OnModuleInit {
     private chatRealtimeService: ChatRealtimeService,
     private videoCompress: VideoCompressService,
     private autoReplyService: AutoReplyService,
+    private replySuggest: ChatReplySuggestService,
   ) {}
 
   private roomCache = new Map<string, { data: any; ts: number }>();
@@ -1159,6 +1161,42 @@ export class ChatService implements OnModuleInit {
       matchRequest: room.matchRequest,
       latestQuotation: room.quotations[0] ?? null,
     };
+  }
+
+  /** 답장 추천(당근식) — 이 방에서 내 역할(사회자/고객)과 최근 대화로 짧은 답장 3개 */
+  async getReplySuggestions(roomId: string, userId: string, refresh = false) {
+    const participantUserIds = await this.getChatParticipantUserIds(userId, { includeLegacy: true });
+    const room = await this.prisma.chatRoom.findFirst({
+      where: { id: roomId, members: { some: { userId: { in: participantUserIds } } } },
+      select: { id: true, proProfile: { select: { userId: true } } },
+    });
+    if (!room) throw new NotFoundException('채팅방을 찾을 수 없습니다');
+    const role: ReplyRole = participantUserIds.includes(room.proProfile.userId) ? 'pro' : 'customer';
+    const rows = await this.prisma.message.findMany({
+      where: { roomId, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+      select: { id: true, senderId: true, type: true, content: true, metadata: true },
+    });
+    const MEDIA_LABEL: Record<string, string> = {
+      image: '[사진]', video: '[동영상]', file: '[파일]', audio: '[음성]', voice: '[음성]', location: '[위치]',
+    };
+    const turns: ReplyTurn[] = [];
+    for (const m of [...rows].reverse()) {
+      let text = '';
+      if (m.type === 'system') {
+        // 견적 카드만 대화 흐름에 넣는다(받은 쪽이 '견적서 확인했어요' 같은 답을 고를 수 있게)
+        const sys: any = (m.metadata as any)?.system;
+        if (sys?.kind === 'quote') text = `[견적서 ${sys.amount ? `${Number(sys.amount).toLocaleString('ko-KR')}원 ` : ''}전송]`;
+      } else if (m.type === 'text') {
+        text = String(m.content || '').trim();
+        if (/^https?:\/\/\S+\.(png|gif|webp|jpg)$/i.test(text)) text = '[이모티콘]';
+      } else {
+        text = MEDIA_LABEL[m.type] || '';
+      }
+      if (text) turns.push({ mine: participantUserIds.includes(m.senderId), text });
+    }
+    return this.replySuggest.suggest(`${roomId}:${rows[0]?.id || 'none'}:${role}`, role, turns, { refresh });
   }
 
   /** 채팅방 알림 끄기/켜기 — 내 쪽(연결된 계정 포함) 멤버 행만 바꾼다 */

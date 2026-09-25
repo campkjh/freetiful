@@ -21,6 +21,7 @@ import { formatEventTime } from '@/lib/event-time';
 import { renderTextWithMentions } from './chat-text';
 import { isChatStickerUrl } from '@/lib/chat-stickers';
 import toast from 'react-hot-toast';
+import { popItemDelay } from '@/lib/pop-menu';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -413,6 +414,23 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [muted, setMuted] = useState(false);
+  // ─── 답장 추천(당근식) — 상대가 말하면 AI 가 그 말에 맞춘 답장, 대화가 없으면 역할별 기본 문구 ───
+  const [replySuggest, setReplySuggest] = useState<string[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestUsed, setSuggestUsed] = useState(false); // 칩을 보냈으면 상대가 다시 말할 때까지 숨김
+  const loadReplySuggest = useCallback(async (refresh = false) => {
+    if (!roomId || roomId.startsWith('pending-')) return;
+    setSuggestLoading(true);
+    try {
+      const res = await chatApi.getReplySuggestions(roomId, refresh);
+      const list = Array.isArray(res?.data?.suggestions) ? res.data.suggestions : [];
+      setReplySuggest(list.filter((t: unknown): t is string => typeof t === 'string').slice(0, 4));
+    } catch {
+      /* 추천은 없어도 대화는 된다 */
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, [roomId]);
   // 알림 끄기/켜기 — 서버(방 멤버 isMuted)에 저장하고 목록 스토어도 같이 바꾼다. 실패하면 되돌린다.
   // (끈 방은 새 메시지 푸시·알림함이 안 온다 — 안 읽음 수는 그대로)
   const toggleRoomMute = useCallback(() => {
@@ -431,6 +449,29 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   }, [muted, roomId]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  // 답장 추천은 대화가 없거나 **상대가 마지막으로 말했을 때만** — 내가 보냈으면 상대가 다시 말할 때까지 숨긴다
+  let lastRealMsg: Message | undefined;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (!String(messages[i].id).startsWith('opt-')) { lastRealMsg = messages[i]; break; }
+  }
+  const lastIsOther = !lastRealMsg || lastRealMsg.senderId !== MY_ID;
+  const lastMsgKey = lastRealMsg ? String(lastRealMsg.id) : 'none';
+  useEffect(() => {
+    if (messagesLoading || !lastIsOther) return;
+    setSuggestUsed(false);
+    const t = setTimeout(() => { void loadReplySuggest(); }, 500);
+    return () => clearTimeout(t);
+  }, [lastMsgKey, lastIsOther, messagesLoading, loadReplySuggest]);
+  const showReplySuggest = !messagesLoading && lastIsOther && !suggestUsed && replySuggest.length > 0 && !isRecording && !input.trim();
+  // 추천 줄이 생기면(입력창 위가 56px 높아진다) 맨 아래를 보고 있던 사람의 마지막 말풍선이 가리지 않게 같이 내린다
+  useEffect(() => {
+    if (!showReplySuggest) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 220) {
+      requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }));
+    }
+  }, [showReplySuggest]);
   const [recordingTime, setRecordingTime] = useState(0);
   const startRecordingRef = useRef<(() => void) | null>(null);
   const stopRecordingRef = useRef<((cancel: boolean) => void) | null>(null);
@@ -1338,7 +1379,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
-          paddingBottom: 80,
+          paddingBottom: showReplySuggest ? 136 : 80,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           // 상단 영역(측정) + 공지 바가 있으면 그 높이만큼
@@ -1773,6 +1814,37 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
       <div data-native-chat-footer className="absolute left-0 right-0 z-30 bg-white pb-safe px-safe" style={{ bottom: 0 }}>
+        {/* 답장 추천 — ✦ 누르면 AI 가 다시 추천, 칩을 누르면 바로 보낸다(당근 어법) */}
+        {showReplySuggest && (
+          <div
+            aria-label="답장 추천"
+            className="mx-auto flex w-full max-w-[680px] items-center gap-2 overflow-x-auto px-3 pb-0.5 pt-2.5 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden"
+          >
+            <button
+              type="button"
+              onClick={() => loadReplySuggest(true)}
+              aria-label="AI 답장 다시 추천"
+              title="AI 답장 다시 추천"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#EEF0F3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)] transition-transform active:scale-95"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" className={suggestLoading ? 'animate-spin' : ''} style={suggestLoading ? { animationDuration: '1.1s' } : undefined}>
+                <path d="M9.5 4.5c.5 3.7 2.3 5.5 6 6-3.7.5-5.5 2.3-6 6-.5-3.7-2.3-5.5-6-6 3.7-.5 5.5-2.3 6-6z" fill="#3182F6" />
+                <path d="M17.5 2.5c.25 1.8 1.1 2.65 2.9 2.9-1.8.25-2.65 1.1-2.9 2.9-.25-1.8-1.1-2.65-2.9-2.9 1.8-.25 2.65-1.1 2.9-2.9z" fill="#A78BFA" />
+              </svg>
+            </button>
+            {replySuggest.map((t, i) => (
+              <button
+                key={`${t}-${i}`}
+                type="button"
+                onClick={() => { setSuggestUsed(true); handleSend(t); }}
+                className={`pop-menu-item h-11 shrink-0 rounded-full border border-[#EEF0F3] bg-white px-5 text-[16px] font-semibold text-[#191F28] transition-opacity active:bg-[#F7F8FA] ${suggestLoading ? 'opacity-50' : ''}`}
+                style={popItemDelay(i)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-[680px] items-end gap-1 bg-white px-2 pointer-events-auto pb-1.5 pt-2 sm:px-0">
           {isRecording ? (
             // Recording UI

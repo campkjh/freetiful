@@ -114,6 +114,12 @@ export const chatApi = {
   markAsRead: (roomId: string) =>
     apiClient.post(`${BASE}/rooms/${roomId}/read`),
 
+  /** 답장 추천(당근식) — 상대 말에 맞춘 AI 답장 · 역할별 기본 문구 */
+  getReplySuggestions: (roomId: string, refresh = false) =>
+    apiClient.get<{ suggestions: string[]; source: 'ai' | 'rule' | 'preset' }>(`${BASE}/rooms/${roomId}/reply-suggestions`, {
+      params: refresh ? { refresh: 1 } : undefined,
+    }),
+
   /** 채팅방 알림 끄기/켜기(내 쪽) */
   setRoomMuted: (roomId: string, muted: boolean) =>
     apiClient.patch<{ roomId: string; isMuted: boolean }>(`${BASE}/rooms/${roomId}/mute`, { muted }),
