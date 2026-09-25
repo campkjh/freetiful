@@ -1181,8 +1181,10 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         const eventDate = mr?.eventDate || q?.eventDate || raw.date;
         const eventTime = formatEventTime(mr?.eventTime || q?.eventTime || raw.timeStart);
         const eventLocation: string = mr?.eventLocation || q?.eventLocation || raw.location || '';
-        const dateText = eventDate
-          ? `${new Date(eventDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'UTC' })}${eventTime ? ` ${eventTime}` : ''}`
+        // 일정 표기: '26년 5월 12일 13:00' — 연도는 앞 '20' 을 뺀 두 자리. 행사일은 UTC 자정 직렬화된 날짜라 UTC 로 읽는다.
+        const eventDay = eventDate ? new Date(eventDate) : null;
+        const dateText = eventDay && !Number.isNaN(eventDay.getTime())
+          ? `${String(eventDay.getUTCFullYear()).slice(-2)}년 ${eventDay.getUTCMonth() + 1}월 ${eventDay.getUTCDate()}일${eventTime ? ` ${eventTime}` : ''}`
           : '';
         const thumb = partnerIsPro ? chatPartner?.profileImageUrl : authUser?.profileImageUrl || chatPartner?.profileImageUrl;
         const scrollToLatestQuote = () => {
@@ -1197,7 +1199,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         if (dateText) chips.push({ key: 'schedule', label: `일정 ${dateText}`, icon: 'calendar', onClick: () => (q ? scrollToLatestQuote() : undefined) });
         if (!isPro && partnerIsPro) chips.push({ key: 'profile', label: '프로필 보기', icon: 'person', onClick: openPartnerProfile });
         return (
-          <div ref={topRef} data-native-chat-header className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe px-safe">
+          <div ref={topRef} data-native-chat-header className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe">
+            <div className="px-safe">
             <div className="mx-auto w-full max-w-[680px]">
               {/* 헤더: 뒤로 · 가운데 이름+알약 / 부제 · ⋮ */}
               <div className="relative flex h-14 items-center px-1">
@@ -1286,8 +1289,9 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                 </div>
               )}
             </div>
+            </div>
 
-            {/* 안전결제 배너 — 배경은 가로 전체, 내용만 가운데 폭 */}
+            {/* 안전결제 띠 — 좌우 여백 없이 가로 끝까지, 내용만 카드와 같은 줄에 맞춘다 */}
             <button
               type="button"
               onClick={() => {
@@ -1296,12 +1300,14 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               }}
               className="block w-full border-y border-[#E3EDFC] bg-[#EEF4FF] text-left"
             >
-              <span className="mx-auto flex w-full max-w-[680px] items-center gap-2.5 px-4 py-3">
-                <TintIcon src="/icons/chat-kr/shield.svg" color="#3182F6" size={20} />
-                <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[#1B64DA]">프리티풀 안전결제로 안전하게 예약하세요</span>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+              <span className="block px-safe">
+                <span className="mx-auto flex w-full max-w-[680px] items-center gap-2.5 px-4 py-3">
+                  <TintIcon src="/icons/chat-kr/shield.svg" color="#3182F6" size={20} />
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[#1B64DA]">프리티풀 안전결제로 안전하게 예약하세요</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
               </span>
             </button>
           </div>
@@ -1970,6 +1976,34 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
       {/* Animation keyframes */}
       <style dangerouslySetInnerHTML={{ __html: `
+        /* + 시트·견적서 시트 등장 — 시트는 아래→위, 제목은 아래→위 페이드, 나머지는 오른쪽→왼쪽 슬라이드(퀵매칭과 같은 곡선).
+           요소 애니는 fill backwards — 끝나면 빠져서 눌림(active:scale) 효과가 살아 있다. */
+        .chs-sheet { animation: chsSheetUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both; }
+        .chs-title { animation: chsFadeUp 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) 0.12s backwards; }
+        .chs-item { animation: chsSlideIn 0.46s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+        @media (min-width: 1024px) {
+          .chs-sheet { animation: chsPopUp 0.36s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .chs-sheet, .chs-title, .chs-item { animation: none; }
+        }
+        @keyframes chsSheetUp {
+          0% { transform: translateY(100%); }
+          100% { transform: translateY(0); }
+        }
+        @keyframes chsPopUp {
+          0% { opacity: 0; transform: translateY(28px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes chsFadeUp {
+          0% { opacity: 0; transform: translateY(16px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes chsSlideIn {
+          0% { opacity: 0; transform: translateX(22px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes chsCaret { 50% { opacity: 0; } }
         @keyframes sheetUp {
           0% { transform: translateY(100%); }
           100% { transform: translateY(0); }

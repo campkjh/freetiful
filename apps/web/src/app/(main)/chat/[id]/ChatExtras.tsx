@@ -23,11 +23,8 @@ import {
   MicIcon as Mic,
   PictureIcon as ImageIcon,
   VideoIcon as Video,
-  ContractIcon as FileSignature,
   CardIcon as CreditCard,
   CheckCircleIcon as CheckCircle2,
-  CalendarCheckIcon as CalendarCheck,
-  WonIcon,
   BellIcon as AlarmClock,
   TwinkleIcon as Sparkles,
   StarIcon as Star,
@@ -541,12 +538,27 @@ function orderNo(sys: SystemPayload) {
   return tail.slice(-8).toUpperCase();
 }
 
+/** 견적 금액 키패드 — 퀵매칭 번호 입력과 같은 배열 */
+const QUOTE_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
+
+/** 490000 → '49만원', 12345678 → '1,234만 5,678원' */
+function toKoreanWon(n: number) {
+  const eok = Math.floor(n / 1e8);
+  const man = Math.floor((n % 1e8) / 1e4);
+  const rest = n % 1e4;
+  const parts: string[] = [];
+  if (eok) parts.push(`${eok.toLocaleString('ko-KR')}억`);
+  if (man) parts.push(`${man.toLocaleString('ko-KR')}만`);
+  if (rest) parts.push(rest.toLocaleString('ko-KR'));
+  return `${parts.join(' ')}원`;
+}
+
 /** 견적 카드 제목 — "홍길동님의 결혼식 사회 섭외건" 처럼 누구의 무슨 행사인지 한 줄로 */
 function quoteTitle(sys: SystemPayload, customerName?: string | null) {
   const who = (customerName || '').trim();
   const what = (sys.eventName || '').trim() || '행사';
-  // 이미 문장처럼 길게 들어온 견적명은 그대로 둔다
-  if (what.length > 12 || what.includes('섭외')) return what;
+  // 이미 문장처럼 길게 들어온 견적명이나 '김예비님의 결혼식 행사' 처럼 이름이 든 견적명은 그대로 둔다
+  if (what.length > 12 || what.includes('섭외') || what.includes('님의')) return what;
   return who ? `${who}님의 ${what} 사회 섭외건` : `${what} 사회 섭외건`;
 }
 
@@ -1280,8 +1292,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
   const [quoteMemo, setQuoteMemo] = useState('');
   const [quoteCustomAmount, setQuoteCustomAmount] = useState('');
 
-  // 견적 작성 모달이 열릴 때, 고객 매칭 요청/최신 견적 정보를 자동 채움.
-  // 프로가 직접 다시 입력하지 않아도 행사일/시간/장소/이름이 들어가 있게.
+  // 견적 작성 시트가 열릴 때, 고객 매칭 요청/최신 견적 정보를 자동 채움.
+  // 시트엔 금액만 있다 — 행사일/시간/장소는 고객이 쓴 값 그대로, 행사명은 발송 때 autoQuoteTitle().
   useEffect(() => {
     if (!showQuoteModal) return;
     const mr = roomMeta?.matchRequest;
@@ -1301,14 +1313,32 @@ export default function ChatExtras(props: ChatExtrasProps) {
     setQuoteEventDate((cur) => cur || toDateInput(mr?.eventDate || lq?.eventDate || raw.date));
     setQuoteEventTime((cur) => cur || toTimeInput(mr?.eventTime || lq?.eventTime || raw.timeStart));
     setQuoteEventLocation((cur) => cur || mr?.eventLocation || lq?.eventLocation || raw.location || '');
-    // 행사명 기본값: '{고객명}님의 행사' (예: 차보경님의 행사). 고객명 없으면 기존 폴백.
-    setQuoteEventName((cur) => cur || (chatPartner?.name ? `${chatPartner.name}님의 행사` : '') || lq?.title || raw.eventName || mr?.eventCategory?.name || '');
     // 플랜 자동 선택 — rawUserInput 의 planKey 또는 wedding_part1 / wedding_part12 같은 라벨 힌트
     const planHint = raw.planKey || raw.plan;
     if (planHint && typeof planHint === 'string') {
       setQuotePlan((cur) => (PLAN_KEYS.includes(planHint) ? planHint : cur));
     }
   }, [showQuoteModal, roomMeta, chatPartner]);
+  // 견적 이름 — 입력칸 없이 자동: '{고객명}님의 {행사 종류} 행사' (예: 김예비님의 결혼식 행사).
+  // 퀵매칭 요청은 행사 종류가 비어 있고 결혼식 사회자 전용이라 결혼식으로 본다.
+  const autoQuoteTitle = () => {
+    const mr: any = roomMeta?.matchRequest;
+    const raw: any = mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {};
+    let kind = String(mr?.eventCategory?.name || '');
+    if (!kind && (raw.source === 'landing_quick_match' || /결혼|웨딩|예식/.test(String(mr?.category?.name || '')))) kind = '결혼식';
+    kind = kind.replace(/\s*\(.*?\)\s*/g, '').trim();
+    const what = !kind ? '행사' : /행사$/.test(kind) ? kind : `${kind} 행사`;
+    const who = (chatPartner?.name || '').trim();
+    return who ? `${who}님의 ${what}` : what;
+  };
+  // 견적 금액 키패드 — 퀵매칭 번호 키패드와 같은 동작(최대 9자리, 맨 앞 0 무시)
+  const pressQuoteKey = (k: string) =>
+    setQuoteCustomAmount((p) => {
+      const d = p.replace(/\D/g, '');
+      if (k === 'back') return d.slice(0, -1);
+      if (d.length >= 9 || (!d && k === '0')) return d;
+      return d + k;
+    });
   // 추가 옵션 (프로가 견적 보낼 때 옵션을 추가해 총액을 올릴 수 있음)
   const [quoteOptions, setQuoteOptions] = useState<{ name: string; price: number }[]>([]);
   const [quoteSending, setQuoteSending] = useState(false);
@@ -1326,12 +1356,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
     if (PLAN_KEYS.length > 0 && !PLAN_KEYS.includes(quotePlan)) setQuotePlan(PLAN_KEYS[0]);
   }, [planTemplates]);
 
-  const selectedPlan = PLAN_DATA[quotePlan];
-  const quoteOptionsTotal = quoteOptions.reduce((s, o) => s + (Number(o.price) || 0), 0);
-  const quoteBaseAmount = quoteCustomAmount.trim()
-    ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
-    : (selectedPlan?.price || 0);
-  const quoteTotalAmount = quoteBaseAmount + quoteOptionsTotal;
 
   // ─── Handlers ───
 
@@ -2136,13 +2160,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
       ? Math.max(0, parseInt(quoteCustomAmount.replace(/[^\d]/g, ''), 10) || 0)
       : plan.price;
     const totalAmount = baseAmount + optionsTotal;
+    // 네이티브 폼은 행사명을 넘겨 주고, 웹 시트는 입력칸이 없어 자동 이름
+    const title = quoteEventName.trim() || autoQuoteTitle();
     try {
       const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
       // 1) 백엔드에 실제 Quotation 생성
       const created = await quotationApi.create({
         userId: chatPartner.id,
         amount: totalAmount,
-        title: quoteEventName || '행사 진행',
+        title,
         description: [
           quoteMemo,
           quoteOptions.length > 0
@@ -2161,7 +2187,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
       const quoteSystem = {
         kind: 'quote' as const,
         plan: quotePlan,
-        eventName: quoteEventName || '행사 진행',
+        eventName: title,
         amount: totalAmount,
         basePrice: baseAmount,
         options: quoteOptions,
@@ -2220,6 +2246,25 @@ export default function ChatExtras(props: ChatExtrasProps) {
   // 네이티브 견적 폼(UIKit 글래스) 연동 — 검증된 웹 발송 로직 재사용
   const handleSendQuoteRef = useRef(handleSendQuote);
   handleSendQuoteRef.current = handleSendQuote;
+  // 견적 시트: 채팅 입력창 포커스(모바일 키보드)를 내려 키패드가 가려지지 않게, PC 는 실제 키보드 숫자·지우기·엔터·ESC
+  const quoteAmountRef = useRef('');
+  quoteAmountRef.current = quoteCustomAmount;
+  useEffect(() => {
+    if (!showQuoteModal) return;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('input, textarea, [contenteditable="true"]')) return;
+      if (/^\d$/.test(e.key)) { e.preventDefault(); pressQuoteKey(e.key); }
+      else if (e.key === 'Backspace') { e.preventDefault(); pressQuoteKey('back'); }
+      else if (e.key === 'Enter') {
+        if (quoteAmountRef.current.replace(/\D/g, '')) { e.preventDefault(); handleSendQuoteRef.current?.(); }
+      } else if (e.key === 'Escape') setShowQuoteModal(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQuoteModal]);
   const computeQuoteDefaults = () => {
     const mr = roomMeta?.matchRequest;
     const lq = roomMeta?.latestQuotation;
@@ -2228,8 +2273,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
     const toTime = formatEventTime;   // 행사 시각은 벽시계 값 — 시간대 변환 금지
     const plan = PLAN_DATA[quotePlan] || Object.values(PLAN_DATA)[0];
     return {
-      // 행사명 기본값: '{고객명}님의 행사' (네이티브 견적폼도 이 값을 사용)
-      eventName: (chatPartner?.name ? `${chatPartner.name}님의 행사` : '') || lq?.title || raw.eventName || mr?.eventCategory?.name || '',
+      // 행사명 기본값: '{고객명}님의 {행사 종류} 행사' — 웹 시트와 같은 규칙(네이티브 견적폼도 이 값을 사용)
+      eventName: autoQuoteTitle(),
       eventDate: toDate(mr?.eventDate || lq?.eventDate || raw.date),
       eventTime: toTime(mr?.eventTime || lq?.eventTime || raw.timeStart),
       eventLocation: mr?.eventLocation || lq?.eventLocation || raw.location || '',
@@ -2477,127 +2522,110 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </div>
       )}
 
-      {/* ─── 견적서 작성 모달 (사회자 전용) ─── */}
-      {showQuoteModal && (
+      {/* ─── 견적서 작성 시트 (사회자 전용) — 금액만 입력. 퀵매칭 번호 입력과 같은 큰 숫자 + 키패드.
+          행사명('김예비님의 결혼식 행사')·행사일·시간·장소는 입력칸 없이 고객 매칭 요청 값으로 자동. ─── */}
+      {showQuoteModal && (() => {
+        const digits = quoteCustomAmount.replace(/\D/g, '');
+        const amount = digits ? Number(digits) : 0;
+        return (
         <>
-        <div
-          className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/10 backdrop-blur-[2px] lg:bg-transparent lg:backdrop-blur-none"
-          onClick={() => setShowQuoteModal(false)}
-        />
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-[28px] bg-white/95 px-5 pb-8 pt-5 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] backdrop-blur-2xl lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:max-h-[70vh] lg:w-[380px] lg:origin-bottom-left lg:animate-[menuPop_0.22s_cubic-bezier(0.34,1.56,0.64,1)] lg:rounded-[24px] lg:px-4 lg:pb-4 lg:pt-4"
-          onClick={(e) => { e.stopPropagation(); const t = e.target as HTMLElement; if (!t.closest('input,textarea,select,button,a')) (document.activeElement as HTMLElement | null)?.blur(); }}
-          style={{ animation: 'sheetUp 0.3s ease' }}
-        >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
-            <h2 className="mb-4 flex items-center gap-1.5 text-[17px] font-bold text-[#2B313D]">
-              <FileSignature size={18} className="text-[#3180F7]" />
-              견적서 작성
-            </h2>
-
-            {/* 네이티브 견적서 폼과 동일한 인풋/내용 (네이티브가 기준) */}
-            <p className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-[#8B95A1]">
-              <WonIcon size={13} className="text-[#C8CEDA]" /> 견적 금액
-            </p>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={quoteCustomAmount}
-              onChange={(e) => setQuoteCustomAmount(e.target.value.replace(/[^\d]/g, ''))}
-              placeholder="직접 입력 시 선택 플랜 금액 대신 적용"
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] mb-4"
-            />
-
-            {/* ─── 행사 정보 ─── */}
-            <p className="mb-1.5 flex items-center gap-1 text-[12px] font-bold text-[#8B95A1]">
-              <CalendarCheck size={13} className="text-[#C8CEDA]" /> 행사 정보
-            </p>
-            <div className="space-y-2 mb-4">
-              <input
-                type="text"
-                value={quoteEventName}
-                onChange={(e) => setQuoteEventName(e.target.value)}
-                placeholder="행사명 (예: 김철수·이영희 결혼식)"
-                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-              />
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <p className="text-[12px] font-bold text-gray-500 mb-1">행사일</p>
-                  <input
-                    type="date"
-                    value={quoteEventDate}
-                    onChange={(e) => setQuoteEventDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[12px] font-bold text-gray-500 mb-1">시간</p>
-                  <input
-                    type="time"
-                    value={quoteEventTime}
-                    onChange={(e) => setQuoteEventTime(e.target.value)}
-                    className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7] text-gray-700"
-                  />
-                </div>
-              </div>
-              <input
-                type="text"
-                value={quoteEventLocation}
-                onChange={(e) => setQuoteEventLocation(e.target.value)}
-                placeholder="행사 장소 (예: 그랜드 워커힐 서울)"
-                className="w-full h-12 bg-gray-50 border border-gray-200 rounded-xl px-4 text-[16px] outline-none focus:border-[#3180F7]"
-              />
-            </div>
-
-            {/* 총 견적 (네이티브와 동일: '총 견적 · {플랜}' + 총액) */}
-            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-4">
-              <span className="text-[12px] font-bold text-gray-500">
-                {selectedPlan?.label ? `총 견적 · ${selectedPlan.label}` : '총 견적'}
-              </span>
-              <p className="text-[18px] font-bold text-[#3180F7]">
-                {quoteTotalAmount.toLocaleString()}원
+          <div
+            className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/30 lg:bg-transparent"
+            onClick={() => setShowQuoteModal(false)}
+          />
+          <div
+            className="chs-sheet fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] bg-white pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.08)] lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:max-h-[calc(100%-96px)] lg:w-[380px] lg:overflow-y-auto lg:rounded-[28px] lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mt-2.5 h-[5px] w-10 rounded-full bg-[#D1D6DB] lg:hidden" />
+            <div className="px-6 pt-6">
+              <h2 className="chs-title text-[24px] font-semibold leading-[1.4] tracking-[-0.4px] text-[#191F28]">견적 금액을 입력해주세요</h2>
+              <p className="chs-title mt-2.5 truncate text-[15px] leading-[1.5] text-[#8B95A1]" style={{ animationDelay: '0.2s' }}>
+                {autoQuoteTitle()}
               </p>
+              <div
+                className={`chs-item mt-11 border-b-2 pb-4 transition-colors duration-150 ${digits ? 'border-[#3182F6]' : 'border-[#E5E8EB]'}`}
+                style={{ animationDelay: '0.26s' }}
+              >
+                <span className="flex items-center text-[28px] font-semibold leading-none tracking-[0.5px]">
+                  <span className={digits ? 'text-[#191F28]' : 'text-[#B0B8C1]'}>{digits ? `${amount.toLocaleString('ko-KR')}원` : '0원'}</span>
+                  <i aria-hidden="true" className="ml-[2px] block h-7 w-[2px] bg-[#3182F6]" style={{ animation: 'chsCaret 1s step-end infinite' }} />
+                </span>
+              </div>
+              {/* 큰 금액 오타 방지 — '49만원' 처럼 읽어 준다 */}
+              <p className="mt-2 h-5 text-[14px] text-[#8B95A1]">{amount >= 10000 ? toKoreanWon(amount) : ''}</p>
             </div>
-
-            <button
-              onClick={handleSendQuote}
-              disabled={quoteSending}
-              className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
-            >
-              {quoteSending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  견적서 발송 중...
-                </>
-              ) : (
-                '견적서 발송'
-              )}
-            </button>
-        </div>
+            <div className="px-5 pb-2.5 pt-5">
+              <button
+                type="button"
+                onClick={handleSendQuote}
+                disabled={!amount || quoteSending}
+                className={`flex h-14 w-full items-center justify-center gap-2 rounded-[17px] text-[17px] font-semibold transition-[transform,background-color] duration-150 ${
+                  !amount
+                    ? 'bg-[#F2F4F6] text-[#B0B8C1]'
+                    : quoteSending
+                      ? 'bg-[#3182F6] text-white opacity-80'
+                      : 'bg-[#3182F6] text-white active:scale-[0.99] active:bg-[#2272EB]'
+                }`}
+              >
+                {quoteSending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                {quoteSending ? '견적서 발송 중…' : '견적서 발송'}
+              </button>
+            </div>
+            <div className="grid grid-cols-3 pb-1.5">
+              {QUOTE_KEYS.map((k, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={k === 'back' ? '지우기' : k || undefined}
+                  disabled={!k}
+                  onClick={() => k && pressQuoteKey(k)}
+                  className={`mx-1.5 my-0.5 flex h-[62px] items-center justify-center rounded-[14px] text-[26px] font-medium text-[#191F28] transition-colors duration-100 ${
+                    k ? 'active:bg-[#F2F4F6] lg:hover:bg-[#F9FAFB]' : 'pointer-events-none'
+                  }`}
+                >
+                  {k === 'back' ? <TintIcon src="/quick-match/icons/backspace.svg" color="#191F28" size={26} /> : k}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
-      )}
+        );
+      })()}
 
-      {/* ─── 첨부 메뉴(+) — 당근마켓 시트 레이아웃, 색만 파랑 ─── */}
-      {showAttach && (
+      {/* ─── 첨부 메뉴(+) — 당근마켓 시트 레이아웃, 색만 파랑 ───
+          등장: 시트 아래→위, '최근 갤러리' 제목 아래→위 페이드, 나머지는 오른쪽→왼쪽 슬라이드(chs-* — page.tsx 스타일) */}
+      {showAttach && (() => {
+        const ACTIONS = [
+          { key: 'album', label: '앨범', icon: 'gallery', color: '#4E5968', action: () => pickRef.current?.click() },
+          { key: 'emoji', label: '이모티콘', icon: 'emoji', color: '#3182F6', action: () => { setShowAttach(false); setShowStickers(true); } },
+          { key: 'place', label: '장소', icon: 'pin', color: '#15B86C', action: () => handleLocationSend() },
+          ...(isPro
+            ? [{ key: 'quote', label: '견적서', icon: 'quote', color: '#3182F6', action: () => { setShowAttach(false); setShowQuoteModal(true); } }]
+            : []),
+          { key: 'voice', label: '음성', icon: 'mic', color: '#3182F6', action: () => { setShowAttach(false); startRecording(); } },
+        ];
+        // 보내기 → 카메라 → 전체보기 → 원형 버튼 순서로 살짝씩 늦게
+        const slide = (order: number) => ({ animationDelay: `${0.18 + order * 0.045}s` });
+        return (
         <>
           <div
             className="fixed inset-0 z-40 animate-[fadeIn_0.25s_ease] bg-black/30 lg:bg-transparent"
             onClick={() => setShowAttach(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.08)] lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[400px] lg:rounded-[28px] lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
-            style={{ animation: 'sheetUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+            className="chs-sheet fixed bottom-0 left-0 right-0 z-50 rounded-t-[32px] bg-white pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.08)] lg:absolute lg:bottom-[72px] lg:left-[max(12px,calc((100%_-_680px)/2_+_12px))] lg:right-auto lg:w-[400px] lg:rounded-[28px] lg:shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mt-2.5 h-[5px] w-10 rounded-full bg-[#D1D6DB] lg:hidden" />
             <div className="flex items-center justify-between px-5 pb-3 pt-4">
-              <p className="text-[19px] font-bold text-[#191F28]">최근 사진</p>
+              <p className="chs-title text-[19px] font-bold text-[#191F28]">최근 갤러리</p>
               <button
                 type="button"
                 disabled={!picked.length}
                 onClick={sendPicked}
-                className={`h-9 rounded-full px-4 text-[15px] font-bold transition-colors ${
+                style={slide(0)}
+                className={`chs-item h-9 rounded-full px-4 text-[15px] font-bold transition-colors ${
                   picked.length ? 'bg-[#3182F6] text-white active:bg-[#1B64DA]' : 'bg-[#F2F4F6] text-[#C4C9D0]'
                 }`}
               >
@@ -2609,7 +2637,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 type="button"
                 aria-label="카메라"
                 onClick={() => { setShowAttach(false); setShowCameraChoice(true); }}
-                className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
+                style={slide(1)}
+                className="chs-item flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
               >
                 <TintIcon src="/icons/chat-kr/camera.svg" color="#191F28" size={30} />
               </button>
@@ -2619,7 +2648,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   type="button"
                   aria-label={`선택한 ${p.video ? '영상' : '사진'} ${i + 1} 빼기`}
                   onClick={() => removePicked(p.id)}
-                  className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[18px] bg-[#F2F4F6] animate-[attachItemUp_0.3s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  className="chs-item relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[18px] bg-[#F2F4F6]"
                 >
                   {p.video ? (
                     <video src={p.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
@@ -2635,28 +2664,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
               <button
                 type="button"
                 onClick={() => pickRef.current?.click()}
-                className="flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
+                style={slide(2)}
+                className="chs-item flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[18px] bg-[#F2F4F6] transition-transform active:scale-95"
               >
                 <TintIcon src="/icons/chat-kr/gallery.svg" color="#4E5968" size={26} />
                 <span className="text-[13.5px] font-medium text-[#4E5968]">전체보기</span>
               </button>
             </div>
             <div className="grid grid-cols-4 gap-y-5 px-2 pb-8">
-              {[
-                { key: 'album', label: '앨범', icon: 'gallery', color: '#4E5968', action: () => pickRef.current?.click() },
-                { key: 'emoji', label: '이모티콘', icon: 'emoji', color: '#3182F6', action: () => { setShowAttach(false); setShowStickers(true); } },
-                { key: 'place', label: '장소', icon: 'pin', color: '#15B86C', action: () => handleLocationSend() },
-                ...(isPro
-                  ? [{ key: 'quote', label: '견적서', icon: 'quote', color: '#3182F6', action: () => { setShowAttach(false); setShowQuoteModal(true); } }]
-                  : []),
-                { key: 'voice', label: '음성', icon: 'mic', color: '#3182F6', action: () => { setShowAttach(false); startRecording(); } },
-              ].map((a, idx) => (
+              {ACTIONS.map((a, idx) => (
                 <button
                   key={a.key}
                   type="button"
                   onClick={a.action}
-                  className="flex flex-col items-center gap-2 transition-transform active:scale-95"
-                  style={{ animation: `attachItemUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.04}s both` }}
+                  style={slide(3 + idx)}
+                  className="chs-item flex flex-col items-center gap-2 transition-transform active:scale-95"
                 >
                   <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-[#F4F5F7]">
                     <TintIcon src={`/icons/chat-kr/${a.icon}.svg`} color={a.color} size={28} />
@@ -2667,7 +2689,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ─── 이모티콘 시트 ─── */}
       {showStickers && (
