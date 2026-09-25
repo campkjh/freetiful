@@ -1177,8 +1177,9 @@ function getHomeCategoryItems(): HomeCategoryItem[] {
     : [];
 
   return [
-    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc.png`, href: proCategoryHref('결혼식사회자') },
-    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc.png`, href: proCategoryHref('전문행사사회자') },
+    // 카테고리 칸 전용 아이콘(사장 지시 260925 새 일러스트) — wedding-mc.png·event-mc.png 는 위 히어로 카드 사진이라 따로 둔다
+    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc-icon.png`, href: proCategoryHref('결혼식사회자') },
+    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc-icon.png`, href: proCategoryHref('전문행사사회자') },
     { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: proCategoryHref('외국어사회자') },
     ...weddingPartnerCats,
     ...applianceCat,
@@ -1186,29 +1187,7 @@ function getHomeCategoryItems(): HomeCategoryItem[] {
 }
 
 function HomeCategoryIcon({ item }: { item: HomeCategoryItem }) {
-  if (item.name === '웨딩홀') {
-    return (
-      <video
-        src="/images/wedding-hall-video.mp4"
-        autoPlay
-        muted
-        playsInline
-        preload="metadata"
-        className="h-full w-full rounded-full object-cover"
-        ref={(video) => {
-          if (video) video.playbackRate = 0.5;
-        }}
-        onEnded={(event) => {
-          const video = event.currentTarget;
-          setTimeout(() => {
-            video.currentTime = 0;
-            video.play().catch(() => {});
-          }, 1500);
-        }}
-      />
-    );
-  }
-
+  // 웨딩홀도 다른 칸과 같은 일러스트 아이콘(예전엔 동그란 영상) — 사장 지시 260925 카테고리 아이콘 교체
   if (item.name === '가전') return <ApplianceIconSwap />;
 
   return (
