@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, CircleDollarSign, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
+import { MyDetailHeader } from '../_components/detail-ui';
+import { CircleDollarSign, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -27,7 +27,6 @@ function won(value: number) {
 }
 
 export default function RevenuePage() {
-  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [summary, setSummary] = useState<RevenueSummary | null>(null);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -61,14 +60,12 @@ export default function RevenuePage() {
     .reduce((sum, s) => sum + (s.amount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white/90 backdrop-blur-xl px-4 pt-12 pb-3" data-native-back-header>
-        <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} /></button>
-        <h1 className="text-[18px] font-bold">매출 내역</h1>
-      </header>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="매출 내역" sub="이번 달 매출과 정산 흐름이에요" />
 
-      <section className="px-4 pt-5">
-        <div className="rounded-2xl bg-gray-900 p-5 text-white">
+      <div className="qd-body space-y-6 px-6 pt-1">
+      <section>
+        <div className="rounded-[16px] bg-[#191F28] p-5 text-white">
           <p className="text-[12px] text-white/60">이번 달 매출</p>
           <p className="mt-1 text-[30px] font-black">{loading ? '...' : won(summary?.thisMonth || 0)}</p>
           <div className="mt-3 flex items-center gap-2 text-[12px] text-white/70">
@@ -78,13 +75,13 @@ export default function RevenuePage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-3 gap-2 px-4 pt-3">
+      <section className="grid grid-cols-3 gap-2">
         {[
           { label: '전월 매출', value: won(summary?.lastMonth || 0), icon: CircleDollarSign, color: 'text-blue-500' },
           { label: '정산 예정', value: won(pendingAmount), icon: Clock, color: 'text-amber-500' },
           { label: '리뷰', value: `${summary?.reviewCount || 0}개`, icon: CheckCircle2, color: 'text-emerald-500' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-2xl bg-white p-3 shadow-sm">
+          <div key={label} className="qd-card p-3">
             <Icon size={17} className={color} />
             <p className="mt-2 text-[11px] text-gray-400">{label}</p>
             <p className="mt-0.5 text-[13px] font-bold text-gray-900">{loading ? '...' : value}</p>
@@ -92,9 +89,9 @@ export default function RevenuePage() {
         ))}
       </section>
 
-      <section className="px-4 pt-6">
-        <h2 className="mb-3 text-[15px] font-bold text-gray-900">월별 정산 흐름</h2>
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <section>
+        <h2 className="mb-3 text-[17px] font-semibold text-[#333D4B]">월별 정산 흐름</h2>
+        <div className="qd-card px-[18px] py-4">
           {monthly.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-gray-400">결제 완료된 매출이 생기면 차트가 표시됩니다</p>
           ) : (
@@ -116,17 +113,17 @@ export default function RevenuePage() {
         </div>
       </section>
 
-      <section className="px-4 pt-6">
-        <h2 className="mb-3 text-[15px] font-bold text-gray-900">정산 내역</h2>
+      <section>
+        <h2 className="mb-3 text-[17px] font-semibold text-[#333D4B]">정산 내역</h2>
         {loading ? (
-          <div className="rounded-2xl bg-white p-5 text-[13px] text-gray-400">매출 데이터를 불러오는 중...</div>
+          <div className="qd-card p-5 text-[14px] text-[#8B95A1]">매출 데이터를 불러오는 중...</div>
         ) : settlements.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 text-center">
+          <div className="qd-card p-6 text-center">
             <p className="text-[14px] font-semibold text-gray-600">아직 매출 내역이 없습니다</p>
             <p className="mt-1 text-[12px] text-gray-400">고객 결제가 완료되면 월별 정산 내역이 생성됩니다</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="qd-card overflow-hidden">
             {settlements.map((item, index) => (
               <div key={item.id} className={`flex items-center justify-between p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}>
                 <div>
@@ -144,6 +141,7 @@ export default function RevenuePage() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

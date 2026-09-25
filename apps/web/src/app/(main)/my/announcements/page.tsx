@@ -37,7 +37,7 @@ export default function AnnouncementsPage() {
     (async () => {
       try {
         const data = await announcementApi.getList();
-        setItems(data);
+        setItems(Array.isArray(data) ? data : []); // 배열이 아니면(오류 응답 등) 빈 목록 — map 에서 화면이 죽지 않게
       } catch (e) {
         setItems([]);
       } finally {
@@ -48,14 +48,14 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="공지사항" />
+      <MyDetailHeader title="공지사항" sub="프리티풀의 새 소식을 알려 드려요" />
 
       {/* 공지 리스트 */}
-      <div className="space-y-2.5 px-4 pt-2">
+      <div className="qd-body space-y-2.5 px-6 pt-1">
         {loading && (
           <div className="space-y-2.5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-[84px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+              <div key={i} className="h-[84px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
             ))}
           </div>
         )}
@@ -74,7 +74,7 @@ export default function AnnouncementsPage() {
             <div key={a.id} className={MY_CARD}>
               <button
                 onClick={() => setOpenId(isOpen ? null : a.id)}
-                className="flex w-full items-start gap-3 rounded-[24px] px-5 py-4 text-left transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD]"
+                className="flex w-full items-start gap-3 rounded-[16px] px-[18px] py-4 text-left transition-colors active:bg-[#F8F9FA] lg:hover:bg-[#FAFBFC]"
               >
                 <div className="min-w-0 flex-1">
                   <div className="mb-1.5 flex items-center gap-1.5">
@@ -86,7 +86,7 @@ export default function AnnouncementsPage() {
                     )}
                     <span className="text-[12px] text-[#A4ABBA]">{date}</span>
                   </div>
-                  <p className={`text-[15px] leading-snug ${isOpen ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#51535C]'}`}>
+                  <p className={`text-[17px] font-semibold leading-snug ${isOpen ? 'text-[#191F28]' : 'text-[#333D4B]'}`}>
                     {a.title}
                   </p>
                 </div>
@@ -99,8 +99,8 @@ export default function AnnouncementsPage() {
                 className="overflow-hidden transition-all duration-400 ease-out"
                 style={{ maxHeight: isOpen ? 9999 : 0, opacity: isOpen ? 1 : 0 }}
               >
-                <div className="mx-5 border-t border-[#F5F6F8]" />
-                <p className="whitespace-pre-line px-5 pb-5 pt-3.5 text-[14px] leading-[1.8] text-[#51535C]">
+                <div className="mx-[18px] border-t border-[#F2F4F6]" />
+                <p className="whitespace-pre-line px-[18px] pb-5 pt-3.5 text-[15px] leading-[1.75] text-[#4E5968]">
                   {a.content}
                 </p>
               </div>

@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronLeft, Copy, Loader2, Wallet, X } from 'lucide-react';
+import { Check, Copy, Loader2, Wallet, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi, type ReferralEventStatus } from '@/lib/api/users.api';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { QdBackHeader } from '../_components/detail-ui';
 
 const ASSET_BASE = '/images/referral-event';
 
@@ -412,17 +413,9 @@ export default function InvitePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <button
-        type="button"
-        data-native-back-header
-        onClick={() => router.back()}
-        aria-label="뒤로가기"
-        className="fixed left-4 top-[calc(env(safe-area-inset-top)+14px)] z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#2B313D] shadow-[0_10px_28px_rgba(15,23,42,0.12)] backdrop-blur-md active:scale-95"
-      >
-        <ChevronLeft size={24} strokeWidth={2.4} />
-      </button>
+      <QdBackHeader onBack={() => router.back()} />
 
-      <main className="mx-auto w-full max-w-[603px] bg-white pt-[calc(env(safe-area-inset-top)+54px)]">
+      <main className="mx-auto w-full max-w-[603px] bg-white">
         <section className="bg-white">
           <img src={`${ASSET_BASE}/hero-top.png`} alt="친구 초대 이벤트" className="block h-auto w-full" />
         </section>

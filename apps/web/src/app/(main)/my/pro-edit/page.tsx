@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
+import { MyDetailHeader } from '../_components/detail-ui';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { prosApi } from '@/lib/api/pros.api';
 import { usersApi } from '@/lib/api/users.api';
@@ -257,30 +258,19 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
 }
 
 /* ─── Section wrapper ─── */
-function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function Section({ title, defaultOpen = false, index = 0, children }: { title: string; defaultOpen?: boolean; index?: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
+  // 퀵매칭 카드(1.5px 테두리 · 모서리 16) — 위에서부터 오른쪽→왼쪽으로 차례로 들어온다
   return (
-    <div
-      className="border-b border-gray-100"
-    >
+    <div className="qd-card qd-a-item mx-5 mb-3 overflow-hidden" style={{ animationDelay: `${0.3 + Math.min(index, 9) * 0.07}s` }}>
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 py-4 active:bg-gray-50 transition-colors"
+        className="flex min-h-[60px] w-full items-center justify-between px-[18px] py-4 transition-colors active:bg-[#F8F9FA]"
       >
-        <span className="text-[15px] font-bold text-gray-900">{title}</span>
-        {open ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+        <span className="text-[17px] font-semibold text-[#333D4B]">{title}</span>
+        {open ? <ChevronUp size={20} className="text-[#B0B8C1]" /> : <ChevronDown size={20} className="text-[#B0B8C1]" />}
       </button>
-      <>
-        {open && (
-          <div
-            className="overflow-hidden"
-          >
-            <div className="px-5 pb-5">
-              {children}
-            </div>
-          </div>
-        )}
-      </>
+      {open && <div className="px-[18px] pb-5">{children}</div>}
     </div>
   );
 }
@@ -999,15 +989,8 @@ export default function ProEditPage() {
     <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
-      {/* ─── Header ─── */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100/60" data-native-back-header>
-        <div className="flex items-center gap-3 px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1">
-            <ChevronLeft size={24} className="text-gray-700" />
-          </button>
-          <h1 className="text-[17px] font-bold text-gray-900">프로필 수정</h1>
-        </div>
-      </div>
+      {/* ─── Header — 퀵매칭 어법(뒤로 + 큰 제목) ─── */}
+      <MyDetailHeader title="프로필 수정" sub="고객에게 보이는 사회자 프로필이에요" />
 
       {/* ─── Toast ─── */}
       <>
@@ -1023,7 +1006,7 @@ export default function ProEditPage() {
       </>
 
       {/* ─── 1. 기본 정보 ─── */}
-      <Section title="기본 정보" defaultOpen={true}>
+      <Section index={0} title="기본 정보" defaultOpen={true}>
         <div className="space-y-4">
           {/* 이름 (read-only) */}
           <div>
@@ -1081,7 +1064,7 @@ export default function ProEditPage() {
         </div>
       </Section>
 
-      <Section title="프로필 공개 설정" defaultOpen={true}>
+      <Section index={1} title="프로필 공개 설정" defaultOpen={true}>
         <button
           type="button"
           onClick={handleToggleProfileVisibility}
@@ -1106,7 +1089,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 2. 한줄 소개 ─── */}
-      <Section title="한줄 소개" defaultOpen={true}>
+      <Section index={2} title="한줄 소개" defaultOpen={true}>
         <div>
           <input
             type="text"
@@ -1121,7 +1104,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 3. 경력 ─── */}
-      <Section title="경력">
+      <Section index={3} title="경력">
         <div>
           <button
             onClick={() => setShowCareerSheet(true)}
@@ -1150,7 +1133,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 5. 행사 가능 지역 ─── */}
-      <Section title="행사 가능 지역">
+      <Section index={4} title="행사 가능 지역">
         <div className="space-y-2">
           {REGIONS.map(region => {
             const selected = selectedRegions.includes(region);
@@ -1180,7 +1163,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 6. 프로필 사진 ─── */}
-      <Section title="프로필 사진">
+      <Section index={5} title="프로필 사진">
         <div className="grid grid-cols-3 gap-2.5">
           {/* Add button */}
           <button
@@ -1227,7 +1210,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 8. 언어 ─── */}
-      <Section title="언어">
+      <Section index={6} title="언어">
         <div className="flex flex-wrap gap-2">
           {LANGUAGES.map(lang => (
             <TagChip key={lang} label={lang} selected={languages.includes(lang)} onToggle={() => toggleLanguage(lang)} />
@@ -1236,7 +1219,7 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── 10. 소개영상 ─── */}
-      <Section title="소개영상">
+      <Section index={7} title="소개영상">
         <div className="space-y-3">
           {videos.map((url, i) => {
             const isUploadedVideo = url.includes('/uploads/');
@@ -1439,7 +1422,7 @@ export default function ProEditPage() {
       )}
 
       {/* ─── 10-1. 상세설명 (네이버 스마트에디터 스타일 + AI 자동 생성) ─── */}
-      <Section title="상세설명" defaultOpen={false}>
+      <Section index={8} title="상세설명" defaultOpen={false}>
         <div className="space-y-3">
           <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다.</p>
 
@@ -1493,11 +1476,11 @@ export default function ProEditPage() {
       </Section>
 
       {/* ─── Save Button ─── */}
-      <div className="p-5 pb-10">
+      <div className="px-5 pb-10 pt-3">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-[52px] bg-[#3180F7] hover:bg-[#2668d8] text-white font-bold rounded-2xl text-[15px] transition-colors active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2"
+          className="qd-cta"
         >
           {saving && <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
           {saving ? '저장 중...' : '저장하기'}

@@ -111,10 +111,10 @@ export default function FaqPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="자주 묻는 질문" />
+      <MyDetailHeader title="자주 묻는 질문" sub="궁금한 내용을 먼저 찾아보세요" />
 
       {/* 검색 + 카테고리 — 스크롤해도 따라온다 */}
-      <div className="sticky top-14 z-10 bg-white px-4 pb-2 pt-1">
+      <div className="sticky top-14 z-10 bg-white px-6 pb-2 pt-1">
         <div className="relative">
           <SearchIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
           <input
@@ -170,13 +170,12 @@ export default function FaqPage() {
       {/* FAQ 리스트 */}
       <div
         key={`${activeCategory ?? 'all'}`}
-        className="space-y-5 px-4 pt-2"
-        style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+        className="qd-body space-y-6 px-6 pt-2"
       >
         {loading && (
           <div className="space-y-2.5">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-[60px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+              <div key={i} className="h-[60px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
             ))}
           </div>
         )}
@@ -191,9 +190,9 @@ export default function FaqPage() {
                   <div key={id} className={MY_CARD}>
                     <button
                       onClick={() => setOpenId(isOpen ? null : id)}
-                      className="flex w-full items-center justify-between rounded-[24px] px-5 py-4 text-left transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD]"
+                      className="flex min-h-[60px] w-full items-center justify-between rounded-[16px] px-[18px] py-4 text-left transition-colors active:bg-[#F8F9FA] lg:hover:bg-[#FAFBFC]"
                     >
-                      <span className={`pr-4 text-[15px] leading-snug ${isOpen ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#51535C]'}`}>
+                      <span className={`pr-4 text-[17px] font-semibold leading-snug ${isOpen ? 'text-[#191F28]' : 'text-[#333D4B]'}`}>
                         {item.question}
                       </span>
                       <ChevronDownIcon

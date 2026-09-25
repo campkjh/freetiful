@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock } from 'lucide-react';
+import { MyDetailHeader } from '../_components/detail-ui';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 
@@ -15,7 +15,6 @@ interface SettlementRecord {
 }
 
 export default function SettlementPage() {
-  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,40 +36,30 @@ export default function SettlementPage() {
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white" data-native-back-header>
-        <div className="flex items-center h-[52px] px-4">
-          <button onClick={() => router.back()} className="p-1 -ml-1 active:scale-90 transition-transform">
-            <ChevronLeft size={24} className="text-gray-900" />
-          </button>
-          <h1 className="text-[18px] font-bold text-gray-900 ml-1">정산 내역</h1>
-        </div>
-      </div>
+      <MyDetailHeader title="정산 내역" sub="매달 정산된 금액을 확인하세요" />
 
       {/* Total */}
-      <div className="px-4 pt-2 pb-5">
-        <p className="text-[13px] text-gray-400">누적 정산 금액</p>
-        <p className="text-[28px] font-bold text-gray-900 mt-1">₩{totalSettled.toLocaleString()}</p>
+      <div className="qd-body px-6 pb-10 pt-1">
+      <div className="qd-card mb-6 px-[18px] py-5">
+        <p className="text-[13px] text-[#8B95A1]">누적 정산 금액</p>
+        <p className="mt-1 text-[28px] font-bold text-[#191F28]">₩{totalSettled.toLocaleString()}</p>
       </div>
 
-      {/* Divider */}
-      <div className="h-px bg-gray-200" />
-
       {/* Settlement List */}
-      <div className="px-4 pt-5 pb-10">
-        <p className="text-[16px] font-bold text-gray-900 mb-4">월별 정산</p>
+      <div>
+        <p className="mb-3 text-[17px] font-semibold text-[#333D4B]">월별 정산</p>
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+              <div key={i} className="h-16 animate-pulse rounded-[16px] bg-[#F7F8FA]" />
             ))}
           </div>
         ) : settlements.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-[14px]">아직 정산 내역이 없습니다</div>
         ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {settlements.map((s) => (
-            <div key={s.id} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-gray-50">
+            <div key={s.id} className="qd-card flex min-h-[60px] items-center gap-3 px-[18px] py-3.5">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
                 style={{ backgroundColor: s.status === '정산완료' ? '#D1FAE515' : '#FEF3C715' }}
@@ -82,7 +71,7 @@ export default function SettlementPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold text-gray-900">{s.month}</p>
+                <p className="text-[17px] font-semibold text-[#333D4B]">{s.month}</p>
                 <p className="text-[12px] text-gray-400 mt-0.5">{s.date} {s.status === '정산완료' ? '지급' : '지급 예정'}</p>
               </div>
               <div className="text-right">
@@ -101,6 +90,7 @@ export default function SettlementPage() {
           ))}
         </div>
         )}
+      </div>
       </div>
     </div>
   );

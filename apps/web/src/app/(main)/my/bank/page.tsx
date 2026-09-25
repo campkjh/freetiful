@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, Check, Building2 } from 'lucide-react';
+import { Check, Building2 } from 'lucide-react';
+import { MyDetailHeader } from '../_components/detail-ui';
+import { popItemDelay } from '@/lib/pop-menu';
 
 interface BankInfo {
   bankName: string;
@@ -13,7 +14,6 @@ interface BankInfo {
 const BANKS = ['국민은행', '신한은행', '우리은행', '하나은행', 'NH농협', 'IBK기업', 'SC제일', '카카오뱅크', '토스뱅크', '케이뱅크', '대구은행', '부산은행', '경남은행', '광주은행', '전북은행', '제주은행'];
 
 export default function BankPage() {
-  const router = useRouter();
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [holderName, setHolderName] = useState('');
@@ -50,15 +50,7 @@ export default function BankPage() {
 
   return (
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white" data-native-back-header>
-        <div className="flex items-center h-[52px] px-4">
-          <button onClick={() => router.back()} className="p-1 -ml-1 active:scale-90 transition-transform">
-            <ChevronLeft size={24} className="text-gray-900" />
-          </button>
-          <h1 className="text-[18px] font-bold text-gray-900 ml-1">계좌 관리</h1>
-        </div>
-      </div>
+      <MyDetailHeader title="계좌 관리" sub="정산받을 계좌를 등록해 주세요" />
 
       {/* Toast */}
       {toast && (
@@ -71,8 +63,8 @@ export default function BankPage() {
 
       {/* Saved Info Display */}
       {saved && (
-        <div className="px-4 pt-4 pb-2">
-          <div className="rounded-xl bg-green-50 border border-green-100 px-4 py-4">
+        <div className="px-6 pb-2">
+          <div className="rounded-[16px] border-[1.5px] border-[#C6EFD6] bg-[#EDFBF3] px-[18px] py-4">
             <div className="flex items-center gap-2 mb-2">
               <Building2 size={18} className="text-green-600" />
               <p className="text-[14px] font-bold text-green-700">등록된 계좌</p>
@@ -84,26 +76,27 @@ export default function BankPage() {
       )}
 
       {/* Form */}
-      <div className="px-4 pt-5 pb-10">
-        <p className="text-[16px] font-bold text-gray-900 mb-5">{saved ? '계좌 정보 수정' : '계좌 등록'}</p>
+      <div className="qd-body px-6 pb-10 pt-3">
+        <p className="mb-4 text-[17px] font-semibold text-[#333D4B]">{saved ? '계좌 정보 수정' : '계좌 등록'}</p>
 
         {/* Bank Name */}
         <div className="mb-4">
-          <label className="block text-[12px] font-bold text-gray-400 mb-1.5">은행</label>
+          <label className="mb-2 block text-[13px] font-semibold text-[#8B95A1]">은행</label>
           <button
             onClick={() => setShowBankList(!showBankList)}
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] active:bg-gray-50 transition-colors"
+            className="qd-input flex items-center justify-between text-left active:bg-[#F8F9FA]"
           >
             <span className={bankName ? 'text-gray-900' : 'text-gray-400'}>{bankName || '은행을 선택하세요'}</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           {showBankList && (
-            <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-lg max-h-48 overflow-y-auto">
-              {BANKS.map(bank => (
+            <div className="pop-menu mt-2 max-h-56 overflow-y-auto py-1.5">
+              {BANKS.map((bank, i) => (
                 <button
                   key={bank}
+                  style={popItemDelay(i)}
                   onClick={() => { setBankName(bank); setShowBankList(false); }}
-                  className={`w-full px-4 py-2.5 text-left text-[14px] active:bg-gray-50 transition-colors ${
+                  className={`pop-menu-item w-full px-4 py-2.5 text-left text-[15px] active:bg-[#F2F4F6] transition-colors ${
                     bankName === bank ? 'text-blue-600 font-bold bg-blue-50' : 'text-gray-700'
                   }`}
                 >
@@ -116,25 +109,25 @@ export default function BankPage() {
 
         {/* Account Number */}
         <div className="mb-4">
-          <label className="block text-[12px] font-bold text-gray-400 mb-1.5">계좌번호</label>
+          <label className="mb-2 block text-[13px] font-semibold text-[#8B95A1]">계좌번호</label>
           <input
             type="text"
             value={accountNumber}
             onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9-]/g, ''))}
             placeholder="계좌번호를 입력하세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+            className="qd-input"
           />
         </div>
 
         {/* Holder Name */}
         <div className="mb-6">
-          <label className="block text-[12px] font-bold text-gray-400 mb-1.5">예금주</label>
+          <label className="mb-2 block text-[13px] font-semibold text-[#8B95A1]">예금주</label>
           <input
             type="text"
             value={holderName}
             onChange={(e) => setHolderName(e.target.value)}
             placeholder="예금주명을 입력하세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+            className="qd-input"
           />
         </div>
 
@@ -142,11 +135,7 @@ export default function BankPage() {
         <button
           onClick={handleSave}
           disabled={!isValid}
-          className={`w-full h-[52px] rounded-2xl text-[15px] font-bold transition-colors ${
-            isValid
-              ? 'bg-[#3180F7] hover:bg-[#2668d8] text-white active:scale-[0.98]'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}
+          className="qd-cta"
         >
           {saved ? '수정하기' : '등록하기'}
         </button>

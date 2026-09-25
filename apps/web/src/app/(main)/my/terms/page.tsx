@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { apiClient } from '@/lib/api/client';
 import { DEFAULT_POLICIES } from '@/lib/policies/default-policies';
-import { ChevronRightIcon } from '@/components/icons/mono';
-import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
+import { MyDetailHeader, QdList, QdRow } from '../_components/detail-ui';
 
 interface PolicyListItem {
   id?: string;
@@ -55,28 +53,14 @@ export default function TermsListPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="약관 및 정책" onBack={() => router.back()} />
+      <MyDetailHeader title="약관 및 정책" sub="서비스 이용에 필요한 약관과 정책이에요" onBack={() => router.back()} />
 
-      <div className="px-4 pt-2">
-        <div className={`${MY_CARD} overflow-hidden`}>
-          {items.map((item, i) => (
-            <Link
-              key={item.slug}
-              href={`/terms/${item.slug}`}
-              className={`flex items-center justify-between gap-3 px-5 py-4 transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD] ${
-                i > 0 ? 'border-t border-[#F5F6F8]' : ''
-              }`}
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[15px] font-semibold text-[#2B313D]">{item.title}</span>
-                <span className="mt-0.5 block text-[12px] text-[#A4ABBA]">
-                  시행일 {formatDate(item.effectiveDate) || '-'}
-                </span>
-              </span>
-              <ChevronRightIcon size={16} className="shrink-0 text-[#D8DDE4]" />
-            </Link>
+      <div className="qd-body px-6 pt-1">
+        <QdList>
+          {items.map((item) => (
+            <QdRow key={item.slug} title={item.title} hint={`시행일 ${formatDate(item.effectiveDate) || '-'}`} href={`/terms/${item.slug}`} />
           ))}
-        </div>
+        </QdList>
 
         <p className="px-2 pt-6 text-center text-[12px] leading-[1.9] text-[#A4ABBA]">
           프리티풀 | 대표 서나웅<br />

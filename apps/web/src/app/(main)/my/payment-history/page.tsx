@@ -44,9 +44,9 @@ function setCache(data: PaymentItem[]) {
 
 function Skeleton() {
   return (
-    <div className="space-y-3 px-4 pt-2">
+    <div className="space-y-2.5 px-6 pt-1">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[150px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+        <div key={i} className="h-[150px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
       ))}
     </div>
   );
@@ -117,12 +117,12 @@ export default function PaymentHistoryPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title={viewerIsPro ? '고객 결제 내역' : '결제/환불 내역'} onBack={() => router.back()} />
+      <MyDetailHeader title={viewerIsPro ? '고객 결제 내역' : '결제/환불 내역'} sub={viewerIsPro ? '고객이 결제한 내역이에요' : '결제와 환불 기록을 확인하세요'} onBack={() => router.back()} />
 
       {isLoading && !cached ? (
         <Skeleton />
       ) : (
-        <div className="space-y-3 px-4 pt-2">
+        <div className="qd-body space-y-2.5 px-6 pt-1">
           {!payments || payments.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
               <EmptyDocumentIcon size={64} className="mb-3" />
@@ -132,14 +132,14 @@ export default function PaymentHistoryPage() {
           ) : payments.map((p) => {
             const status = STATUS_MAP[p.status] || STATUS_MAP.pending;
             return (
-              <div key={p.id} className={`${MY_CARD} space-y-2 p-5`}>
+              <div key={p.id} className={`${MY_CARD} space-y-2 px-[18px] py-4`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] text-[#A4ABBA]">{p.date}</span>
                   <span className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${status.color}`}>
                     {status.label}
                   </span>
                 </div>
-                <p className="text-[15px] font-bold text-[#2B313D]">{p.title}</p>
+                <p className="text-[17px] font-semibold text-[#333D4B]">{p.title}</p>
                 <p className="text-[13px] font-medium text-[#8B95A1]">
                   {viewerIsPro ? `고객 ${p.proName}` : p.proName}
                   {p.method ? ` · ${p.method}` : ''}

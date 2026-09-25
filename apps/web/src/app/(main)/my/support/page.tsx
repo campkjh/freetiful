@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
-import { ChevronRightIcon, ClockIcon } from '@/components/icons/mono';
-import { MY_CARD, MySectionTitle, MyDetailHeader } from '../_components/detail-ui';
+import { ClockIcon } from '@/components/icons/mono';
+import { MY_CARD, MySectionTitle, MyDetailHeader, QdList, QdRow } from '../_components/detail-ui';
 
 const CONTACTS = [
   {
@@ -57,9 +56,9 @@ export default function SupportPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="고객센터" />
+      <MyDetailHeader title="고객센터" sub="궁금한 점을 편하게 물어보세요" />
 
-      <div className="space-y-5 px-4 pt-2">
+      <div className="qd-body space-y-6 px-6 pt-1">
         {/* 운영시간 */}
         <div className={`${MY_CARD} p-5`}>
           <div className="mb-2 flex items-center gap-1.5">
@@ -73,44 +72,21 @@ export default function SupportPage() {
         {/* 연락 방법 */}
         <div>
           <MySectionTitle>문의하기</MySectionTitle>
-          <div className={`${MY_CARD} overflow-hidden`}>
-            {CONTACTS.map((row, i) => (
-              <a
-                key={row.label}
-                href={row.href}
-                {...(row.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className={`flex items-center gap-3 px-5 py-4 transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD] ${
-                  i > 0 ? 'border-t border-[#F5F6F8]' : ''
-                }`}
-              >
-                <span className="shrink-0">{row.icon}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold text-[#2B313D]">{row.label}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-[#A4ABBA]">{row.value}</span>
-                </span>
-                <ChevronRightIcon size={16} className="shrink-0 text-[#D8DDE4]" />
-              </a>
+          <QdList>
+            {CONTACTS.map((row) => (
+              <QdRow key={row.label} icon={row.icon} title={row.label} hint={row.value} href={row.href} external={row.external} />
             ))}
-          </div>
+          </QdList>
         </div>
 
         {/* 자주 가는 링크 */}
         <div>
           <MySectionTitle>자주 찾는 안내</MySectionTitle>
-          <div className={`${MY_CARD} overflow-hidden`}>
-            {SHORTCUTS.map((row, i) => (
-              <Link
-                key={row.href}
-                href={row.href}
-                className={`flex items-center justify-between gap-3 px-5 py-4 transition-colors active:bg-[#FBFCFD] lg:hover:bg-[#FBFCFD] ${
-                  i > 0 ? 'border-t border-[#F5F6F8]' : ''
-                }`}
-              >
-                <span className="text-[15px] font-semibold text-[#2B313D]">{row.label}</span>
-                <ChevronRightIcon size={16} className="shrink-0 text-[#D8DDE4]" />
-              </Link>
+          <QdList>
+            {SHORTCUTS.map((row) => (
+              <QdRow key={row.href} title={row.label} href={row.href} />
             ))}
-          </div>
+          </QdList>
         </div>
       </div>
     </div>

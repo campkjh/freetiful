@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { usersApi, type NotificationSettings } from '@/lib/api/users.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { syncPushRegistration } from '@/lib/utils/push';
+import { MyDetailHeader } from '../_components/detail-ui';
 
 interface NotifSetting {
   key: string;
@@ -27,7 +26,6 @@ const INITIAL_SETTINGS: NotifSetting[] = [
 ];
 
 export default function NotificationsSettingsPage() {
-  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   useEffect(() => { window.scrollTo(0, 0); }, []);
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
@@ -83,22 +81,15 @@ export default function NotificationsSettingsPage() {
 
   return (
     <div className="bg-white min-h-screen max-w-lg mx-auto" style={{ letterSpacing: '-0.02em' }}>
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100" data-native-back-header>
-        <div className="flex items-center px-4 h-[52px]">
-          <button onClick={() => router.back()} className="p-1"><ChevronLeft size={24} /></button>
-          <h1 className="text-[18px] font-bold ml-3">알림 설정</h1>
-        </div>
-      </div>
+      <MyDetailHeader title="알림 설정" sub="받고 싶은 알림만 골라 받으세요" />
 
-      <div className="px-4 py-4 space-y-2">
+      <div className="qd-body space-y-2.5 px-6 pb-10 pt-1">
         <div
-          className="border border-blue-100 bg-blue-50 px-4 py-3.5 flex items-center justify-between"
-          style={{ borderRadius: 12 }}
+          className="flex min-h-[60px] items-center justify-between gap-3 rounded-[16px] border-[1.5px] border-[#C9DFFF] bg-[#EDF4FF] px-[18px] py-3.5"
         >
           <div>
-            <p className="text-sm font-bold text-gray-900">푸시 알림 권한</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-[17px] font-semibold text-[#333D4B]">푸시 알림 권한</p>
+            <p className="mt-[3px] text-[13px] text-[#6B7684]">
               {pushPermission === 'granted'
                 ? '이 기기에서 푸시 수신 가능'
                 : pushPermission === 'denied'
@@ -108,7 +99,7 @@ export default function NotificationsSettingsPage() {
           </div>
           <button
             onClick={requestPushPermission}
-            className="px-3 py-2 rounded-lg bg-[#3180F7] text-white text-[12px] font-bold active:scale-95 transition-transform disabled:opacity-40"
+            className="h-9 shrink-0 rounded-[12px] bg-[#3182F6] px-3.5 text-[14px] font-semibold text-white transition-transform active:scale-95 disabled:bg-[#DCEBFF] disabled:text-[#3182F6]"
             disabled={pushPermission === 'granted'}
           >
             {pushPermission === 'granted' ? '활성화됨' : '허용'}
@@ -118,12 +109,11 @@ export default function NotificationsSettingsPage() {
         {settings.map((s) => (
           <div
             key={s.key}
-            className="border border-gray-100 px-4 py-3.5 flex items-center justify-between"
-            style={{ borderRadius: 12 }}
+            className="qd-card flex min-h-[60px] items-center justify-between gap-3 px-[18px] py-3.5"
           >
             <div>
-              <p className="text-sm font-bold text-gray-900">{s.label}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{s.description}</p>
+              <p className="text-[17px] font-semibold text-[#333D4B]">{s.label}</p>
+              <p className="mt-[3px] text-[13px] text-[#8B95A1]">{s.description}</p>
             </div>
             <button
               type="button"

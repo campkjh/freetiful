@@ -46,9 +46,9 @@ function setCache(data: PurchaseItem[]) {
 
 function Skeleton() {
   return (
-    <div className="space-y-3 px-4 pt-2">
+    <div className="space-y-2.5 px-6 pt-1">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[116px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+        <div key={i} className="h-[116px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
       ))}
     </div>
   );
@@ -119,11 +119,12 @@ export default function PurchaseHistoryPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <div className="sticky top-0 z-20 bg-white" data-native-back-header>
-        <MyDetailHeader title="구매 내역" onBack={() => router.replace('/my')} />
+      <MyDetailHeader title="구매 내역" sub="섭외한 사회자와 진행 상황이에요" onBack={() => router.replace('/my')} />
+      {/* 탭 — 헤더 아래 고정(iOS 는 예전처럼 숨김: data-native-back-header) */}
+      <div className="sticky top-14 z-10 bg-white pb-2" data-native-back-header>
         {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
         <LayoutGroup id="purchase-tabs">
-        <div className="scrollbar-hide mx-4 mb-2 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+        <div className="scrollbar-hide mx-6 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
           {(['all', 'paid', 'upcoming', 'completed', 'refunded'] as Status[]).map((s) => (
             <button
               key={s}
@@ -139,7 +140,7 @@ export default function PurchaseHistoryPage() {
                   transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                 />
               )}
-              <span className="relative">{s === 'all' ? '전체' : STATUS_MAP[s].label}</span>
+              <span className="relative whitespace-nowrap">{s === 'all' ? '전체' : STATUS_MAP[s].label}</span>
             </button>
           ))}
         </div>
@@ -151,8 +152,7 @@ export default function PurchaseHistoryPage() {
       ) : (
         <div
           key={filter}
-          className="space-y-3 px-4 pt-2"
-          style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+          className="qd-body space-y-2.5 px-6 pt-2"
         >
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
@@ -162,7 +162,7 @@ export default function PurchaseHistoryPage() {
             </div>
           ) : (
             filtered.map((item) => (
-              <div key={item.id} className={`${MY_CARD} p-5`}>
+              <div key={item.id} className={`${MY_CARD} px-[18px] py-4`}>
                 <div className="flex gap-3">
                   <img
                     src={item.image}
@@ -171,7 +171,7 @@ export default function PurchaseHistoryPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="truncate text-[15px] font-bold text-[#2B313D]">{item.proName}</p>
+                      <p className="truncate text-[17px] font-semibold text-[#333D4B]">{item.proName}</p>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${
                           STATUS_MAP[item.status]?.color || 'bg-[#F2F3F5] text-[#51535C]'

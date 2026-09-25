@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, Star, MessageCircle } from 'lucide-react';
+import { MyDetailHeader } from '../_components/detail-ui';
+import { Star, MessageCircle } from 'lucide-react';
 import { reviewApi } from '@/lib/api/review.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -43,7 +43,6 @@ function date(value: string) {
 }
 
 export default function ReviewsPage() {
-  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -73,14 +72,12 @@ export default function ReviewsPage() {
   const computedAverage = average ?? (items.length ? items.reduce((sum, item) => sum + avg(item), 0) / items.length : 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white/90 backdrop-blur-xl px-4 pt-12 pb-3" data-native-back-header>
-        <button onClick={() => router.back()} className="p-1 active:scale-90 transition-transform"><ChevronLeft size={24} /></button>
-        <h1 className="text-[18px] font-bold">내 리뷰 관리</h1>
-      </header>
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
+      <MyDetailHeader title="내 리뷰 관리" sub="고객이 남긴 리뷰를 모아 봤어요" />
 
-      <section className="px-4 pt-5">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="qd-body space-y-6 px-6 pt-1">
+      <section>
+        <div className="qd-card p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[12px] text-gray-400">전체 리뷰</p>
@@ -97,11 +94,11 @@ export default function ReviewsPage() {
         </div>
       </section>
 
-      <section className="px-4 pt-4 space-y-3">
+      <section className="space-y-2.5">
         {loading ? (
-          <div className="rounded-2xl bg-white p-5 text-[13px] text-gray-400">리뷰를 불러오는 중...</div>
+          <div className="qd-card p-5 text-[14px] text-[#8B95A1]">리뷰를 불러오는 중...</div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl bg-white p-8 text-center">
+          <div className="qd-card p-8 text-center">
             <MessageCircle size={34} className="mx-auto text-gray-300" />
             <p className="mt-3 text-[14px] font-semibold text-gray-600">아직 리뷰가 없습니다</p>
             <p className="mt-1 text-[12px] text-gray-400">거래가 완료되고 리뷰가 작성되면 이곳에서 관리할 수 있습니다</p>
@@ -110,7 +107,7 @@ export default function ReviewsPage() {
           const targetName = review.proProfile?.user?.name || review.reviewer?.name || '고객';
           const image = review.proProfile?.images?.[0]?.imageUrl || review.proProfile?.user?.profileImageUrl || review.reviewer?.profileImageUrl || '/images/default-profile.png';
           return (
-            <article key={review.id} className="rounded-2xl bg-white p-4 shadow-sm">
+            <article key={review.id} className="qd-card px-[18px] py-4">
               <div className="flex items-start gap-3">
                 <img src={image} alt="" className="h-11 w-11 rounded-full object-cover bg-gray-100" />
                 <div className="min-w-0 flex-1">
@@ -137,6 +134,7 @@ export default function ReviewsPage() {
           );
         })}
       </section>
+      </div>
     </div>
   );
 }

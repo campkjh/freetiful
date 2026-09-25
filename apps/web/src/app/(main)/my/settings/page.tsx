@@ -188,10 +188,11 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10 lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="프로필 설정" onBack={() => router.back()} />
+      <MyDetailHeader title="프로필 설정" sub="사진·이름·연락처를 바꿀 수 있어요" onBack={() => router.back()} />
 
       {/* ─── Profile Photo ──────────────────────────────────────────── */}
-      <div className={`mx-4 mt-2 flex justify-center py-8 ${MY_CARD}`}>
+      <div className="qd-body space-y-3 px-6 pt-1">
+      <div className={`flex justify-center py-8 ${MY_CARD}`}>
         <div className="relative">
           <div className="h-24 w-24 overflow-hidden rounded-full bg-[#F2F3F5]">
             <img
@@ -218,15 +219,15 @@ export default function SettingsPage() {
       </div>
 
       {/* ─── Basic Info ──────────────────────────────────────────────── */}
-      <div className={`mx-4 mt-4 space-y-4 p-5 ${MY_CARD}`}>
-        <p className="text-[15px] font-bold text-[#2B313D]">기본 정보</p>
+      <div className={`space-y-4 p-5 ${MY_CARD}`}>
+        <p className="text-[17px] font-semibold text-[#333D4B]">기본 정보</p>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이름</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" placeholder="이름을 입력하세요" />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="qd-input font-medium" placeholder="이름을 입력하세요" />
         </div>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이메일</label>
-          <input type="email" value={authUser?.email || ''} disabled className="h-14 w-full cursor-not-allowed rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#A4ABBA] outline-none" />
+          <input type="email" value={authUser?.email || ''} disabled className="qd-input cursor-not-allowed font-medium !bg-[#F7F8FA] !text-[#A4ABBA]" />
           <p className="mt-1.5 flex items-center gap-1 text-[12px] text-[#A4ABBA]"><LockIcon size={12} /> 이메일은 변경할 수 없습니다</p>
         </div>
         <div>
@@ -235,15 +236,15 @@ export default function SettingsPage() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(formatPhone(e.target.value))}
-            className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]"
+            className="qd-input font-medium"
             placeholder="010-0000-0000"
           />
         </div>
       </div>
 
       {/* ─── Refund Account ──────────────────────────────────────────── */}
-      <div className={`mx-4 mt-4 space-y-3 p-5 ${MY_CARD}`}>
-        <p className="flex items-center gap-1.5 text-[15px] font-bold text-[#2B313D]"><AccountIcon size={16} className="text-[#A4ABBA]" /> 환불 계좌</p>
+      <div className={`space-y-3 p-5 ${MY_CARD}`}>
+        <p className="flex items-center gap-1.5 text-[17px] font-semibold text-[#333D4B]"><AccountIcon size={16} className="text-[#A4ABBA]" /> 환불 계좌</p>
         {savedAccount ? (
           <div className="flex items-center justify-between rounded-[18px] bg-[#F7F8FA] p-4">
             <div>
@@ -264,16 +265,16 @@ export default function SettingsPage() {
           </div>
         ) : showBankForm ? (
           <div className="space-y-3">
-            <select value={bank} onChange={(e) => setBank(e.target.value)} className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]">
+            <select value={bank} onChange={(e) => setBank(e.target.value)} className="qd-input font-medium">
               <option value="">은행 선택</option>
               {['국민은행','신한은행','하나은행','우리은행','IBK기업','NH농협','카카오뱅크','토스뱅크','케이뱅크'].map((b) => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
-            <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
-            <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="h-14 w-full rounded-xl border-0 bg-[#F2F3F5] px-4 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:text-[#A4ABBA] hover:bg-[#E9EBEF] focus:bg-white focus:ring-2 focus:ring-[#3180F7]" />
+            <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="계좌번호" className="qd-input font-medium" />
+            <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="예금주명" className="qd-input font-medium" />
             <div className="flex gap-2">
-              <button onClick={() => setShowBankForm(false)} className="h-11 flex-1 rounded-[14px] bg-[#F2F3F5] text-[14px] font-bold text-[#51535C] transition-colors hover:bg-[#E9EBEF] active:scale-[0.98]">취소</button>
+              <button onClick={() => setShowBankForm(false)} className="qd-cta ghost flex-1">취소</button>
               <button
                 onClick={() => {
                   if (!bank || !accountNumber || !accountHolder) {
@@ -287,7 +288,7 @@ export default function SettingsPage() {
                   setShowBankForm(false);
                   toast.success('계좌가 등록되었습니다');
                 }}
-                className="h-11 flex-1 rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
+                className="qd-cta flex-1"
               >
                 등록
               </button>
@@ -302,17 +303,19 @@ export default function SettingsPage() {
       </div>
 
       {/* ─── Save ────────────────────────────────────────────────────── */}
-      <div className="px-4 pt-5">
+      <div className="pt-2">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="h-[52px] w-full rounded-[14px] bg-[#3180F7] text-[15px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98] disabled:opacity-60"
+          className="qd-cta"
         >
           {saving ? '저장 중...' : '저장하기'}
         </button>
       </div>
 
-      <div className="px-4 pb-10 pt-4 text-center">
+      </div>
+
+      <div className="px-6 pb-10 pt-4 text-center">
         <button
           type="button"
           onClick={() => setShowWithdraw(true)}
