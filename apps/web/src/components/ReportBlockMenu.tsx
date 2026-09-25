@@ -31,8 +31,8 @@ interface Props {
   onBlocked?: () => void;
   /** 댓글 줄에서는 작은 아이콘만, 글 본문에서는 조금 크게. */
   compact?: boolean;
-  /** "dots" 는 우측 상단 ⋯ 버튼, "vdots" 는 세로 ⋮(피드 카드 헤더용), 기본은 "신고" 텍스트(댓글 줄용). */
-  variant?: "text" | "dots" | "vdots";
+  /** "dots" 는 우측 상단 ⋯ 버튼(글 카드용), 기본은 "신고" 텍스트(댓글 줄용). */
+  variant?: "text" | "dots";
 }
 
 export default function ReportBlockMenu({
@@ -119,7 +119,7 @@ export default function ReportBlockMenu({
         onClick={openMenu}
         aria-label={`${targetNickname}님의 ${targetType === "post" ? "글" : "댓글"} 신고 또는 차단`}
         style={
-          variant === "dots" || variant === "vdots"
+          variant === "dots"
             ? {
                 // 글 카드 우측 상단의 점 3개. 글자(⋯)로 그리면 그 글리프가 없는
                 // 안드로이드 기기에서 통째로 안 보인다 → SVG 로 그린다.
@@ -145,13 +145,7 @@ export default function ReportBlockMenu({
               }
         }
       >
-        {variant === "vdots" ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-            <circle cx="10" cy="4" r="1.7" fill="currentColor" />
-            <circle cx="10" cy="10" r="1.7" fill="currentColor" />
-            <circle cx="10" cy="16" r="1.7" fill="currentColor" />
-          </svg>
-        ) : variant === "dots" ? (
+        {variant === "dots" ? (
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
             <circle cx="4" cy="10" r="1.7" fill="currentColor" />
             <circle cx="10" cy="10" r="1.7" fill="currentColor" />

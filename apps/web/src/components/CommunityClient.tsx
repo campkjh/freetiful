@@ -20,7 +20,6 @@ import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
 import TossPoll from "@/components/community/TossPoll";
 import TossLikers from "@/components/community/TossLikers";
-import ReportBlockMenu from "@/components/ReportBlockMenu";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { clientCache } from "@/lib/clientCache";
 import KingBadges from "@/components/KingBadges";
@@ -215,12 +214,6 @@ export default function CommunityClient() {
   const [commentModalPost, setCommentModalPost] = useState<CommunityPost | null>(null);
   // 스레드 스타일 글 작성 모달.
   const [composeOpen, setComposeOpen] = useState(false);
-  // 지금 로그인한 사람 id(피드 카드 ⋮ 신고/차단 메뉴용)
-  const authUserId = useAuthStore((st) => st.user?.id ?? null);
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  useEffect(() => {
-    setViewerId(authUserId);
-  }, [authUserId]);
   // 모바일 카테고리 서랍(햄버거)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLElement | null>(null);
@@ -1051,20 +1044,15 @@ export default function CommunityClient() {
               </div>
             ) : (
               visiblePosts.map((post, postIndex) => {
-                // 토스 카드: 굵은 제목 한 줄 + 본문 3줄. 글쓰기 칸은 첫 줄로 제목을 만들므로(40자 컷)
-                // 본문이 제목으로 시작하면 첫 줄 전체를 제목으로, 나머지를 본문으로 나눈다.
-                const content = post.content.trim();
-                const firstLine = content.split("\n")[0]?.trim() ?? "";
-                const splitByFirstLine = !!post.title && firstLine.startsWith(post.title.trim());
-                const titleText = splitByFirstLine ? firstLine : post.title.trim();
-                // 미리보기에선 빈 줄(문단 사이)을 접어 3줄을 내용으로 채운다(전체는 상세에서).
-                const bodyText = (splitByFirstLine ? content.split("\n").slice(1).join("\n") : content)
-                  .replace(/\n\s*\n+/g, "\n")
-                  .trim();
-                // 이름 옆 알약: 역할(운영자·사회자·업체)이 있으면 그것, 없으면 대표 배지
-                const pill = post.authorRole
-                  ? { label: post.authorRole, tone: "role" }
-                  : post.authorBadges?.[0] ?? null;
+                // 토스처럼 제목 없이 본문만 — 본문 첫 줄이 곧 제목(작성 모달이 첫 줄로 제목을 만든다).
+                // 제목을 따로 쓴 글(글쓰기 페이지)은 제목을 본문 앞에 붙인다.
+                const body = post.content.trim()
+                  ? post.content.startsWith(post.title)
+                    ? post.content
+                    : `${post.title}\n\n${post.content}`
+                  : "";
+                const badge = post.authorBadges?.[0];
+                const long = body.length > 220 || body.split("\n").length > 8;
                 const blindHidden = !!post.isBlinded && !revealedBlind.has(post.id);
                 return (
                   <article
@@ -1081,55 +1069,52 @@ export default function CommunityClient() {
                       }
                     }}
                   >
-                    <div className="tcard-main">
-                      <div className="tcard2-head">
-                        <div className="tcard-ava tcard2-ava" aria-hidden="true">
-                          {post.avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={post.avatar} alt="" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span>{post.nickname.slice(0, 1)}</span>
-                          )}
-                        </div>
-                        <span className="tcard2-name">{post.nickname}</span>
-                        {pill && <span className={`tcard-badge tone-${pill.tone} tcard2-badge`}>{pill.label}</span>}
-                        {!post.isMine && post.userId && (
-                          <>
-                            <span className="tcard2-divider" aria-hidden="true" />
-                            <button
-                              type="button"
-                              className={`tcard2-follow${post.authorIsFollowing ? " is-on" : ""}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleFollow(post);
-                              }}
-                            >
-                              {post.authorIsFollowing ? "팔로잉" : "팔로우"}
-                            </button>
-                          </>
+                    <div className="tcard-side">
+                      <div className="tcard-ava" aria-hidden="true">
+                        {post.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={post.avatar} alt="" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span>{post.nickname.slice(0, 1)}</span>
                         )}
-                        <span className="tcard2-time" title={formatExactTime(post.createdAt)}>
-                          {formatRelativeTime(post.createdAt)}
-                          {post.isEdited ? " (수정됨)" : ""}
-                        </span>
-                        <span
-                          className="tcard2-menu"
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          <ReportBlockMenu
-                            targetType="post"
-                            postId={post.id}
-                            targetUserId={post.userId}
-                            targetNickname={post.nickname}
-                            currentUserId={viewerId}
-                            onBlocked={() => loadPosts()}
-                            variant="vdots"
-                          />
-                        </span>
                       </div>
-                      {titleText && <h3 className="tcard2-title">{titleText}</h3>}
-                      {bodyText && <ClampBody text={bodyText} />}
+                      {post.authorRole && <span className="tcard-role">{post.authorRole}</span>}
+                    </div>
+                    <div className="tcard-main">
+                      <div className="tcard-head">
+                        <div className="tcard-who">
+                          <div className="tcard-name-row">
+                            <span className="tcard-name">{post.nickname}</span>
+                            {badge && <span className={`tcard-badge tone-${badge.tone}`}>{badge.label}</span>}
+                          </div>
+                          <div className="tcard-meta">
+                            <span title={formatExactTime(post.createdAt)}>
+                              {tossTime(post.createdAt)}
+                              {post.isEdited ? " (수정됨)" : ""}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>팔로워 {(post.authorFollowerCount || 0).toLocaleString("ko-KR")}</span>
+                          </div>
+                        </div>
+                        {!post.isMine && post.userId && (
+                          <button
+                            type="button"
+                            className={`tcard-follow${post.authorIsFollowing ? " is-on" : ""}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleFollow(post);
+                            }}
+                          >
+                            {post.authorIsFollowing ? "팔로잉" : "팔로우"}
+                          </button>
+                        )}
+                      </div>
+                      {body && (
+                        <>
+                          <p className={`tcard-body${long ? " is-clamped" : ""}`}>{body}</p>
+                          {long && <span className="tcard-more">더보기</span>}
+                        </>
+                      )}
                       {post.type === "poll" && post.poll && post.poll.options.length > 0 && (
                         <TossPoll poll={post.poll} onVote={(optionId) => votePoll(post.id, optionId)} />
                       )}
@@ -1518,29 +1503,6 @@ function CategoryList({
         </nav>
       </LayoutGroup>
     </MotionConfig>
-  );
-}
-
-// 본문 3줄 말줄임 — 실제로 넘칠 때만 '더보기'를 붙인다(글자 수 어림 대신 렌더 높이로 판단).
-function ClampBody({ text }: { text: string }) {
-  const ref = useRef<HTMLParagraphElement | null>(null);
-  const [over, setOver] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => setOver(el.scrollHeight > el.clientHeight + 1);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text]);
-  return (
-    <>
-      <p ref={ref} className="tcard2-body">
-        {text}
-      </p>
-      {over && <span className="tcard-more">더보기</span>}
-    </>
   );
 }
 
