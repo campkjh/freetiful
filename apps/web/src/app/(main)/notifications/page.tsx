@@ -1,11 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Search, Trash2, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
+
+/* ════════════════════════════════════════════════════════════════
+ * 알림 — 토스 알림 화면 그대로 (2026-09-25 사장 지시), 등장은 퀵매칭 어법.
+ *  · 위: ‹ 뒤로 … '알림 설정'(글자 링크). 그 아래 큰 제목 '알림 ⌄' — 누르면 종류 거르기 · 모두 읽음 · 전체 삭제.
+ *  · 새 알림은 맨 위 연한 파랑 바탕, 그 아래 '지난 알림'.
+ *  · 한 줄 = 둥근 아이콘 칸 · 제목(진하게) · 본문(회색, 3줄까지) · 오른쪽 시간 + 같은 곳에서 여럿 오면 'N건'.
+ *    같은 종류·같은 곳·같은 제목은 한 줄로 묶는다(토스 'N건').
+ *  · 등장: 제목 아래→위 페이드, 줄은 오른쪽→왼쪽 순차 슬라이드. 왼쪽으로 밀면 삭제(원래 기능 유지).
+ * ⚠ iOS 앱 알림 화면은 네이티브(nativeNotifications) — 이 화면은 웹·안드로이드.
+ * ════════════════════════════════════════════════════════════════ */
 
 type NotifType = 'chat' | 'booking' | 'payment' | 'review' | 'system' | 'marketing';
 
@@ -15,56 +24,47 @@ interface Notification {
   title: string;
   body: string;
   isRead: boolean;
+  createdAt: string;
   date: string;
   link?: string;
 }
 
-const typeIconMap: Record<NotifType, { icon: React.ReactNode }> = {
-  chat: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M20 12c0 4-3.6 7.5-8.5 7.5-1.4 0-2.7-.3-3.8-.8L3 20l1.2-3.5C3.4 15.3 3 13.7 3 12c0-4 3.6-7.5 8.5-7.5S20 8 20 12z" fill="#4A8AF4"/>
-      <circle cx="8.5" cy="12" r="1" fill="white"/><circle cx="11.5" cy="12" r="1" fill="white"/><circle cx="14.5" cy="12" r="1" fill="white"/>
-    </svg>
-  )},
-  booking: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="4" width="18" height="18" rx="2.5" fill="#E8E8E8"/>
-      <rect x="3" y="4" width="18" height="6" rx="2.5" fill="#F5F5F5"/>
-      <rect x="7" y="2" width="2" height="4" rx="1" fill="#BDBDBD"/>
-      <rect x="15" y="2" width="2" height="4" rx="1" fill="#BDBDBD"/>
-      <path d="M9 15l2 2 4-4" stroke="#E53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )},
-  payment: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <rect x="1" y="5" width="22" height="15" rx="3" fill="#43A047"/>
-      <text x="12" y="14.5" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold" fontFamily="sans-serif">₩</text>
-      <path d="M1 10h22" stroke="white" strokeWidth="0.8" opacity="0.3"/>
-    </svg>
-  )},
-  review: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <path d="M12 2l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17l-5.8 3 1.1-6.5L2.6 8.8l6.5-.9L12 2z" fill="#FBC02D"/>
-    </svg>
-  )},
-  system: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="9.5" fill="#9E9E9E"/>
-      <circle cx="12" cy="12" r="3.5" fill="#616161"/>
-      <circle cx="12" cy="12" r="1.5" fill="#9E9E9E"/>
-      <rect x="11" y="2" width="2" height="3" rx="1" fill="#9E9E9E"/><rect x="11" y="19" width="2" height="3" rx="1" fill="#9E9E9E"/>
-      <rect x="19" y="11" width="3" height="2" rx="1" fill="#9E9E9E"/><rect x="2" y="11" width="3" height="2" rx="1" fill="#9E9E9E"/>
-    </svg>
-  )},
-  marketing: { icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="4" width="18" height="16" rx="2" fill="#5C6BC0"/>
-      <path d="M7 8h4v4H7z" fill="#FFD54F"/>
-      <rect x="7" y="14" width="10" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
-      <path d="M17 4l3-2v4l-3-2z" fill="#FFA726"/>
-    </svg>
-  )},
+type Group = { key: string; head: Notification; items: Notification[]; unread: boolean };
+
+// 토스 컬러 아이콘(public/icons/toss) — 종류마다 색이 달라야 한눈에 갈린다
+const TYPE_ICON: Record<NotifType, string> = {
+  chat: 'chat',
+  booking: 'calendar-check',
+  payment: 'coin',
+  review: 'star',
+  system: 'loudspeaker',
+  marketing: 'gift',
 };
+
+const FILTERS: { k: string; label: string; title: string; types: NotifType[] | null }[] = [
+  { k: 'all', label: '전체', title: '알림', types: null },
+  { k: 'chat', label: '채팅', title: '채팅 알림', types: ['chat'] },
+  { k: 'booking', label: '예약', title: '예약 알림', types: ['booking'] },
+  { k: 'payment', label: '결제', title: '결제 알림', types: ['payment'] },
+  { k: 'review', label: '리뷰', title: '리뷰 알림', types: ['review'] },
+  { k: 'notice', label: '공지 · 이벤트', title: '공지 · 이벤트', types: ['system', 'marketing'] },
+];
+
+const UNREAD_BG = '#F2F6FC';
+
+// 서버에선 useEffect(경고 없음), 브라우저에선 그리기 전에 도는 useLayoutEffect
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+const NT_CSS = `
+@keyframes ntFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ntSlideIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ntMenuIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.nt-a-title { animation: ntFadeUp .5s cubic-bezier(.22,.61,.36,1) both; }
+.nt-a-sub { animation: ntFadeUp .5s cubic-bezier(.22,.61,.36,1) .18s both; }
+/* fill backwards — 끝나면 빠져서 눌림 효과·밀기(transform)가 산다 */
+.nt-a-item { animation: ntSlideIn .46s cubic-bezier(.22,.61,.36,1) backwards; }
+@media (prefers-reduced-motion: reduce) { .nt-a-title, .nt-a-sub, .nt-a-item { animation: none !important; } }
+`;
 
 function resolveNotifLink(type: NotifType, data: any): string | undefined {
   const explicitLink = data?.link || data?.url || data?.deepLink || data?.deeplink || data?.launchURL;
@@ -86,25 +86,62 @@ function resolveNotifLink(type: NotifType, data: any): string | undefined {
 }
 
 function mapNotif(n: any): Notification {
+  const createdAt = n.createdAt || '';
   return {
     id: n.id,
-    type: n.type as NotifType,
+    type: (TYPE_ICON[n.type as NotifType] ? n.type : 'system') as NotifType,
     title: n.title || '',
     body: n.body || '',
     isRead: n.isRead,
-    date: new Date(n.createdAt).toLocaleDateString('ko-KR'),
+    createdAt,
+    date: createdAt ? new Date(createdAt).toLocaleDateString('ko-KR') : '',
     link: resolveNotifLink(n.type as NotifType, n.data),
   };
 }
 
+/** 토스식 시간 — 방금 전 · N분 전 · N시간 전 · M월 D일(올해가 아니면 YY년 M월 D일) */
+function relTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return '';
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour}시간 전`;
+  const [y, m, d] = new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).split('-').map(Number);
+  const thisYear = Number(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 4));
+  return y === thisYear ? `${m}월 ${d}일` : `${String(y).slice(-2)}년 ${m}월 ${d}일`;
+}
+
+/** 같은 종류·같은 곳·같은 제목은 한 줄로(최신이 머리). 목록은 최신순으로 들어온다고 보지 않고 직접 정렬한다 */
+function groupNotifs(list: Notification[], prefix: string): Group[] {
+  const map = new Map<string, Group>();
+  const out: Group[] = [];
+  for (const n of list) {
+    const key = `${prefix}${n.type}|${n.link || ''}|${n.title}`;
+    const g = map.get(key);
+    if (g) g.items.push(n);
+    else {
+      const ng: Group = { key, head: n, items: [n], unread: !n.isRead };
+      map.set(key, ng);
+      out.push(ng);
+    }
+  }
+  return out;
+}
+
 export default function NotificationsPage() {
   const router = useRouter();
-  // 캐시된 알림을 즉시 표시
-  const [items, setItems] = useState<Notification[]>(() => {
+  // 캐시된 알림을 즉시 표시 — 단, 첫 렌더(하이드레이션)는 서버와 같게 비워 두고 그리기 직전에 채운다.
+  // (useState 초기값에서 localStorage 를 읽으면 서버 HTML 과 어긋나 문서 전체를 브라우저가 다시 그린다)
+  const [items, setItems] = useState<Notification[]>([]);
+  const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  useIsoLayoutEffect(() => {
     const cached: any = getCachedNotifications();
-    if (cached && Array.isArray(cached.data) && cached.data.length > 0) return cached.data.map(mapNotif);
-    return [];
-  });
+    if (cached && Array.isArray(cached.data) && cached.data.length > 0) setItems(cached.data.map(mapNotif));
+    setReady(true);
+  }, []);
   const authUser = useAuthStore((s) => s.user);
 
   const loadNotifications = useCallback(async () => {
@@ -118,20 +155,38 @@ export default function NotificationsPage() {
   }, [authUser]);
 
   useEffect(() => {
-    loadNotifications().catch(() => {});
+    loadNotifications().catch(() => {}).finally(() => setLoaded(true));
   }, [loadNotifications]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const [filter, setFilter] = useState('all');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const current = FILTERS.find((f) => f.k === filter) || FILTERS[0];
+
+  // 위 고정 바 — 스크롤 내리면 아래로 흰 그라데이션
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const { unreadGroups, readGroups } = useMemo(() => {
+    const visible = items
+      .filter((n) => !current.types || current.types.includes(n.type))
+      .sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0));
+    return {
+      unreadGroups: groupNotifs(visible.filter((n) => !n.isRead), 'u:'),
+      readGroups: groupNotifs(visible.filter((n) => n.isRead), 'r:'),
+    };
+  }, [items, current]);
+
+  // 왼쪽으로 밀어서 삭제 — 줄(묶음)마다 얼마나 밀렸나
   const [swipeStates, setSwipeStates] = useState<Record<string, number>>({});
   const touchStartX = useRef<Record<string, number>>({});
   const touchCurrentX = useRef<Record<string, number>>({});
   const mouseDown = useRef<Record<string, boolean>>({});
-
-  const filteredItems = searchQuery
-    ? items.filter(n => n.title.includes(searchQuery) || n.body.includes(searchQuery))
-    : items;
 
   const handleDeleteAll = async () => {
     const previousItems = items;
@@ -146,9 +201,30 @@ export default function NotificationsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    setItems(prev => prev.filter(n => n.id !== id));
-    setSwipeStates(prev => { const next = { ...prev }; delete next[id]; return next; });
+    setItems((prev) => prev.filter((n) => n.id !== id));
     await notificationApi.deleteOne(id);
+  };
+
+  const handleDeleteGroup = (g: Group) => {
+    const ids = new Set(g.items.map((n) => n.id));
+    setItems((prev) => prev.filter((n) => !ids.has(n.id)));
+    setSwipeStates((prev) => { const next = { ...prev }; delete next[g.key]; return next; });
+    g.items.forEach((n) => { notificationApi.deleteOne(n.id).catch(() => {}); });
+  };
+
+  const markGroupRead = (g: Group) => {
+    const unreadIds = g.items.filter((n) => !n.isRead).map((n) => n.id);
+    if (!unreadIds.length) return;
+    const ids = new Set(unreadIds);
+    setItems((prev) => prev.map((x) => (ids.has(x.id) ? { ...x, isRead: true } : x)));
+    unreadIds.forEach((id) => { notificationApi.markAsRead(id).catch(() => {}); });
+  };
+
+  const markAllRead = () => {
+    setMenuOpen(false);
+    if (!items.some((n) => !n.isRead)) return;
+    setItems((prev) => prev.map((x) => ({ ...x, isRead: true })));
+    notificationApi.markAllAsRead().catch(() => {});
   };
 
   // 네이티브 알림 화면 브리지
@@ -168,225 +244,262 @@ export default function NotificationsPage() {
     return () => { try { delete (window as any).__freetifulNotifications; } catch {} };
   }, [items]);
 
-  const handleTouchStart = useCallback((id: string, e: React.TouchEvent) => {
-    touchStartX.current[id] = e.touches[0].clientX;
-    touchCurrentX.current[id] = e.touches[0].clientX;
+  // ─── 왼쪽으로 밀어서 삭제 (줄 = 묶음 단위) ───
+
+  const handleTouchStart = useCallback((key: string, e: React.TouchEvent) => {
+    touchStartX.current[key] = e.touches[0].clientX;
+    touchCurrentX.current[key] = e.touches[0].clientX;
+  }, []);
+  const handleTouchMove = useCallback((key: string, e: React.TouchEvent) => {
+    touchCurrentX.current[key] = e.touches[0].clientX;
+    const diff = touchStartX.current[key] - touchCurrentX.current[key];
+    setSwipeStates((prev) => ({ ...prev, [key]: Math.max(0, Math.min(diff, 100)) }));
+  }, []);
+  const handleTouchEnd = useCallback((key: string) => {
+    const diff = touchStartX.current[key] - touchCurrentX.current[key];
+    setSwipeStates((prev) => ({ ...prev, [key]: diff > 80 ? 84 : 0 }));
+  }, []);
+  const handleMouseDown = useCallback((key: string, e: React.MouseEvent) => {
+    mouseDown.current[key] = true;
+    touchStartX.current[key] = e.clientX;
+    touchCurrentX.current[key] = e.clientX;
+  }, []);
+  const handleMouseMove = useCallback((key: string, e: React.MouseEvent) => {
+    if (!mouseDown.current[key]) return;
+    touchCurrentX.current[key] = e.clientX;
+    const diff = touchStartX.current[key] - touchCurrentX.current[key];
+    setSwipeStates((prev) => ({ ...prev, [key]: Math.max(0, Math.min(diff, 100)) }));
+  }, []);
+  const handleMouseUp = useCallback((key: string) => {
+    if (!mouseDown.current[key]) return;
+    mouseDown.current[key] = false;
+    const diff = touchStartX.current[key] - (touchCurrentX.current[key] ?? touchStartX.current[key]);
+    setSwipeStates((prev) => ({ ...prev, [key]: diff > 80 ? 84 : 0 }));
   }, []);
 
-  const handleTouchMove = useCallback((id: string, e: React.TouchEvent) => {
-    touchCurrentX.current[id] = e.touches[0].clientX;
-    const diff = touchStartX.current[id] - touchCurrentX.current[id];
-    setSwipeStates(prev => ({ ...prev, [id]: Math.max(0, Math.min(diff, 100)) }));
-  }, []);
+  let order = 0;
+  const renderGroup = (g: Group) => {
+    const n = g.head;
+    const count = g.items.length;
+    const swipeX = swipeStates[g.key] ?? 0;
+    const delay = `${0.3 + Math.min(order++, 12) * 0.06}s`;
+    return (
+      <div key={g.key} className="relative overflow-hidden">
+        {/* 뒤에 깔린 삭제 */}
+        <div className="absolute inset-y-0 right-0 flex w-[84px] items-stretch bg-[#F04452]">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGroup(g); }}
+            className="w-full text-[15px] font-semibold text-white"
+          >
+            삭제
+          </button>
+        </div>
+        <div
+          className="relative"
+          style={{
+            transform: `translateX(-${swipeX}px)`,
+            transition: swipeX === 0 ? 'transform 0.3s ease' : 'none',
+            backgroundColor: g.unread ? UNREAD_BG : '#FFFFFF',
+            pointerEvents: swipeX > 60 ? 'none' : 'auto',
+          }}
+          onTouchStart={(e) => handleTouchStart(g.key, e)}
+          onTouchMove={(e) => handleTouchMove(g.key, e)}
+          onTouchEnd={() => handleTouchEnd(g.key)}
+          onMouseDown={(e) => handleMouseDown(g.key, e)}
+          onMouseMove={(e) => handleMouseMove(g.key, e)}
+          onMouseUp={() => handleMouseUp(g.key)}
+          onMouseLeave={() => handleMouseUp(g.key)}
+        >
+          <Link
+            href={n.link || '#'}
+            draggable={false}
+            onClick={(e) => {
+              if (swipeX > 20) {
+                e.preventDefault();
+                setSwipeStates((prev) => ({ ...prev, [g.key]: 0 }));
+                return;
+              }
+              markGroupRead(g);
+              if (!n.link) e.preventDefault();
+            }}
+            className="nt-a-item flex gap-3 px-5 py-3.5 transition-colors active:bg-black/[0.03]"
+            style={{ animationDelay: delay }}
+          >
+            <span className={`mt-[2px] flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${g.unread ? 'bg-white' : 'bg-[#F2F4F6]'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 SVG, 컬러 그대로 */}
+              <img src={`/icons/toss/${TYPE_ICON[n.type]}.svg`} alt="" draggable={false} className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-semibold leading-[1.45] text-[#333D4B]">{n.title || '알림'}</span>
+              {n.body && (
+                <span className={`mt-0.5 line-clamp-3 whitespace-pre-line text-[16px] leading-[1.5] ${g.unread ? 'text-[#4E5968]' : 'text-[#6B7684]'}`}>
+                  {n.body}
+                </span>
+              )}
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-2 pt-[3px]">
+              <span className="text-[13px] leading-none text-[#B0B8C1]">{relTime(n.createdAt)}</span>
+              {count > 1 && (
+                <span className="rounded-[6px] bg-[#E8F3FF] px-1.5 py-[2px] text-[14px] font-semibold leading-[1.3] text-[#3182F6]">{count}건</span>
+              )}
+            </span>
+          </Link>
+        </div>
+      </div>
+    );
+  };
 
-  const handleTouchEnd = useCallback((id: string) => {
-    const diff = touchStartX.current[id] - touchCurrentX.current[id];
-    setSwipeStates(prev => ({ ...prev, [id]: diff > 80 ? 80 : 0 }));
-  }, []);
-
-  const handleMouseDown = useCallback((id: string, e: React.MouseEvent) => {
-    mouseDown.current[id] = true;
-    touchStartX.current[id] = e.clientX;
-    touchCurrentX.current[id] = e.clientX;
-  }, []);
-
-  const handleMouseMove = useCallback((id: string, e: React.MouseEvent) => {
-    if (!mouseDown.current[id]) return;
-    touchCurrentX.current[id] = e.clientX;
-    const diff = touchStartX.current[id] - touchCurrentX.current[id];
-    setSwipeStates(prev => ({ ...prev, [id]: Math.max(0, Math.min(diff, 100)) }));
-  }, []);
-
-  const handleMouseUp = useCallback((id: string) => {
-    if (!mouseDown.current[id]) return;
-    mouseDown.current[id] = false;
-    const diff = touchStartX.current[id] - (touchCurrentX.current[id] ?? touchStartX.current[id]);
-    setSwipeStates(prev => ({ ...prev, [id]: diff > 80 ? 80 : 0 }));
-  }, []);
+  const empty = unreadGroups.length === 0 && readGroups.length === 0;
+  // '알림이 없어요'는 불러오기가 끝났거나 로그인 전일 때만 — 불러오는 중에 빈 화면 문구가 번쩍이지 않게
+  const showEmpty = ready && empty && (loaded || !authUser);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between h-12 px-2.5">
-          <div className="flex items-center gap-2">
-            <button onClick={() => router.back()} className="p-1 -ml-1">
-              <ChevronLeft size={24} className="text-gray-800" />
-            </button>
-            <h1 className="text-[18px] font-bold text-gray-800">알림</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <Search size={20} className="text-gray-800" />
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <Trash2 size={20} className="text-gray-400" />
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-white pb-16 lg:mx-auto lg:max-w-[680px] lg:pb-12 lg:pt-6" style={{ letterSpacing: '-0.02em' }}>
+      <style dangerouslySetInnerHTML={{ __html: NT_CSS }} />
 
-        {showSearch && (
-          <div className="px-2.5 pb-3 animate-fade-in">
-            <div className="flex items-center gap-2 px-3 h-10 bg-gray-100 rounded-lg border border-gray-200">
-              <Search size={16} className="text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="알림 검색"
-                autoFocus
-                className="flex-1 bg-transparent outline-none text-[14px] text-gray-800 placeholder-gray-400"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')}>
-                  <X size={16} className="text-gray-400" />
+      {/* 위 바 — ‹ 뒤로 … 알림 설정 */}
+      <header className="sticky top-0 z-30 bg-white pt-safe lg:static lg:pt-0">
+        <div className="flex h-[52px] items-center justify-between px-2">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? router.back() : router.replace('/main'))}
+            aria-label="뒤로"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-colors active:bg-[#F2F4F6]"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" stroke="#191F28" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <Link href="/my/notifications" className="rounded-[10px] px-3 py-2 text-[16px] font-medium text-[#333D4B] transition-colors active:bg-[#F2F4F6]">
+            알림 설정
+          </Link>
+        </div>
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-white to-white/0 transition-opacity duration-300 lg:hidden ${
+            scrolled ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      </header>
+
+      {/* 큰 제목 '알림 ⌄' — 종류 거르기 · 모두 읽음 · 전체 삭제 */}
+      <div className="relative px-5 pb-3 pt-1">
+        <h1 className="nt-a-title">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-expanded={menuOpen}
+          className="flex items-center gap-1.5 rounded-[10px] text-[26px] font-bold tracking-[-0.02em] text-[#191F28] active:opacity-70"
+        >
+          {current.title}
+          <svg
+            width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+            className="mt-[3px] transition-transform duration-200"
+            style={{ transform: menuOpen ? 'rotate(180deg)' : 'none' }}
+          >
+            <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        </h1>
+
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+            <div
+              className="absolute left-5 top-full z-50 mt-1 w-[220px] overflow-hidden rounded-[18px] border border-[#F2F4F6] bg-white py-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.14)]"
+              style={{ animation: 'ntMenuIn 0.2s cubic-bezier(.22,.61,.36,1) both', transformOrigin: 'top left' }}
+            >
+              {FILTERS.map((f) => (
+                <button
+                  key={f.k}
+                  type="button"
+                  onClick={() => { setFilter(f.k); setMenuOpen(false); }}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[16px] text-[#333D4B] active:bg-[#F7F8FA]"
+                >
+                  <span className={filter === f.k ? 'font-semibold' : ''}>{f.label}</span>
+                  {filter === f.k && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#3182F6" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
                 </button>
-              )}
+              ))}
+              <div className="mx-4 my-1.5 h-px bg-[#F2F4F6]" />
+              <button type="button" onClick={markAllRead} className="w-full px-4 py-2.5 text-left text-[16px] text-[#333D4B] active:bg-[#F7F8FA]">
+                모두 읽음으로 표시
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); setShowDeleteConfirm(true); }}
+                className="w-full px-4 py-2.5 text-left text-[16px] text-[#F04452] active:bg-[#FFF5F6]"
+              >
+                전체 삭제
+              </button>
             </div>
-          </div>
+          </>
         )}
       </div>
 
-      {/* Notification List */}
-      {filteredItems.length > 0 ? (
-        <div>
-          {filteredItems.map((n) => {
-            const badge = typeIconMap[n.type];
-            const swipeX = swipeStates[n.id] ?? 0;
-            const isSwipeOpen = swipeX > 60;
-
-            return (
-              <div key={n.id} className="relative overflow-hidden border-b border-gray-100 bg-red-500">
-                {/* Delete button behind */}
-                <div className="absolute right-0 top-0 bottom-0 z-0 flex items-center justify-center w-[80px] bg-red-500">
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    onTouchEnd={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDelete(n.id);
-                    }}
-                    className="flex h-full w-full flex-col items-center justify-center gap-1 text-white"
-                  >
-                    <Trash2 size={18} />
-                    <span className="text-[11px]">삭제</span>
-                  </button>
-                </div>
-
-                {/* Swipeable content */}
-                <div
-                  className="relative z-10 block"
-                  style={{
-                    transform: `translateX(-${swipeX}px)`,
-                    transition: swipeX === 0 ? 'transform 0.3s ease' : 'none',
-                    backgroundColor: !n.isRead ? '#F0F4FF' : '#FFFFFF',
-                    boxShadow: '4px 0 0 0 ' + (!n.isRead ? '#F0F4FF' : '#FFFFFF'),
-                    pointerEvents: isSwipeOpen ? 'none' : 'auto',
-                  }}
-                  onTouchStart={(e) => handleTouchStart(n.id, e)}
-                  onTouchMove={(e) => handleTouchMove(n.id, e)}
-                  onTouchEnd={() => handleTouchEnd(n.id)}
-                  onMouseDown={(e) => handleMouseDown(n.id, e)}
-                  onMouseMove={(e) => handleMouseMove(n.id, e)}
-                  onMouseUp={() => handleMouseUp(n.id)}
-                  onMouseLeave={() => handleMouseUp(n.id)}
-                >
-                  <Link
-                    href={n.link || '#'}
-                    className="block px-4 py-4"
-                    onClick={(e) => {
-                      if (swipeX > 20) {
-                        e.preventDefault();
-                        setSwipeStates(prev => ({ ...prev, [n.id]: 0 }));
-                        return;
-                      }
-                      // 읽음 처리 (API + 로컬)
-                      if (!n.isRead) {
-                        setItems(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
-                        notificationApi.markAsRead(n.id).catch(() => {});
-                      }
-                      if (!n.link) { e.preventDefault(); }
-                    }}
-                  >
-                    <NotifContent n={n} badge={badge} />
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
+      {!ready || (empty && !showEmpty) ? null : showEmpty ? (
+        <div className="nt-a-sub flex flex-col items-center px-5 pt-24 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#F2F4F6]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/toss/alarm.svg" alt="" className="h-9 w-9" />
+          </span>
+          <p className="mt-4 text-[17px] font-semibold text-[#333D4B]">
+            {!authUser ? '로그인하면 알림을 볼 수 있어요' : filter === 'all' ? '새로운 알림이 없어요' : `${current.label} 알림이 없어요`}
+          </p>
+          <p className="mt-1.5 text-[14px] text-[#8B95A1]">새 소식이 오면 여기에서 알려 드릴게요</p>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100">
-            <Search size={28} className="text-gray-400" />
-          </div>
-          <p className="text-gray-400 text-[14px]">
-            {searchQuery ? '검색 결과가 없습니다' : '알림이 없습니다'}
-          </p>
-        </div>
-      )}
+        <>
+          {/* 새 알림 — 연한 파랑 바탕 */}
+          {unreadGroups.length > 0 && <div className="pt-1">{unreadGroups.map(renderGroup)}</div>}
 
-      {/* Delete All Confirm Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={() => setShowDeleteConfirm(false)}>
-          <div
-            className="w-[340px] rounded-3xl bg-white p-5 flex flex-col gap-5"
-            onClick={e => e.stopPropagation()}
-          >
-            <div>
-              <h3 className="text-[20px] font-semibold text-gray-800">전체 삭제하시겠습니까?</h3>
-              <p className="text-[15px] text-gray-500 mt-1">삭제된 알림은 복구할 수 없습니다.</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDeleteAll}
-                className="flex-1 h-12 rounded-xl bg-primary-500 text-white text-[16px] font-semibold"
+          {readGroups.length > 0 && (
+            <>
+              <h2
+                className={`nt-a-item px-5 pb-1 text-[17px] font-bold text-[#191F28] ${unreadGroups.length > 0 ? 'pt-8' : 'pt-3'}`}
+                style={{ animationDelay: `${0.3 + Math.min(order++, 12) * 0.06}s` }}
               >
-                네
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 text-[16px] font-semibold"
-              >
-                아니요
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NotifContent({ n, badge }: { n: Notification; badge: { icon: React.ReactNode } }) {
-  return (
-    <div>
-      {/* Title row: icon + title + unread dot + date */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="shrink-0 flex items-center">{badge.icon}</span>
-          <p className={`text-[15px] leading-snug truncate ${!n.isRead ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
-            {n.title}
-          </p>
-          {!n.isRead && (
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
+                지난 알림
+              </h2>
+              <div>{readGroups.map(renderGroup)}</div>
+            </>
           )}
-        </div>
-        <span className="text-[11px] text-gray-400 shrink-0">{n.date}</span>
-      </div>
+        </>
+      )}
 
-      {/* Content preview */}
-      <p className="text-[13px] text-gray-400 leading-[18px] mt-1.5 ml-[26px] line-clamp-2">{n.body}</p>
+      {/* 전체 삭제 확인 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="w-full max-w-[340px] rounded-[24px] bg-white p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[20px] font-bold text-[#191F28]">알림을 모두 지울까요?</h3>
+            <p className="mt-1.5 text-[15px] text-[#6B7684]">지운 알림은 다시 볼 수 없어요.</p>
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="h-[52px] flex-1 rounded-[16px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition-transform active:scale-[0.98]"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAll}
+                className="h-[52px] flex-1 rounded-[16px] bg-[#F04452] text-[16px] font-semibold text-white transition-transform active:scale-[0.98]"
+              >
+                모두 지우기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
