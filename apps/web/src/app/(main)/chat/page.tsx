@@ -252,6 +252,14 @@ export default function ChatListPage() {
   const [showSearch, setShowSearch] = useState(false);
   /** PC 우측 패널에 띄울 방 (카톡 PC 형태) */
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  // 모바일: 스크롤 내리면 고정 헤더 아래로 흰 그라데이션(목록이 헤더 밑으로 자연스럽게 사라지게)
+  const [listScrolled, setListScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setListScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [search, setSearch] = useState('');
   const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
   const [deletingRooms, setDeletingRooms] = useState(false);
@@ -761,6 +769,12 @@ export default function ChatListPage() {
       {/* ═══ Mobile ═══ */}
       <div data-native-chatlist-root className="lg:hidden bg-white min-h-screen pb-24">
         <div data-native-chatlist-header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-2">
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-x-0 top-full h-8 bg-gradient-to-b from-white via-white/70 to-white/0 transition-opacity duration-300 ${
+              listScrolled ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
           <div className="flex h-14 items-center justify-between">
             <h1 className="text-[20px] font-bold text-[#2B313D]">{isPro ? '고객 문의' : '채팅'}</h1>
             <button

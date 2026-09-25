@@ -55,8 +55,11 @@ export default function ProQuickView({
         aria-hidden={!open}
       />
       <aside
-        className={`fixed right-0 top-0 z-[61] hidden h-full w-[max(440px,36vw)] max-w-[94vw] flex-col overflow-hidden bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.14)] transition-transform duration-300 ease-out lg:flex ${
-          open ? 'translate-x-0' : 'translate-x-full'
+        // 닫히면 슬라이드가 끝난 뒤 invisible — 화면 밖 그림자가 PC 오른쪽 끝에 회색 띠로 번지던 것
+        className={`fixed right-0 top-0 z-[61] hidden h-full w-[max(440px,36vw)] max-w-[94vw] flex-col overflow-hidden bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.14)] lg:flex ${
+          open
+            ? 'visible translate-x-0 [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s]'
+            : 'invisible translate-x-full [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s_linear_300ms]'
         }`}
         aria-hidden={!open}
       >

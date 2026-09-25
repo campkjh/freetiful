@@ -137,6 +137,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const isHome = pathname === '/' || pathname === '/main';
   /** 사회자 상세는 화면 전체가 흰 카드라 뒤에 연회색이 깔리면 아래쪽이 회색으로 보인다 */
   const whiteBackground = isHome || /^\/pros\/[^/]+/.test(pathname);
+  // 채팅은 모바일만 흰 바탕 — 목록 아래 여백(pb-24)으로 회색(surface-50)이 띠처럼 비치던 것. PC 는 회색 바탕 위 흰 카드 유지.
+  const chatRoute = /^\/chat(\/|$)/.test(pathname);
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
   const [navVisible, setNavVisible] = useState(true);
@@ -446,7 +448,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className={`min-h-screen ${whiteBackground ? 'bg-white' : 'bg-surface-50'}`}>
+    <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute ? 'bg-white lg:bg-surface-50' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}

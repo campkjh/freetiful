@@ -108,8 +108,11 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
       />
       <aside
         data-notification-drawer
-        className={`fixed right-0 top-0 z-[61] flex h-full w-[400px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] transition-transform duration-300 ease-out ${
-          open ? 'translate-x-0' : 'translate-x-full'
+        // 닫히면 슬라이드가 끝난 뒤 invisible — 화면 밖에 걸린 서랍 그림자가 모든 페이지 오른쪽 끝에 회색 띠로 번지던 것
+        className={`fixed right-0 top-0 z-[61] flex h-full w-[400px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] ease-out ${
+          open
+            ? 'visible translate-x-0 [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s]'
+            : 'invisible translate-x-full [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s_linear_300ms]'
         }`}
         aria-hidden={!open}
       >
