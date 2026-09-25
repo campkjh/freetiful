@@ -233,7 +233,7 @@ export default function CustomerInquiriesPage() {
         writeCustomerInquiriesCache(authUser?.id, page);
       })
       .catch(() => {
-        if (!cancelled) toast.error('문의목록을 불러오지 못했습니다');
+        if (!cancelled) toast.error('매칭 목록을 불러오지 못했습니다');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -337,14 +337,14 @@ export default function CustomerInquiriesPage() {
     <div className="min-h-screen bg-white pb-28 lg:pb-6">
       {/* 모바일 전용 헤더 — 새요청 탭과 같은 모양(흰 바탕·타이틀만). PC 는 전역 헤더가 있어 숨긴다 */}
       <header className="sticky top-0 z-20 flex h-14 items-center bg-white px-4 lg:hidden">
-        <h1 className="text-[20px] font-bold text-[#2B313D]">문의목록</h1>
+        <h1 className="text-[20px] font-bold text-[#2B313D]">매칭</h1>
       </header>
 
       <div className="mx-auto grid max-w-[1120px] items-start gap-8 px-4 pt-3 lg:grid-cols-[1fr_340px] lg:px-0 lg:pt-8">
         <div className="min-w-0">
           {/* PC 타이틀 */}
           <div className="mb-6 hidden lg:block">
-            <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">문의목록</h1>
+            <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">매칭</h1>
             <p className="mt-1 text-[14px] text-[#A4ABBA]">보낸 문의와 진행 상태를 한눈에 확인하세요</p>
           </div>
 

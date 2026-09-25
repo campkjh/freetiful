@@ -27,15 +27,15 @@ private let kMediaBase = "https://affectionate-smile-production-6535.up.railway.
 // 문의목록·새요청은 웹에서 같은 아이콘(NewRequestNavIcon)을 쓰므로 nav-requests 에셋을 공유.
 private let nativeUserNavItems = [
     LiquidNavItem(id: "home", title: "홈", path: "/main", iconAssetName: "nav-home"),
-    LiquidNavItem(id: "community", title: "커뮤니티", path: "/community", iconAssetName: "nav-community"),
-    LiquidNavItem(id: "inquiries", title: "문의목록", path: "/inquiries", iconAssetName: "nav-requests"),
+    LiquidNavItem(id: "community", title: "웨딩숲", path: "/community", iconAssetName: "nav-community"),
+    LiquidNavItem(id: "inquiries", title: "매칭", path: "/inquiries", iconAssetName: "nav-match"),
     LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
     LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
 
 private let nativeProNavItems = [
     LiquidNavItem(id: "home", title: "홈", path: "/main", iconAssetName: "nav-home"),
-    LiquidNavItem(id: "community", title: "커뮤니티", path: "/community", iconAssetName: "nav-community"),
+    LiquidNavItem(id: "community", title: "웨딩숲", path: "/community", iconAssetName: "nav-community"),
     LiquidNavItem(id: "requests", title: "새요청", path: "/pro-dashboard/inquiries", iconAssetName: "nav-requests"),
     LiquidNavItem(id: "chat", title: "채팅", path: "/chat", iconAssetName: "nav-chat"),
     LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")

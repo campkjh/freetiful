@@ -43,7 +43,7 @@ export default function CommunityLoginSheet() {
         <div className="fcl-grab" aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="fcl-logo" src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" />
-        <p className="fcl-sub">로그인하고 커뮤니티에 참여해 보세요</p>
+        <p className="fcl-sub">로그인하고 웨딩숲에 참여해 보세요</p>
         <button
           type="button"
           className="fcl-btn fcl-kakao"

@@ -819,7 +819,7 @@ export default function CommunityClient() {
       <header ref={topbarRef} className={`community-topbar${compactHeader ? " is-compact" : ""}`}>
         <div className="community-topbar-inner">
           <div className="community-title-wrap">
-            <h1 className="community-title">커뮤니티</h1>
+            <h1 className="community-title">웨딩숲</h1>
           </div>
           {/* 모바일: 카테고리는 햄버거 → 왼쪽 서랍에서 고른다(헤더엔 지금 보는 카테고리 이름만). */}
           <button
@@ -838,7 +838,7 @@ export default function CommunityClient() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/icons/community/cat/${activeMajor.icon}.svg`} alt="" width={22} height={22} />
             )}
-            <span>{selectedGroup?.name ?? "커뮤니티"}</span>
+            <span>{selectedGroup?.name ?? "웨딩숲"}</span>
           </button>
           {/* 넓은 화면: 아이콘 버튼 대신 헤더에 검색창을 그대로 편다. */}
           <div className="community-search-inline">
@@ -850,7 +850,7 @@ export default function CommunityClient() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="무엇을 검색하실건가요?"
-              aria-label="커뮤니티 검색"
+              aria-label="웨딩숲 검색"
             />
             {query && (
               <button type="button" className="community-search-clear" onClick={() => setQuery("")} aria-label="검색어 지우기">
@@ -867,7 +867,7 @@ export default function CommunityClient() {
               if (searchOpen) setQuery("");
               setSearchOpen((current) => !current);
             }}
-            aria-label="커뮤니티 검색"
+            aria-label="웨딩숲 검색"
             title="검색"
             style={iconButtonStyle}
           >
@@ -882,7 +882,7 @@ export default function CommunityClient() {
             className="community-search-input"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={selectedGroup ? `${selectedGroup.name}에서 검색` : "커뮤니티 검색"}
+            placeholder={selectedGroup ? `${selectedGroup.name}에서 검색` : "웨딩숲 검색"}
             autoFocus
             style={searchStyle}
           />
@@ -891,7 +891,7 @@ export default function CommunityClient() {
 
       <div className="community-layout">
         <aside className="community-filter-panel">
-          <h2 className="fcom-catlist-title">커뮤니티</h2>
+          <h2 className="fcom-catlist-title">웨딩숲</h2>
           <CategoryList
             groups={groups}
             selectedGroupId={selectedGroupId}
@@ -1247,7 +1247,7 @@ export default function CommunityClient() {
         className="fcom-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="커뮤니티 카테고리"
+        aria-label="웨딩숲 카테고리"
         aria-hidden={!drawerOpen}
         initial={false}
         animate={drawerOpen ? "open" : "closed"}
@@ -1258,7 +1258,7 @@ export default function CommunityClient() {
         transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
       >
         <div className="fcom-drawer-head">
-          <h2>커뮤니티</h2>
+          <h2>웨딩숲</h2>
           <button type="button" className="fcom-drawer-close" aria-label="카테고리 닫기" onClick={() => setDrawerOpen(false)}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
@@ -1409,7 +1409,7 @@ function CategoryList({
   return (
     <MotionConfig reducedMotion="user">
       <LayoutGroup id={layoutGroupId}>
-        <nav className="fcom-catlist" aria-label="커뮤니티 카테고리">
+        <nav className="fcom-catlist" aria-label="웨딩숲 카테고리">
           <motion.button
             type="button"
             className={`fcom-cat${!selectedGroupId ? " on" : ""}`}

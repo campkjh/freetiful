@@ -614,7 +614,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
   async function sharePost() {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: post?.title ?? "프리티풀 커뮤니티", url: postUrl() });
+        await navigator.share({ title: post?.title ?? "프리티풀 웨딩숲", url: postUrl() });
       } catch {
         /* 사용자가 취소 */
       }
@@ -683,7 +683,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         <button
           type="button"
           className="tdet-icon-btn tdet-back"
-          aria-label="커뮤니티 목록으로"
+          aria-label="웨딩숲 목록으로"
           onClick={() => router.push("/community")}
         >
           <BackIcon />

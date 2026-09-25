@@ -33,23 +33,17 @@ const HomeTabIcon = ({ active, className }: TabIconProps) => (
   </svg>
 );
 
-const CommunityTabIcon = ({ active, className }: TabIconProps) => (
+// 웨딩숲(= 커뮤니티, 사장 지시 260926) — 사장 아이콘 세트 icon-tree-mono 나무. 선 버전은 같은 모양을 2.2px 로 그리고 86% 로 줄여 칸에 맞춤
+const ForestTabIcon = ({ active, className }: TabIconProps) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-    {active ? (
-      <>
-        <circle cx="15.3" cy="8.2" r="3.4" fill="currentColor" />
-        <path d="M8.8 19.4c0-3.6 2.9-6.1 6.5-6.1s6.5 2.5 6.5 6.1v.1a1 1 0 0 1-1 1H9.8a1 1 0 0 1-1-1v-.1z" fill="currentColor" />
-        <circle cx="7.6" cy="9" r="2.7" fill="currentColor" fillOpacity="0.55" />
-        <path d="M7.3 20.5H3.2a1 1 0 0 1-1-1v-.2c0-2.9 2.3-5 5.3-5 .8 0 1.5.1 2.1.4-1.3 1.3-2.2 3.1-2.3 5.2v.6z" fill="currentColor" fillOpacity="0.55" />
-      </>
-    ) : (
-      <>
-        <circle cx="15.3" cy="8.2" r="3.2" stroke="currentColor" strokeWidth="2" />
-        <path d="M9.3 20c0-3.4 2.6-5.9 6-5.9s6 2.5 6 5.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="7.4" cy="9.4" r="2.4" stroke="currentColor" strokeWidth="2" />
-        <path d="M2.6 19.4c.2-2.6 2.2-4.4 4.8-4.4.5 0 1 .1 1.5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </>
-    )}
+    <path
+      transform="translate(12 12) scale(0.86) translate(-12 -12)"
+      d="M20.7439 15.865L16.7249 10.853H17.7679C18.7749 10.853 19.3339 9.68802 18.7039 8.90202L12.9359 1.70902C12.4559 1.11002 11.5439 1.11002 11.0639 1.70902L5.29594 8.90202C4.66594 9.68702 5.22494 10.853 6.23194 10.853H7.27494L3.25594 15.865C2.62594 16.651 3.18494 17.816 4.19194 17.816H10.3319V22.057C10.3319 22.379 10.5929 22.641 10.9159 22.641H13.0839C13.4059 22.641 13.6679 22.38 13.6679 22.057V17.816H19.8079C20.8149 17.815 21.3739 16.65 20.7439 15.865Z"
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -57,6 +51,20 @@ const ListTabIcon = ({ active, className }: TabIconProps) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
     <rect x="4.5" y="3.5" width="15" height="17" rx="3" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" />
     <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" stroke={active ? '#fff' : 'currentColor'} strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+// 매칭(고객 탭, 사장 지시 260926 — 문의목록→매칭) — 사장 아이콘 세트 icon-lightning-mono 번개. 선 버전은 같은 모양을 2.3px 로 그리고 84% 로 줄여 칸에 맞춤
+const MatchTabIcon = ({ active, className }: TabIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <path
+      transform="translate(12 12) scale(0.84) translate(-12 -12)"
+      d="M19.0309 10.9337L14.3579 9.3017L15.7699 2.3297C15.9969 1.2057 14.6099 0.488704 13.8249 1.3227L4.51492 11.2107C4.38477 11.3489 4.29122 11.5174 4.24278 11.701C4.19434 11.8845 4.19255 12.0773 4.23756 12.2617C4.28257 12.4461 4.37296 12.6163 4.50052 12.7569C4.62807 12.8975 4.78874 13.004 4.96792 13.0667L9.63992 14.6987L8.22992 21.6707C8.00092 22.7937 9.38792 23.5107 10.1739 22.6777L19.4849 12.7877C20.0499 12.1877 19.8089 11.2047 19.0309 10.9337Z"
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2.3"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -106,15 +114,15 @@ const HEADER_CATEGORIES: { name: string; img: string; href: string }[] = [
 
 const USER_NAV_ITEMS = [
   { href: '/main',      icon: HomeTabIcon,      label: '홈' },
-  { href: '/community', icon: CommunityTabIcon, label: '커뮤니티' },
-  { href: '/inquiries', icon: ListTabIcon,      label: '문의목록' },
+  { href: '/community', icon: ForestTabIcon,    label: '웨딩숲' },
+  { href: '/inquiries', icon: MatchTabIcon,     label: '매칭' },
   { href: '/chat',      icon: ChatTabIcon,      label: '채팅' },
   { href: '/my',        icon: MyTabIcon,        label: '마이' },
 ];
 
 const PRO_NAV_ITEMS = [
   { href: '/main',      icon: HomeTabIcon,       label: '홈' },
-  { href: '/community', icon: CommunityTabIcon,  label: '커뮤니티' },
+  { href: '/community', icon: ForestTabIcon,     label: '웨딩숲' },
   { href: '/pro-dashboard/inquiries', icon: ListTabIcon, label: '새요청' },
   { href: '/chat',      icon: ChatTabIcon,       label: '채팅' },
   { href: '/my',        icon: MyTabIcon,         label: '마이' },
@@ -608,9 +616,17 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     href={href}
                     data-nav={label}
                     aria-current={active ? 'page' : undefined}
-                    className="flex flex-1 flex-col items-center justify-center gap-[5px] text-[#36373C] transition-transform duration-150 active:scale-[0.92]"
+                    className="flex flex-1 flex-col items-center justify-center gap-[5px] text-[#36373C]"
+                    onPointerDown={(e) => {
+                      // 누르는 순간 아이콘이 옆으로 쫀득하게 늘어났다 출렁이며 제자리(사장 지시 260926) — 같은 탭을 다시 눌러도 처음부터
+                      const icon = e.currentTarget.querySelector<HTMLElement>('[data-tab-icon]');
+                      if (!icon || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+                      icon.style.animation = 'none';
+                      void icon.offsetWidth;
+                      icon.style.animation = 'tabJelly 0.64s linear both';
+                    }}
                   >
-                    <span className="relative block h-6 w-6">
+                    <span data-tab-icon className="relative block h-6 w-6" style={{ transformOrigin: '50% 60%' }}>
                       <Icon active={active} className="h-6 w-6" />
                       {dot && (
                         <span
@@ -627,6 +643,18 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               })}
             </div>
           </div>
+          <style>{`
+            /* 탭 누름 — 가로로 1.3배 늘며 세로는 눌렸다가, 반대로 한 번·또 한 번 작게 출렁이고 멈춘다(쫀득) */
+            @keyframes tabJelly {
+              0%   { transform: scale(1, 1); }
+              22%  { transform: scale(1.3, 0.82); }
+              40%  { transform: scale(0.88, 1.1); }
+              56%  { transform: scale(1.1, 0.95); }
+              70%  { transform: scale(0.96, 1.03); }
+              84%  { transform: scale(1.02, 0.99); }
+              100% { transform: scale(1, 1); }
+            }
+          `}</style>
         </nav>
       )}
       {/* Login Modal — iOS NativeLoginView 디자인 통일 (Android safe-area 보정) */}
