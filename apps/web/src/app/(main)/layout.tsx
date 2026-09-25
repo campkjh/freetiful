@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -17,37 +17,74 @@ import NotificationDrawer from '@/components/NotificationDrawer';
 import { getCachedUnreadCount } from '@/lib/api/notification.api';
 import { AlarmIcon } from '@/components/icons/mono';
 
-type NavIconProps = { className?: string };
+// ─── 하단 탭 아이콘(토스 하단바 어법, 사장 레퍼런스 260926) ───
+// 평소엔 2px 선 아이콘, 선택된 탭만 채운 아이콘. 색은 currentColor(탭에서 #36373C).
+type TabIconProps = { active?: boolean; className?: string };
 
-const HomeNavIcon = ({ className }: NavIconProps) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-    <path fillRule="evenodd" clipRule="evenodd" d="M28.0924 10.9387L16.8297 1.98268C16.5941 1.79489 16.3017 1.69263 16.0004 1.69263C15.6991 1.69263 15.4067 1.79489 15.1711 1.98268L3.90706 10.9387C3.59312 11.1884 3.33957 11.5057 3.16528 11.867C2.99098 12.2283 2.90044 12.6242 2.90039 13.0253V25.5827C2.90039 26.4314 3.23753 27.2453 3.83765 27.8454C4.43777 28.4455 5.2517 28.7827 6.10039 28.7827H13.3337V22.4467C13.3337 22.0931 13.4742 21.7539 13.7242 21.5039C13.9743 21.2538 14.3134 21.1133 14.6671 21.1133H17.3337C17.6873 21.1133 18.0265 21.2538 18.2765 21.5039C18.5266 21.7539 18.6671 22.0931 18.6671 22.4467V28.7827H25.8991C26.7478 28.7827 27.5617 28.4455 28.1618 27.8454C28.7619 27.2453 29.0991 26.4314 29.0991 25.5827V13.0267C29.099 12.6255 29.0085 12.2296 28.8342 11.8683C28.6599 11.507 28.4063 11.1884 28.0924 10.9387Z" fill="currentColor" />
-  </svg>
-);
-
-// 커뮤니티 — 사장 아이콘 세트 icon-user-two-mono(두 사람). 채팅 말풍선과 헷갈리지 않게 사람 모양(260926)
-const CommunityNavIcon = ({ className }: NavIconProps) => (
+const HomeTabIcon = ({ active, className }: TabIconProps) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-    <path fillRule="evenodd" clipRule="evenodd" d="M7.5 11.6475C7.99246 11.6475 8.48009 11.5505 8.93506 11.362C9.39003 11.1736 9.80343 10.8973 10.1517 10.5491C10.4999 10.2009 10.7761 9.78749 10.9645 9.33252C11.153 8.87755 11.25 8.38992 11.25 7.89746C11.25 7.405 11.153 6.91737 10.9645 6.4624C10.7761 6.00743 10.4999 5.59403 10.1517 5.24581C9.80343 4.89759 9.39003 4.62137 8.93506 4.43291C8.48009 4.24446 7.99246 4.14746 7.5 4.14746C6.50544 4.14746 5.55161 4.54255 4.84835 5.24581C4.14509 5.94907 3.75 6.9029 3.75 7.89746C3.75 8.89202 4.14509 9.84585 4.84835 10.5491C5.55161 11.2524 6.50544 11.6475 7.5 11.6475ZM8 17.8285C8 16.5645 8.771 14.6935 10.48 13.2765C9.637 12.9795 8.652 12.7935 7.5 12.7935C2.46 12.7935 0.5 16.2315 0.5 17.8285C0.5 19.4285 4.673 19.8525 7.5 19.8525C7.971 19.8525 8.48 19.8395 9.001 19.8125C8.34 19.2855 8 18.6255 8 17.8285Z" fill="currentColor" fillOpacity="0.55" />
-    <path fillRule="evenodd" clipRule="evenodd" d="M16.5 12.7945C11.46 12.7945 9.5 16.2315 9.5 17.8295C9.5 19.4275 13.673 19.8535 16.5 19.8535C19.327 19.8535 23.5 19.4275 23.5 17.8295C23.5 16.2315 21.54 12.7945 16.5 12.7945ZM16.5 11.6475C16.9925 11.6475 17.4801 11.5505 17.9351 11.362C18.39 11.1736 18.8034 10.8973 19.1517 10.5491C19.4999 10.2009 19.7761 9.78749 19.9645 9.33252C20.153 8.87755 20.25 8.38992 20.25 7.89746C20.25 7.405 20.153 6.91737 19.9645 6.4624C19.7761 6.00743 19.4999 5.59403 19.1517 5.24581C18.8034 4.89759 18.39 4.62137 17.9351 4.43291C17.4801 4.24446 16.9925 4.14746 16.5 4.14746C15.5054 4.14746 14.5516 4.54255 13.8483 5.24581C13.1451 5.94907 12.75 6.9029 12.75 7.89746C12.75 8.89202 13.1451 9.84585 13.8483 10.5491C14.5516 11.2524 15.5054 11.6475 16.5 11.6475Z" fill="currentColor" />
+    <path
+      d="M4 10.3L12 4l8 6.3V19a1.6 1.6 0 0 1-1.6 1.6H15v-5a1.2 1.2 0 0 0-1.2-1.2h-3.6A1.2 1.2 0 0 0 9 15.6v5H5.6A1.6 1.6 0 0 1 4 19v-8.7z"
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
-const ChatNavIcon = ({ className }: NavIconProps) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-    <path d="M16.0001 2.66663C8.57078 2.66663 2.55078 8.17463 2.55078 14.8346C2.55078 18.0373 3.96011 20.9826 6.26545 23.16L5.11211 28.54C4.98411 29.052 5.49611 29.436 6.00811 29.308L12.0281 26.4906C13.3094 26.8746 14.5894 27.0026 15.9988 27.0026C23.4281 27.0026 29.4481 21.4946 29.4481 14.8346C29.4481 8.17463 23.4294 2.66663 16.0001 2.66663Z" fill="currentColor" />
+const CommunityTabIcon = ({ active, className }: TabIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    {active ? (
+      <>
+        <circle cx="15.3" cy="8.2" r="3.4" fill="currentColor" />
+        <path d="M8.8 19.4c0-3.6 2.9-6.1 6.5-6.1s6.5 2.5 6.5 6.1v.1a1 1 0 0 1-1 1H9.8a1 1 0 0 1-1-1v-.1z" fill="currentColor" />
+        <circle cx="7.6" cy="9" r="2.7" fill="currentColor" fillOpacity="0.55" />
+        <path d="M7.3 20.5H3.2a1 1 0 0 1-1-1v-.2c0-2.9 2.3-5 5.3-5 .8 0 1.5.1 2.1.4-1.3 1.3-2.2 3.1-2.3 5.2v.6z" fill="currentColor" fillOpacity="0.55" />
+      </>
+    ) : (
+      <>
+        <circle cx="15.3" cy="8.2" r="3.2" stroke="currentColor" strokeWidth="2" />
+        <path d="M9.3 20c0-3.4 2.6-5.9 6-5.9s6 2.5 6 5.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="7.4" cy="9.4" r="2.4" stroke="currentColor" strokeWidth="2" />
+        <path d="M2.6 19.4c.2-2.6 2.2-4.4 4.8-4.4.5 0 1 .1 1.5.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </>
+    )}
   </svg>
 );
 
-const NewRequestNavIcon = ({ className }: NavIconProps) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-    <path d="M28.4798 9.19998C27.1998 8.87998 25.9198 9.59998 25.5198 10.88L23.9998 14.4L22.3998 11.6L17.9998 3.43998C17.4398 2.39998 16.2398 1.99998 15.1998 2.55998C14.1598 3.11998 13.8398 4.31998 14.3998 5.35998L18.1598 12.4L17.2798 12.88L12.3998 5.03998C11.7598 4.07998 10.4798 3.75998 9.59981 4.31998C8.63981 4.87998 8.39981 6.15998 8.95981 7.19998L13.7598 14.96L13.1198 15.6L7.99981 9.59998C7.27981 8.71998 5.99981 8.63998 5.11981 9.35998C4.23981 10.08 4.15981 11.36 4.87981 12.24L10.1598 18.56L9.35981 19.36L5.27981 15.12C4.47981 14.32 3.19981 14.24 2.31981 15.04C1.43981 15.84 1.51981 17.12 2.31981 18L9.99981 26C13.0398 29.84 18.4798 31.04 22.7998 28.48C25.1998 27.12 26.7998 24.88 27.4398 22.4L30.1598 12.24C30.5598 10.88 29.7598 9.59998 28.4798 9.19998ZM20.5598 21.84L20.0798 21.04C19.1998 19.52 19.7598 17.52 21.2798 16.64L23.1198 15.52C21.8398 17.44 20.9598 19.6 20.5598 21.84Z" fill="currentColor" />
+const ListTabIcon = ({ active, className }: TabIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <rect x="4.5" y="3.5" width="15" height="17" rx="3" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" />
+    <path d="M8.5 9h7M8.5 12.5h7M8.5 16h4" stroke={active ? '#fff' : 'currentColor'} strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
-const MyNavIcon = ({ className }: NavIconProps) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-    <path fillRule="evenodd" clipRule="evenodd" d="M16.0002 23.252C12.4482 23.252 9.48416 21.1706 8.80683 18.4053C8.65483 17.7813 9.25616 17.2026 10.0295 17.2026H21.9708C22.7442 17.2026 23.3455 17.7813 23.1935 18.4053C22.5162 21.1706 19.5522 23.252 16.0002 23.252ZM12.3815 10.1C12.9049 10.0996 13.4069 10.3072 13.7772 10.677C14.1476 11.0468 14.3558 11.5486 14.3562 12.072C14.3565 12.5953 14.149 13.0974 13.7791 13.4677C13.4093 13.838 12.9075 14.0463 12.3842 14.0466C12.125 14.0468 11.8684 13.9959 11.6289 13.8969C11.3894 13.7979 11.1718 13.6527 10.9884 13.4696C10.6181 13.0998 10.4099 12.598 10.4095 12.0746C10.4091 11.5513 10.6167 11.0492 10.9865 10.6789C11.3564 10.3086 11.8581 10.1003 12.3815 10.1ZM19.8948 10.1C20.1599 10.09 20.4242 10.1337 20.6721 10.2282C20.9199 10.3227 21.1461 10.4663 21.3372 10.6502C21.5283 10.8342 21.6803 11.0548 21.7843 11.2988C21.8882 11.5429 21.9418 11.8053 21.942 12.0706C21.9422 12.3358 21.8889 12.5984 21.7853 12.8426C21.6817 13.0868 21.53 13.3076 21.3391 13.4918C21.1483 13.676 20.9222 13.8198 20.6745 13.9147C20.4269 14.0096 20.1626 14.0535 19.8975 14.044C19.387 14.0255 18.9036 13.8099 18.5488 13.4424C18.1941 13.0748 17.9957 12.5841 17.9953 12.0733C17.995 11.5625 18.1927 11.0714 18.547 10.7034C18.9012 10.3354 19.3844 10.1191 19.8948 10.1ZM16.0002 1.30664C7.90016 1.30664 1.3335 7.87197 1.3335 15.9733C1.3335 24.0733 7.90016 30.64 16.0002 30.64C24.1002 30.64 30.6668 24.0733 30.6668 15.9733C30.6668 7.87197 24.1002 1.30664 16.0002 1.30664Z" fill="currentColor" />
+const ChatTabIcon = ({ active, className }: TabIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <path
+      d="M12 4c4.8 0 8.6 3.2 8.6 7.3s-3.8 7.3-8.6 7.3c-.9 0-1.8-.1-2.6-.3L5.2 20.4l.9-3.8C4.4 15.2 3.4 13.4 3.4 11.3 3.4 7.2 7.2 4 12 4z"
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const MyTabIcon = ({ active, className }: TabIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    {active ? (
+      <>
+        <circle cx="12" cy="8.2" r="4" fill="currentColor" />
+        <path d="M4.2 19.6c.6-3.8 3.8-6.3 7.8-6.3s7.2 2.5 7.8 6.3a.8.8 0 0 1-.8.9H5a.8.8 0 0 1-.8-.9z" fill="currentColor" />
+      </>
+    ) : (
+      <>
+        <circle cx="12" cy="8.2" r="3.6" stroke="currentColor" strokeWidth="2" />
+        <path d="M5 20c.6-3.5 3.5-5.8 7-5.8s6.4 2.3 7 5.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </>
+    )}
   </svg>
 );
 
@@ -68,19 +105,19 @@ const HEADER_CATEGORIES: { name: string; img: string; href: string }[] = [
 ];
 
 const USER_NAV_ITEMS = [
-  { href: '/main',      icon: HomeNavIcon,      label: '홈' },
-  { href: '/community', icon: CommunityNavIcon, label: '커뮤니티' },
-  { href: '/inquiries', icon: NewRequestNavIcon, label: '문의목록' },
-  { href: '/chat',      icon: ChatNavIcon,      label: '채팅' },
-  { href: '/my',        icon: MyNavIcon,        label: '마이' },
+  { href: '/main',      icon: HomeTabIcon,      label: '홈' },
+  { href: '/community', icon: CommunityTabIcon, label: '커뮤니티' },
+  { href: '/inquiries', icon: ListTabIcon,      label: '문의목록' },
+  { href: '/chat',      icon: ChatTabIcon,      label: '채팅' },
+  { href: '/my',        icon: MyTabIcon,        label: '마이' },
 ];
 
 const PRO_NAV_ITEMS = [
-  { href: '/main',      icon: HomeNavIcon,       label: '홈' },
-  { href: '/community', icon: CommunityNavIcon,  label: '커뮤니티' },
-  { href: '/pro-dashboard/inquiries', icon: NewRequestNavIcon, label: '새요청' },
-  { href: '/chat',      icon: ChatNavIcon,       label: '채팅' },
-  { href: '/my',        icon: MyNavIcon,         label: '마이' },
+  { href: '/main',      icon: HomeTabIcon,       label: '홈' },
+  { href: '/community', icon: CommunityTabIcon,  label: '커뮤니티' },
+  { href: '/pro-dashboard/inquiries', icon: ListTabIcon, label: '새요청' },
+  { href: '/chat',      icon: ChatTabIcon,       label: '채팅' },
+  { href: '/my',        icon: MyTabIcon,         label: '마이' },
 ];
 
 const HIDE_NAV_PATTERNS = [
@@ -150,8 +187,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const communityRoute = /^\/community(\/|$)/.test(pathname);
   const [navVisible, setNavVisible] = useState(true);
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
-  const [navExpanding, setNavExpanding] = useState(false);
-  const [bizCollapsing, setBizCollapsing] = useState(false);
   const [categoryDocked, setCategoryDocked] = useState(false);
   /** PC 사회자 미리보기처럼 iframe 안에 끼워 넣은 경우 — 오버레이/배너는 띄우지 않는다 */
   const [embedded, setEmbedded] = useState(false);
@@ -409,27 +444,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = '/main';
-  const activeNavIndex = Math.max(
-    0,
-    NAV_ITEMS.findIndex(({ href }) => pathname === href || (href !== homeHref && pathname.startsWith(href))),
-  );
-
-  // pathname 변경 시 collapsing 리셋
-  useEffect(() => {
-    setBizCollapsing(false);
-  }, [pathname]);
-
-  // 비즈에서 돌아왔을 때 펼쳐지는 애니메이션
-  useEffect(() => {
-    if (hideNav) return;
-    const from = sessionStorage.getItem('nav-transition');
-    if (from === 'from-biz') {
-      setNavExpanding(true);
-      sessionStorage.removeItem('nav-transition');
-      const t = setTimeout(() => setNavExpanding(false), 700);
-      return () => clearTimeout(t);
-    }
-  }, [pathname, hideNav]);
 
   useEffect(() => {
     const sync = () => setNotifUnread(getCachedUnreadCount());
@@ -566,141 +580,53 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* ─── Footer ────────────────────────────────────────────────── */}
       {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
 
-      {/* ─── Mobile Bottom Nav Gradient Blur ───────────────────── */}
-      {!hideNav && (
-        <div
-          data-ios-mobile-bottom-nav-blur
-          className="lg:hidden fixed left-0 right-0 bottom-0 h-20 z-40 pointer-events-none"
-          style={{
-            // 바탕색을 따라간다 — 회색 바탕(마이) 위에 흰 그라데이션이면 아래가 흰 띠로 보인다
-            background: myRoute
-              ? 'linear-gradient(to top, rgba(244,246,250,1) 0%, rgba(244,246,250,0.8) 50%, rgba(244,246,250,0) 100%)'
-              : 'linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%)',
-          }}
-        />
-      )}
-
-      {/* ─── Mobile Bottom Navigation (Glass Pill) ───────────────────── */}
+      {/* ─── Mobile Bottom Navigation — 토스 하단바(사장 레퍼런스 260926) ─────────
+          흰 바 · 위쪽만 둥근 모서리(24) · 위 가는 선 · 평소 선 아이콘/선택 채운 아이콘 · 라벨 12px.
+          안 읽은 채팅·새 요청은 숫자 대신 빨간 점. 스크롤 내리면 아래로 숨고 올리면 다시 나온다.
+          iOS 앱은 네이티브 탭바를 쓰므로 data-ios-mobile-bottom-nav 로 이 바를 숨긴다. */}
       {!hideNav && (
         <nav
           data-ios-mobile-bottom-nav
-          className="lg:hidden fixed left-0 right-0 z-50 px-4 pb-safe"
+          className="lg:hidden fixed inset-x-0 bottom-0 z-50"
           style={{
-            bottom: navMounted && navVisible ? 0 : -80,
-            transform: navMounted && navVisible ? 'scale(1) translateY(0)' : 'scale(0.88) translateY(8px)',
-            opacity: navMounted && navVisible ? 1 : 0,
-            transition: 'bottom 0.42s cubic-bezier(0.34, 1.2, 0.64, 1), transform 0.42s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.25s ease',
+            transform: navMounted && navVisible ? 'translateY(0)' : 'translateY(110%)',
+            transition: 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)',
           }}
         >
           <div
-            className="mx-auto mb-1"
-            style={{ display: 'flex', justifyContent: 'center', width: '100%', maxWidth: 512 }}
+            data-nav-pill
+            className="mx-auto max-w-[640px] rounded-t-[24px] bg-white pb-safe"
+            style={{ boxShadow: '0 0 0 0.5px #E4E4E7, 0 -2px 12px rgba(0, 0, 0, 0.03)' }}
           >
-            <div
-              data-nav-pill
-              className="glass-strong shadow-nav"
-              style={{
-                width: bizCollapsing ? 60 : '100%',
-                height: 66,
-                borderRadius: 9999,
-                // 평소엔 visible — press 시 fill 알약이 네비바보다 더 크게 넘쳐 보이도록.
-                // biz 접힘 애니메이션 때만 hidden(아이콘 클리핑).
-                overflow: bizCollapsing ? 'hidden' : 'visible',
-                transition: bizCollapsing
-                  ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  : 'none',
-                ...(navExpanding ? { animation: 'platformPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
-              }}
-            >
-              <div className={`relative flex items-center h-full ${bizCollapsing ? 'overflow-hidden' : 'overflow-visible'} px-[8px] py-[3px]`}>
-                <span
-                  data-fill-pill
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-[6px] bottom-[6px] rounded-full"
-                  style={{
-                    left: `calc(8px + ${activeNavIndex} * ((100% - 16px) / ${NAV_ITEMS.length}))`,
-                    width: `calc((100% - 16px) / ${NAV_ITEMS.length})`,
-                    backgroundColor: 'rgba(15, 23, 42, 0.11)',
-                    border: '0.4px solid transparent',
-                    boxSizing: 'border-box',
-                    transformOrigin: 'center',
-                    transition: 'left 0.34s cubic-bezier(0.16, 1, 0.3, 1), width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
-                />
-                <div className="flex-1 flex items-center justify-around">
-                {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
-                  const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
-                  const isBiz = href === '/biz';
-                  const badge = label === '새요청' ? newRequestCount : label === '채팅' ? chatUnreadCount : 0;
-                  const itemStyle: CSSProperties = {
-                    opacity: bizCollapsing ? 0 : 1,
-                    transform: bizCollapsing ? 'scale(0.5)' : 'scale(1)',
-                    transition: bizCollapsing
-                      ? `opacity 0.2s ease ${idx * 0.03}s, transform 0.2s ease ${idx * 0.03}s`
-                      : 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease',
-                    ...(navExpanding ? { animation: `platformIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.06}s both` } : {}),
-                  };
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      data-nav={label}
-                      className={`relative z-10 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl ${
-                        active ? 'text-gray-900' : 'text-gray-400'
-                      }`}
-                      style={itemStyle}
-                      onClick={(event) => {
-                        if (isBiz) {
-                          event.preventDefault();
-                          sessionStorage.setItem('nav-transition', 'from-platform');
-                          setBizCollapsing(false);
-                          router.push('/biz');
-                          return;
-                        }
-                        // press 피드백: 네비바 크기는 그대로, fill 알약만 살짝 더 크게 스케일업
-                        // (배경 5% + 0.4px 보더) 바운스 후 복귀. 슬라이드(left) 애니메이션은 유지.
-                        const fillPill = document.querySelector('[data-fill-pill]') as HTMLElement;
-                        if (fillPill) {
-                          fillPill.style.animation = 'none';
-                          void fillPill.offsetHeight;
-                          fillPill.style.animation = 'pillPress 0.52s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                        }
-                      }}
-                    >
-                      <Icon className={`h-6 w-6 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`} />
-                      {badge > 0 && (
-                        <span className="absolute right-1 top-0 min-w-[16px] h-[16px] rounded-full bg-[#3180F7] px-1 text-[9px] font-bold leading-[16px] text-white text-center shadow-sm">
-                          {badge > 99 ? '99+' : badge}
-                        </span>
+            <div className="flex h-[58px] items-stretch">
+              {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+                const active = pathname === href || (href !== homeHref && pathname.startsWith(href));
+                const dot = (label === '새요청' && newRequestCount > 0) || (label === '채팅' && chatUnreadCount > 0);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    data-nav={label}
+                    aria-current={active ? 'page' : undefined}
+                    className="flex flex-1 flex-col items-center justify-center gap-[5px] text-[#36373C] transition-transform duration-150 active:scale-[0.92]"
+                  >
+                    <span className="relative block h-6 w-6">
+                      <Icon active={active} className="h-6 w-6" />
+                      {dot && (
+                        <span
+                          aria-label="새 알림"
+                          className="absolute -right-[4px] top-0 h-[6px] w-[6px] rounded-full bg-[#F04452]"
+                        />
                       )}
-                      <span className={`text-[9px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
-                    </Link>
-                  );
-                })}
-                </div>
-              </div>
+                    </span>
+                    <span className={`text-[12px] leading-[14px] tracking-[-0.2px] text-[#39383D] ${active ? 'font-semibold' : 'font-medium'}`}>
+                      {label}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
-
-          {/* Nav transition keyframes */}
-          <style>{`
-            @keyframes platformPillExpand {
-              0% { width: 60px; }
-              70% { width: 105%; }
-              100% { width: 100%; }
-            }
-            @keyframes platformIconAppear {
-              0% { opacity: 0; transform: scale(0.3) translateY(4px); }
-              60% { opacity: 1; transform: scale(1.06) translateY(-1px); }
-              100% { opacity: 1; transform: scale(1) translateY(0); }
-            }
-            /* press 시 fill 알약: 네비바보다 살짝 크게 스케일업 + 배경 5% + 0.4px 보더, 바운스 후 복귀 */
-            @keyframes pillPress {
-              0%   { transform: scale(1);   background-color: rgba(15,23,42,0.11); border-color: rgba(15,23,42,0); }
-              45%  { transform: scale(1.4); background-color: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.18); }
-              100% { transform: scale(1);   background-color: rgba(15,23,42,0.11); border-color: rgba(15,23,42,0); }
-            }
-          `}</style>
         </nav>
       )}
       {/* Login Modal — iOS NativeLoginView 디자인 통일 (Android safe-area 보정) */}
