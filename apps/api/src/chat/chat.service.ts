@@ -121,6 +121,13 @@ export class ChatService implements OnModuleInit {
     }
   }
 
+  /** 목록 캐시만 비운다(참여자·repair 캐시는 그대로) — 읽음 처리처럼 자주 불리는 곳용 */
+  private invalidateRoomsListCache(userId: string) {
+    for (const key of this.roomCache.keys()) {
+      if (key.startsWith(`rooms:${userId}:`)) this.roomCache.delete(key);
+    }
+  }
+
   private cacheRoomParticipants(roomId: string, userIds: Array<string | null | undefined>) {
     const ids = Array.from(new Set(userIds.filter(Boolean) as string[]));
     if (ids.length > 0) {
@@ -1944,6 +1951,8 @@ export class ChatService implements OnModuleInit {
       where: { roomId, userId },
       data: { unreadCount: 0, lastReadAt: new Date() },
     });
+    // 읽고 나서 목록으로 돌아가면 10초 목록 캐시가 옛 안 읽음 수를 돌려줘 '새 메시지 N' 이 되살아났다
+    this.invalidateRoomsListCache(userId);
 
     Promise.resolve().then(async () => {
       const unreadMessages = await this.prisma.message.findMany({

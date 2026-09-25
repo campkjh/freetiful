@@ -23,6 +23,7 @@ import { isChatStickerUrl } from '@/lib/chat-stickers';
 import toast from 'react-hot-toast';
 import { popItemDelay } from '@/lib/pop-menu';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
+import { PhoneNumberNotice, containsPhoneNumber } from '@/components/chat/ChatNotice';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -735,7 +736,14 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
     const mapped: Message[] = newWsMessages.map(mapApiMessage);
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
-      const unique = mapped.filter((m) => !existingIds.has(m.id));
+      const unique = mapped.filter((m) => !existingIds.has(m.id)).map((u) => {
+        // 내 낙관적 말풍선을 대신하는 확정본이면 그 줄(clientKey)과 애니 상태를 이어받는다
+        const opt = prev.find((m) => isOptimisticId(m.id) && m.senderId === u.senderId && m.content === u.content);
+        if (opt) return { ...u, clientKey: opt.clientKey || opt.id, isNew: opt.isNew };
+        // 상대가 방금 보낸 말 — 같은 '커지는' 애니로 등장(시스템 카드는 제외)
+        if (u.senderId !== MY_ID && u.type !== 'system') return { ...u, isNew: true };
+        return u;
+      });
       if (unique.length === 0) return prev;
       // 낙관적 메시지(opt-) 중 같은 senderId+content인 것 제거
       const withoutOptimistic = prev.filter((m) => {
@@ -744,6 +752,11 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       });
       return [...withoutOptimistic, ...unique];
     });
+    const newIds = new Set(mapped.map((m) => m.id));
+    const settled = (m: Message) => newIds.has(m.id) && m.isNew && m.senderId !== MY_ID;
+    setTimeout(() => {
+      setMessages((prev) => (prev.some(settled) ? prev.map((m) => (settled(m) ? { ...m, isNew: false } : m)) : prev));
+    }, 520);
   }, [wsMessages]);
 
   // Auto-scroll — 최초 로드 시엔 instant 로 맨 밑으로, 이후엔 smooth
@@ -819,7 +832,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         replyToId: replyTo?.id,
       }).then((saved) => {
         if (!saved) return;
-        const persisted = { ...mapApiMessage(saved), isNew: false };
+        // 같은 줄(clientKey)로 이어받아, 커지는 애니 도중에 확정돼도 끊기지 않게(0.5초 뒤 isNew 는 아래 타이머가 끈다)
+        const persisted = { ...mapApiMessage(saved), clientKey: optimistic.id, isNew: Date.now() - now < 480 };
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimistic.id);
           if (withoutOptimistic.some((m) => m.id === persisted.id)) return withoutOptimistic;
@@ -835,7 +849,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
       setMentionQuery(null);
       inputRef.current?.focus();
       setTimeout(() => {
-        setMessages((prev) => prev.map((m) => m.id === optimistic.id ? { ...m, isNew: false } : m));
+        setMessages((prev) => prev.map((m) => (m.id === optimistic.id || m.clientKey === optimistic.id) && m.isNew ? { ...m, isNew: false } : m));
       }, 500);
       return;
     }
@@ -1492,9 +1506,11 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
               new Date(nextMsg!.createdAt).getTime() - new Date(msg.createdAt).getTime() > 3 * 60 * 1000;
             const tailed = groupEnd && msg.type !== 'image' && msg.type !== 'video';
             const tailCorner = tailed ? ` ${mine ? TAIL_CORNER_CLASS.mine : TAIL_CORNER_CLASS.other}` : '';
+            // 전화번호가 든 말 — 고객이 보냈으면 '유의'(노랑), 사회자가 보냈으면 '주의'(빨강) 카드를 바로 아래에
+            const phoneNotice = msg.type === 'text' && containsPhoneNumber(msg.content);
 
             return (
-              <div key={msg.id} id={`msg-${msg.id}`}>
+              <div key={msg.clientKey || msg.id} id={`msg-${msg.id}`}>
                 {showSafetyNotice && (
                   <Suspense fallback={null}>
                     <SafePaymentNotice />
@@ -1530,7 +1546,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                     {msg.type === 'image' && isChatStickerUrl(msg.content) ? (
                       /* 이모티콘 — 사진과 달리 말풍선/전체보기 없이 이미지만 */
                       <div
-                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`select-none ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1547,7 +1563,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     ) : msg.type === 'image' ? (
                       <div
-                        className={`relative select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`relative select-none ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1568,7 +1584,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     ) : msg.type === 'video' ? (
                       <div
-                        className={`relative select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`relative select-none ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1599,7 +1615,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} select-none no-underline ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} select-none no-underline ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${expired ? 'opacity-60' : ''} ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onClick={async (e) => {
                           if (expired) { e.preventDefault(); return; }
@@ -1661,7 +1677,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       );
                     })() : msg.type === 'location' ? (
                       <div
-                        className={`select-none ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`select-none ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1683,7 +1699,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
-                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px]${tailCorner} select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''}`}
+                        className={`flex max-w-full min-w-[min(180px,70vw)] items-center gap-3 pl-2 pr-4 py-2.5 rounded-[20px]${tailCorner} select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'} ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''}`}
                         style={{ transformOrigin: mine ? 'right bottom' : 'left bottom', WebkitTouchCallout: 'none' }}
                         onPointerDown={(e) => handleLongPressStart(e, msg)}
                         onPointerUp={handleLongPressCancel}
@@ -1731,7 +1747,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                           mine
                             ? 'bg-[#3180F7] text-white rounded-[20px]'
                             : 'bg-[#F2F3F5] text-[#191F28] rounded-[20px]'
-                        }${tailCorner} ${msg.isNew ? 'animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
+                        }${tailCorner} ${msg.isNew ? 'animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]' : ''} ${actionMenu?.id === msg.id ? 'ring-2 ring-[#3180F7]/40' : ''}`}
                         style={{
                           transformOrigin: mine ? 'right bottom' : 'left bottom',
                           WebkitTouchCallout: 'none',
@@ -1784,6 +1800,11 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   )}
                   </div>
                 </div>
+                {phoneNotice && (
+                  <div className="mb-1 mt-3">
+                    <PhoneNumberNotice senderIsPro={mine ? isPro : !isPro} viewerIsSender={mine} />
+                  </div>
+                )}
               </div>
             );
           });
@@ -2134,11 +2155,11 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           0% { transform: translateY(100%); }
           100% { transform: translateY(0); }
         }
-        @keyframes bubblePop {
-          0% { transform: scale(0.3); opacity: 0; }
-          50% { transform: scale(1.08); opacity: 1; }
-          70% { transform: scale(0.96); }
-          100% { transform: scale(1); opacity: 1; }
+        /* 새 말풍선 — 인스타 DM 식: 꼬리 쪽 아래 모서리에서 작게 시작해 살짝 올라오며 커지고, 넘치지 않고 제자리(사장 지시 260925 "바운스 너무 심해") */
+        @keyframes bubbleGrow {
+          0% { transform: translateY(10px) scale(0.62); opacity: 0; }
+          45% { opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
         }
         @keyframes menuPop {
           0% { transform: scale(0.4); opacity: 0; }

@@ -62,6 +62,25 @@ function truncateEmail(email: string, max = 24): string {
 
 const TOSS = (name: string) => `/icons/toss/${name}.svg`;
 
+/** '프로필 편집/설정' 아이콘 자리에 내 프로필 사진(사장 지시 260925) — 못 불러오면 원래 사람 아이콘 */
+function ProfilePhotoIcon({ src, size, iconSize }: { src: string; size: number; iconSize: number }) {
+  const [broken, setBroken] = useState(false);
+  if (broken || !src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={TOSS('account')} alt="" style={{ width: iconSize, height: iconSize }} />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onError={() => setBroken(true)}
+      className="rounded-full bg-[#F2F4F6] object-cover"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 type MyRow = {
   k: string;
   icon: string;
@@ -318,10 +337,16 @@ export default function MyPage() {
 
   const rowInner = (row: MyRow) => (
     <>
-      <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[#F7F8FA]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 SVG, 컬러 그대로 */}
-        <img src={TOSS(row.icon)} alt="" className="h-[24px] w-[24px]" />
-      </span>
+      {row.k === 'profile' && isLoggedIn ? (
+        <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center">
+          <ProfilePhotoIcon src={user.image} size={40} iconSize={24} />
+        </span>
+      ) : (
+        <span className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-[#F7F8FA]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 SVG, 컬러 그대로 */}
+          <img src={TOSS(row.icon)} alt="" className="h-[24px] w-[24px]" />
+        </span>
+      )}
       {/* 제목은 필요한 만큼 가져가고, 남는 폭은 설명이 받는다(모자라면 설명이 먼저 줄어든다) */}
       <span className="flex min-w-0 items-center gap-1.5">
         <span className={`truncate text-[16px] font-semibold ${row.danger ? 'text-[#F04452]' : 'text-[#191F28]'}`}>{row.title}</span>
@@ -444,8 +469,12 @@ export default function MyPage() {
                 const inner = (
                   <>
                     <span className="flex h-[58px] w-[58px] items-center justify-center rounded-[18px] bg-white">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={TOSS(t.icon)} alt="" className="h-[30px] w-[30px]" />
+                      {t.k === 'profile' && isLoggedIn ? (
+                        <ProfilePhotoIcon src={user.image} size={38} iconSize={30} />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={TOSS(t.icon)} alt="" className="h-[30px] w-[30px]" />
+                      )}
                     </span>
                     <span className="text-[12px] font-medium text-[#51535C]">{t.label}</span>
                   </>

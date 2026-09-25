@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync, createPortal } from 'react-dom';
 import Link from 'next/link';
+import ChatNotice from '@/components/chat/ChatNotice';
 import { Reply, TextSelect } from 'lucide-react';
 import {
   XIcon as X,
@@ -609,16 +610,12 @@ export function TintIcon({ src, color, size = 24 }: { src: string; color: string
   );
 }
 
+// 안전결제 안내 — 파란 '안내' 카드(사장 지시 260925: 유의=노랑·주의=빨강·안내=파랑). 예전엔 빨간 ※ 주의 글줄이었다.
 export function SafePaymentNotice() {
   return (
-    <div className="mx-2 my-2 rounded-[12px] bg-[#FFF4F4] px-4 py-3">
-      <p className="text-[12.5px] leading-[1.65] text-[#E5484D]">
-        ※ 주의. 상대방이 프리티풀 안전결제가 아닌 직접 결제를 유도하는 경우, 프리티풀에 신고해 주세요.{' '}
-        <Link href="/my/support" className="font-bold underline underline-offset-2">
-          신고하기
-        </Link>
-      </p>
-    </div>
+    <ChatNotice tone="info" title="프리티풀 안전결제로 거래하세요" action={{ label: '신고하기', href: '/my/support' }} className="my-3">
+      결제 금액은 행사가 끝난 뒤 사회자에게 전달돼요. 직접 결제를 유도하면 신고해 주세요.
+    </ChatNotice>
   );
 }
 
@@ -670,7 +667,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
     );
   }
 
-  const wrapperClass = 'max-w-[280px] my-2 ml-14 animate-[bubblePop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]';
+  const wrapperClass = 'max-w-[280px] my-2 ml-14 origin-bottom-left animate-[bubbleGrow_0.42s_cubic-bezier(0.2,0.9,0.3,1)_both]';
 
   if (sys.kind === 'quote') {
     const planKey = String(sys.plan || '').toLowerCase();

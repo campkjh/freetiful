@@ -25,6 +25,38 @@ const DEFAULT_SOCKET_URL = 'https://affectionate-smile-production-6535.up.railwa
 let roomsFetchInFlight: Promise<void> | null = null;
 let roomsFetchInFlightKey = '';
 
+// ── 읽음(2026-09-25 사장 신고: 분명히 읽었는데 목록에 '새 메시지 N') ──
+// 원인: 방을 열어 둔 채 받은 메시지는 서버가 안 읽음을 계속 올렸고(읽음 처리는 입장할 때 한 번뿐),
+// 목록 API 캐시(10초)가 읽기 전 숫자를 돌려주기도 했다.
+//  · 열어 둔 방(화면이 보일 때)에 상대 메시지가 오면 곧바로 읽음을 보낸다(0.6초 묶음).
+//  · 방에서 내가 본 마지막 메시지의 **서버 시각**을 기억해, 그 뒤로 새 메시지가 없는 방은
+//    서버 목록이 늦게 와도(캐시·경합) '새 메시지'로 되돌리지 않는다. 기기 시계는 쓰지 않는다(시계 어긋남).
+const localReadUpTo = new Map<string, number>();
+const markReadTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let readVisibilityBound = false;
+function noteRoomRead(roomId: string, atIso?: string | null) {
+  const t = atIso ? new Date(atIso).getTime() : NaN;
+  if (!Number.isFinite(t)) return;
+  if (t > (localReadUpTo.get(roomId) || 0)) localReadUpTo.set(roomId, t);
+}
+function isDocVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+/** 서버 목록에 읽음 기억을 덮는다 — 본 뒤로 새 메시지가 없는 방은 안 읽음 0 */
+function applyLocalReads(rooms: ChatRoomItem[], currentRoomId: string | null): ChatRoomItem[] {
+  let changed = false;
+  const next = rooms.map((r) => {
+    if (!r.unreadCount) return r;
+    const seen = localReadUpTo.get(r.id) || 0;
+    const last = r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : NaN;
+    const read = (r.id === currentRoomId && isDocVisible()) || (seen > 0 && Number.isFinite(last) && last <= seen);
+    if (!read) return r;
+    changed = true;
+    return { ...r, unreadCount: 0 };
+  });
+  return changed ? next : rooms;
+}
+
 type FetchRoomsParams = {
   search?: string;
   dateFrom?: string;
@@ -227,6 +259,8 @@ interface ChatState {
   fetchRooms: (params?: FetchRoomsParams) => Promise<void>;
   joinRoom: (roomId: string) => void;
   leaveRoom: () => void;
+  /** 지금 열린 방을 읽음으로(화면에 다시 보일 때 등) */
+  markCurrentRoomRead: () => void;
   fetchMessages: (roomId: string, loadMore?: boolean) => Promise<void>;
   sendMessage: (data: SendMessagePayload) => Promise<MessageItem | null>;
   editMessage: (messageId: string, content: string) => void;
@@ -346,6 +380,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const cachedForRoom = messageCache.get(message.roomId) || [];
       messageCache.set(message.roomId, replaceOrAppendMessage(cachedForRoom, message).slice(-80));
       const hasRoomInList = get().rooms.some((room) => room.id === message.roomId);
+      // 열어 둔 방에 상대 메시지가 왔고 화면이 보이면 — 바로 읽음(서버 안 읽음 수가 쌓이지 않게)
+      if (message.roomId === currentRoomId && !isMine && isDocVisible()) {
+        noteRoomRead(message.roomId, message.createdAt);
+        const roomId = message.roomId;
+        const prevTimer = markReadTimers.get(roomId);
+        if (prevTimer) clearTimeout(prevTimer);
+        markReadTimers.set(roomId, setTimeout(() => {
+          markReadTimers.delete(roomId);
+          const sock = get().socket;
+          if (sock?.connected) sock.emit('markRead', { roomId });
+          else chatApi.markAsRead(roomId).catch(() => {});
+        }, 600));
+      }
       if (message.roomId === currentRoomId) {
         set((s) => ({
           messages: replaceOrAppendMessage(s.messages, message),
@@ -580,6 +627,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (nextRooms.length === 0 && checkHasRoomsOnce(userId)) {
         return;
       }
+      nextRooms = applyLocalReads(nextRooms, get().currentRoomId);
       set({ rooms: nextRooms, roomsUserId: userId, lastRoomsFetchAt: Date.now() });
       if (!hasFilters && nextRooms.length > 0) {
         writeRoomsCache(nextRooms, userId);
@@ -647,6 +695,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ currentRoomId: roomId, messages: cached, messageCursor: null, hasMoreMessages: false });
     socket?.emit('joinRoom', { roomId });
     chatApi.markAsRead(roomId).catch(() => {});
+    noteRoomRead(roomId, get().rooms.find((r) => r.id === roomId)?.lastMessageAt);
+    // 방을 연 채 다른 앱/탭에 갔다 오면 그 사이 온 메시지를 읽음으로(한 번만 건다)
+    if (!readVisibilityBound && typeof document !== 'undefined') {
+      readVisibilityBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') get().markCurrentRoomRead();
+      });
+    }
 
     // Reset unread in room list
     set((s) => {
@@ -656,9 +712,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
+  markCurrentRoomRead: () => {
+    const { currentRoomId, socket, rooms } = get();
+    if (!currentRoomId || !isDocVisible()) return;
+    const room = rooms.find((r) => r.id === currentRoomId);
+    noteRoomRead(currentRoomId, room?.lastMessageAt);
+    if (socket?.connected) socket.emit('markRead', { roomId: currentRoomId });
+    else chatApi.markAsRead(currentRoomId).catch(() => {});
+    if (room?.unreadCount) {
+      set((s) => {
+        const nextRooms = s.rooms.map((r) => (r.id === currentRoomId ? { ...r, unreadCount: 0 } : r));
+        writeRoomsCache(nextRooms);
+        return { rooms: nextRooms };
+      });
+    }
+  },
+
   leaveRoom: () => {
     const { socket, currentRoomId, messages, messageCache } = get();
     if (currentRoomId) {
+      if (isDocVisible()) noteRoomRead(currentRoomId, get().rooms.find((r) => r.id === currentRoomId)?.lastMessageAt);
       socket?.emit('leaveRoom', { roomId: currentRoomId });
       if (messages.length > 0) {
         messageCache.set(currentRoomId, messages);

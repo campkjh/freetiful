@@ -52,6 +52,8 @@ export interface Message {
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;
+  /** 화면 줄 key — 낙관적(opt-) 말풍선이 서버 확정본으로 바뀌어도 같은 줄로 남게(애니가 끊기지 않게) */
+  clientKey?: string;
   system?: SystemPayload;
   /** 사회자 자동응답으로 나간 메시지 — 화면에 '자동응답' 표시를 단다 */
   autoReply?: boolean;
