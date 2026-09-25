@@ -32,6 +32,14 @@ interface ProItem {
   price: number;
   experience: number;
   tags: string[];
+  /** 'male'·'female' 또는 '남성'·'여성'(가입 시기마다 표기가 다름) · 빈 값 */
+  gender: string;
+}
+
+/** 남성/여성 사회자 거르기 — DB 값이 male/female 과 남성/여성 두 가지라 둘 다 본다 */
+function matchesGender(value: string, want: 'male' | 'female') {
+  const v = (value || '').trim().toLowerCase();
+  return want === 'male' ? v === 'male' || v.includes('남') : v === 'female' || v.includes('여');
 }
 
 const SORT_OPTIONS = [
@@ -354,6 +362,7 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       price: 0,
       experience: p.careerYears || 1,
       tags: (p as any).tags || [],
+      gender: p.gender || '',
     }));
 }
 
@@ -404,6 +413,14 @@ function ProsListContent() {
   const initialQuery = searchParams.get('q') || searchParams.get('keyword') || '';
   const normalizedCategoryParam = categoryParam.replace(/[\s/·-]/g, '');
   const isForeignFilter = normalizedCategoryParam === '외국어사회자';
+  // 남성/여성 사회자(홈 카테고리 칸, 사장 지시 260925) — ?gender=male|female 또는 ?category=남성사회자|여성사회자
+  const genderParam = (searchParams.get('gender') || '').toLowerCase();
+  const genderFilter: 'male' | 'female' | '' =
+    genderParam === 'male' || normalizedCategoryParam === '남성사회자'
+      ? 'male'
+      : genderParam === 'female' || normalizedCategoryParam === '여성사회자'
+        ? 'female'
+        : '';
 
   // 카테고리 파라미터에 따라 초기 필터 설정
   const initialType = categoryParam === '축가·연주' || categoryParam === '축가/연주'
@@ -538,6 +555,7 @@ function ProsListContent() {
     let results = ALL_PROS.filter((p) => {
       if (selectedLang !== '전체' && !(p.languages || []).includes(selectedLang)) return false;
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
+      if (genderFilter && !matchesGender(p.gender, genderFilter)) return false;
       // 결혼식/행사(사회자)는 승인+비숨김 전체 노출 (카테고리 제한 없음)
       if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
       // 검색어는 이름·소개·카테고리뿐 아니라 전문분야 태그(주례없는 예식 등)도 대상으로.
@@ -569,7 +587,7 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, ALL_PROS]);
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, genderFilter, ALL_PROS]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
@@ -737,7 +755,7 @@ function ProsListContent() {
                 key="title"
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
-                {isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
+                {genderFilter ? (genderFilter === 'male' ? '남성 사회자' : '여성 사회자') : isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
               </h1>
             )}
           </>

@@ -368,8 +368,8 @@ final class HomeCategoryIcons: UIView {
 
     private static let items: [(label: String, icon: String, href: String)] = [
         // 카테고리 칸 전용 아이콘(웹 public 에서 받아옴) — wedding-mc.png·event-mc.png 는 위 히어로 카드 사진
-        ("결혼식사회자", "wedding-mc-icon.png", "/pros?category=결혼식사회자"),
-        ("행사사회자", "event-mc-icon.png", "/pros?category=전문행사사회자"),
+        ("남성사회자", "wedding-mc-icon.png", "/pros?gender=male"),
+        ("여성사회자", "event-mc-icon.png", "/pros?gender=female"),
         ("외국어사회자", "foreign-mc.png", "/pros?category=외국어사회자"),
         ("웨딩홀", "wedding-hall.png", "/businesses?category=웨딩홀"),
         ("드레스", "dress.png", "/businesses?category=드레스"),

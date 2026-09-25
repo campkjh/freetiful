@@ -1033,9 +1033,9 @@ function getHomeCategoryItems(): HomeCategoryItem[] {
     : [];
 
   return [
-    // 카테고리 칸 전용 아이콘(사장 지시 260925 새 일러스트) — wedding-mc.png·event-mc.png 는 위 히어로 카드 사진이라 따로 둔다
-    { name: '결혼식사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc-icon.png`, href: proCategoryHref('결혼식사회자') },
-    { name: '행사사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc-icon.png`, href: proCategoryHref('전문행사사회자') },
+    // 남성/여성 사회자(사장 지시 260925 — 결혼식·행사 대신 성별로). 아이콘은 턱시도 남자·파란 재킷 여자 일러스트
+    { name: '남성사회자', img: `${HOME_CATEGORY_ICON_DIR}/wedding-mc-icon.png`, href: '/pros?gender=male' },
+    { name: '여성사회자', img: `${HOME_CATEGORY_ICON_DIR}/event-mc-icon.png`, href: '/pros?gender=female' },
     { name: '외국어사회자', img: `${HOME_CATEGORY_ICON_DIR}/foreign-mc.png`, href: proCategoryHref('외국어사회자') },
     ...weddingPartnerCats,
     ...applianceCat,

@@ -56,8 +56,8 @@ const MyNavIcon = ({ className }: NavIconProps) => (
  * 이동 경로가 끊기지 않게 한다. (PC 홈 전용)
  */
 const HEADER_CATEGORIES: { name: string; img: string; href: string }[] = [
-  { name: '결혼식사회자', img: '/images/category-icons/wedding-mc-icon.png', href: '/pros?category=%EA%B2%B0%ED%98%BC%EC%8B%9D%EC%82%AC%ED%9A%8C%EC%9E%90' },
-  { name: '행사사회자', img: '/images/category-icons/event-mc-icon.png', href: '/pros?category=%EC%A0%84%EB%AC%B8%ED%96%89%EC%82%AC%EC%82%AC%ED%9A%8C%EC%9E%90' },
+  { name: '남성사회자', img: '/images/category-icons/wedding-mc-icon.png', href: '/pros?gender=male' },
+  { name: '여성사회자', img: '/images/category-icons/event-mc-icon.png', href: '/pros?gender=female' },
   { name: '외국어사회자', img: '/images/category-icons/foreign-mc.png', href: '/pros?category=%EC%99%B8%EA%B5%AD%EC%96%B4%EC%82%AC%ED%9A%8C%EC%9E%90' },
   ...WEDDING_PARTNER_CATEGORIES.filter((name) => name !== '가전').map((name) => ({
     name,
