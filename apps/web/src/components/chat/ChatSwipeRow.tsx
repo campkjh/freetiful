@@ -4,11 +4,11 @@ import { useEffect, useRef, type ReactNode } from 'react';
 
 /* ════════════════════════════════════════════════════════════════
  * 채팅 목록 한 줄 — 오른쪽→왼쪽으로 밀면 동그란 버튼(알림 끄기 · 삭제)이 드러난다(당근 채팅 목록 어법, 2026-09-25 사장 지시).
- * 당근 화면 녹화(0.1초 프레임)를 그대로 따랐다:
- *  · 버튼은 제자리에서 **점처럼 작게** 나타나 부드럽게 커지고, 끝에서 살짝 넘쳤다 자리 잡는다(스프링 ζ≈0.7).
- *    오른쪽(삭제)이 밀기 시작하자마자, 왼쪽(알림)은 그 자리가 드러날 때 — 순서대로.
+ * 당근 화면 녹화(1/30초 프레임 실측)를 그대로 따랐다:
+ *  · 버튼 자리는 고정(중심이 오른쪽에서 35 · 100). **줄이 그 자리를 완전히 지나간 뒤에야** 점으로 나타나
+ *    스프링으로 커지고 끝에서 살짝 넘쳤다 자리 잡는다 — 휴지통(60pt 드러났을 때) → 알림(125pt) 순서.
+ *  · 그리는 크기는 늘 '지금 드러난 공간'을 넘지 않는다 → 되돌릴 때 줄이 다가오는 만큼 같이 작아져 잘려 보이지 않는다.
  *  · 줄은 손가락을 1:1 로 따라오고, 손을 떼면 속도를 이어받아 스프링으로 멈춘다(휙 튕기면 그 방향으로).
- *    닫힐 때는 줄이 버튼 위로 스르륵 덮는다(버튼도 그 사이 작아진다).
  *  · 매끄러움: 움직이는 동안 React 를 다시 그리지 않고 requestAnimationFrame 에서 transform 만 바꾼다.
  *  · 세로 스크롤은 브라우저에(touch-action: pan-y) — 가로로 먼저 8px 움직일 때만 민다. 열린 줄을 누르면 이동 대신 닫힌다.
  *  · 누를 때 어두워지는 효과는 없다(사장 지시) — 탭 하이라이트도 끈다.
@@ -24,10 +24,11 @@ export type SwipeAction = {
   onClick: () => void;
 };
 
-const BTN = 52;
-const GAP = 10;
-const PAD_L = 8;
-const PAD_R = 14;
+// 당근 녹화 실측(440pt 화면, 1/30초 프레임): 동그라미 지름 50 · 사이 15 · 오른쪽 여백 10 · 다 열린 폭 136
+const BTN = 50;
+const GAP = 15;
+const PAD_L = 11;
+const PAD_R = 10;
 
 // 스프링 — 버튼: 약 0.25초에 제 크기, 끝에서 5% 남짓 넘쳤다 자리(ζ≈0.61) / 줄: 거의 안 넘치고 멈춤
 const BTN_K = 420;
@@ -68,17 +69,22 @@ export default function ChatSwipeRow({
   const moved = useRef(false);
   const openRef = useRef(open);
 
-  // 버튼이 튀어나오기 시작하는 자리 — 오른쪽 버튼은 밀기 시작하자마자, 왼쪽 버튼은 제 자리가 드러날 때
-  const triggerAt = (fromRight: number) => PAD_R + fromRight * (BTN + GAP) + 4;
+  // 버튼 중심이 오른쪽 끝에서 얼마나 떨어져 있나(고정) · 제 자리가 **다 드러나는** 밀린 폭
+  //  당근: 줄이 버튼 자리를 완전히 지나간 뒤에야 점으로 나타나 커진다(휴지통 60pt, 종 125pt) — 그 전엔 아예 안 보인다
+  const centerFromRight = (fromRight: number) => PAD_R + fromRight * (BTN + GAP) + BTN / 2;
+  const fullFitAt = (fromRight: number) => centerFromRight(fromRight) + BTN / 2;
 
   const paint = () => {
     const s = sim.current;
     if (contentRef.current) contentRef.current.style.transform = `translate3d(${-s.x}px,0,0)`;
     const opened = s.x >= width - 1;
+    const n = s.btn.length;
     s.btn.forEach((b, i) => {
       const el = btnRefs.current[i];
       if (!el) return;
-      const sc = Math.max(0, b.s);
+      // 드러난 공간에 온전히 들어가는 최대 크기 — 줄 가장자리가 버튼 중심에서 이만큼 떨어져 있다
+      const room = (s.x - centerFromRight(n - 1 - i)) / (BTN / 2);
+      const sc = Math.max(0, Math.min(b.s, room));
       el.style.transform = `scale(${sc.toFixed(4)})`;
       el.style.opacity = String(Math.min(1, sc * 4));
       el.style.visibility = sc < 0.01 ? 'hidden' : 'visible';
@@ -95,6 +101,11 @@ export default function ChatSwipeRow({
       const a = -ROW_K * (s.x - s.target) - ROW_C * s.vx;
       s.vx += a * dt;
       s.x += s.vx * dt;
+      // 닫힐 땐 0 에서 딱 멈춘다(오른쪽으로 넘어가 왼쪽 틈이 보이지 않게)
+      if (s.target === 0 && s.x < 0) {
+        s.x = 0;
+        s.vx = 0;
+      }
       if (Math.abs(s.x - s.target) < 0.3 && Math.abs(s.vx) < 6) {
         s.x = s.target;
         s.vx = 0;
@@ -102,7 +113,8 @@ export default function ChatSwipeRow({
     }
     const n = s.btn.length;
     s.btn.forEach((b, i) => {
-      const goal = s.x >= triggerAt(n - 1 - i) ? 1 : 0;
+      // 제 자리가 다 드러났을 때만 커지고, 줄이 다시 덮기 시작하면 작아진다
+      const goal = s.x >= fullFitAt(n - 1 - i) ? 1 : 0;
       const a = -BTN_K * (b.s - goal) - BTN_C * b.v;
       b.v += a * dt;
       b.s += b.v * dt;
