@@ -376,8 +376,18 @@ export default function NotificationsPage() {
               <path d="M15 5l-7 7 7 7" stroke="#191F28" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <Link href="/my/notifications" className="rounded-[10px] px-3 py-2 text-[16px] font-medium text-[#333D4B] transition-colors active:bg-[#F2F4F6]">
-            알림 설정
+          {/* 알림 설정 — 글자 대신 톱니바퀴(사장이 준 토스 mono 아이콘, 뒤로 화살표와 같은 무게로 칠한다) */}
+          <Link
+            href="/my/notifications"
+            aria-label="알림 설정"
+            title="알림 설정"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-colors active:bg-[#F2F4F6]"
+          >
+            <span
+              aria-hidden="true"
+              className="block h-6 w-6 bg-[#333D4B]"
+              style={{ WebkitMaskImage: 'url(/icons/toss/setting-mono.svg)', maskImage: 'url(/icons/toss/setting-mono.svg)', WebkitMaskSize: 'contain', maskSize: 'contain', WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskPosition: 'center' }}
+            />
           </Link>
         </div>
         <div
