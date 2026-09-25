@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
+import { popItemDelay } from '@/lib/pop-menu';
 
 /* ════════════════════════════════════════════════════════════════
  * 알림 — 토스 알림 화면 그대로 (2026-09-25 사장 지시), 등장은 퀵매칭 어법.
@@ -41,13 +42,14 @@ const TYPE_ICON: Record<NotifType, string> = {
   marketing: 'gift',
 };
 
-const FILTERS: { k: string; label: string; title: string; types: NotifType[] | null }[] = [
-  { k: 'all', label: '전체', title: '알림', types: null },
-  { k: 'chat', label: '채팅', title: '채팅 알림', types: ['chat'] },
-  { k: 'booking', label: '예약', title: '예약 알림', types: ['booking'] },
-  { k: 'payment', label: '결제', title: '결제 알림', types: ['payment'] },
-  { k: 'review', label: '리뷰', title: '리뷰 알림', types: ['review'] },
-  { k: 'notice', label: '공지 · 이벤트', title: '공지 · 이벤트', types: ['system', 'marketing'] },
+// '알림 ⌄' 메뉴 — 토스처럼 컬러 아이콘 + 이름 한 줄씩
+const FILTERS: { k: string; label: string; title: string; icon: string; types: NotifType[] | null }[] = [
+  { k: 'all', label: '전체', title: '알림', icon: 'list', types: null },
+  { k: 'chat', label: '채팅', title: '채팅 알림', icon: 'chat', types: ['chat'] },
+  { k: 'booking', label: '예약', title: '예약 알림', icon: 'calendar-check', types: ['booking'] },
+  { k: 'payment', label: '결제', title: '결제 알림', icon: 'coin', types: ['payment'] },
+  { k: 'review', label: '리뷰', title: '리뷰 알림', icon: 'star', types: ['review'] },
+  { k: 'notice', label: '공지 · 이벤트', title: '공지 · 이벤트', icon: 'loudspeaker', types: ['system', 'marketing'] },
 ];
 
 const UNREAD_BG = '#F2F6FC';
@@ -58,7 +60,6 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 const NT_CSS = `
 @keyframes ntFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes ntSlideIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes ntMenuIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .nt-a-title { animation: ntFadeUp .5s cubic-bezier(.22,.61,.36,1) both; }
 .nt-a-sub { animation: ntFadeUp .5s cubic-bezier(.22,.61,.36,1) .18s both; }
 /* fill backwards — 끝나면 빠져서 눌림 효과·밀기(transform)가 산다 */
@@ -410,35 +411,48 @@ export default function NotificationsPage() {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div
-              className="absolute left-5 top-full z-50 mt-1 w-[220px] overflow-hidden rounded-[18px] border border-[#F2F4F6] bg-white py-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.14)]"
-              style={{ animation: 'ntMenuIn 0.2s cubic-bezier(.22,.61,.36,1) both', transformOrigin: 'top left' }}
-            >
-              {FILTERS.map((f) => (
-                <button
-                  key={f.k}
-                  type="button"
-                  onClick={() => { setFilter(f.k); setMenuOpen(false); }}
-                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[16px] text-[#333D4B] active:bg-[#F7F8FA]"
-                >
-                  <span className={filter === f.k ? 'font-semibold' : ''}>{f.label}</span>
-                  {filter === f.k && (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M5 12.5l4.5 4.5L19 7.5" stroke="#3182F6" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-              <div className="mx-4 my-1.5 h-px bg-[#F2F4F6]" />
-              <button type="button" onClick={markAllRead} className="w-full px-4 py-2.5 text-left text-[16px] text-[#333D4B] active:bg-[#F7F8FA]">
-                모두 읽음으로 표시
+            {/* 토스 '알림 ⌄' 메뉴 — 작게 시작해 정비율로 커지고(제목 쪽에서), 항목은 오른쪽→왼쪽으로 촤라락 (globals .pop-menu) */}
+            <div className="pop-menu absolute left-2 top-full z-50 w-max min-w-[184px] py-2" style={{ transformOrigin: '32px 0' }} role="menu">
+              {FILTERS.map((f, i) => {
+                const on = filter === f.k;
+                return (
+                  <button
+                    key={f.k}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={on}
+                    onClick={() => { setFilter(f.k); setMenuOpen(false); }}
+                    className="pop-menu-item flex w-full items-center gap-3.5 py-[9px] pl-5 pr-7 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F9FAFB]"
+                    style={popItemDelay(i)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/icons/toss/${f.icon}.svg`} alt="" className="h-6 w-6 shrink-0" />
+                    <span className={`text-[17px] leading-[24px] ${on ? 'font-semibold text-[#191F28]' : 'text-[#333D4B]'}`}>{f.label}</span>
+                  </button>
+                );
+              })}
+              <div className="pop-menu-item mx-5 my-1.5 h-px bg-[#F2F4F6]" style={popItemDelay(FILTERS.length)} />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={markAllRead}
+                className="pop-menu-item flex w-full items-center gap-3.5 py-[9px] pl-5 pr-7 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F9FAFB]"
+                style={popItemDelay(FILTERS.length + 1)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/toss/check-circle.svg" alt="" className="h-6 w-6 shrink-0" />
+                <span className="text-[17px] leading-[24px] text-[#333D4B]">모두 읽음</span>
               </button>
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => { setMenuOpen(false); setShowDeleteConfirm(true); }}
-                className="w-full px-4 py-2.5 text-left text-[16px] text-[#F04452] active:bg-[#FFF5F6]"
+                className="pop-menu-item flex w-full items-center gap-3.5 py-[9px] pl-5 pr-7 text-left transition-colors active:bg-[#FFF5F6] lg:hover:bg-[#FFF8F8]"
+                style={popItemDelay(FILTERS.length + 2)}
               >
-                전체 삭제
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/toss/bin.svg" alt="" className="h-6 w-6 shrink-0" />
+                <span className="text-[17px] leading-[24px] text-[#F04452]">전체 삭제</span>
               </button>
             </div>
           </>

@@ -40,6 +40,7 @@ import { useChatStore } from '@/lib/store/chat.store';
 import { getPlanTemplates, type PlanTemplate } from '@/lib/api/plan-templates.api';
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
 import { CHAT_STICKERS } from '@/lib/chat-stickers';
+import { popItemDelay } from '@/lib/pop-menu';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
@@ -2322,16 +2323,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
   return (
     <>
-      {/* ─── 헤더 드롭다운 메뉴 ─── */}
-      {showHeaderMenu && (
+      {/* ─── 헤더 드롭다운 메뉴 — 툴팁 메뉴 공통(globals .pop-menu): 작게 시작해 정비율로 커지고, 항목은 오른쪽→왼쪽으로 촤라락 ─── */}
+      {showHeaderMenu && (() => {
+        const itemCls = 'pop-menu-item flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] font-medium transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6]';
+        return (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
-          <div className="absolute right-3 top-[68px] z-50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[180px] animate-[scaleIn_0.2s_ease-out]" style={{ right: '12px', top: '68px' }}>
-            <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full">
-              <Search size={16} className="text-gray-500" /> 대화 내용 검색
+          <div className="pop-menu absolute right-3 top-[68px] z-50 min-w-[200px] overflow-hidden py-1.5" style={{ transformOrigin: 'top right' }} role="menu">
+            <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(0)}>
+              <Search size={17} className="text-[#8B95A1]" /> 대화 내용 검색
             </button>
-            <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-              {muted ? <Bell size={16} className="text-gray-500" /> : <BellOff size={16} className="text-gray-500" />}
+            <button onClick={() => { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(1)}>
+              {muted ? <Bell size={17} className="text-[#8B95A1]" /> : <BellOff size={17} className="text-[#8B95A1]" />}
               {muted ? '알림 켜기' : '알림 끄기'}
             </button>
             {isPro ? (
@@ -2340,21 +2343,23 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   setShowHeaderMenu(false);
                   toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
                 }}
-                className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+                className={`${itemCls} text-[#333D4B]`}
+                style={popItemDelay(2)}
               >
-                <Smile size={16} className="text-gray-500" /> 고객 정보 보기
+                <Smile size={17} className="text-[#8B95A1]" /> 고객 정보 보기
               </button>
             ) : (
-              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className="flex items-center gap-3 px-4 py-3 text-[14px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100">
-                <Smile size={16} className="text-gray-500" /> 프로필 보기
+              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(2)}>
+                <Smile size={17} className="text-[#8B95A1]" /> 프로필 보기
               </Link>
             )}
-            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className="flex items-center gap-3 px-4 py-3 text-[14px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100">
-              <Trash2 size={16} /> 대화 삭제
+            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className={`${itemCls} text-[#F04452] active:bg-[#FFF5F6]`} style={popItemDelay(3)}>
+              <Trash2 size={17} /> 대화 삭제
             </button>
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ─── 공지 바 ─── */}
       {pinnedMessage && (
@@ -2384,7 +2389,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         <>
           <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] animate-[fadeIn_0.2s_ease]" onClick={() => setActionMenu(null)} />
           <div
-            className="fixed z-50 animate-[menuPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+            className="pop-menu-anim fixed z-50"
             style={{
               left: actionMenu.mine ? undefined : Math.max(12, actionMenu.x),
               right: actionMenu.mine ? Math.max(12, window.innerWidth - actionMenu.x) : undefined,
@@ -2406,13 +2411,14 @@ export default function ChatExtras(props: ChatExtrasProps) {
               ))}
             </div>
 
-            <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/60 overflow-hidden min-w-[200px]">
+            <div className="pop-menu-surface min-w-[200px] overflow-hidden py-1.5">
               <button
                 onClick={() => {
                   const msg = messages.find((m) => m.id === actionMenu.id);
                   if (msg) handleReply(msg);
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full"
+                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
+                style={popItemDelay(0)}
               >
                 답장 <Reply size={18} className="text-gray-500" />
               </button>
@@ -2421,7 +2427,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   const msg = messages.find((m) => m.id === actionMenu.id);
                   if (msg) handleCopy(msg.content);
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
+                style={popItemDelay(1)}
               >
                 복사 <Copy size={18} className="text-gray-500" />
               </button>
@@ -2430,7 +2437,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   const msg = messages.find((m) => m.id === actionMenu.id);
                   if (msg) handlePartialCopy(msg);
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
+                style={popItemDelay(2)}
               >
                 부분복사 <TextSelect size={18} className="text-gray-500" />
               </button>
@@ -2439,7 +2447,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   const msg = messages.find((m) => m.id === actionMenu.id);
                   if (msg) handlePin(msg);
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-gray-800 hover:bg-gray-50 w-full border-t border-gray-100"
+                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
+                style={popItemDelay(3)}
               >
                 공지로 등록 <Pin size={18} className="text-gray-500" />
               </button>
@@ -2448,14 +2457,16 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   const msg = messages.find((m) => m.id === actionMenu.id);
                   if (msg) handleReport(msg);
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-orange-500 hover:bg-orange-50 w-full border-t border-gray-100"
+                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-orange-500 hover:bg-orange-50 w-full"
+                style={popItemDelay(4)}
               >
                 신고하기 <Flag size={18} />
               </button>
               {actionMenu.mine && (
                 <button
                   onClick={() => handleDelete(actionMenu.id)}
-                  className="flex items-center justify-between gap-3 px-4 py-3 text-[15px] text-red-500 hover:bg-red-50 w-full border-t border-gray-100"
+                  className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-red-500 hover:bg-red-50 w-full"
+                style={popItemDelay(5)}
                 >
                   삭제 <Trash2 size={18} />
                 </button>

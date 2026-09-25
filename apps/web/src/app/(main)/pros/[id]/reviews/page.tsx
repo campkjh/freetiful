@@ -1,5 +1,6 @@
 'use client';
 
+import { popItemDelay } from '@/lib/pop-menu';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -319,9 +320,9 @@ export default function ReviewsPage() {
                   <MoreHorizontal size={16} className="text-gray-400" />
                 </button>
                 {menuId === review.id && (
-                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-20 min-w-[110px]">
-                    <button onClick={() => { toast('신고 접수됨', { icon: '🚨' }); setMenuId(null); }} className="w-full text-left px-4 py-2 text-[13px] text-gray-700 hover:bg-gray-50">신고하기</button>
-                    <button onClick={() => { toast('차단됨', { icon: '🚫' }); setMenuId(null); }} className="w-full text-left px-4 py-2 text-[13px] text-gray-700 hover:bg-gray-50">차단하기</button>
+                  <div className="pop-menu absolute right-0 top-8 z-20 min-w-[120px] py-1.5" style={{ transformOrigin: 'top right' }}>
+                    <button onClick={() => { toast('신고 접수됨', { icon: '🚨' }); setMenuId(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50" style={popItemDelay(0)}>신고하기</button>
+                    <button onClick={() => { toast('차단됨', { icon: '🚫' }); setMenuId(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-gray-700 hover:bg-gray-50" style={popItemDelay(1)}>차단하기</button>
                   </div>
                 )}
               </div>

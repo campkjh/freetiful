@@ -11,6 +11,7 @@ import ChatRoomView from './[id]/page';
 import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
+import { popItemDelay } from '@/lib/pop-menu';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 
 // ─── Types ────────────────────────────────────────────────
@@ -915,12 +916,12 @@ export default function ChatListPage() {
             onClick={() => setActionMenu(null)}
           />
           <div
-            className="fixed z-[60] min-w-[220px] overflow-hidden rounded-[20px] border border-[#EEF1F5] bg-white/95 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur-2xl"
+            // 툴팁 메뉴 공통(globals .pop-menu) — 작게 시작해 정비율로 커지고, 항목은 오른쪽→왼쪽으로 촤라락
+            className="pop-menu fixed z-[60] min-w-[220px] overflow-hidden py-1.5"
             style={{
               left: Math.min(Math.max(16, actionMenu.x - 110), typeof window !== 'undefined' ? window.innerWidth - 236 : 0),
               top: Math.min(actionMenu.y - 20, typeof window !== 'undefined' ? window.innerHeight - 320 : 0),
               transformOrigin: 'top center',
-              animation: 'chatActionPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -934,10 +935,8 @@ export default function ChatListPage() {
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className={`flex w-full items-center justify-between gap-3 px-5 py-3.5 text-[15px] font-semibold hover:bg-[#FBFCFD] active:bg-[#F2F3F5] ${idx > 0 ? 'border-t border-[#F5F6F8]' : ''} ${item.className}`}
-                style={{
-                  animation: `chatActionItemFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${0.25 + idx * 0.04}s both`,
-                }}
+                className={`pop-menu-item flex w-full items-center justify-between gap-3 px-5 py-3 text-[16px] font-semibold transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6] ${item.className}`}
+                style={popItemDelay(idx)}
               >
                 {item.label}
                 {item.icon}
@@ -1064,34 +1063,6 @@ export default function ChatListPage() {
         @keyframes chatActionFade {
           0% { opacity: 0; }
           100% { opacity: 1; }
-        }
-        @keyframes chatActionPop {
-          0% {
-            opacity: 0;
-            transform: scale(0.4) translateY(-16px);
-            filter: blur(12px);
-          }
-          35% {
-            opacity: 1;
-            filter: blur(4px);
-          }
-          60% {
-            opacity: 1;
-            transform: scale(1.08) translateY(2px);
-            filter: blur(0);
-          }
-          80% {
-            transform: scale(0.97) translateY(0);
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-            filter: blur(0);
-          }
-        }
-        @keyframes chatActionItemFade {
-          0% { opacity: 0; transform: translateX(-6px); filter: blur(4px); }
-          100% { opacity: 1; transform: translateX(0); filter: blur(0); }
         }
         @keyframes previewPop {
           0% { opacity: 0; transform: scale(0.9); filter: blur(8px); }

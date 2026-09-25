@@ -1,5 +1,6 @@
 'use client';
 
+import { popItemDelay } from '@/lib/pop-menu';
 import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -2783,10 +2784,10 @@ export default function ProDetailPage() {
                     <span className="text-[16px] text-[#8B95A1] leading-none">⋯</span>
                   </button>
                   {reviewMenu === review.id && (
-                    <div className="absolute right-0 top-8 bg-white border border-[#EEF0F4] rounded-xl shadow-lg py-1 z-20 min-w-[120px]">
-                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">신고하기</button>
-                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">차단하기</button>
-                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]">복사하기</button>
+                    <div className="pop-menu absolute right-0 top-8 z-20 min-w-[130px] py-1.5" style={{ transformOrigin: 'top right' }}>
+                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(0)}>신고하기</button>
+                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(1)}>차단하기</button>
+                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(2)}>복사하기</button>
                     </div>
                   )}
                 </div>

@@ -377,14 +377,8 @@ export default function MyPage() {
       <style dangerouslySetInnerHTML={{ __html: MY_CSS }} />
       <div className="lg:flex lg:items-start lg:gap-6">
         <div className={`lg:transition-[width] lg:duration-300 lg:ease-out ${detailHref ? 'lg:w-[440px] lg:shrink-0' : 'lg:w-full'}`}>
-          {/* 헤더 — 회색 바탕 그대로(흰 바를 따로 두지 않는다). PC 는 전역 헤더가 있어 숨긴다 */}
-          <div data-native-my-header className="sticky top-0 z-20 bg-[#F4F6FA]/95 px-4 backdrop-blur lg:hidden">
-            <div className="flex h-[52px] items-center">
-              <h1 className="text-[20px] font-bold tracking-[-0.02em] text-[#2B313D]">마이페이지</h1>
-            </div>
-          </div>
-
-          <div className="px-4 pb-4 pt-2 lg:px-0 lg:pt-0">
+          {/* '마이페이지' 헤더는 없앴다(사장 지시) — 이름 줄이 곧 맨 위. 상태표시줄에 안 먹히게 위 안전여백만 준다 */}
+          <div className="px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+20px)] lg:px-0 lg:pt-0">
             {/* 이름 줄 — 토스는 여기에 버튼을 안 두고 글자 링크만 둔다 */}
             {isLoggedIn ? (
               <div className="flex items-start gap-3">

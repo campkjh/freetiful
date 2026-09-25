@@ -737,12 +737,20 @@
 .tfeed-sort { display: inline-flex; align-items: center; gap: 4px; height: 42px; padding: 0 14px; border: none; border-radius: 12px; background: #F2F4F6; color: #333D4B; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; cursor: pointer; font-family: inherit; }
 .tfeed-sort:active { background: #E8EBED; }
 .tfeed-backdrop { position: fixed; inset: 0; z-index: 55; }
-.tfeed-sort-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 172px; display: grid; padding: 6px; background: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .14), 0 1px 3px rgba(0, 0, 0, .06); animation: tfeedMenuIn .16s ease; }
-.tfeed-sort-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 12px; border: none; background: none; border-radius: 10px; color: #333D4B; font-size: 16px; font-weight: 500; text-align: left; cursor: pointer; font-family: inherit; }
+/* 툴팁 메뉴 공통(globals .pop-menu 와 같은 값) — 모서리 18, 작게 시작해 정비율로 커지고 항목은 오른쪽→왼쪽으로 촤라락 */
+.tfeed-sort-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; min-width: 172px; display: grid; padding: 8px; background: #fff; border-radius: 18px; box-shadow: 0 16px 48px rgba(15, 23, 42, .12), 0 2px 10px rgba(15, 23, 42, .05); transform-origin: top left; animation: popMenuIn .42s cubic-bezier(.33, 1, .68, 1) both; }
+.tfeed-sort-menu > * { animation: popMenuItemIn .42s cubic-bezier(.22, .61, .36, 1) backwards; }
+.tfeed-sort-menu > :nth-child(1) { animation-delay: .07s; }
+.tfeed-sort-menu > :nth-child(2) { animation-delay: .105s; }
+.tfeed-sort-menu > :nth-child(3) { animation-delay: .14s; }
+.tfeed-sort-menu > :nth-child(4) { animation-delay: .175s; }
+.tfeed-sort-menu > :nth-child(5) { animation-delay: .21s; }
+.tfeed-sort-menu > :nth-child(6) { animation-delay: .245s; }
+.tfeed-sort-menu > :nth-child(n+7) { animation-delay: .28s; }
+.tfeed-sort-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 12px; border: none; background: none; border-radius: 12px; color: #333D4B; font-size: 16px; font-weight: 500; text-align: left; cursor: pointer; font-family: inherit; }
 .tfeed-sort-item:hover { background: #F2F4F6; }
 .tfeed-sort-item.on { color: #3182F6; font-weight: 700; }
 .tfeed-sort-sep { height: 1px; margin: 4px 8px; background: #F2F4F6; }
-@keyframes tfeedMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── 토스트 ── */
 .tfeed-toast { position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); z-index: 300; transform: translateX(-50%); padding: 12px 18px; border-radius: 12px; background: rgba(25, 31, 40, .92); color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; pointer-events: none; animation: tfeedToastIn .2s ease; }
@@ -769,7 +777,7 @@
 .tdet-topbar-title { flex: 1; min-width: 0; padding-left: 2px; font-size: 17px; font-weight: 700; color: #191F28; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tdet-topbar-actions { flex: none; display: flex; align-items: center; gap: 2px; padding-right: 4px; }
 .tdet-menu-wrap { position: relative; }
-.tfeed-sort-menu.tdet-owner-menu { left: auto; right: 0; min-width: 150px; }
+.tfeed-sort-menu.tdet-owner-menu { left: auto; right: 0; min-width: 150px; transform-origin: top right; }
 .tdet-menu-note { padding: 8px 12px 4px; font-size: 12.5px; font-weight: 600; color: #8B95A1; }
 .tfeed-sort-item.tdet-danger { color: #F04452; }
 /* 신고·차단 ⋯ 는 인라인 style(회색·작은 여백)이라 상단바 아이콘과 톤·터치영역을 맞춘다. */

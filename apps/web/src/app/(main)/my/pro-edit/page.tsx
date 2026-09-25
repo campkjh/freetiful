@@ -662,9 +662,6 @@ export default function ProEditPage() {
   };
 
   /* ── Toggle helpers ── */
-  const toggleCategory = (cat: string) => {
-    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
-  };
   const toggleRegion = (region: string) => {
     setSelectedRegions(prev => prev.includes(region) ? prev.filter(r => r !== region) : [...prev, region]);
   };
@@ -908,8 +905,9 @@ export default function ProEditPage() {
       safeSetLocalStorage('proRegister_customOptions', JSON.stringify(customOptions));
 
       // 2) 서버에 업데이트 (pro detail 페이지 반영)
-      // 전문영역 태그만 tags 필드에 저장 (중복 제거)
-      const mergedTags = Array.from(new Set(selectedCategories.filter(Boolean)));
+      // 전문영역은 이 화면에서 뺐다(사장 지시 260925) → tags 는 **보내지 않는다**.
+      // 서버 submitRegistration 은 tags 키가 없으면 기존 값을 그대로 두므로, 홈 카테고리 필터(tags 기반)가 안 깨진다.
+      // (보내면 기기에 남은 옛 localStorage 값으로 덮일 수 있다)
       const servicesPayload = buildWeddingServices(enabledPlans, planPrices, customOptions);
 
       const profilePayload = {
@@ -924,7 +922,6 @@ export default function ProEditPage() {
         languages: languages,
         category: category || undefined,
         regions: selectedRegions,
-        tags: mergedTags,
         services: servicesPayload,
       };
 
@@ -964,7 +961,8 @@ export default function ProEditPage() {
         detailHtml: currentDetailHtml,
         youtubeUrl: videos.filter(Boolean).join('\n'),   // 여러 영상 — 개행 조인(단일 데이터 호환)
         isProfileHidden,
-        tags: mergedTags,
+        // 전문영역은 안 바꿨다 — 서버가 돌려준 값(없으면 불러온 값) 그대로
+        tags: Array.isArray(editResponse?.tags) ? editResponse.tags : selectedCategories,
         images: syncedImages || editResponse?.images,
         languages: languages.map((languageCode) => ({ languageCode })),
         categories: category ? [{ category: { name: category } }] : [],
@@ -1147,36 +1145,6 @@ export default function ProEditPage() {
                 {y}년
               </button>
             ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* ─── 4. 전문영역 ─── */}
-      <Section title="전문영역">
-        <div className="space-y-4">
-          <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">웨딩 / 가족행사</p>
-            <div className="flex flex-wrap gap-2">
-              {WEDDING_TAGS.map(cat => (
-                <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기업 / 공식행사</p>
-            <div className="flex flex-wrap gap-2">
-              {EVENT_TAGS.map(cat => (
-                <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기타</p>
-            <div className="flex flex-wrap gap-2">
-              {OTHER_TAGS.map(cat => (
-                <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} />
-              ))}
-            </div>
           </div>
         </div>
       </Section>

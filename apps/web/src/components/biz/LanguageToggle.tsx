@@ -1,5 +1,6 @@
 'use client';
 
+import { popItemDelay } from '@/lib/pop-menu';
 import { useState, useRef, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import { BIZ_LANGS, useBizLang } from '@/lib/biz/i18n';
@@ -35,17 +36,18 @@ export default function LanguageToggle() {
         <span className="text-[12px] font-bold">{currentShort}</span>
       </button>
       {open && (
-        <div className="absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[140px] z-[70]">
-          {BIZ_LANGS.map((l) => (
+        <div className="pop-menu absolute top-full right-0 mt-2 min-w-[150px] overflow-hidden py-1.5 z-[70]" style={{ transformOrigin: 'top right' }}>
+          {BIZ_LANGS.map((l, i) => (
             <button
               key={l.code}
               onClick={() => {
                 setLang(l.code);
                 setOpen(false);
               }}
-              className={`w-full text-left px-4 py-2.5 text-[13px] hover:bg-gray-50 flex items-center justify-between ${
+              className={`pop-menu-item w-full text-left px-4 py-2.5 text-[13px] hover:bg-gray-50 flex items-center justify-between ${
                 lang === l.code ? 'text-[#3180F7] font-bold' : 'text-gray-700'
               }`}
+              style={popItemDelay(i)}
             >
               <span>{l.label}</span>
               <span className="text-[11px] text-gray-400">{l.short}</span>
