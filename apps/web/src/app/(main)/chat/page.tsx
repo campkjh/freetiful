@@ -320,9 +320,13 @@ export default function ChatListPage() {
     }
   }), [rooms, currentTab, search, isPro, proActiveTab, activeTab]);
 
+  // 상단 고정 → 새 메시지(안 읽음) 있는 방 → 나머지. 같은 묶음 안은 원래 순서(최근 대화 순, 안정 정렬) 유지.
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
+    const aNew = a.unreadCount > 0;
+    const bNew = b.unreadCount > 0;
+    if (aNew !== bNew) return aNew ? -1 : 1;
     return 0;
   }), [filtered]);
 
