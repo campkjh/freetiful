@@ -25,10 +25,11 @@ const HomeNavIcon = ({ className }: NavIconProps) => (
   </svg>
 );
 
-const BizNavIcon = ({ className }: NavIconProps) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-    <path d="M27.9065 7.91995L17.3865 1.97328C16.5332 1.49328 15.4798 1.49328 14.6265 1.97328L4.09317 7.91995C3.21317 8.41328 2.6665 9.34661 2.6665 10.3599V26.6533C2.6665 28.1999 3.91984 29.4666 5.47984 29.4666H26.5332C28.0798 29.4666 29.3465 28.2133 29.3465 26.6533V10.3599C29.3332 9.34661 28.7865 8.41328 27.9065 7.91995ZM16.9732 24.12H12.2532C11.9172 24.12 11.595 23.9865 11.3575 23.749C11.12 23.5114 10.9865 23.1892 10.9865 22.8533V10.7333C10.9865 10.0266 11.5598 9.46661 12.2532 9.46661H16.3732C19.6132 9.46661 21.5465 10.8399 21.5465 13.3199C21.5465 14.7333 20.5865 16.1466 18.8265 16.4666C20.8932 16.7066 22.1332 18.1199 22.1332 19.9466C22.1332 22.5866 20.3198 24.12 16.9732 24.12Z" fill="currentColor" />
-    <path d="M16.8666 17.9333H14.1333V21.5867H16.8666C18.2666 21.5867 18.9466 20.8 18.9466 19.76C18.9466 18.72 18.2933 17.9333 16.8666 17.9333ZM18.36 13.6667C18.36 12.6 17.6266 12 16.2533 12H14.1333V15.4H16.2533C17.68 15.4 18.36 14.7067 18.36 13.6667Z" fill="currentColor" />
+// 커뮤니티 — 사장 아이콘 세트 icon-user-two-mono(두 사람). 채팅 말풍선과 헷갈리지 않게 사람 모양(260926)
+const CommunityNavIcon = ({ className }: NavIconProps) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+    <path fillRule="evenodd" clipRule="evenodd" d="M7.5 11.6475C7.99246 11.6475 8.48009 11.5505 8.93506 11.362C9.39003 11.1736 9.80343 10.8973 10.1517 10.5491C10.4999 10.2009 10.7761 9.78749 10.9645 9.33252C11.153 8.87755 11.25 8.38992 11.25 7.89746C11.25 7.405 11.153 6.91737 10.9645 6.4624C10.7761 6.00743 10.4999 5.59403 10.1517 5.24581C9.80343 4.89759 9.39003 4.62137 8.93506 4.43291C8.48009 4.24446 7.99246 4.14746 7.5 4.14746C6.50544 4.14746 5.55161 4.54255 4.84835 5.24581C4.14509 5.94907 3.75 6.9029 3.75 7.89746C3.75 8.89202 4.14509 9.84585 4.84835 10.5491C5.55161 11.2524 6.50544 11.6475 7.5 11.6475ZM8 17.8285C8 16.5645 8.771 14.6935 10.48 13.2765C9.637 12.9795 8.652 12.7935 7.5 12.7935C2.46 12.7935 0.5 16.2315 0.5 17.8285C0.5 19.4285 4.673 19.8525 7.5 19.8525C7.971 19.8525 8.48 19.8395 9.001 19.8125C8.34 19.2855 8 18.6255 8 17.8285Z" fill="currentColor" fillOpacity="0.55" />
+    <path fillRule="evenodd" clipRule="evenodd" d="M16.5 12.7945C11.46 12.7945 9.5 16.2315 9.5 17.8295C9.5 19.4275 13.673 19.8535 16.5 19.8535C19.327 19.8535 23.5 19.4275 23.5 17.8295C23.5 16.2315 21.54 12.7945 16.5 12.7945ZM16.5 11.6475C16.9925 11.6475 17.4801 11.5505 17.9351 11.362C18.39 11.1736 18.8034 10.8973 19.1517 10.5491C19.4999 10.2009 19.7761 9.78749 19.9645 9.33252C20.153 8.87755 20.25 8.38992 20.25 7.89746C20.25 7.405 20.153 6.91737 19.9645 6.4624C19.7761 6.00743 19.4999 5.59403 19.1517 5.24581C18.8034 4.89759 18.39 4.62137 17.9351 4.43291C17.4801 4.24446 16.9925 4.14746 16.5 4.14746C15.5054 4.14746 14.5516 4.54255 13.8483 5.24581C13.1451 5.94907 12.75 6.9029 12.75 7.89746C12.75 8.89202 13.1451 9.84585 13.8483 10.5491C14.5516 11.2524 15.5054 11.6475 16.5 11.6475Z" fill="currentColor" />
   </svg>
 );
 
@@ -68,7 +69,7 @@ const HEADER_CATEGORIES: { name: string; img: string; href: string }[] = [
 
 const USER_NAV_ITEMS = [
   { href: '/main',      icon: HomeNavIcon,      label: '홈' },
-  { href: '/biz',       icon: BizNavIcon,       label: 'Biz' },
+  { href: '/community', icon: CommunityNavIcon, label: '커뮤니티' },
   { href: '/inquiries', icon: NewRequestNavIcon, label: '문의목록' },
   { href: '/chat',      icon: ChatNavIcon,      label: '채팅' },
   { href: '/my',        icon: MyNavIcon,        label: '마이' },
@@ -76,7 +77,7 @@ const USER_NAV_ITEMS = [
 
 const PRO_NAV_ITEMS = [
   { href: '/main',      icon: HomeNavIcon,       label: '홈' },
-  { href: '/biz',       icon: BizNavIcon,        label: 'Biz' },
+  { href: '/community', icon: CommunityNavIcon,  label: '커뮤니티' },
   { href: '/pro-dashboard/inquiries', icon: NewRequestNavIcon, label: '새요청' },
   { href: '/chat',      icon: ChatNavIcon,       label: '채팅' },
   { href: '/my',        icon: MyNavIcon,         label: '마이' },
@@ -95,9 +96,11 @@ const HIDE_NAV_PATTERNS = [
   /^\/biz/,
   /^\/careers$/,
   /^\/search/,
+  /^\/community\/.+/,
 ];
 
 const HIDE_FOOTER_PATTERNS = [
+  /^\/community/,
   /^\/chat$/,
   /^\/my$/,
   /^\/pro-dashboard/,
@@ -143,6 +146,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const myRoute = pathname === '/my';
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
+  // 커뮤니티는 하단 탭(모바일)만 같이 쓰고, PC 는 원래 자기 머리줄·사이드바 화면 그대로(겹치지 않게 PC 머리줄·폭 제한 없음)
+  const communityRoute = /^\/community(\/|$)/.test(pathname);
   const [navVisible, setNavVisible] = useState(true);
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
   const [navExpanding, setNavExpanding] = useState(false);
@@ -454,7 +459,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
+      <header className={`${hideNav || communityRoute ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-8">
           <Link href={homeHref} className="flex items-center" aria-label="Freetiful 홈">
             <Image
@@ -552,7 +557,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {!embedded && <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />}
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
-      <main className={`lg:max-w-7xl lg:mx-auto lg:px-8 ${hideNav ? '' : 'pb-24 lg:pb-12'}`}>
+      <main className={`${communityRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : 'pb-24 lg:pb-12'}`}>
         <div className="lg:max-w-none">
           <PageTransition>{children}</PageTransition>
         </div>
