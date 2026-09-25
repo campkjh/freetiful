@@ -472,9 +472,9 @@ export default function ChatListPage() {
                   className={`relative flex items-start gap-3 px-5 py-[18px] cursor-pointer transition-colors overflow-hidden ${
                     isPC && selectedRoomId === room.id
                       ? 'bg-[#EAF2FF]'
-                      : hasUnread
+                      : hasUnread && isPC
                         ? 'bg-[#F5F9FF] hover:bg-[#EDF4FF]'
-                        : 'hover:bg-[#FBFCFD]'
+                        : 'bg-white hover:bg-[#FBFCFD]'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
@@ -501,8 +501,8 @@ export default function ChatListPage() {
                   onPointerCancel={handleLongPressEnd}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  {/* 안 읽은 메시지 - 은은한 파란 배경 */}
-                  {hasUnread && (
+                  {/* 안 읽은 메시지 - 은은한 파란 배경(PC만). 모바일은 흰 배경 — 안 읽음은 '새 메시지 N' 으로만 */}
+                  {hasUnread && isPC && (
                     <div
                       className="pointer-events-none absolute inset-0"
                       style={{
