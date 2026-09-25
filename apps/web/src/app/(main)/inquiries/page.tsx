@@ -75,12 +75,15 @@ function writeCustomerInquiriesCache(userId: string | undefined | null, data: an
   } catch {}
 }
 
-// 행사일: @db.Date(UTC 자정 직렬화) → 기기 타임존과 무관하게 저장된 날짜 그대로(UTC) + 연도 표기
+// 행사일: @db.Date(UTC 자정 직렬화) → 기기 타임존과 무관하게 저장된 날짜 그대로(UTC).
+// 표기는 채팅방 일정과 같은 '26년 12월 13일 (일)'(연도 앞 20 뺌) — toLocaleDateString 은 '2026년 12월 13일 일'처럼 요일이 붙어 어색했다
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 function formatEventDate(value?: string | null) {
   if (!value) return '일자 미정';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '일자 미정';
-  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+  const yy = String(date.getUTCFullYear()).slice(2);
+  return `${yy}년 ${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일 (${WEEKDAYS[date.getUTCDay()]})`;
 }
 
 // 신청일(createdAt): 진짜 타임스탬프 → KST 고정 (안드 웹뷰 UTC 타임존 대응)
@@ -119,6 +122,36 @@ function getStatusColorIcon(status: InquiryStatus) {
   if (status === '요청승인') return RepliedIcon;
   if (status === '거절') return DeclinedIcon;
   return PendingIcon;
+}
+
+/** 한 요청(행사)과 그 요청을 받은 사회자들 — 화면 계층: 행사 정보 한 번 → 아래에 사회자별 진행 상태 */
+type InquiryGroup = {
+  requestId: string;
+  category: string;
+  location: string;
+  eventDate: string;
+  eventTime: string;
+  createdAt: string;
+  cards: InquiryCard[];
+};
+
+/** 행사 머리 타일의 일러스트 — 홈 카테고리 칸과 같은 그림(연회색 둥근 타일 위) */
+function categoryIllust(category: string) {
+  const c = (category || '').replace(/\s/g, '');
+  if (/외국어|통역|번역|영어/.test(c)) return '/images/category-icons/foreign-mc.png';
+  if (/행사|기업|체육|돌잔치|컨퍼런스|세미나|송년|워크숍/.test(c)) return '/images/category-icons/event-mc-icon.png';
+  return '/images/category-icons/wedding-mc-icon.png';
+}
+
+/** 사회자별 진행 상태 태그 — 아이콘 + 글자, 상태색 */
+function StatusTag({ status }: { status: InquiryStatus }) {
+  const Icon = getStatusIcon(status);
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[12px] font-semibold ${getStatusTone(status)}`}>
+      <Icon size={12} className="shrink-0" />
+      {status}
+    </span>
+  );
 }
 
 /** 상태 필터 탭 — '전체' 는 개수 합계 */
@@ -333,158 +366,186 @@ export default function CustomerInquiriesPage() {
     toast('사회자가 문의를 승인하면 채팅방이 열립니다');
   };
 
+  // 요청(행사) 단위로 묶는다 — 같은 행사 정보를 사회자마다 반복하지 않게(보낸 순서 유지)
+  const groups = useMemo<InquiryGroup[]>(() => {
+    const map = new Map<string, InquiryGroup>();
+    for (const c of visibleCards) {
+      let g = map.get(c.requestId);
+      if (!g) {
+        g = { requestId: c.requestId, category: c.category, location: c.location, eventDate: c.eventDate, eventTime: c.eventTime, createdAt: c.createdAt, cards: [] };
+        map.set(c.requestId, g);
+      }
+      g.cards.push(c);
+    }
+    return [...map.values()];
+  }, [visibleCards]);
+
+  // 스크롤하면 머리줄 아래로 흰 그라데이션(채팅 목록과 같은 결)
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // 상태 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(채팅 탭과 같은 모양). 개수가 0인 상태는 숨긴다
+  const statusTabs = (
+    <LayoutGroup id="inquiry-status-tabs">
+      <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+        {STATUS_TABS.map((tab) => {
+          const on = statusTab === tab;
+          const count = statusCounts[tab] || 0;
+          if (tab !== '전체' && count === 0) return null;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setStatusTab(tab)}
+              className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                on ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
+              }`}
+            >
+              {on && (
+                <motion.span
+                  layoutId="inquiry-status-pill"
+                  className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative whitespace-nowrap">{tab}</span>
+              <span className={`relative text-[12px] tabular-nums ${on ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+    </LayoutGroup>
+  );
+
   return (
     <div className="min-h-screen bg-white pb-28 lg:pb-6">
-      {/* 모바일 전용 헤더 — 새요청 탭과 같은 모양(흰 바탕·타이틀만). PC 는 전역 헤더가 있어 숨긴다 */}
-      <header className="sticky top-0 z-20 flex h-14 items-center bg-white px-4 lg:hidden">
-        <h1 className="text-[20px] font-bold text-[#2B313D]">매칭</h1>
+      {/* 모바일 머리줄 — 채팅·웨딩숲과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나), 상태 탭까지 같이 붙어 다닌다 */}
+      <header className="sticky top-0 z-20 bg-white px-4 pb-2 lg:hidden">
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-white via-white/70 to-white/0 transition-opacity duration-300 ${
+            scrolled ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+        <div className="flex h-14 items-center justify-between">
+          <h1 className="text-[20px] font-bold text-[#191F28]">매칭</h1>
+          <Link
+            href="/pros"
+            className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
+          >
+            사회자 찾기
+            <ChevronRightIcon size={14} className="text-[#8B95A1]" />
+          </Link>
+        </div>
+        {cards.length > 0 && statusTabs}
       </header>
 
-      <div className="mx-auto grid max-w-[1120px] items-start gap-8 px-4 pt-3 lg:grid-cols-[1fr_340px] lg:px-0 lg:pt-8">
+      <div className="mx-auto grid max-w-[1120px] items-start gap-8 lg:grid-cols-[1fr_340px] lg:pt-8">
         <div className="min-w-0">
           {/* PC 타이틀 */}
-          <div className="mb-6 hidden lg:block">
-            <h1 className="text-[26px] font-bold tracking-tight text-[#2B313D]">매칭</h1>
-            <p className="mt-1 text-[14px] text-[#A4ABBA]">보낸 문의와 진행 상태를 한눈에 확인하세요</p>
+          <div className="mb-5 hidden lg:block">
+            <h1 className="text-[26px] font-bold tracking-tight text-[#191F28]">매칭</h1>
+            <p className="mt-1 text-[14px] text-[#8B95A1]">보낸 문의와 사회자별 진행 상태를 한눈에 확인하세요</p>
           </div>
-
-          {/* 상태 탭 — 스크롤해도 따라오도록 고정. 흰 알약이 탭 사이를 미끄러진다 */}
-          {cards.length > 0 && (
-            <div className="sticky top-14 z-10 -mx-4 mb-4 bg-white px-4 py-2 lg:top-[72px] lg:mx-0 lg:px-0 lg:py-3">
-              <LayoutGroup id="inquiry-status-tabs">
-                <div className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
-                  {STATUS_TABS.map((tab) => {
-                    const on = statusTab === tab;
-                    const count = statusCounts[tab] || 0;
-                    if (tab !== '전체' && count === 0) return null;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setStatusTab(tab)}
-                        className={`relative flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                          on ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
-                        }`}
-                      >
-                        {on && (
-                          <motion.span
-                            layoutId="inquiry-status-pill"
-                            className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                          />
-                        )}
-                        <span className="relative">{tab}</span>
-                        <span className={`relative text-[12px] tabular-nums ${on ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </LayoutGroup>
-            </div>
-          )}
+          {cards.length > 0 && <div className="sticky top-[72px] z-10 hidden bg-white py-3 lg:block">{statusTabs}</div>}
 
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-6 px-4 pt-4 lg:px-0">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-[132px] animate-pulse rounded-[24px] bg-[#F7F8FA]" />
+                <div key={item} className="animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-[16px] bg-[#F2F4F6]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-[#F2F4F6]" />
+                      <div className="h-3 w-2/3 rounded bg-[#F2F4F6]" />
+                    </div>
+                  </div>
+                  <div className="mt-4 h-[64px] rounded-[16px] bg-[#F9FAFB]" />
+                </div>
               ))}
             </div>
           ) : cards.length === 0 ? (
             <div className="flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center">
               <EmptyDocumentIcon size={72} className="mb-4" />
-              <p className="text-[17px] font-bold text-[#2B313D]">아직 문의한 사회자가 없습니다</p>
-              <p className="mt-2 text-[14px] leading-6 text-[#A4ABBA]">마음에 드는 사회자 상세페이지에서 문의를 보내면 이곳에 표시됩니다.</p>
+              <p className="text-[17px] font-bold text-[#191F28]">아직 문의한 사회자가 없어요</p>
+              <p className="mt-2 text-[14px] leading-6 text-[#8B95A1]">마음에 드는 사회자에게 문의를 보내면 이곳에서 진행 상태를 볼 수 있어요.</p>
               <Link
                 href="/pros"
-                className="mt-5 flex h-11 items-center justify-center rounded-[14px] bg-[#3180F7] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
+                className="mt-5 flex h-11 items-center justify-center rounded-[14px] bg-[#3182F6] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#2272EB] active:scale-[0.98]"
               >
                 사회자 둘러보기
               </Link>
             </div>
-          ) : visibleCards.length === 0 ? (
-            <div className="px-6 py-24 text-center text-[13px] text-[#A4ABBA]">
-              {statusTab} 상태인 문의가 없습니다
+          ) : groups.length === 0 ? (
+            <div className="px-6 py-24 text-center text-[13px] text-[#8B95A1]">
+              {statusTab} 상태인 문의가 없어요
             </div>
           ) : (
-            <div key={statusTab} className="space-y-3" style={{ animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
-              {visibleCards.map((item) => {
-                const StatusIcon = getStatusIcon(item.status);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => openInquiry(item)}
-                    className="group flex w-full flex-col gap-3 rounded-[24px] border-[0.6px] border-[#F1F3F6] bg-white px-5 py-4 text-left shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-200 hover:bg-[#FBFCFD] lg:flex-row lg:items-center lg:gap-4"
-                  >
-                    {/* 윗줄 — 사회자 이름과 상태. 이름은 한 줄·한 폰트로 이어 쓴다 */}
-                    <div className="flex items-center gap-3 lg:min-w-0 lg:flex-1">
-                      <img
-                        src={getProfileImageUrl(item.proImage, item.proName)}
-                        alt=""
-                        className="h-11 w-11 shrink-0 rounded-full bg-[#F2F3F5] object-cover lg:h-12 lg:w-12"
-                        loading="lazy"
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-bold text-[#2B313D]">
-                          {item.proName} {item.category}
-                        </p>
-
-                        {/* PC 는 폭이 넉넉해 한 줄로 붙인다 */}
-                        <p className="mt-1.5 hidden items-center gap-1.5 text-[13px] font-medium text-[#51535C] lg:flex">
-                          <PinLocationIcon size={13} className="shrink-0 text-[#C8CEDA]" />
-                          <span className="truncate">{item.location}</span>
-                        </p>
-                        <p className="mt-1 hidden items-center gap-1.5 text-[12px] text-[#A4ABBA] lg:flex">
-                          <CalendarIcon size={13} className="shrink-0 text-[#C8CEDA]" />
-                          <span className="truncate">{item.eventDate} · {item.eventTime}</span>
-                          <span className="shrink-0 text-[#D8DDE4]">·</span>
-                          <span className="shrink-0">{item.createdAt} 신청</span>
-                        </p>
-                        {item.status === '거절' && item.declineReason && (
-                          <p className="mt-2 hidden truncate text-[12px] text-[#E5484D] lg:block">
-                            거절 사유: {item.declineReason}
-                          </p>
-                        )}
+            <div key={statusTab} style={{ animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+              {groups.map((g) => (
+                <section key={g.requestId} className="border-b border-[#F2F4F6] px-4 py-5 last:border-b-0 lg:px-0">
+                  {/* 1단 — 행사: 일러스트 타일 · 종류 · 일시 · 장소 · 신청일 */}
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F6F6F6]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={categoryIllust(g.category)} alt="" className="h-9 w-9 object-contain" loading="lazy" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{g.category}</p>
+                        <span className="ml-auto shrink-0 text-[12px] text-[#8B95A1]">{g.createdAt} 신청</span>
                       </div>
-
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold lg:hidden ${getStatusTone(item.status)}`}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-
-                    {/* 모바일 — 한 줄에 다 우겨넣으면 '00.00 신청' 이 잘려서, 줄을 쌓는다 */}
-                    <div className="space-y-2 rounded-[16px] bg-[#F9FAFB] px-3.5 py-3 lg:hidden">
-                      <p className="flex items-start gap-2 text-[13px] font-semibold text-[#51535C]">
-                        <PinLocationIcon size={14} className="mt-[3px] shrink-0 text-[#C8CEDA]" />
-                        <span className="min-w-0 flex-1 break-keep">{item.location}</span>
+                      <p className="mt-1 flex items-center gap-1.5 text-[13.5px] text-[#4E5968]">
+                        <CalendarIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                        <span className="min-w-0 truncate">{g.eventDate} · {g.eventTime}</span>
                       </p>
-                      <p className="flex items-start gap-2 text-[13px] font-semibold text-[#51535C]">
-                        <CalendarIcon size={14} className="mt-[3px] shrink-0 text-[#C8CEDA]" />
-                        <span className="min-w-0 flex-1 break-keep">{item.eventDate} · {item.eventTime}</span>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-[#6B7684]">
+                        <PinLocationIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                        <span className="min-w-0 truncate">{g.location}</span>
                       </p>
-                      <p className="flex items-start gap-2 text-[12px] text-[#A4ABBA]">
-                        <ClockIcon size={14} className="mt-[2px] shrink-0 text-[#D8DDE4]" />
-                        <span className="min-w-0 flex-1 break-keep">{item.createdAt} 신청</span>
-                      </p>
-                      {item.status === '거절' && item.declineReason && (
-                        <p className="border-t border-[#EEF0F3] pt-2 text-[12px] leading-[1.6] text-[#E5484D]">
-                          거절 사유: {item.declineReason}
-                        </p>
-                      )}
                     </div>
+                  </div>
 
-                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                      <span className={`rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${getStatusTone(item.status)}`}>
-                        {item.status}
-                      </span>
-                      <ChevronRightIcon size={16} className="text-[#D8DDE4] transition-transform duration-200 group-hover:translate-x-0.5" />
-                    </div>
-                  </button>
-                );
-              })}
+                  {/* 2단 — 이 행사로 문의한 사회자들과 각자의 진행 상태 */}
+                  <p className="mb-2 mt-4 text-[12px] font-semibold text-[#8B95A1]">문의한 사회자 {g.cards.length}명</p>
+                  <ul className="overflow-hidden rounded-[16px] bg-[#F9FAFB]">
+                    {g.cards.map((item) => (
+                      <li key={item.id} className="border-b border-white last:border-b-0">
+                        <button
+                          type="button"
+                          onClick={() => openInquiry(item)}
+                          className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F2F4F6]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={getProfileImageUrl(item.proImage, item.proName)}
+                            alt=""
+                            className="h-10 w-10 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
+                            loading="lazy"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[15px] font-semibold text-[#191F28]">{item.proName}</span>
+                            {item.status === '거절' && item.declineReason && (
+                              <span className="mt-0.5 block truncate text-[12.5px] text-[#E5484D]">거절 사유 · {item.declineReason}</span>
+                            )}
+                          </span>
+                          <StatusTag status={item.status} />
+                          {item.roomId ? (
+                            <ChevronRightIcon size={16} className="shrink-0 text-[#C9CED6]" />
+                          ) : (
+                            <span className="w-4 shrink-0" aria-hidden="true" />
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
               {hasMore && (
                 <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
                   {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#E9EBEF] border-t-[#A4ABBA]" />}
@@ -494,15 +555,15 @@ export default function CustomerInquiriesPage() {
           )}
         </div>
 
-        {/* PC 우측 요약 — 자가견적의 '견적 요약' 자리와 같은 위치·톤 */}
+        {/* PC 우측 요약 — 상태별 개수(누르면 그 상태만) + 다음 행동 */}
         {/* self-stretch 가 없으면 aside 높이가 내용과 같아져 sticky 가 붙을 자리가 없다 */}
         <aside className="hidden lg:block lg:self-stretch">
           <div className="sticky top-[92px] space-y-4">
-            <div className="rounded-[24px] bg-white p-5">
+            <div className="rounded-[24px] bg-[#F9FAFB] p-5">
               <div className="flex items-center gap-2">
                 <DocumentColorIcon size={20} />
-                <h2 className="text-[15px] font-bold text-[#2B313D]">진행 현황</h2>
-                <span className="ml-auto rounded-full bg-[#F2F3F5] px-2 py-0.5 text-[11px] font-semibold text-[#51535C]">{cards.length}건</span>
+                <h2 className="text-[15px] font-bold text-[#191F28]">진행 현황</h2>
+                <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#4E5968]">{cards.length}건</span>
               </div>
               <ul className="mt-3 flex flex-col gap-1">
                 {(['요청중', '요청승인', '거래완료', '거절'] as InquiryStatus[]).map((status) => {
@@ -513,12 +574,12 @@ export default function CustomerInquiriesPage() {
                         type="button"
                         onClick={() => setStatusTab(statusTab === status ? '전체' : status)}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-[13px] transition-colors ${
-                          statusTab === status ? 'bg-[#F2F3F5]' : 'hover:bg-[#F2F3F5]'
+                          statusTab === status ? 'bg-white' : 'hover:bg-white'
                         }`}
                       >
                         <Icon size={22} />
-                        <span className="flex-1 text-left font-medium text-[#2B313D]">{status}</span>
-                        <span className="tabular-nums font-semibold text-[#51535C]">{statusCounts[status] || 0}</span>
+                        <span className="flex-1 text-left font-medium text-[#191F28]">{status}</span>
+                        <span className="tabular-nums font-semibold text-[#4E5968]">{statusCounts[status] || 0}</span>
                       </button>
                     </li>
                   );
@@ -526,20 +587,20 @@ export default function CustomerInquiriesPage() {
               </ul>
             </div>
 
-            <div className="rounded-[24px] bg-white p-5">
-              <p className="text-[13px] font-bold text-[#2B313D]">아직 답이 없나요?</p>
-              <p className="mt-1 text-[12px] leading-5 text-[#A4ABBA]">
-                사회자가 문의를 승인하면 채팅방이 열립니다. 여러 명에게 동시에 문의하면 더 빨리 답을 받을 수 있어요.
+            <div className="rounded-[24px] bg-[#F9FAFB] p-5">
+              <p className="text-[13px] font-bold text-[#191F28]">아직 답이 없나요?</p>
+              <p className="mt-1 text-[12px] leading-5 text-[#8B95A1]">
+                사회자가 문의를 승인하면 채팅방이 열려요. 여러 명에게 함께 문의하면 더 빨리 답을 받을 수 있어요.
               </p>
               <Link
                 href="/pros"
-                className="mt-4 flex h-11 w-full items-center justify-center rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors hover:bg-[#2470E6] active:scale-[0.98]"
+                className="mt-4 flex h-11 w-full items-center justify-center rounded-[14px] bg-[#3182F6] text-[14px] font-bold text-white transition-colors hover:bg-[#2272EB] active:scale-[0.98]"
               >
                 사회자 더 찾아보기
               </Link>
               <Link
                 href="/chat"
-                className="mt-2 flex h-11 w-full items-center justify-center rounded-[14px] bg-[#F2F3F5] text-[13px] font-bold text-[#51535C] transition-colors hover:bg-[#E3E6EB]"
+                className="mt-2 flex h-11 w-full items-center justify-center rounded-[14px] bg-white text-[13px] font-bold text-[#4E5968] transition-colors hover:bg-[#F2F4F6]"
               >
                 채팅으로 이동
               </Link>
