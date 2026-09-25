@@ -1820,16 +1820,24 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             aria-label="답장 추천"
             className="mx-auto flex w-full max-w-[680px] items-center gap-2 overflow-x-auto px-3 pb-0.5 pt-2.5 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden"
           >
+            {/* AI 아이콘 — 옅은 하늘색 둥근 타일 + 보라→파랑→하늘 그라데이션 네 갈래 별(사장이 준 아이콘) */}
             <button
               type="button"
               onClick={() => loadReplySuggest(true)}
               aria-label="AI 답장 다시 추천"
               title="AI 답장 다시 추천"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#EEF0F3] bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)] transition-transform active:scale-95"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-[#E3EAF6] bg-gradient-to-b from-[#F8FBFF] to-[#EEF4FE] shadow-[0_2px_8px_rgba(80,110,200,0.12)] transition-transform active:scale-95"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" className={suggestLoading ? 'animate-spin' : ''} style={suggestLoading ? { animationDuration: '1.1s' } : undefined}>
-                <path d="M9.5 4.5c.5 3.7 2.3 5.5 6 6-3.7.5-5.5 2.3-6 6-.5-3.7-2.3-5.5-6-6 3.7-.5 5.5-2.3 6-6z" fill="#3182F6" />
-                <path d="M17.5 2.5c.25 1.8 1.1 2.65 2.9 2.9-1.8.25-2.65 1.1-2.9 2.9-.25-1.8-1.1-2.65-2.9-2.9 1.8-.25 2.65-1.1 2.9-2.9z" fill="#A78BFA" />
+              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" className={suggestLoading ? 'animate-spin' : ''} style={suggestLoading ? { animationDuration: '1.1s' } : undefined}>
+                <defs>
+                  <linearGradient id="reply-ai-star" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#8A87F8" />
+                    <stop offset="0.45" stopColor="#5C7CF4" />
+                    <stop offset="0.8" stopColor="#57B4F8" />
+                    <stop offset="1" stopColor="#72CBFA" />
+                  </linearGradient>
+                </defs>
+                <path d="M12 2.5C12.8 8.4 15.4 11.1 21.5 12C15.4 12.9 12.8 15.6 12 21.5C11.2 15.6 8.6 12.9 2.5 12C8.6 11.1 11.2 8.4 12 2.5Z" fill="url(#reply-ai-star)" />
               </svg>
             </button>
             {replySuggest.map((t, i) => (
