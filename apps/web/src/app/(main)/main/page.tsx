@@ -811,13 +811,15 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
   );
 }
 
-const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string; action?: 'signup' }[] = [
-  // 순서(260926 사장): 빌라드지디 → (결혼식사회자 1등) → 슈슈몽드 → 가입 5천원 → 세라미크.
-  // 260927 8:3 으로 바꾸면서 받은 새 그림 4장 — '결혼식사회자 1등' 은 8:3 그림이 없어 뺐다(받으면 둘째 자리에).
-  { id: 'villadegd', image: '/images/banners/home-top-villadegd-8x3.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
-  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-8x3.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+const HOME_TOP_BANNERS: { id: string; image: string; alt: string; title?: string[]; href?: string; action?: 'signup' }[] = [
+  // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
+  // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
+  // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
+  { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
+  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
   { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
-  { id: 'ceramique', image: '/images/banners/home-top-ceramique-8x3.webp', alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
+  { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
 function HomeTopBanner() {
@@ -829,18 +831,34 @@ function HomeTopBanner() {
   const [drag, setDrag] = useState(0);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const lockRef = useRef(false);
+  // 제목 페이드 업 — 들어오는 장은 turn 이 바뀔 때마다 새로 그려 매번 다시 떠오르고, 나가는 장(leaving)은 밀려 나갈 동안 제목을 그대로 둔다
+  const idxRef = useRef(0);
+  const [leaving, setLeaving] = useState<number | null>(null);
+  const [turn, setTurn] = useState(0);
+  const leaveTimerRef = useRef(0);
+  const go = (delta: number) => {
+    const from = idxRef.current;
+    const to = (from + delta + count) % count;
+    idxRef.current = to;
+    setLeaving(from);
+    setIdx(to);
+    setTurn((t) => t + 1);
+    window.clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = window.setTimeout(() => setLeaving(null), 550);
+  };
 
   // 4초마다 다음 장(끄는 중엔 멈춤)
   useEffect(() => {
-    const t = window.setInterval(() => { if (!startRef.current) setIdx((i) => (i + 1) % count); }, 4000);
-    return () => window.clearInterval(t);
+    const t = window.setInterval(() => { if (!startRef.current) go(1); }, 4000);
+    return () => { window.clearInterval(t); window.clearTimeout(leaveTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count]);
 
   const finish = (dx: number, dy: number) => {
     setDrag(0);
     if (Math.abs(dx) < 34 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
     lockRef.current = true;
-    setIdx((i) => (i + (dx < 0 ? 1 : -1) + count) % count);
+    go(dx < 0 ? 1 : -1);
     window.setTimeout(() => { lockRef.current = false; }, 260);
   };
   const open = (b: (typeof HOME_TOP_BANNERS)[number]) => {
@@ -897,11 +915,30 @@ function HomeTopBanner() {
               type="button"
               onClick={() => open(b)}
               aria-label={b.alt}
-              className={`h-full shrink-0 ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
+              className={`relative h-full shrink-0 overflow-hidden ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
               style={{ width: `${100 / count}%` }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={b.image} alt={b.alt} width={1200} height={450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
+              {b.title && (
+                <>
+                  {/* 왼쪽만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결) */}
+                  <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0) 70%)' }} />
+                  <span
+                    key={i === idx ? `on-${turn}` : 'off'}
+                    aria-hidden
+                    className="pointer-events-none absolute left-5 top-[14px] text-left text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white"
+                    style={{
+                      textShadow: '0 1px 8px rgba(0,0,0,0.22)',
+                      ...(i === idx
+                        ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both' }
+                        : { opacity: i === leaving ? 1 : 0 }),
+                    }}
+                  >
+                    {b.title.map((line) => <span key={line} className="block">{line}</span>)}
+                  </span>
+                </>
+              )}
             </button>
           ))}
         </div>
