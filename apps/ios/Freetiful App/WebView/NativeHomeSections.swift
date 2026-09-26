@@ -175,7 +175,8 @@ final class NativeHomeAllView: UIView, UIScrollViewDelegate {
             stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -24),
         ])
 
-        // 1) 히어로 카드('전문결혼식/전문행사 사회자 찾기')는 사장 지시로 뺐다(260925, 웹 홈과 같게)
+        // 1) 히어로 카드('전문결혼식/전문행사 사회자 찾기') — 260925 뺐다가 260926 사장 지시로 다시 살림(웹 홈과 같게)
+        stack.addArrangedSubview(padded(buildHeroRow(), h: 16))
 
         // 2) 카테고리 아이콘 그리드
         let icons = HomeCategoryIcons(imageBase: imageBase)
