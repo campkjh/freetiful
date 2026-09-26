@@ -814,9 +814,11 @@ function BusinessPartnerSection({
           </div>
         </div>
       </div>
+      {/* 가로로 넘기는 줄은 세로로 넘치는 부분을 자른다 — 카드 테두리가 줄 위아래 끝에 딱 붙으면 폰 픽셀 위치에 따라 테두리선이 반쯤 잘려
+          위아래가 잘려 보였다(260926 사장 제보). 위아래 8px 여유 + 같은 만큼 음수 여백으로 자리는 그대로 */}
       <div
         ref={rowRef}
-        className="-mx-[10px] flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-[10px] px-[10px] scrollbar-hide lg:gap-2"
+        className="-mx-[10px] -my-2 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-[10px] px-[10px] py-2 scrollbar-hide lg:gap-2"
       >
         {/* 업체가 2곳뿐인 카테고리는 3칸으로 나누면 오른쪽이 비어 보인다 */}
         {businesses.map((biz, i) => (
