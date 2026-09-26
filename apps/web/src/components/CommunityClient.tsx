@@ -28,6 +28,7 @@ import PullToRefresh from "@/components/PullToRefresh";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
+import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/useTabEntrance";
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
 const postsKey = communityPostsKey;
@@ -626,6 +627,17 @@ export default function CommunityClient() {
             .map((p) => ({ ...p, topComment: { id: "mine-" + p.id, nickname: "내 댓글", content: myCommentByPost!.get(p.id) || "", likeCount: 0, pinned: false } }))
         : posts;
 
+  // 처음 들어올 때 퀵매칭 등장(제목↑ → 글쓰기 칸·정렬줄·글 카드 ←) — 글에서 돌아와 스크롤을 되돌릴 땐 생략
+  const tabEntrance = useTabEntrance("community");
+  const [restoringAtMount] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return !!sessionStorage.getItem("community-scroll"); } catch { return false; }
+  });
+  const entrance = tabEntrance && !restoringAtMount;
+  const enterWindow = useEntranceWindow(entrance);
+  const enterPostStyle = useListEntrance(visiblePosts.slice(0, renderCount).map((p) => p.id), entrance, { base: 0.42 });
+  const enterBlock = (delay: number) => (enterWindow ? { className: " qd-a-item", style: { animationDelay: `${delay}s` } as CSSProperties } : { className: "", style: undefined });
+
   function openPost(postId: string) {
     // 넓은 화면에서는 페이지를 갈아엎지 않고 우측 패널로 연다 — 목록 자리를 지킨 채
     // 글을 훑어볼 수 있다. 좁은 화면은 예전처럼 상세 페이지로 이동한다.
@@ -840,7 +852,7 @@ export default function CommunityClient() {
       {/* 첫 진입 배너(X = 3일 동안 안 보기) — 초대 시트보다 위에 뜬다 */}
       <header ref={topbarRef} className={`community-topbar${compactHeader ? " is-compact" : ""}`}>
         <div className="community-topbar-inner">
-          <div className="community-title-wrap">
+          <div className={`community-title-wrap${entrance ? " qd-a-title" : ""}`}>
             <h1 className="community-title">웨딩숲</h1>
           </div>
           {/* 모바일: 카테고리는 햄버거 → 왼쪽 서랍에서 고른다(헤더엔 지금 보는 카테고리 이름만). */}
@@ -855,7 +867,7 @@ export default function CommunityClient() {
               <path d="M4 6.5h16M4 12h16M4 17.5h10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
           </button>
-          <button type="button" className="fcom-mtitle" onClick={() => setDrawerOpen(true)}>
+          <button type="button" className={`fcom-mtitle${entrance ? " qd-a-title" : ""}`} onClick={() => setDrawerOpen(true)}>
             {activeMajor?.icon && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/icons/community/cat/${activeMajor.icon}.svg`} alt="" width={22} height={22} />
@@ -923,7 +935,7 @@ export default function CommunityClient() {
 
         <section className="community-feed">
           {activeMajor && (
-            <div className="fcom-filterbar">
+            <div className={`fcom-filterbar${enterBlock(0.3).className}`} style={enterBlock(0.3).style}>
               {(activeMajor.children || []).length > 0 && (
                 <div className="fcom-subrow">
                   <button
@@ -969,6 +981,8 @@ export default function CommunityClient() {
 
           {/* 토스식 글쓰기 칸 — 누르면 그 자리에서 펼쳐지며 아래 목록을 밀어낸다(AI 태그·사진 첨부). */}
           <TossComposer
+            enterClassName={enterBlock(0.34).className}
+            enterStyle={enterBlock(0.34).style}
             groups={groups}
             contextGroupId={selectedGroupId}
             onPosted={() => {
@@ -977,7 +991,7 @@ export default function CommunityClient() {
             onToast={showToast}
           />
 
-          <div className="tfeed-sortbar">
+          <div className={`tfeed-sortbar${enterBlock(0.38).className}`} style={enterBlock(0.38).style}>
             <div className="tfeed-sort-wrap">
               <button
                 type="button"
@@ -1079,6 +1093,7 @@ export default function CommunityClient() {
                   <article
                     key={post.id}
                     className="tcard"
+                    style={enterPostStyle(post.id)}
                     role="button"
                     tabIndex={0}
                     aria-label={`${post.title} 상세 보기`}

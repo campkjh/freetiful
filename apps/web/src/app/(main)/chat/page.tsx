@@ -16,6 +16,7 @@ import ChatSwipeRow from '@/components/chat/ChatSwipeRow';
 import toast from 'react-hot-toast';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
+import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -345,6 +346,11 @@ export default function ChatListPage() {
     return 0;
   }), [filtered]);
 
+  // 처음 들어올 때 퀵매칭 등장(제목↑·탭↑·대화방 줄 ←) — 방에서 뒤로 돌아오거나 30초 안 재진입이면 생략
+  const entrance = useTabEntrance('chat');
+  const enterStyle = useListEntrance(sorted.map((r) => r.id), entrance);
+  const enterWindow = useEntranceWindow(entrance);
+
   // 네이티브 리스트용 행 데이터 갱신 + 통지
   useEffect(() => {
     chatRowsRef.current = sorted.map((r) => ({
@@ -508,6 +514,7 @@ export default function ChatListPage() {
               <li
                 key={room.id}
                 className="relative"
+                style={isPC ? undefined : enterStyle(room.id)}
               >
                 {(() => {
                 const rowEl = (
@@ -842,7 +849,7 @@ export default function ChatListPage() {
             }`}
           />
           <div className="flex h-14 items-center justify-between">
-            <h1 className="text-[20px] font-bold text-[#2B313D]">{isPro ? '고객 문의' : '채팅'}</h1>
+            <h1 className={`text-[20px] font-bold text-[#2B313D] ${entrance ? 'qd-a-title' : ''}`}>{isPro ? '고객 문의' : '채팅'}</h1>
             <button
               type="button"
               onClick={() => setShowSearch(!showSearch)}
@@ -881,7 +888,7 @@ export default function ChatListPage() {
 
           {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(문의목록·새요청과 같은 결) */}
           <LayoutGroup id="chat-tabs-mobile">
-            <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+            <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
               {(isPro ? PRO_TABS : TABS).map((tab) => {
                 const active = isPro ? proActiveTab === tab : activeTab === tab;
                 return (
@@ -959,7 +966,10 @@ export default function ChatListPage() {
           )
         ) : sorted.length === 0 ? (
           // 남는 공간 한가운데로 — 위에 붙여 두면 스티키 탭에 애니메이션이 잘린다
-          <div className="flex min-h-[calc(100dvh-320px)] flex-col items-center justify-center px-6 pb-10 text-center">
+          <div
+            className={`flex min-h-[calc(100dvh-320px)] flex-col items-center justify-center px-6 pb-10 text-center ${enterWindow ? 'qd-a-item' : ''}`}
+            style={enterWindow ? { animationDelay: '.3s' } : undefined}
+          >
             {search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
               : <ChatEmptyBubbles size={176} className="mx-auto mb-6" />}

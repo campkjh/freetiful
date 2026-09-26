@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
 import { getProfileImageUrl } from '@/lib/default-profile';
+import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
 
 /* ════════════════════════════════════════════════════════════════
  * 마이페이지 — 원라인솔루션 '일반바' 마이 탭 구성 그대로 (2026-09-25 사장 지시).
@@ -114,15 +115,8 @@ export default function MyPage() {
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
   const [proRegistrationPending, setProRegistrationPending] = useState(() => readStoredProProfileStatus() === 'pending');
 
-  // 최근 30초 이내 방문이면 등장 애니 생략(하위 페이지 뒤로가기 때마다 다시 흔들리지 않게) — 마운트 때 한 번만 정한다
-  const [skipAnim] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const last = Number(sessionStorage.getItem('my-page-visited-at') || '0');
-      sessionStorage.setItem('my-page-visited-at', String(Date.now()));
-      return Boolean(last && Date.now() - last < 30000);
-    } catch { return false; }
-  });
+  // 등장 애니(퀵매칭)는 탭을 눌러 들어올 때만 — 하위 화면에서 뒤로 오거나 떠난 지 30초 안에 다시 오면 생략(새요청·웨딩숲·채팅과 같은 규칙)
+  const skipAnim = !useTabEntrance('my');
 
   useEffect(() => {
     const loggedIn = authUser !== null;

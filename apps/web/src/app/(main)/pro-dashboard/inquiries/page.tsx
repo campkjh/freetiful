@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
-import { CalendarIcon, ChatBubbleIcon, ChevronRightIcon, DocumentIcon, MegaphoneIcon, PinLocationIcon, UserIcon } from '@/components/icons/mono';
+import { CalendarIcon, ChatBubbleIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
+import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 
 type Filter = 'all' | 'multi' | 'single' | 'archived';
 type RequestKind = 'multi' | 'single';
@@ -196,7 +196,7 @@ export default function ProRequestsPage() {
   const cached = useMemo(() => readLatestCache(), []);
   const [filter, setFilter] = useState<Filter>('all');
   const [requests, setRequests] = useState<MatchDeliveryView[]>(cached ?? []);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(cached !== null);
   const [initiatingChat, setInitiatingChat] = useState<string | null>(null);
   const requestsCountRef = useRef(cached?.length ?? 0);
@@ -428,23 +428,23 @@ export default function ProRequestsPage() {
     }
   }
 
+  // 처음 들어올 때 퀵매칭 등장(제목↑·탭↑·요청 칸 ←) — 탭 왕복·뒤로가기로 돌아올 땐 생략
+  const entrance = useTabEntrance('pro-requests');
+  const enterStyle = useListEntrance(filtered.slice(0, renderCount).map((r) => r.id), entrance);
+  const enterWindow = useEntranceWindow(entrance);
+  // 목록 통째 올라오는 효과는 탭을 바꿨을 때만(첫 진입은 칸별 등장이 대신한다)
+  const [tabSwitched, setTabSwitched] = useState(false);
+
   return (
     <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-24 lg:mx-auto lg:max-w-[760px]">
-      {/* 머리줄 — 매칭·채팅과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나) + 종류 탭이 같이 붙어 다닌다 */}
+      {/* 머리줄 — 매칭·채팅과 같은 결(흰 바탕·제목 20) + 종류 탭이 같이 붙어 다닌다 */}
       <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pb-2">
-        <div className="flex h-14 items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[#191F28]">새 요청</h1>
-          <Link
-            href="/pro-dashboard/auto-reply"
-            className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
-          >
-            자동응답
-            <ChevronRightIcon size={14} className="text-[#8B95A1]" />
-          </Link>
+        <div className="flex h-14 items-center">
+          <h1 className={`text-[20px] font-bold text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>새 요청</h1>
         </div>
         {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(매칭·채팅 탭과 같은 모양) */}
         <LayoutGroup id="pro-inquiry-tabs">
-          <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+          <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
             {TABS.map((tab) => {
               const active = filter === tab.key;
               const count = tab.key === 'all'
@@ -456,7 +456,7 @@ export default function ProRequestsPage() {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setFilter(tab.key)}
+                  onClick={() => { setFilter(tab.key); setTabSwitched(true); }}
                   className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
                     active ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
                   }`}
@@ -479,24 +479,27 @@ export default function ProRequestsPage() {
         </LayoutGroup>
       </div>
 
-      <div key={filter} style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
-        {loading && filtered.length === 0 && !hasFetchedOnce ? (
-          <div className="space-y-6 px-4 pt-5">
+      <div key={filter} style={tabSwitched ? { animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' } : undefined}>
+        {/* 첫 응답 전엔 '없어요' 대신 뼈대 — 캐시 없이 들어오면 빈 안내가 잠깐 비치던 것 */}
+        {filtered.length === 0 && !hasFetchedOnce ? (
+          <div className="space-y-7 px-4 pt-5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-full bg-[#F2F4F6]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-1/3 rounded bg-[#F2F4F6]" />
-                    <div className="h-3 w-2/3 rounded bg-[#F2F4F6]" />
-                  </div>
+              <div key={i} className="flex animate-pulse gap-2.5">
+                <div className="h-[42px] w-[42px] shrink-0 rounded-full bg-[#F2F4F6]" />
+                <div className="flex-1 space-y-2.5 pt-1">
+                  <div className="h-4 w-1/3 rounded bg-[#F2F4F6]" />
+                  <div className="h-3.5 w-1/5 rounded bg-[#F2F4F6]" />
+                  <div className="h-4 w-3/4 rounded bg-[#F2F4F6]" />
+                  <div className="h-11 rounded-[12px] bg-[#F9FAFB]" />
                 </div>
-                <div className="mt-4 h-11 rounded-[12px] bg-[#F9FAFB]" />
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center">
+          <div
+            className={`flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center ${enterWindow ? 'qd-a-item' : ''}`}
+            style={enterWindow ? { animationDelay: '.3s' } : undefined}
+          >
             <EmptyDocumentIcon size={72} className="mb-4" />
             <p className="text-[17px] font-bold text-[#191F28]">{filter === 'archived' ? '보관한 요청이 없어요' : '새 요청이 없어요'}</p>
             <p className="mt-2 text-[14px] leading-6 text-[#8B95A1]">고객이 견적을 요청하면 여기에 바로 떠요.</p>
@@ -507,83 +510,80 @@ export default function ProRequestsPage() {
             const parts = request.eventPart ? request.eventPart.split(', ').filter(Boolean) : [];
             const busy = initiatingChat === request.id;
             return (
-              <article key={request.id} className="border-b border-[#F2F4F6] px-4 py-5 last:border-b-0">
-                {/* 1단 — 누가 · 어떤 요청 · 언제 받았나 */}
-                <div className="flex items-start gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={request.customerImage}
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
-                    loading="lazy"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <strong className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{request.customerName}</strong>
-                      {/* 개인요청 = 나를 골라 보낸 요청(파랑) · 모두에게 = 여러 사회자에게 함께(회색) */}
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-[2px] text-[11.5px] font-semibold ${
-                          single ? 'bg-[#E8F3FF] text-[#3182F6]' : 'bg-[#F2F4F6] text-[#6B7684]'
-                        }`}
-                      >
-                        {single ? <UserIcon size={11} className="shrink-0" /> : <MegaphoneIcon size={11} className="shrink-0" />}
-                        {single ? '개인요청' : '모두에게'}
-                      </span>
-                      <span className="ml-auto shrink-0 text-[12px] text-[#8B95A1]">{timeAgo(request.deliveredAt)}</span>
-                    </div>
-                    <p className="mt-0.5 truncate text-[14px] font-semibold text-[#4E5968]">
-                      {[request.categoryName, request.eventCategoryName].filter(Boolean).join(' · ')}
-                    </p>
+              // 웨딩숲 글 카드(.tcard)와 같은 계층 — 왼쪽 프사 칸 · 오른쪽 이름줄/시간/본문/태그/버튼
+              <article
+                key={request.id}
+                className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-4 pt-[18px] last:border-b-0 min-[601px]:gap-3 min-[601px]:pb-[18px] min-[601px]:pt-[22px]"
+                style={enterStyle(request.id)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={request.customerImage}
+                  alt=""
+                  className="h-[42px] w-[42px] shrink-0 rounded-full bg-[#F2F4F6] object-cover min-[601px]:h-12 min-[601px]:w-12"
+                  loading="lazy"
+                />
+                <div className="min-w-0 flex-1">
+                  {/* 이름(16·굵게) + 종류 배지(웨딩숲 배지: 모서리 6·13.5) — 개인요청=나를 골라 보낸 요청(파랑) · 모두에게=여러 사회자에게 함께(회색) */}
+                  <div className="flex items-center gap-1.5 pt-px">
+                    <strong className="min-w-0 truncate text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{request.customerName}</strong>
+                    <span
+                      className={`inline-flex h-6 shrink-0 items-center rounded-[6px] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] ${
+                        single ? 'bg-[#E8F3FF] text-[#3182F6]' : 'bg-[#F2F4F6] text-[#6B7684]'
+                      }`}
+                    >
+                      {single ? '개인요청' : '모두에게'}
+                    </span>
                   </div>
-                </div>
+                  {/* 메타 — 받은 시각(회색 14) */}
+                  <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1] min-[601px]:text-[15px]">{timeAgo(request.deliveredAt)}</p>
 
-                {/* 2단 — 행사 정보(일시·장소·진행 부) */}
-                <div className="mt-3 space-y-1 pl-[56px]">
-                  <p className="flex items-center gap-1.5 text-[13.5px] text-[#4E5968]">
-                    <CalendarIcon size={14} className="shrink-0 text-[#B0B8C1]" />
-                    <span className="min-w-0 truncate">{`${formatEventDate(request.eventDate)} ${formatTime(request.eventTime)}`.trim()}</span>
-                  </p>
-                  {request.eventLocation && (
-                    <p className="flex items-center gap-1.5 text-[13.5px] text-[#6B7684]">
-                      <PinLocationIcon size={14} className="shrink-0 text-[#B0B8C1]" />
-                      <span className="min-w-0 truncate">{request.eventLocation}</span>
+                  {/* 본문(16.5) — 행사 일시·장소, 고객 메모 */}
+                  <div className="mt-3 space-y-1 text-[16.5px] leading-[1.5] tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17.5px]">
+                    <p className="flex items-center gap-1.5">
+                      <CalendarIcon size={18} className="shrink-0 text-[#B0B8C1]" />
+                      <span className="min-w-0 truncate">{`${formatEventDate(request.eventDate)} ${formatTime(request.eventTime)}`.trim()}</span>
                     </p>
+                    {request.eventLocation && (
+                      <p className="flex items-center gap-1.5">
+                        <PinLocationIcon size={18} className="shrink-0 text-[#B0B8C1]" />
+                        <span className="min-w-0 truncate">{request.eventLocation}</span>
+                      </p>
+                    )}
+                  </div>
+                  {request.note && (
+                    <p className="mt-2.5 whitespace-pre-line break-words text-[16.5px] leading-[1.65] tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17.5px]">{request.note}</p>
                   )}
+
+                  {/* 태그 — 웨딩숲 카테고리 칩(회색 · 모서리 6 · 13) */}
                   {parts.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
+                    <div className="mt-3 flex flex-wrap gap-x-2 gap-y-1.5">
                       {parts.map((part) => (
-                        <span key={part} className="rounded-full bg-[#F2F4F6] px-2 py-[2px] text-[12px] font-semibold text-[#4E5968]">{part}</span>
+                        <span key={part} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{part}</span>
                       ))}
                     </div>
                   )}
-                  {/* 고객 메모 */}
-                  {request.note && (
-                    <p className="mt-2 flex gap-1.5 rounded-[14px] bg-[#F9FAFB] px-3 py-2.5 text-[13px] leading-5 text-[#4E5968]">
-                      <DocumentIcon size={14} className="mt-[3px] shrink-0 text-[#B0B8C1]" />
-                      <span className="min-w-0 whitespace-pre-line break-words">{request.note}</span>
-                    </p>
-                  )}
-                </div>
 
-                {/* 3단 — 답하기 */}
-                <div className="mt-4 flex gap-2 pl-[56px]">
-                  <button
-                    type="button"
-                    onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
-                    disabled={busy}
-                    className="h-11 flex-1 rounded-[12px] bg-[#F2F4F6] text-[15px] font-semibold text-[#4E5968] transition active:scale-[0.97] disabled:opacity-50"
-                  >
-                    거절
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStartChat(request)}
-                    disabled={busy}
-                    className="flex h-11 flex-[1.6] items-center justify-center gap-1.5 rounded-[12px] bg-[#3182F6] text-[15px] font-semibold text-white transition active:scale-[0.97] disabled:opacity-60"
-                  >
-                    <ChatBubbleIcon size={16} className="shrink-0" />
-                    {busy ? '연결 중' : '채팅으로 답하기'}
-                  </button>
+                  {/* 답하기 */}
+                  <div className="mt-3.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
+                      disabled={busy}
+                      className="h-11 flex-1 rounded-[12px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition active:scale-[0.97] disabled:opacity-50"
+                    >
+                      거절
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartChat(request)}
+                      disabled={busy}
+                      className="flex h-11 flex-[1.6] items-center justify-center gap-1.5 rounded-[12px] bg-[#3182F6] text-[16px] font-semibold text-white transition active:scale-[0.97] disabled:opacity-60"
+                    >
+                      <ChatBubbleIcon size={17} className="shrink-0" />
+                      {busy ? '연결 중' : '채팅으로 답하기'}
+                    </button>
+                  </div>
                 </div>
               </article>
             );

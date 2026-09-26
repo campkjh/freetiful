@@ -4,7 +4,7 @@
 //  · 사진 첨부(최대 5장) — 공용 업로드 경로(uploadCommunityImage)
 //  · 카테고리·태그는 AI 가 본문을 읽고 자동으로 채운다(POST /community/suggest). 직접 바꾸거나 뺄 수 있다.
 //  · 떠 있던 '게시글 +' 버튼은 없앴다 — 글쓰기 입구는 이 칸 하나(작성 모달은 ?compose=1 딥링크로만 남음).
-import { ChangeEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, type CSSProperties, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { uploadCommunityImage, revokeUploadPreview, type CommunityUpload } from "@/lib/communityUpload";
@@ -44,7 +44,12 @@ export default function TossComposer({
   contextGroupId,
   onPosted,
   onToast,
+  enterClassName = "",
+  enterStyle,
 }: {
+  /** 웨딩숲 첫 진입 등장(퀵매칭) — 바깥 sticky 칸에 그대로 얹는다(감싸면 sticky 가 풀린다) */
+  enterClassName?: string;
+  enterStyle?: CSSProperties;
   groups: GroupNode[];
   /** 피드에서 보고 있는 카테고리 — 소분류면 기본값으로 쓴다. */
   contextGroupId?: string;
@@ -339,7 +344,7 @@ export default function TossComposer({
   const busyImages = images.length + uploading;
 
   return (
-    <div ref={stickyRef} className={`tcomp-sticky${stuck && !open ? " is-stuck" : ""}${open ? " is-open" : ""}`}>
+    <div ref={stickyRef} className={`tcomp-sticky${stuck && !open ? " is-stuck" : ""}${open ? " is-open" : ""}${enterClassName}`} style={enterStyle}>
     <div className={`tcomp${open ? " is-open" : ""}`}>
       {/* 접힌 모습: 토스식 한 줄 입력 칸 */}
       <div className="tcomp-fold" ref={foldRef}>
