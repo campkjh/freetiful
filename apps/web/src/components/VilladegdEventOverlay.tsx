@@ -162,6 +162,8 @@ export default function VilladegdEventOverlay() {
 
   const close = () => {
     setOpen(false);
+    // 홈 진입 팝업이 이 화면이 닫히길 기다린다(main/page.tsx — 두 창이 겹쳐 뜨지 않게)
+    try { window.dispatchEvent(new Event('freetiful:villadegd-closed')); } catch {}
     // 안전망: 네이티브 앱에 nav 상태를 다시 알린다.
     // 네이티브는 NAV/FOOTER 추가 시에만 MutationObserver 가 발화하고 dialog 제거는 감지하지 못해,
     // hasBlockingOverlay 가 true 로 남아 하단 네비가 사라진 채 복구되지 않는다.

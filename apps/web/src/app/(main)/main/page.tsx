@@ -1924,6 +1924,7 @@ export default function HomePage() {
     // (홈 → 마이/채팅 → 홈 으로 되돌아올 때마다 이 effect 가 다시 돌아 계속 뜨던 문제)
     try { if (sessionStorage.getItem(POPUP_SEEN_KEY) === '1') return; } catch {}
     let cancelled = false;
+    let stopWaiting = () => {};
     fetch('/api/v1/banners?placement=popup')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -1934,11 +1935,22 @@ export default function HomePage() {
           const until = Number(localStorage.getItem(`freetiful-popup-hide:${b.id}`) || '0');
           if (until && Date.now() < until) return;
         } catch {}
-        setPopupBanner({ id: b.id, imageUrl: b.imageUrl, linkUrl: b.linkUrl });
-        setShowOfficialOpenModal(true);
+        const show = () => {
+          if (cancelled) return;
+          setPopupBanner({ id: b.id, imageUrl: b.imageUrl, linkUrl: b.linkUrl });
+          setShowOfficialOpenModal(true);
+        };
+        // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
+        if (document.querySelector('[role="dialog"][aria-label="빌라드지디"]')) {
+          const onClosed = () => { stopWaiting(); window.setTimeout(show, 350); };
+          window.addEventListener('freetiful:villadegd-closed', onClosed);
+          stopWaiting = () => window.removeEventListener('freetiful:villadegd-closed', onClosed);
+        } else {
+          show();
+        }
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => { cancelled = true; stopWaiting(); };
   }, []);
 
   /** 닫기(어떤 경로든) — 이 세션에선 다시 띄우지 않도록 표시 */
