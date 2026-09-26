@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Calendar, MapPin } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarIcon, ChatBubbleIcon, ChevronRightIcon, DocumentIcon, MegaphoneIcon, PinLocationIcon, UserIcon } from '@/components/icons/mono';
+import { EmptyDocumentIcon } from '@/components/icons/color';
 import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -125,12 +127,22 @@ function timeAgo(dateStr: string | null): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+// iOS 네이티브 행(dateText)용 — 네이티브 칸 폭에 맞춘 짧은 표기라 그대로 둔다
 function formatDate(iso: string | null): string {
   if (!iso) return '일시 미정';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${weekdays[d.getDay()]})`;
+}
+
+// 웹 행사일: 매칭·채팅방 일정과 같은 '26년 12월 13일 (일)'. @db.Date 는 UTC 자정이라 UTC 로 읽는다
+function formatEventDate(iso: string | null): string {
+  if (!iso) return '일시 미정';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${String(d.getUTCFullYear()).slice(2)}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${weekdays[d.getUTCDay()]})`;
 }
 
 function formatTime(value: string | null): string {
@@ -417,129 +429,165 @@ export default function ProRequestsPage() {
   }
 
   return (
-    <div className="pro-toss-page pro-fast-render pb-24">
-      <div data-native-chatlist-header className="pro-toss-header sticky top-0 z-10 px-4 pb-3 pt-3">
-        <div className="flex h-[52px] items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[#2B313D]">새 요청</h1>
+    <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-24 lg:mx-auto lg:max-w-[760px]">
+      {/* 머리줄 — 매칭·채팅과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나) + 종류 탭이 같이 붙어 다닌다 */}
+      <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pb-2">
+        <div className="flex h-14 items-center justify-between">
+          <h1 className="text-[20px] font-bold text-[#191F28]">새 요청</h1>
+          <Link
+            href="/pro-dashboard/auto-reply"
+            className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
+          >
+            자동응답
+            <ChevronRightIcon size={14} className="text-[#8B95A1]" />
+          </Link>
         </div>
-        {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
+        {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(매칭·채팅 탭과 같은 모양) */}
         <LayoutGroup id="pro-inquiry-tabs">
-        <div className="flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 scrollbar-hide">
-          {TABS.map((tab) => {
-            const active = filter === tab.key;
-            const count = tab.key === 'all'
-              ? requests.length
-              : requests.filter((request) => request.requestKind === tab.key).length;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                className={`relative flex shrink-0 flex-1 items-center justify-center gap-1.5 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                  active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
-                }`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="pro-inquiry-tab-pill"
-                    className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                  />
-                )}
-                <span className="relative">{tab.label}</span>
-                {count > 0 && (
-                  <span className={`relative text-[12px] tabular-nums ${active ? 'text-[#3180F7]' : 'text-[#C8CEDA]'}`}>{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+          <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+            {TABS.map((tab) => {
+              const active = filter === tab.key;
+              const count = tab.key === 'all'
+                ? requests.filter((r) => r.status !== 'archived').length
+                : tab.key === 'archived'
+                  ? requests.filter((r) => r.status === 'archived').length
+                  : requests.filter((r) => r.status !== 'archived' && r.requestKind === tab.key).length;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setFilter(tab.key)}
+                  className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
+                    active ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="pro-inquiry-tab-pill"
+                      className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative whitespace-nowrap">{tab.label}</span>
+                  {count > 0 && (
+                    <span className={`relative text-[12px] tabular-nums ${active ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>{count}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </LayoutGroup>
       </div>
 
-      <div key={filter} className="space-y-3 px-4 pt-3" style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+      <div key={filter} style={{ animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
         {loading && filtered.length === 0 && !hasFetchedOnce ? (
-          <div className="py-24 text-center">
-            <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청을 확인 중입니다</p>
+          <div className="space-y-6 px-4 pt-5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-full bg-[#F2F4F6]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 rounded bg-[#F2F4F6]" />
+                    <div className="h-3 w-2/3 rounded bg-[#F2F4F6]" />
+                  </div>
+                </div>
+                <div className="mt-4 h-11 rounded-[12px] bg-[#F9FAFB]" />
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-24 text-center">
-            <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청이 없습니다</p>
+          <div className="flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center">
+            <EmptyDocumentIcon size={72} className="mb-4" />
+            <p className="text-[17px] font-bold text-[#191F28]">{filter === 'archived' ? '보관한 요청이 없어요' : '새 요청이 없어요'}</p>
+            <p className="mt-2 text-[14px] leading-6 text-[#8B95A1]">고객이 견적을 요청하면 여기에 바로 떠요.</p>
           </div>
         ) : (
-          filtered.slice(0, renderCount).map((request) => (
-            <article
-              key={request.id}
-              className="rounded-[24px] border-[0.6px] border-[#F9F9F9] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
-            >
-              <div className="flex items-start gap-3">
-                <img
-                  src={request.customerImage}
-                  alt=""
-                  className="h-11 w-11 shrink-0 rounded-[20px] object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      request.requestKind === 'multi'
-                        ? 'bg-[#EAF2FF] text-[#3180F7]'
-                        : 'bg-[#F2F4F8] text-[#4E5968]'
-                    }`}>
-                      {request.requestKind === 'multi' ? '모두에게' : '개인요청'}
-                    </span>
-                    <strong className="truncate text-[16px] font-bold text-[#2B313D]">{request.customerName}</strong>
-                    <span className="ml-auto shrink-0 text-[12px] font-normal text-[#A4ABBA]">{timeAgo(request.deliveredAt)}</span>
+          filtered.slice(0, renderCount).map((request) => {
+            const single = request.requestKind === 'single';
+            const parts = request.eventPart ? request.eventPart.split(', ').filter(Boolean) : [];
+            const busy = initiatingChat === request.id;
+            return (
+              <article key={request.id} className="border-b border-[#F2F4F6] px-4 py-5 last:border-b-0">
+                {/* 1단 — 누가 · 어떤 요청 · 언제 받았나 */}
+                <div className="flex items-start gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={request.customerImage}
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
+                    loading="lazy"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <strong className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{request.customerName}</strong>
+                      {/* 개인요청 = 나를 골라 보낸 요청(파랑) · 모두에게 = 여러 사회자에게 함께(회색) */}
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-[2px] text-[11.5px] font-semibold ${
+                          single ? 'bg-[#E8F3FF] text-[#3182F6]' : 'bg-[#F2F4F6] text-[#6B7684]'
+                        }`}
+                      >
+                        {single ? <UserIcon size={11} className="shrink-0" /> : <MegaphoneIcon size={11} className="shrink-0" />}
+                        {single ? '개인요청' : '모두에게'}
+                      </span>
+                      <span className="ml-auto shrink-0 text-[12px] text-[#8B95A1]">{timeAgo(request.deliveredAt)}</span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[14px] font-semibold text-[#4E5968]">
+                      {[request.categoryName, request.eventCategoryName].filter(Boolean).join(' · ')}
+                    </p>
                   </div>
-                  <p className="text-[14px] font-semibold text-[#4E5968]">
-                    {[request.categoryName, request.eventCategoryName].filter(Boolean).join(' · ')}
+                </div>
+
+                {/* 2단 — 행사 정보(일시·장소·진행 부) */}
+                <div className="mt-3 space-y-1 pl-[56px]">
+                  <p className="flex items-center gap-1.5 text-[13.5px] text-[#4E5968]">
+                    <CalendarIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                    <span className="min-w-0 truncate">{`${formatEventDate(request.eventDate)} ${formatTime(request.eventTime)}`.trim()}</span>
                   </p>
-                  {request.eventPart && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {request.eventPart.split(', ').map((part) => (
-                        <span key={part} className="rounded-full bg-[#EAF3FF] px-2.5 py-0.5 text-[12px] font-bold text-[#3180F7]">{part}</span>
+                  {request.eventLocation && (
+                    <p className="flex items-center gap-1.5 text-[13.5px] text-[#6B7684]">
+                      <PinLocationIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                      <span className="min-w-0 truncate">{request.eventLocation}</span>
+                    </p>
+                  )}
+                  {parts.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {parts.map((part) => (
+                        <span key={part} className="rounded-full bg-[#F2F4F6] px-2 py-[2px] text-[12px] font-semibold text-[#4E5968]">{part}</span>
                       ))}
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-medium text-[#6B7684]">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar size={13} />
-                      {formatDate(request.eventDate)} {formatTime(request.eventTime)}
-                    </span>
-                    {request.eventLocation && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin size={13} />
-                        {request.eventLocation}
-                      </span>
-                    )}
-                  </div>
+                  {/* 고객 메모 */}
                   {request.note && (
-                    <p className="mt-3 rounded-[16px] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-5 text-[#4E5968]">
-                      {request.note}
+                    <p className="mt-2 flex gap-1.5 rounded-[14px] bg-[#F9FAFB] px-3 py-2.5 text-[13px] leading-5 text-[#4E5968]">
+                      <DocumentIcon size={14} className="mt-[3px] shrink-0 text-[#B0B8C1]" />
+                      <span className="min-w-0 whitespace-pre-line break-words">{request.note}</span>
                     </p>
                   )}
                 </div>
-              </div>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
-                  disabled={initiatingChat === request.id}
-                  className="h-12 flex-1 rounded-[12px] bg-[#F2F4F8] text-[18px] font-semibold text-[#4E5968] transition active:scale-95 disabled:opacity-50"
-                >
-                  거절
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleStartChat(request)}
-                  disabled={initiatingChat === request.id}
-                  className="h-12 flex-1 rounded-[12px] bg-[#3180F7] text-[18px] font-semibold text-white shadow-[0_10px_20px_rgba(49,128,247,0.16)] transition active:scale-95 disabled:opacity-60"
-                >
-                  {initiatingChat === request.id ? '연결 중' : '채팅'}
-                </button>
-              </div>
-            </article>
-          ))
+                {/* 3단 — 답하기 */}
+                <div className="mt-4 flex gap-2 pl-[56px]">
+                  <button
+                    type="button"
+                    onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
+                    disabled={busy}
+                    className="h-11 flex-1 rounded-[12px] bg-[#F2F4F6] text-[15px] font-semibold text-[#4E5968] transition active:scale-[0.97] disabled:opacity-50"
+                  >
+                    거절
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartChat(request)}
+                    disabled={busy}
+                    className="flex h-11 flex-[1.6] items-center justify-center gap-1.5 rounded-[12px] bg-[#3182F6] text-[15px] font-semibold text-white transition active:scale-[0.97] disabled:opacity-60"
+                  >
+                    <ChatBubbleIcon size={16} className="shrink-0" />
+                    {busy ? '연결 중' : '채팅으로 답하기'}
+                  </button>
+                </div>
+              </article>
+            );
+          })
         )}
         {filtered.length > renderCount && <div ref={renderMoreRef} className="h-12" aria-hidden="true" />}
         {filtered.length <= renderCount && (hasMore || loadingMore) && (
@@ -551,30 +599,30 @@ export default function ProRequestsPage() {
 
       {rejectTarget && (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setRejectTarget(null)}>
-          <div className="w-full max-w-[440px] rounded-t-3xl bg-white p-5 pb-8 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 sm:hidden" />
-            <h2 className="text-[17px] font-bold text-[#191F28]">거절 사유</h2>
-            <p className="mt-1 text-[13px] text-[#8B95A1]">고객에게 전달됩니다. (선택 입력)</p>
+          <div className="w-full max-w-[440px] rounded-t-[24px] bg-white px-5 pb-8 pt-5 sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E5E8EB] sm:hidden" />
+            <h2 className="text-[18px] font-bold text-[#191F28]">요청을 거절할까요?</h2>
+            <p className="mt-1 text-[13.5px] text-[#8B95A1]">적은 사유는 고객에게 전달돼요. (선택)</p>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="예) 요청하신 날짜에 선약이 있어 진행이 어렵습니다."
+              placeholder="예) 요청하신 날짜에 선약이 있어 진행이 어려워요."
               rows={3}
               maxLength={200}
-              className="mt-3 w-full resize-none rounded-2xl border border-[#E5E8EF] bg-[#F8FAFC] px-4 py-3 text-[15px] text-[#2B313D] outline-none focus:border-[#3180F7]"
+              className="mt-3 w-full resize-none rounded-[16px] border-[1.5px] border-[#E5E8EB] bg-white px-4 py-3 text-[16px] text-[#191F28] outline-none placeholder:text-[#B0B8C1] focus:border-[#3182F6]"
             />
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
-                className="h-12 flex-1 rounded-[12px] bg-[#F2F4F8] text-[16px] font-semibold text-[#4E5968] transition active:scale-95"
+                className="h-12 flex-1 rounded-[14px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition active:scale-[0.97]"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={() => { const id = rejectTarget; const msg = rejectReason.trim(); setRejectTarget(null); if (id) handleReject(id, msg || undefined); }}
-                className="h-12 flex-1 rounded-[12px] bg-[#E5484D] text-[16px] font-semibold text-white transition active:scale-95"
+                className="h-12 flex-1 rounded-[14px] bg-[#F04452] text-[16px] font-semibold text-white transition active:scale-[0.97]"
               >
                 거절하기
               </button>

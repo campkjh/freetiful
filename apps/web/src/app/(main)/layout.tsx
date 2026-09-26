@@ -187,6 +187,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const whiteBackground = isHome || /^\/pros\/[^/]+/.test(pathname);
   // 채팅은 모바일만 흰 바탕 — 목록 아래 여백(pb-24)으로 회색(surface-50)이 띠처럼 비치던 것. PC 는 회색 바탕 위 흰 카드 유지.
   const chatRoute = /^\/chat(\/|$)/.test(pathname);
+  // 매칭·새요청 목록도 흰 종이 한 장 — 같은 이유로 모바일만 흰 바탕
+  const requestListRoute = pathname === '/inquiries' || pathname === '/pro-dashboard/inquiries';
   // 마이페이지는 모바일에서 회색(#F4F6FA) 위 흰 카드 — 페이지 바탕과 같은 색이어야 아래 여백에 다른 회색 띠가 안 생긴다
   const myRoute = pathname === '/my';
   const router = useRouter();
@@ -488,7 +490,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute ? 'bg-white lg:bg-surface-50' : myRoute ? 'bg-[#F4F6FA] lg:bg-surface-50' : 'bg-surface-50'}`}>
+    <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute || requestListRoute ? 'bg-white lg:bg-surface-50' : myRoute ? 'bg-[#F4F6FA] lg:bg-surface-50' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
