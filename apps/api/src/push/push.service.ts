@@ -28,6 +28,10 @@ export class PushService {
   private oneSignalCooldownUntil = 0;
   // 같은 user:token 의 중복 동기화 차단 (클라가 register 를 반복 호출해도 한 번만)
   private readonly recentOneSignalSync = new Map<string, number>();
+  // 같은 기기 토큰 등록이 한꺼번에 수백 번 들어오면(클라 폭주) updateMany/upsert 가 서로 잠가 Postgres 교착(40P01)이 나고
+  // 에러 로그가 초당 500줄을 넘겨 버려졌다(260926 로그 실측) → 같은 user:token 은 진행 중이면 그 결과를 같이 쓰고, 1분 안 재등록은 DB 를 안 건드린다.
+  private readonly tokenSaveInFlight = new Map<string, Promise<unknown>>();
+  private readonly recentTokenSaves = new Map<string, { at: number; record: unknown }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -79,6 +83,24 @@ export class PushService {
     const normalizedPlatform = platform?.trim() || 'native';
     if (!normalizedPlayerId) return null;
 
+    const saveKey = `${userId}:${normalizedPlayerId}:${normalizedPlatform}`;
+    const recent = this.recentTokenSaves.get(saveKey);
+    if (recent && Date.now() - recent.at < 60_000) return recent.record as any;
+    const inFlight = this.tokenSaveInFlight.get(saveKey);
+    if (inFlight) return inFlight as Promise<any>;
+    const job = this.saveOneSignalPlayerIdNow(userId, normalizedPlayerId, normalizedPlatform);
+    this.tokenSaveInFlight.set(saveKey, job);
+    try {
+      const record = await job;
+      this.recentTokenSaves.set(saveKey, { at: Date.now(), record });
+      if (this.recentTokenSaves.size > 5000) this.recentTokenSaves.clear();
+      return record;
+    } finally {
+      this.tokenSaveInFlight.delete(saveKey);
+    }
+  }
+
+  private async saveOneSignalPlayerIdNow(userId: string, normalizedPlayerId: string, normalizedPlatform: string) {
     // 1) 같은 subscription ID가 다른 유저에 묶여 있으면 비활성화한다.
     // 같은 유저의 다른 iOS 기기는 지우면 안 된다. 한 유저가 여러 폰/패드를
     // 동시에 쓸 수 있으므로 platform 기준 정리는 알림 누락을 만든다.
@@ -89,6 +111,11 @@ export class PushService {
       },
       data: { isActive: false },
     });
+    // 같은 기기에서 다른 계정 토큰을 방금 껐으니, 그 계정의 '1분 안 재등록 생략' 기억도 지운다
+    // (계정을 바꿨다가 1분 안에 되돌아와도 다시 켜지게 — 다계정 알림 누락 방지)
+    for (const key of this.recentTokenSaves.keys()) {
+      if (key.includes(`:${normalizedPlayerId}:`) && !key.startsWith(`${userId}:`)) this.recentTokenSaves.delete(key);
+    }
 
     // 2) 현재 기기 토큰 upsert
     const record = await this.prisma.pushToken.upsert({
