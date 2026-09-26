@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, Bell, ChevronRight, X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
+import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import ProQuickView from '@/components/ProQuickView';
 import { PartnerCategoryIcon, ProsIcon, EventMcIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
@@ -2241,19 +2242,9 @@ export default function HomePage() {
   };
   const desktopHeroBanners = banners.length > 0 ? banners : BANNERS;
   const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
-  const [logoVisible, setLogoVisible] = useState(true);
   const headerRef = useRef<HTMLDivElement>(null);
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [headerH, setHeaderH] = useState(56);
-
-  useEffect(() => {
-    const onScroll = () => {
-      // 약 160px 이상 스크롤하면 (결혼식사회자 버튼 영역 지나면) 로고 숨김
-      setLogoVisible(window.scrollY < 160);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   useEffect(() => {
     if (!headerRef.current) return;
@@ -2310,11 +2301,13 @@ export default function HomePage() {
   if (loading) {
     return (
       <div className="bg-white min-h-screen w-full">
-        {/* 헤더 스켈레톤 — 로고 + 검색바 + 알림 */}
+        {/* 헤더 스켈레톤 — 로고 + 알림·검색 아이콘(260926 검색창 뺌) */}
         <div className="flex items-center gap-3 px-4 pt-3 pb-2 lg:mx-auto lg:max-w-7xl lg:px-8 lg:pt-4 lg:pb-3">
           <div className="skeleton shrink-0" style={{ width: 104, height: 24, borderRadius: 6 }} />
-          <div className="skeleton flex-1" style={{ height: 42, borderRadius: 9999 }} />
-          <div className="skeleton shrink-0" style={{ width: 36, height: 36, borderRadius: 9999 }} />
+          <div className="ml-auto flex h-[42px] items-center gap-5 pr-1">
+            <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 9999 }} />
+            <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 9999 }} />
+          </div>
         </div>
 
         {/* 언더라인 탭 스켈레톤 */}
@@ -2539,7 +2532,9 @@ export default function HomePage() {
           </div>
       </div>
 
-      {/* ─── Mobile Header (Fixed, single row: logo + search + bell) ── */}
+      {/* ─── Mobile Header (Fixed, single row: 로고 + 알림·검색 아이콘) ──
+          260926 사장 시안: 검색창을 빼고 오른쪽에 종(안 읽은 알림 빨간 점)·돋보기. 줄 높이 42 = 아래 탭바(top 54) 그대로.
+          iOS 앱은 이 헤더를 숨기고 네이티브 헤더(NativeHomeHeader)를 쓴다. */}
       <BodyPortal>
       <div
         ref={headerRef}
@@ -2549,19 +2544,8 @@ export default function HomePage() {
           background: 'transparent', // 통합 그라데이션 블러 레이어(HomeSwipeTabs)가 뒤에서 프로스트 처리
         }}
       >
-        <div className="flex items-center gap-2">
-          {/* Logo - shrinks & disappears on scroll */}
-          <Link
-            href="/main"
-            className="shrink-0 origin-left"
-            style={{
-              width: logoVisible ? 'auto' : 0,
-              opacity: logoVisible ? 1 : 0,
-              transform: logoVisible ? 'scale(1)' : 'scale(0.5)',
-              transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              overflow: 'hidden',
-            }}
-          >
+        <div className="flex h-[42px] items-center">
+          <Link href="/main" className="shrink-0">
             <Image
               src="/images/logo-freetiful-wordmark.svg"
               alt="Freetiful"
@@ -2571,38 +2555,24 @@ export default function HomePage() {
               className="h-[24px] w-auto"
             />
           </Link>
-          {/* Search bar - expands with bounce */}
-          <Link
-            href="/search"
-            onTouchStart={warmProsList}
-            onMouseEnter={warmProsList}
-            className="flex items-center gap-2 bg-surface-100 rounded-full px-3 py-2.5 hover:bg-surface-200/80"
-            style={{
-              flex: 1,
-              transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            }}
-          >
-            <Search size={16} className="text-gray-400 shrink-0" />
-            <span className="text-gray-400 text-[16px] font-medium truncate">어떤 사회자를 찾으시나요?</span>
-          </Link>
-          {/* Bell icon */}
-          <Link
-            href="/notifications"
-            className="relative p-2 shrink-0 rounded-full hover:bg-surface-100/80"
-            style={{
-              width: logoVisible ? 'auto' : 0,
-              opacity: logoVisible ? 1 : 0,
-              transform: logoVisible ? 'scale(1)' : 'scale(0.5)',
-              transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              overflow: 'hidden',
-              padding: logoVisible ? undefined : 0,
-            }}
-          >
-            <Bell size={20} className="text-gray-700" />
-            {unreadNotifications > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary-500 rounded-full ring-2 ring-white" />
-            )}
-          </Link>
+          <div className="ml-auto flex items-center">
+            <Link
+              href="/notifications"
+              aria-label={unreadNotifications > 0 ? `알림 (안 읽은 알림 ${unreadNotifications}개)` : '알림'}
+              className="flex h-[42px] w-11 items-center justify-center transition-transform duration-150 active:scale-90"
+            >
+              <HeaderBellIcon dot={unreadNotifications > 0} />
+            </Link>
+            <Link
+              href="/search"
+              aria-label="검색"
+              onTouchStart={warmProsList}
+              onMouseEnter={warmProsList}
+              className="flex h-[42px] w-11 items-center justify-center transition-transform duration-150 active:scale-90"
+            >
+              <HeaderSearchIcon />
+            </Link>
+          </div>
         </div>
       </div>
       </BodyPortal>
