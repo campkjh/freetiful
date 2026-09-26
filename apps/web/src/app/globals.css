@@ -2094,7 +2094,7 @@ html[data-embedded='1'] [data-native-back-header] {
 mark.chat-hl { background: #FFEBA0; color: #191F28; border-radius: 4px; padding: 0 1px; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-color .2s ease; }
 mark.chat-hl.cur { background: #FFC933; }
 /* 채팅 목록 검색 결과 — 일치 글자는 파랑 굵게 */
-mark.chat-list-hl { background: none; color: #3182F6; font-weight: 700; }
+mark.chat-list-hl, mark.srch-hl { background: none; color: #3182F6; font-weight: 700; }
 /* 방 제목 줄 위에 겹친 검색 줄(늘 붙어 있음) — 열릴 때 오른쪽에서 스르륵, 닫힐 때 살짝 밀리며 사라짐 */
 .chat-room-search { opacity: 0; transform: translateX(16px); pointer-events: none; transition: opacity .18s ease, transform .3s cubic-bezier(.4,0,.2,1); }
 .chat-room-search.is-open { opacity: 1; transform: none; pointer-events: auto; transition: opacity .24s ease, transform .42s cubic-bezier(.22,1,.36,1); }
@@ -2115,6 +2115,30 @@ mark.chat-list-hl { background: none; color: #3182F6; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   .chatlist-search, .chatlist-search .field, .chat-room-search, .chatlist-search-toggle > .ic { transition: none !important; }
   .chat-search-nav { animation: none; }
+}
+
+/* ─── 검색 화면(260926 사장 "검색 부분도 디자인·인터랙션 다") ─────────────────────── */
+/* 들어올 때 — 홈 오른쪽 위 돋보기가 벌어지듯 칸이 오른쪽 동그라미(48)에서 왼쪽으로 늘어나고, 글자는 조금 뒤에 */
+@keyframes srchFieldIn { from { max-width: 48px; border-radius: 24px; } to { max-width: 100%; border-radius: 14px; } }
+.srch-field { animation: srchFieldIn .62s cubic-bezier(.22,1,.36,1) both; }
+@keyframes srchFade { from { opacity: 0; } to { opacity: 1; } }
+.srch-input { animation: srchFade .3s ease .22s both; }
+@keyframes srchBackIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.srch-back { animation: srchBackIn .42s cubic-bezier(.22,1,.36,1) .12s both; }
+/* 지우기 동그라미 — 톡 튀어나옴(가운데 맞춤 translate 를 같이 들고 간다) */
+@keyframes srchClearIn { 0% { opacity: 0; transform: translateY(-50%) scale(.4); } 70% { opacity: 1; transform: translateY(-50%) scale(1.1); } 100% { opacity: 1; transform: translateY(-50%) scale(1); } }
+.srch-clear { animation: srchClearIn .28s cubic-bezier(.22,1,.36,1) both; }
+@keyframes srchPop { 0% { opacity: 0; transform: scale(.5); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+.srch-pop { animation: srchPop .5s cubic-bezier(.22,1,.36,1) both; }
+/* 결과 줄 — 새로 생긴 줄만 오른쪽→왼쪽(키가 같으면 다시 안 움직인다) */
+.srch-row { animation: qdSlideIn .44s cubic-bezier(.22,.61,.36,1) backwards; }
+/* 최근 검색 칩 지우기 — 오그라들며 사라지고 옆 칩이 부드럽게 당겨진다 */
+.srch-chip { max-width: 260px; }
+@keyframes srchChipOut { to { opacity: 0; transform: scale(.8); max-width: 0; margin-right: -8px; border-width: 0; } }
+.srch-chip.is-out { animation: srchChipOut .22s cubic-bezier(.4,0,.2,1) forwards !important; animation-delay: 0s !important; overflow: hidden; pointer-events: none; }
+.srch-clearing > * { opacity: 0 !important; transform: translateY(-6px) !important; transition: opacity .2s ease, transform .24s cubic-bezier(.4,0,.2,1); }
+@media (prefers-reduced-motion: reduce) {
+  .srch-field, .srch-input, .srch-back, .srch-clear, .srch-pop, .srch-row, .srch-chip.is-out { animation: none !important; }
 }
 
 /* ═══ 상세 화면 공통 = 퀵매칭 어법 (2026-09-25 사장 지시 — "버튼 눌러 나오는 상세페이지 전부 퀵매칭 헤더·인터랙션·디자인") ═══
