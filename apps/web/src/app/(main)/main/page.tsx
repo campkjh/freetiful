@@ -782,6 +782,7 @@ const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string;
 function HomeTopBanner() {
   const router = useRouter();
   const authUser = useAuthStore((st) => st.user);
+  const skipAnim = useHomeAnimationSkip();
   const count = HOME_TOP_BANNERS.length;
   const [idx, setIdx] = useState(0);
   const [drag, setDrag] = useState(0);
@@ -812,7 +813,12 @@ function HomeTopBanner() {
   };
 
   return (
-    <div data-hswipe-ignore className="px-[10px] pt-2">
+    // 첫 진입 등장 — 위에서부터 차례로(배너 → 퀵매칭 → 웨딩숲 → 카테고리 칸), 세션 첫 진입 때만(260926 사장)
+    <div
+      data-hswipe-ignore
+      className={`px-[10px] pt-[10px] ${skipAnim ? '' : 'opacity-0'}`}
+      style={skipAnim ? undefined : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards' }}
+    >
       <div
         className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
         style={{ aspectRatio: '4 / 3', touchAction: 'pan-y' }}
@@ -1226,7 +1232,7 @@ function CategorySwiper() {
                   key={item.name}
                   href={item.href}
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
-                  style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.04}s forwards` }}
+                  style={skipAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.35 + index * 0.035}s forwards` }}
                 >
                   {/* 아이콘 뒤 둥근 타일(사장 레퍼런스 260925: 모서리 약 1/3) — 색은 아이콘마다 그 그림 색을 아주 옅게(260926, lib/business-categories CATEGORY_TILE_TINTS).
                       투명 배경 일러스트를 72% 크기로 가운데 */}
@@ -2610,7 +2616,8 @@ export default function HomePage() {
 
         {/* 퀵매칭 · 웨딩숲 바로가기 — 사장 사진(8:3) 두 장을 위아래로, 모서리 5, 왼쪽 흐린 자리에 흰 제목·설명·작은 유리 버튼
             (260926 사장 "결혼식사회자 찾기·행사사회자 찾기 버튼 없애고 퀵매칭(첫 사진)·웨딩숲(둘째 사진) 버튼, r값 5") */}
-        <div className="space-y-2 px-[10px] pt-3 pb-1">
+        {/* 위아래 간격 = 좌우 여백 10(260926 사장 "간격을 좌우 마진값과 동일하게") — 헤더→배너→퀵매칭→웨딩숲→카테고리 칸 모두 10 */}
+        <div className="space-y-[10px] px-[10px] pt-[10px]">
           {HOME_SHORTCUTS.map((b, i) => (
             <Link
               key={b.href}
@@ -2618,7 +2625,7 @@ export default function HomePage() {
               className="relative block overflow-hidden rounded-[5px] bg-[#F2F4F6] opacity-0 transition-transform duration-200 active:scale-[0.98]"
               style={{
                 aspectRatio: '8 / 3',
-                ...(skipHomeAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.1 + i * 0.1}s forwards` }),
+                ...(skipHomeAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.15 + i * 0.1}s forwards` }),
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2645,7 +2652,8 @@ export default function HomePage() {
 
         {/* 카테고리 아이콘 영역도 홈 탭 좌우 스와이프 허용(현재 1페이지라 자체 가로스크롤 없음).
             탭은 그대로 동작, 가로 스와이프만 탭 페이저로. (배너는 자체 캐러셀이라 계속 제외) */}
-        <div>
+        {/* 카테고리 칸 위 여백(스와이퍼 안쪽 4+8) 12 → 웨딩숲 버튼과 10 이 되게 2 당김 */}
+        <div className="-mt-0.5">
           <CategorySwiper />
         </div>
 
