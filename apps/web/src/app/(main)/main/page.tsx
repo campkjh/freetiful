@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ChevronRight, X } from 'lucide-react';
 import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import ProQuickView from '@/components/ProQuickView';
-import { PartnerCategoryIcon, ProsIcon, EventMcIcon } from '@/components/icons/partner';
+import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
 import {
   SearchIcon,
@@ -43,7 +43,9 @@ import {
   getWeddingPartnerSectionCategories,
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
-import { discoveryApi } from '@/lib/api/discovery.api';
+import { discoveryApi, getCachedProList } from '@/lib/api/discovery.api';
+import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
+import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
@@ -1448,83 +1450,8 @@ const HomeGlyph = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const HOME_SWIPE_TABS = ['전체', '결혼식사회자', '행사사회자', '외국어사회자'];
-
-function homeProImg(p: any): string {
-  const raw =
-    p.image || p.profileImageUrl || p.mainImage ||
-    (Array.isArray(p.images) ? (typeof p.images[0] === 'string' ? p.images[0] : p.images?.[0]?.imageUrl) : '') ||
-    p.user?.profileImageUrl || '';
-  // /uploads 는 동일 출처(상대경로) 그대로 — 절대 URL(타 출처)로 만들면 업로드 응답의
-  // cross-origin-resource-policy: same-origin 때문에 브라우저가 <img> 로딩을 차단함(200 이어도 안 뜸).
-  // /images·외부 CDN(http...) 는 원본 그대로 둔다.
-  return raw || '';
-}
-
-const LANG_LABELS: Record<string, string> = {
-  ko: '한국어', kr: '한국어', en: '영어', eng: '영어', zh: '중국어', cn: '중국어', chi: '중국어',
-  ja: '일본어', jp: '일본어', es: '스페인어', fr: '프랑스어', de: '독일어', ru: '러시아어',
-  th: '태국어', vi: '베트남어', ar: '아랍어',
-};
-function langLabel(l: string): string {
-  const key = String(l || '').trim().toLowerCase();
-  return LANG_LABELS[key] || l;
-}
-
-// 네이티브 HomeProCell 과 동일한 가로 리스트 행 (사진 66×88 r20 + 이름/경력/평점/소개/태그)
-function HomeProTabCard({ pro, langMode }: { pro: any; langMode: boolean }) {
-  const img = homeProImg(pro);
-  const name = pro.name || pro.user?.name || '사회자';
-  const intro = pro.shortIntro || pro.mainExperience || '';
-  const careerYears = Number(pro.careerYears ?? pro.career ?? 0) || 0;
-  const rating = Number(pro.rating ?? pro.avgRating ?? 0) || 0;
-  const reviewCount = Number(pro.reviewCount ?? pro.reviewsCount ?? 0) || 0;
-  const langs: string[] = Array.isArray(pro.languages) ? pro.languages : [];
-  const rawTags: string[] = Array.isArray(pro.tags) ? pro.tags : [];
-  const chips = (langMode ? langs.map(langLabel) : rawTags).filter(Boolean).slice(0, 3);
-  return (
-    <Link
-      href={`/pros/${pro.id}`}
-      onTouchStart={() => discoveryApi.getProDetail(pro.id)}
-      className="flex h-[118px] flex-row items-center gap-[14px] rounded-2xl border-[0.5px] border-[#EDEDED] bg-white px-3 transition-transform active:scale-[0.99]"
-    >
-      <div className="h-[88px] w-[66px] shrink-0 overflow-hidden rounded-[20px] bg-[#EBEBEB]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img ? <img src={img} alt={name} className="h-full w-full object-cover" draggable={false} loading="lazy" decoding="async" onError={(e) => {
-          // 다수 동시 로드(Railway 부하)로 간헐 실패 → 백오프 재시도 2회 후 숨김(회색 자리)
-          const el = e.currentTarget as HTMLImageElement;
-          const tries = Number(el.dataset.retry || '0');
-          if (tries < 2) { el.dataset.retry = String(tries + 1); const base = img.split('?')[0]; setTimeout(() => { el.src = `${base}?r=${tries + 1}`; }, 500 * (tries + 1)); }
-          else { el.style.display = 'none'; }
-        }} /> : null}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-[5px]">
-        <p className="max-w-full truncate text-[16px] font-bold text-[#1A1A1A]">{name}</p>
-        <div className="flex items-center gap-[6px]">
-          <span className="rounded-md bg-[#EBF2FF] px-[7px] py-[3px] text-[11px] font-semibold text-[#3080F7]">
-            {careerYears > 0 ? `경력 ${careerYears}년` : '프로'}
-          </span>
-          {rating > 0 && (
-            <span className="inline-flex items-center gap-[3px] text-[12px] font-medium text-[#3080F7]">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2l2.9 6.5 7.1.8-5.3 4.9 1.5 7L12 17.8 5.8 21.2l1.5-7L2 9.3l7.1-.8L12 2z" />
-              </svg>
-              {rating.toFixed(1)} ({reviewCount})
-            </span>
-          )}
-        </div>
-        {intro ? <p className="max-w-full truncate text-[12.5px] text-[#808080]">{intro}</p> : null}
-        {chips.length > 0 && (
-          <div className="flex items-center gap-[4px]">
-            {chips.map((c, i) => (
-              <span key={`${c}-${i}`} className="rounded-lg bg-[#F0F0F0] px-[7px] py-[2px] text-[10.5px] font-medium text-[#6B6B6B]">{c}</span>
-            ))}
-          </div>
-        )}
-      </div>
-    </Link>
-  );
-}
+// 260926 사장: 결혼식·행사 대신 남성·여성 사회자(외국어는 그대로). 목록은 사회자 목록(/pros) 카드 그대로(ProFeedCard)
+const HOME_SWIPE_TABS = ['전체', '남성사회자', '여성사회자', '외국어사회자'];
 
 // 네이티브 홈과 동일: 헤더 아래 고정 글래스 탭 + 좌우 스와이프 페이저 + 긴 세로 리스트 (모바일 전용)
 /**
@@ -1539,10 +1466,41 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
+/** 홈 탭 목록 — /pros 처럼 10장씩 이어 그린다(카드마다 사진 3장이라 한 번에 다 그리면 무겁다) */
+function HomeFeedList({ items, onOpenReviews }: { items: ProFeedItem[]; onOpenReviews: (pro: ProFeedItem) => void }) {
+  const [shown, setShown] = useState(10);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!el || shown >= items.length) return;
+    // 패널마다 제 스크롤이 있어서 그 칸을 기준으로 미리(600px 앞) 잇는다
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setShown((n) => Math.min(items.length, n + 10));
+    }, { root: el.closest('[data-home-panel]'), rootMargin: '0px 0px 600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, items.length]);
+  return (
+    <>
+      {items.slice(0, shown).map((pro, i) => (
+        <ProFeedCard key={pro.id} pro={pro} index={i} onOpenReviews={onOpenReviews} />
+      ))}
+      {shown < items.length && <div ref={moreRef} className="h-10" />}
+    </>
+  );
+}
+
 function HomeSwipeTabs() {
   const [tab, setTab] = useState(0);
-  const [pros, setPros] = useState<any[]>([]);
+  // 사회자 목록(/pros)과 같은 목록·같은 캐시 — 목록 화면에 다녀왔으면 바로 보인다
+  const [pros, setPros] = useState<ProFeedItem[]>(() => {
+    const hit = getCachedProList(PRO_FEED_LIST_PARAMS);
+    return hit?.data?.length ? mapProFeedItems(hit.data) : [];
+  });
   const [loaded, setLoaded] = useState(false);
+  // 카드의 '리뷰' — /pros 와 같은 댓글 시트
+  const [reviewPro, setReviewPro] = useState<ReviewSheetPro | null>(null);
+  const openReviews = (pro: ProFeedItem) => setReviewPro({ id: pro.id, name: pro.name, image: pro.image, rating: pro.rating, reviews: pro.reviews });
   const [dragX, setDragX] = useState(0);
   // 손가락을 대는 순간 옆 패널 목록을 미리 받아 둔다 — 끌 때 옆이 빈 흰 화면이면 '덮인다' 로 보인다
   const [warm, setWarm] = useState(false);
@@ -1558,22 +1516,22 @@ function HomeSwipeTabs() {
       return () => window.clearTimeout(idle);
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const res: any = await discoveryApi.getProList({ limit: 60, sort: 'reviews', withTotal: false });
-        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
-        if (!cancelled) { setPros(list); setLoaded(true); }
-      } catch { if (!cancelled) setLoaded(true); }
-    })();
+    discoveryApi.getProList(PRO_FEED_LIST_PARAMS)
+      .then((res: any) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        if (rows.length > 0) setPros(mapProFeedItems(rows));
+        setLoaded(true);
+      })
+      .catch(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
   }, [tab, loaded, warm]);
 
-  const lowerCats = (p: any) => (Array.isArray(p.categories) ? p.categories : []).map((c: any) => String(typeof c === 'string' ? c : c?.name || c?.category?.name || '').toLowerCase());
-  const lowerTags = (p: any) => (Array.isArray(p.tags) ? p.tags : []).map((t: any) => String(t).toLowerCase());
-  const filterByTab = (index: number, list: any[]): any[] => {
-    if (index === 1) return list.filter((p) => lowerCats(p).some((v: string) => v.includes('결혼식') || v.includes('사회자') || v.includes('mc')));
-    if (index === 2) return list.filter((p) => [...lowerCats(p), ...lowerTags(p)].some((v: string) => v.includes('행사') || v.includes('기업') || v.includes('컨퍼런스') || v.includes('컨벤션') || v.includes('쇼호스트') || v.includes('event')));
-    if (index === 3) return list.filter((p) => (Array.isArray(p.languages) ? p.languages : []).length > 0);
+  // 1=남성 · 2=여성(/pros 성별 탭과 같은 판정) · 3=외국어(언어가 적힌 사회자 — /pros 외국어사회자와 같은 기준). 순서는 /pros 추천순(리뷰순 순위)
+  const filterByTab = (index: number, list: ProFeedItem[]): ProFeedItem[] => {
+    if (index === 1) return list.filter((p) => matchesGender(p.gender, 'male'));
+    if (index === 2) return list.filter((p) => matchesGender(p.gender, 'female'));
+    if (index === 3) return list.filter((p) => p.languages.length > 0);
     return list;
   };
 
@@ -1731,8 +1689,8 @@ function HomeSwipeTabs() {
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
         style={{ height: 106 }}
       />
-      {/* 헤더 바로 아래 고정 글래스 탭바 */}
-      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] border-b border-[#F2F4F7] bg-white">{tabBar}</div>
+      {/* 헤더 바로 아래 고정 탭바 — 아래 보더 없음(260926 사장) */}
+      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] bg-white">{tabBar}</div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
@@ -1754,19 +1712,29 @@ function HomeSwipeTabs() {
           {HOME_SWIPE_TABS.map((_, panel) => {
             if (panel === 0) return <div key="all" className="h-full w-1/4 shrink-0" />;
             const near = Math.abs(panel - tab) <= 1;
-            const list = near ? filterByTab(panel, pros).slice(0, 100) : [];
+            const list = near ? filterByTab(panel, pros) : [];
             return (
-              <div key={panel} className="h-full w-1/4 shrink-0 overflow-y-auto overscroll-contain bg-white px-4 pb-28 pt-[14px]">
-                {!near ? null : !loaded ? (
-                  <div className="py-24 text-center text-[14px] text-[#999]">불러오는 중…</div>
+              <div key={panel} data-home-panel className="h-full w-1/4 shrink-0 overflow-y-auto overscroll-contain bg-white pb-28">
+                {!near ? null : pros.length === 0 && !loaded ? (
+                  // 카드 뼈대(프사 42 · 이름·정보 줄 · 소개 두 줄 · 사진 세 칸)
+                  <div aria-hidden="true">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px]">
+                        <div className="skeleton h-[42px] w-[42px] shrink-0" style={{ borderRadius: 9999 }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="skeleton h-4 w-24" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-2 h-3.5 w-40" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-4 h-4 w-[90%]" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-2 h-4 w-[70%]" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-3.5 aspect-[9/4] w-full max-w-[420px]" style={{ borderRadius: 16 }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : list.length === 0 ? (
                   <div className="py-24 text-center text-[14px] text-[#999]">사회자가 없습니다</div>
                 ) : (
-                  <div className="flex flex-col gap-[10px]">
-                    {list.map((p) => (
-                      <HomeProTabCard key={p.id} pro={p} langMode={panel === 3} />
-                    ))}
-                  </div>
+                  <HomeFeedList items={list} onOpenReviews={openReviews} />
                 )}
               </div>
             );
@@ -1785,6 +1753,8 @@ function HomeSwipeTabs() {
           <HomeGlyph className="h-3.5 w-3.5" /> 홈 전체
         </button>
       )}
+
+      <ProReviewsSheet pro={reviewPro} onClose={() => setReviewPro(null)} />
     </BodyPortal>
   );
 }
@@ -2326,7 +2296,7 @@ export default function HomePage() {
         </div>
 
         {/* 언더라인 탭 스켈레톤 */}
-        <div className="flex h-12 items-center gap-5 border-b border-[#F2F4F7] px-4 lg:mx-auto lg:max-w-7xl lg:px-8">
+        <div className="flex h-12 items-center gap-5 px-4 lg:mx-auto lg:max-w-7xl lg:px-8">
           {[44, 92, 76, 92].map((w, i) => (
             <div key={i} className="skeleton" style={{ width: w, height: 14, borderRadius: 6 }} />
           ))}
@@ -3029,11 +2999,9 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                {/* 앞 그림 = 홈 칸 '결혼식사회자' 아이콘(백합+마이크) — 모바일도 보인다(260926 사장) */}
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] lg:h-12 lg:w-12" style={{ backgroundColor: categoryTileColor('wedding-mc-icon.png') }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/images/category-icons/wedding-mc-icon.png" alt="" className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
-                </span>
+                {/* 앞 그림 = 홈 칸 '결혼식사회자' 아이콘(백합+마이크) — 배경 칸 없이 그림만 크게(260926 사장 '이미지 키우고 백그라운드 풀어줘') */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/category-icons/wedding-mc-icon.png" alt="" className="h-12 w-12 shrink-0 object-contain lg:h-14 lg:w-14" />
                 <div>
                   <h3 className="section-title">프리티풀의 더 많은 결혼식 사회자</h3>
                   <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
@@ -3086,11 +3054,9 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                {/* 앞 그림 = 홈 칸 '행사사회자' 아이콘(와인+마이크) — 모바일도 보인다(260926 사장) */}
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] lg:h-12 lg:w-12" style={{ backgroundColor: categoryTileColor('event-mc-icon.png') }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/images/category-icons/event-mc-icon.png" alt="" className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
-                </span>
+                {/* 앞 그림 = 홈 칸 '행사사회자' 아이콘(와인+마이크) — 배경 칸 없이 그림만 크게(260926 사장 '이미지 키우고 백그라운드 풀어줘') */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/category-icons/event-mc-icon.png" alt="" className="h-12 w-12 shrink-0 object-contain lg:h-14 lg:w-14" />
                 <div>
                   <h3 className="section-title">프리티풀의 행사 사회자</h3>
                   <p className="section-subtitle mt-1">기업행사와 컨퍼런스에 어울리는 사회자를 만나보세요</p>
