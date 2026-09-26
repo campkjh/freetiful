@@ -45,6 +45,12 @@ export const matchApi = {
   getProRequests: (params?: { limit?: number; skip?: number }) =>
     apiClient.get(`${BASE}/pro/requests`, { params }).then((r) => r.data),
 
+  /** 사회자 거절 사유 추천 — AI 4개 + 규칙 프리셋(최대 6개) */
+  declineSuggestions: (deliveryId: string) =>
+    apiClient
+      .get(`${BASE}/delivery/${deliveryId}/decline-suggestions`, { timeout: 8000 })
+      .then((r) => r.data as { items: { label: string; text: string }[]; source: 'ai' | 'rule' }),
+
   respond: (deliveryId: string, action: 'accept' | 'reject' | 'archive', message?: string) =>
     apiClient.post(`${BASE}/delivery/${deliveryId}/respond`, { action, message }).then((r) => r.data),
 };

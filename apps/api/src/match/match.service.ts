@@ -623,6 +623,46 @@ export class MatchService {
     return { ok: true };
   }
 
+  /** 사회자 거절 사유 추천 — 본인에게 온 요청만. 요청의 날짜·시간·장소·종류·부만 넘긴다(고객 메모·연락처는 안 넘김) */
+  async declineSuggestions(userId: string, deliveryId: string) {
+    const d = await this.prisma.matchDelivery.findUnique({
+      where: { id: deliveryId },
+      select: {
+        proProfile: { select: { userId: true } },
+        matchRequest: {
+          select: {
+            eventDate: true,
+            eventTime: true,
+            eventLocation: true,
+            rawUserInput: true,
+            eventCategory: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!d || d.proProfile?.userId !== userId) throw new NotFoundException('요청을 찾을 수 없습니다');
+    const mr = d.matchRequest;
+    const raw = (mr?.rawUserInput && typeof mr.rawUserInput === 'object' && !Array.isArray(mr.rawUserInput) ? mr.rawUserInput : {}) as Record<string, unknown>;
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const day = mr?.eventDate ? new Date(mr.eventDate) : null;
+    const date = day && !Number.isNaN(day.getTime())
+      ? `${day.getUTCMonth() + 1}월 ${day.getUTCDate()}일(${weekdays[day.getUTCDay()]})`
+      : null;
+    const rawTime = typeof raw.timeStart === 'string' ? raw.timeStart : '';
+    const time = /^\d{1,2}:\d{2}$/.test(rawTime)
+      ? rawTime
+      : mr?.eventTime ? new Date(mr.eventTime).toISOString().slice(11, 16) : null;
+    const kind = mr?.eventCategory?.name || (typeof raw.eventType === 'string' ? raw.eventType : '');
+    const parts = [raw.eventPart, raw.part].filter((v) => typeof v === 'string' && v.trim()).join(', ');
+    return this.chatService.suggestDeclineReasons({
+      date,
+      time,
+      location: mr?.eventLocation || (typeof raw.location === 'string' ? raw.location : null),
+      kind: /사회자/.test(kind) ? null : kind || null,
+      parts: parts || null,
+    });
+  }
+
   /** 전문가에게 전달된 매칭 요청 목록 */
   // userId 로 직접 조인 — 컨트롤러의 proProfile 선조회(DB 왕복 1회) 제거용
   async getMatchRequestsForProUser(userId: string, limit = 50, skip = 0) {

@@ -88,6 +88,15 @@ export class MatchController {
     return this.matchService.cancelMatchRequest(req.user.id, id);
   }
 
+  /** 사회자 거절 사유 추천(AI 4개 + 규칙 프리셋) */
+  @Get('delivery/:id/decline-suggestions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 거절 사유 추천' })
+  declineSuggestions(@Request() req: any, @Param('id') id: string) {
+    return this.matchService.declineSuggestions(req.user.id, id);
+  }
+
   /** 사회자 한 명에게 보낸 요청만 취소(고객) — 아직 답하지 않은 요청만 */
   @Post('deliveries/:id/cancel')
   @UseGuards(JwtAuthGuard)

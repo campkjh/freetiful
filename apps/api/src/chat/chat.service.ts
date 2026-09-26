@@ -1206,6 +1206,11 @@ export class ChatService implements OnModuleInit {
     return this.replySuggest.suggest(`${roomId}:${rows[0]?.id || 'none'}:${role}`, role, turns, { refresh });
   }
 
+  /** 사회자 거절 사유 추천(매칭 모듈에서 부른다) — AI 4개 + 규칙 프리셋 */
+  suggestDeclineReasons(info: { date?: string | null; time?: string | null; location?: string | null; kind?: string | null; parts?: string | null }) {
+    return this.replySuggest.suggestDecline(info);
+  }
+
   /** 채팅방 알림 끄기/켜기 — 내 쪽(연결된 계정 포함) 멤버 행만 바꾼다 */
   async setRoomMuted(roomId: string, userId: string, muted: boolean) {
     const participantUserIds = await this.getChatParticipantUserIds(userId);

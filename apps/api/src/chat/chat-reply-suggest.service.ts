@@ -49,6 +49,31 @@ const RULES: { test: RegExp; customer: string[]; pro: string[] }[] = [
 // 추천에 나오면 안 되는 말 — 개인 연락처·외부 결제 유도
 const BLOCK = /(\d{2,3}-?\d{3,4}-?\d{4})|카톡\s*아이디|오픈\s*채팅|계좌\s*(로|번호)|현금\s*으로|직거래|수수료\s*없이|@[a-z0-9_.]{3,}/i;
 
+// ─── 사회자 거절 사유 추천(260926 사장 "거절 사유도 AI 가 거절 멘트 추려서 프리셋 — 스케줄 안 됨, 선약 있음 등") ───
+export type DeclineInfo = { date?: string | null; time?: string | null; location?: string | null; kind?: string | null; parts?: string | null };
+export type DeclineItem = { label: string; text: string };
+
+/** 규칙 프리셋 — AI 가 없거나 늦어도 늘 나온다. 요청에 적힌 날짜·지역·시간만 쓴다 */
+export function declineRules(info: DeclineInfo): DeclineItem[] {
+  const region = (info.location || '').trim().split(/\s+/)[0] || '';
+  const items: DeclineItem[] = [
+    {
+      label: '스케줄 안 됨',
+      text: info.date
+        ? `${info.date}에는 이미 다른 행사 일정이 있어 진행이 어려워요. 문의 주셔서 감사합니다.`
+        : '요청하신 날짜에 이미 다른 행사 일정이 있어 진행이 어려워요. 문의 주셔서 감사합니다.',
+    },
+    { label: '선약 있음', text: '선약이 있어 이번 행사는 진행이 어려워요. 좋은 사회자님 만나시길 바랄게요.' },
+  ];
+  if (region) items.push({ label: '지역이 멀어요', text: `요청하신 지역(${region})은 이동이 어려워 진행이 힘들어요. 양해 부탁드려요.` });
+  if (info.time && /\d{1,2}:\d{2}/.test(info.time)) {
+    items.push({ label: '시간 안 맞음', text: `${info.time} 전후로 다른 일정이 있어 시간을 맞추기 어려워요. 문의 감사합니다.` });
+  }
+  items.push({ label: '행사 성격', text: '요청하신 행사와 제 진행 스타일이 잘 맞지 않을 것 같아 정중히 사양할게요. 감사합니다.' });
+  items.push({ label: '개인 사정', text: '개인 사정으로 이번 행사는 진행이 어려워요. 이해해 주셔서 감사합니다.' });
+  return items;
+}
+
 @Injectable()
 export class ChatReplySuggestService {
   private readonly logger = new Logger(ChatReplySuggestService.name);
@@ -150,6 +175,89 @@ export class ChatReplySuggestService {
       }
     }
     return null;
+  }
+
+  /** 거절 사유 추천 — AI 가 요청에 맞춰 4개(이름표+보낼 문장), 규칙 프리셋을 뒤에 붙여 최대 6개 */
+  async suggestDecline(info: DeclineInfo): Promise<{ items: DeclineItem[]; source: 'ai' | 'rule' }> {
+    const rules = declineRules(info);
+    if (!this.client) return { items: rules, source: 'rule' };
+    const ai = await this.declineWithAi(info).catch((e) => {
+      this.logger.warn(`decline suggest AI failed: ${String(e?.message || e).slice(0, 120)}`);
+      return null;
+    });
+    if (!ai || !ai.length) return { items: rules, source: 'rule' };
+    const seen = new Set(ai.map((item) => item.label));
+    return { items: [...ai, ...rules.filter((item) => !seen.has(item.label))].slice(0, 6), source: 'ai' };
+  }
+
+  private async declineWithAi(info: DeclineInfo): Promise<DeclineItem[] | null> {
+    if (!this.client) return null;
+    const facts = [
+      info.date ? `- 행사일: ${info.date}` : '- 행사일: (없음)',
+      info.time ? `- 시간: ${info.time}` : '',
+      info.location ? `- 장소: ${info.location.slice(0, 60)}` : '',
+      info.kind ? `- 행사 종류: ${info.kind.slice(0, 30)}` : '',
+      info.parts ? `- 진행 부: ${info.parts.slice(0, 30)}` : '',
+    ].filter(Boolean).join('\n');
+    const prompt = [
+      "너는 결혼식·행사 사회자 섭외 앱 '프리티풀'에서, 사회자가 고객의 섭외 요청을 정중히 거절할 때 고를 멘트를 추천한다.",
+      '아래 요청 정보를 보고 서로 다른 거절 사유 4개를 만들어라(일정·선약·지역/이동·행사 성격·개인 사정 중에서).',
+      '규칙:',
+      '- label: 버튼에 들어갈 8자 이내 짧은 이름(예: 스케줄 안 됨, 선약 있음, 지역이 멀어요).',
+      '- text: 고객에게 그대로 보낼 정중한 존댓말 1~2문장, 70자 이내, 끝에 감사나 응원 한마디.',
+      '- 요청 정보에 있는 날짜·지역만 쓸 수 있다. 가격·새 날짜·연락처·다른 사회자 추천·외부 연락 유도는 절대 쓰지 마라.',
+      '- 고객을 탓하거나 변명이 길지 않게.',
+      '출력: JSON 배열만. 예) [{"label":"스케줄 안 됨","text":"그날은 이미 다른 행사가 있어 진행이 어려워요. 문의 감사합니다."}]',
+      '',
+      '요청 정보:',
+      facts,
+    ].join('\n');
+
+    const models = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-flash-latest'].filter(
+      (m, i, arr): m is string => !!m && arr.indexOf(m) === i,
+    );
+    const deadline = Date.now() + 3500;
+    for (const name of models) {
+      const left = deadline - Date.now();
+      if (left < 300) break;
+      try {
+        const generationConfig: any = { temperature: 0.7, maxOutputTokens: 400 };
+        if (name === 'gemini-2.5-flash') generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        const model = this.client.getGenerativeModel({ model: name, generationConfig });
+        const result: any = await Promise.race([
+          model.generateContent(prompt),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), left)),
+        ]);
+        const parsed = this.parseDecline(result?.response?.text?.() || '');
+        if (parsed.length) return parsed;
+      } catch (e: any) {
+        this.logger.warn(`decline suggest model ${name} failed: ${String(e?.message || e).slice(0, 100)}`);
+      }
+    }
+    return null;
+  }
+
+  private parseDecline(text: string): DeclineItem[] {
+    const m = text.match(/\[[\s\S]*\]/);
+    if (!m) return [];
+    try {
+      const arr = JSON.parse(m[0]);
+      if (!Array.isArray(arr)) return [];
+      const out: DeclineItem[] = [];
+      for (const row of arr) {
+        const label = String(row?.label || '').replace(/\s+/g, ' ').trim();
+        const body = String(row?.text || '').replace(/\s+/g, ' ').trim();
+        if (label.length < 2 || label.length > 10 || body.length < 8 || body.length > 90) continue;
+        // 가격·연락처·외부 유도는 버린다(모델이 규칙을 어겨도 여기서 막는다)
+        if (BLOCK.test(body) || /\d[\d,]*\s*(만원|만|원)/.test(body)) continue;
+        if (out.some((item) => item.label === label || item.text === body)) continue;
+        out.push({ label, text: body });
+        if (out.length >= 4) break;
+      }
+      return out;
+    } catch {
+      return [];
+    }
   }
 
   private parse(text: string): string[] {

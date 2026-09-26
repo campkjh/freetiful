@@ -11,6 +11,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import AiQuoteFab from './AiQuoteFab';
 
 type Filter = 'all' | 'multi' | 'single' | 'archived';
 type RequestKind = 'multi' | 'single';
@@ -145,6 +146,24 @@ function formatEventDate(iso: string | null): string {
   return `${String(d.getUTCFullYear()).slice(2)}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${weekdays[d.getUTCDay()]})`;
 }
 
+/** 거절 사유 프리셋 — 서버(chat-reply-suggest declineRules)와 같은 문장. AI 추천이 오기 전 바로 보여 준다 */
+function declinePresets(request: { eventDate: string | null; eventTime: string | null; eventLocation: string | null }) {
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const d = request.eventDate ? new Date(request.eventDate) : null;
+  const date = d && !Number.isNaN(d.getTime()) ? `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일(${weekdays[d.getUTCDay()]})` : '';
+  const time = formatTime(request.eventTime);
+  const region = (request.eventLocation || '').trim().split(/\s+/)[0] || '';
+  const items = [
+    { label: '스케줄 안 됨', text: date ? `${date}에는 이미 다른 행사 일정이 있어 진행이 어려워요. 문의 주셔서 감사합니다.` : '요청하신 날짜에 이미 다른 행사 일정이 있어 진행이 어려워요. 문의 주셔서 감사합니다.' },
+    { label: '선약 있음', text: '선약이 있어 이번 행사는 진행이 어려워요. 좋은 사회자님 만나시길 바랄게요.' },
+  ];
+  if (region) items.push({ label: '지역이 멀어요', text: `요청하신 지역(${region})은 이동이 어려워 진행이 힘들어요. 양해 부탁드려요.` });
+  if (/\d{1,2}:\d{2}/.test(time)) items.push({ label: '시간 안 맞음', text: `${time} 전후로 다른 일정이 있어 시간을 맞추기 어려워요. 문의 감사합니다.` });
+  items.push({ label: '행사 성격', text: '요청하신 행사와 제 진행 스타일이 잘 맞지 않을 것 같아 정중히 사양할게요. 감사합니다.' });
+  items.push({ label: '개인 사정', text: '개인 사정으로 이번 행사는 진행이 어려워요. 이해해 주셔서 감사합니다.' });
+  return items;
+}
+
 function formatTime(value: string | null): string {
   if (!value) return '';
   if (/^\d{2}:\d{2}$/.test(value)) return value;
@@ -207,6 +226,24 @@ export default function ProRequestsPage() {
   // 웹/안드 거절 사유 입력 모달 (iOS 는 NativeRejectModal 네이티브가 담당)
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  // 거절 사유 추천 칩 — 규칙 프리셋을 바로, AI 추천이 오면 바꿔 끼운다(260926 사장 '거절 멘트 AI 프리셋')
+  const [declineItems, setDeclineItems] = useState<{ label: string; text: string }[]>([]);
+  const [declineAi, setDeclineAi] = useState(false);
+  const declineTicketRef = useRef(0);
+  const openReject = (request: MatchDeliveryView) => {
+    const ticket = ++declineTicketRef.current; // 늦게 온 추천이 다른 요청 창에 섞이지 않게
+    setRejectReason('');
+    setRejectTarget(request.id);
+    setDeclineItems(declinePresets(request));
+    setDeclineAi(false);
+    matchApi.declineSuggestions(request.id)
+      .then((res) => {
+        if (ticket !== declineTicketRef.current || !Array.isArray(res?.items) || res.items.length === 0) return;
+        setDeclineItems(res.items);
+        setDeclineAi(res.source === 'ai');
+      })
+      .catch(() => {});
+  };
   const skipRef = useRef(0);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -436,7 +473,7 @@ export default function ProRequestsPage() {
   const [tabSwitched, setTabSwitched] = useState(false);
 
   return (
-    <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-24 lg:mx-auto lg:max-w-[760px]">
+    <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-40 lg:mx-auto lg:max-w-[760px] lg:pb-28">
       {/* 머리줄 — 매칭·채팅과 같은 결(흰 바탕·제목 20) + 종류 탭이 같이 붙어 다닌다 */}
       <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pb-2">
         <div className="flex h-14 items-center">
@@ -568,7 +605,7 @@ export default function ProRequestsPage() {
                   <div className="mt-3.5 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => { setRejectReason(''); setRejectTarget(request.id); }}
+                      onClick={() => openReject(request)}
                       disabled={busy}
                       className="h-11 flex-1 rounded-[12px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition active:scale-[0.97] disabled:opacity-50"
                     >
@@ -597,32 +634,49 @@ export default function ProRequestsPage() {
         )}
       </div>
 
+      {/* AI 자동매칭 — 하단 탭 위 플로팅(견적가·추가 비용 → 견적 자동 답장) */}
+      <AiQuoteFab />
+
       {rejectTarget && (
-        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setRejectTarget(null)}>
-          <div className="w-full max-w-[440px] rounded-t-[24px] bg-white px-5 pb-8 pt-5 sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E5E8EB] sm:hidden" />
-            <h2 className="text-[18px] font-bold text-[#191F28]">요청을 거절할까요?</h2>
-            <p className="mt-1 text-[13.5px] text-[#8B95A1]">적은 사유는 고객에게 전달돼요. (선택)</p>
+        <div className="ft-scrim" onClick={() => setRejectTarget(null)}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
+            <h2 className="ft-title">요청을 거절할까요?</h2>
+            <p className="ft-desc">적은 사유는 고객에게 전달돼요. (선택)</p>
+            {/* 거절 사유 추천 — 누르면 아래 칸에 문장이 채워지고 고칠 수 있다 */}
+            {declineItems.length > 0 && (
+              <div className="mt-5">
+                {declineAi && <p className="mb-2 text-[13px] font-semibold text-[#3182F6]">✦ AI 추천</p>}
+                <div className="flex flex-wrap gap-2">
+                  {declineItems.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className={`ft-chip${rejectReason === item.text ? ' on' : ''}`}
+                      onClick={() => setRejectReason(item.text)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="예) 요청하신 날짜에 선약이 있어 진행이 어려워요."
               rows={3}
               maxLength={200}
-              className="mt-3 w-full resize-none rounded-[16px] border-[1.5px] border-[#E5E8EB] bg-white px-4 py-3 text-[16px] text-[#191F28] outline-none placeholder:text-[#B0B8C1] focus:border-[#3182F6]"
+              className="ft-textarea mt-4"
             />
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setRejectTarget(null)}
-                className="h-12 flex-1 rounded-[14px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition active:scale-[0.97]"
-              >
+            <div className="ft-actions">
+              <button type="button" className="ft-btn secondary" onClick={() => setRejectTarget(null)}>
                 취소
               </button>
               <button
                 type="button"
+                className="ft-btn danger"
                 onClick={() => { const id = rejectTarget; const msg = rejectReason.trim(); setRejectTarget(null); if (id) handleReject(id, msg || undefined); }}
-                className="h-12 flex-1 rounded-[14px] bg-[#F04452] text-[16px] font-semibold text-white transition active:scale-[0.97]"
               >
                 거절하기
               </button>
