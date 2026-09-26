@@ -79,6 +79,15 @@ export class MatchController {
     return this.matchService.getMatchRequests(req.user.id, Number(skip) || 0, Number(take) || 8);
   }
 
+  /** 내 매칭 요청 취소 — 아직 답하지 않은 사회자에게 간 요청을 거둔다(수락해 대화 중인 방은 그대로) */
+  @Post('requests/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 매칭 요청 취소' })
+  cancelMatchRequest(@Request() req: any, @Param('id') id: string) {
+    return this.matchService.cancelMatchRequest(req.user.id, id);
+  }
+
   /** 전문가에게 전달된 매칭 요청 목록 */
   @Get('pro/requests')
   @UseGuards(JwtAuthGuard)

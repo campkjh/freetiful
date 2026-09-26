@@ -544,6 +544,41 @@ export class MatchService {
     });
   }
 
+  /**
+   * 고객이 보낸 매칭 요청 취소(260926 사장 '요청 취소 버튼').
+   * 아직 답하지 않은(pending/viewed/archived) 사회자 전달분을 'cancelled' 로 거둬 사회자 새요청 목록에서 빼고,
+   * 요청을 'cancelled' 로 닫는다(자동 수락 루프·자동 인사는 status !== 'open' 이면 멈춘다).
+   * 이미 수락(replied)해 대화 중인 방과 결제는 건드리지 않는다. 결제로 'matched' 가 된 요청은 취소 불가.
+   */
+  async cancelMatchRequest(userId: string, requestId: string) {
+    const request = await this.prisma.matchRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, userId: true, status: true },
+    });
+    if (!request || request.userId !== userId) throw new NotFoundException('요청을 찾을 수 없습니다');
+    if (request.status === 'matched') throw new BadRequestException('결제까지 끝난 요청은 취소할 수 없어요');
+
+    const open = await this.prisma.matchDelivery.findMany({
+      where: { matchRequestId: requestId, status: { in: ['pending', 'viewed', 'archived'] } },
+      select: { id: true, proProfile: { select: { userId: true } } },
+    });
+    await this.prisma.$transaction([
+      this.prisma.matchDelivery.updateMany({
+        where: { matchRequestId: requestId, status: { in: ['pending', 'viewed', 'archived'] } },
+        data: { status: 'cancelled' },
+      }),
+      this.prisma.matchRequest.updateMany({
+        where: { id: requestId, status: 'open' },
+        data: { status: 'cancelled' },
+      }),
+    ]);
+
+    const notifyIds = [userId, ...open.map((d) => d.proProfile?.userId)];
+    this.chatRealtimeService.emitMatchUpdated(notifyIds, { kind: 'match-request-cancelled', matchRequestId: requestId });
+    this.chatRealtimeService.emitDashboardUpdated(notifyIds, { kind: 'match-request-cancelled', matchRequestId: requestId });
+    return { ok: true, cancelledDeliveries: open.length };
+  }
+
   /** 전문가에게 전달된 매칭 요청 목록 */
   // userId 로 직접 조인 — 컨트롤러의 proProfile 선조회(DB 왕복 1회) 제거용
   async getMatchRequestsForProUser(userId: string, limit = 50, skip = 0) {

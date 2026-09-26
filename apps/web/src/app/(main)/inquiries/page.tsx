@@ -170,8 +170,10 @@ const STATUS_TABS: (InquiryStatus | '전체')[] = ['전체', '요청중', '요�
 
 function buildCards(requests: any[]): InquiryCard[] {
   return requests.flatMap((request) => {
+    // 고객이 취소한 요청은 목록에서 뺀다(대화 중이던 방은 채팅 탭에 그대로 남는다)
+    if (request?.status === 'cancelled') return [];
     const rooms = Array.isArray(request.chatRooms) ? request.chatRooms : [];
-    const deliveries = Array.isArray(request.deliveries) ? request.deliveries : [];
+    const deliveries = (Array.isArray(request.deliveries) ? request.deliveries : []).filter((d: any) => d?.status !== 'cancelled');
     const base = {
       requestId: request.id,
       category: request.eventCategory?.name || request.category?.name || '사회자 문의',
@@ -383,6 +385,29 @@ export default function CustomerInquiriesPage() {
     if (item.roomId) router.push(`/chat/${item.roomId}`);
   };
 
+  // 요청 취소 — 아직 답하지 않은 사회자에게 간 요청을 거둔다(확인 시트 → API → 목록에서 뺌)
+  const [cancelTarget, setCancelTarget] = useState<InquiryGroup | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const confirmCancel = async () => {
+    const target = cancelTarget;
+    if (!target || cancelling) return;
+    setCancelling(true);
+    try {
+      await matchApi.cancelRequest(target.requestId);
+      setRequests((prev) => {
+        const next = prev.filter((r: any) => r?.id !== target.requestId);
+        writeCustomerInquiriesCache(authUser?.id, next);
+        return next;
+      });
+      setCancelTarget(null);
+      toast.success('요청을 취소했어요');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '요청을 취소하지 못했어요');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   // 오른쪽 채팅 아이콘 — 방이 있으면 바로, 없으면 이 요청으로 방을 만들어 바로 말을 남기게
   const [openingChatId, setOpeningChatId] = useState<string | null>(null);
   const startChat = async (item: InquiryCard) => {
@@ -555,8 +580,19 @@ export default function CustomerInquiriesPage() {
                   style={enterStyle(g.requestId)}
                 >
                   <div className="min-w-0">
-                    {/* 제목 — 행사 일시 */}
-                    <p className="truncate text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{eventTitle(g)}</p>
+                    {/* 제목 — 행사 일시 · 오른쪽 '요청 취소'(웨딩숲 카드의 팔로우 버튼 자리, 회색) */}
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 truncate pt-px text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{eventTitle(g)}</p>
+                      {g.cards.some((c) => c.status === '요청중') && !g.cards.some((c) => c.status === '거래완료') && (
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(g)}
+                          className="-mt-1 h-[34px] shrink-0 rounded-[10px] bg-[#F2F4F6] px-3 text-[15px] font-semibold tracking-[-0.2px] text-[#6B7684] transition active:scale-[0.97] min-[601px]:h-[38px] min-[601px]:px-3.5 min-[601px]:text-[16px]"
+                        >
+                          요청 취소
+                        </button>
+                      )}
+                    </div>
                     {/* 메타 — 신청일 · 몇 명에게 문의했는지(회색 14) */}
                     <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1] min-[601px]:text-[15px]">
                       {g.createdAt} 신청 · {g.cards.length}명에게 문의
@@ -604,18 +640,20 @@ export default function CustomerInquiriesPage() {
                               )}
                             </span>
                           </button>
-                          {/* 채팅 — 누르면 바로 대화(방이 없으면 이 요청으로 연다) */}
-                          <button
-                            type="button"
-                            onClick={() => startChat(item)}
-                            disabled={openingChatId === item.id}
-                            aria-label={`${item.proName} 사회자와 채팅`}
-                            className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3182F6] transition active:scale-90 disabled:opacity-60"
-                          >
-                            {openingChatId === item.id
-                              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#D6E6FF] border-t-[#3182F6]" />
-                              : <ChatBubbleIcon size={20} />}
-                          </button>
+                          {/* 채팅 — 누르면 바로 대화(방이 없으면 이 요청으로 연다). 거절한 사회자에겐 없음 */}
+                          {item.status !== '거절' && (
+                            <button
+                              type="button"
+                              onClick={() => startChat(item)}
+                              disabled={openingChatId === item.id}
+                              aria-label={`${item.proName} 사회자와 채팅`}
+                              className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3182F6] transition active:scale-90 disabled:opacity-60"
+                            >
+                              {openingChatId === item.id
+                                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#D6E6FF] border-t-[#3182F6]" />
+                                : <ChatBubbleIcon size={20} />}
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -684,6 +722,42 @@ export default function CustomerInquiriesPage() {
           </div>
         </aside>
       </div>
+
+      {/* 요청 취소 확인 시트 */}
+      {cancelTarget && (() => {
+        const waiting = cancelTarget.cards.filter((c) => c.status === '요청중').length;
+        const talking = cancelTarget.cards.some((c) => c.status === '요청승인');
+        return (
+          <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 sm:items-center" onClick={() => !cancelling && setCancelTarget(null)}>
+            <div className="w-full max-w-[440px] rounded-t-[24px] bg-white px-5 pb-[calc(env(safe-area-inset-bottom,0px)+24px)] pt-5 sm:rounded-[24px] sm:pb-6" onClick={(e) => e.stopPropagation()}>
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E5E8EB] sm:hidden" />
+              <h2 className="text-[18px] font-bold text-[#191F28]">요청을 취소할까요?</h2>
+              <p className="mt-1.5 text-[15px] leading-[1.55] text-[#6B7684]">
+                {eventTitle(cancelTarget)} 요청이에요. 아직 답하지 않은 사회자 {waiting}명에게 보낸 요청이 취소돼요.
+                {talking ? ' 대화 중인 사회자와의 채팅은 채팅 탭에 그대로 남아요.' : ''}
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCancelTarget(null)}
+                  disabled={cancelling}
+                  className="h-12 flex-1 rounded-[14px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition active:scale-[0.97] disabled:opacity-60"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCancel}
+                  disabled={cancelling}
+                  className="h-12 flex-1 rounded-[14px] bg-[#F04452] text-[16px] font-semibold text-white transition active:scale-[0.97] disabled:opacity-60"
+                >
+                  {cancelling ? '취소하는 중' : '요청 취소'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

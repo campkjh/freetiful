@@ -34,6 +34,10 @@ export const matchApi = {
   getMyRequests: (params?: { skip?: number; take?: number }) =>
     apiClient.get(`${BASE}/requests`, { params }).then((r) => r.data),
 
+  /** 내 요청 취소 — 아직 답하지 않은 사회자에게 간 요청을 거둔다(대화 중인 방은 그대로) */
+  cancelRequest: (requestId: string) =>
+    apiClient.post(`${BASE}/requests/${requestId}/cancel`).then((r) => r.data),
+
   getProRequests: (params?: { limit?: number; skip?: number }) =>
     apiClient.get(`${BASE}/pro/requests`, { params }).then((r) => r.data),
 
