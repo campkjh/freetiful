@@ -608,19 +608,20 @@ export default function CustomerInquiriesPage() {
                     const hero = groupHero(g);
                     if (!hero) return null;
                     return (
-                      // 진행 칸 — 사회자 카드 덱(크몽 카드 애니 분석) + 굴러 바뀌는 문구. 행사 일시 제목 위
-                      <div className="mb-4 overflow-hidden rounded-[20px] bg-[#F9FAFB] px-4 pb-4 pt-5 text-center">
+                      // 진행 칸 — 사회자 카드 덱(크몽 카드 애니 분석) + 굴러 바뀌는 문구. 행사 일시 제목 위.
+                      // 박스(회색 둥근 면) 없이 화면에 바로, 위아래 간격은 촘촘하게(260926 사장 '영역 풀어줘 · 상하 gap 줄여줘')
+                      <div className="mb-3 text-center">
                         {hero.deck.length > 0 && <MatchCardDeck cards={hero.deck} />}
                         <RollingText
                           items={hero.lines}
-                          className={`${hero.deck.length > 0 ? 'mt-3.5' : ''} text-[17px] font-bold leading-[1.4] tracking-[-0.3px] text-[#191F28]`}
+                          className={`${hero.deck.length > 0 ? 'mt-2' : ''} text-[17px] font-bold leading-[1.4] tracking-[-0.3px] text-[#191F28]`}
                         />
-                        <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{hero.sub}</p>
+                        <p className="mt-0.5 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{hero.sub}</p>
                         {hero.allDeclined && (
                           // 사장 시안('팔로우' 버튼) — 연파랑 면 · 파랑 굵은 글자 · 모서리 높이의 1/4
                           <Link
                             href="/quick-match"
-                            className="mt-3.5 inline-flex h-[42px] items-center rounded-[11px] bg-[#E8F3FF] px-[18px] text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#DCEBFF]"
+                            className="mt-3 inline-flex h-[42px] items-center rounded-[11px] bg-[#E8F3FF] px-[18px] text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#DCEBFF]"
                           >
                             프리티풀 퀵매칭
                           </Link>

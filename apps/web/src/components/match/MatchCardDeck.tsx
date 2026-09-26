@@ -109,7 +109,7 @@ export default function MatchCardDeck({ cards }: { cards: DeckCard[] }) {
     <div
       ref={rootRef}
       className="match-deck relative mx-auto"
-      style={{ width: 2 * (SLOTS[2].x + (W * SLOTS[2].s) / 2), height: H + 16 }}
+      style={{ width: 2 * (SLOTS[2].x + (W * SLOTS[2].s) / 2), height: H + 6 }}
       role="img"
       aria-label={`요청한 사회자 ${n}명: ${cards.map((c) => c.name).join(', ')}`}
     >
