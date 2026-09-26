@@ -1496,13 +1496,13 @@ export default function ProEditPage() {
 
       {/* 회원탈퇴 확인 모달 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
       {showWithdraw && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" onClick={() => setShowWithdraw(false)}>
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[16px] font-bold text-gray-900 text-center mb-2">정말 탈퇴하시겠어요?</p>
-            <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowWithdraw(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[14px] active:scale-95 transition-transform">아니오</button>
+        <div className="ft-scrim" onClick={() => setShowWithdraw(false)}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
+            <p className="ft-title">정말 탈퇴하시겠어요?</p>
+            <p className="ft-desc">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+            <div className="ft-actions">
+              <button onClick={() => setShowWithdraw(false)} className="ft-btn secondary">아니오</button>
               <button
                 onClick={() => {
                   setShowWithdraw(false);
@@ -1510,7 +1510,7 @@ export default function ProEditPage() {
                     .then(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); })
                     .catch(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); });
                 }}
-                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold text-[14px] active:scale-95 transition-transform"
+                className="ft-btn danger"
               >탈퇴하기</button>
             </div>
           </div>
@@ -1521,21 +1521,23 @@ export default function ProEditPage() {
       <>
         {showCategorySheet && (
           <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
+            className="ft-scrim"
             onClick={() => setShowCategorySheet(false)}
           >
             <div
-              className="bg-white rounded-t-3xl w-full max-w-lg mx-auto p-6"
+              className="ft-sheet"
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">사회자분류를 선택해주세요</h2>
-              <p className="text-[13px] text-gray-500 mb-6">선택한 사회자분류로 활동이 가능합니다</p>
+              <div className="ft-grab" aria-hidden="true" />
+              <h2 className="ft-title">사회자분류를 선택해주세요</h2>
+              <p className="ft-desc !mb-6">선택한 사회자분류로 활동이 가능합니다</p>
               {['사회자', '쇼호스트', '축가/연주'].map(item => (
                 <button
                   key={item}
                   onClick={() => { setCategory(item); setShowCategorySheet(false); }}
-                  className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
+                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
                     category === item
                       ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7]'
                       : 'bg-white border-2 border-gray-200 text-gray-400'
@@ -1553,21 +1555,26 @@ export default function ProEditPage() {
       <>
         {showCareerSheet && (
           <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
+            className="ft-scrim"
             onClick={() => setShowCareerSheet(false)}
           >
+            {/* 30개 목록 — 시트 높이 60vh 유지, 제목은 두고 목록만 스크롤 */}
             <div
-              className="bg-white rounded-t-3xl w-full max-w-lg mx-auto p-6 max-h-[60vh] flex flex-col"
+              className="ft-sheet flex flex-col"
+              style={{ maxHeight: '60vh' }}
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-4">경력을 선택해주세요</h2>
-              <div className="flex-1 overflow-y-auto space-y-2 pb-4">
+              {/* flex 열에서 손잡이가 눌려 사라지지 않게 shrink-0 */}
+              <div className="ft-grab shrink-0" aria-hidden="true" />
+              <h2 className="ft-title">경력을 선택해주세요</h2>
+              <div className="mt-4 flex-1 overflow-y-auto space-y-2 pb-4">
                 {CAREER_YEARS.map(y => (
                   <button
                     key={y}
                     onClick={() => { setCareerYears(y); setShowCareerSheet(false); }}
-                    className={`w-full py-3 rounded-xl text-[16px] font-bold transition-all ${
+                    className={`w-full h-14 rounded-[17px] text-[17px] font-bold transition-all ${
                       careerYears === y
                         ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7]'
                         : 'bg-white border-2 border-gray-100 text-gray-500'

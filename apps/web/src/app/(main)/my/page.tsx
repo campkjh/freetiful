@@ -533,27 +533,29 @@ export default function MyPage() {
       {/* ─── 로그아웃 확인 모달 ─────────────────────────────────────── */}
       {showLogoutConfirm && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          className="ft-scrim"
           onClick={() => setShowLogoutConfirm(false)}
         >
-          <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-xl"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="mb-5 text-center text-[17px] font-bold text-[#191F28]">
+            <div className="ft-grab" aria-hidden="true" />
+            <p className="ft-title">
               로그아웃 하시겠어요?
             </p>
-            <div className="flex gap-2">
+            <div className="ft-actions">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="h-[52px] flex-1 rounded-[16px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition-transform active:scale-95"
+                className="ft-btn secondary"
               >
                 아니오
               </button>
               <button
                 onClick={executeLogout}
-                className="h-[52px] flex-1 rounded-[16px] bg-[#3182F6] text-[16px] font-semibold text-white transition-transform active:scale-95"
+                className="ft-btn primary"
               >
                 로그아웃
               </button>

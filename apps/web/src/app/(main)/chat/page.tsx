@@ -1021,24 +1021,24 @@ export default function ChatListPage() {
         </>
       )}
 
-      {/* ─── 미리보기 모달 (몰래 보기) ─── */}
+      {/* ─── 미리보기 모달 (몰래 보기) — 공통 시트(ft-*) ─── */}
       {previewRoom && (
-        <div
-          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-[chatActionFade_0.25s_ease]"
-          onClick={() => setPreviewRoom(null)}
-        >
+        <div className="ft-scrim" onClick={() => setPreviewRoom(null)}>
           <div
-            className="w-full max-w-[420px] max-h-[80vh] bg-[#F2F2F7] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-[previewPop_0.4s_cubic-bezier(0.34,1.56,0.64,1)]"
+            className="ft-sheet flex flex-col"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="ft-grab shrink-0" aria-hidden="true" />
             {/* 미리보기 헤더 */}
-            <div className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               {previewRoom.otherUser.profileImageUrl
                 ? <img src={previewRoom.otherUser.profileImageUrl} alt="" draggable={false} className="w-10 h-10 rounded-full object-cover" />
                 : <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#9CA3AF" /><path d="M4 21C4 17 7.58 14 12 14C16.42 14 20 17 20 21H4Z" fill="#9CA3AF" /></svg></div>
               }
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-bold text-gray-900 truncate">{previewRoom.otherUser.role} {previewRoom.otherUser.name}님</p>
+                <p className="ft-title break-words">{previewRoom.otherUser.role} {previewRoom.otherUser.name}님</p>
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                     <EyeOff size={10} />
@@ -1051,11 +1051,11 @@ export default function ChatListPage() {
               </button>
             </div>
 
-            {/* 미리보기 — 마지막 메시지 */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+            {/* 미리보기 — 마지막 메시지(흰 시트 위라 채팅방 받은 말풍선 색) */}
+            <div className="mt-5 flex-1 overflow-y-auto space-y-2">
               {previewRoom.lastMessage && (
                 <div className="flex justify-start">
-                  <div className="max-w-[80%] px-4 py-2 rounded-[18px] bg-white text-gray-900 rounded-bl-[6px] shadow-sm">
+                  <div className="max-w-[80%] px-4 py-2 rounded-[18px] bg-[#F2F3F5] text-[#2B313D] rounded-bl-[6px]">
                     <p className="text-[14px] whitespace-pre-wrap">{previewRoom.lastMessage}</p>
                   </div>
                 </div>
@@ -1063,35 +1063,37 @@ export default function ChatListPage() {
             </div>
 
             {/* 푸터 안내 */}
-            <div className="px-5 py-4 bg-white border-t border-gray-100 shrink-0">
-              <p className="text-[11px] text-gray-400 text-center mb-3">읽음 표시 없이 메시지를 확인할 수 있습니다</p>
-              <button
-                onClick={() => setPreviewRoom(null)}
-                className="w-full h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[14px] font-bold rounded-2xl active:scale-[0.98] transition-transform"
-              >
-                닫기
-              </button>
+            <div className="mt-3 shrink-0">
+              <p className="ft-desc">읽음 표시 없이 메시지를 확인할 수 있습니다</p>
+              <div className="ft-actions">
+                <button
+                  onClick={() => setPreviewRoom(null)}
+                  className="ft-btn secondary"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── 삭제 확인 모달 ─── */}
+      {/* ─── 삭제 확인 모달 — 공통 시트(ft-*) ─── */}
       {deleteConfirmRooms.length > 0 && (
-        <div
-          className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center px-5 animate-[chatActionFade_0.2s_ease]"
-          onClick={closeDeleteConfirm}
-        >
+        <div className="ft-scrim" onClick={closeDeleteConfirm}>
           <div
-            className="w-full max-w-[360px] rounded-[24px] bg-white shadow-2xl overflow-hidden"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 pt-6 pb-4">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+            <div className="ft-grab" aria-hidden="true" />
+            <div>
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
                 <Trash2 size={22} className="text-red-500" />
               </div>
-              <h2 className="text-center text-[18px] font-extrabold text-gray-900">채팅방 삭제</h2>
-              <p className="mt-2 text-center text-[14px] leading-6 text-gray-500">
+              <h2 className="ft-title">채팅방 삭제</h2>
+              <p className="ft-desc">
                 {deleteConfirmRooms.length === 1
                   ? `${deleteConfirmRooms[0].otherUser.name}님과의 채팅방을 삭제할까요?`
                   : `선택한 ${deleteConfirmRooms.length}개의 채팅방을 삭제할까요?`}
@@ -1108,16 +1110,16 @@ export default function ChatListPage() {
                   )}
                 </div>
               )}
-              <p className="mt-3 text-center text-[12px] leading-5 text-gray-400">
+              <p className="mt-3 text-[13px] leading-5 text-[#8B95A1]">
                 삭제하면 내 채팅 목록에서만 사라지고 상대방의 채팅방은 유지됩니다.
               </p>
             </div>
-            <div className="grid grid-cols-2 border-t border-gray-100">
+            <div className="ft-actions">
               <button
                 type="button"
                 onClick={closeDeleteConfirm}
                 disabled={deletingRooms}
-                className="h-14 text-[15px] font-bold text-gray-600 disabled:opacity-50"
+                className="ft-btn secondary"
               >
                 취소
               </button>
@@ -1125,7 +1127,7 @@ export default function ChatListPage() {
                 type="button"
                 onClick={confirmDeleteRooms}
                 disabled={deletingRooms}
-                className="h-14 border-l border-gray-100 text-[15px] font-bold text-red-500 disabled:opacity-50"
+                className="ft-btn danger"
               >
                 {deletingRooms ? '삭제 중...' : '삭제하기'}
               </button>
@@ -1138,11 +1140,6 @@ export default function ChatListPage() {
         @keyframes chatActionFade {
           0% { opacity: 0; }
           100% { opacity: 1; }
-        }
-        @keyframes previewPop {
-          0% { opacity: 0; transform: scale(0.9); filter: blur(8px); }
-          60% { transform: scale(1.02); filter: blur(0); }
-          100% { opacity: 1; transform: scale(1); filter: blur(0); }
         }
       `}} />
 

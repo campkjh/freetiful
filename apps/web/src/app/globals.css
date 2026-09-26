@@ -2130,6 +2130,8 @@ textarea.qd-input { height: auto; min-height: 140px; padding: 16px 18px; line-he
 .ft-desc { margin: 8px 0 0; font-size: 16px; line-height: 1.55; letter-spacing: -0.2px; color: #6B7684; white-space: pre-line; }
 .ft-actions { display: flex; gap: 8px; margin-top: 24px; }
 .ft-actions.col { flex-direction: column; }
+/* 세로로 쌓을 땐 flex:1 이 높이를 먹어 버튼이 17px 로 찌그러진다 — 높이 56 고정 */
+.ft-actions.col .ft-btn { flex: none; width: 100%; }
 .ft-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: 56px; padding: 0 16px; border: 0; border-radius: 17px; font-size: 17px; font-weight: 600; letter-spacing: -0.2px; line-height: 1; cursor: pointer; font-family: inherit; text-decoration: none; transition: transform .1s ease, background-color .15s ease, opacity .15s ease; }
 .ft-btn:active:not(:disabled) { transform: scale(.97); }
 .ft-btn:disabled { opacity: .5; cursor: default; }
@@ -2153,6 +2155,8 @@ textarea.qd-input { height: auto; min-height: 140px; padding: 16px 18px; line-he
   .ft-sheet { border-radius: 24px; padding: 28px 28px 24px; animation: ftPop .28s cubic-bezier(.16, 1, .3, 1); }
   .ft-grab { display: none; }
 }
+/* 안드 웹뷰는 콘텐츠가 이미 시스템 네비바 위로 인셋돼 env(safe-area-inset-bottom) 까지 더하면 2중(.pb-safe 와 같은 이유) */
+html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @keyframes ftFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ftUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes ftPop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }

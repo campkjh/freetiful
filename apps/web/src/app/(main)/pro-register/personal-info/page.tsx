@@ -226,14 +226,15 @@ export default function PersonalInfoPage() {
         </motion.button>
       </div>
 
-      {/* 성별 선택 바텀시트 */}
+      {/* 성별 선택 바텀시트 — 등장·퇴장은 framer 가 맡아 ft 자체 CSS 애니는 끔 */}
       <AnimatePresence>
         {showGenderSheet && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
+            className="ft-scrim"
+            style={{ animation: 'none' }}
             onClick={() => setShowGenderSheet(false)}
           >
             <motion.div
@@ -241,17 +242,20 @@ export default function PersonalInfoPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="bg-white rounded-t-3xl w-full p-6"
+              className="ft-sheet"
+              style={{ animation: 'none' }}
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-6">성별을 선택해주세요.</h2>
+              <div className="ft-grab" aria-hidden="true" />
+              <h2 className="ft-title !mb-6">성별을 선택해주세요.</h2>
               {['남성', '여성'].map((g) => (
                 <motion.button
                   key={g}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setGender(g); setShowGenderSheet(false); }}
-                  className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
+                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
                     gender === g
                       ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
                       : 'bg-white border-2 border-gray-200 text-gray-400'
@@ -265,14 +269,15 @@ export default function PersonalInfoPage() {
         )}
       </AnimatePresence>
 
-      {/* 사회자분류 선택 바텀시트 */}
+      {/* 사회자분류 선택 바텀시트 — 등장·퇴장은 framer 가 맡아 ft 자체 CSS 애니는 끔 */}
       <AnimatePresence>
         {showCategorySheet && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
+            className="ft-scrim"
+            style={{ animation: 'none' }}
             onClick={() => setShowCategorySheet(false)}
           >
             <motion.div
@@ -280,18 +285,21 @@ export default function PersonalInfoPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="bg-white rounded-t-3xl w-full p-6"
+              className="ft-sheet"
+              style={{ animation: 'none' }}
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">사회자분류를 선택해주세요.</h2>
-              <p className="text-sm text-gray-500 mb-6">선택한 사회자분류로 활동이 가능합니다.</p>
+              <div className="ft-grab" aria-hidden="true" />
+              <h2 className="ft-title">사회자분류를 선택해주세요.</h2>
+              <p className="ft-desc !mb-6">선택한 사회자분류로 활동이 가능합니다.</p>
               {['사회자', '쇼호스트', '축가/연주'].map((item) => (
                 <motion.button
                   key={item}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setCategory(item); setShowCategorySheet(false); }}
-                  className={`w-full py-4 rounded-2xl mb-3 text-[18px] font-bold transition-all ${
+                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
                     category === item
                       ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
                       : 'bg-white border-2 border-gray-200 text-gray-400'

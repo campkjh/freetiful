@@ -42,29 +42,11 @@ export default function CommunityGateModal({ open, onClose, onUnlock }: Communit
     <div
       role="dialog"
       aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 120,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(17, 24, 39, 0.45)",
-        padding: 20,
-      }}
+      className="ft-scrim"
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          borderRadius: 8,
-          background: "var(--c-bg)",
-          boxShadow: "0 18px 50px rgba(15,23,42,0.24)",
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        <p style={{ margin: 0, color: "var(--c-text)", fontSize: 23, fontWeight: 700, letterSpacing: 0 }}>
+      <div className="ft-sheet">
+        <div className="ft-grab" aria-hidden="true" />
+        <p className="ft-title">
           준비
           <button
             type="button"
@@ -99,30 +81,12 @@ export default function CommunityGateModal({ open, onClose, onUnlock }: Communit
               }}
               placeholder="암호 입력"
               autoFocus
-              style={{
-                width: "100%",
-                border: "1px solid var(--c-border-strong)",
-                borderRadius: 8,
-                padding: "12px 13px",
-                color: "var(--c-text)",
-                fontSize: 16,
-                boxSizing: "border-box",
-                textAlign: "center",
-              }}
+              className="ft-input"
             />
             {error && <span style={{ color: "var(--c-danger-c)", fontSize: 13, fontWeight: 500 }}>{error}</span>}
             <button
               type="submit"
-              style={{
-                border: "none",
-                borderRadius: 8,
-                background: "var(--c-brand)",
-                color: "#fff",
-                padding: "12px 14px",
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
+              className="ft-btn primary"
             >
               입장
             </button>
@@ -131,15 +95,7 @@ export default function CommunityGateModal({ open, onClose, onUnlock }: Communit
         <button
           type="button"
           onClick={close}
-          style={{
-            marginTop: 14,
-            border: "none",
-            background: "transparent",
-            color: "var(--c-text-3)",
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: "pointer",
-          }}
+          className="ft-btn secondary mt-6 w-full"
         >
           닫기
         </button>

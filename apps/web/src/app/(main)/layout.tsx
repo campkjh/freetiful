@@ -410,6 +410,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {
+      // 웨딩숲은 자기 레이아웃의 CommunityLoginSheet 가 같은 신호를 받는다(닫으면 그 자리에 남는 시트).
+      // /community 가 (main) 아래로 들어오며 두 창이 한꺼번에 떴고, 이 창의 취소는 /main 으로 보내 버렸다.
+      if (/^\/community(\/|$)/.test(window.location.pathname)) return;
       rememberAuthReturnTo();
       if (requestNativeLoginSheet({ reason: 'manual' })) return;
       setShowLoginModal(true);
@@ -682,23 +685,24 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           `}</style>
         </nav>
       )}
-      {/* Login Modal — iOS NativeLoginView 디자인 통일 (Android safe-area 보정) */}
+      {/* Login Modal — 공통 모달(웨딩숲 톤 · 버튼 56/17/17), 하단 안전영역은 ft-sheet 가 처리 */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center animate-[loginFadeIn_0.25s_ease]" onClick={() => { setShowLoginModal(false); router.push('/main'); }}>
-          <div className="absolute inset-0 bg-black/40" />
+        <div className="ft-scrim" onClick={() => { setShowLoginModal(false); router.push('/main'); }}>
           <div
-            className="relative bg-white w-full max-w-md rounded-t-3xl px-6 pt-5 animate-[loginSlideUp_0.35s_cubic-bezier(0.16,1,0.3,1)]"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
+            <div className="ft-grab" aria-hidden="true" />
             <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={137} height={40} priority className="mx-auto mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ height: 40, width: 'auto' }} />
-            <p className="text-[13px] text-gray-500 text-center mb-7 animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 사회자</p>
-            <div className="space-y-2.5">
+            <p className="ft-desc text-center animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 사회자</p>
+            {/* 세로 줄 버튼은 flex:1 이면 56px 이 눌려 납작해짐 → flex-none */}
+            <div className="ft-actions col [&>.ft-btn]:flex-none">
               {[
-                { provider: 'kakao', label: '카카오로 시작하기', cls: 'bg-[#FEE500] text-[#191919]', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path fillRule="evenodd" clipRule="evenodd" d="M9 0C4.03 0 0 3.19 0 7.13c0 2.52 1.67 4.74 4.19 6.01L3.1 17.2a.3.3 0 0 0 .46.32L8.4 14a10.7 10.7 0 0 0 .6.02C13.97 14.02 18 10.83 18 6.89 18 2.94 13.97 0 9 0z" fill="#191919"/></svg>, delay: '0.15s' },
-                { provider: 'naver', label: '네이버로 시작하기', cls: 'bg-[#03C75A] text-white', icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M12.16 9.57L5.56 0H0v18h5.84V8.43L12.44 18H18V0h-5.84v9.57z" fill="white"/></svg>, delay: '0.2s' },
-              ].map(({ provider, label, cls, icon, delay }) => (
+                { provider: 'kakao', label: '카카오로 시작하기', brand: { background: '#FEE500', color: '#191919' }, icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path fillRule="evenodd" clipRule="evenodd" d="M9 0C4.03 0 0 3.19 0 7.13c0 2.52 1.67 4.74 4.19 6.01L3.1 17.2a.3.3 0 0 0 .46.32L8.4 14a10.7 10.7 0 0 0 .6.02C13.97 14.02 18 10.83 18 6.89 18 2.94 13.97 0 9 0z" fill="#191919"/></svg>, delay: '0.15s' },
+                { provider: 'naver', label: '네이버로 시작하기', brand: { background: '#03C75A', color: '#fff' }, icon: <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M12.16 9.57L5.56 0H0v18h5.84V8.43L12.44 18H18V0h-5.84v9.57z" fill="white"/></svg>, delay: '0.2s' },
+              ].map(({ provider, label, brand, icon, delay }) => (
                 <button
                   key={provider}
                   onClick={() => {
@@ -706,8 +710,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     rememberAuthReturnTo();
                     startOAuth(provider as 'kakao' | 'naver' | 'google');
                   }}
-                  className={`w-full flex items-center justify-center gap-3 ${cls} font-bold py-3.5 rounded-2xl active:scale-[0.96] transition-transform animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both]`}
-                  style={{ animationDelay: delay }}
+                  // 등장 애니는 backwards — 끝나면 빠져서 ft-btn 눌림(scale) 이 산다
+                  className="ft-btn animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_backwards]"
+                  style={{ ...brand, animationDelay: delay }}
                 >
                   {icon}
                   {label}
@@ -719,13 +724,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               <GuestLoginForm onSuccess={() => { setShowLoginModal(false); router.refresh(); }} />
             </div>
 
-            <button onClick={() => { setShowLoginModal(false); router.push('/main'); }} className="w-full mt-3 text-[14px] text-gray-400 font-medium py-2 text-center animate-[loginItemUp_0.4s_ease_0.35s_both]">
+            <button onClick={() => { setShowLoginModal(false); router.push('/main'); }} className="ft-btn secondary mt-2 w-full animate-[loginItemUp_0.4s_ease_0.35s_backwards]">
               취소
             </button>
           </div>
           <style>{`
-            @keyframes loginFadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes loginSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
             @keyframes loginItemUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
           `}</style>
         </div>

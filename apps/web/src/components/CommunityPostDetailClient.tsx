@@ -1204,8 +1204,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
           subtitle={"삭제하면 되돌릴 수 없어요."}
           onClose={() => setShowDeleteConfirm(false)}
           buttons={[
-            { label: "삭제", bgColor: "var(--c-danger-b)", color: "#fff", onClick: doDelete },
-            { label: "취소", bgColor: "var(--c-bg-muted-2)", color: "var(--c-text-2d)", onClick: () => setShowDeleteConfirm(false) },
+            { label: "삭제", onClick: doDelete },
+            { label: "취소", onClick: () => setShowDeleteConfirm(false) },
           ]}
         />
       )}
@@ -1216,8 +1216,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
           subtitle={"삭제한 댓글은 되돌릴 수 없어요."}
           onClose={() => setDeleteCommentId("")}
           buttons={[
-            { label: "삭제", bgColor: "var(--c-danger-b)", color: "#fff", onClick: doDeleteComment },
-            { label: "취소", bgColor: "var(--c-bg-muted-2)", color: "var(--c-text-2d)", onClick: () => setDeleteCommentId("") },
+            { label: "삭제", onClick: doDeleteComment },
+            { label: "취소", onClick: () => setDeleteCommentId("") },
           ]}
         />
       )}

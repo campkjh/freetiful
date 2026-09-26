@@ -32,21 +32,23 @@ export default function CommunityLoginSheet() {
   if (!open) return null;
 
   return (
-    <div className="fcl-scrim" onClick={() => setOpen(false)}>
+    <div className="ft-scrim" onClick={() => setOpen(false)}>
       <div
-        className="fcl-sheet"
+        className="ft-sheet"
         role="dialog"
         aria-modal="true"
         aria-label="로그인"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="fcl-grab" aria-hidden="true" />
+        <div className="ft-grab" aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="fcl-logo" src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" />
         <p className="fcl-sub">로그인하고 웨딩숲에 참여해 보세요</p>
+        {/* 카카오·네이버는 브랜드 색 유지(인라인) */}
         <button
           type="button"
-          className="fcl-btn fcl-kakao"
+          className="ft-btn mb-2.5 w-full"
+          style={{ background: "#FEE500", color: "#191919" }}
           onClick={() => {
             setOpen(false);
             rememberAuthReturnTo();
@@ -65,7 +67,8 @@ export default function CommunityLoginSheet() {
         </button>
         <button
           type="button"
-          className="fcl-btn fcl-naver"
+          className="ft-btn mb-2.5 w-full"
+          style={{ background: "#03C75A", color: "#fff" }}
           onClick={() => {
             setOpen(false);
             rememberAuthReturnTo();
@@ -81,7 +84,7 @@ export default function CommunityLoginSheet() {
           {/* 로그인 직후 피드·상세가 내 정보로 다시 그려지도록 새로고침한다. */}
           <GuestLoginForm onSuccess={() => window.location.reload()} />
         </div>
-        <button type="button" className="fcl-cancel" onClick={() => setOpen(false)}>
+        <button type="button" className="ft-btn secondary mt-2 w-full" onClick={() => setOpen(false)}>
           취소
         </button>
       </div>

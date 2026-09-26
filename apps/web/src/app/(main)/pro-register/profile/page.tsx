@@ -830,30 +830,33 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* 제출 확인 바텀시트 */}
+      {/* 제출 확인 바텀시트 — 딤(아래 motion 배경)·시트 등장/퇴장은 framer 가 맡아 ft 자체 배경·CSS 애니는 끔 */}
       <AnimatePresence>
         {showConfirm && (
-          <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowConfirm(false)}>
+          <div className="ft-scrim" style={{ background: 'none', animation: 'none' }} onClick={() => setShowConfirm(false)}>
             <motion.div
-              className="absolute inset-0 bg-black/50"
+              className="absolute inset-0 bg-black/40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             />
             <motion.div
-              className="relative bg-white rounded-t-3xl w-full p-6 pb-10"
+              className="ft-sheet"
+              style={{ animation: 'none' }}
+              role="dialog"
+              aria-modal="true"
               variants={bottomSheetVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-              <h2 className="text-xl font-bold mb-2">정말로 제출하시겠습니까?</h2>
-              <p className="text-sm text-[#3180F7] mb-1 font-medium">
+              <div className="ft-grab" aria-hidden="true" />
+              <h2 className="ft-title">정말로 제출하시겠습니까?</h2>
+              <p className="ft-desc font-medium !text-[#3180F7]">
                 허위로 작성된 프로필일 경우 영구제재가 이루어질 수 있습니다.
               </p>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="ft-desc">
                 심사기간은 최대 7일이며, 결과는 알림으로 안내드립니다.
               </p>
               <motion.button
@@ -924,7 +927,7 @@ export default function ProfilePage() {
                     toast.error(`신청 실패: ${msg}`, { duration: 4000 });
                   }
                 }}
-                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-base mb-3 flex items-center justify-center gap-2 disabled:opacity-70"
+                className="ft-btn primary mt-6 w-full"
                 whileTap={submitting ? {} : { scale: 0.97 }}
               >
                 {submitting ? (
@@ -938,7 +941,7 @@ export default function ProfilePage() {
               </motion.button>
               <motion.button
                 onClick={() => setShowConfirm(false)}
-                className="w-full py-4 text-gray-500 font-medium text-base"
+                className="ft-btn secondary mt-2 w-full"
                 whileTap={{ scale: 0.97 }}
               >
                 취소

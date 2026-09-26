@@ -1348,12 +1348,14 @@ function SimpleMatchRequestModal({
 
   return (
     <BodyPortal>
-    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/45 px-4 pb-4 pt-10 backdrop-blur-[2px] lg:items-center lg:pb-10">
-      <div className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+    {/* 빠른 요청 시트 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17) */}
+    <div className="ft-scrim">
+      <div className="ft-sheet" role="dialog" aria-modal="true">
+        <div className="ft-grab" aria-hidden="true" />
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-[13px] font-semibold text-[#3180F7]">빠른 요청</p>
-            <h2 className="mt-1 text-[22px] font-bold text-[#2B313D]">{title}</h2>
+            <h2 className="ft-title">{title}</h2>
           </div>
           <button
             type="button"
@@ -1372,7 +1374,7 @@ function SimpleMatchRequestModal({
               value={location}
               onChange={(event) => setLocation(event.target.value)}
               placeholder="예시: 서울 강남구 코엑스홀"
-              className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[16px] font-medium text-[#2B313D] outline-none transition focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10"
+              className="ft-input"
             />
           </label>
           <div>
@@ -1381,21 +1383,22 @@ function SimpleMatchRequestModal({
               <label className="relative min-w-0">
                 <span className="sr-only">행사 날짜</span>
                 {!eventDate && (
-                  <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[15px] font-medium text-[#A4ABBA]">
+                  <span className="pointer-events-none absolute left-5 top-1/2 z-10 -translate-y-1/2 text-[17px] text-[#B0B8C1]">
                     일자선택
                   </span>
                 )}
+                {/* 빈 값일 땐 기본 날짜 글자를 숨기고 위 안내 글자만 — ft-input 글자색보다 세게(!) */}
                 <input
                   type="date"
                   value={eventDate}
                   onChange={(event) => setEventDate(event.target.value)}
-                  className={`h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium outline-none transition [color-scheme:light] focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10 ${eventDate ? 'text-[#2B313D]' : 'text-transparent'}`}
+                  className={`ft-input min-w-0 appearance-none [color-scheme:light] ${eventDate ? '' : '!text-transparent'}`}
                 />
               </label>
               <label className="relative min-w-0">
                 <span className="sr-only">행사 시간</span>
                 {!eventTime && (
-                  <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[15px] font-medium text-[#A4ABBA]">
+                  <span className="pointer-events-none absolute left-5 top-1/2 z-10 -translate-y-1/2 text-[17px] text-[#B0B8C1]">
                     시간선택
                   </span>
                 )}
@@ -1403,21 +1406,23 @@ function SimpleMatchRequestModal({
                   type="time"
                   value={eventTime}
                   onChange={(event) => setEventTime(event.target.value)}
-                  className={`h-[52px] w-full min-w-0 appearance-none rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[15px] font-medium outline-none transition [color-scheme:light] focus:border-[#3180F7] focus:ring-4 focus:ring-[#3180F7]/10 ${eventTime ? 'text-[#2B313D]' : 'text-transparent'}`}
+                  className={`ft-input min-w-0 appearance-none [color-scheme:light] ${eventTime ? '' : '!text-transparent'}`}
                 />
               </label>
             </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={submit}
-          disabled={submitting}
-          className="mt-5 h-[52px] w-full rounded-2xl bg-[#3180F7] text-[17px] font-bold text-white shadow-[0_14px_26px_rgba(49,128,247,0.22)] transition active:scale-[0.98] disabled:opacity-60"
-        >
-          {submitting ? '요청 보내는 중...' : '모든 사회자에게 요청하기'}
-        </button>
+        <div className="ft-actions">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting}
+            className="ft-btn primary"
+          >
+            {submitting ? '요청 보내는 중...' : '모든 사회자에게 요청하기'}
+          </button>
+        </div>
       </div>
     </div>
     </BodyPortal>
@@ -2400,24 +2405,25 @@ export default function HomePage() {
 
       {showOfficialOpenModal && popupBanner && (
         <BodyPortal>
+        {/* 홈 진입 팝업 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17): 시트 안에 배너 이미지 + 아래 버튼 줄 */}
         <div
           role="dialog"
           aria-modal="true"
           aria-label="안내 팝업"
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55 px-3 pb-[max(env(safe-area-inset-bottom),16px)] pt-6 backdrop-blur-[2px]"
-          style={{ animation: 'homeOpeningModalFade 180ms ease-out both' }}
+          className="ft-scrim"
           onClick={() => closeOfficialOpenModal()}
         >
           <div
-            className="relative w-full max-w-[460px] overflow-hidden rounded-[36px] bg-transparent shadow-[0_24px_70px_rgba(0,0,0,0.36)] ring-1 ring-white/25"
-            style={{ animation: 'homeOpeningModalIn 260ms cubic-bezier(0.16,1,0.3,1) both' }}
+            className="ft-sheet"
             onClick={(event) => event.stopPropagation()}
           >
+            <div className="ft-grab" aria-hidden="true" />
+            {/* X = 이미지 우상단 12px — 이미지 위치(시트 패딩+손잡이: 모바일 위46·옆24 / 넓은 화면 28)에 맞춤 */}
             <button
               type="button"
               onClick={() => closeOfficialOpenModal()}
               aria-label="안내 닫기"
-              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
+              className="absolute right-9 top-[58px] z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95 sm:right-10 sm:top-10"
             >
               <X size={18} strokeWidth={2.4} />
             </button>
@@ -2431,7 +2437,7 @@ export default function HomePage() {
                   closeOfficialOpenModal();
                 }
               }}
-              className="relative block aspect-[4/3] w-full select-none"
+              className="relative block aspect-[4/3] w-full select-none overflow-hidden rounded-[17px]"
               aria-label="배너 보기"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2442,33 +2448,23 @@ export default function HomePage() {
                 draggable={false}
               />
             </button>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-2 px-4 pb-4 pt-8 sm:px-5 sm:pb-5">
+            <div className="ft-actions">
               <button
                 type="button"
                 onClick={hideOfficialOpenModalFor3Days}
-                className="pointer-events-auto rounded-xl px-1 py-2 text-[16px] font-bold text-white drop-shadow-[0_1px_5px_rgba(0,0,0,0.55)] transition hover:bg-white/10 active:scale-95"
+                className="ft-btn ghost"
               >
                 3일 동안 안보기
               </button>
               <button
                 type="button"
                 onClick={() => closeOfficialOpenModal()}
-                className="pointer-events-auto rounded-full border border-white/20 bg-black/25 px-5 py-2.5 text-[14px] font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.22)] backdrop-blur-md transition hover:bg-black/35 active:scale-95"
+                className="ft-btn secondary"
               >
                 닫기
               </button>
             </div>
           </div>
-          <style jsx global>{`
-            @keyframes homeOpeningModalFade {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes homeOpeningModalIn {
-              from { opacity: 0; transform: translateY(100%); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
         </div>
         </BodyPortal>
       )}

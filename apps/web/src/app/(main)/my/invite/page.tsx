@@ -155,15 +155,17 @@ function ClaimModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/35 px-4 pb-4 pt-10 backdrop-blur-[2px]">
-      <div className="w-full max-w-[520px] rounded-[30px] bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
+    // 현금 지급 신청 시트 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17)
+    <div className="ft-scrim">
+      <div className="ft-sheet" role="dialog" aria-modal="true">
+        <div className="ft-grab" aria-hidden="true" />
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <Wallet size={22} className="text-[#4482FF]" />
-              <h2 className="text-[22px] font-bold tracking-[-0.04em] text-[#2B313D]">현금 지급 신청</h2>
+              <h2 className="ft-title">현금 지급 신청</h2>
             </div>
-            <p className="mt-1.5 text-[14px] font-medium leading-[1.45] tracking-[-0.03em] text-[#8A93A5]">
+            <p className="ft-desc">
               5,000원 보상을 모두 받았어요. 지급 받을 계좌를 입력해주세요.
             </p>
           </div>
@@ -183,20 +185,20 @@ function ClaimModal({
             value={form.bankName}
             onChange={(e) => onChange({ ...form, bankName: e.target.value })}
             placeholder="은행명"
-            className="h-[52px] w-full rounded-[16px] border border-[#E4E9F0] bg-white px-4 text-[16px] font-medium text-[#111318] outline-none placeholder:text-[#B0B8C4] focus:border-[#4482FF]"
+            className="ft-input"
           />
           <input
             value={form.accountHolder}
             onChange={(e) => onChange({ ...form, accountHolder: e.target.value })}
             placeholder="예금주"
-            className="h-[52px] w-full rounded-[16px] border border-[#E4E9F0] bg-white px-4 text-[16px] font-medium text-[#111318] outline-none placeholder:text-[#B0B8C4] focus:border-[#4482FF]"
+            className="ft-input"
           />
           <input
             value={form.accountNumber}
             onChange={(e) => onChange({ ...form, accountNumber: e.target.value })}
             placeholder="계좌번호"
             inputMode="numeric"
-            className="h-[52px] w-full rounded-[16px] border border-[#E4E9F0] bg-white px-4 text-[16px] font-medium text-[#111318] outline-none placeholder:text-[#B0B8C4] focus:border-[#4482FF]"
+            className="ft-input"
           />
         </div>
 
@@ -243,15 +245,17 @@ function ClaimModal({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={submitting || !agreed}
-          className="mt-4 inline-flex h-[56px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#4482FF] text-[18px] font-bold tracking-[-0.035em] text-white disabled:opacity-60"
-        >
-          {submitting && <Loader2 size={19} className="animate-spin" />}
-          {status?.claim ? '계좌정보 저장하기' : '5,000원 신청하기'}
-        </button>
+        <div className="ft-actions">
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting || !agreed}
+            className="ft-btn primary"
+          >
+            {submitting && <Loader2 size={19} className="animate-spin" />}
+            {status?.claim ? '계좌정보 저장하기' : '5,000원 신청하기'}
+          </button>
+        </div>
       </div>
     </div>
   );

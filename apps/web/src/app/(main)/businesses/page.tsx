@@ -1410,20 +1410,22 @@ export default function BusinessListPage() {
       {/* ─── Filter Floating Modal ─── */}
       {filterOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+          className="ft-scrim"
           onClick={() => setFilterOpen(false)}
-          style={{ animation: 'modalFadeIn 0.25s ease-out' }}
         >
+          {/* 시트 여백 0 — 여백만큼 sticky 머리·바닥이 떠서 칩이 위아래로 비침(여백은 안쪽 칸이 가짐) */}
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[80vh] overflow-y-auto pb-safe"
+            className="ft-sheet wide"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetSlideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1)' }}
+            style={{ maxHeight: '80vh', padding: 0 }}
           >
             {/* Handle + Header */}
-            <div className="sticky top-0 bg-white z-10 rounded-t-3xl">
-              <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mt-3" />
-              <div className="flex items-center justify-between px-5 pt-4 pb-3">
-                <h3 className="text-[17px] font-bold text-gray-900">상세 필터</h3>
+            <div className="sticky top-0 bg-white z-10 rounded-t-3xl px-6 pt-5">
+              <div className="ft-grab" aria-hidden="true" />
+              <div className="flex items-center justify-between pb-3">
+                <h3 className="ft-title">상세 필터</h3>
                 <button onClick={() => setFilterOpen(false)} className="active:scale-90 transition-transform">
                   <X size={22} className="text-gray-500" />
                 </button>
@@ -1431,7 +1433,7 @@ export default function BusinessListPage() {
             </div>
 
             {/* Filter Groups */}
-            <div className="divide-y divide-gray-100 px-5">
+            <div className="divide-y divide-gray-100 px-6">
               {FILTER_GROUPS.map((group) => (
                 <div key={group.key} className="flex items-start gap-3 py-3">
                   <div className="w-[90px] shrink-0 pt-1">
@@ -1460,16 +1462,20 @@ export default function BusinessListPage() {
             </div>
 
             {/* Bottom Actions */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 px-5 py-4 flex gap-3">
+            <div
+              className="ft-actions sticky bottom-0 bg-white border-t border-gray-100 px-6 pt-4"
+              style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
+            >
               <button
                 onClick={clearAllFilters}
-                className="flex-1 h-[44px] rounded-xl border border-gray-200 text-[14px] font-medium text-gray-700 active:scale-[0.98] transition-transform"
+                className="ft-btn secondary"
               >
                 초기화
               </button>
               <button
                 onClick={() => setFilterOpen(false)}
-                className="flex-[2] h-[44px] rounded-xl bg-[#2B313D] text-[14px] font-bold text-white active:scale-[0.98] transition-transform"
+                className="ft-btn primary"
+                style={{ flex: 2 }}
               >
                 {totalActiveFilters > 0 ? `${totalActiveFilters}개 필터 적용` : '필터 적용'}
               </button>
@@ -1477,12 +1483,6 @@ export default function BusinessListPage() {
           </div>
         </div>
       )}
-
-      {/* Filter modal animations */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes modalFadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
-        @keyframes sheetSlideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
-      `}} />
 
       {/* ─── Rank Items ─── */}
       <div

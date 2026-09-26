@@ -2946,23 +2946,25 @@ export default function ProDetailPage() {
       </div>
       </div>
 
+      {/* 문의 요청 시트 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17) */}
       {confirmInquiryOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0"
+          className="ft-scrim"
           onClick={() => {
             if (!openingChat) setConfirmInquiryOpen(false);
           }}
-          style={{ animation: 'inquiryBackdropIn 0.24s ease-out' }}
         >
           <div
-            className="w-full max-w-[420px] rounded-[28px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.24)]"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(event) => event.stopPropagation()}
-            style={{ animation: 'inquirySheetIn 0.38s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
+            <div className="ft-grab" aria-hidden="true" />
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-[20px] font-bold text-[#2B313D]">문의 요청하기</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-[#6B7280]">
+                <h3 className="ft-title">문의 요청하기</h3>
+                <p className="ft-desc">
                   {pro.name} 사회자에게 전달할 행사 장소와 일시를 입력해주세요.
                 </p>
               </div>
@@ -2985,7 +2987,7 @@ export default function ProDetailPage() {
                   onChange={(event) => setInquiryLocation(event.target.value)}
                   placeholder="예: 서울 중구 퇴계로"
                   disabled={openingChat}
-                  className="h-[52px] w-full rounded-2xl border border-[#E5E8EF] bg-white px-4 text-[15px] font-semibold text-[#2B313D] outline-none transition placeholder:text-[#A4ABBA] focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                  className="ft-input disabled:bg-[#F8FAFC]"
                 />
               </label>
               <div>
@@ -2996,25 +2998,25 @@ export default function ProDetailPage() {
                     value={inquiryDate}
                     onChange={(event) => setInquiryDate(event.target.value)}
                     disabled={openingChat}
-                    className="inquiry-datetime-input h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                    className="ft-input inquiry-datetime-input min-w-0 disabled:bg-[#F8FAFC]"
                   />
                   <input
                     type="time"
                     value={inquiryTime}
                     onChange={(event) => setInquiryTime(event.target.value)}
                     disabled={openingChat}
-                    className="inquiry-datetime-input h-[52px] min-w-0 rounded-2xl border border-[#E5E8EF] bg-white px-3 text-[14px] font-semibold text-[#2B313D] outline-none transition focus:border-[#3180F7] disabled:bg-[#F8FAFC]"
+                    className="ft-input inquiry-datetime-input min-w-0 disabled:bg-[#F8FAFC]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2.5">
+            <div className="ft-actions">
               <button
                 type="button"
                 disabled={openingChat}
                 onClick={() => setConfirmInquiryOpen(false)}
-                className="h-[48px] rounded-2xl bg-[#F2F4F6] text-[15px] font-bold text-[#4E5968] transition active:scale-[0.98] disabled:opacity-60"
+                className="ft-btn secondary"
               >
                 취소
               </button>
@@ -3022,7 +3024,7 @@ export default function ProDetailPage() {
                 type="button"
                 disabled={openingChat}
                 onClick={() => submitInquiryRequest()}
-                className="flex h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[15px] font-bold text-white shadow-[0_12px_24px_rgba(49,128,247,0.24)] transition active:scale-[0.98] disabled:opacity-70"
+                className="ft-btn primary"
               >
                 {openingChat && <span className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
                 요청하기
@@ -3053,32 +3055,34 @@ export default function ProDetailPage() {
       {/* ─── Share Modal ─── */}
       {shareModal && (
         <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          className="ft-scrim"
           onClick={() => setShareModal(false)}
-          style={{ animation: 'modalFade 0.3s ease-out' }}
         >
           <div
-            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
-            <h3 className="text-[18px] font-bold text-gray-900 mb-5">공유하기</h3>
+            <div className="ft-grab" aria-hidden="true" />
+            <h3 className="ft-title">공유하기</h3>
             <button
               onClick={handleCopyLink}
-              className="w-full flex items-center gap-3 py-4 px-4 hover:bg-gray-50 rounded-xl transition-colors"
+              className="mt-3 w-full flex items-center gap-3 py-4 px-4 hover:bg-gray-50 rounded-xl transition-colors"
             >
               <div className="w-11 h-11 rounded-[14px] bg-[#F2F4F6] flex items-center justify-center">
                 <Link2 size={20} className="text-[#3180F7]" />
               </div>
               <span className="text-[15px] font-medium text-gray-900">링크 복사</span>
             </button>
-            <button
-              onClick={() => setShareModal(false)}
-              className="w-full mt-2 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
-            >
-              닫기
-            </button>
+            <div className="ft-actions">
+              <button
+                onClick={() => setShareModal(false)}
+                className="ft-btn secondary"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3086,34 +3090,34 @@ export default function ProDetailPage() {
       {/* ─── Phone Modal ─── */}
       {phoneModal && (
         <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          className="ft-scrim"
           onClick={() => setPhoneModal(false)}
-          style={{ animation: 'modalFade 0.3s ease-out' }}
         >
           <div
-            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-safe"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-4 sm:hidden" />
-            <div className="text-center py-4">
+            <div className="ft-grab" aria-hidden="true" />
+            <div className="text-center">
               <div className="w-16 h-16 rounded-[20px] bg-[#F2F4F6] flex items-center justify-center mx-auto mb-4">
                 <Phone size={28} className="text-[#3180F7]" />
               </div>
-              <h3 className="text-[18px] font-bold text-gray-900 mb-2">전화 상담</h3>
-              <p className="text-[14px] text-gray-500 mb-6">
+              <h3 className="ft-title">전화 상담</h3>
+              <p className="ft-desc">
                 채팅으로 먼저 문의하시면<br />더 빠른 답변을 받을 수 있어요
               </p>
-              <div className="flex gap-2">
+              <div className="ft-actions">
                 <button
                   onClick={() => setPhoneModal(false)}
-                  className="flex-1 py-3.5 bg-gray-100 rounded-xl text-[14px] font-semibold text-gray-700"
+                  className="ft-btn secondary"
                 >
                   취소
                 </button>
                 <button
                   onClick={() => { setPhoneModal(false); router.push(`/chat/${pro.id}`); }}
-                  className="flex-1 py-3.5 rounded-xl text-[14px] font-bold text-white bg-[#3180F7]"
+                  className="ft-btn primary"
                 >
                   채팅 문의
                 </button>
@@ -3126,22 +3130,24 @@ export default function ProDetailPage() {
       {/* ─── Reviews Full Modal ─── */}
       {reviewsModal && (
         <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-end justify-center"
+          className="ft-scrim"
           onClick={() => setReviewsModal(false)}
-          style={{ animation: 'modalFade 0.3s ease-out' }}
         >
           <div
-            className="w-full max-w-lg bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto pb-safe"
+            className="ft-sheet wide"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }}
           >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between z-10">
-              <h3 className="text-[17px] font-bold text-gray-900">전체 리뷰 ({displayReviewCount})</h3>
+            <div className="ft-grab" aria-hidden="true" />
+            {/* 제목 줄 고정 — sticky 는 시트 패딩 안쪽 기준이라 위(-20 · 넓은 화면 -28)·좌우(24 · 28)로 넓혀 시트 끝에 붙인다 */}
+            <div className="sticky -top-5 z-10 -mx-6 -mt-5 flex items-center justify-between border-b border-gray-100 bg-white px-6 pb-4 pt-5 sm:-top-7 sm:-mx-7 sm:px-7">
+              <h3 className="ft-title">전체 리뷰 ({displayReviewCount})</h3>
               <button onClick={() => setReviewsModal(false)}>
                 <X size={22} className="text-gray-500" />
               </button>
             </div>
-            <div className="px-5 py-4 space-y-6">
+            <div className="pt-5 space-y-6">
               {displayReviews.map((review) => (
                 <div key={review.id} className="pb-6 border-b border-[#F2F4F6] last:border-0">
                   <div className="flex items-center gap-2 mb-2">
@@ -3167,15 +3173,17 @@ export default function ProDetailPage() {
       {/* Premium animations */}
       {/* Login Modal */}
       {loginModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40" onClick={() => setLoginModal(false)}>
-          <div className="bg-white w-full max-w-md rounded-t-3xl px-6 pt-6 pb-8 animate-[slideUp_0.3s_ease]" onClick={(e) => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
-            <h2 className="text-[20px] font-bold text-gray-900 text-center mb-1">로그인이 필요합니다</h2>
-            <p className="text-[14px] text-gray-500 text-center mb-6">이 기능을 사용하려면 로그인해주세요</p>
-            <div className="space-y-2.5">
+        <div className="ft-scrim" onClick={() => setLoginModal(false)}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
+            <h2 className="ft-title text-center">로그인이 필요합니다</h2>
+            <p className="ft-desc text-center">이 기능을 사용하려면 로그인해주세요</p>
+            {/* 세로 줄 버튼은 flex:1 이면 56px 이 눌려 납작해짐 → flex-none */}
+            <div className="ft-actions col [&>.ft-btn]:flex-none">
               {['kakao', 'naver'].map((p) => (
                 <button key={p} onClick={() => startOAuth(p as 'kakao' | 'naver' | 'google')}
-                  className={`w-full flex items-center justify-center gap-3 font-semibold py-3.5 rounded-xl active:scale-[0.98] transition-transform ${p === 'kakao' ? 'bg-[#FEE500] text-[#191919]' : 'bg-[#03C75A] text-white'}`}
+                  className="ft-btn"
+                  style={p === 'kakao' ? { background: '#FEE500', color: '#191919' } : { background: '#03C75A', color: '#fff' }}
                 >{p === 'kakao' ? '카카오로 계속하기' : '네이버로 계속하기'}</button>
               ))}
             </div>
@@ -3183,9 +3191,8 @@ export default function ProDetailPage() {
             <div className="mt-3">
               <GuestLoginForm onSuccess={() => { setLoginModal(false); router.refresh(); }} />
             </div>
-            <button onClick={() => setLoginModal(false)} className="w-full mt-4 text-[14px] text-gray-400 font-medium py-2 text-center">나중에 하기</button>
+            <button onClick={() => setLoginModal(false)} className="ft-btn secondary mt-2 w-full">나중에 하기</button>
           </div>
-          <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
         </div>
       )}
 
@@ -3193,19 +3200,6 @@ export default function ProDetailPage() {
         @keyframes modalFade {
           0% { opacity: 0; }
           100% { opacity: 1; }
-        }
-        @keyframes inquiryBackdropIn {
-          0% { opacity: 0; backdrop-filter: blur(0); }
-          100% { opacity: 1; backdrop-filter: blur(4px); }
-        }
-        @keyframes inquirySheetIn {
-          0% { opacity: 0; transform: translateY(26px) scale(0.96); filter: blur(8px); }
-          62% { opacity: 1; transform: translateY(-3px) scale(1.01); filter: blur(0); }
-          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-        @keyframes sheetUp {
-          0% { transform: translateY(100%); }
-          100% { transform: translateY(0); }
         }
         @keyframes tooltipBounce {
           0%, 100% { transform: translateY(0); }

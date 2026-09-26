@@ -502,22 +502,23 @@ export default function NotificationsPage() {
 
       {/* 전체 삭제 확인 */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="w-full max-w-[340px] rounded-[24px] bg-white p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[20px] font-bold text-[#191F28]">알림을 모두 지울까요?</h3>
-            <p className="mt-1.5 text-[15px] text-[#6B7684]">지운 알림은 다시 볼 수 없어요.</p>
-            <div className="mt-6 flex gap-2">
+        <div className="ft-scrim" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
+            <h3 className="ft-title">알림을 모두 지울까요?</h3>
+            <p className="ft-desc">지운 알림은 다시 볼 수 없어요.</p>
+            <div className="ft-actions">
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="h-[52px] flex-1 rounded-[16px] bg-[#F2F4F6] text-[16px] font-semibold text-[#4E5968] transition-transform active:scale-[0.98]"
+                className="ft-btn secondary"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={handleDeleteAll}
-                className="h-[52px] flex-1 rounded-[16px] bg-[#F04452] text-[16px] font-semibold text-white transition-transform active:scale-[0.98]"
+                className="ft-btn danger"
               >
                 모두 지우기
               </button>

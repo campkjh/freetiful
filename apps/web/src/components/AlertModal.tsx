@@ -14,80 +14,44 @@ interface AlertModalProps {
   onClose?: () => void;
 }
 
+// 파괴적 동작(이름 삭제·탈퇴·나가기 / 빨간 배경 지정)이면 첫 버튼을 danger 로
+function isDestructive({ label, bgColor = "" }: AlertButton) {
+  if (/삭제|탈퇴|나가기/.test(label) || /danger|red/i.test(bgColor)) return true;
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(bgColor.trim());
+  if (!m) return false;
+  const hex = m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return r > 180 && g < 120 && b < 120;
+}
+
+// 공통 모달(웨딩숲 톤 · 버튼 56/r17/17) — 첫 버튼이 강조(primary·danger), 나머지는 secondary
 export default function AlertModal({ title, subtitle, buttons, onClose }: AlertModalProps) {
   return (
-    <div style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 500,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      <div
-        style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.4)" }}
-        onClick={onClose}
-      />
-      <div style={{
-        position: "relative",
-        width: "calc(100% - 32px)",
-        maxWidth: 375,
-        backgroundColor: "var(--c-bg)",
-        borderRadius: 20,
-        padding: 12,
-        animation: "slideUpAlert 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-        boxShadow: "0 4px 40px rgba(0,0,0,0.15)",
-      }}>
-        {/* Text */}
-        <div style={{ textAlign: "center", padding: "16px 0 20px" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--c-text-2)", lineHeight: 1.5, whiteSpace: "pre-line" }}>
-            {title}
-          </h2>
-          {subtitle && (
-            <p style={{ fontSize: 15, color: "var(--c-text-4)", marginTop: 1 }}>
-              {subtitle}
-            </p>
-          )}
-        </div>
+    <div className="ft-scrim" onClick={onClose}>
+      <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="ft-grab" aria-hidden="true" />
+        <h2 className="ft-title">{title}</h2>
+        {subtitle && <p className="ft-desc">{subtitle}</p>}
 
-        {/* Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {buttons.map((btn, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={btn.onClick}
-              className="press"
-              style={{
-                width: "100%",
-                height: 48,
-                borderRadius: 12,
-                backgroundColor: btn.bgColor || (idx === 0 ? "var(--c-warn-i)" : "var(--c-inverse-5)"),
-                color: btn.color || (idx === 0 ? "#3E1918" : "#fff"),
-                fontSize: 18,
-                fontWeight: 700,
-                border: "none",
-                textAlign: "center",
-              }}
-            >
-              {btn.label}
-            </button>
-          ))}
+        {/* 버튼 2개면 토스식 가로 [보조 | 강조] — 호출부는 강조를 먼저 넘기므로 뒤집어 그린다. 그 밖엔 세로로 */}
+        <div className={`ft-actions${buttons.length === 2 ? "" : " col"}`}>
+          {(buttons.length === 2 ? [buttons[1], buttons[0]] : buttons).map((btn) => {
+            const emphasized = btn === buttons[0];
+            return (
+              <button
+                key={btn.label}
+                type="button"
+                onClick={btn.onClick}
+                className={`ft-btn ${emphasized ? (isDestructive(btn) ? "danger" : "primary") : "secondary"}`}
+                // 호출부가 색을 지정했으면 그대로 존중(인라인이 클래스보다 우선)
+                style={{ background: btn.bgColor, color: btn.color }}
+              >
+                {btn.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-
-      <style>{`
-        @keyframes slideUpAlert {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-      `}</style>
     </div>
   );
 }

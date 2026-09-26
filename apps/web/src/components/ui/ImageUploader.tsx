@@ -280,14 +280,16 @@ export default function ImageUploader({
 
       {/* ─── Image Editor Modal ──────────────────────────────────────────── */}
       {editingImage && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setEditingImage(null)}>
+        <div className="ft-scrim" onClick={() => setEditingImage(null)}>
           <div
-            className="bg-white rounded-3xl w-full max-w-md overflow-hidden animate-scale-in"
-            style={{ animationFillMode: 'forwards' }}
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="ft-grab" aria-hidden="true" />
             {/* Preview */}
-            <div className="relative bg-gray-900 flex items-center justify-center">
+            <div className="relative bg-gray-900 flex items-center justify-center overflow-hidden rounded-[17px]">
               <img
                 src={editingImage.imageUrl}
                 alt=""
@@ -300,8 +302,8 @@ export default function ImageUploader({
             </div>
 
             {/* Controls */}
-            <div className="p-5 space-y-5">
-              <h3 className="text-[16px] font-bold text-gray-900">사진 보정</h3>
+            <div className="mt-5 space-y-5">
+              <h3 className="ft-title">사진 보정</h3>
 
               {/* Brightness */}
               <div className="space-y-2">
@@ -354,38 +356,32 @@ export default function ImageUploader({
               {/* Sharpen toggle */}
               <button
                 onClick={() => setAdjustState((s) => ({ ...s, sharpen: !s.sharpen }))}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-medium ${
-                  adjustState.sharpen
-                    ? 'bg-primary-50 border-primary-200 text-primary-600'
-                    : 'bg-white border-gray-200 text-gray-600'
-                }`}
-                style={{ transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                className={`ft-chip${adjustState.sharpen ? ' on' : ''}`}
               >
                 <Sparkles size={14} />
                 선명하게
                 {adjustState.sharpen && <Check size={14} />}
               </button>
 
-              {/* Actions */}
-              <div className="flex gap-2.5 pt-2">
+              {/* Actions — 초기화는 글자 폭 그대로(좁은 폰에서 한글 줄바꿈 방지), 취소·적용이 나머지를 나눔 */}
+              <div className="ft-actions">
                 <button
                   onClick={() => setAdjustState({ brightness: 0, contrast: 0, saturation: 0, sharpen: false })}
-                  className="btn-ghost flex items-center gap-1.5 text-[13px]"
+                  className="ft-btn ghost"
+                  style={{ flex: 'none' }}
                 >
                   <RotateCcw size={14} /> 초기화
                 </button>
-                <div className="flex-1" />
                 <button
                   onClick={() => setEditingImage(null)}
-                  className="btn-ghost text-[13px]"
+                  className="ft-btn secondary"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleAdjustSave}
                   disabled={uploading}
-                  className="bg-primary-500 text-white px-6 py-2.5 rounded-xl text-[13px] font-semibold hover:bg-primary-600 active:scale-[0.97] disabled:opacity-50"
-                  style={{ transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                  className="ft-btn primary"
                 >
                   {uploading ? '적용중...' : '적용'}
                 </button>

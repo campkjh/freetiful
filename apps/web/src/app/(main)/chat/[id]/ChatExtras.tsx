@@ -275,22 +275,26 @@ function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: nu
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-[fadeIn_0.2s_ease]" onClick={onClose}>
+    // 공통 시트(ft-*) — 지도 칸이 flex-1 로 남는 높이를 채우도록 시트 높이는 고정
+    <div className="ft-scrim" onClick={onClose}>
       <div
-        className="w-full max-w-[520px] h-[80vh] sm:h-[600px] sm:max-h-[80vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-[menuPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+        className="ft-sheet wide h-[80vh] sm:h-[600px] flex flex-col"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
+        <div className="ft-grab shrink-0" aria-hidden="true" />
+        <div className="flex items-center justify-between shrink-0">
           <div>
             <p className="text-[11px] font-bold tracking-wider text-gray-400">LOCATION</p>
-            <h3 className="text-[18px] font-black text-gray-900 mt-0.5">위치 선택</h3>
+            <h3 className="ft-title">위치 선택</h3>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
 
-        <div className="px-5 pb-3 shrink-0">
+        <div className="pt-4 pb-3 shrink-0">
           <div className="flex gap-2">
             <div className="flex-1 flex items-center bg-gray-100 rounded-full pl-4 pr-2 h-11">
               <input
@@ -309,7 +313,7 @@ function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: nu
           <p className="text-[11px] text-gray-400 mt-2 px-1">지도를 탭하거나 검색하여 위치를 선택하세요</p>
         </div>
 
-        <div className="flex-1 relative bg-gray-100 mx-5 rounded-2xl overflow-hidden">
+        <div className="flex-1 relative bg-gray-100 rounded-2xl overflow-hidden">
           {hasNaverKey !== false && <div ref={mapRef} className="absolute inset-0" />}
           {hasNaverKey === false && (
             <div className="absolute inset-0 flex items-center justify-center text-center p-6">
@@ -327,9 +331,9 @@ function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: nu
           )}
         </div>
 
-        <div className="px-5 pt-3 pb-5 shrink-0">
+        <div className="shrink-0">
           {selected && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-2.5 bg-blue-50 rounded-xl">
+            <div className="flex items-center gap-2 mt-3 px-3 py-2.5 bg-blue-50 rounded-xl">
               <MapPin size={16} className="text-[#007AFF] shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-bold text-gray-900">선택한 위치</p>
@@ -337,21 +341,23 @@ function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: nu
               </div>
             </div>
           )}
-          <button
-            onClick={() => {
-              if (!selected) {
-                toast.error('지도에서 위치를 선택해주세요');
-                return;
-              }
-              onSelect(selected.lat, selected.lng);
-              onClose();
-            }}
-            disabled={!selected}
-            className="w-full h-12 bg-[#007AFF] hover:bg-[#0066d9] disabled:bg-gray-300 text-white text-[15px] font-bold rounded-2xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-          >
-            <MapPin size={16} />
-            이 위치 전송하기
-          </button>
+          <div className="ft-actions">
+            <button
+              onClick={() => {
+                if (!selected) {
+                  toast.error('지도에서 위치를 선택해주세요');
+                  return;
+                }
+                onSelect(selected.lat, selected.lng);
+                onClose();
+              }}
+              disabled={!selected}
+              className="ft-btn primary"
+            >
+              <MapPin size={16} />
+              이 위치 전송하기
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -796,24 +802,26 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
       {/* 직접 결제 유도 주의 — 견적 카드 뒤에 항상 붙는다 */}
       <SafePaymentNotice />
+      {/* 견적 상세 — 공통 시트(ft-*) */}
       {showQuoteDetail && (
         <div
-          className="fixed inset-0 z-[120] flex items-end bg-black/40"
+          className="ft-scrim"
           onClick={() => setShowQuoteDetail(false)}
         >
           <div
-            className="bg-white w-full rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'sheetUp 0.3s ease' }}
           >
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[18px] font-bold text-gray-900">
+            <div className="ft-grab" aria-hidden="true" />
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="ft-title">
                 {isPro ? '내가 보낸 견적' : isPaid ? '결제 내역' : '받은 견적'}
               </h2>
               <button
                 onClick={() => setShowQuoteDetail(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+                className="w-8 h-8 shrink-0 rounded-full bg-gray-100 flex items-center justify-center"
               >
                 <X size={16} className="text-gray-600" />
               </button>
@@ -886,7 +894,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             </div>
 
             {/* 금액 요약 */}
-            <div className="bg-gray-50 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
               <span className="text-[13px] text-gray-500">총 견적 금액</span>
               <span className="text-[20px] font-bold text-[#3180F7] tabular-nums">
                 {Number(sys.amount || 0).toLocaleString()}원
@@ -895,18 +903,20 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
 
             {/* 액션: 미결제 + 최신 + 고객 측이면 결제하기 노출 */}
             {!isPro && sys.quotationId && !isPaid && isLatestQuote && (
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
-                }}
-                className="w-full h-13 py-4 rounded-xl font-bold text-[16px] bg-[#3180F7] text-white active:scale-[0.98] transition-colors"
-              >
-                결제하기
-              </button>
+              <div className="ft-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = buildQuoteCheckoutUrl(chatPartner, sys, quoteDetail);
+                  }}
+                  className="ft-btn primary"
+                >
+                  결제하기
+                </button>
+              </div>
             )}
             {isPro && (
-              <p className="text-center text-[12px] text-gray-400">
+              <p className="mt-4 text-center text-[12px] text-gray-400">
                 고객의 결제 상태는 자동으로 갱신됩니다
               </p>
             )}
@@ -2774,24 +2784,27 @@ export default function ChatExtras(props: ChatExtrasProps) {
         />
       )}
 
-      {/* ─── 부분복사 모달 ─── */}
+      {/* ─── 부분복사 모달 — 공통 시트(ft-*) ─── */}
       {partialCopyMsg && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-[fadeIn_0.2s_ease]" onClick={() => setPartialCopyMsg(null)}>
+        <div className="ft-scrim" onClick={() => setPartialCopyMsg(null)}>
           <div
-            className="w-full max-w-[480px] bg-white rounded-3xl shadow-2xl overflow-hidden animate-[menuPop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+            <div className="ft-grab" aria-hidden="true" />
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-bold tracking-wider text-gray-400">PARTIAL COPY</p>
-                <h3 className="text-[18px] font-black text-gray-900 mt-0.5">부분복사</h3>
+                <h3 className="ft-title">부분복사</h3>
               </div>
               <button onClick={() => setPartialCopyMsg(null)} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
-            <p className="px-5 text-[12px] text-gray-400 mb-2">텍스트를 드래그하여 복사할 부분을 선택하세요</p>
-            <div className="px-5 pb-3">
+            <p className="ft-desc">텍스트를 드래그하여 복사할 부분을 선택하세요</p>
+            <div className="mt-4">
               <p
                 className="text-[15px] leading-[1.7] text-gray-900 whitespace-pre-wrap bg-gray-50 rounded-2xl p-4 max-h-[40vh] overflow-y-auto select-text border border-gray-100"
                 style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
@@ -2799,7 +2812,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
                 {partialCopyMsg.content}
               </p>
             </div>
-            <div className="px-5 pb-5 flex gap-2">
+            <div className="ft-actions">
               <button
                 onClick={() => {
                   const sel = window.getSelection?.()?.toString() || '';
@@ -2811,14 +2824,15 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   toast.success(`${sel.length}자 복사됨`);
                   setPartialCopyMsg(null);
                 }}
-                className="flex-1 h-12 bg-[#007AFF] hover:bg-[#0066d9] text-white text-[15px] font-bold rounded-2xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                className="ft-btn primary"
               >
                 <Copy size={16} />
                 선택한 부분 복사
               </button>
+              {/* 취소는 글자 폭만 — 반반이면 폰에서 '선택한 부분 복사'가 두 줄로 꺾임 */}
               <button
                 onClick={() => setPartialCopyMsg(null)}
-                className="px-5 h-12 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[15px] font-medium rounded-2xl active:scale-[0.98] transition-transform"
+                className="ft-btn secondary !flex-none"
               >
                 취소
               </button>

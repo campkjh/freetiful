@@ -327,13 +327,13 @@ export default function SettingsPage() {
 
       {/* 회원탈퇴 확인 모달 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
       {showWithdraw && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center px-6" onClick={() => setShowWithdraw(false)}>
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.18)]" onClick={(e) => e.stopPropagation()}>
-            <p className="mb-2 text-center text-[17px] font-bold text-[#2B313D]">정말 탈퇴하시겠어요?</p>
-            <p className="mb-5 text-center text-[14px] leading-relaxed text-[#8B95A1]">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowWithdraw(false)} className="h-12 flex-1 rounded-[14px] bg-[#F2F3F5] text-[15px] font-bold text-[#51535C] transition-transform active:scale-95">아니오</button>
+        <div className="ft-scrim" onClick={() => setShowWithdraw(false)}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
+            <p className="ft-title">정말 탈퇴하시겠어요?</p>
+            <p className="ft-desc">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+            <div className="ft-actions">
+              <button onClick={() => setShowWithdraw(false)} className="ft-btn secondary">아니오</button>
               <button
                 onClick={() => {
                   setShowWithdraw(false);
@@ -345,7 +345,7 @@ export default function SettingsPage() {
                     localStorage.clear(); toast.success('회원 탈퇴가 완료되었습니다'); router.push('/');
                   }
                 }}
-                className="h-12 flex-1 rounded-[14px] bg-[#E5484D] text-[15px] font-bold text-white transition-transform active:scale-95"
+                className="ft-btn danger"
               >탈퇴하기</button>
             </div>
           </div>
@@ -355,30 +355,32 @@ export default function SettingsPage() {
       {/* ─── 연결 끊기 확인 모달 ─────────────────────────────────────── */}
       {disconnectTarget && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          className="ft-scrim"
           onClick={() => setDisconnectTarget(null)}
         >
-          <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative w-full max-w-sm rounded-[24px] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.18)]"
+            className="ft-sheet"
+            role="dialog"
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="mb-2 text-center text-[17px] font-bold text-[#2B313D]">
+            <div className="ft-grab" aria-hidden="true" />
+            <p className="ft-title">
               {disconnectTarget} 연결을 끊으시겠어요?
             </p>
-            <p className="mb-5 text-center text-[14px] leading-relaxed text-[#8B95A1]">
+            <p className="ft-desc">
               연결을 끊으면 계정을<br />삭제하셔야 합니다.
             </p>
-            <div className="flex gap-2">
+            <div className="ft-actions">
               <button
                 onClick={() => setDisconnectTarget(null)}
-                className="h-12 flex-1 rounded-[14px] bg-[#F2F3F5] text-[15px] font-bold text-[#51535C] transition-transform active:scale-95"
+                className="ft-btn secondary"
               >
                 아니오
               </button>
               <button
                 onClick={executeDisconnect}
-                className="h-12 flex-1 rounded-[14px] bg-[#E5484D] text-[15px] font-bold text-white transition-transform active:scale-95"
+                className="ft-btn danger"
               >
                 예
               </button>

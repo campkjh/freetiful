@@ -2058,18 +2058,20 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           ? `${mr?.budgetMin ? Number(mr.budgetMin).toLocaleString('ko-KR') : '0'}원 ~ ${mr?.budgetMax ? Number(mr.budgetMax).toLocaleString('ko-KR') : '협의'}`
           : '';
         return (
-          <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/35 px-0 sm:items-center sm:px-4" onClick={() => setShowCustomerInfo(false)}>
+          // 고객 의뢰 정보 — 공통 시트(ft-*)
+          <div className="ft-scrim" onClick={() => setShowCustomerInfo(false)}>
             <div
-              className="w-full max-w-[520px] rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-2xl sm:rounded-3xl"
+              className="ft-sheet wide"
+              role="dialog"
+              aria-modal="true"
               onClick={(e) => e.stopPropagation()}
-              style={{ animation: 'sheetUp 0.24s cubic-bezier(0.16,1,0.3,1)' }}
             >
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200" />
+              <div className="ft-grab" aria-hidden="true" />
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <img src={chatPartner?.profileImageUrl || '/images/default-profile.svg'} alt="" className="h-12 w-12 rounded-full object-cover" />
                   <div className="min-w-0">
-                    <p className="truncate text-[17px] font-bold text-gray-900">{chatPartner?.name || '고객'}</p>
+                    <p className="ft-title break-words">{chatPartner?.name || '고객'}</p>
                     <p className="text-[12px] font-semibold text-[#3180F7]">고객 의뢰 정보</p>
                   </div>
                 </div>
