@@ -21,6 +21,7 @@ import { EmptySearchIcon } from '@/components/icons/color';
 import { TossCommentIcon, TossShareIcon, SortArrowsIcon } from '@/components/community/TossIcons';
 import { popItemDelay } from '@/lib/pop-menu';
 import toast from 'react-hot-toast';
+import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 
 interface ProItem {
   id: string;
@@ -116,9 +117,12 @@ function shortRegionLabel(region?: string) {
 function ProFeedCard({
   pro,
   index,
+  onOpenReviews,
 }: {
   pro: ProItem;
   index: number;
+  /** 리뷰 — 페이지 이동 없이 댓글처럼 시트로(260926) */
+  onOpenReviews?: (pro: ProItem) => void;
 }) {
   const prefetchStarted = useRef(false);
   const warmDetail = () => {
@@ -245,10 +249,15 @@ function ProFeedCard({
 
         {/* 아래 줄 — 리뷰 · 영상 · 공유(웨딩숲 좋아요·댓글·공유 줄 어법) */}
         <div className="mt-3.5 flex items-center gap-5">
-          <Link href={`${detailHref}/reviews`} className={actCls} aria-label={`리뷰 ${pro.reviews}개 보기`}>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenReviews?.(pro); }}
+            className={actCls}
+            aria-label={`리뷰 ${pro.reviews}개 보기`}
+          >
             <TossCommentIcon />
             {pro.reviews}
-          </Link>
+          </button>
           {video && (
             <a href={video} target="_blank" rel="noopener noreferrer" className={actCls} onClick={(e) => e.stopPropagation()}>
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
@@ -511,9 +520,14 @@ function ProsListContent() {
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  // 성별 탭(260926 사장 "추천순 옆에 남성사회자·여성사회자 탭") — 처음 값은 ?gender= / ?category=남성·여성사회자
+  const [genderTab, setGenderTab] = useState<'' | 'male' | 'female'>(genderFilter);
+  // 리뷰 시트(카드 '리뷰')
+  const [reviewPro, setReviewPro] = useState<ReviewSheetPro | null>(null);
+  const openReviews = (pro: ProItem) => setReviewPro({ id: pro.id, name: pro.name, image: pro.image, rating: pro.rating, reviews: pro.reviews });
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [listSettled, setListSettled] = useState(true);
-  const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}`;
+  const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}|${genderTab}`;
   const didMountTabMotion = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -526,7 +540,7 @@ function ProsListContent() {
     try {
       sessionStorage.removeItem('pros-list-scroll-v1');
     } catch {}
-  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType]);
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, genderTab]);
 
   // 스크롤 위치/페이지 상태를 sessionStorage 에 저장 — 상세 다녀온 후 복원
   const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -622,7 +636,7 @@ function ProsListContent() {
     let results = ALL_PROS.filter((p) => {
       if (selectedLang !== '전체' && !(p.languages || []).includes(selectedLang)) return false;
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
-      if (genderFilter && !matchesGender(p.gender, genderFilter)) return false;
+      if (genderTab && !matchesGender(p.gender, genderTab)) return false;
       // 결혼식/행사(사회자)는 승인+비숨김 전체 노출 (카테고리 제한 없음)
       if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
       // 검색어는 이름·소개·카테고리뿐 아니라 전문분야 태그(주례없는 예식 등)도 대상으로.
@@ -654,7 +668,7 @@ function ProsListContent() {
     }
 
     return results;
-  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, genderFilter, ALL_PROS]);
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, genderTab, ALL_PROS]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
@@ -825,7 +839,7 @@ function ProsListContent() {
                 key="title"
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
-                {genderFilter ? (genderFilter === 'male' ? '남성 사회자' : '여성 사회자') : isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
+                {genderTab ? (genderTab === 'male' ? '남성 사회자' : '여성 사회자') : isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
               </h1>
             )}
           </>
@@ -844,9 +858,9 @@ function ProsListContent() {
 
       </div>
 
-      {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 오른쪽에 몇 명인지 */}
-      <div className="flex items-center justify-between gap-3 bg-white px-4 pb-1 pt-2">
-        <div className="relative">
+      {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 옆에 성별 탭(웨딩숲 카테고리 알약 칩 · 선택은 짙은 남색) */}
+      <div className="flex items-center gap-2 bg-white px-4 pb-1 pt-2">
+        <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setSortOpen((v) => !v)}
@@ -880,7 +894,29 @@ function ProsListContent() {
             </>
           )}
         </div>
-        <span className="text-[14px] tracking-[-0.2px] text-[#8B95A1]">사회자 {filtered.length}명</span>
+        <div className="-mr-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="성별">
+          {([
+            { key: '', label: '전체' },
+            { key: 'male', label: '남성사회자' },
+            { key: 'female', label: '여성사회자' },
+          ] as const).map((t) => {
+            const on = genderTab === t.key;
+            return (
+              <button
+                key={t.key || 'all'}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => { if (!on) { setGenderTab(t.key); window.scrollTo({ top: 0 }); } }}
+                className={`h-9 shrink-0 rounded-full border px-[13px] text-[14px] font-semibold tracking-[-0.2px] transition-colors active:scale-[0.97] ${
+                  on ? 'border-[#191F28] bg-[#191F28] text-white' : 'border-[#E5E8EB] bg-white text-[#333D4B]'
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Pro List */}
@@ -897,7 +933,7 @@ function ProsListContent() {
           <div>
             <div className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
-                <ProFeedCard key={pro.id} pro={pro} index={i} />
+                <ProFeedCard key={pro.id} pro={pro} index={i} onOpenReviews={openReviews} />
               ))}
             </div>
 
@@ -933,6 +969,9 @@ function ProsListContent() {
           </div>
         )}
       </motion.div>
+
+      {/* 리뷰 — 페이지 이동 없이 댓글처럼(260926) */}
+      <ProReviewsSheet pro={reviewPro} onClose={() => setReviewPro(null)} />
 
       {/* Scroll to top FAB */}
       <>
