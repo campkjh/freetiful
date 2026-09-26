@@ -877,6 +877,111 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
+/**
+ * 홈 맨 위 배너(모바일) — 4:3 · 모서리 5(260926 사장 "배너 너무 얇다, 홈 최상단으로, 가로4 세로3, r값 5").
+ * 사장이 준 4:3 배너 5장(public/images/banners). 예전 얇은 배너(관리자 'home' 1170:300)는 4:3 에 넣으면 크게 잘려서 모바일에선 안 쓴다
+ * (PC 첫 화면·iOS 네이티브 홈은 그대로 관리자 배너). 누르면: 가입 5천원 = 비로그인 가입 창·로그인 시 친구 초대 / 빌라드지디 = 웨딩홀 목록
+ * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
+ */
+const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string; action?: 'signup' }[] = [
+  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  { id: 'villadegd', image: '/images/banners/home-top-villadegd.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
+  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
+  { id: 'ceramique', image: '/images/banners/home-top-ceramique.webp', alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
+];
+
+function HomeTopBanner() {
+  const router = useRouter();
+  const authUser = useAuthStore((st) => st.user);
+  const count = HOME_TOP_BANNERS.length;
+  const [idx, setIdx] = useState(0);
+  const [drag, setDrag] = useState(0);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const lockRef = useRef(false);
+
+  // 4초마다 다음 장(끄는 중엔 멈춤)
+  useEffect(() => {
+    const t = window.setInterval(() => { if (!startRef.current) setIdx((i) => (i + 1) % count); }, 4000);
+    return () => window.clearInterval(t);
+  }, [count]);
+
+  const finish = (dx: number, dy: number) => {
+    setDrag(0);
+    if (Math.abs(dx) < 34 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    lockRef.current = true;
+    setIdx((i) => (i + (dx < 0 ? 1 : -1) + count) % count);
+    window.setTimeout(() => { lockRef.current = false; }, 260);
+  };
+  const open = (b: (typeof HOME_TOP_BANNERS)[number]) => {
+    if (lockRef.current) return;
+    if (b.action === 'signup') {
+      if (authUser) router.push('/my/invite');
+      else window.dispatchEvent(new Event('freetiful:show-login'));
+      return;
+    }
+    if (b.href) router.push(b.href);
+  };
+
+  return (
+    <div data-hswipe-ignore className="px-[10px] pt-2">
+      <div
+        className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
+        style={{ aspectRatio: '4 / 3', touchAction: 'pan-y' }}
+        onPointerDown={(e) => {
+          startRef.current = { x: e.clientX, y: e.clientY };
+          setDrag(0);
+          if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const st = startRef.current;
+          if (!st) return;
+          const dx = e.clientX - st.x;
+          const dy = e.clientY - st.y;
+          if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
+          setDrag(Math.max(-140, Math.min(140, dx)));
+        }}
+        onPointerUp={(e) => {
+          const st = startRef.current;
+          startRef.current = null;
+          if (st) finish(e.clientX - st.x, e.clientY - st.y);
+        }}
+        onPointerCancel={() => { startRef.current = null; setDrag(0); }}
+      >
+        <div
+          className="flex h-full"
+          style={{
+            width: `${count * 100}%`,
+            transform: `translateX(-${idx * (100 / count)}%) translateX(${drag}px)`,
+            transition: drag === 0 ? 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
+          }}
+        >
+          {HOME_TOP_BANNERS.map((b, i) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => open(b)}
+              aria-label={b.alt}
+              className={`h-full shrink-0 ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
+              style={{ width: `${100 / count}%` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={b.image} alt={b.alt} width={1448} height={1086} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+        {/* N/M — 검은 반투명 유리 알약 */}
+        <span
+          className="pointer-events-none absolute bottom-3 right-3 inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
+        >
+          {idx + 1} / {count}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** BEST 포디움 알약 — 사진(위 70%) 아래쪽을 사진 색 바탕으로 녹인다(이름 줄과 안 겹치게) */
 const PODIUM_FADE = 'linear-gradient(to bottom, #000 0%, #000 58%, rgba(0,0,0,.4) 82%, transparent 100%)';
 
@@ -2334,6 +2439,9 @@ export default function HomePage() {
         </div>
 
         <div className="space-y-5 px-[10px] pt-3 pb-6 lg:mx-auto lg:max-w-7xl lg:space-y-7 lg:px-8 lg:pt-4 lg:pb-12">
+          {/* 맨 위 배너 스켈레톤 — 4:3 · 모서리 5(모바일) */}
+          <div className="skeleton w-full lg:hidden" style={{ aspectRatio: '4 / 3', borderRadius: 5 }} />
+
           {/* 결혼식/행사 카드 스켈레톤 */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
             <div className="skeleton aspect-square rounded-2xl lg:rounded-[22px]" />
@@ -2350,9 +2458,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-
-          {/* 배너 스켈레톤 */}
-          <div className="skeleton w-full rounded-2xl lg:rounded-[22px]" style={{ aspectRatio: '1170/300' }} />
 
           {/* BEST 결혼식 사회자 스켈레톤 */}
           <div>
@@ -2597,6 +2702,9 @@ export default function HomePage() {
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
+        {/* 맨 위 배너 — 4:3 · 모서리 5(260926 사장, 예전 얇은 1170:300 슬라이드 배너 자리를 옮김) */}
+        <HomeTopBanner />
+
         {/* Category cards (결혼식사회자 영상 + 행사사회자) — 260925 뺐다가 260926 사장 지시로 다시 살림 */}
         <div className="px-[10px] pt-3 pb-1 lg:px-0 lg:pt-0 lg:pb-2">
           <div className="grid grid-cols-2 gap-3 lg:gap-4">
@@ -2641,77 +2749,6 @@ export default function HomePage() {
             탭은 그대로 동작, 가로 스와이프만 탭 페이저로. (배너는 자체 캐러셀이라 계속 제외) */}
         <div>
           <CategorySwiper />
-        </div>
-
-        {/* 5. Slide Banner */}
-        <div data-hswipe-ignore className="px-[10px] pt-2 pb-0 lg:px-0 lg:pt-3 lg:pb-2">
-          <div
-            className="relative w-full overflow-hidden rounded-2xl lg:rounded-[22px] select-none"
-            style={{ aspectRatio: '1170/300', touchAction: 'pan-y' }}
-            onPointerDown={(e) => {
-              if (banners.length <= 1) return;
-              bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
-              setBannerDragOffset(0);
-              if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              const start = bannerPointerStartRef.current;
-              if (!start?.active) return;
-              const dx = e.clientX - start.x;
-              const dy = e.clientY - start.y;
-              if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
-              setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
-            }}
-            onPointerUp={(e) => {
-              const start = bannerPointerStartRef.current;
-              if (!start?.active) return;
-              bannerPointerStartRef.current = null;
-              finishBannerSwipe(e.clientX - start.x, e.clientY - start.y);
-            }}
-            onPointerCancel={() => {
-              bannerPointerStartRef.current = null;
-              setBannerDragOffset(0);
-            }}
-          >
-            <div
-              className="flex h-full"
-              style={{
-                width: `${banners.length * 100}%`,
-                transform: `translateX(-${bannerIdx * (100 / banners.length)}%) translateX(${bannerDragOffset}px)`,
-                transition: bannerDragOffset === 0 ? 'transform 0.5s ease-out' : 'none',
-              }}
-            >
-              {banners.map((b, i) => (
-                <div
-                  key={b.id || i}
-                  className="h-full shrink-0 cursor-pointer"
-                  style={{ width: `${100 / banners.length}%` }}
-                  onClick={() => {
-                    if (bannerSwipeLockRef.current) return;
-                    const link = (b as any).linkUrl;
-                    if (!link) return;
-                    if (/^https?:\/\//.test(link)) window.open(link, '_blank');
-                    else window.location.href = link;
-                  }}
-                >
-                  {b.image ? (
-                    <img src={b.image} alt="" className="w-full h-full object-cover" draggable={false} />
-                  ) : (
-                    <div className={`w-full h-full ${b.bgColor} flex items-center px-6`}>
-                      <div>
-                        <p className="text-white/80 text-[13px] font-medium">{b.title}</p>
-                        <p className="text-white text-[20px] font-bold mt-1">{b.subtitle}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* 인디케이터 */}
-            <div className="absolute bottom-3 right-4 bg-black/30 rounded-full px-2.5 py-1 text-[11px] text-white font-medium">
-              {bannerIdx + 1} / {banners.length}
-            </div>
-          </div>
         </div>
 
       </div>
