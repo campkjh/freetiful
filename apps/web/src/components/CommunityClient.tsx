@@ -1327,6 +1327,11 @@ export default function CommunityClient() {
           closed: { x: "-115%", boxShadow: "0px 0px 0px rgba(17, 24, 39, 0)", transitionEnd: { visibility: "hidden" } },
         }}
         transition={{ type: "spring", stiffness: 420, damping: 40, mass: 0.9 }}
+        // iOS 앱 탭바 — 서랍은 늘 붙어 있고 밀려 나가기만 해서(창이 생기고 없어지는 변화가 없음) 앱이 닫힘을 못 알아채
+        // 탭바가 숨은 채로 남았다(260927). 열림·닫힘 애니메이션이 끝날 때마다 탭바 상태를 다시 알린다.
+        onAnimationComplete={() => {
+          try { (window as unknown as { __freetifulNativeNavPostState?: (force?: boolean) => void }).__freetifulNativeNavPostState?.(true); } catch { /* 앱 밖 */ }
+        }}
       >
         <div className="fcom-drawer-head">
           <h2>웨딩숲</h2>
