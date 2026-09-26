@@ -1914,12 +1914,12 @@ export default function HomePage() {
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
   // 홈 진입 팝업 모달 — 어드민 배너(placement=popup)로 동적 관리. 배너별 '3일 안보기' 기억.
-  // 네이티브 앱에선 웹 모달을 띄우지 않는다(네이티브 홈 오버레이에 가려 안 보이고,
-  // role="dialog"가 hasBlockingOverlay 를 켜 하단 네비를 숨기는 부작용). 네이티브는 자체 팝업으로 표시.
+  // 예전 iOS 앱(네이티브 홈이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다: 네이티브 홈에 가려 안 보이고
+  // 네이티브가 자체 팝업을 띄운다. 웹 화면만 쓰는 iOS 앱(260927~)은 웹 팝업 그대로 — 탭바는 모달이 닫히면 다시 나온다.
   useEffect(() => {
-    const isNative = typeof window !== 'undefined'
-      && !!(window as any).webkit?.messageHandlers?.nativeNavState;
-    if (isNative) return;
+    const isLegacyNativeHome = typeof window !== 'undefined'
+      && !!(window as any).webkit?.messageHandlers?.nativeHomeRows;
+    if (isLegacyNativeHome) return;
     // 한 번 닫았으면 이 세션에선 다시 띄우지 않는다.
     // (홈 → 마이/채팅 → 홈 으로 되돌아올 때마다 이 effect 가 다시 돌아 계속 뜨던 문제)
     try { if (sessionStorage.getItem(POPUP_SEEN_KEY) === '1') return; } catch {}

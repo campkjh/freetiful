@@ -624,7 +624,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* ─── Mobile Bottom Navigation — 토스 하단바(사장 레퍼런스 260926) ─────────
           흰 바 · 위쪽만 둥근 모서리(24) · 위 가는 선 · 평소 선 아이콘/선택 채운 아이콘 · 라벨 12px.
           안 읽은 채팅·새 요청은 숫자 대신 빨간 점. 스크롤 내리면 아래로 숨고 올리면 다시 나온다.
-          iOS 앱은 네이티브 탭바를 쓰므로 data-ios-mobile-bottom-nav 로 이 바를 숨긴다. */}
+          iOS 앱은 네이티브 탭바를 쓰므로 data-ios-mobile-bottom-nav 로 이 바를 숨긴다.
+          ⚠ 앱의 탭바는 이 표시가 있는 화면에서만 나타난다(260927 웹 전용 iOS 앱) — 표시를 지우거나 바꾸면 앱 탭바가 사라진다. */}
       {!hideNav && (
         <nav
           data-ios-mobile-bottom-nav

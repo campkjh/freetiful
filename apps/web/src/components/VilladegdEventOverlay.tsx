@@ -121,13 +121,12 @@ export default function VilladegdEventOverlay() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // iOS 네이티브 앱에선 웹 모달을 띄우지 않는다.
-    // (네이티브 홈 오버레이에 가려 보이지도 않고, role="dialog" 가 hasBlockingOverlay 를 켜
-    //  하단 네비게이션을 숨긴 뒤 닫아도 상태 재보고가 없어 네비가 영구히 사라지는 부작용)
-    // 홈 진입 팝업(main/page.tsx)과 동일한 가드. 네이티브는 자체 화면으로 표시한다.
-    const isNativeIOS = typeof window !== 'undefined'
-      && !!(window as any).webkit?.messageHandlers?.nativeNavState;
-    if (isNativeIOS) return;
+    // 예전 iOS 앱(네이티브 홈·빌라드지디 화면이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다.
+    // (네이티브 홈에 가려 보이지 않고, 그 앱은 닫아도 탭바 상태를 다시 안 알려 탭바가 사라졌다 — 네이티브가 자체 화면으로 표시)
+    // 웹 화면만 쓰는 iOS 앱(260927~)은 웹 랜딩 그대로 — 탭바는 모달이 닫히면 다시 나온다. 홈 진입 팝업(main/page.tsx)과 같은 가드.
+    const isLegacyNativeHome = typeof window !== 'undefined'
+      && !!(window as any).webkit?.messageHandlers?.nativeHomeRows;
+    if (isLegacyNativeHome) return;
     // PC(데스크톱)에서는 띄우지 않는다.
     // 이 랜딩은 '앱 초기 진입 화면'으로 만든 것이라 모바일/앱 기준인데,
     // z-[120] 전면 오버레이가 PC 헤더 검색창까지 덮어 '클릭이 안 된다'로 보였다.
