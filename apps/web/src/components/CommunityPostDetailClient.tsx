@@ -23,6 +23,7 @@ import {
   BackIcon,
   SmallHeartIcon,
 } from "@/components/community/TossIcons";
+import { popItemDelay } from "@/lib/pop-menu";
 
 // Android WebView often returns gallery files with an empty/generic MIME type,
 // so fall back to the file extension (same logic as the write form).
@@ -710,28 +711,35 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
               {ownerMenuOpen && (
                 <>
                   <div className="tfeed-backdrop" onClick={() => setOwnerMenuOpen(false)} />
-                  <div className="tfeed-sort-menu tdet-owner-menu" role="menu">
+                  {/* 내 글 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
+                  <div className="pop-menu nt-menu" role="menu" style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 60, transformOrigin: "top right" }}>
                     {isAdmin && !isOwner && <div className="tdet-menu-note">관리자 권한</div>}
                     <button
                       type="button"
                       role="menuitem"
-                      className="tfeed-sort-item"
+                      className="pop-menu-item nt-menu-item"
+                      style={popItemDelay(0)}
                       onClick={() => {
                         setOwnerMenuOpen(false);
                         startEdit();
                       }}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/icons/toss/pencil.svg" alt="" />
                       수정하기
                     </button>
                     <button
                       type="button"
                       role="menuitem"
-                      className="tfeed-sort-item tdet-danger"
+                      className="pop-menu-item nt-menu-item danger"
+                      style={popItemDelay(1)}
                       onClick={() => {
                         setOwnerMenuOpen(false);
                         setShowDeleteConfirm(true);
                       }}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/icons/toss/bin.svg" alt="" />
                       삭제하기
                     </button>
                   </div>

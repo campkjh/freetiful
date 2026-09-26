@@ -2335,16 +2335,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
     <>
       {/* ─── 헤더 드롭다운 메뉴 — 툴팁 메뉴 공통(globals .pop-menu): 작게 시작해 정비율로 커지고, 항목은 오른쪽→왼쪽으로 촤라락 ─── */}
       {showHeaderMenu && (() => {
-        const itemCls = 'pop-menu-item flex w-full items-center gap-3 px-4 py-3 text-left text-[15px] font-medium transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6]';
+        // 알림 메뉴 어법(globals .nt-menu-item) — 왼쪽 토스 컬러 아이콘 24 · 이름 17
+        const itemCls = 'pop-menu-item nt-menu-item';
+        const ic = (name: string) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={`/icons/toss/${name}.svg`} alt="" />
+        );
         return (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
-          <div className="pop-menu absolute right-3 top-[68px] z-50 min-w-[200px] overflow-hidden py-1.5" style={{ transformOrigin: 'top right' }} role="menu">
-            <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(0)}>
-              <Search size={17} className="text-[#8B95A1]" /> 대화 내용 검색
+          <div className="pop-menu nt-menu absolute right-3 top-[68px] z-50 overflow-hidden" style={{ transformOrigin: 'top right' }} role="menu">
+            <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className={itemCls} style={popItemDelay(0)}>
+              {ic('search')} 대화 내용 검색
             </button>
-            <button onClick={() => { if (onToggleMute) onToggleMute(); else { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); } setShowHeaderMenu(false); }} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(1)}>
-              {muted ? <Bell size={17} className="text-[#8B95A1]" /> : <BellOff size={17} className="text-[#8B95A1]" />}
+            <button onClick={() => { if (onToggleMute) onToggleMute(); else { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); } setShowHeaderMenu(false); }} className={itemCls} style={popItemDelay(1)}>
+              {muted ? ic('alarm') : ic('alarm-off')}
               {muted ? '알림 켜기' : '알림 끄기'}
             </button>
             {isPro ? (
@@ -2353,18 +2358,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
                   setShowHeaderMenu(false);
                   toast(`${chatPartner?.name || '고객'} 정보는 대화 상단 카드에서 확인할 수 있습니다`);
                 }}
-                className={`${itemCls} text-[#333D4B]`}
+                className={itemCls}
                 style={popItemDelay(2)}
               >
-                <Smile size={17} className="text-[#8B95A1]" /> 고객 정보 보기
+                {ic('user')} 고객 정보 보기
               </button>
             ) : (
-              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className={`${itemCls} text-[#333D4B]`} style={popItemDelay(2)}>
-                <Smile size={17} className="text-[#8B95A1]" /> 프로필 보기
+              <Link href={`/pros/${chatPartner?.proProfileId || chatPartner?.id || ''}`} className={itemCls} style={popItemDelay(2)}>
+                {ic('user')} 프로필 보기
               </Link>
             )}
-            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className={`${itemCls} text-[#F04452] active:bg-[#FFF5F6]`} style={popItemDelay(3)}>
-              <Trash2 size={17} /> 대화 삭제
+            <button onClick={() => { if (confirm('대화 내용을 삭제하시겠습니까?')) { setMessages([]); toast.success('대화 삭제됨'); } setShowHeaderMenu(false); }} className={`${itemCls} danger`} style={popItemDelay(3)}>
+              {ic('bin')} 대화 삭제
             </button>
           </div>
         </>
@@ -2421,66 +2426,27 @@ export default function ChatExtras(props: ChatExtrasProps) {
               ))}
             </div>
 
-            <div className="pop-menu-surface min-w-[200px] overflow-hidden py-1.5">
-              <button
-                onClick={() => {
-                  const msg = messages.find((m) => m.id === actionMenu.id);
-                  if (msg) handleReply(msg);
-                }}
-                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
-                style={popItemDelay(0)}
-              >
-                답장 <Reply size={18} className="text-gray-500" />
-              </button>
-              <button
-                onClick={() => {
-                  const msg = messages.find((m) => m.id === actionMenu.id);
-                  if (msg) handleCopy(msg.content);
-                }}
-                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
-                style={popItemDelay(1)}
-              >
-                복사 <Copy size={18} className="text-gray-500" />
-              </button>
-              <button
-                onClick={() => {
-                  const msg = messages.find((m) => m.id === actionMenu.id);
-                  if (msg) handlePartialCopy(msg);
-                }}
-                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
-                style={popItemDelay(2)}
-              >
-                부분복사 <TextSelect size={18} className="text-gray-500" />
-              </button>
-              <button
-                onClick={() => {
-                  const msg = messages.find((m) => m.id === actionMenu.id);
-                  if (msg) handlePin(msg);
-                }}
-                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-gray-800 hover:bg-gray-50 w-full"
-                style={popItemDelay(3)}
-              >
-                공지로 등록 <Pin size={18} className="text-gray-500" />
-              </button>
-              <button
-                onClick={() => {
-                  const msg = messages.find((m) => m.id === actionMenu.id);
-                  if (msg) handleReport(msg);
-                }}
-                className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-orange-500 hover:bg-orange-50 w-full"
-                style={popItemDelay(4)}
-              >
-                신고하기 <Flag size={18} />
-              </button>
-              {actionMenu.mine && (
+            {/* 말풍선 메뉴 — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
+            <div className="pop-menu-surface nt-menu overflow-hidden">
+              {[
+                { label: '답장', icon: 'chat', run: () => { const msg = messages.find((m) => m.id === actionMenu.id); if (msg) handleReply(msg); } },
+                { label: '복사', icon: 'copy', run: () => { const msg = messages.find((m) => m.id === actionMenu.id); if (msg) handleCopy(msg.content); } },
+                { label: '부분복사', icon: 'crop', run: () => { const msg = messages.find((m) => m.id === actionMenu.id); if (msg) handlePartialCopy(msg); } },
+                { label: '공지로 등록', icon: 'loudspeaker', run: () => { const msg = messages.find((m) => m.id === actionMenu.id); if (msg) handlePin(msg); } },
+                { label: '신고하기', icon: 'siren', run: () => { const msg = messages.find((m) => m.id === actionMenu.id); if (msg) handleReport(msg); } },
+                ...(actionMenu.mine ? [{ label: '삭제', icon: 'bin', run: () => handleDelete(actionMenu.id), danger: true }] : []),
+              ].map((item, idx) => (
                 <button
-                  onClick={() => handleDelete(actionMenu.id)}
-                  className="pop-menu-item flex items-center justify-between gap-3 px-4 py-3 text-[15px] transition-colors active:bg-[#F2F4F6] text-red-500 hover:bg-red-50 w-full"
-                style={popItemDelay(5)}
+                  key={item.label}
+                  onClick={item.run}
+                  className={`pop-menu-item nt-menu-item${'danger' in item && item.danger ? ' danger' : ''}`}
+                  style={popItemDelay(idx)}
                 >
-                  삭제 <Trash2 size={18} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/icons/toss/${item.icon}.svg`} alt="" />
+                  {item.label}
                 </button>
-              )}
+              ))}
             </div>
           </div>
         </>

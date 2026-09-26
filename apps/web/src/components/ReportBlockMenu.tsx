@@ -156,120 +156,72 @@ export default function ReportBlockMenu({
         )}
       </button>
 
+      {/* 공통 모달(웨딩숲 톤 · globals .ft-*) — 메뉴 줄은 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 17), 버튼 56/r17/17 */}
       {step && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={close}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 600,
-            background: "rgba(0,0,0,0.42)",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 480,
-              background: "var(--c-bg)",
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              padding: "18px 16px calc(18px + env(safe-area-inset-bottom, 0px))",
-              boxSizing: "border-box",
-            }}
-          >
+        <div className="ft-scrim" onClick={close}>
+          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="ft-grab" aria-hidden="true" />
             {step === "menu" && (
               <>
-                <SheetTitle text={`${targetNickname}님의 ${targetType === "post" ? "게시글" : "댓글"}`} />
-                <SheetItem label="신고하기" onClick={() => setStep("reason")} />
-                <SheetItem label="이 사용자 차단하기" onClick={() => setStep("blockConfirm")} />
-                <SheetItem label="취소" muted onClick={close} />
+                <h2 className="ft-title">{`${targetNickname}님의 ${targetType === "post" ? "게시글" : "댓글"}`}</h2>
+                <div className="mt-3 -mx-6">
+                  <button type="button" className="nt-menu-item" onClick={() => setStep("reason")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icons/toss/siren.svg" alt="" />
+                    신고하기
+                  </button>
+                  <button type="button" className="nt-menu-item" onClick={() => setStep("blockConfirm")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icons/toss/user-blocked.svg" alt="" />
+                    이 사용자 차단하기
+                  </button>
+                </div>
+                <div className="ft-actions">
+                  <button type="button" className="ft-btn secondary" onClick={close}>취소</button>
+                </div>
               </>
             )}
 
             {step === "reason" && (
               <>
-                <SheetTitle text="신고 사유를 선택해 주세요" />
-                {REASONS.map((reason) => (
-                  <SheetItem key={reason} label={reason} disabled={busy} onClick={() => submitReport(reason)} />
-                ))}
-                <SheetItem label="취소" muted onClick={close} />
+                <h2 className="ft-title">신고 사유를 선택해 주세요</h2>
+                <div className="mt-3 -mx-6">
+                  {REASONS.map((reason) => (
+                    <button key={reason} type="button" className="nt-menu-item" disabled={busy} onClick={() => submitReport(reason)}>
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                <div className="ft-actions">
+                  <button type="button" className="ft-btn secondary" onClick={close}>취소</button>
+                </div>
               </>
             )}
 
             {step === "blockConfirm" && (
               <>
-                <SheetTitle text={`${targetNickname}님을 차단할까요?`} />
-                <p style={{ margin: "0 0 12px", fontSize: 13.5, color: "var(--c-text-4b)", lineHeight: 1.6, textAlign: "center" }}>
-                  차단하면 이 사용자의 글과 댓글이 보이지 않아요.
-                  <br />
-                  차단은 상대에게 알려지지 않고, 마이페이지에서 해제할 수 있어요.
+                <h2 className="ft-title">{`${targetNickname}님을 차단할까요?`}</h2>
+                <p className="ft-desc">
+                  차단하면 이 사용자의 글과 댓글이 보이지 않아요.{"\n"}차단은 상대에게 알려지지 않고, 마이페이지에서 해제할 수 있어요.
                 </p>
-                <SheetItem label={busy ? "처리 중…" : "차단하기"} danger disabled={busy} onClick={submitBlock} />
-                <SheetItem label="취소" muted onClick={close} />
+                <div className="ft-actions">
+                  <button type="button" className="ft-btn secondary" onClick={close}>취소</button>
+                  <button type="button" className="ft-btn danger" disabled={busy} onClick={submitBlock}>{busy ? "처리 중…" : "차단하기"}</button>
+                </div>
               </>
             )}
 
             {step === "done" && (
               <>
-                <SheetTitle text={message} />
-                <SheetItem label="확인" onClick={close} />
+                <h2 className="ft-title">{message}</h2>
+                <div className="ft-actions">
+                  <button type="button" className="ft-btn primary" onClick={close}>확인</button>
+                </div>
               </>
             )}
           </div>
         </div>
       )}
     </>
-  );
-}
-
-function SheetTitle({ text }: { text: string }) {
-  return (
-    <p style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 700, color: "var(--c-text-b)", textAlign: "center", lineHeight: 1.5 }}>
-      {text}
-    </p>
-  );
-}
-
-function SheetItem({
-  label,
-  onClick,
-  danger,
-  muted,
-  disabled,
-}: {
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-  muted?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="press"
-      style={{
-        width: "100%",
-        height: 48,
-        marginBottom: 8,
-        borderRadius: 12,
-        border: "none",
-        background: muted ? "var(--c-bg-muted-2)" : danger ? "var(--c-danger-soft-3)" : "var(--c-bg-soft)",
-        color: muted ? "var(--c-text-3b)" : danger ? "var(--c-danger-c)" : "var(--c-text-2b)",
-        fontSize: 15.5,
-        fontWeight: 700,
-        cursor: disabled ? "default" : "pointer",
-        opacity: disabled ? 0.6 : 1,
-      }}
-    >
-      {label}
-    </button>
   );
 }

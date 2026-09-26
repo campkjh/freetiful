@@ -2077,6 +2077,17 @@ html[data-embedded='1'] [data-native-back-header] {
 @media (prefers-reduced-motion: reduce) {
   .pop-menu, .pop-menu-anim, .pop-menu-item { animation: none !important; }
 }
+/* 툴팁 메뉴 = 알림 '알림 ⌄' 메뉴 어법(260926 사장 "툴팁 메뉴 전부 알림 디자인으로, 아이콘은 내가 올린 걸로") —
+   왼쪽 토스 컬러 아이콘 24(public/icons/toss) · 이름 17pt · 모서리 24. .pop-menu/.pop-menu-surface + .pop-menu-item 과 같이 쓴다 */
+.pop-menu.nt-menu, .pop-menu-surface.nt-menu { border-radius: 24px; padding-top: 8px; padding-bottom: 8px; min-width: 208px; }
+.nt-menu-item { display: flex; width: 100%; align-items: center; gap: 14px; padding: 9px 28px 9px 20px; border: 0; background: none; text-align: left; font-size: 17px; line-height: 24px; letter-spacing: -0.2px; color: #333D4B; cursor: pointer; font-family: inherit; text-decoration: none; white-space: nowrap; transition: background-color .15s ease; }
+.nt-menu-item:active { background: #F2F4F6; }
+@media (hover: hover) { .nt-menu-item:hover { background: #F9FAFB; } }
+.nt-menu-item.danger { color: #F04452; }
+.nt-menu-item.danger:active { background: #FFF5F6; }
+.nt-menu-item > img { width: 24px; height: 24px; flex: none; }
+.nt-menu-sep { height: 1px; margin: 6px 20px; background: #F2F4F6; }
+.nt-menu-item.on { font-weight: 600; color: #191F28; }
 
 /* ═══ 상세 화면 공통 = 퀵매칭 어법 (2026-09-25 사장 지시 — "버튼 눌러 나오는 상세페이지 전부 퀵매칭 헤더·인터랙션·디자인") ═══
    · 헤더는 뒤로 버튼만(56px · 40px 둥근 버튼) — 제목은 그 아래 큰 글씨(24px)로 아래→위 페이드, 부제 15px 회색.

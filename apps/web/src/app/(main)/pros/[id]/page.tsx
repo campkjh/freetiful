@@ -2769,10 +2769,14 @@ export default function ProDetailPage() {
                     <span className="text-[16px] text-[#8B95A1] leading-none">⋯</span>
                   </button>
                   {reviewMenu === review.id && (
-                    <div className="pop-menu absolute right-0 top-8 z-20 min-w-[130px] py-1.5" style={{ transformOrigin: 'top right' }}>
-                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(0)}>신고하기</button>
-                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(1)}>차단하기</button>
-                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item w-full text-left px-4 py-2.5 text-[13px] text-[#4E5968] hover:bg-[#F7F8FA]" style={popItemDelay(2)}>복사하기</button>
+                    <div className="pop-menu nt-menu absolute right-0 top-8 z-20" style={{ transformOrigin: 'top right' }}>
+                      {/* 리뷰 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(0)}><img src="/icons/toss/siren.svg" alt="" />신고하기</button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(1)}><img src="/icons/toss/user-blocked.svg" alt="" />차단하기</button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(2)}><img src="/icons/toss/copy.svg" alt="" />복사하기</button>
                     </div>
                   )}
                 </div>

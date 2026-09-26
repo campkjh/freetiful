@@ -29,6 +29,7 @@ import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/useTabEntrance";
+import { popItemDelay } from "@/lib/pop-menu";
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
 const postsKey = communityPostsKey;
@@ -1012,8 +1013,9 @@ export default function CommunityClient() {
               {sortOpen && (
                 <>
                   <div className="tfeed-backdrop" onClick={() => setSortOpen(false)} />
-                  <div className="tfeed-sort-menu" role="menu">
-                    {(["latest", "popular"] as const).map((mode) => {
+                  {/* 정렬 메뉴 — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24, 고른 줄은 굵게) */}
+                  <div className="pop-menu nt-menu" role="menu" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 60, transformOrigin: "top left" }}>
+                    {(["latest", "popular"] as const).map((mode, i) => {
                       const on = !activeMineFilter && sortMode === mode;
                       return (
                         <button
@@ -1021,21 +1023,23 @@ export default function CommunityClient() {
                           type="button"
                           role="menuitemradio"
                           aria-checked={on}
-                          className={`tfeed-sort-item${on ? " on" : ""}`}
+                          className={`pop-menu-item nt-menu-item${on ? " on" : ""}`}
+                          style={popItemDelay(i)}
                           onClick={() => chooseSort(mode)}
                         >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/icons/toss/${mode === "popular" ? "star" : "clock"}.svg`} alt="" />
                           {mode === "popular" ? "인기순" : "최신순"}
-                          {on && <MenuCheckIcon />}
                         </button>
                       );
                     })}
                     {!selectedGroupId && !query.trim() && (
                       <>
-                        <div className="tfeed-sort-sep" />
+                        <div className="pop-menu-item nt-menu-sep" style={popItemDelay(2)} />
                         {([
-                          { key: "posts", label: "내가 쓴 글" },
-                          { key: "comments", label: "내가 쓴 댓글" },
-                        ] as const).map((t) => {
+                          { key: "posts", label: "내가 쓴 글", icon: "pencil" },
+                          { key: "comments", label: "내가 쓴 댓글", icon: "chat" },
+                        ] as const).map((t, i) => {
                           const on = activeMineFilter === t.key;
                           return (
                             <button
@@ -1043,11 +1047,13 @@ export default function CommunityClient() {
                               type="button"
                               role="menuitemradio"
                               aria-checked={on}
-                              className={`tfeed-sort-item${on ? " on" : ""}`}
+                              className={`pop-menu-item nt-menu-item${on ? " on" : ""}`}
+                              style={popItemDelay(3 + i)}
                               onClick={() => chooseMine(t.key)}
                             >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={`/icons/toss/${t.icon}.svg`} alt="" />
                               {t.label}
-                              {on && <MenuCheckIcon />}
                             </button>
                           );
                         })}

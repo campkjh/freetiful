@@ -968,7 +968,7 @@ export default function ChatListPage() {
           />
           <div
             // 툴팁 메뉴 공통(globals .pop-menu) — 작게 시작해 정비율로 커지고, 항목은 오른쪽→왼쪽으로 촤라락
-            className="pop-menu fixed z-[60] min-w-[220px] overflow-hidden py-1.5"
+            className="pop-menu nt-menu fixed z-[60] overflow-hidden"
             style={{
               left: Math.min(Math.max(16, actionMenu.x - 110), typeof window !== 'undefined' ? window.innerWidth - 236 : 0),
               top: Math.min(actionMenu.y - 20, typeof window !== 'undefined' ? window.innerHeight - 320 : 0),
@@ -977,20 +977,22 @@ export default function ChatListPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {[
-              { label: '미리보기', icon: <Eye size={18} className="text-gray-500" />, onClick: () => handleOpenPreview(actionMenu.room), className: 'text-[#2B313D]' },
-              { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: actionMenu.room.isPinned ? <PinOff size={18} className="text-gray-500" /> : <Pin size={18} className="text-gray-500" />, onClick: () => handleTogglePinFromMenu(actionMenu.room.id), className: 'text-[#2B313D]' },
-              { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: <Archive size={18} className="text-gray-500" />, onClick: () => handleArchiveRoom(actionMenu.room.id), className: 'text-[#2B313D]' },
-              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? <Eye size={18} className="text-gray-500" /> : <EyeOff size={18} className="text-gray-500" />, onClick: () => handleHideRoom(actionMenu.room.id), className: 'text-[#2B313D]' },
-              { label: '채팅 삭제', icon: <Trash2 size={18} />, onClick: () => promptDeleteRoom(actionMenu.room), className: 'text-[#E5484D]' },
+              // 알림 메뉴 어법 — 왼쪽 토스 컬러 아이콘(사장이 준 아이콘) · 이름 17
+              { label: '미리보기', icon: 'eye', onClick: () => handleOpenPreview(actionMenu.room) },
+              { label: actionMenu.room.isPinned ? '고정 해제' : '상단 고정', icon: 'pin', onClick: () => handleTogglePinFromMenu(actionMenu.room.id) },
+              { label: actionMenu.room.isArchived ? '보관 해제' : '채팅 보관', icon: 'folder', onClick: () => handleArchiveRoom(actionMenu.room.id) },
+              { label: actionMenu.room.isHidden ? '숨김 해제' : '채팅 숨기기', icon: actionMenu.room.isHidden ? 'eye' : 'eye-off', onClick: () => handleHideRoom(actionMenu.room.id) },
+              { label: '채팅 삭제', icon: 'bin', onClick: () => promptDeleteRoom(actionMenu.room), danger: true },
             ].map((item, idx) => (
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className={`pop-menu-item flex w-full items-center justify-between gap-3 px-5 py-3 text-[16px] font-semibold transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6] ${item.className}`}
+                className={`pop-menu-item nt-menu-item${item.danger ? ' danger' : ''}`}
                 style={popItemDelay(idx)}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/icons/toss/${item.icon}.svg`} alt="" />
                 {item.label}
-                {item.icon}
               </button>
             ))}
           </div>
