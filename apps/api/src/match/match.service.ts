@@ -666,14 +666,15 @@ export class MatchService {
   /** 전문가에게 전달된 매칭 요청 목록 */
   // userId 로 직접 조인 — 컨트롤러의 proProfile 선조회(DB 왕복 1회) 제거용
   async getMatchRequestsForProUser(userId: string, limit = 50, skip = 0) {
-    return this.getMatchRequestsForProWhere({ proProfile: { userId } }, limit, skip);
+    // 사회자 본인이 새요청 목록을 연 것 — 거기 뜬 요청은 '봤다'로 남긴다(markSeen)
+    return this.getMatchRequestsForProWhere({ proProfile: { userId } }, limit, skip, { markSeen: true });
   }
 
   async getMatchRequestsForPro(proProfileId: string, limit = 50, skip = 0) {
     return this.getMatchRequestsForProWhere({ proProfileId }, limit, skip);
   }
 
-  private async getMatchRequestsForProWhere(proWhere: any, limit = 50, skip = 0) {
+  private async getMatchRequestsForProWhere(proWhere: any, limit = 50, skip = 0, opts: { markSeen?: boolean } = {}) {
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
     // 새 요청 섹션은 pending/viewed, 보관 탭은 archived 만 사용한다.
     // 거절/응답 이력은 DB 단계에서 제외해 전체 매칭 히스토리를 끌어오는 비용을 없앤다.
@@ -709,6 +710,17 @@ export class MatchService {
       take: safeLimit,
       skip: Math.max(0, Number(skip) || 0),
     });
+
+    // 요청을 본 시각(260926 사장 — 고객 매칭 화면 '요청을 본 사회자가 N명 있어요'의 근거). 사회자 본인이 새요청 목록을 열었을 때
+    // 거기 뜬 요청의 viewedAt 을 처음 한 번만 남긴다. status 는 그대로(새 요청 배지·자동 승인 조건을 건드리지 않게). 실패해도 목록은 그대로.
+    if (opts.markSeen) {
+      const unseen = deliveries.filter((d) => !d.viewedAt).map((d) => d.id);
+      if (unseen.length > 0) {
+        this.prisma.matchDelivery
+          .updateMany({ where: { id: { in: unseen }, viewedAt: null }, data: { viewedAt: new Date() } })
+          .catch((error) => this.logger.warn(`요청 확인 시각 기록 실패: ${String((error as any)?.message || error).slice(0, 120)}`));
+      }
+    }
 
     // rawUserInput 은 랜딩 입력 전부(유입 경로·UTM·연락 방식 등)라 100건이면 응답의 40%를 차지했다(260926 실측 128KB 중 53KB).
     // 목록(웹 새요청·iOS 네이티브 새요청)이 실제로 읽는 키만 남겨 응답을 줄인다 — 상세는 채팅방에서 따로 받는다.

@@ -14,6 +14,7 @@ import { getProfileImageUrl } from '@/lib/default-profile';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 import { HeaderSearchIcon } from '@/components/icons/HeaderIcons';
+import MatchCardDeck, { RollingText, type DeckCard } from '@/components/match/MatchCardDeck';
 
 type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
@@ -35,6 +36,8 @@ type InquiryCard = {
   /** 화면 표기용 createdAt 과 별개로, 오래된 '요청중'을 걸러내기 위한 원본 시각 */
   createdAtIso?: string;
   status: InquiryStatus;
+  /** 사회자가 새요청 목록에서 이 요청을 봤는지(서버 viewedAt — 260926 부터 기록) */
+  viewed?: boolean;
   declineReason?: string;
   /** 고객이 고른 조건(진행 부·분위기·선호 성별·권역·시간 협의) — 행사 칸 태그 */
   tags: string[];
@@ -205,6 +208,7 @@ function buildCards(requests: any[]): InquiryCard[] {
         proProfileId: delivery.proProfileId || proProfile?.id,
         deliveryId: delivery.id,
         status: paid ? '거래완료' : approved ? '요청승인' : declined ? '거절' : '요청중',
+        viewed: Boolean(delivery.viewedAt),
         declineReason: declined ? (delivery.declineReason || undefined) : undefined,
       } as InquiryCard;
     });
@@ -225,6 +229,37 @@ function buildCards(requests: any[]): InquiryCard[] {
       status: paid ? '거래완료' : room?.id ? '요청승인' : '요청중',
     } as InquiryCard];
   });
+}
+
+/**
+ * 행사 칸 맨 위 — 요청한 사회자 카드 덱 + 굴러 바뀌는 진행 문구(260926 사장 "기다리는 동안 이탈 막게").
+ * 문구는 실제 상태로만 만든다: 수락(요청승인) · 아직 답 전(요청중) · 그중 요청을 본 사람(viewedAt).
+ * 결제까지 끝난 행사는 덱 없이(할 일 끝), 모두 거절이면 다른 사회자 찾기로 이어 준다.
+ */
+function groupHero(g: InquiryGroup): { deck: DeckCard[]; lines: string[]; sub: string; allDeclined?: boolean } | null {
+  if (g.cards.some((c) => c.status === '거래완료')) return null;
+  const active = g.cards.filter((c) => c.status !== '거절');
+  if (active.length === 0) {
+    return { deck: [], lines: ['아쉽게도 이번엔 모두 일정이 어려워요'], sub: '다른 사회자에게 다시 요청해 보세요', allDeclined: true };
+  }
+  const waiting = active.filter((c) => c.status === '요청중');
+  const replied = active.filter((c) => c.status === '요청승인');
+  const viewed = waiting.filter((c) => c.viewed);
+  const lines: string[] = [];
+  if (replied.length > 0) {
+    lines.push(`${replied[0].proName} 사회자가 요청을 수락했어요`);
+    if (replied.length > 1) lines.push(`수락한 사회자가 ${replied.length}명이에요`);
+  }
+  if (waiting.length > 0) {
+    lines.push(waiting.length === 1 ? `${waiting[0].proName} 사회자가 요청을 확인하고 있어요` : '사회자들이 요청을 확인하고 있어요');
+    if (viewed.length === 1) lines.push(`${viewed[0].proName} 사회자가 요청을 봤어요`);
+    else if (viewed.length > 1) lines.push(`요청을 본 사회자가 ${viewed.length}명 있어요`);
+  }
+  return {
+    deck: active.map((c) => ({ id: c.id, name: c.proName, image: getProfileImageUrl(c.proImage, c.proName) })),
+    lines,
+    sub: replied.length > 0 ? '채팅으로 일정과 견적을 맞춰 보세요' : '답변이 오면 알림으로 바로 알려드릴게요',
+  };
 }
 
 /**
@@ -569,6 +604,29 @@ export default function CustomerInquiriesPage() {
                   className="border-b border-[#F2F4F6] px-4 pb-4 pt-[18px] last:border-b-0 min-[601px]:pb-[18px] min-[601px]:pt-[22px] lg:px-0"
                   style={enterStyle(g.requestId)}
                 >
+                  {(() => {
+                    const hero = groupHero(g);
+                    if (!hero) return null;
+                    return (
+                      // 진행 칸 — 사회자 카드 덱(크몽 카드 애니 분석) + 굴러 바뀌는 문구. 행사 일시 제목 위
+                      <div className="mb-4 overflow-hidden rounded-[20px] bg-gradient-to-b from-[#F2F7FF] to-[#FAFBFD] px-4 pb-4 pt-5 text-center">
+                        {hero.deck.length > 0 && <MatchCardDeck cards={hero.deck} />}
+                        <RollingText
+                          items={hero.lines}
+                          className={`${hero.deck.length > 0 ? 'mt-3.5' : ''} text-[17px] font-bold leading-[1.4] tracking-[-0.3px] text-[#191F28]`}
+                        />
+                        <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{hero.sub}</p>
+                        {hero.allDeclined && (
+                          <Link
+                            href="/pros"
+                            className="mt-3.5 inline-flex h-10 items-center rounded-full bg-[#3182F6] px-5 text-[14.5px] font-bold text-white transition-transform active:scale-95"
+                          >
+                            다른 사회자 찾아보기
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="min-w-0">
                     {/* 제목 — 행사 일시 */}
                     <p className="truncate pt-px text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{eventTitle(g)}</p>

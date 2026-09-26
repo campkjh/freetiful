@@ -2235,3 +2235,35 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @keyframes aiIconSpin { to { transform: rotate(360deg); } }
 @keyframes aiIconPop { 0% { transform: scale(.8); } 55% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .ai-icon-spin, .ai-icon-pop { animation: none !important; } }
+
+/* ═══ 매칭 — 요청한 사회자 카드 덱(260926 사장: 크몽 '관심 분야' 카드 애니메이션 분석 → components/match/MatchCardDeck) ═══ */
+.deck-card { position: absolute; left: 50%; top: 50%; border-radius: 14px; overflow: hidden; background: #E9EEF5; box-shadow: 0 0 0 2px #fff, 0 10px 22px rgba(15, 23, 42, .16); will-change: transform, opacity; }
+.deck-card img, .deck-face img { display: block; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; user-select: none; }
+/* 트럼프 모서리 ◆ */
+.deck-pip { position: absolute; width: 6px; height: 6px; border-radius: 1px; transform: rotate(45deg); }
+.deck-pip.light { background: rgba(255, 255, 255, .95); box-shadow: 0 0 3px rgba(15, 23, 42, .35); }
+.deck-pip.blue { background: #A9CBFF; }
+.deck-pip.tl { left: 8px; top: 8px; }
+.deck-pip.br { right: 8px; bottom: 8px; }
+/* 뒤집기 — 브랜드 뒷면이 톡 → 옆으로 돌며(살짝 기울며) 앞면 */
+.deck-flip { position: absolute; left: 50%; top: 50%; z-index: 10; perspective: 700px; transform: translate(-50%, -50%); }
+.deck-flip[data-phase="back"] { animation: deckBackIn .44s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes deckBackIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.3); } 70% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.deck-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.deck-flip[data-phase="flip"] .deck-inner { animation: deckFlip .62s cubic-bezier(.45, .05, .25, 1) forwards; }
+@keyframes deckFlip { 0% { transform: rotateY(0); } 50% { transform: rotateY(90deg) rotateZ(-7deg) scale(1.05); } 100% { transform: rotateY(180deg); } }
+.deck-face { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; -webkit-backface-visibility: hidden; backface-visibility: hidden; box-shadow: 0 0 0 2px #fff, 0 12px 26px rgba(15, 23, 42, .2); }
+.deck-face.back { display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #5AA0FF 0%, #3180F7 55%, #2B6FE0 100%); }
+.deck-face.front { transform: rotateY(180deg); background: #E9EEF5; }
+.deck-face img.deck-logo { width: 66%; height: auto; object-fit: contain; filter: brightness(0) invert(1); }
+/* 한 줄씩 위로 굴러 바뀌는 상태 문구 */
+.roll-wrap { position: relative; display: block; overflow: hidden; }
+.roll-wrap > span { display: block; }
+/* 두 줄이 딱 한 줄 간격으로 붙어 같이 올라간다(전광판처럼 — 중간에 겹쳐 보이지 않게) */
+.roll-out { position: absolute; left: 0; right: 0; top: 0; animation: rollOut .52s cubic-bezier(.65, 0, .35, 1) forwards; }
+.roll-in { animation: rollIn .52s cubic-bezier(.65, 0, .35, 1) both; }
+@keyframes rollOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-100%); } }
+@keyframes rollIn { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .roll-out, .roll-in, .deck-flip, .deck-flip .deck-inner { animation: none !important; }
+}
