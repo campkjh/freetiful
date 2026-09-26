@@ -2258,8 +2258,12 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 .deck-face.front { transform: rotateY(180deg); background: #E9EEF5; }
 .deck-face img.deck-logo { width: 66%; height: auto; object-fit: contain; filter: brightness(0) invert(1); }
 /* 한 줄씩 위로 굴러 바뀌는 상태 문구 */
-.roll-wrap { position: relative; display: block; overflow: hidden; }
-.roll-wrap > span { display: block; }
+.roll-wrap { display: block; }
+/* 자르는 칸 — 위아래 0.25em 여유를 두고 같은 만큼 바깥 여백을 당겨 자리는 그대로.
+   여유 없이 줄 높이에 딱 맞춰 자르면, 글자가 줄 칸보다 살짝 높게 그려지는 폰(안드 웹뷰 등 글꼴 높이 계산 차이)에서
+   윗부분이 2px 가량 잘려 '헤더에 잘린 것처럼' 보였다(260926 사장 제보 — 매칭 '아쉽게도 이번엔 모두 일정이 어려워요') */
+.roll-clip { position: relative; display: block; overflow: hidden; margin-block: -0.25em; }
+.roll-clip > span { display: block; padding-block: 0.25em; }
 /* 두 줄이 딱 한 줄 간격으로 붙어 같이 올라간다(전광판처럼 — 중간에 겹쳐 보이지 않게) */
 .roll-out { position: absolute; left: 0; right: 0; top: 0; animation: rollOut .52s cubic-bezier(.65, 0, .35, 1) forwards; }
 .roll-in { animation: rollIn .52s cubic-bezier(.65, 0, .35, 1) both; }
@@ -2275,7 +2279,8 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @keyframes styleIntroIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 /* 상세처럼 아래쪽에 있으면 화면에 닿기 전엔 숨겨 두고, 닿는 순간 페이드업(StyleIntroCard seen) */
 .style-intro.is-waiting { animation: none; opacity: 0; }
-.style-intro-title { background: linear-gradient(90deg, #8A1F3D 0%, #6A2C8F 58%, #4A3AA8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* 글자색 = 배경을 글자 모양으로 오린 것이라, 글자가 칸보다 높게 그려지는 폰에선 칸 밖 부분이 투명(잘림) — 위아래 여유를 두고 자리는 그대로 */
+.style-intro-title { background: linear-gradient(90deg, #8A1F3D 0%, #6A2C8F 58%, #4A3AA8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-block: 0.2em; margin-block: -0.2em; }
 .style-intro-wait { animation: styleWait 1.4s ease-in-out infinite; }
 @keyframes styleWait { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 .style-intro-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .6s cubic-bezier(.22, 1, .36, 1) .3s; }

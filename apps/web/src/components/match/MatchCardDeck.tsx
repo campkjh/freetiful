@@ -186,10 +186,13 @@ export function RollingText({ items, interval = 3200, className = '' }: { items:
   const current = items[Math.min(state.i, Math.max(0, items.length - 1))] || '';
   return (
     <span className={`roll-wrap ${className}`} aria-live="polite">
-      {state.prev !== null && items[state.prev] !== undefined && (
-        <span key={`out-${state.prev}-${state.i}`} className="roll-out" aria-hidden="true">{items[state.prev]}</span>
-      )}
-      <span key={`in-${state.i}-${sig.length}`} className={state.prev !== null ? 'roll-in' : ''}>{current}</span>
+      {/* 자르는 칸은 안쪽에 따로 — 글자 위아래 여유(roll-clip)를 바깥 여백(mt-2 등)과 섞지 않으려고 */}
+      <span className="roll-clip">
+        {state.prev !== null && items[state.prev] !== undefined && (
+          <span key={`out-${state.prev}-${state.i}`} className="roll-out" aria-hidden="true">{items[state.prev]}</span>
+        )}
+        <span key={`in-${state.i}-${sig.length}`} className={state.prev !== null ? 'roll-in' : ''}>{current}</span>
+      </span>
     </span>
   );
 }
