@@ -402,7 +402,7 @@ export default function MyPage() {
             {isLoggedIn ? (
               <div className="flex items-start gap-3">
                 <div className="my-a-title min-w-0 flex-1">
-                  <div className="truncate text-[22px] font-bold tracking-[-0.02em] text-[#191F28]">{user.name}</div>
+                  <div className="truncate text-[20px] font-bold leading-[32px] tracking-[-0.02em] text-[#191F28]">{user.name}</div>
                   <div className="mt-1 truncate text-[13.5px] text-[#A4ABBA]">
                     {[truncateEmail(user.email), roleLabel].filter(Boolean).join(' · ')}
                   </div>
@@ -416,7 +416,7 @@ export default function MyPage() {
             ) : (
               <>
                 <div className="my-a-title">
-                  <div className="text-[22px] font-bold tracking-[-0.02em] text-[#191F28]">로그인이 필요해요</div>
+                  <div className="text-[20px] font-bold leading-[32px] tracking-[-0.02em] text-[#191F28]">로그인이 필요해요</div>
                   <div className="mt-1 text-[13.5px] text-[#A4ABBA]">로그인하고 프리티풀의 다양한 서비스를 이용해 보세요</div>
                 </div>
                 <button

@@ -859,23 +859,19 @@ export default function CommunityClient() {
             <h1 className="community-title">웨딩숲</h1>
           </div>
           {/* 모바일: 카테고리는 햄버거 → 왼쪽 서랍에서 고른다(헤더엔 지금 보는 카테고리 이름만). */}
+          {/* 제목 '웨딩숲 ⌄' — 매칭·채팅·새요청과 같은 자리(왼쪽 16 · 가운데 36)·크기(20). 누르면 왼쪽 카테고리 서랍(260926 사장 "헤더 글자 위치 통일") */}
           <button
             type="button"
-            className="fcom-burger"
-            aria-label="카테고리 열기"
-            aria-expanded={drawerOpen}
+            className={`fcom-mtitle${entrance ? " qd-a-title" : ""}`}
             onClick={() => setDrawerOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={drawerOpen}
+            aria-label={`${selectedGroup?.name ?? "웨딩숲"} — 카테고리 고르기`}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 6.5h16M4 12h16M4 17.5h10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-          </button>
-          <button type="button" className={`fcom-mtitle${entrance ? " qd-a-title" : ""}`} onClick={() => setDrawerOpen(true)}>
-            {activeMajor?.icon && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/icons/community/cat/${activeMajor.icon}.svg`} alt="" width={22} height={22} />
-            )}
             <span>{selectedGroup?.name ?? "웨딩숲"}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="fcom-mtitle-chev">
+              <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           {/* 넓은 화면: 아이콘 버튼 대신 헤더에 검색창을 그대로 편다. */}
           <div className="community-search-inline">

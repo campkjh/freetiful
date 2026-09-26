@@ -240,7 +240,7 @@ function groupHero(g: InquiryGroup): { deck: DeckCard[]; lines: string[]; sub: s
   if (g.cards.some((c) => c.status === '거래완료')) return null;
   const active = g.cards.filter((c) => c.status !== '거절');
   if (active.length === 0) {
-    return { deck: [], lines: ['아쉽게도 이번엔 모두 일정이 어려워요'], sub: '다른 사회자에게 다시 요청해 보세요', allDeclined: true };
+    return { deck: [], lines: ['아쉽게도 이번엔 모두 일정이 어려워요'], sub: '퀵매칭으로 조건에 맞는 사회자를 바로 다시 찾아 드려요', allDeclined: true };
   }
   const waiting = active.filter((c) => c.status === '요청중');
   const replied = active.filter((c) => c.status === '요청승인');
@@ -523,7 +523,7 @@ export default function CustomerInquiriesPage() {
   return (
     <div className="min-h-screen bg-white pb-28 lg:pb-6">
       {/* 모바일 머리줄 — 채팅·웨딩숲과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나), 상태 탭까지 같이 붙어 다닌다 */}
-      <header className="sticky top-0 z-20 bg-white px-4 pb-2 lg:hidden">
+      <header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-2 lg:hidden">
         <div
           aria-hidden="true"
           className={`pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-white via-white/70 to-white/0 transition-opacity duration-300 ${
@@ -609,7 +609,7 @@ export default function CustomerInquiriesPage() {
                     if (!hero) return null;
                     return (
                       // 진행 칸 — 사회자 카드 덱(크몽 카드 애니 분석) + 굴러 바뀌는 문구. 행사 일시 제목 위
-                      <div className="mb-4 overflow-hidden rounded-[20px] bg-gradient-to-b from-[#F2F7FF] to-[#FAFBFD] px-4 pb-4 pt-5 text-center">
+                      <div className="mb-4 overflow-hidden rounded-[20px] bg-[#F9FAFB] px-4 pb-4 pt-5 text-center">
                         {hero.deck.length > 0 && <MatchCardDeck cards={hero.deck} />}
                         <RollingText
                           items={hero.lines}
@@ -617,11 +617,12 @@ export default function CustomerInquiriesPage() {
                         />
                         <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{hero.sub}</p>
                         {hero.allDeclined && (
+                          // 사장 시안('팔로우' 버튼) — 연파랑 면 · 파랑 굵은 글자 · 모서리 높이의 1/4
                           <Link
-                            href="/pros"
-                            className="mt-3.5 inline-flex h-10 items-center rounded-full bg-[#3182F6] px-5 text-[14.5px] font-bold text-white transition-transform active:scale-95"
+                            href="/quick-match"
+                            className="mt-3.5 inline-flex h-[42px] items-center rounded-[11px] bg-[#E8F3FF] px-[18px] text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#DCEBFF]"
                           >
-                            다른 사회자 찾아보기
+                            프리티풀 퀵매칭
                           </Link>
                         )}
                       </div>
