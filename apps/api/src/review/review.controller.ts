@@ -10,12 +10,16 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ReviewService } from './review.service';
+import { ReviewSummaryService } from './review-summary.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @ApiTags('review')
 @Controller('review')
 export class ReviewController {
-  constructor(private reviewService: ReviewService) {}
+  constructor(
+    private reviewService: ReviewService,
+    private reviewSummaryService: ReviewSummaryService,
+  ) {}
 
   /** 리뷰 작성 */
   @Post()
@@ -51,6 +55,13 @@ export class ReviewController {
     @Query('limit') limit = 20,
   ) {
     return this.reviewService.getReviewsByPro(proProfileId, +page, +limit);
+  }
+
+  /** 사회자 리뷰 요약(공개) — '이 사회자의 스타일을 소개합니다'. 실제 리뷰만 요약, 리뷰가 2개 미만이면 null */
+  @Get('pro/:proProfileId/summary')
+  @ApiOperation({ summary: '전문가 리뷰 요약(스타일 소개)' })
+  getReviewSummary(@Param('proProfileId') proProfileId: string) {
+    return this.reviewSummaryService.summarize(proProfileId).then((value) => ({ data: value }));
   }
 
   /** 전문가가 리뷰에 답글 작성 */

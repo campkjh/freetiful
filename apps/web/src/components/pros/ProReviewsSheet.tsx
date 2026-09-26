@@ -9,10 +9,66 @@ import { useEffect, useRef, useState } from 'react';
 import { loadProReviews, peekProReviews, type ProReviewItem } from '@/lib/pro-reviews';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import { reviewApi } from '@/lib/api/review.api';
+import AiIcon from '@/components/icons/AiIcon';
 
 export type ReviewSheetPro = { id: string; name: string; image?: string; rating: number; reviews: number };
 
 const STEP = 15;
+
+type StyleSummary = { summary: string; keywords: string[]; source: 'ai' | 'rule'; reviewCount: number };
+// 스타일 소개도 같은 사회자를 다시 열면 바로(서버도 하루 기억한다)
+const summaryCache = new Map<string, { at: number; value: StyleSummary | null }>();
+
+/**
+ * 이 사회자의 스타일을 소개합니다 — 토스 '✦ 이런 서비스도 좋아하실 것 같아요' 카드 결(260926 사장 레퍼런스).
+ * 순서: 카드가 아래에서 페이드업 → 본문 칸이 촤락 펼쳐지고 → 요약 문장이 단어 단위로 흐림→선명 → 특징 칩이 차례로.
+ * 요약은 서버가 실제 리뷰만 읽고 만든 것(없으면 카드가 접혀 사라진다).
+ */
+function StyleIntroCard({ summary, loading }: { summary: StyleSummary | null; loading: boolean }) {
+  const words = summary ? summary.summary.split(/\s+/).filter(Boolean) : [];
+  const wordBase = 0.55; // 칸이 펼쳐지기 시작한 뒤
+  const chipBase = wordBase + words.length * 0.045 + 0.2;
+  return (
+    <div className="style-intro mt-4 rounded-[20px] border border-[#F5E4EE] px-[18px] py-4">
+      <div className="flex items-center gap-2">
+        <AiIcon size={20} tile={false} spin={loading && !summary} />
+        <p className="style-intro-title text-[17px] font-bold tracking-[-0.3px]">이 사회자의 스타일을 소개합니다</p>
+      </div>
+      {loading && !summary && (
+        <p className="style-intro-wait mt-2.5 text-[14px] tracking-[-0.2px] text-[#9A8FAE]">리뷰를 읽고 있어요…</p>
+      )}
+      <div className={`style-intro-body${summary ? ' is-open' : ''}`}>
+        <div className="min-h-0 overflow-hidden">
+          {summary && (
+            <>
+              <p className="mt-3 text-[15.5px] leading-[1.7] tracking-[-0.3px] text-[#333D4B]">
+                {words.map((word, i) => (
+                  <span key={i} className="style-word" style={{ animationDelay: `${wordBase + i * 0.045}s` }}>
+                    {word}{i < words.length - 1 ? ' ' : ''}
+                  </span>
+                ))}
+              </p>
+              {summary.keywords.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {summary.keywords.map((keyword, i) => (
+                    <span
+                      key={keyword}
+                      className="style-chip rounded-[8px] bg-white/80 px-2.5 py-[5px] text-[13px] font-semibold tracking-[-0.2px] text-[#6A4BB8] ring-1 ring-[#EFE6FB]"
+                      style={{ animationDelay: `${chipBase + i * 0.08}s` }}
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Stars({ value, size = 13 }: { value: number; size?: number }) {
   const full = Math.round(value);
@@ -83,6 +139,7 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
   const [closing, setClosing] = useState(false);
   const [data, setData] = useState<{ items: ProReviewItem[]; total: number } | null>(null);
   const [failed, setFailed] = useState(false);
+  const [style, setStyle] = useState<{ loading: boolean; value: StyleSummary | null }>({ loading: false, value: null });
   const [shown, setShown] = useState(STEP);
   const [dragY, setDragY] = useState(0);
   const dragRef = useRef<{ y: number; t: number } | null>(null);
@@ -103,6 +160,21 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
     loadProReviews(pro.id)
       .then((res) => { if (alive) setData(res); })
       .catch(() => { if (alive && !hit) setFailed(true); });
+    // 스타일 소개(리뷰 요약) — 리뷰가 2개 이상일 때만
+    const cachedStyle = summaryCache.get(pro.id);
+    if (cachedStyle && Date.now() - cachedStyle.at < 10 * 60_000) {
+      setStyle({ loading: false, value: cachedStyle.value });
+    } else if (pro.reviews >= 2) {
+      setStyle({ loading: true, value: null });
+      reviewApi.getSummary(pro.id)
+        .then((value) => {
+          summaryCache.set(pro.id, { at: Date.now(), value });
+          if (alive) setStyle({ loading: false, value });
+        })
+        .catch(() => { if (alive) setStyle({ loading: false, value: null }); });
+    } else {
+      setStyle({ loading: false, value: null });
+    }
     return () => { alive = false; };
   }, [pro]);
 
@@ -247,8 +319,9 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
             </div>
           ) : (
             <>
+              {(style.loading || style.value) && <StyleIntroCard summary={style.value} loading={style.loading} />}
               {items.slice(0, shown).map((review, i) => (
-                <div key={review.id} className={i < 8 ? 'qd-a-item' : ''} style={i < 8 ? { animationDelay: `${0.04 + i * 0.04}s` } : undefined}>
+                <div key={review.id} className={i < 8 ? 'qd-a-item' : ''} style={i < 8 ? { animationDelay: `${0.18 + i * 0.04}s` } : undefined}>
                   <ReviewComment review={review} pro={p} first={i === 0} />
                 </div>
               ))}
