@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { popItemDelay } from '@/lib/pop-menu';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { PhoneNumberNotice, containsPhoneNumber } from '@/components/chat/ChatNotice';
+import { useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -385,6 +386,14 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   // ─── Core state (needed for instant render) ───
   const [chatPartner, setChatPartner] = useState<ChatPartner | null>(initialPartner);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  // 방에 들어올 때 퀵매칭 등장(260926 사장) — 상대 이름↑, 마지막 말풍선 12개가 위에서부터 차례로 ←.
+  // 방마다 첫 진입에만(뒤로가기·30초 안 재진입은 생략). 새로 오가는 말은 원래 애니(bubbleGrow)대로.
+  const roomEntrance = useTabEntrance(`chat-room:${roomId}`);
+  const enterMsgStyle = useListEntrance(
+    messages.slice(-12).map((m) => (m.type === 'system' ? m.id : (m.clientKey || m.id))),
+    roomEntrance,
+    { base: 0.18, step: 0.04 },
+  );
   const [messagesLoading, setMessagesLoading] = useState(initialMessages.length === 0);
   const [messagesLoadFailed, setMessagesLoadFailed] = useState(false);
   const [messagesLoadError, setMessagesLoadError] = useState<string | null>(null);
@@ -1298,7 +1307,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                   onClick={openPartnerProfile}
                   className="absolute left-1/2 top-1/2 flex max-w-[62%] -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-tight"
                 >
-                  <span className="flex min-w-0 max-w-full items-center gap-1.5">
+                  <span className={`flex min-w-0 max-w-full items-center gap-1.5 ${roomEntrance ? 'qd-a-title' : ''}`}>
                     <span className="truncate text-[17px] font-bold text-[#191F28]">{chatPartner?.name || '...'}</span>
                     {chatPartner && partnerRoleKnown && (
                       <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[12.5px] font-bold text-[#3182F6]">
@@ -1307,7 +1316,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                     )}
                   </span>
                   {eventLocation && (
-                    <span className="mt-[3px] max-w-full truncate text-[12.5px] text-[#8B95A1]">{eventLocation}</span>
+                    <span className={`mt-[3px] max-w-full truncate text-[12.5px] text-[#8B95A1] ${roomEntrance ? 'qd-a-sub' : ''}`}>{eventLocation}</span>
                   )}
                 </button>
                 <button
@@ -1466,7 +1475,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
 
             if (msg.type === 'system') {
               return (
-                <div key={msg.id} id={`msg-${msg.id}`} className="mt-2">
+                <div key={msg.id} id={`msg-${msg.id}`} className="mt-2" style={enterMsgStyle(msg.id)}>
                   {showSafetyNotice && (
                     <Suspense fallback={null}>
                       <SafePaymentNotice />
@@ -1510,7 +1519,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             const phoneNotice = msg.type === 'text' && containsPhoneNumber(msg.content);
 
             return (
-              <div key={msg.clientKey || msg.id} id={`msg-${msg.id}`}>
+              <div key={msg.clientKey || msg.id} id={`msg-${msg.id}`} style={enterMsgStyle(msg.clientKey || msg.id)}>
                 {showSafetyNotice && (
                   <Suspense fallback={null}>
                     <SafePaymentNotice />

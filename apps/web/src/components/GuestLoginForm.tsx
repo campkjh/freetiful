@@ -63,36 +63,34 @@ export default function GuestLoginForm({
     );
   }
 
+  // 입력칸·버튼 = 공통 모달 디자인(globals .ft-* — 입력 56·r17·17pt, 버튼 56·r17·17pt, 260926 사장)
   return (
     <div className={compact ? 'mt-3' : 'mt-4'}>
-      <p className="mb-2.5 text-[13px] leading-relaxed text-gray-500">
-        <b className="block text-gray-700">* 비회원으로 견적을 신청하신 경우</b>
+      <p className="mb-3 text-[14px] leading-[1.6] tracking-[-0.2px] text-[#6B7684]">
+        <b className="block font-semibold text-[#4E5968]">* 비회원으로 견적을 신청하신 경우</b>
         도착한 견적을 확인하려면, 견적 신청 때 입력하신{' '}
-        <b className="text-gray-700">전화번호와 이름</b>을 그대로 입력해주세요.
+        <b className="font-semibold text-[#4E5968]">전화번호와 이름</b>을 그대로 입력해주세요.
       </p>
       <input
         type="tel" inputMode="numeric" value={phone}
         onChange={(e) => { setPhone(e.target.value); setError(''); }}
         placeholder="전화번호 (예: 01012345678)"
-        className="mb-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-[16px] outline-none focus:border-[#3182F6]"
+        className="ft-input"
       />
       <input
         type="text" value={name}
         onChange={(e) => { setName(e.target.value); setError(''); }}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
         placeholder="이름"
-        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-[16px] outline-none focus:border-[#3182F6]"
+        className="ft-input mt-2"
       />
-      {error && <p className="mt-2 text-[13px] font-medium text-[#F04452]">{error}</p>}
-      <button
-        onClick={submit} disabled={busy}
-        className="mt-3 w-full rounded-2xl bg-[#3182F6] py-3.5 text-[15px] font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
-      >
+      {error && <p className="mt-2 text-[14px] font-medium text-[#F04452]">{error}</p>}
+      <button onClick={submit} disabled={busy} className="ft-btn primary mt-3 w-full">
         {busy ? '확인 중…' : '로그인'}
       </button>
       <button
         onClick={() => { setOpen(false); setError(''); onCancel?.(); }}
-        className="mt-2 w-full py-2 text-center text-[13px] font-medium text-gray-400"
+        className="ft-btn secondary mt-2 w-full"
       >
         소셜 로그인으로 돌아가기
       </button>
