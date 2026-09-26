@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChatBubbleIcon, PinLocationIcon } from '@/components/icons/mono';
-import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
+import { DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { chatApi } from '@/lib/api/chat.api';
@@ -15,6 +15,7 @@ import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 import { HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import MatchCardDeck, { RollingText, type DeckCard } from '@/components/match/MatchCardDeck';
+import { discoveryApi } from '@/lib/api/discovery.api';
 
 type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
@@ -349,6 +350,27 @@ export default function CustomerInquiriesPage() {
 
   const cards = useMemo(() => buildCards(requests).filter(isFreshEnough), [requests]);
 
+  // 매칭 기록이 없을 때 — 프리티풀 인기 사회자 카드 덱(260926 사장 "기록 없으면 카드 덱 + 퀵매칭 권유를 가운데쯤")
+  const [emptyDeck, setEmptyDeck] = useState<DeckCard[]>([]);
+  const noHistory = !loading && cards.length === 0;
+  useEffect(() => {
+    if (!noHistory || emptyDeck.length > 0) return;
+    let alive = true;
+    discoveryApi.getProList({ limit: 20, sort: 'reviews', withTotal: false })
+      .then((res: any) => {
+        if (!alive) return;
+        const list: any[] = Array.isArray(res?.data) ? res.data : [];
+        setEmptyDeck(
+          list
+            .filter((p) => p?.id && (p.profileImageUrl || p.images?.[0]))
+            .slice(0, 7)
+            .map((p) => ({ id: String(p.id), name: String(p.name || ''), image: p.profileImageUrl || p.images[0] })),
+        );
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [noHistory, emptyDeck.length]);
+
   const [statusTab, setStatusTab] = useState<InquiryStatus | '전체'>('전체');
   const [archivedIds, setArchivedIds] = useState<Set<string>>(() => new Set(readArchivedInquiryIds()));
   const activeCards = useMemo(() => cards.filter((c) => !archivedIds.has(c.id)), [cards, archivedIds]);
@@ -576,18 +598,25 @@ export default function CustomerInquiriesPage() {
               ))}
             </div>
           ) : cards.length === 0 ? (
-            <div
-              className={`flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center ${enterWindow ? 'qd-a-item' : ''}`}
-              style={enterWindow ? { animationDelay: '.3s' } : undefined}
-            >
-              <EmptyDocumentIcon size={72} className="mb-4" />
-              <p className="text-[17px] font-bold text-[#191F28]">아직 문의한 사회자가 없어요</p>
-              <p className="mt-2 text-[14px] leading-6 text-[#8B95A1]">마음에 드는 사회자에게 문의를 보내면 이곳에서 진행 상태를 볼 수 있어요.</p>
+            // 매칭 기록이 없을 때 — 카드 덱(인기 사회자) 위 · 퀵매칭 권유 · 버튼, 화면 가운데쯤(260926 사장)
+            <div className="flex min-h-[calc(100dvh-180px)] flex-col items-center justify-center px-6 py-10 text-center lg:min-h-[60vh]">
+              {/* 덱 자리는 미리 잡아 둔다(사진이 오기 전후로 글이 튀지 않게) */}
+              <div className="qd-a-title flex h-[118px] items-center justify-center" style={{ animationDelay: '.1s' }}>
+                {emptyDeck.length > 0 && <MatchCardDeck cards={emptyDeck} />}
+              </div>
+              <p className="qd-a-title mt-5 text-[19px] font-bold tracking-[-0.4px] text-[#191F28]" style={{ animationDelay: '.22s' }}>
+                프리티풀 퀵매칭을 사용해보세요
+              </p>
+              <p className="qd-a-sub mt-1.5 text-[15px] leading-[1.6] tracking-[-0.2px] text-[#8B95A1]" style={{ animationDelay: '.3s' }}>
+                조건만 고르면 딱 맞는 사회자를 바로 찾아 드려요
+              </p>
+              {/* 사장 시안('팔로우' 버튼) — 연파랑 면 · 파랑 굵은 글자 · 모서리 높이의 1/4 */}
               <Link
-                href="/pros"
-                className="mt-5 flex h-11 items-center justify-center rounded-[14px] bg-[#3182F6] px-6 text-[14px] font-bold text-white transition-colors hover:bg-[#2272EB] active:scale-[0.98]"
+                href="/quick-match"
+                className="qd-a-sub mt-5 inline-flex h-[46px] items-center rounded-[12px] bg-[#E8F3FF] px-5 text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#DCEBFF]"
+                style={{ animationDelay: '.38s' }}
               >
-                사회자 둘러보기
+                프리티풀 퀵매칭
               </Link>
             </div>
           ) : groups.length === 0 ? (
