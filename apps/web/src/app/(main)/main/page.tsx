@@ -328,125 +328,6 @@ function RoundedRectBorderTrain({ color = '#2B313D' }: { color?: string }) {
   );
 }
 
-function MobileQuoteGradientFrame() {
-  const borderStyle = {
-    padding: '1.2px',
-    background: 'linear-gradient(135deg, rgba(49,128,247,0.52), rgba(104,222,255,0.22) 34%, rgba(255,255,255,0.86) 51%, rgba(49,128,247,0.48) 74%, rgba(123,97,255,0.26))',
-    WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
-    WebkitMaskComposite: 'xor',
-    maskComposite: 'exclude',
-  } as CSSProperties;
-
-  return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0 z-20 rounded-2xl opacity-90 transition-opacity duration-300 group-active:opacity-100"
-        style={borderStyle}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-[1] rounded-2xl opacity-70 transition-opacity duration-300 group-active:opacity-100"
-        style={{ background: 'radial-gradient(circle at 50% 100%, rgba(49,128,247,0.16), transparent 58%)' }}
-      />
-      <div className="pointer-events-none absolute -inset-10 z-10 -translate-x-[82%] rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] opacity-0 transition-all duration-500 group-active:translate-x-[82%] group-active:opacity-100" />
-    </>
-  );
-}
-
-function MobileFastQuoteBadge() {
-  return (
-    <span className="mobile-fast-quote-badge absolute top-2.5 right-2.5 z-30 rounded-full p-[1.2px] transition-transform duration-200 group-active:scale-[0.97]">
-      <span className="mobile-fast-quote-badge__inner relative z-10 block rounded-full px-2.5 py-[5px] text-[10px] font-bold leading-none text-[#0B58FF]">
-        빠른무료견적
-      </span>
-      <style jsx global>{`
-        @property --mobile-fast-quote-angle {
-          syntax: '<angle>';
-          inherits: false;
-          initial-value: 0deg;
-        }
-
-        @media (max-width: 1023px) {
-          .mobile-fast-quote-badge {
-            --mobile-fast-quote-angle: 0deg;
-            isolation: isolate;
-            background: conic-gradient(
-              from var(--mobile-fast-quote-angle),
-              rgba(49,128,247,0.12) 0deg,
-              rgba(49,128,247,0.18) 48deg,
-              rgba(104,222,255,0.96) 76deg,
-              rgba(49,128,247,0.92) 108deg,
-              rgba(49,128,247,0.16) 146deg,
-              rgba(49,128,247,0.12) 360deg
-            );
-            box-shadow:
-              0 8px 18px rgba(49, 128, 247, 0.16),
-              0 0 0 1px rgba(49, 128, 247, 0.08);
-            animation: mobileFastQuoteBorder 3.1s linear infinite;
-          }
-
-          .mobile-fast-quote-badge__inner {
-            background:
-              radial-gradient(circle at 18% 8%, rgba(104,222,255,0.22), transparent 36%),
-              linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,246,255,0.92));
-            box-shadow:
-              inset 0 0 0 1px rgba(255,255,255,0.78),
-              inset 0 -1px 4px rgba(49,128,247,0.1);
-            animation: mobileFastQuoteGlow 2.8s ease-in-out infinite;
-          }
-
-          .mobile-fast-quote-badge__inner::after {
-            content: '';
-            position: absolute;
-            inset: 1px;
-            border-radius: inherit;
-            background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.84) 45%, transparent 68%);
-            opacity: 0;
-            transform: translateX(-90%) skewX(-14deg);
-            animation: mobileFastQuoteShine 3.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-            pointer-events: none;
-          }
-
-          @keyframes mobileFastQuoteGlow {
-            0%, 100% {
-              color: #0b58ff;
-            }
-            50% {
-              color: #3180f7;
-              text-shadow: 0 0 8px rgba(49,128,247,0.22);
-            }
-          }
-
-          @keyframes mobileFastQuoteBorder {
-            to { --mobile-fast-quote-angle: 360deg; }
-          }
-
-          @keyframes mobileFastQuoteShine {
-            0%, 58% {
-              opacity: 0;
-              transform: translateX(-90%) skewX(-14deg);
-            }
-            68% {
-              opacity: 0.72;
-            }
-            88%, 100% {
-              opacity: 0;
-              transform: translateX(92%) skewX(-14deg);
-            }
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .mobile-fast-quote-badge,
-          .mobile-fast-quote-badge__inner,
-          .mobile-fast-quote-badge__inner::after {
-            animation: none !important;
-          }
-        }
-      `}</style>
-    </span>
-  );
-}
-
 function Logo({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 275 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -883,6 +764,12 @@ const BANNERS = [
  * (PC 첫 화면·iOS 네이티브 홈은 그대로 관리자 배너). 누르면: 가입 5천원 = 비로그인 가입 창·로그인 시 친구 초대 / 빌라드지디 = 웨딩홀 목록
  * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
  */
+/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 맨 위 배너 아래) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임) */
+const HOME_SHORTCUTS = [
+  { href: '/quick-match', image: '/images/home/shortcut-quick-match.webp', title: '퀵매칭', desc: '조건만 고르면 딱 맞는 사회자를 바로', cta: '시작하기' },
+  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', title: '웨딩숲', desc: '예비부부들의 결혼 준비 이야기', cta: '구경하기' },
+];
+
 const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string; action?: 'signup' }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크
   { id: 'villadegd', image: '/images/banners/home-top-villadegd.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
@@ -2452,8 +2339,14 @@ export default function HomePage() {
           {/* 맨 위 배너 스켈레톤 — 4:3 · 모서리 5(모바일) */}
           <div className="skeleton w-full lg:hidden" style={{ aspectRatio: '4 / 3', borderRadius: 5 }} />
 
-          {/* 결혼식/행사 카드 스켈레톤 */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+          {/* 퀵매칭·웨딩숲 바로가기 스켈레톤(모바일 8:3 두 줄) */}
+          <div className="space-y-2 lg:hidden">
+            <div className="skeleton w-full" style={{ aspectRatio: '8 / 3', borderRadius: 5 }} />
+            <div className="skeleton w-full" style={{ aspectRatio: '8 / 3', borderRadius: 5 }} />
+          </div>
+
+          {/* 결혼식/행사 카드 스켈레톤(PC) */}
+          <div className="hidden grid-cols-2 gap-3 lg:grid lg:grid-cols-3 lg:gap-4">
             <div className="skeleton aspect-square rounded-2xl lg:rounded-[22px]" />
             <div className="skeleton aspect-square rounded-2xl lg:rounded-[22px]" />
             <div className="skeleton hidden aspect-square rounded-[22px] lg:block" />
@@ -2715,41 +2608,36 @@ export default function HomePage() {
         {/* 맨 위 배너 — 4:3 · 모서리 5(260926 사장, 예전 얇은 1170:300 슬라이드 배너 자리를 옮김) */}
         <HomeTopBanner />
 
-        {/* Category cards (결혼식사회자 영상 + 행사사회자) — 260925 뺐다가 260926 사장 지시로 다시 살림 */}
-        <div className="px-[10px] pt-3 pb-1 lg:px-0 lg:pt-0 lg:pb-2">
-          <div className="grid grid-cols-2 gap-3 lg:gap-4">
+        {/* 퀵매칭 · 웨딩숲 바로가기 — 사장 사진(8:3) 두 장을 위아래로, 모서리 5, 왼쪽 흐린 자리에 흰 제목·설명·작은 유리 버튼
+            (260926 사장 "결혼식사회자 찾기·행사사회자 찾기 버튼 없애고 퀵매칭(첫 사진)·웨딩숲(둘째 사진) 버튼, r값 5") */}
+        <div className="space-y-2 px-[10px] pt-3 pb-1">
+          {HOME_SHORTCUTS.map((b, i) => (
             <Link
-              href="/wedding-mc"
-              className="group block relative rounded-2xl lg:rounded-[22px] overflow-hidden opacity-0 aspect-square shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 hover:scale-[1.02] active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
-              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards' }}
+              key={b.href}
+              href={b.href}
+              className="relative block overflow-hidden rounded-[5px] bg-[#F2F4F6] opacity-0 transition-transform duration-200 active:scale-[0.98]"
+              style={{
+                aspectRatio: '8 / 3',
+                ...(skipHomeAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.1 + i * 0.1}s forwards` }),
+              }}
             >
-              <img src="/images/category-icons/wedding-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-[#EEF5FF]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
-              <MobileQuoteGradientFrame />
-              <MobileFastQuoteBadge />
-              <div className="absolute bottom-3 left-3 right-3 z-30 lg:bottom-5 lg:left-5 lg:right-5 flex items-end justify-between">
-                <div>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">전문결혼식</span>
-                  <span className="text-[16px] lg:text-[22px] font-bold text-[#2B313D] block leading-tight">사회자 찾기</span>
-                </div>
-                <ChevronRight size={20} className="text-[#2B313D]/80 shrink-0 lg:w-7 lg:h-7" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={b.image} alt="" width={1200} height={450} decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+              {/* 왼쪽만 옅게 어둡게 — 밝은 사진(웨딩숲 숲 빛)에서도 흰 글자가 읽히게 */}
+              <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.14) 42%, rgba(0,0,0,0) 68%)' }} />
+              <div className="absolute inset-y-0 left-0 flex max-w-[64%] flex-col justify-center pl-5" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.22)' }}>
+                <p className="text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white">{b.title}</p>
+                <p className="mt-0.5 break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.desc}</p>
+                <span
+                  className="mt-2.5 inline-flex h-[28px] w-fit items-center gap-0.5 rounded-full pl-3 pr-2 text-[13px] font-semibold tracking-[-0.2px] text-white"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', textShadow: 'none' }}
+                >
+                  {b.cta}
+                  <ChevronRight size={15} />
+                </span>
               </div>
             </Link>
-            <button
-              type="button"
-              onClick={() => router.push('/corporate-mc')}
-              className="group relative aspect-square rounded-2xl lg:rounded-[22px] overflow-hidden px-3 lg:px-5 flex items-end opacity-0 shadow-[0_8px_22px_rgba(49,128,247,0.08)] transition-all duration-200 active:-translate-y-0.5 active:scale-[0.96] active:shadow-[0_14px_30px_rgba(49,128,247,0.18)]"
-              style={skipHomeAnim ? { opacity: 1 } : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards' }}
-            >
-              <img src="/images/category-icons/event-mc.png" alt="" className="absolute inset-0 h-full w-full object-cover bg-white" />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/30 to-transparent" />
-              <MobileQuoteGradientFrame />
-              <div className="leading-none relative z-30 pb-3">
-                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>전문행사</span>
-                <span className="text-[16px] lg:text-[22px] font-semibold block leading-tight" style={{ color: '#2B313D' }}>사회자 찾기</span>
-              </div>
-            </button>
-          </div>
+          ))}
         </div>
 
         {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
