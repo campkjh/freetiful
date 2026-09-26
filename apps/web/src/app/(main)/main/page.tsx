@@ -764,120 +764,60 @@ const BANNERS = [
  * (PC 첫 화면·iOS 네이티브 홈은 그대로 관리자 배너). 누르면: 가입 5천원 = 비로그인 가입 창·로그인 시 친구 초대 / 빌라드지디 = 웨딩홀 목록
  * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
  */
-/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 맨 위 배너 아래) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임) */
+/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임). 설명 문구 260927 사장 */
 const HOME_SHORTCUTS = [
-  { href: '/quick-match', image: '/images/home/shortcut-quick-match.webp', title: '퀵매칭', desc: '조건만 고르면 딱 맞는 사회자를 바로', cta: '시작하기' },
-  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', title: '웨딩숲', desc: '예비부부들의 결혼 준비 이야기', cta: '구경하기' },
+  { href: '/quick-match', image: '/images/home/shortcut-quick-match.webp', title: '퀵매칭', desc: '결혼식 사회자, 1분 만에 퀵매칭', cta: '시작하기' },
+  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', title: '웨딩숲', desc: '예비부부의 결혼 준비 커뮤니티', cta: '구경하기' },
 ];
 
 /**
- * 퀵매칭 · 웨딩숲 바로가기(모바일) — 사장 사진(8:3) 두 장, 모서리 5, 왼쪽 흐린 자리에 흰 제목·설명·작은 유리 버튼.
- * 웨딩숲은 처음엔 90% 로 줄어든 채 윗부분 40% 가 퀵매칭 뒤에 숨어 있다가, 조금이라도 내리면 제 크기·제자리(간격 10)로 펼쳐지고
- * 아래 칸들이 자연스럽게 밀려 내려간다. 한 번 펼쳐지면 그대로(맨 위로 돌아와도 안 접힘), 접혀 있을 땐 퀵매칭 아래 흰 그라데이션 — 260926 사장.
- *  · 세로 여백 %는 칸 '폭' 기준이라 카드 높이(폭의 3/8)로 환산: 숨김 = 0.4 × 0.9H = 0.36H = 폭의 13.5%, 줄어든 만큼(0.1H = 3.75%)은 아래 여백으로 당김.
- *  · 첫 진입 등장(fadeSlideUp)·접힘 크기·누름 효과가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
- *  · 위쪽 높이가 바뀔 때 브라우저가 스크롤을 보정(scroll anchoring)하면 아래가 안 밀려 보여서, 홈 루트에서 overflow-anchor 를 끈다.
+ * 퀵매칭 · 웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 사진(8:3) 두 장, 모서리 5, 간격 10(좌우 여백과 같게), 왼쪽 흐린 자리에 흰 제목·설명·작은 유리 버튼.
+ * 260927 사장: 웨딩숲을 퀵매칭 뒤에 접어 두던 효과(스크롤하면 펼침)는 없앴다 — 두 장 다 그대로 보인다.
+ * 첫 진입 등장(fadeSlideUp)과 누름 효과(active:scale)가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
  */
 function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
-  const [open, setOpen] = useState(false);
-  // 한 번 펼쳐지면 다시 접지 않는다(260926 사장) — 펼친 뒤엔 스크롤 듣기도 끝
-  useEffect(() => {
-    let raf = 0;
-    let done = false;
-    const onScroll = () => { if (!raf && !done) raf = requestAnimationFrame(check); };
-    function check() {
-      raf = 0;
-      if (done || window.scrollY <= 12) return;
-      done = true;
-      setOpen(true);
-      window.removeEventListener('scroll', onScroll);
-    }
-    check();
-    if (!done) window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-  const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
-
   return (
-    // 세로 flex — 웨딩숲 칸의 음수 아래 여백이 다음 칸(카테고리)의 음수 위 여백과 겹쳐 합쳐지지(margin collapse) 않게(접힌 상태 간격 12→10)
-    <div className="flex flex-col px-[10px] pt-[10px]">
-      {HOME_SHORTCUTS.map((b, i) => {
-        const tucked = i === 1; // 웨딩숲
-        return (
-          <div
-            key={b.href}
-            className="relative"
-            style={{
-              zIndex: tucked ? 1 : 2,
-              marginTop: tucked ? (open ? 10 : '-13.5%') : 0,
-              marginBottom: tucked && !open ? '-3.75%' : 0,
-              transition: `margin 0.55s ${ease}`,
-            }}
+    <div className="flex flex-col gap-[10px] px-[10px] pt-[10px]">
+      {HOME_SHORTCUTS.map((b, i) => (
+        <div
+          key={b.href}
+          className={skipAnim ? '' : 'opacity-0'}
+          style={skipAnim ? undefined : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 + i * 0.1}s forwards` }}
+        >
+          <Link
+            href={b.href}
+            className="relative block overflow-hidden rounded-[5px] bg-[#F2F4F6] transition-transform duration-200 active:scale-[0.98]"
+            style={{ aspectRatio: '8 / 3' }}
           >
-            <div
-              className={skipAnim ? '' : 'opacity-0'}
-              style={skipAnim ? undefined : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.15 + i * 0.1}s forwards` }}
-            >
-              <div
-                className={tucked ? 'relative' : undefined}
-                style={tucked ? {
-                  transform: open ? 'scale(1)' : 'scale(0.9)',
-                  transformOrigin: 'top center',
-                  transition: `transform 0.55s ${ease}`,
-                } : undefined}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={b.image} alt="" width={1200} height={450} decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+            {/* 왼쪽만 옅게 어둡게 — 밝은 사진(웨딩숲 숲 빛)에서도 흰 글자가 읽히게 */}
+            <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.14) 42%, rgba(0,0,0,0) 68%)' }} />
+            <div className="absolute inset-y-0 left-0 flex max-w-[64%] flex-col justify-center pl-5" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.22)' }}>
+              <p className="text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white">{b.title}</p>
+              <p className="mt-0.5 break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.desc}</p>
+              <span
+                className="mt-2.5 inline-flex h-[28px] w-fit items-center gap-0.5 rounded-full pl-3 pr-2 text-[13px] font-semibold tracking-[-0.2px] text-white"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', textShadow: 'none' }}
               >
-                <Link
-                  href={b.href}
-                  className="relative block overflow-hidden rounded-[5px] bg-[#F2F4F6] transition-transform duration-200 active:scale-[0.98]"
-                  style={{ aspectRatio: '8 / 3' }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={b.image} alt="" width={1200} height={450} decoding="async" className="absolute inset-0 h-full w-full object-cover" />
-                  {/* 왼쪽만 옅게 어둡게 — 밝은 사진(웨딩숲 숲 빛)에서도 흰 글자가 읽히게 */}
-                  <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.14) 42%, rgba(0,0,0,0) 68%)' }} />
-                  <div className="absolute inset-y-0 left-0 flex max-w-[64%] flex-col justify-center pl-5" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.22)' }}>
-                    <p className="text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white">{b.title}</p>
-                    <p className="mt-0.5 break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.desc}</p>
-                    <span
-                      className="mt-2.5 inline-flex h-[28px] w-fit items-center gap-0.5 rounded-full pl-3 pr-2 text-[13px] font-semibold tracking-[-0.2px] text-white"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', textShadow: 'none' }}
-                    >
-                      {b.cta}
-                      <ChevronRight size={15} />
-                    </span>
-                  </div>
-                </Link>
-                {/* 접혀 있을 때 — 퀵매칭 아래(가려진 40% 끝)부터 흰색이 아래로 옅어지는 그라데이션, 펼치면 사라진다(260926 사장) */}
-                {tucked && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 rounded-[5px]"
-                    style={{
-                      background: 'linear-gradient(to bottom, #fff 0%, #fff 40%, rgba(255,255,255,0.82) 52%, rgba(255,255,255,0.35) 72%, rgba(255,255,255,0) 92%)',
-                      opacity: open ? 0 : 1,
-                      transition: `opacity 0.45s ${ease}`,
-                    }}
-                  />
-                )}
-              </div>
+                {b.cta}
+                <ChevronRight size={15} />
+              </span>
             </div>
-          </div>
-        );
-      })}
+          </Link>
+        </div>
+      ))}
     </div>
   );
 }
 
 const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string; action?: 'signup' }[] = [
-  // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크
-  { id: 'villadegd', image: '/images/banners/home-top-villadegd.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
-  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
-  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
-  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
-  { id: 'ceramique', image: '/images/banners/home-top-ceramique.webp', alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
+  // 순서(260926 사장): 빌라드지디 → (결혼식사회자 1등) → 슈슈몽드 → 가입 5천원 → 세라미크.
+  // 260927 8:3 으로 바꾸면서 받은 새 그림 4장 — '결혼식사회자 1등' 은 8:3 그림이 없어 뺐다(받으면 둘째 자리에).
+  { id: 'villadegd', image: '/images/banners/home-top-villadegd-8x3.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-8x3.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
+  { id: 'ceramique', image: '/images/banners/home-top-ceramique-8x3.webp', alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
 function HomeTopBanner() {
@@ -914,15 +854,15 @@ function HomeTopBanner() {
   };
 
   return (
-    // 첫 진입 등장 — 위에서부터 차례로(배너 → 퀵매칭 → 웨딩숲 → 카테고리 칸), 세션 첫 진입 때만(260926 사장)
+    // 첫 진입 등장 — 위에서부터 차례로(퀵매칭 → 웨딩숲 → 카테고리 칸 → 배너), 세션 첫 진입 때만(260926 사장)
     <div
       data-hswipe-ignore
-      className={`px-[10px] pt-[10px] ${skipAnim ? '' : 'opacity-0'}`}
-      style={skipAnim ? undefined : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards' }}
+      className={`-mt-1.5 px-[10px] ${skipAnim ? '' : 'opacity-0'}`}
+      style={skipAnim ? undefined : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards' }}
     >
       <div
         className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
-        style={{ aspectRatio: '4 / 3', touchAction: 'pan-y' }}
+        style={{ aspectRatio: '8 / 3', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
           startRef.current = { x: e.clientX, y: e.clientY };
           setDrag(0);
@@ -961,7 +901,7 @@ function HomeTopBanner() {
               style={{ width: `${100 / count}%` }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={b.image} alt={b.alt} width={1448} height={1086} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
+              <img src={b.image} alt={b.alt} width={1200} height={450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
             </button>
           ))}
         </div>
@@ -1333,7 +1273,7 @@ function CategorySwiper() {
                   key={item.name}
                   href={item.href}
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
-                  style={skipAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.35 + index * 0.035}s forwards` }}
+                  style={skipAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.2 + index * 0.03}s forwards` }}
                 >
                   {/* 아이콘 뒤 둥근 타일(사장 레퍼런스 260925: 모서리 약 1/3) — 색은 아이콘마다 그 그림 색을 아주 옅게(260926, lib/business-categories CATEGORY_TILE_TINTS).
                       투명 배경 일러스트를 72% 크기로 가운데 */}
@@ -2455,11 +2395,8 @@ export default function HomePage() {
         </div>
 
         <div className="space-y-5 px-[10px] pt-3 pb-6 lg:mx-auto lg:max-w-7xl lg:space-y-7 lg:px-8 lg:pt-4 lg:pb-12">
-          {/* 맨 위 배너 스켈레톤 — 4:3 · 모서리 5(모바일) */}
-          <div className="skeleton w-full lg:hidden" style={{ aspectRatio: '4 / 3', borderRadius: 5 }} />
-
-          {/* 퀵매칭·웨딩숲 바로가기 스켈레톤(모바일 8:3 두 줄) */}
-          <div className="space-y-2 lg:hidden">
+          {/* 퀵매칭·웨딩숲 바로가기 스켈레톤(모바일 8:3 두 줄, 맨 위) */}
+          <div className="space-y-2.5 lg:hidden">
             <div className="skeleton w-full" style={{ aspectRatio: '8 / 3', borderRadius: 5 }} />
             <div className="skeleton w-full" style={{ aspectRatio: '8 / 3', borderRadius: 5 }} />
           </div>
@@ -2480,6 +2417,9 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          {/* 배너 스켈레톤 — 8:3 · 모서리 5, 카테고리 아래(모바일) */}
+          <div className="skeleton w-full lg:hidden" style={{ aspectRatio: '8 / 3', borderRadius: 5 }} />
 
           {/* BEST 결혼식 사회자 스켈레톤 */}
           <div>
@@ -2531,7 +2471,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="home-pc-font-cap home-shift-mobile-only bg-white min-h-screen w-full" style={{ overflowAnchor: 'none' }}>
+    <div className="home-pc-font-cap home-shift-mobile-only bg-white min-h-screen w-full">
       <SimpleMatchRequestModal
         open={simpleRequestOpen}
         requestType={simpleRequestType}
@@ -2724,10 +2664,7 @@ export default function HomePage() {
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
-        {/* 맨 위 배너 — 4:3 · 모서리 5(260926 사장, 예전 얇은 1170:300 슬라이드 배너 자리를 옮김) */}
-        <HomeTopBanner />
-
-        {/* 퀵매칭 · 웨딩숲 바로가기 — 웨딩숲은 퀵매칭 뒤에 접혀 있다가 스크롤하면 펼쳐진다(HomeShortcuts) */}
+        {/* 260927 사장: 맨 위 = 퀵매칭 · 웨딩숲 바로가기 → 카테고리 메뉴 → 배너(8:3) */}
         <HomeShortcuts skipAnim={skipHomeAnim} />
 
         {/* 카테고리 탭 (전체/결혼식/행사/외국어) + 좌우 스와이프 — 네이티브 홈과 동일 */}
@@ -2739,6 +2676,9 @@ export default function HomePage() {
         <div className="-mt-0.5">
           <CategorySwiper />
         </div>
+
+        {/* 배너 — 8:3 · 모서리 5, 카테고리 메뉴 아래(260927 사장). 카테고리 칸 아래 여백(8+8)에서 6 당겨 간격 10(좌우 여백과 같게) */}
+        <HomeTopBanner />
 
       </div>
 
