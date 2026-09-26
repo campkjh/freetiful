@@ -40,8 +40,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // -----------------------------
         // 🔔 OneSignal 초기화 (단일 소스: OneSignalManager)
+        // 시뮬레이터는 푸시 미지원 + OneSignal 백그라운드 스레드가 간헐 크래시(SIGSEGV) → 건너뜀
         // -----------------------------
+        #if !targetEnvironment(simulator)
         OneSignalManager.shared.initialize()
+        #endif
 
         return true
     }

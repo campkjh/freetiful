@@ -52,6 +52,11 @@ class OneSignalManager: NSObject, OSNotificationClickListener, OSNotificationLif
         )
     }
 
+    /// 앱이 꺼져 있을 때 링크로 열린 주소 — 첫 화면이 가져간다(SceneDelegate)
+    func setPendingDeepLink(_ value: String) {
+        pendingDeepLink = value
+    }
+
     func consumePendingDeepLink() -> String? {
         let value = pendingDeepLink
         pendingDeepLink = nil
