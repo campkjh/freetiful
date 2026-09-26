@@ -241,6 +241,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
   const isPro = useMemo(() => authUser?.role === 'pro', [authUser?.role]);
+  // 회사 정보 푸터 — 보이는지(모든 폭) / 모바일에서도 보이는지
+  const footerShown = !hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname));
+  const mobileFooterShown = footerShown && !MOBILE_HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname));
   const [newRequestCount, setNewRequestCount] = useState(0);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
@@ -603,14 +606,16 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {!embedded && <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />}
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
-      <main className={`${communityRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : 'pb-24 lg:pb-12'}`}>
+      {/* 모바일에서 회사 정보 푸터가 보이는 화면은 푸터가 아래 탭바 자리(여백+끝 흰색 그라데이션)를 맡는다 → 본문 아래 여백은 조금만
+          (예전 pb-24 가 푸터 위에 흰 빈칸 96px 을 더 만들었다, 260926) */}
+      <main className={`${communityRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : mobileFooterShown ? 'pb-4 lg:pb-12' : 'pb-24 lg:pb-12'}`}>
         <div className="lg:max-w-none">
           <PageTransition>{children}</PageTransition>
         </div>
       </main>
 
       {/* ─── Footer ────────────────────────────────────────────────── */}
-      {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && (
+      {footerShown && (
         MOBILE_HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname))
           ? <div className="hidden lg:block"><Footer /></div>
           : <Footer />

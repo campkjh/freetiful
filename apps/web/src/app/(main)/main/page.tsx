@@ -895,7 +895,8 @@ function BusinessPartnerSection({
           />
         ))}
       </div>
-      {showDivider && <div className="my-2.5 border-t border-gray-100 lg:my-6" />}
+      {/* 섹션 사이 줄 — 모바일은 없이 간격만(260926 사장 '웨딩파트너 각 섹션 하단 줄 없애줘'), PC 는 그대로 */}
+      {showDivider && <div className="h-7 lg:my-6 lg:h-0 lg:border-t lg:border-gray-100" />}
     </section>
   );
 }
@@ -1676,45 +1677,78 @@ function HomeSwipeTabs() {
     };
   }, []);
 
-  // 하단 보더형 탭 — 선택된 것 아래에만 굵은 밑줄
+  // 탭은 헤더 한 줄에 — 로고 오른쪽 끝 ~ 알림 아이콘 왼쪽 끝 사이(260926 사장 "로고 옆에, 하단 줄 없이, 우측은 흰 그라데이션").
+  // 로고·아이콘 자리를 실제로 재서 맞춘다(로고 폭 81 · 아이콘 88 기준 기본값).
+  const tabScrollRef = useRef<HTMLDivElement>(null);
+  const [tabSlot, setTabSlot] = useState({ left: 100, right: 96 });
+  const [tabScrolled, setTabScrolled] = useState(false);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const header = document.querySelector('[data-native-home-header]');
+      const logo = header?.querySelector('a')?.getBoundingClientRect();
+      const icons = header?.querySelector('.ml-auto')?.getBoundingClientRect();
+      if (!logo || !icons || logo.width === 0) return;
+      setTabSlot({ left: Math.round(logo.right + 14), right: Math.round(window.innerWidth - icons.left) });
+    };
+    measure();
+    const t = window.setTimeout(measure, 400); // 로고 그림이 늦게 뜨면 한 번 더
+    window.addEventListener('resize', measure);
+    return () => { window.clearTimeout(t); window.removeEventListener('resize', measure); };
+  }, []);
+  // 고른 탭이 칸 안에 보이게 가운데로(끌어서 넘겨도 따라온다)
+  useEffect(() => {
+    const box = tabScrollRef.current;
+    const el = box?.querySelector<HTMLElement>(`[data-home-tab="${tab}"]`);
+    if (!box || !el) return;
+    const target = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2;
+    box.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [tab]);
+
+  // 밑줄 없이 글자로만 — 고른 탭 굵은 검정, 나머지 옅은 회색
   const tabBar = (
-    <div className="flex h-12 items-stretch gap-5 overflow-x-auto px-4" style={{ scrollbarWidth: 'none' }}>
-      {HOME_SWIPE_TABS.map((t, i) => {
-        const active = i === tab;
-        return (
-          <button
-            key={t}
-            type="button"
-            onClick={() => goTab(i)}
-            className={`relative flex shrink-0 items-center whitespace-nowrap text-[15px] transition-colors ${
-              active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA]'
-            }`}
-          >
-            {t}
-            <span
-              className={`absolute inset-x-0 bottom-0 h-[2.5px] rounded-full transition-all duration-300 ${
-                active ? 'bg-[#2B313D] opacity-100' : 'bg-transparent opacity-0'
+    <div className="relative h-full">
+      <div
+        ref={tabScrollRef}
+        onScroll={(e) => setTabScrolled(e.currentTarget.scrollLeft > 2)}
+        className="flex h-full items-center gap-4 overflow-x-auto pr-10 scrollbar-hide"
+        style={{ scrollbarWidth: 'none' }}
+      >
+        {HOME_SWIPE_TABS.map((t, i) => {
+          const active = i === tab;
+          return (
+            <button
+              key={t}
+              type="button"
+              data-home-tab={i}
+              onClick={() => goTab(i)}
+              className={`flex h-full shrink-0 items-center whitespace-nowrap text-[16px] leading-[1.6] tracking-[-0.3px] transition-colors duration-200 ${
+                active ? 'font-bold text-[#191F28]' : 'font-semibold text-[#B0B8C1]'
               }`}
-            />
-          </button>
-        );
-      })}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+      {/* 오른쪽 — 흰색으로 스르륵(더 있다는 표시), 왼쪽은 넘겼을 때만 */}
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-white via-white/85 to-white/0" />
+      <div aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-5 bg-gradient-to-r from-white to-white/0 transition-opacity duration-200 ${tabScrolled ? 'opacity-100' : 'opacity-0'}`} />
     </div>
   );
 
   return (
     <BodyPortal>
-      {/* 헤더+탭 배경 — 스크롤해도 흐려지지 않는 불투명 흰색 */}
+      {/* 헤더 배경 — 스크롤해도 흐려지지 않는 불투명 흰색(탭이 헤더 줄로 올라가 한 줄 64) */}
       <div
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
-        style={{ height: 106 }}
+        style={{ height: 64 }}
       />
-      {/* 헤더 바로 아래 고정 탭바 — 아래 보더 없음(260926 사장) */}
-      <div className="lg:hidden fixed inset-x-0 top-[54px] z-[45] bg-white">{tabBar}</div>
+      {/* 탭 — 헤더 줄(위 12 · 높이 42) 로고와 아이콘 사이 */}
+      <div className="lg:hidden fixed top-[12px] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 top-[102px] z-[40] overflow-hidden"
+        className="lg:hidden fixed inset-x-0 bottom-0 top-[64px] z-[40] overflow-hidden"
         style={{ pointerEvents: open ? 'auto' : 'none' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -2306,20 +2340,18 @@ export default function HomePage() {
   if (loading) {
     return (
       <div className="bg-white min-h-screen w-full">
-        {/* 헤더 스켈레톤 — 로고 + 알림·검색 아이콘(260926 검색창 뺌) */}
+        {/* 헤더 스켈레톤 — 로고 + 탭(모바일은 헤더 줄 안) + 알림·검색 아이콘 */}
         <div className="flex items-center gap-3 px-4 pt-3 pb-2 lg:mx-auto lg:max-w-7xl lg:px-8 lg:pt-4 lg:pb-3">
-          <div className="skeleton shrink-0" style={{ width: 104, height: 24, borderRadius: 6 }} />
+          <div className="skeleton shrink-0" style={{ width: 81, height: 24, borderRadius: 6 }} />
+          <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden pl-1 lg:hidden">
+            {[30, 76, 76].map((w, i) => (
+              <div key={i} className="skeleton shrink-0" style={{ width: w, height: 15, borderRadius: 6 }} />
+            ))}
+          </div>
           <div className="ml-auto flex h-[42px] items-center gap-5 pr-1">
             <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 9999 }} />
             <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 9999 }} />
           </div>
-        </div>
-
-        {/* 언더라인 탭 스켈레톤 */}
-        <div className="flex h-12 items-center gap-5 px-4 lg:mx-auto lg:max-w-7xl lg:px-8">
-          {[44, 92, 76, 92].map((w, i) => (
-            <div key={i} className="skeleton" style={{ width: w, height: 14, borderRadius: 6 }} />
-          ))}
         </div>
 
         <div className="space-y-5 px-[10px] pt-3 pb-6 lg:mx-auto lg:max-w-7xl lg:space-y-7 lg:px-8 lg:pt-4 lg:pb-12">
@@ -2538,7 +2570,7 @@ export default function HomePage() {
       </div>
 
       {/* ─── Mobile Header (Fixed, single row: 로고 + 알림·검색 아이콘) ──
-          260926 사장 시안: 검색창을 빼고 오른쪽에 종(안 읽은 알림 빨간 점)·돋보기. 줄 높이 42 = 아래 탭바(top 54) 그대로.
+          260926 사장 시안: 검색창을 빼고 오른쪽에 종(안 읽은 알림 빨간 점)·돋보기. 줄 높이 42 — 전체·남성·여성·외국어 탭(HomeSwipeTabs)이 이 줄의 로고와 아이콘 사이에 올라온다(탭바 줄 없음, 헤더 64).
           iOS 앱은 이 헤더를 숨기고 네이티브 헤더(NativeHomeHeader)를 쓴다. */}
       <BodyPortal>
       <div
@@ -2581,8 +2613,8 @@ export default function HomePage() {
         </div>
       </div>
       </BodyPortal>
-      {/* Spacer for fixed header */}
-      <div className="lg:hidden h-[106px]" />
+      {/* Spacer for fixed header — 탭이 헤더 줄로 올라가 한 줄(64) */}
+      <div className="lg:hidden h-[64px]" />
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">
@@ -3141,7 +3173,7 @@ export default function HomePage() {
                 showDivider={sectionIndex < businessPartnerSections.length - 1}
               />
             ))}
-            <div className="my-6 border-t border-gray-100" />
+            <div className="hidden lg:my-6 lg:block lg:border-t lg:border-gray-100" />
           </>
         )}
         </LazySection>

@@ -1,21 +1,21 @@
 'use client';
 
-// 웨딩 파트너(업체) 상세 — 260926 사장 "상세페이지 사진 갤러리랑 지도, 문의 버튼 넣어서 알차게".
-//  · 맨 위 = 사진 넘겨보기(4:3, 쓸어 넘김 · N/M · 누르면 크게) → 아래쪽이 대표 사진에서 뽑은 색(lib/image-tone)으로 녹아
-//    이름 칸으로 이어진다(홈 '사진 색 카드'와 같은 결).
-//  · 이름 칸: 분야 · 이름 24 · 한 줄 소개(카카오 자동 등록 문구는 숨김) · 지역 | 사진 N장 · 흰 반투명 칩
-//  · 바로가기(문의 · 길찾기 · 인스타그램/웹사이트 · 공유) → 사진 모아보기(3열, 마지막 칸 +N) → 위치(구글 지도 임베드 — 키 없이 됨,
-//    좌표 있으면 좌표·없으면 주소 / 카카오맵 · 네이버 지도 · 주소 복사) → 업체 정보
+// 웨딩 파트너(업체) 상세 — 260926 사장 "사진 갤러리랑 지도, 문의 버튼 넣어서 알차게", "웨딩숲 느낌으로", "인터랙션도 퀵매칭".
+//  · 웨딩숲 글 상세 계층: 흰 머리줄(뒤로 · 가운데 분야 → 굴리면 업체 이름 · 공유) → 작성자 줄 자리(대표 사진 프사 48 · 이름 17/700 + 분야 배지 ·
+//    회색 한 줄 '지역 · 사진 N장' · 오른쪽 '문의' = 팔로우 버튼 결) → 한 줄 소개 16.5 → 둥근 사진 넘겨보기(r16, N/M) → 회색 칩 →
+//    액션 줄(문의 · 길찾기 · 인스타그램 · 공유) → 10px 회색 띠 → 사진 모아보기 → 위치(구글 지도 임베드 + 카카오맵 노랑 · 네이버 지도 초록 버튼,
+//    사장 제공 아이콘) → 업체 정보. 글자 굵기 최대 700.
+//  · 등장 = 퀵매칭: 이름 줄 qd-a-title(아래→위) · 정보 줄 qd-a-sub(.18s 뒤) · 본문 칸 .qd-body(오른쪽→왼쪽 0.3s + i*0.07s).
 //  · 아래 고정 '문의하기' → 시트(이름·연락처·문의 종류 칩·희망 시기·내용) → API POST /business-inquiries
 //    (source 'wedding_partner' — 관리자 문의함 + 관리자 알림톡). 전화 버튼은 예전 결정대로 숨김(오류 이슈).
 //  · iOS 앱은 이 화면을 네이티브로 그린다(웹 수정 미반영).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronRight, Globe, Instagram, MessageCircle, Navigation, Share2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Globe, Instagram, Navigation, Share2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { useImageTone } from '@/lib/image-tone';
+import { TossCommentIcon, TossShareIcon } from '@/components/community/TossIcons';
 import { useKeyboardInset } from '@/lib/useKeyboardInset';
 import {
   deriveBusinessTagSuggestions,
@@ -46,9 +46,6 @@ interface BizDetail {
   categories: Array<{ category: { name: string } }>;
   images: Array<{ imageUrl: string }>;
 }
-
-/** 사진 아래쪽을 이름 칸 색으로 녹이는 그라데이션(사진 위에 얹는다 — 넘겨도 그대로) */
-const heroFade = (bg: string) => `linear-gradient(to bottom, rgba(0,0,0,0) 55%, ${bg} 100%)`;
 
 /** 카카오 자동 등록 소개('…은(는) 카카오맵 지역검색 기준으로 등록된 … 파트너입니다. 주소 … 카카오 카테고리 …')는 손님에게 의미가 없어 숨긴다 */
 function readableIntro(html?: string | null) {
@@ -261,9 +258,8 @@ export default function BusinessDetailPage() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [inquiryOpen, setInquiryOpen] = useState(false);
-  const [solidHeader, setSolidHeader] = useState(false);
-  const heroRef = useRef<HTMLDivElement>(null);
-
+  const [nameInBar, setNameInBar] = useState(false);
+  const nameRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!id) return;
     apiClient
@@ -286,11 +282,11 @@ export default function BusinessDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // 사진 위에선 투명(흰 아이콘), 사진을 지나면 흰 바탕 머리줄 + 업체 이름
+  // 머리줄 가운데 = 분야, 이름 줄을 지나 굴리면 업체 이름으로(웨딩숲 상세 머리 결)
   useEffect(() => {
     const onScroll = () => {
-      const h = heroRef.current?.offsetHeight || 280;
-      setSolidHeader(window.scrollY > h - 64);
+      const el = nameRef.current;
+      setNameInBar(el ? el.getBoundingClientRect().bottom < 56 : false);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -334,10 +330,6 @@ export default function BusinessDetailPage() {
     const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&hl=ko&output=embed`;
     return { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc };
   }, [biz]);
-
-  const tone = useImageTone(view?.images[0], 'scene');
-  const toneBg = tone?.bg || '#F2F4F6';
-  const toneSub = tone?.sub || '#6B7684';
 
   if (loading) {
     return (
@@ -385,17 +377,6 @@ export default function BusinessDetailPage() {
     }
   };
 
-  const quick = [
-    { key: 'inquiry', label: '문의하기', icon: <MessageCircle size={22} strokeWidth={2} />, onClick: () => setInquiryOpen(true) },
-    { key: 'route', label: '길찾기', icon: <Navigation size={21} strokeWidth={2} />, href: kakaoRoute },
-    biz.instagramUrl
-      ? { key: 'insta', label: '인스타그램', icon: <Instagram size={22} strokeWidth={2} />, href: biz.instagramUrl }
-      : website
-        ? { key: 'web', label: '웹사이트', icon: <Globe size={22} strokeWidth={2} />, href: website }
-        : null,
-    { key: 'share', label: '공유', icon: <Share2 size={21} strokeWidth={2} />, onClick: share },
-  ].filter(Boolean) as Array<{ key: string; label: string; icon: React.ReactNode; href?: string; onClick?: () => void }>;
-
   const gallery = images.slice(0, 9);
   const more = images.length - gallery.length;
   const infoRows: Array<{ label: string; value: React.ReactNode }> = [
@@ -410,164 +391,203 @@ export default function BusinessDetailPage() {
       value: <a href={website} target="_blank" rel="noopener noreferrer" className="break-all font-semibold text-[#3182F6]">{hostLabel(website)}</a>,
     }] : []),
   ];
+  // 웨딩숲 액션 줄(♡ · 💬 · 공유 자리) — 아이콘 + 글자 16 #6B7684
+  const actCls = 'inline-flex items-center gap-1.5 px-0.5 py-1 text-[16px] font-medium tracking-[-0.2px] text-[#6B7684] transition-transform active:scale-[0.92]';
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-[calc(96px+env(safe-area-inset-bottom,0px))]">
-      {/* 머리줄 — 사진 위에선 투명 + 흰 아이콘(위쪽 옅은 그림자), 사진을 지나면 흰 바탕 + 업체 이름 */}
-      <div
-        data-native-back-header
-        className="fixed left-1/2 top-0 z-30 w-full max-w-lg -translate-x-1/2 transition-colors duration-200"
-        style={{ backgroundColor: solidHeader ? 'rgba(255,255,255,0.96)' : 'transparent', backdropFilter: solidHeader ? 'blur(12px)' : undefined, WebkitBackdropFilter: solidHeader ? 'blur(12px)' : undefined }}
-      >
-        {!solidHeader && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/35 to-transparent" />}
-        <div className="relative flex h-14 items-center justify-between px-2">
-          <button onClick={() => router.back()} className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${solidHeader ? 'text-[#191F28]' : 'text-white'}`} aria-label="뒤로">
-            <ArrowLeft size={24} />
-          </button>
-          <p className={`min-w-0 flex-1 truncate px-1 text-center text-[17px] font-bold leading-[1.6] tracking-[-0.3px] text-[#191F28] transition-opacity duration-200 ${solidHeader ? 'opacity-100' : 'opacity-0'}`}>
-            {biz.businessName}
+      {/* 머리줄 — 웨딩숲 상세 머리(흰 바탕 · 뒤로 · 가운데 분야 → 이름 줄 지나면 업체 이름 · 공유) */}
+      <div data-native-back-header className="qd-header">
+        <button type="button" className="qd-back" onClick={() => router.back()} aria-label="뒤로">
+          <ArrowLeft size={24} className="text-[#191F28]" />
+        </button>
+        <div className="relative h-[27px] min-w-0 flex-1 overflow-hidden text-center">
+          <p className={`absolute inset-x-0 top-0 truncate text-[17px] font-bold leading-[1.6] tracking-[-0.3px] text-[#191F28] transition-all duration-200 ${nameInBar ? '-translate-y-2 opacity-0' : 'translate-y-0 opacity-100'}`}>{category}</p>
+          <p className={`absolute inset-x-0 top-0 truncate text-[17px] font-bold leading-[1.6] tracking-[-0.3px] text-[#191F28] transition-all duration-200 ${nameInBar ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}>{biz.businessName}</p>
+        </div>
+        <button type="button" className="qd-back" onClick={share} aria-label="공유">
+          <Share2 size={21} className="text-[#191F28]" />
+        </button>
+      </div>
+
+      {/* 작성자 줄 자리 — 대표 사진 프사 48 · 이름 + 분야 배지 · 회색 한 줄 · '문의'(팔로우 버튼 결) */}
+      <div ref={nameRef} className="flex items-start gap-3 px-4 pt-2">
+        <button type="button" onClick={() => setViewerAt(0)} className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#F2F4F6]" aria-label="대표 사진 크게 보기">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={images[0]} alt="" referrerPolicy="no-referrer" onError={onImgError} className="h-full w-full object-cover" />
+        </button>
+        <div className="min-w-0 flex-1 pt-px">
+          <div className="qd-a-title flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <h1 className="break-keep text-[17px] font-bold leading-[1.45] tracking-[-0.3px] text-[#191F28]">{biz.businessName}</h1>
+            <span className="inline-flex h-6 shrink-0 items-center rounded-[6px] bg-[#F2F4F6] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] text-[#6B7684]">{category}</span>
+          </div>
+          <p className="qd-a-sub mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">
+            {[shortRegion(address), `사진 ${images.length}장`].filter(Boolean).join(' · ')}
           </p>
-          <button onClick={share} className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${solidHeader ? 'text-[#191F28]' : 'text-white'}`} aria-label="공유">
-            <Share2 size={21} />
-          </button>
         </div>
-      </div>
-
-      {/* 사진 넘겨보기 — 아래쪽이 이름 칸 색으로 녹아든다 */}
-      <div ref={heroRef} className="relative">
-        <div
-          className="flex aspect-[4/3] snap-x snap-mandatory overflow-x-auto scrollbar-hide"
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            setHeroIndex(Math.min(images.length - 1, Math.max(0, Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))));
-          }}
+        <button
+          type="button"
+          onClick={() => setInquiryOpen(true)}
+          className="flex h-[34px] shrink-0 items-center rounded-[10px] bg-[#E8F3FF] px-3 text-[15px] font-semibold tracking-[-0.2px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#D6E9FF]"
         >
-          {images.map((src, i) => (
-            <button key={src + i} type="button" onClick={() => setViewerAt(i)} className="relative h-full w-full shrink-0 snap-center" aria-label={`사진 ${i + 1} 크게 보기`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={i === 0 ? biz.businessName : ''} referrerPolicy="no-referrer" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" onError={onImgError} className="absolute inset-0 h-full w-full object-cover" />
-            </button>
-          ))}
-        </div>
-        <div aria-hidden className="pointer-events-none absolute inset-0 transition-[background] duration-500" style={{ background: heroFade(toneBg) }} />
-        {images.length > 1 && (
-          <span
-            className="pointer-events-none absolute right-4 top-[68px] inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
-            style={{ backgroundColor: 'rgba(0,0,0,0.36)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
-          >
-            {heroIndex + 1} / {images.length}
-          </span>
-        )}
+          문의
+        </button>
       </div>
 
-      {/* 이름 칸 — 사진에서 뽑은 색 */}
-      {/* 사진 그라데이션이 끝나는 자리에서 바로 이어 붙인다(겹치면 덜 녹은 사진이 칸 경계에서 직선으로 잘려 보인다) */}
-      <section className="relative px-5 pb-6 pt-1 transition-colors duration-500" style={{ backgroundColor: toneBg }}>
-        <p className="relative text-[14px] font-semibold tracking-[-0.2px]" style={{ color: toneSub }}>{category}</p>
-        <h1 className="relative mt-1 break-keep text-[24px] font-bold leading-[1.35] tracking-[-0.5px] text-[#191F28]">{biz.businessName}</h1>
-        {intro && <p className="mt-2 whitespace-pre-line break-keep text-[16px] leading-[1.6] tracking-[-0.3px] text-[#333D4B]">{intro}</p>}
-        <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[14px] leading-[1.5] tracking-[-0.2px]" style={{ color: toneSub }}>
-          {address && <span>{shortRegion(address)}</span>}
-          {address && <span aria-hidden className="h-2.5 w-px" style={{ backgroundColor: toneSub, opacity: 0.35 }} />}
-          <span>사진 {images.length}장</span>
-        </p>
-        {tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <span key={tag} className="flex h-[28px] items-center rounded-[8px] bg-white/60 px-2.5 text-[13px] font-semibold tracking-[-0.2px] text-[#333D4B]">{tag}</span>
+      {/* 본문 — 칸마다 오른쪽→왼쪽 차례 등장(퀵매칭) */}
+      <div className="qd-body">
+        {intro ? (
+          <p className="mt-3.5 whitespace-pre-line break-keep px-4 text-[16.5px] leading-[1.65] tracking-[-0.3px] text-[#191F28]">{intro}</p>
+        ) : <div className="h-0" />}
+
+        {/* 사진 넘겨보기 — 웨딩숲 미디어처럼 둥글게(r16), N/M 유리 알약, 누르면 크게 */}
+        <div className="relative mx-4 mt-3.5 overflow-hidden rounded-[16px] bg-[#F2F4F6]">
+          <div
+            className="flex aspect-[4/3] snap-x snap-mandatory overflow-x-auto scrollbar-hide"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setHeroIndex(Math.min(images.length - 1, Math.max(0, Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))));
+            }}
+          >
+            {images.map((src, i) => (
+              <button key={src + i} type="button" onClick={() => setViewerAt(i)} className="relative h-full w-full shrink-0 snap-center" aria-label={`사진 ${i + 1} 크게 보기`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={i === 0 ? biz.businessName : ''} referrerPolicy="no-referrer" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" onError={onImgError} className="absolute inset-0 h-full w-full object-cover" />
+              </button>
             ))}
           </div>
-        )}
-      </section>
-
-      {/* 바로가기 */}
-      <div className="grid px-3 pb-2 pt-5" style={{ gridTemplateColumns: `repeat(${quick.length}, minmax(0, 1fr))` }}>
-        {quick.map((q) => {
-          const inner = (
-            <>
-              <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#F2F4F6] text-[#4E5968]">{q.icon}</span>
-              <span className="mt-1.5 text-[13px] font-medium tracking-[-0.2px] text-[#4E5968]">{q.label}</span>
-            </>
-          );
-          const cls = 'flex flex-col items-center py-1 transition-transform active:scale-[0.94]';
-          return q.href ? (
-            <a key={q.key} href={q.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
-          ) : (
-            <button key={q.key} type="button" onClick={q.onClick} className={cls}>{inner}</button>
-          );
-        })}
-      </div>
-
-      <div className="mx-5 mt-4 h-px bg-[#F2F4F6]" />
-
-      {/* 사진 모아보기 — 웨딩숲 사진 칸 어법(3열 · 3px 틈 · 모서리 16) */}
-      <section className="px-5 pt-6">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">사진 <span className="text-[#3182F6]">{images.length}</span></h2>
           {images.length > 1 && (
-            <button type="button" onClick={() => setViewerAt(0)} className="flex items-center text-[14px] font-medium text-[#8B95A1]">
-              전체보기 <ChevronRight size={16} />
-            </button>
+            <span
+              className="pointer-events-none absolute bottom-3 right-3 inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
+              style={{ backgroundColor: 'rgba(0,0,0,0.36)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
+            >
+              {heroIndex + 1} / {images.length}
+            </span>
           )}
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
-          {gallery.map((src, i) => (
-            <button key={src + i} type="button" onClick={() => setViewerAt(i)} className="relative aspect-square overflow-hidden bg-[#F2F4F6]" aria-label={`사진 ${i + 1} 크게 보기`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={onImgError} className="absolute inset-0 h-full w-full object-cover" />
-              {i === gallery.length - 1 && more > 0 && (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[17px] font-bold text-white">+{more}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
 
-      {/* 위치 — 구글 지도 임베드(키 없이), 누르면 카카오맵 */}
-      {address && (
-        <section className="px-5 pt-8">
-          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">위치</h2>
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <p className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{address}</p>
-            <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
-              복사
-            </button>
+        {/* 칩 — 웨딩숲 카테고리 칩(회색 · 모서리 6 · 13) */}
+        {tags.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4">
+            {tags.map((tag) => (
+              <span key={tag} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{tag}</span>
+            ))}
           </div>
-          <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="relative mt-3 block h-[196px] overflow-hidden rounded-[16px] bg-[#F2F4F6]" aria-label="카카오맵에서 크게 보기">
-            <iframe
-              src={mapSrc}
-              title={`${biz.businessName} 위치`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="pointer-events-none absolute inset-0 h-full w-full border-0"
-            />
-            <span className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center rounded-[8px] bg-white/95 px-2.5 text-[13px] font-semibold text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
-              크게 보기
-            </span>
+        ) : <div className="h-0" />}
+
+        {/* 액션 줄 — 문의 · 길찾기 · 인스타그램/웹사이트 · 공유 */}
+        <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-1 px-4">
+          <button type="button" onClick={() => setInquiryOpen(true)} className={actCls}>
+            <TossCommentIcon />
+            문의
+          </button>
+          <a href={kakaoRoute} target="_blank" rel="noopener noreferrer" className={actCls}>
+            <Navigation size={21} strokeWidth={1.9} />
+            길찾기
           </a>
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#F2F4F6] text-[15px] font-semibold tracking-[-0.2px] text-[#333D4B] active:bg-[#E5E8EB]">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#FEE500] ring-1 ring-black/10" aria-hidden /> 카카오맵
+          {biz.instagramUrl ? (
+            <a href={biz.instagramUrl} target="_blank" rel="noopener noreferrer" className={actCls}>
+              <Instagram size={22} strokeWidth={1.9} />
+              인스타그램
             </a>
-            <a href={naverMap} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#F2F4F6] text-[15px] font-semibold tracking-[-0.2px] text-[#333D4B] active:bg-[#E5E8EB]">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#03C75A]" aria-hidden /> 네이버 지도
+          ) : website ? (
+            <a href={website} target="_blank" rel="noopener noreferrer" className={actCls}>
+              <Globe size={21} strokeWidth={1.9} />
+              웹사이트
             </a>
+          ) : null}
+          <button type="button" onClick={share} className={actCls}>
+            <TossShareIcon />
+            공유
+          </button>
+        </div>
+
+        {/* 10px 회색 띠 — 웨딩숲 상세 구분 */}
+        <div className="mt-5 h-2.5 bg-[#F2F4F6]" />
+
+        {/* 사진 모아보기 — 3열 · 3px 틈 · 모서리 16, 9장 넘으면 마지막 칸 +N */}
+        <section className="px-4 pt-6">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">사진 <span className="text-[#3182F6]">{images.length}</span></h2>
+            {images.length > 1 && (
+              <button type="button" onClick={() => setViewerAt(0)} className="flex items-center text-[14px] font-medium text-[#8B95A1]">
+                전체보기 <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
+            {gallery.map((src, i) => (
+              <button key={src + i} type="button" onClick={() => setViewerAt(i)} className="relative aspect-square overflow-hidden bg-[#F2F4F6]" aria-label={`사진 ${i + 1} 크게 보기`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={onImgError} className="absolute inset-0 h-full w-full object-cover" />
+                {i === gallery.length - 1 && more > 0 && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[17px] font-bold text-white">+{more}</span>
+                )}
+              </button>
+            ))}
           </div>
         </section>
-      )}
 
-      {/* 업체 정보 */}
-      <section className="px-5 pt-8">
-        <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">업체 정보</h2>
-        <dl className="mt-2">
-          {infoRows.map((row, i) => (
-            <div key={row.label} className={`flex gap-4 py-3.5 ${i ? 'border-t border-[#F2F4F6]' : ''}`}>
-              <dt className="w-[72px] shrink-0 text-[15px] tracking-[-0.2px] text-[#8B95A1]">{row.label}</dt>
-              <dd className="min-w-0 flex-1 break-keep text-[15px] leading-[1.55] tracking-[-0.2px] text-[#191F28]">{row.value}</dd>
+        {/* 위치 — 구글 지도 임베드(키 없이), 누르면 카카오맵 · 브랜드 색 버튼(사장 제공 아이콘) */}
+        {address ? (
+          <section className="px-4 pt-8">
+            <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">위치</h2>
+            <div className="mt-2 flex items-start justify-between gap-3">
+              <p className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{address}</p>
+              <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
+                복사
+              </button>
             </div>
-          ))}
-        </dl>
-      </section>
+            <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="relative mt-3 block h-[196px] overflow-hidden rounded-[16px] bg-[#F2F4F6]" aria-label="카카오맵에서 크게 보기">
+              <iframe
+                src={mapSrc}
+                title={`${biz.businessName} 위치`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="pointer-events-none absolute inset-0 h-full w-full border-0"
+              />
+              <span className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center rounded-[8px] bg-white/95 px-2.5 text-[13px] font-semibold text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+                크게 보기
+              </span>
+            </a>
+            <div className="mt-2.5 grid grid-cols-2 gap-2">
+              <a
+                href={kakaoMap}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] bg-[#FBE300] text-[15px] font-bold tracking-[-0.2px] text-[#3B1E1E] transition active:scale-[0.98] active:brightness-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/brand/kakao-talk.svg" alt="" className="h-7 w-7" />
+                카카오맵
+              </a>
+              <a
+                href={naverMap}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#03C75A] text-[15px] font-bold tracking-[-0.2px] text-white transition active:scale-[0.98] active:brightness-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/brand/naver-wordmark.svg" alt="NAVER" className="h-[11px] w-auto" />
+                지도
+              </a>
+            </div>
+          </section>
+        ) : <div className="h-0" />}
+
+        {/* 업체 정보 */}
+        <section className="px-4 pt-8">
+          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">업체 정보</h2>
+          <dl className="mt-2">
+            {infoRows.map((row, i) => (
+              <div key={row.label} className={`flex gap-4 py-3.5 ${i ? 'border-t border-[#F2F4F6]' : ''}`}>
+                <dt className="w-[72px] shrink-0 text-[15px] tracking-[-0.2px] text-[#8B95A1]">{row.label}</dt>
+                <dd className="min-w-0 flex-1 break-keep text-[15px] leading-[1.55] tracking-[-0.2px] text-[#191F28]">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
 
       {/* 아래 고정 — 문의하기(전화 버튼은 예전 결정대로 숨김) */}
       <div className="fixed bottom-0 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 bg-white/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3 backdrop-blur-md">
