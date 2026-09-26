@@ -14,7 +14,9 @@ type Filter = 'all' | 'multi' | 'single' | 'archived';
 type RequestKind = 'multi' | 'single';
 
 const MATCH_DELIVERIES_CACHE_KEY = 'freetiful-pro-simple-requests-cache-v1';
-const MATCH_DELIVERIES_CACHE_TTL = 10 * 60_000;
+// 캐시 보여주기 한도 — 예전엔 10분 지나면 버려서, 앱 켜고 조금 지나 새요청을 열면 매번 빈 화면에서 기다렸다(260926 사장 '너무 느림').
+// 이제 3일 안의 캐시는 일단 바로 보여주고, 마운트 때 항상 새로 받아 바꾼다(stale-while-revalidate).
+const MATCH_DELIVERIES_CACHE_TTL = 3 * 24 * 60 * 60_000;
 const MATCH_REQUEST_LIMIT = 100; // 한꺼번에 로드 (스크롤 추가 로드 제거)
 const VIEWED_AT_KEY = 'freetiful-pro-inquiries-viewed-at';
 let memoryDeliveriesCache: { userId?: string | null; data: MatchDeliveryView[]; ts: number } | null = null;
@@ -196,6 +198,10 @@ export default function ProRequestsPage() {
   const skipRef = useRef(0);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  // 화면에 그리는 개수 — 받은 건 100건이어도 20개씩(스크롤 닿으면 20개 더). 탭 바꾸면 처음부터
+  const RENDER_STEP = 20;
+  const [renderCount, setRenderCount] = useState(RENDER_STEP);
+  const renderMoreRef = useRef<HTMLDivElement | null>(null);
 
   // ─── iOS 네이티브 새요청 헤더/탭 연동 ───
   useEffect(() => {
@@ -318,6 +324,17 @@ export default function ProRequestsPage() {
     if (filter === 'all') return active;
     return active.filter((request) => request.requestKind === filter);
   }, [filter, requests]);
+
+  useEffect(() => { setRenderCount(RENDER_STEP); }, [filter]);
+  useEffect(() => {
+    const target = renderMoreRef.current;
+    if (!target) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setRenderCount((c) => c + RENDER_STEP);
+    }, { rootMargin: '600px 0px' });
+    io.observe(target);
+    return () => io.disconnect();
+  }, [renderCount, filtered.length]);
 
   // ─── iOS 네이티브 새요청 행 데이터 브리지 ───
   useEffect(() => {
@@ -450,7 +467,7 @@ export default function ProRequestsPage() {
             <p className="text-[15px] font-semibold text-[#8B95A1]">새 요청이 없습니다</p>
           </div>
         ) : (
-          filtered.map((request) => (
+          filtered.slice(0, renderCount).map((request) => (
             <article
               key={request.id}
               className="rounded-[24px] border-[0.6px] border-[#F9F9F9] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
@@ -524,7 +541,8 @@ export default function ProRequestsPage() {
             </article>
           ))
         )}
-        {(hasMore || loadingMore) && (
+        {filtered.length > renderCount && <div ref={renderMoreRef} className="h-12" aria-hidden="true" />}
+        {filtered.length <= renderCount && (hasMore || loadingMore) && (
           <div ref={loadMoreRef} className="flex h-12 items-center justify-center">
             {loadingMore && <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />}
           </div>

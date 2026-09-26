@@ -22,15 +22,15 @@ import TossPoll from "@/components/community/TossPoll";
 import TossLikers from "@/components/community/TossLikers";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
 import { clientCache } from "@/lib/clientCache";
+import { communityPostsKey, hydrateCommunityCache, orderCommunityGroups, persistCommunityFeed } from "@/lib/community/prefetch";
 import KingBadges from "@/components/KingBadges";
 import PullToRefresh from "@/components/PullToRefresh";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 
-// 게시글 목록 캐시 키(필터 조합별).
-const postsKey = (groupId: string, q: string, tagId = "", sort = "") =>
-  `community-posts:${groupId}:${tagId}:${sort}:${q.trim()}`;
+// 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
+const postsKey = communityPostsKey;
 
 interface CategoryGroup {
   id: string;
@@ -195,6 +195,10 @@ export default function CommunityClient() {
   const [myCommentByPost, setMyCommentByPost] = useState<Map<string, string> | null>(null);
   // 캐시가 있으면 로딩 표시 안 함(데이터 변동 시에만 갱신).
   const [loading, setLoading] = useState(() => !clientCache.has(postsKey("", "", "", "latest")));
+  // 화면에 그리는 글 수 — 받은 글이 60개여도 12개부터(스크롤이 닿으면 12개씩 더). 상세에서 돌아와 스크롤을 되돌릴 땐 전부(260926 '웨딩숲 느림')
+  const FEED_STEP = 12;
+  const [renderCount, setRenderCount] = useState(FEED_STEP);
+  const renderMoreRef = useRef<HTMLDivElement | null>(null);
   const [topbarHeight, setTopbarHeight] = useState(0);
   const weeklyTrackRef = useRef<HTMLDivElement | null>(null);
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
@@ -372,7 +376,7 @@ export default function CommunityClient() {
 
   useEffect(() => {
     loadGroups();
-    loadWeeklyPopular();
+    // '주간 인기' 캐러셀은 예전에 화면에서 빠졌다 — 그 요청(posts?popular=week)을 계속 보내 첫 화면을 늦추던 것 제거(260926)
   }, []);
 
   useEffect(() => {
@@ -466,6 +470,23 @@ export default function CommunityClient() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // 필터·정렬이 바뀌면 다시 12개부터. 저장된 스크롤(상세에서 복귀)이 있으면 복원할 수 있게 전부 그린다
+  useEffect(() => {
+    let restoring = false;
+    try { restoring = !!sessionStorage.getItem("community-scroll"); } catch { /* ignore */ }
+    setRenderCount(restoring ? Number.POSITIVE_INFINITY : FEED_STEP);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroupId, query, selectedTagId, sortMode, mineFilter]);
+  useEffect(() => {
+    const target = renderMoreRef.current;
+    if (!target) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setRenderCount((c) => c + FEED_STEP);
+    }, { rootMargin: "800px 0px" });
+    io.observe(target);
+    return () => io.disconnect();
+  }, [renderCount, posts.length, loading]);
+
   // 상세에서 돌아왔을 때(목록 첫 로드 완료 시점) 저장해둔 스크롤 위치로 복원.
   useEffect(() => {
     if (scrollRestoredRef.current) return;
@@ -507,12 +528,9 @@ export default function CommunityClient() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "카테고리를 불러오지 못했습니다.");
       // "자유"를 맨 앞으로 (나머지는 기존 순서 유지).
-      const ordered = [...(data.groups || [])].sort((a, b) => {
-        if (a.name === "자유") return -1;
-        if (b.name === "자유") return 1;
-        return 0;
-      });
+      const ordered = orderCommunityGroups<CategoryGroup>(data.groups || []);
       if (clientCache.set("community-groups", ordered)) setGroups(ordered);
+      persistCommunityFeed({ groups: ordered });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "카테고리를 불러오지 못했습니다.");
     }
@@ -553,6 +571,9 @@ export default function CommunityClient() {
 
   async function loadPosts() {
     const key = postsKey(selectedGroupId, query, selectedTagId, sortMode);
+    const isLatestAll = !selectedGroupId && !selectedTagId && !query.trim() && sortMode === "latest";
+    // 앱을 새로 켠 직후처럼 메모리 캐시가 비었으면 기기에 남긴 마지막 목록으로 먼저 채운다(마운트 뒤라 하이드레이션 문제 없음)
+    if (isLatestAll && !clientCache.has(key)) hydrateCommunityCache();
     // 캐시가 있으면 즉시 표시하고 로딩을 띄우지 않는다(백그라운드 재검증).
     const cached = clientCache.get<CommunityPost[]>(key);
     if (cached) {
@@ -573,6 +594,7 @@ export default function CommunityClient() {
       const fresh = data.posts || [];
       // 달라졌을 때만 갱신(데이터 변동 시에만 리렌더).
       if (clientCache.set(key, fresh)) setPosts(fresh);
+      if (isLatestAll) persistCommunityFeed({ latest: fresh });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "게시글을 불러오지 못했습니다.");
     } finally {
@@ -951,7 +973,6 @@ export default function CommunityClient() {
             contextGroupId={selectedGroupId}
             onPosted={() => {
               loadPosts();
-              loadWeeklyPopular();
             }}
             onToast={showToast}
           />
@@ -1043,7 +1064,7 @@ export default function CommunityClient() {
                 </p>
               </div>
             ) : (
-              visiblePosts.map((post, postIndex) => {
+              visiblePosts.slice(0, renderCount).map((post, postIndex) => {
                 // 토스처럼 제목 없이 본문만 — 본문 첫 줄이 곧 제목(작성 모달이 첫 줄로 제목을 만든다).
                 // 제목을 따로 쓴 글(글쓰기 페이지)은 제목을 본문 앞에 붙인다.
                 const body = post.content.trim()
@@ -1222,6 +1243,7 @@ export default function CommunityClient() {
                 );
               })
             )}
+            {!loading && visiblePosts.length > renderCount && <div ref={renderMoreRef} className="h-10" aria-hidden="true" />}
           </div>
         </section>
       </div>
@@ -1285,7 +1307,7 @@ export default function CommunityClient() {
         offsetTop={topbarHeight}
         onRefresh={async () => {
           clientCache.clearPrefix("community-");
-          await Promise.all([loadPosts(), loadWeeklyPopular()]);
+          await loadPosts();
         }}
       />
 
@@ -1323,7 +1345,7 @@ export default function CommunityClient() {
           initialContent={composePreset?.text}
           initialGroupSlug={composePreset?.group}
           onClose={() => { setComposeOpen(false); setComposePreset(null); }}
-          onPosted={() => { setComposeOpen(false); setComposePreset(null); loadPosts(); loadWeeklyPopular(); }}
+          onPosted={() => { setComposeOpen(false); setComposePreset(null); loadPosts(); }}
         />
       )}
 

@@ -56,6 +56,10 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((v) => String(v || '').trim()).filter(Boolean)));
 }
 
+
+/** 사회자 새요청 목록이 rawUserInput 에서 읽는 키(웹 pro-dashboard/inquiries·pro-requests-prefetch, iOS NativeHomeData) */
+const PRO_LIST_RAW_KEYS = ['categoryName', 'eventType', 'date', 'timeStart', 'location', 'eventPart', 'note'] as const;
+
 @Injectable()
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
@@ -587,7 +591,16 @@ export class MatchService {
       skip: Math.max(0, Number(skip) || 0),
     });
 
-    return deliveries;
+    // rawUserInput 은 랜딩 입력 전부(유입 경로·UTM·연락 방식 등)라 100건이면 응답의 40%를 차지했다(260926 실측 128KB 중 53KB).
+    // 목록(웹 새요청·iOS 네이티브 새요청)이 실제로 읽는 키만 남겨 응답을 줄인다 — 상세는 채팅방에서 따로 받는다.
+    return deliveries.map((d) => {
+      const raw = d.matchRequest?.rawUserInput;
+      if (!d.matchRequest || !raw || typeof raw !== 'object' || Array.isArray(raw)) return d;
+      const src = raw as Record<string, unknown>;
+      const slim: Record<string, unknown> = {};
+      for (const k of PRO_LIST_RAW_KEYS) if (src[k] !== undefined && src[k] !== null && src[k] !== '') slim[k] = src[k];
+      return { ...d, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
+    });
   }
 
   /** 전문가가 매칭 요청에 응답 (수락/거절) */

@@ -386,6 +386,17 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     return () => { try { delete (window as any).__freetifulInquiryOpenChat; } catch {} };
   }, [router]);
 
+  // 웨딩숲(커뮤니티) 첫 화면 미리 데우기 — 앱이 뜨고 한가할 때 그룹·최신 글을 받아 캐시에 넣어 둔다.
+  // 하단 탭을 누르면 기다림 없이 목록이 뜬다(260926 사장 '웨딩숲 뜨는 거 너무 느림'). 계정이 바뀌면 다시.
+  useEffect(() => {
+    if (pathname.startsWith('/community')) return; // 이미 커뮤니티 화면이면 화면이 직접 받는다
+    const cancel = queueIdleTask(() => {
+      import('@/lib/community/prefetch').then(({ prefetchCommunity }) => prefetchCommunity()).catch(() => {});
+    }, 1200, 4000);
+    return cancel;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
+
   // 외부 컴포넌트에서 로그인 모달을 열 수 있도록 커스텀 이벤트 수신
   useEffect(() => {
     const handler = () => {
