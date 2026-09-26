@@ -33,6 +33,8 @@ type InquiryCard = {
   createdAtIso?: string;
   status: InquiryStatus;
   declineReason?: string;
+  /** 고객이 고른 조건(진행 부·분위기·선호 성별·권역·시간 협의) — 행사 칸 태그 */
+  tags: string[];
 };
 
 const CUSTOMER_INQUIRIES_CACHE_PREFIX = 'freetiful-customer-inquiries-cache-v1';
@@ -122,6 +124,7 @@ type InquiryGroup = {
   eventDate: string;
   eventTime: string;
   createdAt: string;
+  tags: string[];
   cards: InquiryCard[];
 };
 
@@ -129,6 +132,28 @@ type InquiryGroup = {
 function eventTitle(g: { eventDate: string; eventTime: string }) {
   if (g.eventDate === '일자 미정') return '행사일 미정';
   return g.eventTime && g.eventTime !== '시간 미정' ? `${g.eventDate} ${g.eventTime}` : g.eventDate;
+}
+
+/** 고객이 고른 조건 → 태그(260926 사장 "1부 예식인지·어떤 분위기인지 내가 고른 게 안 보인다").
+ *  rawUserInput 실키: eventPart('1부'·'1부예식'·'2부예식') · part('1부 (본식)', 퀵매칭) · mood · genderPref · region · timeStart('협의') */
+function requestTags(request: any): string[] {
+  const raw = request?.rawUserInput && typeof request.rawUserInput === 'object' ? request.rawUserInput : {};
+  const tags: string[] = [];
+  const add = (value?: unknown) => {
+    const text = typeof value === 'string' ? value.trim() : '';
+    if (text && !tags.includes(text)) tags.push(text);
+  };
+  [raw.eventPart, raw.part]
+    .filter((v) => typeof v === 'string')
+    .join(', ')
+    .split(/\s*,\s*/)
+    .forEach((part: string) => add(part.replace(/^(\d부)\s*(예식)$/, '$1 $2')));
+  add(raw.mood);
+  if (raw.genderPref === 'female') add('여성 사회자 선호');
+  else if (raw.genderPref === 'male') add('남성 사회자 선호');
+  add(raw.region);
+  if (typeof raw.timeStart === 'string' && raw.timeStart.trim() === '협의') add('시간 협의');
+  return tags;
 }
 
 /** 사회자별 진행 상태 태그 — 웨딩숲 배지 모양(h24 · 모서리 6 · 13.5), 상태색 */
@@ -155,6 +180,7 @@ function buildCards(requests: any[]): InquiryCard[] {
       eventTime: formatTime(request.eventTime),
       createdAt: formatDate(request.createdAt),
       createdAtIso: request.createdAt,
+      tags: requestTags(request),
     };
 
     const deliveryCards = deliveries.map((delivery: any) => {
@@ -397,7 +423,7 @@ export default function CustomerInquiriesPage() {
     for (const c of visibleCards) {
       let g = map.get(c.requestId);
       if (!g) {
-        g = { requestId: c.requestId, category: c.category, location: c.location, eventDate: c.eventDate, eventTime: c.eventTime, createdAt: c.createdAt, cards: [] };
+        g = { requestId: c.requestId, category: c.category, location: c.location, eventDate: c.eventDate, eventTime: c.eventTime, createdAt: c.createdAt, tags: c.tags, cards: [] };
         map.set(c.requestId, g);
       }
       g.cards.push(c);
@@ -542,6 +568,15 @@ export default function CustomerInquiriesPage() {
                       <span className="min-w-0 truncate">{g.location}</span>
                     </p>
 
+                    {/* 내가 고른 조건 — 웨딩숲 카테고리 칩(회색 · 모서리 6 · 13) */}
+                    {g.tags.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-x-2 gap-y-1.5">
+                        {g.tags.map((tag) => (
+                          <span key={tag} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+
                     {/* 문의한 사회자 — 웨딩숲 댓글 줄 계층(프사 36 · 이름 15 굵게 · 상태 배지) */}
                     <ul className="mt-3.5 overflow-hidden rounded-[16px] bg-[#F9FAFB]">
                       {g.cards.map((item) => (
@@ -575,7 +610,7 @@ export default function CustomerInquiriesPage() {
                             onClick={() => startChat(item)}
                             disabled={openingChatId === item.id}
                             aria-label={`${item.proName} 사회자와 채팅`}
-                            className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3182F6] shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition active:scale-90 disabled:opacity-60"
+                            className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3182F6] transition active:scale-90 disabled:opacity-60"
                           >
                             {openingChatId === item.id
                               ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#D6E6FF] border-t-[#3182F6]" />
