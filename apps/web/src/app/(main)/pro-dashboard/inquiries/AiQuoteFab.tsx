@@ -1,6 +1,6 @@
 'use client';
 
-// 새요청 'AI 자동매칭' 플로팅 버튼(260926 사장 "네비게이션 바 위에 AI 자동매칭 플로팅 — 견적가·출장비 등 추가 비용을 적어 두면
+// 새요청 'AI 응답설정'(옛 'AI 자동매칭') 플로팅 버튼(260926 사장 "네비게이션 바 위에 AI 자동매칭 플로팅 — 견적가·출장비 등 추가 비용을 적어 두면
 // 고객이 '견적 얼마예요?' 할 때 자동 답장").
 //  · 저장 = 자동응답 '견적' 항목(quoteReply·quoteAmount·quoteEnabled). 인사말·질문 답변·자동 승인은 받아 온 그대로 다시 보낸다(PUT 이 통째 교체라서).
 //  · 답장 문장은 사회자가 적은 값으로만 만들고, 저장 전에 그대로 보여 준다 — 런타임엔 이 문장이 글자 그대로 나간다(AI 가 금액을 지어내지 않는다).
@@ -99,7 +99,7 @@ export default function AiQuoteFab() {
       await autoReplyApi.savePersona({ aiEnabled: enabled }).catch(() => undefined);
       setSettings(next);
       setOpen(false);
-      toast.success(enabled ? 'AI 자동 답장을 켰어요' : '저장했어요 (자동 답장은 꺼 둠)');
+      toast.success(enabled ? 'AI 응답을 켰어요' : '저장했어요 (AI 응답은 꺼 둠)');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '저장하지 못했어요');
     } finally {
@@ -113,17 +113,18 @@ export default function AiQuoteFab() {
       <button
         type="button"
         onClick={openSheet}
-        className="fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-gradient-to-r from-[#3182F6] to-[#6B5CFF] pl-2 pr-5 text-[15px] font-semibold tracking-[-0.2px] text-white transition active:scale-95 bottom-[calc(env(safe-area-inset-bottom,0px)+74px)] lg:bottom-8 lg:right-8"
+        // 흰 알약 + 얇은 테두리(260926 사장 '버튼이 어색함' — 파란 그라데이션 안의 옅은 타일이 따로 놀았다)
+        className="fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full border border-[#E5E8EB] bg-white pl-2 pr-[18px] text-[15px] font-semibold tracking-[-0.2px] text-[#191F28] shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition active:scale-95 bottom-[calc(env(safe-area-inset-bottom,0px)+74px)] lg:bottom-8 lg:right-8"
       >
         <AiIcon size={32} />
-        AI 자동매칭
+        AI 응답설정
       </button>
 
       {open && (
         <div className="ft-scrim" onClick={() => !saving && setOpen(false)}>
           <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="ft-grab" aria-hidden="true" />
-            <h2 className="ft-title flex items-center gap-2"><AiIcon size={28} />AI 자동매칭</h2>
+            <h2 className="ft-title flex items-center gap-2"><AiIcon size={28} />AI 응답설정</h2>
             <p className="ft-desc">견적을 적어 두면 고객이 &lsquo;견적 얼마예요?&rsquo; 하고 물을 때 바로 답해 드려요.</p>
 
             {loading ? (
@@ -209,7 +210,7 @@ export default function AiQuoteFab() {
                   className="mt-5 flex w-full items-center justify-between py-2 text-left"
                   aria-pressed={enabled}
                 >
-                  <span className="text-[16px] font-semibold text-[#191F28]">AI 자동 답장</span>
+                  <span className="text-[16px] font-semibold text-[#191F28]">AI 응답 켜기</span>
                   <span className={`relative h-7 w-12 rounded-full transition-colors ${enabled ? 'bg-[#3182F6]' : 'bg-[#D1D6DB]'}`}>
                     <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${enabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </span>

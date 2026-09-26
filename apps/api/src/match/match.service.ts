@@ -712,14 +712,49 @@ export class MatchService {
 
     // rawUserInput 은 랜딩 입력 전부(유입 경로·UTM·연락 방식 등)라 100건이면 응답의 40%를 차지했다(260926 실측 128KB 중 53KB).
     // 목록(웹 새요청·iOS 네이티브 새요청)이 실제로 읽는 키만 남겨 응답을 줄인다 — 상세는 채팅방에서 따로 받는다.
+    // 'AI 답변중' 태그(260926 사장) — 이 고객과의 방에서 사회자 쪽 마지막 말이 자동응답이면(사회자가 아직 직접 안 받음)
+    const aiReplying = await this.aiReplyingKeys(
+      deliveries.map((d) => ({ proProfileId: d.proProfileId, customerId: d.matchRequest?.userId })),
+    );
     return deliveries.map((d) => {
+      const flag = aiReplying.has(`${d.proProfileId}:${d.matchRequest?.userId}`);
       const raw = d.matchRequest?.rawUserInput;
-      if (!d.matchRequest || !raw || typeof raw !== 'object' || Array.isArray(raw)) return d;
+      if (!d.matchRequest || !raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...d, aiReplying: flag };
       const src = raw as Record<string, unknown>;
       const slim: Record<string, unknown> = {};
       for (const k of PRO_LIST_RAW_KEYS) if (src[k] !== undefined && src[k] !== null && src[k] !== '') slim[k] = src[k];
-      return { ...d, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
+      return { ...d, aiReplying: flag, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
     });
+  }
+
+  /**
+   * 고객과의 방에서 사회자 쪽 마지막 말이 자동응답(metadata.autoReply)인 쌍 — 키 `${proProfileId}:${customerUserId}`.
+   * 방마다 마지막 한 줄만 LATERAL 로 읽는다(Prisma distinct 는 전부 가져와 메모리에서 걸러 대화 많은 사회자에게 무겁다).
+   * 실패해도 목록은 그대로(태그만 안 붙는다).
+   */
+  private async aiReplyingKeys(pairs: { proProfileId: string; customerId?: string | null }[]): Promise<Set<string>> {
+    const out = new Set<string>();
+    const proIds = [...new Set(pairs.map((p) => p.proProfileId))];
+    const customerIds = [...new Set(pairs.map((p) => p.customerId).filter((v): v is string => !!v))];
+    if (!proIds.length || !customerIds.length) return out;
+    try {
+      const rows = await this.prisma.$queryRaw<{ proProfileId: string; userId: string; autoReply: boolean | null }[]>`
+        SELECT r."proProfileId", r."userId", (last.metadata->>'autoReply')::boolean AS "autoReply"
+        FROM chat_rooms r
+        JOIN pro_profiles p ON p.id = r."proProfileId"
+        JOIN LATERAL (
+          SELECT m.metadata FROM messages m
+          WHERE m."roomId" = r.id AND m."senderId" = p."userId" AND m."isDeleted" = false
+          ORDER BY m."createdAt" DESC
+          LIMIT 1
+        ) last ON true
+        WHERE r."proProfileId" = ANY(${proIds}::text[]) AND r."userId" = ANY(${customerIds}::text[])
+      `;
+      for (const row of rows) if (row.autoReply === true) out.add(`${row.proProfileId}:${row.userId}`);
+    } catch (error) {
+      this.logger.warn(`AI 답변중 조회 실패: ${String((error as any)?.message || error).slice(0, 120)}`);
+    }
+    return out;
   }
 
   /** 전문가가 매칭 요청에 응답 (수락/거절) */

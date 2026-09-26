@@ -8,7 +8,6 @@ import { SearchIcon, CloseIcon } from '@/components/icons/mono';
 import { EmptySearchIcon } from '@/components/icons/color';
 import ChatEmptyBubbles from '@/components/ChatEmptyBubbles';
 import ChatRoomView from './[id]/page';
-import { motion, LayoutGroup } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
 import { popItemDelay } from '@/lib/pop-menu';
@@ -17,6 +16,7 @@ import toast from 'react-hot-toast';
 import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -500,8 +500,31 @@ export default function ChatListPage() {
     if (room) preWarmExistingRoom(room);
   };
 
-  const TABS: FilterTab[] = ['전체', '읽음', '안 읽음', '숨김'];
-  const PRO_TABS: ProFilterTab[] = ['전체', '읽음', '안 읽음', '숨김'];
+  // 제목 '채팅 ⌄'(사회자 '고객 문의 ⌄') — 새요청·매칭처럼 탭 대신 제목을 눌러 고른다(260926 사장). 개수는 위 filtered 와 같은 규칙
+  const countFor = (tab: string) => rooms.filter((r) => {
+    if (tab === '숨김') return r.isHidden;
+    if (r.isHidden) return false;
+    if (isPro) return tab === '읽음' ? r.unreadCount === 0 : tab === '안 읽음' ? r.unreadCount > 0 : true;
+    if (tab === '읽음') return r.unreadCount === 0 && !r.isArchived;
+    if (tab === '안 읽음') return r.unreadCount > 0 && !r.isArchived;
+    return !r.isArchived;
+  }).length;
+  const tabIcon = (name: string) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`/icons/toss/${name}.svg`} alt="" className="h-6 w-6" />
+  );
+  const chatFilterOptions: TitleFilterOption<string>[] = [
+    { key: '전체', label: '전체', title: isPro ? '고객 문의' : '채팅', icon: tabIcon('list'), count: countFor('전체') },
+    { key: '읽음', label: '읽음', title: '읽은 대화', icon: tabIcon('check-circle'), count: countFor('읽음') },
+    { key: '안 읽음', label: '안 읽음', title: '안 읽은 대화', icon: tabIcon('chat'), count: countFor('안 읽음') },
+    { key: '숨김', label: '숨김', title: '숨긴 대화', icon: tabIcon('eye-off'), count: countFor('숨김') },
+  ];
+  const pickChatTab = (tab: string) => {
+    if (isPro) setProActiveTab(tab as ProFilterTab);
+    else setActiveTab(tab as FilterTab);
+    setEditMode(false);
+    setSelectedIds(new Set());
+  };
 
   // 채팅 목록 렌더 (모바일/PC 공용)
   const renderChatList = (isPC = false) => (
@@ -732,8 +755,15 @@ export default function ChatListPage() {
       <div className="hidden h-full min-h-0 gap-4 py-5 lg:flex lg:h-[calc(100vh-140px)]">
         {/* 좌측: 채팅 목록 — 헤더에서 띄우고 모서리를 둥글린 카드 */}
         <div className="flex w-[360px] min-h-0 shrink-0 flex-col overflow-hidden rounded-[24px] bg-white">
-          {/* 제목은 전역 헤더(홈·Biz·채팅…)와 겹쳐서 PC 에선 빼고, 검색·탭만 남긴다 */}
+          {/* PC 도 제목 '채팅 ⌄' 로 고르고(탭 대신), 그 아래 검색 */}
           <div className="px-5 pt-5 pb-3">
+            <div className="mb-3">
+              <TitleFilterMenu<string>
+                value={isPro ? proActiveTab : activeTab}
+                onChange={pickChatTab}
+                options={chatFilterOptions}
+              />
+            </div>
             <div className="relative mb-3">
               <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
               <input
@@ -754,31 +784,6 @@ export default function ChatListPage() {
                 </button>
               )}
             </div>
-            <LayoutGroup id="chat-tabs-desktop">
-              <div className="flex w-full gap-1 rounded-2xl bg-[#F2F3F5] p-1">
-                {(isPro ? PRO_TABS : TABS).map((tab) => {
-                  const active = isPro ? proActiveTab === tab : activeTab === tab;
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => isPro ? setProActiveTab(tab as ProFilterTab) : setActiveTab(tab as FilterTab)}
-                      className={`relative flex-1 rounded-[13px] px-3 py-2 text-[13px] font-semibold transition-colors ${
-                        active ? 'text-[#2B313D]' : 'text-[#A4ABBA] hover:text-[#51535C]'
-                      }`}
-                    >
-                      {active && (
-                        <motion.span
-                          layoutId="chat-tab-pill-desktop"
-                          className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                          transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                        />
-                      )}
-                      <span className="relative">{tab}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </LayoutGroup>
           </div>
           <div
             key={`pc-${isPro ? proActiveTab : activeTab}`}
@@ -849,7 +854,12 @@ export default function ChatListPage() {
             }`}
           />
           <div className="flex h-14 items-center justify-between">
-            <h1 className={`text-[20px] font-bold text-[#2B313D] ${entrance ? 'qd-a-title' : ''}`}>{isPro ? '고객 문의' : '채팅'}</h1>
+            <TitleFilterMenu<string>
+              value={isPro ? proActiveTab : activeTab}
+              onChange={pickChatTab}
+              options={chatFilterOptions}
+              enterClassName={entrance ? 'qd-a-title' : ''}
+            />
             <button
               type="button"
               onClick={() => setShowSearch(!showSearch)}
@@ -886,40 +896,6 @@ export default function ChatListPage() {
             </div>
           )}
 
-          {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(문의목록·새요청과 같은 결) */}
-          <LayoutGroup id="chat-tabs-mobile">
-            <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
-              {(isPro ? PRO_TABS : TABS).map((tab) => {
-                const active = isPro ? proActiveTab === tab : activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => {
-                      if (isPro) {
-                        setProActiveTab(tab as ProFilterTab);
-                      } else {
-                        setActiveTab(tab as FilterTab);
-                      }
-                      setEditMode(false);
-                      setSelectedIds(new Set());
-                    }}
-                    className={`relative flex shrink-0 flex-1 items-center justify-center rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                      active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA]'
-                    }`}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="chat-tab-pill-mobile"
-                        className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <span className="relative whitespace-nowrap">{tab}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </LayoutGroup>
         </div>
         <>
           {editMode && selectedIds.size > 0 && (

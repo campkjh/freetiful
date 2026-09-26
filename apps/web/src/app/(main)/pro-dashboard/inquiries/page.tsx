@@ -41,6 +41,8 @@ interface MatchDeliveryView {
   eventPart: string | null;
   note: string;
   deliveredAt: string;
+  /** 이 고객과의 방에서 AI 자동응답이 응대 중(사회자 쪽 마지막 말이 자동응답) — 'AI 답변중' 태그 */
+  aiReplying?: boolean;
 }
 
 function cacheKey(userId?: string | null) {
@@ -205,6 +207,7 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
         eventPart: raw.eventPart || null,
         note: raw.note || '',
         deliveredAt: d.deliveredAt,
+        aiReplying: Boolean(d.aiReplying),
       };
     });
 }
@@ -547,6 +550,13 @@ export default function ProRequestsPage() {
                     >
                       {single ? '개인요청' : '모두에게'}
                     </span>
+                    {/* AI 응답이 대신 대화 중이면 — 같은 배지 모양, AI 별 */}
+                    {request.aiReplying && (
+                      <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] bg-[#EEF1FF] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] text-[#5B6CF6]">
+                        <AiIcon size={14} tile={false} />
+                        AI 답변중
+                      </span>
+                    )}
                   </div>
                   {/* 메타 — 받은 시각(회색 14) */}
                   <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1] min-[601px]:text-[15px]">{timeAgo(request.deliveredAt)}</p>
@@ -610,7 +620,7 @@ export default function ProRequestsPage() {
         )}
       </div>
 
-      {/* AI 자동매칭 — 하단 탭 위 플로팅(견적가·추가 비용 → 견적 자동 답장) */}
+      {/* AI 응답설정 — 하단 탭 위 플로팅(견적가·추가 비용 → 견적 자동 답장) */}
       <AiQuoteFab />
 
       {rejectTarget && (
