@@ -26,3 +26,12 @@ export function HeaderSearchIcon({ size = 44 }: { size?: number }) {
     </svg>
   );
 }
+
+/** 검색을 닫을 때 돋보기 자리에 오는 X — 돋보기와 같은 굵기(6.8/132 → 44px 에서 약 2.3px) */
+export function HeaderCloseIcon({ size = 44 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 132 132" fill="none" aria-hidden="true" className="shrink-0">
+      <path d="M43 43L89 89M89 43L43 89" stroke={INK} strokeWidth="6.8" strokeLinecap="round" />
+    </svg>
+  );
+}

@@ -17,6 +17,7 @@ import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
+import { HeaderSearchIcon, HeaderCloseIcon } from '@/components/icons/HeaderIcons';
 import { highlightText } from './[id]/chat-text';
 
 // ─── Types ────────────────────────────────────────────────
@@ -927,12 +928,11 @@ export default function ChatListPage() {
               aria-label={showSearch ? '검색 닫기' : '검색'}
               aria-expanded={showSearch}
               data-open={showSearch ? 'true' : 'false'}
-              className={`chatlist-search-toggle relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300 active:scale-90 ${
-                showSearch ? 'bg-[#F2F3F5] text-[#2B313D]' : 'text-[#A4ABBA]'
-              }`}
+              // 홈 헤더 돋보기와 같은 아이콘(260926 사장 "검색 버튼 홈 것으로 다 통일") — 글리프 오른쪽 끝이 화면 끝에서 20
+              className="hdr-search-toggle -mr-1.5 flex h-11 w-11 items-center justify-center transition-transform active:scale-90"
             >
-              <span className="ic ic-search"><SearchIcon size={19} /></span>
-              <span className="ic ic-close"><CloseIcon size={19} /></span>
+              <span className="ic ic-search"><HeaderSearchIcon /></span>
+              <span className="ic ic-close"><HeaderCloseIcon /></span>
             </button>
           </div>
 

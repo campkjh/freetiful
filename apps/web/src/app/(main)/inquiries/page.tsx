@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChatBubbleIcon, ChevronRightIcon, PinLocationIcon } from '@/components/icons/mono';
+import { ChatBubbleIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
@@ -13,6 +13,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
+import { HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 
 type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
@@ -501,12 +502,13 @@ export default function CustomerInquiriesPage() {
             options={statusOptions}
             enterClassName={entrance ? 'qd-a-title' : ''}
           />
+          {/* 검색 — 홈 헤더 돋보기와 같은 아이콘(260926 사장 "검색 버튼 홈 것으로 다 통일") */}
           <Link
-            href="/pros"
-            className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
+            href="/search"
+            aria-label="사회자 검색"
+            className="-mr-1.5 flex h-11 w-11 items-center justify-center transition-transform active:scale-90"
           >
-            사회자 찾기
-            <ChevronRightIcon size={14} className="text-[#8B95A1]" />
+            <HeaderSearchIcon />
           </Link>
         </div>
       </header>

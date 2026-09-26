@@ -16,6 +16,7 @@ import {
 import { Suspense } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
+import { HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 
 interface ProItem {
   id: string;
@@ -730,25 +731,26 @@ function ProsListContent() {
           </button>
           <>
             {showSearch ? (
-              <div
-                key="search-input"
-                className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-full px-3.5 py-2 ml-1"
-              >
-                <Search size={18} className="text-gray-400 shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="이름, 소개로 검색"
-                  className="flex-1 min-w-0 w-full bg-transparent text-[16px] text-gray-900 placeholder-gray-400 outline-none"
-                />
-                <button
-                  onClick={() => { setShowSearch(false); setSearchQuery(''); }}
-                  className="p-0.5 active:scale-90 transition-transform"
-                >
-                  <X size={16} className="text-gray-500" />
-                </button>
+              // 돋보기 자리(오른쪽)에서 칸이 왼쪽으로 벌어진다 — 검색 화면과 같은 .srch-field(260926 "검색 버튼 홈 것으로 통일")
+              <div key="search-input" className="ml-1 flex min-w-0 flex-1 justify-end">
+                <div className="srch-field relative flex h-11 w-full items-center gap-2 overflow-hidden rounded-[14px] bg-[#F2F4F6] pl-3.5 pr-2">
+                  <Search size={18} className="shrink-0 text-[#8B95A1]" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="이름, 소개로 검색"
+                    className="srch-input min-w-0 w-full flex-1 bg-transparent text-[16px] font-medium text-[#191F28] outline-none placeholder:font-normal placeholder:text-[#8B95A1]"
+                  />
+                  <button
+                    onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+                    aria-label="검색 닫기"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C9CED6] text-white transition-transform active:scale-90"
+                  >
+                    <X size={13} strokeWidth={3} />
+                  </button>
+                </div>
               </div>
             ) : (
               <h1
@@ -761,8 +763,13 @@ function ProsListContent() {
           </>
           {!showSearch && <div className="flex-1" />}
           {!showSearch && (
-            <button onClick={() => setShowSearch(true)} className="p-1 active:scale-90 transition-transform">
-              <Search size={20} className="text-gray-600" />
+            // 홈 헤더 돋보기와 같은 아이콘(260926 사장 "검색 버튼 홈 것으로 다 통일")
+            <button
+              onClick={() => setShowSearch(true)}
+              aria-label="검색"
+              className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center transition-transform active:scale-90"
+            >
+              <HeaderSearchIcon />
             </button>
           )}
         </div>

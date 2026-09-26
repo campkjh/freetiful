@@ -2105,15 +2105,19 @@ mark.chat-list-hl, mark.srch-hl { background: none; color: #3182F6; font-weight:
    높이는 칸 48 + 아래 8 = 56 고정이라 재지 않고 height 로 옮긴다(모든 브라우저). 여는 곡선은 길고 부드럽게, 닫는 곡선은 짧게 */
 .chatlist-search { height: 0; overflow: hidden; transition: height .34s cubic-bezier(.4,0,.2,1); }
 .chatlist-search.is-open { height: 56px; transition: height .46s cubic-bezier(.22,1,.36,1); }
-.chatlist-search .field { opacity: 0; transform: translateY(-12px) scale(.97); transform-origin: 50% 0; transition: opacity .16s ease, transform .3s cubic-bezier(.4,0,.2,1); }
-.chatlist-search.is-open .field { opacity: 1; transform: none; transition: opacity .3s ease .06s, transform .5s cubic-bezier(.22,1,.36,1) .03s; }
-/* 돋보기 ↔ 닫기 아이콘 — 돌며 바뀐다 */
-.chatlist-search-toggle > .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .2s ease, transform .38s cubic-bezier(.22,1,.36,1); }
-.chatlist-search-toggle > .ic-close { opacity: 0; transform: rotate(-90deg) scale(.6); }
-.chatlist-search-toggle[data-open="true"] > .ic-search { opacity: 0; transform: rotate(90deg) scale(.6); }
-.chatlist-search-toggle[data-open="true"] > .ic-close { opacity: 1; transform: none; }
+.chatlist-search .field, .community-search-reveal .field { opacity: 0; transform: translateY(-12px) scale(.97); transform-origin: 50% 0; transition: opacity .16s ease, transform .3s cubic-bezier(.4,0,.2,1); }
+.chatlist-search.is-open .field, .community-search-reveal.is-open .field { opacity: 1; transform: none; transition: opacity .3s ease .06s, transform .5s cubic-bezier(.22,1,.36,1) .03s; }
+/* 웨딩숲 검색칸 — 헤더가 grid(gap 12)라 닫혀 있을 땐 위 여백을 -12 로 상쇄해 틈이 안 생기게 */
+.community-search-reveal { height: 0; margin-top: -12px; overflow: hidden; transition: height .34s cubic-bezier(.4,0,.2,1), margin-top .34s cubic-bezier(.4,0,.2,1); }
+.community-search-reveal.is-open { height: 48px; margin-top: 0; transition: height .46s cubic-bezier(.22,1,.36,1), margin-top .46s cubic-bezier(.22,1,.36,1); }
+/* 헤더 돋보기 ↔ 닫기 — 돌며 바뀐다(홈 돋보기로 통일 260926: 채팅·웨딩숲·사회자 목록 공용) */
+.hdr-search-toggle { position: relative; }
+.hdr-search-toggle > .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .2s ease, transform .38s cubic-bezier(.22,1,.36,1); }
+.hdr-search-toggle > .ic-close { opacity: 0; transform: rotate(-90deg) scale(.6); }
+.hdr-search-toggle[data-open="true"] > .ic-search { opacity: 0; transform: rotate(90deg) scale(.6); }
+.hdr-search-toggle[data-open="true"] > .ic-close { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .chatlist-search, .chatlist-search .field, .chat-room-search, .chatlist-search-toggle > .ic { transition: none !important; }
+  .chatlist-search, .chatlist-search .field, .community-search-reveal, .community-search-reveal .field, .chat-room-search, .hdr-search-toggle > .ic { transition: none !important; }
   .chat-search-nav { animation: none; }
 }
 

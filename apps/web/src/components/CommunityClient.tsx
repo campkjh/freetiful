@@ -30,6 +30,7 @@ import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/useTabEntrance";
 import { popItemDelay } from "@/lib/pop-menu";
+import { HeaderSearchIcon, HeaderCloseIcon } from "@/components/icons/HeaderIcons";
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
 const postsKey = communityPostsKey;
@@ -179,6 +180,7 @@ export default function CommunityClient() {
   const toastTimerRef = useRef(0);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const communitySearchRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState("");
   // 주간 인기글 옆 '내 글 / 내 댓글' 필터. 전체 탭·검색 없음일 때만 보인다.
   // 글 상세로 갔다가 돌아와도 필터가 유지되도록 sessionStorage 에 두고 복원한다(스크롤 복원과 같은 방식).
@@ -895,33 +897,63 @@ export default function CommunityClient() {
               </button>
             )}
           </div>
+          {/* 홈 헤더 돋보기와 같은 아이콘(260926 사장 "검색 버튼 홈 것으로 다 통일") — 열면 닫기(X)로 돌며 바뀐다 */}
           <button
             type="button"
-            className="community-icon-button"
+            className="community-icon-button hdr-search-toggle"
+            data-open={searchOpen ? "true" : "false"}
             onClick={() => {
-              if (searchOpen) setQuery("");
-              setSearchOpen((current) => !current);
+              if (searchOpen) {
+                setQuery("");
+                setSearchOpen(false);
+                communitySearchRef.current?.blur();
+              } else {
+                setSearchOpen(true);
+                // 칸은 늘 붙어 있고 높이만 0 — 누른 그 순간 포커스해야 모바일 키보드가 바로 뜬다
+                communitySearchRef.current?.focus({ preventScroll: true });
+              }
             }}
-            aria-label="웨딩숲 검색"
+            aria-label={searchOpen ? "검색 닫기" : "웨딩숲 검색"}
+            aria-expanded={searchOpen}
             title="검색"
             style={iconButtonStyle}
           >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" />
-              <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <span className="ic ic-search"><HeaderSearchIcon /></span>
+            <span className="ic ic-close"><HeaderCloseIcon /></span>
           </button>
         </div>
-        {searchOpen && (
-          <input
-            className="community-search-input"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={selectedGroup ? `${selectedGroup.name}에서 검색` : "웨딩숲 검색"}
-            autoFocus
-            style={searchStyle}
-          />
-        )}
+        {/* 검색칸 — 늘 붙어 있고 높이만 0↔48 로 벌어진다(채팅 목록과 같은 결): 아래 글 목록이 부드럽게 밀려 내려가고 닫으면 올라온다 */}
+        <div className={`community-search-reveal${searchOpen ? " is-open" : ""}`} aria-hidden={!searchOpen}>
+          <div className="field relative">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2.2" />
+              <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+            <input
+              ref={communitySearchRef}
+              className="community-search-input h-12 w-full rounded-[14px] bg-[#F2F3F5] pl-11 pr-10 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] focus:bg-[#EDEFF2]"
+              value={query}
+              tabIndex={searchOpen ? 0 : -1}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); communitySearchRef.current?.blur(); } }}
+              placeholder={selectedGroup ? `${selectedGroup.name}에서 검색` : "웨딩숲 검색"}
+              enterKeyHint="search"
+              autoComplete="off"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => { setQuery(""); communitySearchRef.current?.focus({ preventScroll: true }); }}
+                aria-label="검색어 지우기"
+                className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#A4ABBA] active:bg-[#E4E7EB]"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </header>
 
       <div className="community-layout">
@@ -3021,7 +3053,8 @@ function CommunityStyles() {
         }
         /* 아이콘 버튼은 인라인 style에 display:flex가 있어 !important가 필요하다. */
         .community-topbar .community-icon-button,
-        .community-topbar .community-search-input {
+        .community-topbar .community-search-input,
+        .community-topbar .community-search-reveal {
           display: none !important;
         }
         .community-layout {
@@ -3091,9 +3124,9 @@ function CommunityStyles() {
 
 // 카테고리 알약 칩: 선택은 짙은 차콜, 나머지는 연회색(보더 없이 면으로만 구분).
 const iconButtonStyle = {
-  width: 40,
-  height: 40,
-  marginRight: -8,
+  width: 44,
+  height: 44,
+  marginRight: -6,
   border: "none",
   borderRadius: 999,
   background: "transparent",
@@ -3102,23 +3135,6 @@ const iconButtonStyle = {
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  border: "1px solid var(--c-border-strong)",
-  borderRadius: 8,
-  padding: "12px 13px",
-  color: "var(--c-text)",
-  fontSize: 16,
-  boxSizing: "border-box",
-} as const;
-
-const searchStyle = {
-  ...inputStyle,
-  maxWidth: 1120,
-  margin: "0 auto",
-  background: "var(--c-bg)",
 } as const;
 
 const emptyPanelStyle = {
