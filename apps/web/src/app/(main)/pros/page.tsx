@@ -17,6 +17,10 @@ import { Suspense } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import { discoveryApi, getCachedProList, type ProListItem } from '@/lib/api/discovery.api';
 import { HeaderSearchIcon } from '@/components/icons/HeaderIcons';
+import { EmptySearchIcon } from '@/components/icons/color';
+import { TossCommentIcon, TossShareIcon, SortArrowsIcon } from '@/components/community/TossIcons';
+import { popItemDelay } from '@/lib/pop-menu';
+import toast from 'react-hot-toast';
 
 interface ProItem {
   id: string;
@@ -35,6 +39,10 @@ interface ProItem {
   tags: string[];
   /** 'male'·'female' 또는 '남성'·'여성'(가입 시기마다 표기가 다름) · 빈 값 */
   gender: string;
+  /** 포트폴리오 사진(목록 API 최대 4장, 첫 장은 보통 프로필) */
+  images: string[];
+  /** 소개 영상 — 여러 개면 줄바꿈으로 이어 붙어 온다 */
+  youtubeUrl: string;
 }
 
 /** 남성/여성 사회자 거르기 — DB 값이 male/female 과 남성/여성 두 가지라 둘 다 본다 */
@@ -44,10 +52,10 @@ function matchesGender(value: string, want: 'male' | 'female') {
 }
 
 const SORT_OPTIONS = [
-  { value: 'popular', label: '추천순' },
-  { value: 'avg_rating', label: '평점순' },
-  { value: 'review_count', label: '리뷰순' },
-  { value: 'experience', label: '경력순' },
+  { value: 'popular', label: '추천순', icon: 'medal-check' },
+  { value: 'avg_rating', label: '평점순', icon: 'star' },
+  { value: 'review_count', label: '리뷰순', icon: 'chat' },
+  { value: 'experience', label: '경력순', icon: 'calendar-check' },
 ];
 
 const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트'];
@@ -89,119 +97,174 @@ function matchesRegion(pro: ProItem, region: string) {
   return (pro.regions || []).some((r) => aliases.includes(r));
 }
 
-function ProListCard({
+/** 소개 영상 첫 주소(여러 개면 줄바꿈으로 이어 붙어 온다) */
+function firstVideoUrl(value: string) {
+  return String(value || '').split(/\s+/).find((u) => /^https?:\/\//i.test(u)) || '';
+}
+
+/** '수도권(서울/인천/경기)' → '수도권' */
+function shortRegionLabel(region?: string) {
+  return String(region || '').replace(/\(.*?\)/g, '').trim();
+}
+
+/**
+ * 사회자 한 줄 — 웨딩숲 글 카드(.tcard) 계층(260926 사장 "사회자 리스트도 웨딩숲 느낌으로").
+ *  프사 42 · 이름 16 굵게 + TOP 뱃지('열혈 작가' 노랑 톤) · 한 줄 정보 14 회색 · 오른쪽 '문의'(팔로우 버튼 톤) ·
+ *  소개 16.5 · 사진 3장(세로 3:4 · 모서리 16 · 3px 틈 — 웨딩숲 사진 모음) · 행사 태그 칩(회색 · 모서리 6) · 아래 리뷰·영상·공유 줄.
+ *  카드 전체가 상세로 가는 링크(바닥에 깔고), 버튼·링크만 위로 누를 수 있게 둔다.
+ */
+function ProFeedCard({
   pro,
   index,
 }: {
   pro: ProItem;
   index: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const prefetchStarted = useRef(false);
-  // 처음에 false 로 두면(=opacity-0) IntersectionObserver 가 안 뜨거나 8% 교차에
-  // 도달 못한 카드(Android WebView/빠른 스크롤)가 영구히 투명 → 이미지가 부분적으로
-  // 안 보임. 첫 화면에 들어오는 카드는 바로 보이게 하고, 관찰자는 "등장 모션"만 담당.
-  const [visible, setVisible] = useState(index < PAGE_SIZE);
-
-  useEffect(() => {
-    if (visible) return;
-    const el = ref.current;
-    if (!el) return;
-    // IntersectionObserver 미지원 환경 안전장치
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '120px 0px', threshold: 0 },
-    );
-    observer.observe(el);
-    // 관찰자가 어떤 이유로든 콜백을 못 쏘는 경우(레이아웃 타이밍/WebView 버그)에도
-    // 카드가 영구 투명으로 남지 않도록 한 번 강제 노출.
-    const fallback = window.setTimeout(() => setVisible(true), 600);
-    return () => {
-      observer.disconnect();
-      window.clearTimeout(fallback);
-    };
-  }, [visible]);
-
   const warmDetail = () => {
     if (prefetchStarted.current || pro.id === 'my-pro') return;
     prefetchStarted.current = true;
     discoveryApi.getProDetail(pro.id).catch(() => {});
   };
+  const detailHref = `/pros/${pro.id}`;
+  const avatar = pro.image || pro.images[0] || '/images/default-profile.png';
+  // 사진 모음 — 프로필과 같은 첫 장은 빼고 최대 3장
+  const photos = pro.images.filter((src) => src && src !== pro.image).slice(0, 3);
+  const region = pro.isNationwide ? '전국' : shortRegionLabel(pro.regions[0]);
+  const chips = Array.from(new Set([
+    ...pro.tags.slice(0, 3),
+    ...pro.languages.filter((l) => /[가-힣]/.test(l) && l !== '한국어').slice(0, 1).map((l) => `${l} 진행`),
+  ])).slice(0, 4);
+  const video = firstVideoUrl(pro.youtubeUrl);
+  const share = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const url = `${window.location.origin}${detailHref}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${pro.name} 사회자 · 프리티풀`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('링크를 복사했어요');
+      }
+    } catch { /* 공유 창을 닫았다 */ }
+  };
+  const actCls = 'pointer-events-auto inline-flex items-center gap-1.5 px-0.5 py-1 text-[16px] font-medium tracking-[-0.2px] text-[#6B7684] transition-transform active:scale-[0.92]';
+  // 사진이 한 번 실패하면 0.5초 뒤 한 번 더(안드 웹뷰 일시 실패), 그래도 안 되면 기본 그림 — 옛 카드의 처리 유지
+  const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget;
+    if (el.dataset.fb) return;
+    const base = (el.getAttribute('src') || '').split('?')[0];
+    if (!el.dataset.retry && base && !base.includes('default-profile')) {
+      el.dataset.retry = '1';
+      window.setTimeout(() => { el.src = `${base}?r=1`; }, 500);
+      return;
+    }
+    el.dataset.fb = '1';
+    el.src = '/images/default-profile.png';
+  };
 
   return (
-    <div
-      ref={ref}
-      className={`px-4 py-3 transition-all duration-500 ease-out ${
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
-      }`}
-      style={{ transitionDelay: `${Math.min(index % PAGE_SIZE, 6) * 35}ms` }}
+    <article
+      className="qd-a-item relative flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px] transition-colors active:bg-[#FAFBFC]"
+      style={{ animationDelay: `${0.06 + (index % PAGE_SIZE) * 0.045}s` }}
+      onMouseEnter={warmDetail}
+      onTouchStart={warmDetail}
     >
-      <div
-        onMouseEnter={warmDetail}
-        onTouchStart={warmDetail}
-        className="group relative flex gap-3 rounded-xl active:scale-[0.985] transition-transform"
-      >
-        <Link href={`/pros/${pro.id}`} onFocus={warmDetail} className="absolute inset-0 z-0 rounded-xl" aria-label={`${pro.name} 상세보기`} />
-        <div className="pointer-events-none relative z-10 w-[105px] h-[140px] rounded-lg overflow-hidden bg-gray-100 shrink-0">
-          <img
-            src={pro.image || '/images/default-profile.png'}
-            alt={pro.name}
-            loading={index < 4 ? 'eager' : 'lazy'}
-            decoding="async"
-            onError={(e) => { const el = e.currentTarget; if (el.dataset.fb) return; const base = (pro.image || '').split('?')[0]; if (!el.dataset.retry && base) { el.dataset.retry = '1'; setTimeout(() => { el.src = `${base}?r=1`; }, 500); } else { el.dataset.fb = '1'; el.src = '/images/default-profile.png'; } }}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          {pro.isNationwide && (
-            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-[#3180F7] shadow-sm">
-              전국
-            </span>
-          )}
-        </div>
-        <div className="pointer-events-none relative z-10 flex-1 min-w-0 flex flex-col py-0.5">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-[16px] font-bold text-gray-900 leading-tight">
-              {pro.categories[0] || '사회자'} {pro.name}
-            </p>
-            {pro.rank > 0 && pro.rank <= 10 && (
-              <span className="shrink-0 rounded-full bg-[#EAF3FF] px-2 py-0.5 text-[10px] font-bold text-[#3180F7]">
-                TOP {pro.rank}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="flex items-center gap-0.5">
-              <Star size={13} className="fill-yellow-400 text-yellow-400" />
-              <span className="text-[13px] font-bold text-gray-900">{pro.rating}</span>
-              <span className="text-[13px] text-gray-400">({pro.reviews})</span>
-            </div>
-          </div>
-          <p className="text-[13px] text-gray-500 mt-2 line-clamp-2 leading-snug">
-            &ldquo;{pro.intro || '프리티풀 인증 사회자입니다'}&rdquo;
-          </p>
-          <div className="mt-auto pt-2 flex flex-wrap gap-1">
-            {pro.experience > 0 && (
-              <span className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-semibold text-gray-600">
-                경력 {pro.experience}년
-              </span>
-            )}
-            {(pro.isNationwide ? ['전국가능'] : pro.regions.slice(0, 2)).map((tag) => (
-              <span key={tag} className="rounded-[5px] bg-gray-100 px-1.5 py-1 text-[10px] font-medium text-gray-500">
-                {tag}
-              </span>
-            ))}
-          </div>
+      <Link href={detailHref} onFocus={warmDetail} className="absolute inset-0 z-0" aria-label={`${pro.name} 사회자 보기`} />
+      {/* 왼쪽 — 프사 42 */}
+      <div className="pointer-events-none relative z-[1] w-[42px] shrink-0">
+        <div className="h-[42px] w-[42px] overflow-hidden rounded-full bg-[#F2F4F6]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={avatar} alt="" loading={index < 6 ? 'eager' : 'lazy'} decoding="async" onError={onImgError} className="h-full w-full object-cover" />
         </div>
       </div>
-    </div>
+      <div className="pointer-events-none relative z-[1] min-w-0 flex-1">
+        {/* 이름 줄 + 한 줄 정보 / 오른쪽 '문의' */}
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="min-w-0 pt-px">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="truncate text-[16px] font-bold tracking-[-0.3px] text-[#191F28]">{pro.name}</span>
+              {pro.rank > 0 && pro.rank <= 10 && (
+                <span className="inline-flex h-6 shrink-0 items-center rounded-[6px] bg-[#FFF6DB] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] text-[#D99A00]">
+                  TOP {pro.rank}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 flex flex-wrap items-center gap-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">
+              {pro.reviews > 0 ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+                    <path d="M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill="#FFC933" />
+                  </svg>
+                  <span className="font-semibold text-[#4E5968]">{Number(pro.rating || 0).toFixed(1)}</span>
+                  <span>· 리뷰 {pro.reviews}</span>
+                </>
+              ) : (
+                <span className="font-semibold text-[#3182F6]">새로 온 사회자</span>
+              )}
+              {pro.experience > 0 && <span>· 경력 {pro.experience}년</span>}
+              {region && <span>· {region}</span>}
+            </p>
+          </div>
+          {/* 웨딩숲 '팔로우' 자리 — 문의(상세의 문의 창을 바로 연다) */}
+          <Link
+            href={`${detailHref}?inquiry=1`}
+            onClick={warmDetail}
+            className="pointer-events-auto flex h-[34px] shrink-0 items-center rounded-[10px] bg-[#E8F3FF] px-3 text-[15px] font-semibold tracking-[-0.2px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#D6E9FF]"
+          >
+            문의
+          </Link>
+        </div>
+
+        {/* 본문 — 소개 */}
+        <p className="mt-3 line-clamp-2 whitespace-pre-line break-words text-[16.5px] leading-[1.65] tracking-[-0.3px] text-[#191F28]">
+          {pro.intro || '프리티풀 인증 사회자예요'}
+        </p>
+
+        {/* 사진 모음 — 웨딩숲 사진 칸(모서리 16 · 3px 틈), 세로 3:4 */}
+        {photos.length > 0 && (
+          <div className="mt-3.5 grid max-w-[420px] grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
+            {photos.map((src, i) => (
+              <div key={src + i} className="aspect-[3/4] overflow-hidden bg-[#F2F4F6]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" onError={onImgError} className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 태그 칩 — 웨딩숲 카테고리 칩 */}
+        {chips.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            {chips.map((chip) => (
+              <span key={chip} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{chip}</span>
+            ))}
+          </div>
+        )}
+
+        {/* 아래 줄 — 리뷰 · 영상 · 공유(웨딩숲 좋아요·댓글·공유 줄 어법) */}
+        <div className="mt-3.5 flex items-center gap-5">
+          <Link href={`${detailHref}/reviews`} className={actCls} aria-label={`리뷰 ${pro.reviews}개 보기`}>
+            <TossCommentIcon />
+            {pro.reviews}
+          </Link>
+          {video && (
+            <a href={video} target="_blank" rel="noopener noreferrer" className={actCls} onClick={(e) => e.stopPropagation()}>
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true">
+                <rect x="3.6" y="5.6" width="16.8" height="12.8" rx="3.4" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M10.4 9.4v5.2l4.4-2.6-4.4-2.6Z" fill="currentColor" />
+              </svg>
+              영상
+            </a>
+          )}
+          <button type="button" onClick={share} className={actCls} aria-label="공유하기">
+            <TossShareIcon />
+            공유
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -364,6 +427,8 @@ function mapApiPros(items: ProListItem[]): ProItem[] {
       experience: p.careerYears || 1,
       tags: (p as any).tags || [],
       gender: p.gender || '',
+      images: Array.isArray(p.images) ? p.images.filter(Boolean) : [],
+      youtubeUrl: p.youtubeUrl || '',
     }));
 }
 
@@ -445,6 +510,7 @@ function ProsListContent() {
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [listSettled, setListSettled] = useState(true);
   const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}`;
@@ -631,16 +697,18 @@ function ProsListContent() {
         </div>
         {/* 필터 칩 스켈레톤은 두지 않는다 — 실제 /pros 화면에는 필터 칩 UI가 없어서
             로딩 중에만 칩 5개가 떴다가 사라지며 레이아웃이 튀고, 홈 필터와 달라 보였다. */}
-        {/* List item skeletons */}
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex gap-3">
-              <div className="skeleton shrink-0" style={{ width: 100, height: 100, borderRadius: 12 }} />
-              <div className="flex-1 py-1">
-                <div className="skeleton mb-2" style={{ width: '60%', height: 16 }} />
-                <div className="skeleton mb-2" style={{ width: '80%', height: 12 }} />
-                <div className="skeleton mb-2" style={{ width: '40%', height: 12 }} />
-                <div className="skeleton" style={{ width: '30%', height: 14 }} />
+        {/* 카드 뼈대 — 웨딩숲 글 카드 모양(프사 · 이름 · 한 줄 정보 · 소개 · 사진 3장) */}
+        <div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-2.5 border-b border-[#F2F4F6] pb-3.5 pt-[18px]">
+              <div className="skeleton shrink-0" style={{ width: 42, height: 42, borderRadius: 9999 }} />
+              <div className="min-w-0 flex-1">
+                <div className="skeleton" style={{ width: '38%', height: 16, borderRadius: 6 }} />
+                <div className="skeleton mt-2" style={{ width: '62%', height: 13, borderRadius: 6 }} />
+                <div className="skeleton mt-3.5" style={{ width: '82%', height: 15, borderRadius: 6 }} />
+                <div className="mt-3.5 grid max-w-[420px] grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
+                  {[0, 1, 2].map((k) => <div key={k} className="skeleton aspect-[3/4]" style={{ borderRadius: 0 }} />)}
+                </div>
               </div>
             </div>
           ))}
@@ -776,20 +844,43 @@ function ProsListContent() {
 
       </div>
 
-      {/* Result count + sort dropdown */}
-      <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white">
-        <span />
-        <div className="flex items-center gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="text-[12px] text-gray-500 bg-transparent outline-none cursor-pointer"
+      {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 오른쪽에 몇 명인지 */}
+      <div className="flex items-center justify-between gap-3 bg-white px-4 pb-1 pt-2">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setSortOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={sortOpen}
+            className="inline-flex h-[42px] items-center gap-1 rounded-[12px] bg-[#F2F4F6] px-3.5 text-[16px] font-semibold tracking-[-0.3px] text-[#333D4B] transition-colors active:bg-[#E8EBED]"
           >
-            {SORT_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label || '추천순'}
+            <SortArrowsIcon />
+          </button>
+          {sortOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setSortOpen(false)} />
+              <div className="pop-menu nt-menu absolute left-0 top-[calc(100%+6px)] z-50" style={{ transformOrigin: 'top left' }} role="menu">
+                {SORT_OPTIONS.map((opt, i) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={sortBy === opt.value}
+                    onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
+                    className={`pop-menu-item nt-menu-item${sortBy === opt.value ? ' on' : ''}`}
+                    style={popItemDelay(i)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/icons/toss/${opt.icon}.svg`} alt="" />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+        <span className="text-[14px] tracking-[-0.2px] text-[#8B95A1]">사회자 {filtered.length}명</span>
       </div>
 
       {/* Pro List */}
@@ -806,7 +897,7 @@ function ProsListContent() {
           <div>
             <div className="divide-y divide-gray-100">
               {paginatedPros.map((pro, i) => (
-                <ProListCard key={pro.id} pro={pro} index={i} />
+                <ProFeedCard key={pro.id} pro={pro} index={i} />
               ))}
             </div>
 
@@ -828,18 +919,16 @@ function ProsListContent() {
             <div className="h-20 lg:h-0" />
           </div>
         ) : (
-          <div
-            className="flex flex-col items-center py-20"
-          >
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gray-100">
-              <Search size={28} className="text-gray-300" />
-            </div>
-            <p className="text-gray-400 text-[14px] mb-1">해당 조건의 사회자가 없습니다</p>
+          <div className="flex flex-col items-center px-8 py-20 text-center">
+            <div className="srch-pop"><EmptySearchIcon size={64} /></div>
+            <p className="qd-a-title mt-4 text-[17px] font-bold text-[#191F28]">조건에 맞는 사회자가 없어요</p>
+            <p className="qd-a-sub mt-1 text-[14px] text-[#8B95A1]">검색어나 조건을 바꿔 다시 찾아보세요</p>
             <button
-              onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
-              className="text-primary-500 text-[13px] font-semibold mt-2"
+              type="button"
+              onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); setSearchQuery(''); }}
+              className="qd-a-sub mt-4 inline-flex h-[42px] items-center rounded-[11px] bg-[#E8F3FF] px-[18px] text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#DCEBFF]"
             >
-              필터 초기화
+              조건 초기화
             </button>
           </div>
         )}

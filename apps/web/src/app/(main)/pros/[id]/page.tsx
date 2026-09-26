@@ -1524,6 +1524,20 @@ export default function ProDetailPage() {
     setConfirmInquiryOpen(true);
   };
 
+  // 사회자 목록 카드의 '문의'(260926) — /pros/:id?inquiry=1 로 오면 사회자 정보가 뜬 뒤 문의 창을 바로 연다(한 번만, 주소에서 뗌)
+  const inquiryAutoRef = useRef(false);
+  useEffect(() => {
+    if (inquiryAutoRef.current || !pro || typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('inquiry') !== '1') return;
+    inquiryAutoRef.current = true;
+    sp.delete('inquiry');
+    const qs = sp.toString();
+    try { window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '')); } catch { /* 주소는 그대로여도 된다 */ }
+    handleInquiry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pro]);
+
   const submitInquiryRequest = async (override?: { location: string; date: string; time: string }): Promise<string> => {
     if (!pro || !authUser || openingChat) return 'fail:준비 중입니다. 잠시 후 다시 시도해주세요.';
     const trimmedLocation = (override?.location ?? inquiryLocation).trim();
