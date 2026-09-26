@@ -554,6 +554,11 @@ function isWeddingMcPro(pro: ProData) {
   });
 }
 
+/** 결혼식 태그 사회자 — 태그·분류에 '결혼식'(260926 사장 '프리티풀의 더 많은 결혼식 사회자'). isWeddingMcPro 는 '사회자' 분류면 다 통과라 따로 */
+function isWeddingTaggedPro(pro: ProData) {
+  return [...pro.categories, ...pro.tags].some((value) => value.toLowerCase().includes('결혼식'));
+}
+
 function isEventMcPro(pro: ProData) {
   const values = [...pro.categories, ...pro.tags].map((value) => value.toLowerCase());
   return values.some((value) =>
@@ -2095,10 +2100,14 @@ export default function HomePage() {
     return [...enough, ...rest];
   }, [prosData]);
   const moreProsSeedRef = useRef(`${Date.now()}-${Math.random()}`);
-  const morePros = useMemo(
-    () => shuffleProsBySeed(prosData, moreProsSeedRef.current),
-    [prosData],
-  );
+  // '더 많은 결혼식 사회자' — 결혼식 태그 사회자 먼저(행사 칸과 같은 방식), 모자라면 나머지로 채움
+  const morePros = useMemo(() => {
+    const wedding = prosData.filter(isWeddingTaggedPro);
+    const ids = new Set(wedding.map((pro) => pro.id));
+    const rest = prosData.filter((pro) => !ids.has(pro.id));
+    const list = wedding.length >= 12 ? wedding : [...wedding, ...rest];
+    return shuffleProsBySeed(list.length > 0 ? list : prosData, moreProsSeedRef.current);
+  }, [prosData]);
   const eventPros = useMemo(() => {
     const filtered = prosData.filter(isEventMcPro);
     const filteredIds = new Set(filtered.map((pro) => pro.id));
@@ -3020,11 +3029,13 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
-                  <ProsIcon size={24} />
+                {/* 앞 그림 = 홈 칸 '결혼식사회자' 아이콘(백합+마이크) — 모바일도 보인다(260926 사장) */}
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] lg:h-12 lg:w-12" style={{ backgroundColor: categoryTileColor('wedding-mc-icon.png') }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/category-icons/wedding-mc-icon.png" alt="" className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
                 </span>
                 <div>
-                  <h3 className="section-title">프리티풀의 더 많은 사회자</h3>
+                  <h3 className="section-title">프리티풀의 더 많은 결혼식 사회자</h3>
                   <p className="section-subtitle mt-1">고객 만족도가 높은 사회자를 만나보세요</p>
                 </div>
               </div>
@@ -3075,8 +3086,10 @@ export default function HomePage() {
           <Reveal>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
-                  <EventMcIcon size={24} />
+                {/* 앞 그림 = 홈 칸 '행사사회자' 아이콘(와인+마이크) — 모바일도 보인다(260926 사장) */}
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] lg:h-12 lg:w-12" style={{ backgroundColor: categoryTileColor('event-mc-icon.png') }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/category-icons/event-mc-icon.png" alt="" className="h-8 w-8 object-contain lg:h-9 lg:w-9" />
                 </span>
                 <div>
                   <h3 className="section-title">프리티풀의 행사 사회자</h3>
