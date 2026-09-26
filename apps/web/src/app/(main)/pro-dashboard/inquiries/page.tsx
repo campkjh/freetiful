@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGroup, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { CalendarIcon, ChatBubbleIcon, PinLocationIcon } from '@/components/icons/mono';
@@ -12,6 +11,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import AiQuoteFab from './AiQuoteFab';
+import TitleFilterMenu from '@/components/ui/TitleFilterMenu';
 import AiIcon from '@/components/icons/AiIcon';
 
 type Filter = 'all' | 'multi' | 'single' | 'archived';
@@ -147,6 +147,12 @@ function formatEventDate(iso: string | null): string {
   return `${String(d.getUTCFullYear()).slice(2)}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${weekdays[d.getUTCDay()]})`;
 }
 
+/** 토스 컬러 아이콘(public/icons/toss) — 제목 ⌄ 메뉴 줄 */
+function TossIcon({ name }: { name: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/icons/toss/${name}.svg`} alt="" className="h-6 w-6" />;
+}
+
 /** 거절 사유 프리셋 — 서버(chat-reply-suggest declineRules)와 같은 문장. AI 추천이 오기 전 바로 보여 준다 */
 function declinePresets(request: { eventDate: string | null; eventTime: string | null; eventLocation: string | null }) {
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
@@ -203,12 +209,6 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
     });
 }
 
-const TABS: { key: Filter; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'multi', label: '모두에게' },
-  { key: 'single', label: '개인요청' },
-  { key: 'archived', label: '보관' },
-];
 
 export default function ProRequestsPage() {
   const router = useRouter();
@@ -475,46 +475,21 @@ export default function ProRequestsPage() {
 
   return (
     <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-40 lg:mx-auto lg:max-w-[760px] lg:pb-28">
-      {/* 머리줄 — 매칭·채팅과 같은 결(흰 바탕·제목 20) + 종류 탭이 같이 붙어 다닌다 */}
-      <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pb-2">
+      {/* 머리줄 — 제목 '새 요청 ⌄' 을 누르면 알림처럼 종류를 고른다(전체·모두에게·개인요청·보관, 260926 사장 — 탭 대신) */}
+      <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4">
         <div className="flex h-14 items-center">
-          <h1 className={`text-[20px] font-bold text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>새 요청</h1>
+          <TitleFilterMenu<Filter>
+            value={filter}
+            onChange={(key) => { setFilter(key); setTabSwitched(true); }}
+            enterClassName={entrance ? 'qd-a-title' : ''}
+            options={[
+              { key: 'all', label: '전체', title: '새 요청', icon: <TossIcon name="list" />, count: requests.filter((r) => r.status !== 'archived').length },
+              { key: 'multi', label: '모두에게', title: '모두에게 온 요청', icon: <TossIcon name="loudspeaker" />, count: requests.filter((r) => r.status !== 'archived' && r.requestKind === 'multi').length },
+              { key: 'single', label: '개인요청', title: '나에게 온 요청', icon: <TossIcon name="account" />, count: requests.filter((r) => r.status !== 'archived' && r.requestKind === 'single').length },
+              { key: 'archived', label: '보관', title: '보관한 요청', icon: <TossIcon name="document" />, count: requests.filter((r) => r.status === 'archived').length },
+            ]}
+          />
         </div>
-        {/* 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(매칭·채팅 탭과 같은 모양) */}
-        <LayoutGroup id="pro-inquiry-tabs">
-          <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
-            {TABS.map((tab) => {
-              const active = filter === tab.key;
-              const count = tab.key === 'all'
-                ? requests.filter((r) => r.status !== 'archived').length
-                : tab.key === 'archived'
-                  ? requests.filter((r) => r.status === 'archived').length
-                  : requests.filter((r) => r.status !== 'archived' && r.requestKind === tab.key).length;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => { setFilter(tab.key); setTabSwitched(true); }}
-                  className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                    active ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="pro-inquiry-tab-pill"
-                      className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                    />
-                  )}
-                  <span className="relative whitespace-nowrap">{tab.label}</span>
-                  {count > 0 && (
-                    <span className={`relative text-[12px] tabular-nums ${active ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>{count}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </LayoutGroup>
       </div>
 
       <div key={filter} style={tabSwitched ? { animation: 'proPageExpand 0.32s cubic-bezier(0.16, 1, 0.3, 1) both' } : undefined}>

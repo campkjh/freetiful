@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutGroup, motion } from 'framer-motion';
 import { ChatBubbleIcon, ChevronRightIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
@@ -13,6 +12,7 @@ import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 
 type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
@@ -166,9 +166,6 @@ function StatusTag({ status }: { status: InquiryStatus }) {
     </span>
   );
 }
-
-/** 상태 필터 탭 — '전체' 는 개수 합계 */
-const STATUS_TABS: (InquiryStatus | '전체')[] = ['전체', '요청중', '요청승인', '거래완료', '거절'];
 
 function buildCards(requests: any[]): InquiryCard[] {
   return requests.flatMap((request) => {
@@ -477,38 +474,15 @@ export default function CustomerInquiriesPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // 상태 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(채팅 탭과 같은 모양). 개수가 0인 상태는 숨긴다
-  const statusTabs = (
-    <LayoutGroup id="inquiry-status-tabs">
-      <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
-        {STATUS_TABS.map((tab) => {
-          const on = statusTab === tab;
-          const count = statusCounts[tab] || 0;
-          if (tab !== '전체' && count === 0) return null;
-          return (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => { setStatusTab(tab); setTabSwitched(true); }}
-              className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                on ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
-              }`}
-            >
-              {on && (
-                <motion.span
-                  layoutId="inquiry-status-pill"
-                  className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                />
-              )}
-              <span className="relative whitespace-nowrap">{tab}</span>
-              <span className={`relative text-[12px] tabular-nums ${on ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </LayoutGroup>
-  );
+  // 제목 '매칭 ⌄' — 알림처럼 눌러서 진행 상태를 고른다(260926 사장 — 탭 대신). 개수는 메뉴 줄 오른쪽
+  const statusOptions: TitleFilterOption<InquiryStatus | '전체'>[] = [
+    { key: '전체', label: '전체', title: '매칭', icon: <img src="/icons/toss/list.svg" alt="" className="h-6 w-6" />, count: statusCounts['전체'] || 0 },
+    { key: '요청중', label: '요청중', title: '요청중', icon: <PendingIcon size={24} />, count: statusCounts['요청중'] || 0 },
+    { key: '요청승인', label: '요청승인', title: '요청승인', icon: <RepliedIcon size={24} />, count: statusCounts['요청승인'] || 0 },
+    { key: '거래완료', label: '거래완료', title: '거래완료', icon: <DoneIcon size={24} />, count: statusCounts['거래완료'] || 0 },
+    { key: '거절', label: '거절', title: '거절', icon: <DeclinedIcon size={24} />, count: statusCounts['거절'] || 0 },
+  ];
+  const pickStatus = (key: InquiryStatus | '전체') => { setStatusTab(key); setTabSwitched(true); };
 
   return (
     <div className="min-h-screen bg-white pb-28 lg:pb-6">
@@ -521,7 +495,12 @@ export default function CustomerInquiriesPage() {
           }`}
         />
         <div className="flex h-14 items-center justify-between">
-          <h1 className={`text-[20px] font-bold text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>매칭</h1>
+          <TitleFilterMenu<InquiryStatus | '전체'>
+            value={statusTab}
+            onChange={pickStatus}
+            options={statusOptions}
+            enterClassName={entrance ? 'qd-a-title' : ''}
+          />
           <Link
             href="/pros"
             className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
@@ -530,17 +509,21 @@ export default function CustomerInquiriesPage() {
             <ChevronRightIcon size={14} className="text-[#8B95A1]" />
           </Link>
         </div>
-        {cards.length > 0 && statusTabs}
       </header>
 
       <div className="mx-auto grid max-w-[1120px] items-start gap-8 lg:grid-cols-[1fr_340px] lg:pt-8">
         <div className="min-w-0">
           {/* PC 타이틀 */}
           <div className="mb-5 hidden lg:block">
-            <h1 className={`text-[26px] font-bold tracking-tight text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>매칭</h1>
+            <TitleFilterMenu<InquiryStatus | '전체'>
+              value={statusTab}
+              onChange={pickStatus}
+              options={statusOptions}
+              titleClassName="text-[26px]"
+              enterClassName={entrance ? 'qd-a-title' : ''}
+            />
             <p className="mt-1 text-[14px] text-[#8B95A1]">보낸 문의와 사회자별 진행 상태를 한눈에 확인하세요</p>
           </div>
-          {cards.length > 0 && <div className="sticky top-[72px] z-10 hidden bg-white py-3 lg:block">{statusTabs}</div>}
 
           {loading ? (
             <div className="space-y-7 px-4 pt-5 lg:px-0">
