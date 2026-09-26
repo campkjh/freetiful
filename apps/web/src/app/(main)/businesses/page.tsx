@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent, type WheelEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -31,7 +31,7 @@ import {
 } from '@/lib/business-quality';
 import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml, normalizeBusinessTags } from '@/lib/business-tags';
 import VilladegdHero from '@/components/VilladegdHero';
-import { TossCommentIcon, TossShareIcon } from '@/components/community/TossIcons';
+import PartnerToneCard, { type PartnerToneCardData } from '@/components/business/PartnerToneCard';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -308,137 +308,18 @@ async function fetchBusinessPage(category: string, page: number, limit: number, 
   };
 }
 
-/**
- * 웨딩파트너 목록 한 줄 — 웨딩숲 글 카드(.tcard) 계층(260926 사장 "웨딩파트너 리스트 웨딩숲 느낌으로, 인터랙션도 퀵매칭").
- *  사회자 목록 카드(components/pros/ProFeedCard)와 같은 결: 대표 사진 프사 42 · 이름 16 굵게 + 분야 배지(h24 · 모서리 6) ·
- *  한 줄 정보 14 회색(지역 · 분야) · 오른쪽 '문의'(웨딩숲 팔로우 버튼 톤 → 상세 문의 시트 바로 열기) · 사진 3장(대표 사진 뺀 정사각 · 3px 틈 ·
- *  모서리 16) · 회색 칩 · 아래 줄(문의 · 사진 N장 · 공유). 카드 전체가 상세로 가는 링크(바닥), 버튼만 위로 누를 수 있게.
- *  등장 = 퀵매칭(.qd-a-item 오른쪽→왼쪽, 10장 단위로 0.045s 씩 차례).
- */
-function BusinessFeedList({ items, muted = false }: { items: RankItem[]; muted?: boolean }) {
-  const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
-  const visibleItems = useMemo(
-    () => items.filter((item) => item.image && !brokenIds.has(item.id)),
-    [brokenIds, items],
-  );
-  const share = async (event: React.MouseEvent, item: RankItem) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const url = `${window.location.origin}/businesses/${item.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `${item.title} · 프리티풀`, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast('링크를 복사했어요');
-      }
-    } catch { /* 공유 창을 닫았다 */ }
+/** 목록 항목 → 홈 웨딩파트너 카드(components/business/PartnerToneCard) 값 */
+function toToneCard(item: RankItem): PartnerToneCardData {
+  const images = item.images && item.images.length > 0 ? item.images : [item.image];
+  return {
+    id: item.id,
+    name: item.title,
+    location: item.region,
+    images,
+    photoCount: item.photoCount,
+    tags: item.tags,
+    discountPercent: item.discountPercent,
   };
-  const actCls = 'pointer-events-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-0.5 py-1 text-[16px] font-medium tracking-[-0.2px] text-[#6B7684] transition-transform active:scale-[0.92]';
-
-  return (
-    <div className={muted ? 'pointer-events-none opacity-70' : ''} aria-hidden={muted || undefined}>
-      {visibleItems.map((item, index) => {
-        const detailHref = `/businesses/${item.id}`;
-        const photos = (item.images || []).filter((src) => src && src !== item.image).slice(0, 3);
-        const count = item.photoCount || (item.images?.length ?? 1);
-        const meta = [item.region, item.clinic && item.clinic !== item.category ? item.clinic : ''].filter(Boolean).join(' · ');
-        // 칩 — '인기'는 안 보이고, 같은 말이 두 번 들어온 업체도 있어 한 번만
-        const chips = Array.from(new Set(item.tags.filter((tag) => tag && tag !== '인기'))).slice(0, 4);
-        return (
-          <article
-            key={item.id}
-            className={`${muted ? '' : 'qd-a-item '}relative flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px] transition-colors active:bg-[#FAFBFC]`}
-            style={muted ? undefined : { animationDelay: `${0.06 + (index % 10) * 0.045}s` }}
-          >
-            <Link href={detailHref} tabIndex={muted ? -1 : 0} className="absolute inset-0 z-0" aria-label={`${item.title} 보기`} />
-            {/* 왼쪽 — 대표 사진 프사 42 */}
-            <div className="pointer-events-none relative z-[1] w-[42px] shrink-0">
-              <div className="h-[42px] w-[42px] overflow-hidden rounded-full bg-[#F2F4F6]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.image}
-                  alt=""
-                  loading={!muted && index < 4 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                  onError={() => setBrokenIds((prev) => new Set(prev).add(item.id))}
-                />
-              </div>
-            </div>
-            <div className="pointer-events-none relative z-[1] min-w-0 flex-1">
-              {/* 이름 + 분야 배지 · 한 줄 정보 / 오른쪽 '문의' */}
-              <div className="flex items-start justify-between gap-2.5">
-                <div className="min-w-0 pt-px">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="break-keep text-[16px] font-bold tracking-[-0.3px] text-[#191F28]">{item.title}</span>
-                    {item.category && item.category !== '전체' && (
-                      <span className="inline-flex h-6 shrink-0 items-center rounded-[6px] bg-[#F2F4F6] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] text-[#6B7684]">
-                        {item.category}
-                      </span>
-                    )}
-                  </div>
-                  {meta && <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{meta}</p>}
-                </div>
-                <Link
-                  href={`${detailHref}?inquiry=1`}
-                  tabIndex={muted ? -1 : 0}
-                  className="pointer-events-auto flex h-[34px] shrink-0 items-center rounded-[10px] bg-[#E8F3FF] px-3 text-[15px] font-semibold tracking-[-0.2px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#D6E9FF]"
-                >
-                  문의
-                </Link>
-              </div>
-
-              {/* 사진 모음 — 웨딩숲 사진 칸(모서리 16 · 3px 틈), 대표 사진 뺀 3장 */}
-              {photos.length > 0 && (
-                <div className="mt-3 grid max-w-[420px] grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
-                  {photos.map((src, i) => (
-                    <div key={src + i} className="aspect-square overflow-hidden bg-[#F2F4F6]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt="" loading={!muted && index < 2 ? 'eager' : 'lazy'} decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* 칩 — 웨딩숲 카테고리 칩 */}
-              {chips.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                  {chips.map((tag) => (
-                    <span key={tag} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{tag}</span>
-                  ))}
-                </div>
-              )}
-
-              {/* 아래 줄 — 문의 · 사진 N장 · 공유(웨딩숲 좋아요·댓글·공유 줄 어법) */}
-              {!muted && (
-                // 목록 칸이 옆 분류를 살짝 보여 주는 폭(화면-72)이라 간격 16 · 한 줄 고정
-                <div className="mt-3.5 flex items-center gap-4">
-                  <Link href={`${detailHref}?inquiry=1`} className={actCls}>
-                    <TossCommentIcon />
-                    문의
-                  </Link>
-                  <Link href={detailHref} className={actCls}>
-                    <svg viewBox="0 0 24 24" width="23" height="23" fill="none" aria-hidden="true">
-                      <rect x="3.5" y="4.5" width="17" height="15" rx="3.5" stroke="currentColor" strokeWidth="1.8" />
-                      <circle cx="9" cy="10" r="1.7" fill="currentColor" />
-                      <path d="m4.5 17.2 4.6-4.2a1.3 1.3 0 0 1 1.8 0l1.6 1.5 2.9-2.7a1.3 1.3 0 0 1 1.8 0l3.3 3.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    사진 {count}
-                  </Link>
-                  <button type="button" onClick={(e) => share(e, item)} className={actCls} aria-label="공유하기">
-                    <TossShareIcon />
-                    공유
-                  </button>
-                </div>
-              )}
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
 }
 
 function WeddingPartnerListBanner({ banners }: { banners: ListBanner[] }) {
@@ -758,9 +639,6 @@ export default function BusinessListPage() {
   const listViewportRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const desktopLoadMoreRef = useRef<HTMLDivElement | null>(null);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const swipeOffsetRef = useRef(0);
-  const lastWheelSwipeAtRef = useRef(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [rankItems, setRankItems] = useState<RankItem[]>(() => initialBusinessSnapshot.cache?.data ?? MOCK_RANK_ITEMS);
   const [businessPage, setBusinessPage] = useState(() => initialBusinessSnapshot.cache?.page ?? 1);
@@ -772,18 +650,10 @@ export default function BusinessListPage() {
   const [listBanners, setListBanners] = useState<ListBanner[]>(() => readBusinessBannerCache());
   const [businessSearch, setBusinessSearch] = useState('');
   const [businessSort, setBusinessSort] = useState<'popular' | 'name' | 'recent'>('popular');
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [listViewportWidth, setListViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 360));
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
     Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
   );
-
-  const currentCategoryIndex = SUB_CATEGORIES.indexOf(selectedCategory);
-  const previousCategory = currentCategoryIndex > 0 ? SUB_CATEGORIES[currentCategoryIndex - 1] : null;
-  const nextCategory = currentCategoryIndex >= 0 && currentCategoryIndex < SUB_CATEGORIES.length - 1
-    ? SUB_CATEGORIES[currentCategoryIndex + 1]
-    : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -812,8 +682,6 @@ export default function BusinessListPage() {
 
   const selectCategory = useCallback((category: string) => {
     setSelectedCategory(category);
-    swipeOffsetRef.current = 0;
-    setSwipeOffset(0);
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (category === '전체') params.delete('category');
@@ -866,38 +734,6 @@ export default function BusinessListPage() {
   }, [selectedCategory]);
 
   useEffect(() => {
-    let cancelled = false;
-    const categories = [previousCategory, nextCategory].filter((category): category is string => Boolean(category));
-
-    categories.forEach((category) => {
-      if (category in categoryPreviewItems) return;
-
-      const cached = readBusinessCache(category);
-      if (cached?.data.length) {
-        setCategoryPreviewItems((prev) => ({
-          ...prev,
-          [category]: cached.data.slice(0, BUSINESS_PREVIEW_LIMIT),
-        }));
-        return;
-      }
-
-      fetchBusinessPage(category, 1, BUSINESS_PREVIEW_LIMIT)
-        .then(({ items }) => {
-          if (cancelled) return;
-          setCategoryPreviewItems((prev) => ({
-            ...prev,
-            [category]: items.slice(0, BUSINESS_PREVIEW_LIMIT),
-          }));
-        })
-        .catch(() => {});
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [previousCategory, nextCategory, categoryPreviewItems]);
-
-  useEffect(() => {
     const syncCategoryFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
       const category = params.get('category');
@@ -915,25 +751,6 @@ export default function BusinessListPage() {
     });
     return () => cancelAnimationFrame(frame);
   }, [selectedCategory]);
-
-  useEffect(() => {
-    const element = listViewportRef.current;
-    if (!element || typeof window === 'undefined') return;
-    const updateWidth = () => setListViewportWidth(element.clientWidth || window.innerWidth);
-
-    updateWidth();
-    let resizeObserver: ResizeObserver | null = null;
-    if ('ResizeObserver' in window) {
-      resizeObserver = new ResizeObserver(updateWidth);
-      resizeObserver.observe(element);
-    }
-    window.addEventListener('resize', updateWidth);
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener('resize', updateWidth);
-    };
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -1049,75 +866,6 @@ export default function BusinessListPage() {
     return () => observer.disconnect();
   }, [hasMoreBusinesses, loadMoreBusinesses, loading, loadingMore, visibleRankItems.length]);
 
-  const goToAdjacentCategory = useCallback((direction: -1 | 1) => {
-    const currentIndex = SUB_CATEGORIES.indexOf(selectedCategory);
-    const targetCategory = SUB_CATEGORIES[currentIndex + direction];
-    if (targetCategory) selectCategory(targetCategory);
-  }, [selectCategory, selectedCategory]);
-
-  const handleSwipeStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 1) return;
-    const touch = event.touches[0];
-    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
-    swipeOffsetRef.current = 0;
-    setSwipeOffset(0);
-  }, []);
-
-  const handleSwipeMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    const start = swipeStartRef.current;
-    if (!start || event.touches.length !== 1) return;
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < 8 || Math.abs(deltaX) < Math.abs(deltaY)) return;
-
-    const hasTarget = deltaX > 0 ? Boolean(previousCategory) : Boolean(nextCategory);
-    const nextOffset = hasTarget
-      ? Math.max(-112, Math.min(112, deltaX * 0.42))
-      : Math.max(-26, Math.min(26, deltaX * 0.12));
-    swipeOffsetRef.current = nextOffset;
-    setSwipeOffset(nextOffset);
-  }, [nextCategory, previousCategory]);
-
-  const handleSwipeEnd = useCallback(() => {
-    const offset = swipeOffsetRef.current;
-    if (offset <= -38 && nextCategory) goToAdjacentCategory(1);
-    if (offset >= 38 && previousCategory) goToAdjacentCategory(-1);
-    swipeStartRef.current = null;
-    swipeOffsetRef.current = 0;
-    setSwipeOffset(0);
-  }, [goToAdjacentCategory, nextCategory, previousCategory]);
-
-  const handleHorizontalWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
-    if (Math.abs(event.deltaX) < 48 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
-    const now = Date.now();
-    if (now - lastWheelSwipeAtRef.current < 650) return;
-    lastWheelSwipeAtRef.current = now;
-    event.preventDefault();
-    goToAdjacentCategory(event.deltaX > 0 ? 1 : -1);
-  }, [goToAdjacentCategory]);
-
-  const renderPreviewPane = useCallback((category: string | null) => (
-    <div className="h-full overflow-hidden rounded-[18px] border border-gray-100 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-      {category ? (
-        <>
-          <div className="px-4 py-3 border-b border-gray-50">
-            <span className="text-[13px] font-bold text-gray-900">{category}</span>
-          </div>
-          <BusinessFeedList
-            items={(categoryPreviewItems[category] || []).slice(0, 3)}
-            muted
-          />
-        </>
-      ) : (
-        <div className="h-[220px]" />
-      )}
-    </div>
-  ), [categoryPreviewItems]);
-
-  const paneWidth = Math.max(280, listViewportWidth - 72);
-  const paneGap = 12;
-  const baseTranslate = -(paneWidth + paneGap) + 24;
   const showListSkeleton = loading && rankItems.length === 0;
 
   return (
@@ -1342,257 +1090,62 @@ export default function BusinessListPage() {
       {/* ─── 웨딩홀 히어로 (빌라드지디) ─── */}
       {selectedCategory === '웨딩홀' && <VilladegdHero />}
 
-      {/* ─── 지역 · 필터 — 웨딩숲 칩(회색 면, 고른 것 쿨그레이) ─── */}
-      <div className="qd-a-sub flex items-center gap-2 px-4 pb-1 pt-1.5">
-        <div className="relative flex-1 overflow-hidden">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-          {/* 내 위치 버튼 */}
-          <button
-            onClick={() => {
-              if (typeof navigator !== 'undefined' && navigator.geolocation) {
-                setSelectedRegion('내 위치');
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    toast.success(`현재 위치 기반으로 검색합니다 (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)})`);
-                  },
-                  () => {
-                    toast.success('현재 위치 기반으로 검색합니다');
-                  },
-                  { enableHighAccuracy: false, timeout: 5000 }
-                );
-              } else {
-                setSelectedRegion('내 위치');
-                toast.success('현재 위치 기반으로 검색합니다');
-              }
-            }}
-            className={`flex h-[34px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
-              selectedRegion === '내 위치'
-                ? 'bg-[#4E5968] text-white'
-                : 'bg-[#F2F4F6] text-[#6B7684]'
-            }`}
-          >
-            <MapPin size={13} />
-            내 위치
-          </button>
-          {REGIONS.map((region) => {
-            const active = selectedRegion === region;
-            return (
-              <button
-                key={region}
-                onClick={() => setSelectedRegion(region)}
-                className={`h-[34px] shrink-0 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
-                  active
-                    ? 'bg-[#4E5968] text-white'
-                    : 'bg-[#F2F4F6] text-[#6B7684]'
-                }`}
-              >
-                {region}
-              </button>
-            );
-          })}
-          </div>
-          {/* 우측 페이드 그라데이션 */}
-          <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
-        </div>
-
-        {/* 상세 필터 버튼 */}
-        <button
-          onClick={() => setFilterOpen(true)}
-          className={`inline-flex h-[34px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
-            totalActiveFilters > 0
-              ? 'bg-[#4E5968] text-white'
-              : 'bg-[#F2F4F6] text-[#6B7684]'
-          }`}
-        >
-          <SlidersHorizontal size={14} />
-          필터
-          {totalActiveFilters > 0 && (
-            <span className="min-w-[16px] h-[16px] px-1 rounded-full bg-white text-[#2B313D] text-[10px] font-bold flex items-center justify-center">
-              {totalActiveFilters}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* ─── Active Filter Tags ─── */}
-      {totalActiveFilters > 0 && (
-        <div className="px-4 pb-2 flex flex-wrap gap-1.5">
-          {FILTER_GROUPS.map((group) =>
-            Array.from(filters[group.key] || []).map((opt) => (
-              <button
-                key={`${group.key}-${opt}`}
-                onClick={() => toggleFilterOption(group.key, opt)}
-                className="inline-flex items-center gap-1 px-2 rounded-[5px] bg-gray-100 text-gray-600 text-[10px] font-medium active:scale-95 transition-transform"
-                style={{ height: 22 }}
-              >
-                {opt}
-                <X size={10} className="text-gray-400" />
-              </button>
-            ))
-          )}
-        </div>
-      )}
-
       <WeddingPartnerListBanner banners={listBanners} />
 
-      {/* ─── Filter Floating Modal ─── */}
-      {filterOpen && (
-        <div
-          className="ft-scrim"
-          onClick={() => setFilterOpen(false)}
-        >
-          {/* 시트 여백 0 — 여백만큼 sticky 머리·바닥이 떠서 칩이 위아래로 비침(여백은 안쪽 칸이 가짐) */}
-          <div
-            className="ft-sheet wide"
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: '80vh', padding: 0 }}
-          >
-            {/* Handle + Header */}
-            <div className="sticky top-0 bg-white z-10 rounded-t-3xl px-6 pt-5">
-              <div className="ft-grab" aria-hidden="true" />
-              <div className="flex items-center justify-between pb-3">
-                <h3 className="ft-title">상세 필터</h3>
-                <button onClick={() => setFilterOpen(false)} className="active:scale-90 transition-transform">
-                  <X size={22} className="text-gray-500" />
-                </button>
-              </div>
-            </div>
-
-            {/* Filter Groups */}
-            <div className="divide-y divide-gray-100 px-6">
-              {FILTER_GROUPS.map((group) => (
-                <div key={group.key} className="flex items-start gap-3 py-3">
-                  <div className="w-[90px] shrink-0 pt-1">
-                    <span className="text-[13px] font-bold text-gray-900">{group.label}</span>
-                  </div>
-                  <div className="flex-1 flex gap-1.5 flex-wrap">
-                    {group.options.map((opt) => {
-                      const active = filters[group.key]?.has(opt);
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => toggleFilterOption(group.key, opt)}
-                          className={`px-3 h-[28px] rounded-full text-[12px] font-medium border transition-all duration-200 active:scale-90 ${
-                            active
-                              ? 'bg-[#2B313D] text-white border-[#2B313D]'
-                              : 'bg-white text-gray-500 border-gray-200'
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
+      {/* ─── 목록 — 홈 웨딩파트너 카드(사진 색 카드 · 가로형) 한 줄에 하나, 좌우 여백 16
+          (260926 사장: 옆 분류가 비치던 좌우 미리보기 칸·그림자 없이 깔끔하게, 내 위치·지역·필터 줄 없이) · 등장 = 퀵매칭 차례 ─── */}
+      <div ref={listViewportRef} className="px-4 pt-2">
+        {showListSkeleton ? (
+          <div aria-hidden="true" className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="overflow-hidden rounded-[20px] bg-[#F7F8FA]">
+                <div className="skeleton aspect-[16/9] w-full" style={{ borderRadius: 0 }} />
+                <div className="px-4 pb-4 pt-3">
+                  <div className="skeleton h-[17px] w-40" style={{ borderRadius: 6 }} />
+                  <div className="skeleton mt-2 h-3 w-28" style={{ borderRadius: 5 }} />
+                  <div className="skeleton mt-3 h-[26px] w-44" style={{ borderRadius: 8 }} />
                 </div>
+              </div>
+            ))}
+          </div>
+        ) : visibleRankItems.length > 0 ? (
+          <>
+            <div key={selectedCategory} className="space-y-3">
+              {visibleRankItems.map((item, index) => (
+                <PartnerToneCard
+                  key={item.id}
+                  biz={toToneCard(item)}
+                  index={index}
+                  wrapperClassName="qd-a-item"
+                  wrapperStyle={{ animationDelay: `${0.06 + (index % 10) * 0.05}s` }}
+                />
               ))}
             </div>
-
-            {/* Bottom Actions */}
-            <div
-              className="ft-actions sticky bottom-0 bg-white border-t border-gray-100 px-6 pt-4"
-              style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
-            >
-              <button
-                onClick={clearAllFilters}
-                className="ft-btn secondary"
-              >
-                초기화
-              </button>
-              <button
-                onClick={() => setFilterOpen(false)}
-                className="ft-btn primary"
-                style={{ flex: 2 }}
-              >
-                {totalActiveFilters > 0 ? `${totalActiveFilters}개 필터 적용` : '필터 적용'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Rank Items ─── */}
-      <div
-        ref={listViewportRef}
-        className="overflow-hidden touch-pan-y"
-        onTouchStart={handleSwipeStart}
-        onTouchMove={handleSwipeMove}
-        onTouchCancel={handleSwipeEnd}
-        onTouchEnd={handleSwipeEnd}
-        onWheel={handleHorizontalWheel}
-      >
-        <div
-          className="flex items-start will-change-transform"
-          style={{
-            gap: paneGap,
-            transform: `translate3d(${baseTranslate + swipeOffset}px, 0, 0)`,
-            transition: swipeOffset === 0 ? 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-          }}
-        >
-          <div className="shrink-0" style={{ width: paneWidth }} aria-hidden>
-            {renderPreviewPane(previousCategory)}
-          </div>
-
-          <div className="shrink-0 bg-white" style={{ width: paneWidth }}>
-            {showListSkeleton ? (
-              <div aria-hidden="true">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px]">
-                    <div className="skeleton h-[42px] w-[42px] shrink-0" style={{ borderRadius: 9999 }} />
-                    <div className="min-w-0 flex-1">
-                      <div className="skeleton h-4 w-32" style={{ borderRadius: 6 }} />
-                      <div className="skeleton mt-2 h-3.5 w-24" style={{ borderRadius: 6 }} />
-                      <div className="skeleton mt-3.5 aspect-[3/1] w-full max-w-[420px]" style={{ borderRadius: 16 }} />
-                      <div className="skeleton mt-3 h-6 w-40" style={{ borderRadius: 6 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : visibleRankItems.length > 0 ? (
-              <>
-                <BusinessFeedList
-                  key={selectedCategory}
-                  items={visibleRankItems}
-                />
-                {hasMoreBusinesses && (
-                  <div ref={loadMoreRef} className="px-4 py-5">
-                    {loadingMore ? (
-                      <div className="flex gap-2.5">
-                        <div className="skeleton h-[42px] w-[42px] shrink-0" style={{ borderRadius: 9999 }} />
-                        <div className="min-w-0 flex-1">
-                          <div className="skeleton h-4 w-32" style={{ borderRadius: 6 }} />
-                          <div className="skeleton mt-2 h-3.5 w-24" style={{ borderRadius: 6 }} />
-                          <div className="skeleton mt-3.5 aspect-[3/1] w-full max-w-[420px]" style={{ borderRadius: 16 }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-8" />
-                    )}
-                  </div>
+            {hasMoreBusinesses && (
+              <div ref={loadMoreRef} className="py-5">
+                {loadingMore ? (
+                  <div className="skeleton aspect-[16/9] w-full" style={{ borderRadius: 20 }} />
+                ) : (
+                  <div className="h-8" />
                 )}
-              </>
-            ) : (
-              <div className="px-4 py-16 text-center">
-                <p className="text-[14px] font-semibold text-gray-500">조건에 맞는 업체가 없습니다</p>
-                <button
-                  onClick={() => {
-                    selectCategory('전체');
-                    setSelectedRegion('전국');
-                    clearAllFilters();
-                  }}
-                  className="mt-3 px-4 h-[36px] rounded-full bg-gray-900 text-white text-[13px] font-bold active:scale-95 transition-transform"
-                >
-                  필터 초기화
-                </button>
               </div>
             )}
+          </>
+        ) : (
+          <div className="px-4 py-16 text-center">
+            <p className="text-[15px] font-semibold text-[#6B7684]">조건에 맞는 업체가 없어요</p>
+            <button
+              onClick={() => {
+                selectCategory('전체');
+                setSelectedRegion('전국');
+                clearAllFilters();
+              }}
+              className="mt-3 h-[40px] rounded-[12px] bg-[#F2F4F6] px-4 text-[15px] font-semibold text-[#4E5968] transition-transform active:scale-95"
+            >
+              전체 보기
+            </button>
           </div>
-
-          <div className="shrink-0" style={{ width: paneWidth }} aria-hidden>
-            {renderPreviewPane(nextCategory)}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ─── Scroll to Top ─── */}

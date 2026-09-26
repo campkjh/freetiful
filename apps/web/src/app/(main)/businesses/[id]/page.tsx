@@ -12,7 +12,21 @@
 //  · iOS 앱은 이 화면을 네이티브로 그린다(웹 수정 미반영).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronRight, Globe, Instagram, MessageCircle, Navigation, Share2, X } from 'lucide-react';
+// 아이콘 = 사장 제공 토스 mono 세트(260926 "상세페이지 아이콘 이걸로 다 교체")
+import {
+  TossBackIcon,
+  TossCameraIcon,
+  TossChatBubbleIcon,
+  TossCheckIcon,
+  TossChevronRightIcon,
+  TossCloseIcon,
+  TossCopyIcon,
+  TossDirectionIcon,
+  TossEarthIcon,
+  TossPictureIcon,
+  TossPinIcon,
+  TossShareBoxIcon,
+} from '@/components/icons/TossMonoIcons';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -109,7 +123,7 @@ function PhotoViewer({ images, start, name, onClose }: { images: string[]; start
       <div className="flex h-14 shrink-0 items-center justify-between px-3 text-white">
         <span className="pl-2 text-[15px] font-semibold tracking-[-0.2px] text-white/85">{index + 1} / {images.length}</span>
         <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-full active:bg-white/10" aria-label="닫기">
-          <X size={24} />
+          <TossCloseIcon size={26} />
         </button>
       </div>
       <div
@@ -212,7 +226,7 @@ function InquirySheet({ open, onClose, biz, category }: { open: boolean; onClose
         {done ? (
           <div className="pb-1 pt-2 text-center">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F3FF] text-[#3182F6]">
-              <Check size={28} strokeWidth={2.6} />
+              <TossCheckIcon size={30} />
             </span>
             <p className="ft-title !mt-4">문의를 보냈어요</p>
             <p className="ft-desc">프리티풀 매니저가 확인하고<br />남겨 주신 연락처로 안내드릴게요</p>
@@ -232,7 +246,7 @@ function InquirySheet({ open, onClose, biz, category }: { open: boolean; onClose
             <div className="flex flex-wrap gap-2">
               {INQUIRY_KINDS.map((k) => (
                 <button key={k} type="button" className={`ft-chip${kinds.includes(k) ? ' on' : ''}`} onClick={() => toggleKind(k)}>
-                  {kinds.includes(k) && <Check size={15} strokeWidth={2.6} />}
+                  {kinds.includes(k) && <TossCheckIcon size={17} />}
                   {k}
                 </button>
               ))}
@@ -398,14 +412,14 @@ export default function BusinessDetailPage() {
   };
 
   const quick = [
-    { key: 'inquiry', label: '문의하기', icon: <MessageCircle size={22} strokeWidth={2} />, onClick: () => setInquiryOpen(true) },
-    { key: 'route', label: '길찾기', icon: <Navigation size={21} strokeWidth={2} />, href: kakaoRoute },
+    { key: 'inquiry', label: '문의하기', icon: <TossChatBubbleIcon size={24} />, onClick: () => setInquiryOpen(true) },
+    { key: 'route', label: '길찾기', icon: <TossDirectionIcon size={24} />, href: kakaoRoute },
     biz.instagramUrl
-      ? { key: 'insta', label: '인스타그램', icon: <Instagram size={22} strokeWidth={2} />, href: biz.instagramUrl }
+      ? { key: 'insta', label: '인스타그램', icon: <TossCameraIcon size={24} />, href: biz.instagramUrl }
       : website
-        ? { key: 'web', label: '웹사이트', icon: <Globe size={22} strokeWidth={2} />, href: website }
+        ? { key: 'web', label: '웹사이트', icon: <TossEarthIcon size={24} />, href: website }
         : null,
-    { key: 'share', label: '공유', icon: <Share2 size={21} strokeWidth={2} />, onClick: share },
+    { key: 'share', label: '공유', icon: <TossShareBoxIcon size={24} />, onClick: share },
   ].filter(Boolean) as Array<{ key: string; label: string; icon: React.ReactNode; href?: string; onClick?: () => void }>;
 
   const gallery = images.slice(0, 9);
@@ -434,13 +448,13 @@ export default function BusinessDetailPage() {
         {!solidHeader && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/35 to-transparent" />}
         <div className="relative flex h-14 items-center justify-between px-2">
           <button onClick={() => router.back()} className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${solidHeader ? 'text-[#191F28]' : 'text-white'}`} aria-label="뒤로">
-            <ArrowLeft size={24} />
+            <TossBackIcon size={28} />
           </button>
           <p className={`min-w-0 flex-1 truncate px-1 text-center text-[17px] font-bold leading-[1.6] tracking-[-0.3px] text-[#191F28] transition-opacity duration-200 ${solidHeader ? 'opacity-100' : 'opacity-0'}`}>
             {biz.businessName}
           </p>
           <button onClick={share} className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${solidHeader ? 'text-[#191F28]' : 'text-white'}`} aria-label="공유">
-            <Share2 size={21} />
+            <TossShareBoxIcon size={24} />
           </button>
         </div>
       </div>
@@ -479,9 +493,9 @@ export default function BusinessDetailPage() {
         <h1 className="relative mt-1 break-keep text-[24px] font-bold leading-[1.35] tracking-[-0.5px] text-[#191F28]">{biz.businessName}</h1>
         {intro && <p className="mt-2 whitespace-pre-line break-keep text-[16px] leading-[1.6] tracking-[-0.3px] text-[#333D4B]">{intro}</p>}
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[14px] leading-[1.5] tracking-[-0.2px]" style={{ color: toneSub }}>
-          {address && <span>{shortRegion(address)}</span>}
+          {address && <span className="inline-flex items-center gap-[3px]"><TossPinIcon size={15} />{shortRegion(address)}</span>}
           {address && <span aria-hidden className="h-2.5 w-px" style={{ backgroundColor: toneSub, opacity: 0.35 }} />}
-          <span>사진 {images.length}장</span>
+          <span className="inline-flex items-center gap-[3px]"><TossPictureIcon size={15} />사진 {images.length}장</span>
         </p>
         {tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -518,7 +532,7 @@ export default function BusinessDetailPage() {
           <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">사진 <span className="text-[#3182F6]">{images.length}</span></h2>
           {images.length > 1 && (
             <button type="button" onClick={() => setViewerAt(0)} className="flex items-center text-[14px] font-medium text-[#8B95A1]">
-              전체보기 <ChevronRight size={16} />
+              전체보기 <TossChevronRightIcon size={18} />
             </button>
           )}
         </div>
@@ -541,7 +555,8 @@ export default function BusinessDetailPage() {
           <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">위치</h2>
           <div className="mt-2 flex items-start justify-between gap-3">
             <p className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{address}</p>
-            <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
+            <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center gap-1 rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
+              <TossCopyIcon size={15} />
               복사
             </button>
           </div>

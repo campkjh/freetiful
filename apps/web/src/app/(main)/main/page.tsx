@@ -45,6 +45,7 @@ import {
 } from '@/lib/wedding-partner-images';
 import { discoveryApi, getCachedProList } from '@/lib/api/discovery.api';
 import { useImageTone } from '@/lib/image-tone';
+import PartnerToneCard from '@/components/business/PartnerToneCard';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
@@ -709,15 +710,7 @@ const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v7';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 
-/** 업체 사진 아래쪽을 카드 색으로 녹인다(가로 사진이라 절반부터) */
-const BIZ_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 50%, rgba(0,0,0,.4) 78%, transparent 100%)';
-
-/**
- * 웨딩 파트너 카드(웨딩홀·드레스·스튜디오…) — 홈 사회자 카드와 같은 '사진 색 카드'를 가로형으로(260926 사장 "사회자 카드처럼, 다만 가로형으로").
- *  바탕·테두리 = 대표 사진에서 뽑은 색(lib/image-tone 'scene' — 외부 블로그 사진은 API 가 대신 뽑는다),
- *  가로로 넓은 사진(16:9) 아래쪽이 그 색으로 녹아 이어진다. 이름 17 굵게 · 한 줄 정보(지역 | 사진 N장) · 흰 반투명 칩(한 줄만).
- *  할인율이 실제로 있을 때만 왼쪽 위 검은 반투명 유리 배지. 옛 알약 사진 더미·4초 넘김은 뺐다(사진 한 장이 색 카드의 주인공).
- */
+/** 웨딩 파트너 카드 — 공용 사진 색 카드(components/business/PartnerToneCard, 목록 페이지와 같은 카드) */
 function BusinessCard({
   biz,
   index = 0,
@@ -730,74 +723,15 @@ function BusinessCard({
   wrapperClassName?: string;
   wrapperStyle?: CSSProperties;
 }) {
-  const [hidden, setHidden] = useState(false);
-  const image = biz.images[0];
-  const tone = useImageTone(image, 'scene');
-  const sub = tone?.sub || '#6B7684';
-
-  if (hidden || !image) return null;
-
-  const chips = biz.tags.filter((tag) => tag !== '인기');
-  const card = (
-    <Link
-      href={`/businesses/${biz.id}`}
-      className="group block h-full overflow-hidden rounded-[20px] border"
-      style={{
-        backgroundColor: tone?.bg || '#F2F4F6',
-        borderColor: tone?.line || '#EAEDF0',
-        transition: 'background-color .5s ease, border-color .5s ease',
-      }}
-    >
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={image}
-          alt={biz.name}
-          loading={index < 2 ? 'eager' : 'lazy'}
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-          style={{ WebkitMaskImage: BIZ_CARD_FADE, maskImage: BIZ_CARD_FADE }}
-          onError={() => setHidden(true)}
-        />
-        {biz.discountPercent > 0 && (
-          <span
-            className="absolute left-2.5 top-2.5 inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px) saturate(140%)', backdropFilter: 'blur(10px) saturate(140%)', boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)' }}
-          >
-            {biz.discountPercent}% 할인
-          </span>
-        )}
-      </div>
-      <div className="relative -mt-4 px-4 pb-4">
-        <p className="break-keep text-[17px] font-bold leading-[1.4] tracking-[-0.4px] text-[#191F28]">{biz.name}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.5] tracking-[-0.2px]" style={{ color: sub }}>
-          <span className="inline-flex items-center gap-[3px]">
-            <PinLocationIcon size={13} className="shrink-0" />
-            {biz.location}
-          </span>
-          {biz.images.length > 1 && (
-            <>
-              <span aria-hidden="true" className="h-2.5 w-px" style={{ backgroundColor: sub, opacity: 0.35 }} />
-              <span>사진 {biz.images.length}장</span>
-            </>
-          )}
-        </p>
-        {/* 칩 — 흰 반투명, 한 줄 높이만(넘치는 칩은 통째로 가려진다) · '인기' 는 노출하지 않는다 */}
-        {chips.length > 0 && (
-          <div className="mt-2.5 flex h-[26px] flex-wrap gap-1 overflow-hidden">
-            {chips.map((tag) => (
-              <span key={tag} className="flex h-[26px] items-center whitespace-nowrap rounded-[8px] bg-white/60 px-2 text-[12.5px] font-semibold tracking-[-0.2px] text-[#333D4B]">{tag}</span>
-            ))}
-          </div>
-        )}
-      </div>
-    </Link>
+  return (
+    <PartnerToneCard
+      biz={{ id: biz.id, name: biz.name, location: biz.location, images: biz.images, tags: biz.tags, discountPercent: biz.discountPercent }}
+      index={index}
+      wrapperClassName={wrapperClassName}
+      wrapperStyle={wrapperStyle}
+    />
   );
-
-  if (!wrapperClassName && !wrapperStyle) return card;
-  return <div className={wrapperClassName} style={wrapperStyle}>{card}</div>;
 }
-
 /**
  * 웨딩 파트너 한 섹션(제목 + 가로 카드열).
  * 전체보기 옆 화살표로 한 칸씩 밀어 본다 — 스크롤 위치를 알아야 해서
