@@ -884,10 +884,11 @@ const BANNERS = [
  * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
  */
 const HOME_TOP_BANNERS: { id: string; image: string; alt: string; href?: string; action?: 'signup' }[] = [
-  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
-  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크
   { id: 'villadegd', image: '/images/banners/home-top-villadegd.webp', alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
   { id: 'mc-no1', image: '/images/banners/home-top-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde.webp', alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
   { id: 'ceramique', image: '/images/banners/home-top-ceramique.webp', alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
