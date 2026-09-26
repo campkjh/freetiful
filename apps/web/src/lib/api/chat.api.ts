@@ -57,6 +57,9 @@ export interface ChatRoomItem {
     rawUserInput?: any;
     category?: { id: string; name: string } | null;
     eventCategory?: { id: string; name: string } | null;
+    /** 고객 번호 — 퀵매칭 지정 사회자 쪽에만 서버가 싣는다(260927) */
+    customerPhone?: string | null;
+    contactMethod?: string | null;
   } | null;
   latestQuotation?: {
     id: string;

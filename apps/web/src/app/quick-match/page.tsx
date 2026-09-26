@@ -109,6 +109,12 @@ function matchesGender(p: ProListItem, g: 'any' | 'male' | 'female') {
   const v = (p.gender || '').toLowerCase();
   return g === 'male' ? v === 'male' || (p.gender || '').includes('남') : v === 'female' || (p.gender || '').includes('여');
 }
+/** 두 줄을 번갈아 한 줄로(여·남·여·남…) — 성별 상관없음일 때 지정 사회자 */
+function interleave<T>(a: T[], b: T[]): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { if (i < a.length) out.push(a[i]); if (i < b.length) out.push(b[i]); }
+  return out;
+}
 function matchesRegion(p: ProListItem, group?: { match: string[] }) {
   if (!group) return true;
   if (p.isNationwide) return true;
@@ -204,8 +210,9 @@ export default function QuickMatchPage() {
   const [moods, setMoods] = useState<Set<string>>(new Set());
   const [part, setPart] = useState('');
   const [gender, setGender] = useState<'any' | 'male' | 'female' | ''>('');
-  const [pool, setPool] = useState<ProListItem[]>([]);
-  const [offset, setOffset] = useState(0);
+  // 후보(260927 사장) — featured = 지정 사회자(첫 화면, 이 사람들한테만 고객 번호가 간다),
+  // rest = 나머지(리롤하면 나옴, 최근 견적을 보낸 순, 번호 없이 채팅으로만)
+  const [pool, setPool] = useState<{ featured: ProListItem[]; rest: ProListItem[] }>({ featured: [], rest: [] });
   const [rerolled, setRerolled] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loadErr, setLoadErr] = useState(false);
@@ -242,20 +249,32 @@ export default function QuickMatchPage() {
   async function loadPros(g: 'any' | 'male' | 'female') {
     setLoadErr(false);
     try {
-      const res: any = await discoveryApi.getProList({ limit: 80, sort: 'reviews', withTotal: false });
+      const [res, qp] = await Promise.all([
+        discoveryApi.getProList({ limit: 500, sort: 'reviews', withTotal: false }) as Promise<any>,
+        matchApi.getQuickPool().catch(() => null),
+      ]);
       const rows: ProListItem[] = Array.isArray(res) ? res : (res?.data || res?.rows || []);
-      const byGender = rows.filter((p) => matchesGender(p, g));
-      const withVid = byGender.filter((p) => extractYoutubeId(p.youtubeUrl));
-      const base = withVid.length >= 5 ? withVid : (byGender.length >= 5 ? byGender : rows);
-      const inR = base.filter((p) => matchesRegion(p, group));
-      const rest = base.filter((p) => !matchesRegion(p, group));
-      setPool([...shuffle(inR), ...shuffle(rest)]);
-    } catch { setLoadErr(true); setPool([]); }
+      const byId = new Map(rows.map((p) => [p.id, p] as const));
+      const pick = (ids: string[] = []) => shuffle(ids.map((id) => byId.get(id)).filter((p): p is ProListItem => !!p));
+      // 지정 사회자 — 성별은 사장 명단 기준(프로필 성별 아님). 상관없음이면 여·남 번갈아 12명. 권역 맞는 사람 먼저
+      const fm = qp?.featured;
+      const featuredList = !fm ? [] : g === 'male' ? pick(fm.male) : g === 'female' ? pick(fm.female) : interleave(pick(fm.female), pick(fm.male));
+      const featured = [...featuredList.filter((p) => matchesRegion(p, group)), ...featuredList.filter((p) => !matchesRegion(p, group))];
+      // 나머지 — 지정·매칭 제외 빼고 고른 성별만, 최근 견적을 보낸 순(서버 순서). 권역 맞는 사람 먼저
+      const skip = new Set([...(fm?.male || []), ...(fm?.female || []), ...(qp?.excluded || [])]);
+      const rank = new Map<string, number>();
+      (qp?.order || []).forEach((id, i) => rank.set(id, i));
+      const others = rows
+        .filter((p) => !skip.has(p.id) && matchesGender(p, g))
+        .sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
+      const rest = [...others.filter((p) => matchesRegion(p, group)), ...others.filter((p) => !matchesRegion(p, group))];
+      setPool({ featured, rest });
+    } catch { setLoadErr(true); setPool({ featured: [], rest: [] }); }
   }
 
   useEffect(() => {
     if (step !== 'searching') return;
-    setPct(0); setOffset(0); setRerolled(false); setSelected(new Set());
+    setPct(0); setRerolled(false); setSelected(new Set());
     loadPros((gender || 'any') as any);
     const t0 = Date.now();
     const timer = setInterval(() => {
@@ -267,19 +286,20 @@ export default function QuickMatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  // 첫 화면 = 지정 사회자 전원, 리롤 = 나머지 5명(지정 명단을 못 받았으면 나머지 5명씩)
+  const hasFeatured = pool.featured.length > 0;
   const displayed = useMemo(() => {
-    if (pool.length === 0) return [];
-    if (pool.length <= 5) return pool;
-    const s = offset % pool.length;
-    const out = pool.slice(s, s + 5);
-    if (out.length < 5) out.push(...pool.slice(0, 5 - out.length));
-    return out;
-  }, [pool, offset]);
+    if (!rerolled) return hasFeatured ? pool.featured : pool.rest.slice(0, 5);
+    return hasFeatured ? pool.rest.slice(0, 5) : pool.rest.slice(5, 10);
+  }, [pool, rerolled, hasFeatured]);
+  const canReroll = !rerolled && (hasFeatured ? pool.rest.length > 0 : pool.rest.length > 5);
+  // 지정 사회자에게 보내는 신청만 번호가 간다 → 리롤 뒤에 고른 사회자는 연락 방식을 묻지 않고 프리티풀 채팅으로
+  const phoneShared = hasFeatured && !rerolled;
 
   // 검색 화면 뒷배경: 사회자 프로필 사진들을 1초마다 크로스페이드로 순환
   const bgImgs = useMemo(() => {
     const seen = new Set<string>(); const out: string[] = [];
-    for (const p of pool) { const u = p.profileImageUrl; if (u && !seen.has(u)) { seen.add(u); out.push(u); } if (out.length >= 12) break; }
+    for (const p of [...pool.featured, ...pool.rest]) { const u = p.profileImageUrl; if (u && !seen.has(u)) { seen.add(u); out.push(u); } if (out.length >= 12) break; }
     return out;
   }, [pool]);
   useEffect(() => {
@@ -290,14 +310,18 @@ export default function QuickMatchPage() {
   }, [step, bgImgs.length]);
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
-  function reroll() { if (rerolled) return; setRerolled(true); setOffset((o) => o + 5); setSelected(new Set()); }
+  function reroll() { if (!canReroll) return; setRerolled(true); setSelected(new Set()); }
   function selectAllAndGo() {
     if (selectingAll) return;
     setSelectingAll(true);
     const ids = displayed.map((p) => p.id);
     setSelected(new Set()); // 처음부터 하나씩 체크되는 애니메이션이 보이도록 초기화
     ids.forEach((id, i) => setTimeout(() => setSelected((prev) => new Set(prev).add(id)), 60 + i * 130));
-    setTimeout(() => setStep('contact'), 60 + ids.length * 130 + 380);
+    setTimeout(() => {
+      if (phoneShared) { setStep('contact'); return; }
+      setContact('프리티풀 채팅');
+      setStep('phone');
+    }, 60 + ids.length * 130 + 380);
   }
 
   async function submit() {
@@ -306,7 +330,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, ...utm } });
+      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
@@ -477,11 +501,11 @@ export default function QuickMatchPage() {
         <div className="qm-page" key="results">
           <Header onBack={() => back('gender')} />
           <main className="qm-main tight">
-            <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{Math.min(5, displayed.length) || 5}명</b>을 찾았어요</h1>
+            <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{displayed.length || 5}명</b>을 찾았어요</h1>
             <p className="qm-sub qm-a-sub">영상을 보고 의뢰할 사회자를 선택하세요. 여러 명 선택할 수 있어요.</p>
             <div className="qm-resbar qm-a-item" style={stag(0)}>
               <span>{selected.size}명 선택됨</span>
-              <button type="button" className="qm-reroll" onClick={reroll} disabled={rerolled || pool.length <= 5}><Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>
+              <button type="button" className="qm-reroll" onClick={reroll} disabled={!canReroll}><Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>
             </div>
             {loadErr ? (
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
@@ -520,7 +544,7 @@ export default function QuickMatchPage() {
 
       {step === 'phone' && (
         <div className="qm-page" key="phone">
-          <Header onBack={() => back('contact')} />
+          <Header onBack={() => back(phoneShared ? 'contact' : 'results')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">연락받을 번호를<br />입력해주세요</h1>
             <p className="qm-sub qm-a-sub">{contact}(으)로 연락드려요. 매칭된 사회자 연결에만 사용돼요.</p>

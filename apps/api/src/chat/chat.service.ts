@@ -13,6 +13,7 @@ import { VideoCompressService } from '../image/video-compress.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChatRealtimeService } from './chat-realtime.service';
 import { AutoReplyService } from '../auto-reply/auto-reply.service';
+import { customerContactMethod, rawForPro, sharedCustomerPhone } from '../match/quick-match.config';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -1157,6 +1158,17 @@ export class ChatService implements OnModuleInit {
           isActive: room.proProfile.user.isActive,
         };
 
+    // 사회자 쪽 — 고객이 폼에 적은 번호는 응답에서 빼고, 퀵매칭 지정 사회자면 customerPhone 으로 따로(260927 사장)
+    const mr = room.matchRequest;
+    const sharedPhone = mr && isProUser ? sharedCustomerPhone(mr.rawUserInput, room.proProfileId) : null;
+    const matchRequest = mr && isProUser
+      ? {
+          ...mr,
+          rawUserInput: rawForPro(mr.rawUserInput) as typeof mr.rawUserInput,
+          ...(sharedPhone ? { customerPhone: sharedPhone, contactMethod: customerContactMethod(mr.rawUserInput) } : {}),
+        }
+      : mr;
+
     return {
       id: room.id,
       otherUser,
@@ -1165,7 +1177,7 @@ export class ChatService implements OnModuleInit {
       iAmPro: isProUser, // 이 채팅방에서 내가 프로(사회자) 측인지
       proProfileId: room.proProfileId,
       matchRequestId: room.matchRequestId,
-      matchRequest: room.matchRequest,
+      matchRequest,
       latestQuotation: room.quotations[0] ?? null,
     };
   }

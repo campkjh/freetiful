@@ -1426,6 +1426,12 @@ export default function ChatRoomPage({
           if (latest) document.getElementById(`msg-${latest.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         };
         const chips: { key: string; label: string; icon: string; onClick: () => void }[] = [];
+        // 고객 번호 — 퀵매칭 지정 사회자에게만 서버가 싣는다(260927 사장). 누르면 바로 전화
+        const customerPhone = isPro ? String(mr?.customerPhone || '').replace(/\D/g, '') : '';
+        if (customerPhone) {
+          const shown = customerPhone.length === 11 ? `${customerPhone.slice(0, 3)}-${customerPhone.slice(3, 7)}-${customerPhone.slice(7)}` : customerPhone;
+          chips.push({ key: 'call', label: shown, icon: 'call', onClick: () => { window.location.href = `tel:${customerPhone}`; } });
+        }
         if (isPro) chips.push({ key: 'send-quote', label: '견적서 보내기', icon: 'quote', onClick: () => setShowQuoteModal(true) });
         if (q) chips.push({ key: 'view-quote', label: '견적서 보기', icon: 'quote', onClick: scrollToLatestQuote });
         if (dateText) chips.push({ key: 'schedule', label: `일정 ${dateText}`, icon: 'calendar', onClick: () => (q ? scrollToLatestQuote() : undefined) });

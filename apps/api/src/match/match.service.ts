@@ -14,6 +14,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { ChatService } from '../chat/chat.service';
+import {
+  MATCH_EXCLUDED_PRO_IDS,
+  QUICK_MATCH_FEATURED,
+  QUICK_MATCH_FEATURED_IDS,
+  QUICK_MATCH_SOURCE,
+  customerContactMethod,
+  rawForPro,
+  sharedCustomerPhone,
+} from './quick-match.config';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -130,6 +139,11 @@ export class MatchService {
     ]);
     const customerName = requester?.name?.trim() || '고객';
     const testLead = this.isTestLead(userId, requester?.name, data.rawUserInput);
+    // 퀵매칭 — 고른 사회자 중 지정 사회자에게만 고객 번호를 보인다(260927 사장). 서버가 명단으로 정하고, 폼이 보낸 값은 버린다.
+    const quickMatch = data.rawUserInput?.source === QUICK_MATCH_SOURCE;
+    const phoneSharedProProfileIds = quickMatch
+      ? Array.from(new Set(data.selectedProProfileIds || [])).filter((id) => QUICK_MATCH_FEATURED_IDS.has(id))
+      : [];
 
     // 폼에 적은 연락처를 계정에도 남긴다.
     // 로그인 상태로 랜딩 폼을 내면 이 경로(createMatchRequest)를 타는데, 예전엔 번호를 버려서
@@ -174,6 +188,7 @@ export class MatchService {
           resolvedEventCategoryName: eventCategory?.name,
           // 어드민에서 "왜 사회자에게 안 갔는지" 알 수 있게 남긴다
           ...(testLead ? { suppressedAsTestLead: true } : {}),
+          phoneSharedProProfileIds,
         }),
         styles: styleOptionIds.length
           ? {
@@ -214,6 +229,8 @@ export class MatchService {
         data.selectedProProfileIds,
         customerName,
         userId,
+        // 매칭 제외 사회자 — 다수견적·퀵매칭에선 빼고, 프로필에서 직접 고른 1:1 문의만 그대로 보낸다
+        { excludeBlocked: quickMatch || !(data.selectedProProfileIds || []).length },
       );
     }
 
@@ -377,6 +394,7 @@ export class MatchService {
     selectedProProfileIds?: string[],
     customerName?: string,
     customerUserId?: string,
+    opts: { excludeBlocked?: boolean } = {},
   ) {
     let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
@@ -430,7 +448,9 @@ export class MatchService {
     }
 
     // 1) MatchDelivery 일괄 생성 — N개의 RTT 를 1번으로 압축
-    const validTargets = deliveryTargets.filter((pc) => !!pc.userId);
+    const validTargets = deliveryTargets.filter(
+      (pc) => !!pc.userId && !(opts.excludeBlocked && MATCH_EXCLUDED_PRO_IDS.has(pc.proProfileId)),
+    );
     if (validTargets.length === 0) return;
 
     await this.prisma.matchDelivery.createMany({
@@ -496,6 +516,32 @@ export class MatchService {
         matchRequestId,
       },
     );
+  }
+
+  private quickPoolCache: { at: number; data: { featured: typeof QUICK_MATCH_FEATURED; excluded: string[]; order: string[] } } | null = null;
+
+  /**
+   * 퀵매칭 후보 순서(260927 사장) — 첫 화면은 지정 사회자, 리롤하면 나머지를 '최근에 견적을 보낸 순'으로.
+   * order = 승인·노출·활동 중인 사회자 전부(매칭 제외 명단 뺌), 마지막 견적 시각 최신순 → 견적 없으면 리뷰 많은 순. 5분 기억.
+   * 성별·권역 거르기는 화면(사회자 목록 데이터)이 한다.
+   */
+  async getQuickMatchPool() {
+    if (this.quickPoolCache && Date.now() - this.quickPoolCache.at < 5 * 60 * 1000) return this.quickPoolCache.data;
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT p.id
+      FROM pro_profiles p
+      JOIN users u ON u.id = p."userId"
+      LEFT JOIN (SELECT "proProfileId", max("createdAt") AS last FROM quotations GROUP BY 1) lq ON lq."proProfileId" = p.id
+      WHERE p.status = 'approved' AND p."isProfileHidden" = false AND u."isActive" = true
+      ORDER BY lq.last DESC NULLS LAST, p."reviewCount" DESC, p."createdAt" ASC
+    `;
+    const data = {
+      featured: QUICK_MATCH_FEATURED,
+      excluded: [...MATCH_EXCLUDED_PRO_IDS],
+      order: rows.map((r) => r.id).filter((id) => !MATCH_EXCLUDED_PRO_IDS.has(id)),
+    };
+    this.quickPoolCache = { at: Date.now(), data };
+    return data;
   }
 
   /** 사용자의 매칭 요청 목록 */
@@ -735,7 +781,10 @@ export class MatchService {
       const src = raw as Record<string, unknown>;
       const slim: Record<string, unknown> = {};
       for (const k of PRO_LIST_RAW_KEYS) if (src[k] !== undefined && src[k] !== null && src[k] !== '') slim[k] = src[k];
-      return { ...d, aiReplying: flag, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
+      // 퀵매칭 지정 사회자에게 간 요청만 고객 번호·연락 방식(260927 사장)
+      const customerPhone = sharedCustomerPhone(raw, d.proProfileId);
+      const phone = customerPhone ? { customerPhone, contactMethod: customerContactMethod(raw) } : {};
+      return { ...d, aiReplying: flag, ...phone, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
     });
   }
 
@@ -863,7 +912,8 @@ export class MatchService {
         matchRequestId: delivery.matchRequestId,
       });
 
-      return result;
+      // 사회자에게 돌려주는 응답 — 고객이 폼에 적은 번호는 뺀다(번호 공유 대상이면 customerPhone 으로)
+      return this.withProSafeRequest(result, proProfileId);
     } else {
       const result = await this.prisma.matchDelivery.update({
         where: { id: matchDeliveryId },
@@ -898,8 +948,23 @@ export class MatchService {
         matchRequestId: delivery.matchRequestId,
       });
 
-      return result;
+      return this.withProSafeRequest(result, proProfileId);
     }
+  }
+
+  /** 사회자 쪽 응답의 matchRequest — rawUserInput 에서 고객 번호를 빼고, 번호 공유 대상이면 customerPhone 을 붙인다 */
+  private withProSafeRequest<T extends { matchRequest?: any }>(result: T, proProfileId: string): T {
+    const mr = result?.matchRequest;
+    if (!mr) return result;
+    const customerPhone = sharedCustomerPhone(mr.rawUserInput, proProfileId);
+    return {
+      ...result,
+      matchRequest: {
+        ...mr,
+        rawUserInput: rawForPro(mr.rawUserInput),
+        ...(customerPhone ? { customerPhone, contactMethod: customerContactMethod(mr.rawUserInput) } : {}),
+      },
+    };
   }
 
   /**
@@ -943,7 +1008,9 @@ export class MatchService {
           .catch(() => {});
       }
     } else {
-      const name = (body.name || '').trim();
+      // 퀵매칭은 이름을 묻지 않는다(번호만) — 이름 필수라 비로그인 신청이 전부 '이름을 입력해주세요'로 막혀 있었다(260927).
+      const quickMatch = body.rawUserInput?.source === QUICK_MATCH_SOURCE;
+      const name = (body.name || '').trim() || (quickMatch ? `고객${phone.slice(-4)}` : '');
       if (!name) {
         throw new BadRequestException('이름을 입력해주세요.');
       }

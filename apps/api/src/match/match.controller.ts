@@ -44,6 +44,13 @@ export class MatchController {
     return this.matchService.createQuickRequest(authorization, body);
   }
 
+  /** 퀵매칭 후보 순서 — 지정 사회자(첫 화면) 명단 · 매칭 제외 명단 · 나머지는 최근 견적을 보낸 순(비로그인 랜딩용) */
+  @Get('quick-pool')
+  @ApiOperation({ summary: '퀵매칭 사회자 후보 순서' })
+  getQuickPool() {
+    return this.matchService.getQuickMatchPool();
+  }
+
   /** 매칭 요청 생성 */
   @Post('request')
   @UseGuards(JwtAuthGuard)

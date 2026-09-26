@@ -34,6 +34,9 @@ function mapMatchDeliveries(items: any[]) {
         eventPart: raw.eventPart || null,
         note: raw.note || '',
         deliveredAt: d.deliveredAt,
+        // 퀵매칭 지정 사회자에게만 서버가 싣는다(260927)
+        customerPhone: d.customerPhone || null,
+        contactMethod: d.contactMethod || null,
       };
     });
 }

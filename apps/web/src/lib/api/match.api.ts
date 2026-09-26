@@ -31,6 +31,10 @@ export const matchApi = {
     rawUserInput?: Record<string, unknown>;
   }) => apiClient.post(`${BASE}/quick-request`, data).then((r) => r.data),
 
+  /** 퀵매칭 후보 순서 — 지정 사회자(첫 화면)·매칭 제외·나머지는 최근 견적 보낸 순(260927) */
+  getQuickPool: () =>
+    apiClient.get<{ featured: { male: string[]; female: string[] }; excluded: string[]; order: string[] }>(`${BASE}/quick-pool`).then((r) => r.data),
+
   getMyRequests: (params?: { skip?: number; take?: number }) =>
     apiClient.get(`${BASE}/requests`, { params }).then((r) => r.data),
 

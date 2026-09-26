@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { CalendarIcon, ChatBubbleIcon, PinLocationIcon } from '@/components/icons/mono';
+import { CalendarIcon, ChatBubbleIcon, PhoneIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { chatApi } from '@/lib/api/chat.api';
 import { matchApi } from '@/lib/api/match.api';
@@ -43,6 +43,10 @@ interface MatchDeliveryView {
   deliveredAt: string;
   /** 이 고객과의 방에서 AI 자동응답이 응대 중(사회자 쪽 마지막 말이 자동응답) — 'AI 답변중' 태그 */
   aiReplying?: boolean;
+  /** 고객 번호 — 퀵매칭 지정 사회자에게 간 요청에만 서버가 싣는다(260927 사장) */
+  customerPhone?: string | null;
+  /** 고객이 고른 연락 방식(전화/문자/프리티풀 채팅) */
+  contactMethod?: string | null;
 }
 
 function cacheKey(userId?: string | null) {
@@ -173,6 +177,23 @@ function declinePresets(request: { eventDate: string | null; eventTime: string |
   return items;
 }
 
+/** 01012345678 → 010-1234-5678 */
+function formatPhone(digits: string): string {
+  const d = digits.replace(/\D/g, '');
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return d.startsWith('02') ? `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return d;
+}
+
+/** 고객이 고른 연락 방식 → 번호 옆 짧은 말 */
+function contactHint(method?: string | null): string {
+  if (!method) return '';
+  if (method.includes('전화')) return '전화 원해요';
+  if (method.includes('문자')) return '문자 원해요';
+  if (method.includes('채팅')) return '채팅 원해요';
+  return '';
+}
+
 function formatTime(value: string | null): string {
   if (!value) return '';
   if (/^\d{2}:\d{2}$/.test(value)) return value;
@@ -208,6 +229,8 @@ function mapMatchDeliveries(items: any[]): MatchDeliveryView[] {
         note: raw.note || '',
         deliveredAt: d.deliveredAt,
         aiReplying: Boolean(d.aiReplying),
+        customerPhone: d.customerPhone || null,
+        contactMethod: d.contactMethod || null,
       };
     });
 }
@@ -572,6 +595,16 @@ export default function ProRequestsPage() {
                         <PinLocationIcon size={18} className="shrink-0 text-[#B0B8C1]" />
                         <span className="min-w-0 truncate">{request.eventLocation}</span>
                       </p>
+                    )}
+                    {/* 고객 번호 — 퀵매칭 지정 사회자에게만(260927 사장). 누르면 바로 전화 */}
+                    {request.customerPhone && (
+                      <a href={`tel:${request.customerPhone}`} className="flex w-fit max-w-full items-center gap-1.5 font-semibold text-[#3182F6]">
+                        <PhoneIcon size={18} className="shrink-0" />
+                        <span className="min-w-0 truncate">{formatPhone(request.customerPhone)}</span>
+                        {contactHint(request.contactMethod) && (
+                          <span className="shrink-0 text-[14px] font-medium text-[#8B95A1] min-[601px]:text-[15px]">· {contactHint(request.contactMethod)}</span>
+                        )}
+                      </a>
                     )}
                   </div>
                   {request.note && (
