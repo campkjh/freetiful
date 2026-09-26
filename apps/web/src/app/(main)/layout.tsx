@@ -150,6 +150,14 @@ const HIDE_FOOTER_PATTERNS = [
   /^\/my$/,
   /^\/pro-dashboard/,
 ];
+// 하단 탭 화면(매칭·새요청·채팅·마이·웨딩숲)은 모바일에서 회사 정보 푸터를 안 둔다 — PC 는 그대로(260926 사장)
+const MOBILE_HIDE_FOOTER_PATTERNS = [
+  /^\/inquiries$/,
+  /^\/pro-dashboard\/inquiries$/,
+  /^\/chat$/,
+  /^\/my$/,
+  /^\/community$/,
+];
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
@@ -599,7 +607,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       </main>
 
       {/* ─── Footer ────────────────────────────────────────────────── */}
-      {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && <Footer />}
+      {!hideNav && !isPro && !HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname)) && (
+        MOBILE_HIDE_FOOTER_PATTERNS.some((p) => p.test(pathname))
+          ? <div className="hidden lg:block"><Footer /></div>
+          : <Footer />
+      )}
 
       {/* ─── Mobile Bottom Navigation — 토스 하단바(사장 레퍼런스 260926) ─────────
           흰 바 · 위쪽만 둥근 모서리(24) · 위 가는 선 · 평소 선 아이콘/선택 채운 아이콘 · 라벨 12px.

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGroup, motion } from 'framer-motion';
-import { ChevronRightIcon, PinLocationIcon } from '@/components/icons/mono';
+import { ChatBubbleIcon, ChevronRightIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
+import { chatApi } from '@/lib/api/chat.api';
+import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
@@ -20,6 +22,8 @@ type InquiryCard = {
   roomId?: string;
   proName: string;
   proImage?: string | null;
+  /** 사회자 상세(/pros/[id])·채팅방 만들기에 쓴다 */
+  proProfileId?: string;
   category: string;
   location: string;
   eventDate: string;
@@ -157,7 +161,9 @@ function buildCards(requests: any[]): InquiryCard[] {
       const room = rooms.find((item: any) => item.proProfileId === delivery.proProfileId);
       const latestQuotation = Array.isArray(room?.quotations) ? room.quotations[0] : null;
       const paid = latestQuotation?.payment?.status === 'completed' || latestQuotation?.status === 'paid';
-      const approved = Boolean(room?.id) || delivery.status === 'replied';
+      // 승인 = 사회자가 수락(replied)했을 때만. 예전엔 '방이 있으면 승인'이었는데, 이제 고객이 채팅 아이콘으로 먼저 방을 열 수 있어서
+      // 방만 보고 판단하면 사회자가 안 받았는데도 '요청승인'이 된다(운영 데이터상 요청에 묶인 방은 전부 replied 라 기존 표시는 그대로)
+      const approved = delivery.status === 'replied';
       const declined = delivery.status === 'declined';
       const proProfile = delivery.proProfile || room?.proProfile;
       const proUser = proProfile?.user;
@@ -168,6 +174,7 @@ function buildCards(requests: any[]): InquiryCard[] {
         roomId: room?.id,
         proName: proUser?.name || '사회자',
         proImage,
+        proProfileId: delivery.proProfileId || proProfile?.id,
         status: paid ? '거래완료' : approved ? '요청승인' : declined ? '거절' : '요청중',
         declineReason: declined ? (delivery.declineReason || undefined) : undefined,
       } as InquiryCard;
@@ -185,6 +192,7 @@ function buildCards(requests: any[]): InquiryCard[] {
       roomId: room?.id,
       proName: proUser?.name || '사회자',
       proImage: room?.proProfile?.images?.[0]?.imageUrl || proUser?.profileImageUrl || null,
+      proProfileId: room?.proProfileId || room?.proProfile?.id,
       status: paid ? '거래완료' : room?.id ? '요청승인' : '요청중',
     } as InquiryCard];
   });
@@ -340,12 +348,47 @@ export default function CustomerInquiriesPage() {
     [cards, statusTab],
   );
 
-  const openInquiry = (item: InquiryCard) => {
+  // 프로필(사진·이름) 누름 — 요청중이거나 아직 방이 없으면 사회자 상세, 방이 있으면 그 대화로(260926 사장)
+  const openProfile = (item: InquiryCard) => {
+    if ((item.status === '요청중' || !item.roomId) && item.proProfileId) {
+      router.push(`/pros/${item.proProfileId}`);
+      return;
+    }
+    if (item.roomId) router.push(`/chat/${item.roomId}`);
+  };
+
+  // 오른쪽 채팅 아이콘 — 방이 있으면 바로, 없으면 이 요청으로 방을 만들어 바로 말을 남기게
+  const [openingChatId, setOpeningChatId] = useState<string | null>(null);
+  const startChat = async (item: InquiryCard) => {
     if (item.roomId) {
       router.push(`/chat/${item.roomId}`);
       return;
     }
-    toast('사회자가 문의를 승인하면 채팅방이 열립니다');
+    if (!item.proProfileId || openingChatId) return;
+    setOpeningChatId(item.id);
+    try {
+      const res = await chatApi.createRoom(item.proProfileId, item.requestId);
+      const room = (res as any)?.data;
+      const roomId: string | undefined = room?.id || room?.roomId;
+      if (!roomId) {
+        toast.error('채팅방을 열지 못했어요');
+        return;
+      }
+      if (room?.otherUser) preWarmExistingRoom(room);
+      // 다음에 누르면 바로 열리게 목록에도 방을 붙여 둔다(상태는 사회자가 수락해야 '요청승인')
+      setRequests((prev) => {
+        const next = prev.map((r: any) => (r?.id === item.requestId
+          ? { ...r, chatRooms: [...(Array.isArray(r.chatRooms) ? r.chatRooms : []), { id: roomId, proProfileId: item.proProfileId, quotations: [] }] }
+          : r));
+        writeCustomerInquiriesCache(authUser?.id, next);
+        return next;
+      });
+      router.push(`/chat/${roomId}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '채팅방을 열지 못했어요');
+    } finally {
+      setOpeningChatId(null);
+    }
   };
 
   // 요청(행사) 단위로 묶는다 — 같은 행사 정보를 사회자마다 반복하지 않게(보낸 순서 유지)
@@ -502,11 +545,12 @@ export default function CustomerInquiriesPage() {
                     {/* 문의한 사회자 — 웨딩숲 댓글 줄 계층(프사 36 · 이름 15 굵게 · 상태 배지) */}
                     <ul className="mt-3.5 overflow-hidden rounded-[16px] bg-[#F9FAFB]">
                       {g.cards.map((item) => (
-                        <li key={item.id} className="border-b border-white last:border-b-0">
+                        <li key={item.id} className="flex items-center border-b border-white last:border-b-0">
+                          {/* 프로필 — 요청중이면 사회자 상세, 대화가 열려 있으면 그 대화로 */}
                           <button
                             type="button"
-                            onClick={() => openInquiry(item)}
-                            className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F2F4F6]"
+                            onClick={() => openProfile(item)}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 py-3 pl-3.5 pr-2 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F2F4F6]"
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -521,14 +565,21 @@ export default function CustomerInquiriesPage() {
                                 <StatusTag status={item.status} />
                               </span>
                               {item.status === '거절' && item.declineReason && (
-                                <span className="mt-1 line-clamp-2 break-words text-[14px] leading-[1.45] tracking-[-0.2px] text-[#F04452]">거절 사유 · {item.declineReason}</span>
+                                <span className="mt-1 line-clamp-2 break-words text-[14px] leading-[1.45] tracking-[-0.2px] text-[#191F28]">거절 사유 · {item.declineReason}</span>
                               )}
                             </span>
-                            {item.roomId ? (
-                              <ChevronRightIcon size={18} className="shrink-0 text-[#C9CED6]" />
-                            ) : (
-                              <span className="w-[18px] shrink-0" aria-hidden="true" />
-                            )}
+                          </button>
+                          {/* 채팅 — 누르면 바로 대화(방이 없으면 이 요청으로 연다) */}
+                          <button
+                            type="button"
+                            onClick={() => startChat(item)}
+                            disabled={openingChatId === item.id}
+                            aria-label={`${item.proName} 사회자와 채팅`}
+                            className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#3182F6] shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition active:scale-90 disabled:opacity-60"
+                          >
+                            {openingChatId === item.id
+                              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#D6E6FF] border-t-[#3182F6]" />
+                              : <ChatBubbleIcon size={20} />}
                           </button>
                         </li>
                       ))}
