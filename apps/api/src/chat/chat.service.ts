@@ -1333,6 +1333,94 @@ export class ChatService implements OnModuleInit {
     };
   }
 
+  // ─── 대화 내용 검색(260926 사장 "채팅에 대화내용 검색 가능하게") ─────────────────
+  // 글·링크 말풍선만(사진·스티커·시스템 카드 제외). 검색어는 50자까지, %·_·\ 는 글자 그대로 찾는다.
+  private chatSearchQuery(raw: unknown) {
+    return String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 50);
+  }
+
+  private chatLikePattern(q: string) {
+    return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  }
+
+  /** 일치한 곳이 보이게 앞을 잘라 한 줄 미리보기로 */
+  private chatSearchSnippet(content: string, q: string) {
+    const flat = String(content || '').replace(/\s+/g, ' ').trim();
+    const at = flat.toLowerCase().indexOf(q.toLowerCase());
+    if (at <= 16) return flat.slice(0, 120);
+    return `…${flat.slice(at - 12, at - 12 + 120)}`;
+  }
+
+  /** 채팅 목록 검색 — 내 방들의 대화에서 찾아, 방마다 가장 최근 일치 1개 + 일치 수 */
+  async searchMessagesAcrossRooms(userId: string, rawQ: unknown) {
+    const q = this.chatSearchQuery(rawQ);
+    if (!q) return { q, data: [] };
+    const participantUserIds = await this.getChatParticipantUserIds(userId);
+    const rooms = await this.prisma.chatRoom.findMany({
+      where: {
+        AND: [
+          { OR: this.fastChatRoomParticipantWhere(participantUserIds) },
+          this.fastChatRoomVisibleWhere(participantUserIds),
+        ],
+      },
+      select: { id: true },
+      take: 2000,
+    });
+    const roomIds = rooms.map((r) => r.id);
+    if (roomIds.length === 0) return { q, data: [] };
+    const rows = await this.prisma.$queryRaw<
+      Array<{ id: string; roomId: string; content: string | null; createdAt: Date; senderId: string; hits: bigint | number }>
+    >`
+      SELECT DISTINCT ON (m."roomId") m.id, m."roomId", m.content, m."createdAt", m."senderId",
+             COUNT(*) OVER (PARTITION BY m."roomId") AS hits
+      FROM messages m
+      WHERE m."roomId" = ANY(${roomIds}::text[])
+        AND m."isDeleted" = false
+        AND m.type IN ('text', 'link')
+        AND m.content ILIKE ${this.chatLikePattern(q)}
+      ORDER BY m."roomId", m."createdAt" DESC
+    `;
+    const data = rows
+      .map((r) => ({
+        roomId: r.roomId,
+        messageId: r.id,
+        snippet: this.chatSearchSnippet(r.content || '', q),
+        createdAt: r.createdAt,
+        senderId: r.senderId,
+        count: Number(r.hits) || 1,
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return { q, data };
+  }
+
+  /** 방 안 검색 — 일치 메시지(최신순) id·시각·미리보기. 웹은 이걸로 위/아래 이동하며 옛 메시지는 이어 받아 온다 */
+  async searchRoomMessages(roomId: string, userId: string, rawQ: unknown) {
+    await this.verifyMembership(roomId, userId);
+    const q = this.chatSearchQuery(rawQ);
+    if (!q) return { q, total: 0, data: [] };
+    const rows = await this.prisma.message.findMany({
+      where: {
+        roomId,
+        isDeleted: false,
+        type: { in: ['text', 'link'] },
+        content: { contains: q, mode: 'insensitive' },
+      },
+      select: { id: true, content: true, createdAt: true, senderId: true },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    });
+    return {
+      q,
+      total: rows.length,
+      data: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt,
+        senderId: r.senderId,
+        snippet: this.chatSearchSnippet(r.content || '', q),
+      })),
+    };
+  }
+
   /**
    * 자동 승인 — 섭외 요청이 오면 사회자 대신 방을 열고 인사말까지 보낸다.
    * 사회자가 '자동 승인' 을 켠 경우에만 돈다. 실패해도 요청 전달 자체는 그대로 간다.

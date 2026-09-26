@@ -177,8 +177,19 @@ export const chatApi = {
   addReaction: (messageId: string, emoji: string) =>
     apiClient.post(`${BASE}/messages/${messageId}/reactions`, { emoji }),
 
+  /** 방 안 대화 내용 검색 — 일치 메시지(최신순) */
   searchMessages: (roomId: string, q: string) =>
-    apiClient.get(`${BASE}/rooms/${roomId}/search`, { params: { q } }),
+    apiClient.get<{ q: string; total: number; data: { id: string; createdAt: string; senderId: string; snippet: string }[] }>(
+      `${BASE}/rooms/${roomId}/search`,
+      { params: { q }, timeout: 12000 },
+    ),
+
+  /** 채팅 목록 검색 — 내 방들 대화 내용에서 찾기(방마다 가장 최근 일치 1개 + 일치 수) */
+  searchAllMessages: (q: string) =>
+    apiClient.get<{ q: string; data: { roomId: string; messageId: string; snippet: string; createdAt: string; senderId: string; count: number }[] }>(
+      `${BASE}/search`,
+      { params: { q }, timeout: 12000 },
+    ),
 
   // Photo Gallery
   getPhotoGallery: (roomId: string, params?: { page?: number; limit?: number }) =>

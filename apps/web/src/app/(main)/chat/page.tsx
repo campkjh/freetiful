@@ -17,6 +17,7 @@ import { chatApi } from '@/lib/api/chat.api';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
+import { highlightText } from './[id]/chat-text';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -269,6 +270,35 @@ export default function ChatListPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
   const [search, setSearch] = useState('');
+  // 대화 내용 검색(260926) — 이름·마지막 말은 바로 거르고, 서버에서 옛 대화까지 찾아 방마다 가장 최근 일치 1개를 붙인다.
+  // 그 줄을 누르면 방이 검색 줄을 켠 채 그 메시지로 열린다(?q=·m=, PC 는 initialSearch).
+  const searchTerm = search.trim();
+  const [contentHits, setContentHits] = useState<Record<string, { messageId: string; snippet: string; count: number }>>({});
+  const [contentHitsFor, setContentHitsFor] = useState('');
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const [pcSearch, setPcSearch] = useState<{ q: string; m?: string } | null>(null);
+  useEffect(() => {
+    if (!searchTerm || !isLoggedIn) {
+      setContentHits({});
+      setContentHitsFor('');
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => {
+      chatApi.searchAllMessages(searchTerm)
+        .then((res) => {
+          if (!alive) return;
+          const next: Record<string, { messageId: string; snippet: string; count: number }> = {};
+          for (const h of res.data?.data || []) next[h.roomId] = { messageId: h.messageId, snippet: h.snippet, count: Number(h.count) || 1 };
+          setContentHits(next);
+          setContentHitsFor(searchTerm);
+        })
+        .catch(() => { if (alive) setContentHitsFor(searchTerm); /* 이름·마지막 말 거르기는 그대로 된다 */ });
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [searchTerm, isLoggedIn]);
+  // 서버가 이 검색어로 아직 찾는 중 — 이름·마지막 말로는 0건이어도 '없습니다' 를 번쩍이지 않는다
+  const searchPending = Boolean(searchTerm) && isLoggedIn && contentHitsFor !== searchTerm;
   const [deleteConfirmRooms, setDeleteConfirmRooms] = useState<ChatRoom[]>([]);
   const [deletingRooms, setDeletingRooms] = useState(false);
 
@@ -313,9 +343,9 @@ export default function ChatListPage() {
     } else {
       if (r.isHidden) return false;
     }
-    if (search) {
-      const q = search.toLowerCase();
-      if (!r.otherUser.name.toLowerCase().includes(q) && !r.lastMessage.toLowerCase().includes(q)) return false;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      if (!r.otherUser.name.toLowerCase().includes(q) && !(r.lastMessage || '').toLowerCase().includes(q) && !contentHits[r.id]) return false;
     }
     if (isPro) {
       switch (proActiveTab) {
@@ -334,7 +364,7 @@ export default function ChatListPage() {
       case '숨김': return true;
       default: return !r.isArchived;
     }
-  }), [rooms, currentTab, search, isPro, proActiveTab, activeTab]);
+  }), [rooms, currentTab, searchTerm, contentHits, isPro, proActiveTab, activeTab]);
 
   // 상단 고정 → 새 메시지(안 읽음) 있는 방 → 나머지. 같은 묶음 안은 원래 순서(최근 대화 순, 안정 정렬) 유지.
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
@@ -357,12 +387,12 @@ export default function ChatListPage() {
       id: r.id,
       name: r.otherUser?.name || '',
       image: r.otherUser?.profileImageUrl || '',
-      lastMessage: r.lastMessage || '',
+      lastMessage: (searchTerm && contentHits[r.id]?.snippet) || r.lastMessage || '',
       time: r.lastMessageAt || '',
       unread: r.unreadCount || 0,
     }));
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('freetiful:chatlist-rows'));
-  }, [sorted]);
+  }, [sorted, searchTerm, contentHits]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -560,7 +590,11 @@ export default function ChatListPage() {
                       return;
                     }
                     // PC 는 카톡 PC 처럼 우측 패널에서 연다(페이지 이동 없음)
-                    if (isPC) setSelectedRoomId(room.id);
+                    if (isPC) {
+                      const hit = searchTerm ? contentHits[room.id] : undefined;
+                      setPcSearch(hit ? { q: searchTerm, m: hit.messageId } : null);
+                      setSelectedRoomId(room.id);
+                    }
                   }}
                   onMouseEnter={() => handlePrewarmRoom(room.id)}
                   onFocus={() => handlePrewarmRoom(room.id)}
@@ -611,11 +645,17 @@ export default function ChatListPage() {
                       <ClientAvatar name={room.otherUser.name} />
                     );
                     const partnerTyping = (typingRooms[room.id] || 0) > nowTick;
+                    const searchHit = searchTerm ? contentHits[room.id] : undefined;
+                    const roomHref = searchHit
+                      ? `/chat/${room.id}?q=${encodeURIComponent(searchTerm)}&m=${encodeURIComponent(searchHit.messageId)}`
+                      : `/chat/${room.id}`;
                     const body = (
                       <div className="min-w-0 flex-1">
                         {/* 한 줄 헤더: 이름 · 단계 태그 · | 새 메시지 N … 시간 */}
                         <div className="flex items-center gap-1.5">
-                          <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{room.otherUser.name}</p>
+                          <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">
+                            {searchTerm ? highlightText(room.otherUser.name, searchTerm, 'chat-list-hl') : room.otherUser.name}
+                          </p>
                           {room.isMuted && (
                             <span
                               aria-label="알림 꺼짐"
@@ -637,6 +677,14 @@ export default function ChatListPage() {
                           <span className="ml-auto shrink-0 pl-2 text-[13px] text-[#8B95A1]">{chatTime(room.lastMessageAtRaw)}</span>
                           {room.isPinned && <Pin size={13} className="shrink-0 fill-[#3180F7] text-[#3180F7]" />}
                         </div>
+                        {searchHit ? (
+                          // 대화 내용 검색 — 일치한 말(가장 최근) 한 줄 + 더 있으면 '외 N건'
+                          <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.5] text-[#4E5968]">
+                            {highlightText(searchHit.snippet, searchTerm, 'chat-list-hl')}
+                            {searchHit.count > 1 && <span className="ml-1.5 whitespace-nowrap text-[13px] text-[#8B95A1]">외 {searchHit.count - 1}건</span>}
+                          </p>
+                        ) : (
+                        <>
                         {/* 굵게 = 내가 보낸 마지막 메시지 */}
                         {room.myLast && (
                           <p className="mt-1.5 truncate text-[15px] font-bold leading-[1.45] text-[#191F28]">{room.myLast}</p>
@@ -666,6 +714,8 @@ export default function ChatListPage() {
                         ) : !room.myLast ? (
                           <p className="mt-1.5 truncate text-[14px] text-[#8B95A1]">{room.lastMessage || '아직 대화가 없어요'}</p>
                         ) : null}
+                        </>
+                        )}
                       </div>
                     );
                     return isPC ? (
@@ -676,7 +726,7 @@ export default function ChatListPage() {
                     ) : (
                       <>
                         <Link
-                          href={editMode ? '#' : `/chat/${room.id}`}
+                          href={editMode ? '#' : roomHref}
                           className="shrink-0"
                           draggable={false}
                           onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
@@ -684,7 +734,7 @@ export default function ChatListPage() {
                           {avatar}
                         </Link>
                         <Link
-                          href={editMode ? '#' : `/chat/${room.id}`}
+                          href={editMode ? '#' : roomHref}
                           className="min-w-0 flex-1"
                           draggable={false}
                           onClick={(e) => { editMode ? e.preventDefault() : handleLinkClick(e); }}
@@ -821,8 +871,8 @@ export default function ChatListPage() {
               )
             ) : sorted.length === 0 ? (
               <div className="flex min-h-[280px] flex-col items-center justify-center py-10 text-center">
-                {search ? <EmptySearchIcon size={56} className="mx-auto" /> : <ChatEmptyBubbles size={132} className="mx-auto" />}
-                <p className="mt-3 text-[13px] text-[#A4ABBA]">{search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
+                {searchPending ? null : search ? <EmptySearchIcon size={56} className="mx-auto" /> : <ChatEmptyBubbles size={132} className="mx-auto" />}
+                <p className="mt-3 text-[13px] text-[#A4ABBA]">{searchPending ? '대화 내용에서 찾는 중…' : search ? '검색 결과가 없습니다' : '대화가 없습니다'}</p>
               </div>
             ) : renderChatList(true)}
           </div>
@@ -831,7 +881,7 @@ export default function ChatListPage() {
         {/* 우측: 대화 영역 — 방을 고르면 그 자리에서 열린다 */}
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-white">
           {selectedRoomId ? (
-            <ChatRoomView key={selectedRoomId} roomId={selectedRoomId} embedded />
+            <ChatRoomView key={selectedRoomId} roomId={selectedRoomId} embedded initialSearch={pcSearch} />
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
@@ -862,31 +912,50 @@ export default function ChatListPage() {
             />
             <button
               type="button"
-              onClick={() => setShowSearch(!showSearch)}
+              onClick={() => {
+                if (showSearch) {
+                  // 닫을 때 검색어도 비운다 — 칸이 접혀 올라가는 동안 목록이 원래대로 채워진다
+                  setShowSearch(false);
+                  setSearch('');
+                  mobileSearchRef.current?.blur();
+                } else {
+                  setShowSearch(true);
+                  // 칸은 늘 붙어 있고 높이만 0 — 누른 그 순간 포커스해야 모바일 키보드가 바로 뜬다
+                  mobileSearchRef.current?.focus({ preventScroll: true });
+                }
+              }}
               aria-label={showSearch ? '검색 닫기' : '검색'}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors active:scale-90 ${
+              aria-expanded={showSearch}
+              data-open={showSearch ? 'true' : 'false'}
+              className={`chatlist-search-toggle relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-300 active:scale-90 ${
                 showSearch ? 'bg-[#F2F3F5] text-[#2B313D]' : 'text-[#A4ABBA]'
               }`}
             >
-              {showSearch ? <CloseIcon size={19} /> : <SearchIcon size={19} />}
+              <span className="ic ic-search"><SearchIcon size={19} /></span>
+              <span className="ic ic-close"><CloseIcon size={19} /></span>
             </button>
           </div>
 
-          {showSearch && (
-            <div className="relative mb-2">
+          {/* 검색칸 — 늘 붙어 있고 높이만 0↔56 으로 벌어진다(globals .chatlist-search): 아래 목록이 부드럽게 밀려 내려가고, 닫으면 다시 올라온다 */}
+          <div className={`chatlist-search ${showSearch ? 'is-open' : ''}`} aria-hidden={!showSearch}>
+            <div className="field relative">
               <SearchIcon size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
               <input
+                ref={mobileSearchRef}
                 type="text"
                 value={search}
+                tabIndex={showSearch ? 0 : -1}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); mobileSearchRef.current?.blur(); } }}
                 placeholder="이름 또는 대화 내용 검색"
-                autoFocus
+                enterKeyHint="search"
+                autoComplete="off"
                 className="h-12 w-full rounded-[14px] bg-[#F2F3F5] pl-11 pr-10 text-[16px] font-medium text-[#2B313D] outline-none transition-colors placeholder:font-normal placeholder:text-[#A4ABBA] focus:bg-[#EDEFF2]"
               />
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => { setSearch(''); mobileSearchRef.current?.focus({ preventScroll: true }); }}
                   aria-label="검색어 지우기"
                   className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#A4ABBA] active:bg-[#E4E7EB]"
                 >
@@ -894,7 +963,7 @@ export default function ChatListPage() {
                 </button>
               )}
             </div>
-          )}
+          </div>
 
         </div>
         <>
@@ -946,10 +1015,12 @@ export default function ChatListPage() {
             className={`flex min-h-[calc(100dvh-320px)] flex-col items-center justify-center px-6 pb-10 text-center ${enterWindow ? 'qd-a-item' : ''}`}
             style={enterWindow ? { animationDelay: '.3s' } : undefined}
           >
-            {search
+            {searchPending
+              ? null
+              : search
               ? <EmptySearchIcon size={64} className="mx-auto mb-4" />
               : <ChatEmptyBubbles size={176} className="mx-auto mb-6" />}
-            <p className="text-[16px] font-bold text-[#2B313D]">{search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '이어가던 대화를 다시 시작해 볼까요?'}</p>
+            <p className={searchPending ? 'text-[15px] font-medium text-[#8B95A1]' : 'text-[16px] font-bold text-[#2B313D]'}>{searchPending ? '대화 내용에서 찾는 중…' : search ? '검색 결과가 없습니다' : !isLoggedIn ? '로그인 후 채팅을 시작하세요' : activeTab === '보관' ? '보관된 채팅이 없습니다' : '이어가던 대화를 다시 시작해 볼까요?'}</p>
             {!search && isLoggedIn && activeTab !== '보관' && (
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">마음에 드는 사회자에게 문의하면 여기에서 대화할 수 있어요.</p>
             )}
@@ -961,11 +1032,8 @@ export default function ChatListPage() {
       {/* ─── 롱프레스 액션 메뉴 ─── */}
       {actionMenu && (
         <>
-          <div
-            className="fixed inset-0 z-[55] bg-black/30 animate-[chatActionFade_0.2s_ease]"
-            style={{ backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }}
-            onClick={() => setActionMenu(null)}
-          />
+          {/* 바깥을 누르면 닫힘 — 딤·블러 없이 메뉴만 뜬다(260926 사장) */}
+          <div className="fixed inset-0 z-[55]" onClick={() => setActionMenu(null)} />
           <div
             // 툴팁 메뉴 공통(globals .pop-menu) — 작게 시작해 정비율로 커지고, 항목은 오른쪽→왼쪽으로 촤라락
             className="pop-menu nt-menu fixed z-[60] overflow-hidden"

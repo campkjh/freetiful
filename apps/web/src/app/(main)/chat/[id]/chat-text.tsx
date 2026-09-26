@@ -18,7 +18,46 @@ const URL_SPLIT = new RegExp(`(https?://${URL_BODY}|(?<![A-Za-z0-9@._-])www\\.${
 
 const isUrlToken = (s: string) => /^(https?:\/\/|www\.)/i.test(s);
 
-export function renderMessageText(text: string): React.ReactNode[] {
+export type ChatTextOptions = {
+  /** 대화 내용 검색어 — 일치 글자를 형광펜(globals mark.chat-hl)으로 */
+  highlight?: string;
+  /** 지금 보고 있는 검색 결과 말풍선이면 진하게 */
+  current?: boolean;
+};
+
+/**
+ * 검색어 강조 — 대소문자 무시, 앞에서부터 겹치지 않게 <mark> 로 감싼다(260926 대화 내용 검색).
+ * 소문자로 바꾸며 길이가 달라지는 글자(드묾)가 섞이면 위치가 어긋나므로 강조하지 않는다.
+ */
+export function highlightText(text: string, q: string | undefined, className = 'chat-hl', keyBase = 'h'): React.ReactNode {
+  const src = String(text ?? '');
+  const ql = String(q ?? '').toLowerCase();
+  if (!ql) return src;
+  const lower = src.toLowerCase();
+  if (lower.length !== src.length) return src;
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let k = 0;
+  while (i < src.length) {
+    const at = lower.indexOf(ql, i);
+    if (at < 0) {
+      out.push(src.slice(i));
+      break;
+    }
+    if (at > i) out.push(src.slice(i, at));
+    out.push(
+      <mark key={`${keyBase}${k++}`} className={className}>
+        {src.slice(at, at + ql.length)}
+      </mark>,
+    );
+    i = at + ql.length;
+  }
+  return out;
+}
+
+export function renderMessageText(text: string, opts?: ChatTextOptions): React.ReactNode[] {
+  const hl = opts?.highlight?.trim() || '';
+  const hlClass = opts?.current ? 'chat-hl cur' : 'chat-hl';
   const src = String(text ?? '');
   const nodes: React.ReactNode[] = [];
   let key = 0;
@@ -54,11 +93,11 @@ export function renderMessageText(text: string): React.ReactNode[] {
       if (part.startsWith('@')) {
         nodes.push(
           <span key={`m${key++}`} className="font-bold text-[#0A84FF] bg-[#0A84FF]/15 px-1 py-0.5 rounded">
-            {part}
+            {hl ? highlightText(part, hl, hlClass, `m${key}-`) : part}
           </span>,
         );
       } else {
-        nodes.push(<span key={`s${key++}`}>{part}</span>);
+        nodes.push(<span key={`s${key++}`}>{hl ? highlightText(part, hl, hlClass, `s${key}-`) : part}</span>);
       }
     }
   }

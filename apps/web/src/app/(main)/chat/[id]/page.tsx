@@ -26,6 +26,7 @@ import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { PhoneNumberNotice, containsPhoneNumber } from '@/components/chat/ChatNotice';
 import { useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import AiIcon from '@/components/icons/AiIcon';
+import { SearchIcon as MonoSearchIcon, CloseIcon as MonoCloseIcon } from '@/components/icons/mono';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -234,10 +235,13 @@ function mergeFetchedMessages(current: Message[], fetched: Message[], requestedA
   // API가 빈 배열을 반환하면 기존 메시지를 지우지 않는다 (서버 이상/일시적 빈 응답 방어)
   if (fetched.length === 0 && current.length > 0) return current;
   const fetchedIds = new Set(fetched.map((message) => message.id));
+  // 대화 내용 검색으로 이어 받아 온 옛 메시지(받은 창보다 더 옛것)는 최신 창을 다시 받아도 지우지 않는다
+  const oldestFetched = fetched.reduce((min, message) => Math.min(min, messageTime(message)), Infinity);
   const preserved = current.filter((message) => {
     if (fetchedIds.has(message.id)) return false;
     if (hasFetchedEquivalent(message, fetched)) return false;
     if (isOptimisticId(message.id)) return true;
+    if (messageTime(message) < oldestFetched) return true;
     // 방금 보낸(서버 저장 완료) 메시지가 getMessages 캐시 지연으로 목록에 아직 없을 때
     // 2초 창은 너무 좁아 이미지(업로드 수초 소요)가 잘려 사라지던 문제 → 60초로 확대.
     return messageTime(message) >= requestedAt - 60_000;
@@ -304,7 +308,11 @@ function formatEventTimeShort(t: string | Date | null | undefined): string {
  * 우측 패널에 그대로 끼워 넣는다(embedded). 그때는 방 id 를 prop 으로 받고
  * 전체화면 고정(fixed)·뒤로가기 버튼을 끈다.
  */
-export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: { roomId?: string; embedded?: boolean } = {}) {
+export default function ChatRoomPage({
+  roomId: roomIdProp,
+  embedded = false,
+  initialSearch = null,
+}: { roomId?: string; embedded?: boolean; initialSearch?: { q: string; m?: string } | null } = {}) {
   const routeParams = useParams<{ id: string }>();
   const roomId = roomIdProp ?? routeParams?.id;
   const router = useRouter();
@@ -493,6 +501,19 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
   const [pinnedMessage, setPinnedMessage] = useState<{ id: string; name: string; content: string } | null>(null);
   const [partialCopyMsg, setPartialCopyMsg] = useState<Message | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  // 대화 내용 검색 상태(동작은 아래 scrollToMessage 뒤)
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const [searchHits, setSearchHits] = useState<{ id: string; createdAt: string }[] | null>(null);
+  const [searchIdx, setSearchIdx] = useState(0);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchSeqRef = useRef(0);
+  const searchTargetRef = useRef<string | null>(null);
+  const searchTerm = searchOpen ? searchQ.trim() : '';
+  const searchActiveRef = useRef(false);
+  searchActiveRef.current = Boolean(searchTerm);
+  const currentHitId = searchHits && searchHits.length > 0 ? searchHits[Math.min(searchIdx, searchHits.length - 1)]?.id ?? null : null;
 
   // ─── Refs ───
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -787,6 +808,8 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         requestAnimationFrame(() => scrollToBottom(false));
       });
       hasInitialScrolledRef.current = true;
+    } else if (searchActiveRef.current) {
+      // 대화 내용 검색 중(옛 메시지를 이어 붙이거나 결과를 보는 중) — 맨 아래로 끌어내리지 않는다
     } else {
       scrollToBottom(true);
     }
@@ -1160,6 +1183,131 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
     }
   };
 
+  // ─── 대화 내용 검색(260926 사장 "채팅에 대화내용 검색 가능하게") ───
+  //  · ⋮ → 대화 내용 검색 → 제목 줄 위로 검색 줄이 스르륵(채팅 목록에서 찾아 들어오면 ?q=·m= 로 바로 켜짐).
+  //  · 서버가 일치 메시지(최신순)를 주면 가장 최근 것부터 ∧(더 옛)·∨(더 최근)으로 옮겨 다닌다.
+  //    화면에 없는 옛 메시지면 그 시각까지 이어 받아 온다(after=그 시각, cursor=지금 가장 옛 메시지).
+  //  · 말풍선 글 속 일치 글자는 형광펜(globals mark.chat-hl), 지금 보는 결과는 진하게.
+  //  · iOS 앱 채팅방은 네이티브라 이 화면이 안 보인다(네이티브 ••• 의 검색은 그대로 '곧 제공').
+  const openSearch = useCallback(() => {
+    setShowHeaderMenu(false);
+    setSearchOpen(true);
+    // 입력칸은 늘 붙어 있고 숨김만 — 누른 그 순간 포커스해야 모바일 키보드가 바로 뜬다
+    searchInputRef.current?.focus({ preventScroll: true });
+  }, []);
+  const closeSearch = useCallback(() => {
+    searchSeqRef.current += 1;
+    searchTargetRef.current = null;
+    setSearchOpen(false);
+    setSearchQ('');
+    setSearchHits(null);
+    setSearchIdx(0);
+    setSearchBusy(false);
+    searchInputRef.current?.blur();
+    // 목록에서 ?q= 로 들어왔으면 주소에서 검색어를 뗀다(새로고침·뒤로가기로 다시 켜지지 않게)
+    if (!embedded && typeof window !== 'undefined' && /[?&](q|m)=/.test(window.location.search)) {
+      try { window.history.replaceState(window.history.state, '', window.location.pathname); } catch { /* 주소는 그대로여도 된다 */ }
+    }
+  }, [embedded]);
+
+  const ensureHitLoaded = async (hit: { id: string; createdAt: string }, seq: number) => {
+    // 첫 로드가 끝나야 '가장 옛 메시지'를 안다
+    for (let i = 0; i < 60 && messagesRef.current.length === 0; i += 1) {
+      await new Promise((r) => setTimeout(r, 100));
+      if (seq !== searchSeqRef.current) return false;
+    }
+    if (messagesRef.current.some((m) => m.id === hit.id)) return true;
+    let oldest = Infinity;
+    for (const m of messagesRef.current) {
+      if (isOptimisticId(m.id)) continue;
+      oldest = Math.min(oldest, messageTime(m));
+    }
+    for (let round = 0; round < 12 && Number.isFinite(oldest); round += 1) {
+      const res = await chatApi.getMessages(roomId, { cursor: new Date(oldest).toISOString(), after: hit.createdAt, limit: 80 });
+      if (seq !== searchSeqRef.current) return false;
+      const older = (res.data?.data || []).map(mapApiMessage);
+      if (older.length === 0) return false;
+      setMessages((prev) => {
+        const have = new Set(prev.map((m) => m.id));
+        const add = older.filter((m) => !have.has(m.id));
+        return add.length ? [...add, ...prev].sort((a, b) => messageTime(a) - messageTime(b)) : prev;
+      });
+      if (older.some((m) => m.id === hit.id)) return true;
+      if (!res.data?.hasMore) return false;
+      for (const m of older) oldest = Math.min(oldest, messageTime(m));
+    }
+    return false;
+  };
+
+  const goToHit = async (idx: number, hits: { id: string; createdAt: string }[], seq: number) => {
+    const hit = hits[idx];
+    if (!hit) return;
+    setSearchIdx(idx);
+    const ok = await ensureHitLoaded(hit, seq);
+    if (seq !== searchSeqRef.current) return;
+    if (!ok) {
+      toast('이 메시지는 불러오지 못했어요');
+      return;
+    }
+    for (let i = 0; i < 40 && !document.getElementById(`msg-${hit.id}`); i += 1) {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    }
+    scrollToMessage(hit.id);
+  };
+
+  /** dir 1 = 더 옛 결과(∧), -1 = 더 최근 결과(∨) */
+  const stepHit = (dir: 1 | -1) => {
+    if (!searchHits || searchHits.length === 0) return;
+    const next = searchIdx + dir;
+    if (next < 0 || next >= searchHits.length) return;
+    void goToHit(next, searchHits, searchSeqRef.current);
+  };
+
+  // 검색어가 멈추면(0.28초) 서버에서 찾고 가장 최근 결과로 간다(목록에서 온 m= 이 있으면 그 메시지로)
+  useEffect(() => {
+    if (!searchTerm || !roomId || roomId.startsWith('pending-')) {
+      searchSeqRef.current += 1;
+      setSearchHits(null);
+      setSearchBusy(false);
+      return;
+    }
+    const seq = ++searchSeqRef.current;
+    setSearchBusy(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await chatApi.searchMessages(roomId, searchTerm);
+        if (seq !== searchSeqRef.current) return;
+        const hits = (res.data?.data || []).map((h) => ({ id: String(h.id), createdAt: String(h.createdAt) }));
+        setSearchHits(hits);
+        setSearchBusy(false);
+        const target = searchTargetRef.current;
+        searchTargetRef.current = null;
+        const at = target ? hits.findIndex((h) => h.id === target) : -1;
+        if (hits.length > 0) void goToHit(at >= 0 ? at : 0, hits, seq);
+        else setSearchIdx(0);
+      } catch {
+        if (seq === searchSeqRef.current) {
+          setSearchHits([]);
+          setSearchBusy(false);
+        }
+      }
+    }, 280);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, roomId]);
+
+  // 채팅 목록 검색에서 넘어온 경우(?q=·m=, PC 는 initialSearch) — 검색 줄을 켠 채로 연다(키보드는 안 띄움)
+  const urlSearchQ = embedded ? null : searchParams.get('q');
+  const urlSearchM = embedded ? null : searchParams.get('m');
+  useEffect(() => {
+    const q = (initialSearch?.q ?? urlSearchQ ?? '').trim();
+    if (!q) return;
+    searchTargetRef.current = initialSearch?.m ?? urlSearchM ?? null;
+    setSearchOpen(true);
+    setSearchQ(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, initialSearch?.q, initialSearch?.m]);
+
   const isMine = (msg: Message) => msg.senderId === MY_ID;
 
   const formatVoiceDuration = (sec: number) => {
@@ -1327,6 +1475,55 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                 >
                   <MoreVertical size={22} />
                 </button>
+
+                {/* 대화 내용 검색 줄 — 제목 줄 위에 겹쳐 늘 붙어 있고(누른 순간 포커스하려고) 열릴 때만 보인다 */}
+                <div
+                  className={`chat-room-search absolute inset-0 z-[2] flex items-center gap-1 bg-white pl-3 pr-1.5 ${searchOpen ? 'is-open' : ''}`}
+                  aria-hidden={!searchOpen}
+                >
+                  <div className="relative min-w-0 flex-1">
+                    <MonoSearchIcon size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8B95A1]" />
+                    <input
+                      ref={searchInputRef}
+                      type="search"
+                      value={searchQ}
+                      tabIndex={searchOpen ? 0 : -1}
+                      onChange={(e) => setSearchQ(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          closeSearch();
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          // 폰은 키보드만 내려 결과를 보게, PC 는 Enter 로 다음(더 옛) 결과
+                          if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) searchInputRef.current?.blur();
+                          else stepHit(1);
+                        }
+                      }}
+                      placeholder="대화 내용 검색"
+                      enterKeyHint="search"
+                      autoComplete="off"
+                      className="h-11 w-full rounded-[14px] bg-[#F2F4F6] pl-10 pr-10 text-[16px] font-medium text-[#191F28] outline-none placeholder:font-normal placeholder:text-[#8B95A1] [&::-webkit-search-cancel-button]:hidden"
+                    />
+                    {searchQ && (
+                      <button
+                        type="button"
+                        onClick={() => { setSearchQ(''); searchInputRef.current?.focus({ preventScroll: true }); }}
+                        aria-label="검색어 지우기"
+                        className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#C9CED6] text-white"
+                      >
+                        <MonoCloseIcon size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeSearch}
+                    tabIndex={searchOpen ? 0 : -1}
+                    className="h-11 shrink-0 rounded-[12px] px-2.5 text-[16px] font-semibold text-[#4E5968] transition-colors active:bg-[#F2F4F6]"
+                  >
+                    닫기
+                  </button>
+                </div>
               </div>
 
               {/* 거래 카드: 썸네일 · 단계+행사 / 금액+일정 */}
@@ -1784,7 +1981,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
                           </button>
                         )}
                         <div className="px-4 py-[10px]">
-                          {renderTextWithMentions(msg.content)}
+                          {renderTextWithMentions(msg.content, searchTerm ? { highlight: searchTerm, current: msg.id === currentHitId } : undefined)}
                         </div>
                       </div>
                     )}
@@ -1858,6 +2055,55 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
         >
           <TintIcon src="/icons/chat-kr/arrow-down.svg" color="#191F28" size={22} />
         </button>
+      )}
+
+      {/* ─── 대화 내용 검색 결과 이동 알약 — ∧ 더 옛 대화 · ∨ 더 최근 대화 ─── */}
+      {searchOpen && searchTerm && (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center px-4"
+          style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + ${showReplySuggest ? 132 : 80}px)` }}
+        >
+          <div
+            role="status"
+            aria-live="polite"
+            className="chat-search-nav pointer-events-auto flex h-12 items-center rounded-full border border-[#EEF0F3] bg-white pl-5 pr-1.5 shadow-[0_8px_28px_rgba(15,23,42,0.14)]"
+          >
+            {searchBusy && !(searchHits && searchHits.length > 0) ? (
+              <span className="pr-3.5 text-[15px] font-medium text-[#8B95A1]">찾는 중…</span>
+            ) : !searchHits || searchHits.length === 0 ? (
+              <span className="pr-3.5 text-[15px] font-medium text-[#8B95A1]">일치하는 대화가 없어요</span>
+            ) : (
+              <>
+                <span className="mr-1.5 text-[15px] font-bold tabular-nums text-[#191F28]">
+                  {Math.min(searchIdx, searchHits.length - 1) + 1}
+                  <span className="font-medium text-[#B0B8C1]"> / {searchHits.length}</span>
+                </span>
+                <button
+                  type="button"
+                  aria-label="이전 결과(더 옛 대화)"
+                  disabled={searchIdx >= searchHits.length - 1}
+                  onClick={() => stepHit(1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#191F28] transition active:scale-90 active:bg-[#F2F4F6] disabled:text-[#D1D6DB] disabled:active:scale-100 disabled:active:bg-transparent"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="다음 결과(더 최근 대화)"
+                  disabled={searchIdx <= 0}
+                  onClick={() => stepHit(-1)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#191F28] transition active:scale-90 active:bg-[#F2F4F6] disabled:text-[#D1D6DB] disabled:active:scale-100 disabled:active:bg-transparent"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ─── Input Bar — z-30 (그라데이션 앞) ─── */}
@@ -2014,6 +2260,7 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
           muted={muted}
           setMuted={setMuted}
           onToggleMute={toggleRoomMute}
+          onOpenSearch={openSearch}
           showAttach={showAttach}
           setShowAttach={setShowAttach}
           showQuoteModal={showQuoteModal}

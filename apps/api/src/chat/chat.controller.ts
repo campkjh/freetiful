@@ -99,6 +99,18 @@ export class ChatController {
     return this.chatService.getMessages(roomId, req.user.id, query);
   }
 
+  @Get('rooms/:roomId/search')
+  @ApiOperation({ summary: '방 안 대화 내용 검색 (최신순 일치 목록)' })
+  searchRoomMessages(@Req() req, @Param('roomId') roomId: string, @Query('q') q: string) {
+    return this.chatService.searchRoomMessages(roomId, req.user.id, q);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: '채팅 목록 검색 — 내 방들 대화 내용에서 찾기 (방마다 최근 일치 1개)' })
+  searchAllMessages(@Req() req, @Query('q') q: string) {
+    return this.chatService.searchMessagesAcrossRooms(req.user.id, q);
+  }
+
   @Post('rooms/:roomId/messages')
   @ApiOperation({ summary: '메시지 전송' })
   async sendMessage(@Req() req, @Param('roomId') roomId: string, @Body() dto: SendMessageDto) {

@@ -1184,6 +1184,8 @@ export interface ChatExtrasProps {
   setMuted: React.Dispatch<React.SetStateAction<boolean>>;
   /** 알림 끄기/켜기(서버 저장) — 없으면 화면 상태만 바꾼다 */
   onToggleMute?: () => void;
+  /** ⋮ → 대화 내용 검색(웹) — 방 화면이 검색 줄을 연다 */
+  onOpenSearch?: () => void;
   showAttach: boolean;
   setShowAttach: React.Dispatch<React.SetStateAction<boolean>>;
   showQuoteModal: boolean;
@@ -1246,6 +1248,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     showHeaderMenu, setShowHeaderMenu,
     muted, setMuted,
     onToggleMute,
+    onOpenSearch,
     showAttach, setShowAttach,
     showQuoteModal, setShowQuoteModal,
     showLocationPicker, setShowLocationPicker,
@@ -2345,7 +2348,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
           <div className="pop-menu nt-menu absolute right-3 top-[68px] z-50 overflow-hidden" style={{ transformOrigin: 'top right' }} role="menu">
-            <button onClick={() => { toast('곧 제공될 예정입니다', { icon: '🔍' }); setShowHeaderMenu(false); }} className={itemCls} style={popItemDelay(0)}>
+            <button onClick={() => { setShowHeaderMenu(false); if (onOpenSearch) onOpenSearch(); else toast('곧 제공될 예정입니다', { icon: '🔍' }); }} className={itemCls} style={popItemDelay(0)}>
               {ic('search')} 대화 내용 검색
             </button>
             <button onClick={() => { if (onToggleMute) onToggleMute(); else { setMuted(!muted); toast(muted ? '알림 켜짐' : '알림 꺼짐'); } setShowHeaderMenu(false); }} className={itemCls} style={popItemDelay(1)}>

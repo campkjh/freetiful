@@ -2089,6 +2089,34 @@ html[data-embedded='1'] [data-native-back-header] {
 .nt-menu-sep { height: 1px; margin: 6px 20px; background: #F2F4F6; }
 .nt-menu-item.on { font-weight: 600; color: #191F28; }
 
+/* ─── 채팅 대화 내용 검색(260926) ─────────────────────────────────────────── */
+/* 말풍선 속 일치 글자 형광펜 — 회색·파란 말풍선 둘 다 읽히게 노랑, 지금 보는 결과는 진하게 */
+mark.chat-hl { background: #FFEBA0; color: #191F28; border-radius: 4px; padding: 0 1px; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-color .2s ease; }
+mark.chat-hl.cur { background: #FFC933; }
+/* 채팅 목록 검색 결과 — 일치 글자는 파랑 굵게 */
+mark.chat-list-hl { background: none; color: #3182F6; font-weight: 700; }
+/* 방 제목 줄 위에 겹친 검색 줄(늘 붙어 있음) — 열릴 때 오른쪽에서 스르륵, 닫힐 때 살짝 밀리며 사라짐 */
+.chat-room-search { opacity: 0; transform: translateX(16px); pointer-events: none; transition: opacity .18s ease, transform .3s cubic-bezier(.4,0,.2,1); }
+.chat-room-search.is-open { opacity: 1; transform: none; pointer-events: auto; transition: opacity .24s ease, transform .42s cubic-bezier(.22,1,.36,1); }
+/* 아래 결과 이동 알약 */
+@keyframes chatSearchNavIn { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+.chat-search-nav { animation: chatSearchNavIn .34s cubic-bezier(.22,1,.36,1) both; }
+/* 채팅 목록 검색칸 — 열면 칸이 벌어지며 아래 목록이 부드럽게 밀려 내려가고, 닫으면 다시 올라온다.
+   높이는 칸 48 + 아래 8 = 56 고정이라 재지 않고 height 로 옮긴다(모든 브라우저). 여는 곡선은 길고 부드럽게, 닫는 곡선은 짧게 */
+.chatlist-search { height: 0; overflow: hidden; transition: height .34s cubic-bezier(.4,0,.2,1); }
+.chatlist-search.is-open { height: 56px; transition: height .46s cubic-bezier(.22,1,.36,1); }
+.chatlist-search .field { opacity: 0; transform: translateY(-12px) scale(.97); transform-origin: 50% 0; transition: opacity .16s ease, transform .3s cubic-bezier(.4,0,.2,1); }
+.chatlist-search.is-open .field { opacity: 1; transform: none; transition: opacity .3s ease .06s, transform .5s cubic-bezier(.22,1,.36,1) .03s; }
+/* 돋보기 ↔ 닫기 아이콘 — 돌며 바뀐다 */
+.chatlist-search-toggle > .ic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transition: opacity .2s ease, transform .38s cubic-bezier(.22,1,.36,1); }
+.chatlist-search-toggle > .ic-close { opacity: 0; transform: rotate(-90deg) scale(.6); }
+.chatlist-search-toggle[data-open="true"] > .ic-search { opacity: 0; transform: rotate(90deg) scale(.6); }
+.chatlist-search-toggle[data-open="true"] > .ic-close { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .chatlist-search, .chatlist-search .field, .chat-room-search, .chatlist-search-toggle > .ic { transition: none !important; }
+  .chat-search-nav { animation: none; }
+}
+
 /* ═══ 상세 화면 공통 = 퀵매칭 어법 (2026-09-25 사장 지시 — "버튼 눌러 나오는 상세페이지 전부 퀵매칭 헤더·인터랙션·디자인") ═══
    · 헤더는 뒤로 버튼만(56px · 40px 둥근 버튼) — 제목은 그 아래 큰 글씨(24px)로 아래→위 페이드, 부제 15px 회색.
    · 본문(.qd-body)의 직계 칸은 오른쪽→왼쪽으로 순차 슬라이드(퀵매칭 stag: 0.3s + i*0.07s).
