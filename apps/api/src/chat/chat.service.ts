@@ -1353,13 +1353,62 @@ export class ChatService implements OnModuleInit {
 
     const greeting = await this.autoReplyService.greetingFor(proProfile.id, proProfile.user?.name);
     if (greeting) {
-      await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
+      // 사람 속도로 치면 인사말 하나에 수십 초 — 기다리면 여러 사회자에게 차례로 도는 자동 승인 루프가 몇 분씩 밀린다.
+      // 방은 여기서 순서대로 열고, 인사말은 그 방의 자동응답 줄에 세워 둔다(고객 첫 말과 섞이지 않게).
+      this.enqueueRoomTask(roomId, async () => {
+        await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
+      });
     }
   }
 
-  /** 사람이 치는 속도쯤으로 — 글자 수에 비례하되 0.9~3.2초 사이 */
+  /**
+   * 한 문단을 치는 데 걸리는 시간 — 사람이 채팅으로 치는 속도(띄어쓰기 포함 초당 약 7자).
+   * 짧은 말도 1.2초, 한 문단은 14초까지. 매번 같은 박자면 기계 같아서 ±12% 흔든다(260926 사장 '장문은 사람 타이핑 속도로').
+   */
   private typingDelayFor(text: string) {
-    return Math.min(3200, Math.max(900, Math.round(text.length * 38)));
+    const chars = Array.from(text || '').length;
+    const base = Math.min(14_000, Math.max(1_200, chars * 140));
+    return Math.round(base * (0.88 + Math.random() * 0.24));
+  }
+
+  /** '입력 중' 을 켜 두고 ms 동안 기다린다 — 채팅 목록 점 3개는 8초면 꺼지므로 4초마다 다시 알린다 */
+  private async typeFor(roomId: string, proUserId: string, ms: number) {
+    this.chatRealtimeService.emitTyping(roomId, proUserId, true);
+    const beat = setInterval(() => this.chatRealtimeService.emitTyping(roomId, proUserId, true), 4_000);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    } finally {
+      clearInterval(beat);
+      this.chatRealtimeService.emitTyping(roomId, proUserId, false);
+    }
+  }
+
+  /** 자동응답을 치는 사이 사회자가 직접 말했는지 — 그러면 남은 자동응답은 멈춘다 */
+  private async proSpokeSince(roomId: string, proUserId: string, since: Date) {
+    const rows = await this.prisma.message.findMany({
+      where: { roomId, senderId: proUserId, createdAt: { gte: since } },
+      select: { metadata: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+    return rows.some((m) => (m.metadata as any)?.autoReply !== true);
+  }
+
+  // 방마다 자동응답을 한 줄로 세운다. 사람 속도로 치느라 한 번에 수십 초가 걸리는데, 그 사이 고객이 또 말하면
+  // 두 답이 문단 단위로 뒤섞여 나간다. 앞 답을 마저 보낸 뒤 '마지막 말' 에만 답한다(중간 말은 대화 기록으로 AI 가 본다).
+  private autoReplyTail = new Map<string, Promise<void>>();
+  private autoReplyPending = new Map<string, { senderId: string; text: string }>();
+
+  private enqueueRoomTask(roomId: string, task: () => Promise<void>) {
+    const prev = this.autoReplyTail.get(roomId) || Promise.resolve();
+    const next = prev
+      .catch(() => undefined)
+      .then(task)
+      .catch((error) => console.warn(`자동응답 줄 실패 room=${roomId}: ${error}`));
+    this.autoReplyTail.set(roomId, next);
+    void next.finally(() => {
+      if (this.autoReplyTail.get(roomId) === next) this.autoReplyTail.delete(roomId);
+    });
   }
 
   /**
@@ -1379,22 +1428,22 @@ export class ChatService implements OnModuleInit {
       .filter(Boolean)
       .slice(0, 4);
     const memberIds = await this.getRoomMemberIds(roomId);
+    const startedAt = new Date();
+
+    // 사람 박자 — 먼저 읽고(1~2.2초, '입력 중' 없이), 문단마다 치는 시간, 문단 사이 숨 고르기(0.5~1.1초).
+    // 긴 답이 1분씩 걸리면 고객이 떠나므로 전체 45초를 넘으면 비율대로 줄인다.
+    const typing = chunks.map((chunk) => this.typingDelayFor(chunk));
+    const gaps = chunks.map((_, i) => (i === 0 ? 1_000 + Math.random() * 1_200 : 500 + Math.random() * 600));
+    const planned = typing.reduce((a, b) => a + b, 0) + gaps.reduce((a, b) => a + b, 0);
+    const scale = planned > 45_000 ? 45_000 / planned : 1;
 
     for (const [index, chunk] of chunks.entries()) {
-      // 보내는 도중에 사회자가 직접 답하면 남은 문단은 멈춘다.
-      // 문단마다 타이핑 연출이 붙어 총 십수 초가 걸리는데, 그 사이 사회자가 끼어들면
-      // 같은 사람이 이어서 엉뚱한 말을 하는 것처럼 보인다.
-      if (index > 0) {
-        const proSpoke = await this.prisma.message.findFirst({
-          where: { roomId, senderId: proUserId, createdAt: { gte: new Date(Date.now() - 60_000) } },
-          select: { metadata: true },
-          orderBy: { createdAt: 'desc' },
-        });
-        if (proSpoke && (proSpoke.metadata as any)?.autoReply !== true) break;
-      }
-      this.chatRealtimeService.emitTyping(roomId, proUserId, true);
-      await new Promise((resolve) => setTimeout(resolve, this.typingDelayFor(chunk)));
-      this.chatRealtimeService.emitTyping(roomId, proUserId, false);
+      await new Promise((resolve) => setTimeout(resolve, Math.round(gaps[index] * scale)));
+      // 치기 전·보내기 직전마다 확인 — 그 사이 사회자가 직접 답하면 남은 자동응답은 멈춘다
+      // (같은 이름·같은 사진이 서로 다른 말을 이어 하면 금액이 다를 때 그 자리에서 분쟁이 된다)
+      if (await this.proSpokeSince(roomId, proUserId, startedAt)) break;
+      await this.typeFor(roomId, proUserId, Math.max(1_000, Math.round(typing[index] * scale)));
+      if (await this.proSpokeSince(roomId, proUserId, startedAt)) break;
 
       const sent = await this.sendMessage(roomId, proUserId, {
         type: 'text' as any,
@@ -1415,12 +1464,23 @@ export class ChatService implements OnModuleInit {
    * 고객이 보낸 말에 사회자 자동응답을 대신 내보낸다(백그라운드).
    *
    * 사람이 붙어 있으면 끼어들지 않는다 — 사회자가 최근 3분 안에 직접 보낸 게 있으면 건너뛴다.
-   * 같은 답을 반복하지 않도록 방마다 항목당 1회, 전체 6회까지만.
+   * 같은 답을 반복하지 않도록 방마다 항목당 1회, 답장 8번까지만(티키타카로 4→8).
    */
   private maybeAutoRespondInBackground(roomId: string, senderId: string, content?: string | null) {
     const text = (content || '').trim();
     if (!text) return;
-    void (async () => {
+    const queued = this.autoReplyPending.has(roomId);
+    this.autoReplyPending.set(roomId, { senderId, text });
+    if (queued) return; // 이미 줄에 선 답이 있으면 그 답이 '마지막 말' 로 바꿔 처리한다
+    this.enqueueRoomTask(roomId, async () => {
+      const latest = this.autoReplyPending.get(roomId);
+      this.autoReplyPending.delete(roomId);
+      if (latest) await this.autoRespondOnce(roomId, latest.senderId, latest.text);
+    });
+  }
+
+  private async autoRespondOnce(roomId: string, senderId: string, text: string) {
+    {
       try {
         const room = await this.prisma.chatRoom.findUnique({
           where: { id: roomId },
@@ -1488,7 +1548,7 @@ export class ChatService implements OnModuleInit {
           (m) => ((m.metadata as any)?.autoReplyPart ?? 0) === 0
             && (m.metadata as any)?.autoReplyId !== 'greeting',
         );
-        if (turns.length >= 4 || sentAuto.length >= 14) return;
+        if (turns.length >= 8 || sentAuto.length >= 28) return;
         const usedIds = new Set(
           sentAuto.map((row) => (row.metadata as any)?.autoReplyId).filter(Boolean),
         );
@@ -1499,12 +1559,41 @@ export class ChatService implements OnModuleInit {
           room.matchRequest?.eventLocation ? `장소: ${room.matchRequest.eventLocation}` : '',
         ].filter(Boolean).join(' / ');
 
+        // 이 방의 최근 대화 — '그럼 2부도 돼요?' 처럼 앞말을 받아 묻는 걸 AI 가 알아듣게(다른 방 대화는 절대 섞지 않는다).
+        // 연락처·이메일은 가리고, 방금 받은 말은 [고객 메시지] 로 따로 가니 뺀다.
+        const recent = await this.prisma.message.findMany({
+          where: { roomId, type: 'text' as any, isDeleted: false },
+          select: { senderId: true, content: true },
+          orderBy: { createdAt: 'desc' },
+          take: 13,
+        });
+        const lines = recent.reverse();
+        const last = lines[lines.length - 1];
+        if (last && last.senderId === senderId && (last.content || '').trim() === text) lines.pop();
+        const history = lines
+          .slice(-12)
+          .map((m) => {
+            const who = m.senderId === proUserId ? '사회자' : m.senderId === room.userId ? '고객' : '';
+            const said = (m.content || '')
+              .replace(/01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}/g, '[연락처]')
+              .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '[이메일]')
+              .replace(/<<<|>>>/g, ' ')
+              .replace(/\[C\d+\]/gi, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160);
+            return who && said ? `${who}: ${said}` : '';
+          })
+          .filter(Boolean)
+          .join('\n');
+
         const match = await this.autoReplyService.decideReply({
           proProfileId: room.proProfileId,
           proName: room.proProfile?.user?.name,
           roomId,
           customerName: room.user?.name,
           text,
+          history,
           eventInfo,
           eventCategoryName: room.matchRequest?.eventCategory?.name,
           alreadySentKeys: Array.from(usedIds) as string[],
@@ -1512,7 +1601,7 @@ export class ChatService implements OnModuleInit {
         });
         if (!match) return;
 
-        // 사람이 봐야 하는 내용이면 보내지 않고 사회자에게만 알린다
+        // 사람이 봐야 하는 내용이면 사회자에게 알린다. 받아 두는 한 줄(방마다 1번)이 있으면 그것만 보낸다
         if (match.needsHuman) {
           this.notificationService.createNotification(
             proUserId,
@@ -1521,7 +1610,7 @@ export class ChatService implements OnModuleInit {
             `${(room.user?.name || '고객')}님 문의: ${text.slice(0, 60)}`,
             { roomId },
           ).catch(() => {});
-          return;
+          if (!match.answer) return;
         }
 
         const memberIds = await this.sendAsHuman(roomId, proUserId, match.answer, {
@@ -1590,7 +1679,7 @@ export class ChatService implements OnModuleInit {
       } catch (error) {
         console.warn(`자동응답 실패 room=${roomId}: ${error}`);
       }
-    })();
+    }
   }
 
   /** 방이 열리자마자 사회자 인사말을 대신 내보낸다(백그라운드) */
@@ -1600,7 +1689,7 @@ export class ChatService implements OnModuleInit {
     proUserId: string,
     proName?: string | null,
   ) {
-    void (async () => {
+    this.enqueueRoomTask(roomId, async () => {
       try {
         const greeting = await this.autoReplyService.greetingFor(proProfileId, proName);
         if (!greeting) return;
@@ -1608,7 +1697,7 @@ export class ChatService implements OnModuleInit {
       } catch (error) {
         console.warn(`인사말 자동응답 실패 room=${roomId}: ${error}`);
       }
-    })();
+    });
   }
 
   /**

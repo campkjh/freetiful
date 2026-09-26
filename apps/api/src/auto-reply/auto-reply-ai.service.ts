@@ -53,11 +53,11 @@ export class AutoReplyAiService {
     return Number.isFinite(v) && v > 0 && v < 1 ? v : 0.62;
   }
 
-  /** 호출 한도 — 방 6회 / 사회자 하루 100회 / 전역 동시 20 */
+  /** 호출 한도 — 방 12회(티키타카로 답장 8번까지 늘리며 6→12) / 사회자 하루 100회 / 전역 동시 20 */
   private takeQuota(roomId: string, proProfileId: string) {
     if (this.inflight >= 20) return false;
     const roomN = this.roomCalls.get(roomId) || 0;
-    if (roomN >= 6) return false;
+    if (roomN >= 12) return false;
     const today = new Date().toISOString().slice(0, 10);
     const pro = this.proCalls.get(proProfileId);
     const proN = pro && pro.day === today ? pro.n : 0;

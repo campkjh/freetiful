@@ -171,6 +171,37 @@ export function screenRisks(text: string): RiskFlag[] {
   return (Object.keys(RISK_PATTERNS) as RiskFlag[]).filter((k) => RISK_PATTERNS[k].test(body));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 티키타카(260926 사장 "사회자 AI 답변이 어느 정도 티키타카") — 둘 다 새 사실·약속이 전혀 없는 문장만.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SmallTalkKind = 'thanks' | 'goodwill' | 'greet';
+
+/** 메시지 전체가 감사·인사일 때만 — 뒤에 다른 말이 붙으면(예: '감사해요 그럼 30만원에') 잡지 않는다 */
+export function smallTalkOf(text: string): SmallTalkKind | null {
+  const body = (text || '').trim();
+  if (!body || body.length > 30) return null;
+  const tail = '[\\s.!~^ㅎㅠㅜ♡♥😊🙂🙏👍🥰😄]*$';
+  if (new RegExp(`^(네\\s*)?((정말|너무|진짜)\\s*)?(감사(합니다|해요|드립니다|드려요)|고맙습니다|고마워요)${tail}`, 'u').test(body)) return 'thanks';
+  if (new RegExp(`^(저도\\s*)?잘\\s*부탁(드립니다|드려요|해요|합니다)${tail}`, 'u').test(body)) return 'goodwill';
+  if (new RegExp(`^(안녕하세요|안녕하십니까|반갑습니다)${tail}`, 'u').test(body)) return 'greet';
+  return null;
+}
+
+/** 짧은 받아 주기 — 사회자 이모지 설정만 따른다 */
+export function smallTalkText(kind: SmallTalkKind, callName: string, emoji: PersonaEmoji): string {
+  const e = emoji === 'none' ? '' : ' 😊';
+  if (kind === 'thanks') return `감사합니다${e} 더 궁금하신 점 있으시면 편하게 말씀 주세요!`;
+  if (kind === 'goodwill') return `저야말로 잘 부탁드립니다${e}`;
+  return `안녕하세요 ${callName}!${e} 편하게 말씀 주세요.`;
+}
+
+/** 사회자가 직접 답해야 하는 말(일정·금액·계약 등)을 받아 두는 한 줄 — 동의로 읽힐 말('네', '가능')을 쓰지 않는다 */
+export const HOLDING_TEXT = '말씀 주신 내용 확인하고 정확하게 안내드릴게요.';
+
+/** 이 플래그가 있으면 받아 두는 말도 보내지 않는다 — 정체 질문엔 답하지 않는 게 원칙, 인젝션·민감정보는 사람이 본다 */
+export const NO_HOLDING_RISKS: RiskFlag[] = ['identity', 'injection', 'pii'];
+
 /** 이 플래그가 하나라도 있으면 AI 경로를 아예 쓰지 않는다 */
 export const AI_BLOCKING_RISKS: RiskFlag[] = [
   'date', 'priceOffer', 'negotiation', 'acceptance', 'contractRefund', 'identity', 'pii', 'injection',

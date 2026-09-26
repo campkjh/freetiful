@@ -5,13 +5,17 @@ import {
   AI_BLOCKING_RISKS,
   CALL_LABELS,
   DEFAULT_PERSONA,
+  HOLDING_TEXT,
   LENGTH_MAX_CHARS,
+  NO_HOLDING_RISKS,
   Persona,
   PersonaGuard,
   RiskFlag,
   SIGNATURE_PRESETS,
   isTrivialMessage,
   screenRisks,
+  smallTalkOf,
+  smallTalkText,
   stableKeyOf,
   validateOutgoing,
   validateAdapted,
@@ -91,7 +95,7 @@ export interface DecidedReply {
   answer: string;
   amount: number | null;
   risks: RiskFlag[];
-  /** true 면 발송하지 않고 사회자에게 알린다 */
+  /** true 면 사회자에게 알린다. answer 가 비어 있으면 보내지 않고, 있으면 약속 없는 받아 두기 한 줄만 보낸다 */
   needsHuman: boolean;
   unknownParts: string[];
 }
@@ -357,7 +361,20 @@ export class AutoReplyService {
     eventCategoryName?: string | null;
   }): Promise<DecidedReply | null> {
     const body = (ctx.text || '').trim();
-    if (!body || isTrivialMessage(body)) return null;
+    if (!body) return null;
+    const used = new Set(ctx.alreadySentKeys || []);
+
+    // ── 0-1. 티키타카 — 메시지 전체가 감사·인사면 짧게 받아 준다(AI 를 켠 사회자만, 방마다 종류별 1번).
+    //         새 사실·약속이 없는 고정 문장이라 AI 를 부르지 않는다(토큰 0). 방 인사말이 나갔으면 '안녕하세요' 는 다시 안 한다.
+    const small = smallTalkOf(body);
+    if (small) {
+      const persona = await this.getPersona(ctx.proProfileId);
+      const key = `small:${small}`;
+      if (!persona.aiEnabled || used.has(key) || (small === 'greet' && used.has('greeting'))) return null;
+      const answer = smallTalkText(small, this.callNameFor(persona, ctx.customerName, ctx.eventCategoryName), persona.emoji);
+      return { key, kind: 'small', why: key, answer, amount: null, risks: [], needsHuman: false, unknownParts: [] };
+    }
+    if (isTrivialMessage(body)) return null;
 
     const rows = await this.candidateRows(ctx.proProfileId);
     // 근거가 0건이면 AI 도 규칙도 할 게 없다. 근거 없는 생성은 곧 환각이다.
@@ -365,7 +382,6 @@ export class AutoReplyService {
 
     const persona = await this.getPersona(ctx.proProfileId);
     const risks = screenRisks(body);
-    const used = new Set(ctx.alreadySentKeys || []);
 
     const finish = (row: AutoReplyRow, why: string, opts: {
       text?: string;
@@ -423,8 +439,7 @@ export class AutoReplyService {
         // P1 사람이 봐야 하는 건 절대 보내지 않는다
         if (routed.needsHuman || routed.action !== 'match') {
           return routed.needsHuman
-            ? { key: `human:${routed.intent}`, kind: 'none', why: 'needsHuman', answer: '',
-                amount: null, risks, needsHuman: true, unknownParts: routed.unknownParts }
+            ? this.holdForHuman(persona, used, risks, `human:${routed.intent}`, routed.unknownParts)
             : null;
         }
         // P2 후보 집합에 없는 키 = 환각이거나 인젝션 성공. candidateKeys 는 DB 에서 만든다.
@@ -453,8 +468,32 @@ export class AutoReplyService {
 
     // ── 4. 폴백 — 오늘과 동일한 동작 ──
     const h = this.matchByHeuristic(rows, body);
-    if (h) return finish(h.row, h.why);
+    if (h) {
+      const decided = finish(h.row, h.why);
+      if (decided) return decided;
+    }
+    // ── 6. 위험 문구라 AI 를 못 쓴 말(일정·금액·흥정·계약·결제) — 사회자가 직접 답해야 한다.
+    //       AI 를 켠 사회자면 약속 없는 한 줄로 받아 두고(방마다 1번) 사회자에게 알린다.
+    if (aiBlocked && persona.aiEnabled) return this.holdForHuman(persona, used, risks, 'risk', []);
     return null;
+  }
+
+  /**
+   * 사람이 답해야 하는 말 — 늘 사회자에게 알리고, 방마다 1번은 '확인하고 안내드릴게요' 로 받아 둔다(고객이 허공에 대고 말하지 않게).
+   * 정체 질문·인젝션·민감정보는 받아 두는 말도 없이 알림만.
+   */
+  private holdForHuman(persona: Persona, used: Set<string>, risks: RiskFlag[], why: string, unknownParts: string[]): DecidedReply {
+    const canHold = persona.aiEnabled && !used.has('holding') && !risks.some((r) => NO_HOLDING_RISKS.includes(r));
+    return {
+      key: canHold ? 'holding' : why,
+      kind: canHold ? 'holding' : 'none',
+      why,
+      answer: canHold ? HOLDING_TEXT : '',
+      amount: null,
+      risks,
+      needsHuman: true,
+      unknownParts,
+    };
   }
 
   /** 호칭 — 잘못 부르면 첫 문장에서 자동응답임이 드러난다 */
