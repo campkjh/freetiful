@@ -709,6 +709,15 @@ const BUSINESS_CACHE_KEY = 'freetiful-home-business-cache-v7';
 const BUSINESS_CACHE_TTL = 5 * 60_000;
 const BUSINESS_REQUEST_VERSION = '20260429-category-quality';
 
+/** 업체 사진 아래쪽을 카드 색으로 녹인다(가로 사진이라 절반부터) */
+const BIZ_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 50%, rgba(0,0,0,.4) 78%, transparent 100%)';
+
+/**
+ * 웨딩 파트너 카드(웨딩홀·드레스·스튜디오…) — 홈 사회자 카드와 같은 '사진 색 카드'를 가로형으로(260926 사장 "사회자 카드처럼, 다만 가로형으로").
+ *  바탕·테두리 = 대표 사진에서 뽑은 색(lib/image-tone 'scene' — 외부 블로그 사진은 API 가 대신 뽑는다),
+ *  가로로 넓은 사진(16:9) 아래쪽이 그 색으로 녹아 이어진다. 이름 17 굵게 · 한 줄 정보(지역 | 사진 N장) · 흰 반투명 칩(한 줄만).
+ *  할인율이 실제로 있을 때만 왼쪽 위 검은 반투명 유리 배지. 옛 알약 사진 더미·4초 넘김은 뺐다(사진 한 장이 색 카드의 주인공).
+ */
 function BusinessCard({
   biz,
   index = 0,
@@ -722,103 +731,65 @@ function BusinessCard({
   wrapperStyle?: CSSProperties;
 }) {
   const [hidden, setHidden] = useState(false);
-  // 업체당 사진이 수십 장인 곳도 있어 순환은 앞의 4장까지만 (홈에서 다 받아올 이유가 없다)
-  const images = biz.images.slice(0, 4);
-  const count = images.length;
+  const image = biz.images[0];
+  const tone = useImageTone(image, 'scene');
+  const sub = tone?.sub || '#6B7684';
 
-  // 4초마다 맨 앞장이 걷히고 뒤에 있던 장이 앞으로 나온다(카드 더미를 한 장씩 넘기듯)
-  const [cur, setCur] = useState(0);
-  const [leaving, setLeaving] = useState<string | null>(null);
-  useEffect(() => {
-    if (count < 2) return;
-    // 카드마다 조금씩 어긋나게 돌려야 한 줄이 동시에 넘어가지 않는다
-    const offset = (index % 4) * 700;
-    const t = setTimeout(() => {
-      setLeaving(images[cur % count]);
-      setCur((v) => v + 1);
-    }, 4000 + offset);
-    return () => clearTimeout(t);
-  }, [count, index, cur, images]);
-  useEffect(() => {
-    if (!leaving) return;
-    const t = setTimeout(() => setLeaving(null), 560);
-    return () => clearTimeout(t);
-  }, [leaving]);
+  if (hidden || !image) return null;
 
-  if (hidden || !images[0]) return null;
-
-  const at = (offsetFromFront: number) => images[(cur + offsetFromFront) % count];
-  const deckAnim = (name: string) => (cur === 0 ? undefined : `${name} 0.55s cubic-bezier(0.22, 1, 0.36, 1) both`);
-
+  const chips = biz.tags.filter((tag) => tag !== '인기');
   const card = (
-    <Link href={`/businesses/${biz.id}`} className="block group">
-      {/* 상단 와이드 이미지 — 뒤로 사진 두 장이 겹쳐 보이는 카드 더미(PC 는 알약형) */}
-      <div className="relative w-full pt-5 lg:pt-6">
-        {/* 뒤에 깔리는 두 장 — 앞장이 걷히면 한 칸씩 앞으로 나온다 */}
-        {[2, 1].map((depth) => (
-          <div
-            key={`${depth}-${at(depth)}`}
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 mx-auto overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
-            style={{
-              // 앞장(80%)보다 좁게 깔고, 흰 링으로 장끼리 경계를 만든다
-              width: depth === 2 ? '62%' : '71%',
-              aspectRatio: '2 / 1',
-              transform: `translateY(${depth === 2 ? 0 : 12}px)`,
-              opacity: depth === 2 ? 0.5 : 0.78,
-              animation: deckAnim(depth === 2 ? 'bizDeckToBack' : 'bizDeckToMid'),
-            }}
+    <Link
+      href={`/businesses/${biz.id}`}
+      className="group block h-full overflow-hidden rounded-[20px] border"
+      style={{
+        backgroundColor: tone?.bg || '#F2F4F6',
+        borderColor: tone?.line || '#EAEDF0',
+        transition: 'background-color .5s ease, border-color .5s ease',
+      }}
+    >
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={image}
+          alt={biz.name}
+          loading={index < 2 ? 'eager' : 'lazy'}
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          style={{ WebkitMaskImage: BIZ_CARD_FADE, maskImage: BIZ_CARD_FADE }}
+          onError={() => setHidden(true)}
+        />
+        {biz.discountPercent > 0 && (
+          <span
+            className="absolute left-2.5 top-2.5 inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px) saturate(140%)', backdropFilter: 'blur(10px) saturate(140%)', boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)' }}
           >
-            <img src={at(depth) || images[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
-          </div>
-        ))}
-
-        {/* 앞장 — 뒤에서 앞으로 나오며 커진다 */}
-        <div
-          key={`front-${at(0)}`}
-          className="relative mx-auto w-[80%] overflow-hidden rounded-full bg-gray-100 ring-2 ring-white"
-          style={{ aspectRatio: '2 / 1', animation: deckAnim('bizDeckToFront') }}
-        >
-          <img
-            src={at(0)}
-            alt={biz.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            onError={() => setHidden(true)}
-          />
-        </div>
-
-        {/* 걷히는 장 — 앞장 위에서 옅어지며 사라진다 */}
-        {leaving && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-[80%] overflow-hidden rounded-full bg-gray-100 ring-2 ring-white lg:top-6"
-            style={{ aspectRatio: '2 / 1', animation: 'bizDeckLeave 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
-          >
-            <img src={leaving} alt="" className="h-full w-full object-cover" />
-          </div>
+            {biz.discountPercent}% 할인
+          </span>
         )}
       </div>
-
-      {/* 이름 */}
-      <h4 className="mt-3 text-center text-[16px] font-semibold leading-[1.2] tracking-tight text-gray-900">{biz.name}</h4>
-
-      {/* 위치 */}
-      <div className="mt-1 flex items-center justify-center gap-1.5 text-[13px] leading-tight text-gray-500">
-        <PinLocationIcon size={14} className="shrink-0 text-gray-300" />
-        <span>{biz.location}</span>
-      </div>
-
-      {/* 태그 — '인기' 는 노출하지 않는다 */}
-      <div className="mt-2 flex flex-wrap justify-center gap-1">
-        {biz.tags.filter((tag) => tag !== '인기').map((tag) => (
-          <span
-            key={tag}
-            className="flex items-center rounded-[5px] bg-gray-100 px-1.5 text-[10px] font-medium text-gray-600"
-            style={{ height: 22 }}
-          >
-            {tag}
+      <div className="relative -mt-4 px-4 pb-4">
+        <p className="break-keep text-[17px] font-bold leading-[1.4] tracking-[-0.4px] text-[#191F28]">{biz.name}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.5] tracking-[-0.2px]" style={{ color: sub }}>
+          <span className="inline-flex items-center gap-[3px]">
+            <PinLocationIcon size={13} className="shrink-0" />
+            {biz.location}
           </span>
-        ))}
+          {biz.images.length > 1 && (
+            <>
+              <span aria-hidden="true" className="h-2.5 w-px" style={{ backgroundColor: sub, opacity: 0.35 }} />
+              <span>사진 {biz.images.length}장</span>
+            </>
+          )}
+        </p>
+        {/* 칩 — 흰 반투명, 한 줄 높이만(넘치는 칩은 통째로 가려진다) · '인기' 는 노출하지 않는다 */}
+        {chips.length > 0 && (
+          <div className="mt-2.5 flex h-[26px] flex-wrap gap-1 overflow-hidden">
+            {chips.map((tag) => (
+              <span key={tag} className="flex h-[26px] items-center whitespace-nowrap rounded-[8px] bg-white/60 px-2 text-[12.5px] font-semibold tracking-[-0.2px] text-[#333D4B]">{tag}</span>
+            ))}
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -2941,11 +2912,13 @@ export default function HomePage() {
               { pro: bestWeddingPros[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
             ].map(({ pro, border, trophy, offset }) => (
               <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
-                <div className="relative w-full aspect-[3/4]">
+                {/* 사진 칸 3:4 고정 — 세로 흐름(flex) 안에선 사진이 칸보다 세로로 길면(예 785×1200) 칸이 사진 비율대로 늘어나
+                    2등만 더 길어 보였다(260926 사장 제보). 사진을 칸에 띄워(absolute) 칸 크기에 끼워 맞춘다 */}
+                <div className="relative w-full aspect-[3/4] min-h-0">
                   <img
                     src={pro.image}
                     alt={pro.name}
-                    className="w-full h-full object-cover shadow-md"
+                    className="absolute inset-0 w-full h-full object-cover shadow-md"
                     style={{ borderRadius: '9999px', border: `1.4px solid ${border}` }}
                   />
                   <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
