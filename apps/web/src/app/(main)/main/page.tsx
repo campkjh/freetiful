@@ -773,23 +773,27 @@ const HOME_SHORTCUTS = [
 /**
  * 퀵매칭 · 웨딩숲 바로가기(모바일) — 사장 사진(8:3) 두 장, 모서리 5, 왼쪽 흐린 자리에 흰 제목·설명·작은 유리 버튼.
  * 웨딩숲은 처음엔 90% 로 줄어든 채 윗부분 40% 가 퀵매칭 뒤에 숨어 있다가, 조금이라도 내리면 제 크기·제자리(간격 10)로 펼쳐지고
- * 아래 칸들이 자연스럽게 밀려 내려간다(맨 위로 돌아오면 다시 접힘) — 260926 사장.
+ * 아래 칸들이 자연스럽게 밀려 내려간다. 한 번 펼쳐지면 그대로(맨 위로 돌아와도 안 접힘), 접혀 있을 땐 퀵매칭 아래 흰 그라데이션 — 260926 사장.
  *  · 세로 여백 %는 칸 '폭' 기준이라 카드 높이(폭의 3/8)로 환산: 숨김 = 0.4 × 0.9H = 0.36H = 폭의 13.5%, 줄어든 만큼(0.1H = 3.75%)은 아래 여백으로 당김.
  *  · 첫 진입 등장(fadeSlideUp)·접힘 크기·누름 효과가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
  *  · 위쪽 높이가 바뀔 때 브라우저가 스크롤을 보정(scroll anchoring)하면 아래가 안 밀려 보여서, 홈 루트에서 overflow-anchor 를 끈다.
  */
 function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
   const [open, setOpen] = useState(false);
+  // 한 번 펼쳐지면 다시 접지 않는다(260926 사장) — 펼친 뒤엔 스크롤 듣기도 끝
   useEffect(() => {
     let raf = 0;
-    const check = () => {
+    let done = false;
+    const onScroll = () => { if (!raf && !done) raf = requestAnimationFrame(check); };
+    function check() {
       raf = 0;
-      const y = window.scrollY;
-      setOpen((prev) => (prev ? y > 2 : y > 12));
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(check); };
+      if (done || window.scrollY <= 12) return;
+      done = true;
+      setOpen(true);
+      window.removeEventListener('scroll', onScroll);
+    }
     check();
-    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!done) window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
@@ -818,6 +822,7 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
               style={skipAnim ? undefined : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.15 + i * 0.1}s forwards` }}
             >
               <div
+                className={tucked ? 'relative' : undefined}
                 style={tucked ? {
                   transform: open ? 'scale(1)' : 'scale(0.9)',
                   transformOrigin: 'top center',
@@ -845,6 +850,18 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
                     </span>
                   </div>
                 </Link>
+                {/* 접혀 있을 때 — 퀵매칭 아래(가려진 40% 끝)부터 흰색이 아래로 옅어지는 그라데이션, 펼치면 사라진다(260926 사장) */}
+                {tucked && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 rounded-[5px]"
+                    style={{
+                      background: 'linear-gradient(to bottom, #fff 0%, #fff 40%, rgba(255,255,255,0.82) 52%, rgba(255,255,255,0.35) 72%, rgba(255,255,255,0) 92%)',
+                      opacity: open ? 0 : 1,
+                      transition: `opacity 0.45s ${ease}`,
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>
