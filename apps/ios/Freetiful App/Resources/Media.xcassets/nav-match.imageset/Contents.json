@@ -1,8 +1,14 @@
 {
   "images": [
     {
-      "filename": "nav-match.svg",
-      "idiom": "universal"
+      "filename": "nav-match@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "nav-match@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
     }
   ],
   "info": {

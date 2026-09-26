@@ -135,6 +135,12 @@ class ViewController: UIViewController,
         let contentController = WKUserContentController()
         contentController.addUserScript(WKUserScript(source: metaScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         contentController.addUserScript(WKUserScript(source: Self.navBridgeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        #if DEBUG
+        // 개발용: `simctl launch … -debugJS "…"` — 페이지마다 맨 먼저 실행(첫 화면 팝업 끄기·뱃지 흉내 등). 출시 빌드엔 없음
+        if let debugJS = UserDefaults.standard.string(forKey: "debugJS"), !debugJS.isEmpty {
+            contentController.addUserScript(WKUserScript(source: debugJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        #endif
 
         // JS → iOS 브릿지 — 로그인·푸시·탭바 상태만 남긴다
         ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin",

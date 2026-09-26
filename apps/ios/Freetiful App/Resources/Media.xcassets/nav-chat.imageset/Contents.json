@@ -1,15 +1,21 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "nav-chat.svg",
-      "idiom" : "universal"
+      "filename": "nav-chat@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "nav-chat@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   },
-  "properties" : {
-    "template-rendering-intent" : "template"
+  "properties": {
+    "template-rendering-intent": "template"
   }
 }

@@ -76,6 +76,14 @@ private final class FreetifulNativeTabBar: UITabBar {
     private let selectionIndicatorInset: CGFloat = 12
     private var selectionIndicatorRenderSize: CGSize = .zero
 
+    /// 안 읽음 빨간 점 — 웹 하단 탭과 같은 6pt #F04452 를 아이콘 오른쪽 위에 직접 그린다
+    /// (시스템 뱃지는 빈 글자여도 큰 원이라 웹의 작은 점과 달랐다, 260927)
+    var unreadDotIndices: Set<Int> = [] {
+        didSet { if oldValue != unreadDotIndices { setNeedsLayout() } }
+    }
+    private var unreadDots: [UIView] = []
+    private let unreadDotColor = UIColor(red: 0xF0 / 255, green: 0x44 / 255, blue: 0x52 / 255, alpha: 1)
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupNativeSurface()
@@ -122,6 +130,7 @@ private final class FreetifulNativeTabBar: UITabBar {
             }
             updateSelectionIndicatorImage(itemWidth: itemWidth)
         }
+        layoutUnreadDots(tabButtons)
 
         subviews.forEach { subview in
             if String(describing: type(of: subview)).contains("UIBarBackground") {
@@ -129,6 +138,52 @@ private final class FreetifulNativeTabBar: UITabBar {
                 sendSubviewToBack(subview)
             }
         }
+    }
+
+    /// 칸마다 아이콘 오른쪽 위에 점. iOS 26 탭바는 속 뷰 구조가 달라(UITabBarButton 없음) 버튼 대신
+    /// 26pt 아이콘 그림을 통째로 찾아 칸(너비 ÷ 개수)별로 짝짓고, 못 찾으면 칸 가운데 기준으로 둔다.
+    private func layoutUnreadDots(_ buttons: [UIView]) {
+        let count = items?.count ?? 0
+        while unreadDots.count < count {
+            let dot = UIView()
+            dot.backgroundColor = unreadDotColor
+            dot.layer.cornerRadius = 3
+            dot.isUserInteractionEnabled = false
+            dot.isAccessibilityElement = false
+            addSubview(dot)
+            unreadDots.append(dot)
+        }
+        guard count > 0, !unreadDotIndices.isEmpty else {
+            unreadDots.forEach { $0.isHidden = true }
+            return
+        }
+        subviews.forEach { $0.layoutIfNeeded() }
+        let itemWidth = bounds.width / CGFloat(count)
+        let icons = Self.imageViews(in: self)
+            .filter { !$0.isHidden && $0.alpha > 0.01 && abs($0.bounds.width - 26) < 4 && abs($0.bounds.height - 26) < 4 }
+            .map { $0.convert($0.bounds, to: self) }
+        for (index, dot) in unreadDots.enumerated() {
+            guard index < count, unreadDotIndices.contains(index) else {
+                dot.isHidden = true
+                continue
+            }
+            let column = CGRect(x: CGFloat(index) * itemWidth, y: 0, width: itemWidth, height: bounds.height)
+            let icon = icons.first { column.contains(CGPoint(x: $0.midX, y: $0.midY)) }
+                ?? CGRect(x: column.midX - 13, y: bounds.midY - 22, width: 26, height: 26)
+            // 웹과 같은 자리: 아이콘 칸 위쪽 끝, 오른쪽으로 4 삐져나오게
+            dot.frame = CGRect(x: icon.maxX - 2, y: icon.minY, width: 6, height: 6)
+            dot.isHidden = false
+            bringSubviewToFront(dot)
+        }
+    }
+
+    private static func imageViews(in view: UIView) -> [UIImageView] {
+        var found: [UIImageView] = []
+        for sub in view.subviews {
+            if let imageView = sub as? UIImageView, imageView.image != nil { found.append(imageView) }
+            found.append(contentsOf: imageViews(in: sub))
+        }
+        return found
     }
 
     private func updateSelectionIndicatorImage(itemWidth: CGFloat) {
@@ -200,8 +255,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private let usesNativeLiquidGlass = LiquidGlassEffectFactory.supportsNativeLiquidGlass
     private let freetifulBlue = UIColor(red: 0.19, green: 0.50, blue: 0.97, alpha: 1)
-    private lazy var activeColor = UIColor(white: 0.07, alpha: 1)
-    private lazy var inactiveColor = UIColor(white: 0, alpha: 0.4)
+    // 웹·안드로이드 하단 탭과 같게(260927 사장): 아이콘·글자 모두 쿨그레이 #4E5968,
+    // 고른 탭은 색 대신 '채운 아이콘 + 굵은 글자'로 구분(안 고른 탭 = 선 아이콘) — 아이콘 에셋 nav-* / nav-*-active
+    private lazy var activeColor = UIColor(red: 0x4E / 255, green: 0x59 / 255, blue: 0x68 / 255, alpha: 1)
+    private lazy var inactiveColor = UIColor(red: 0x4E / 255, green: 0x59 / 255, blue: 0x68 / 255, alpha: 1)
 
     private let tabBar = FreetifulNativeTabBar()
     private let toggleContainerView = UIView()
@@ -402,20 +459,19 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
             let tabItem = UITabBarItem(
                 title: item.title,
                 image: icon,
-                selectedImage: icon
+                selectedImage: navIcon(named: "\(item.iconAssetName)-active") ?? icon
             )
             tabItem.tag = index
             tabItem.accessibilityLabel = item.title
             tabItem.titlePositionAdjustment = UIOffset(horizontal: 0, vertical: 2)
             tabItem.imageInsets = UIEdgeInsets(top: -1, left: 0, bottom: 1, right: 0)
-            tabItem.badgeColor = freetifulBlue
-            tabItem.setBadgeTextAttributes([.foregroundColor: UIColor.white], for: .normal)
             return tabItem
         }
         applyBadges()
     }
 
     /// 웹에서 전달된 미읽음 카운트를 nav 아이템 뱃지에 반영 (id 기준: "requests"=새요청, "chat"=채팅)
+    /// 웹 하단 탭처럼 숫자 대신 빨간 점(FreetifulNativeTabBar.unreadDotIndices)
     func setBadges(_ next: [String: Int]) {
         guard badges != next else { return }
         badges = next
@@ -424,10 +480,14 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     private func applyBadges() {
         guard let tabItems = tabBar.items else { return }
+        var dots = Set<Int>()
         for (index, item) in items.enumerated() where index < tabItems.count {
             let count = badges[item.id] ?? 0
-            tabItems[index].badgeValue = count > 0 ? (count > 99 ? "99+" : String(count)) : nil
+            tabItems[index].badgeValue = nil
+            tabItems[index].accessibilityValue = count > 0 ? "새 알림" : nil
+            if count > 0 { dots.insert(index) }
         }
+        tabBar.unreadDotIndices = dots
     }
 
     private func updateModeToggle() {
@@ -506,8 +566,9 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func configureTabItemAppearance(_ itemAppearance: UITabBarItemAppearance) {
-        let normalFont = UIFont.systemFont(ofSize: 9, weight: .semibold)
-        let selectedFont = UIFont.systemFont(ofSize: 9, weight: .bold)
+        // 웹 하단 탭 라벨 11px(평소 500 · 고른 탭 600)
+        let normalFont = UIFont.systemFont(ofSize: 11, weight: .medium)
+        let selectedFont = UIFont.systemFont(ofSize: 11, weight: .semibold)
 
         itemAppearance.normal.iconColor = inactiveColor
         itemAppearance.normal.titleTextAttributes = [
