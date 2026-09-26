@@ -295,6 +295,14 @@ export default function QuickMatchPage() {
   const canReroll = !rerolled && (hasFeatured ? pool.rest.length > 0 : pool.rest.length > 5);
   // 지정 사회자에게 보내는 신청만 번호가 간다 → 리롤 뒤에 고른 사회자는 연락 방식을 묻지 않고 프리티풀 채팅으로
   const phoneShared = hasFeatured && !rerolled;
+  // 몇 단계째인지(260927 사장) — 질문 화면마다 머리에 'N / 전체' + 진행 막대. 연락 방식은 번호가 가는 신청일 때만 묻는다
+  // (후보를 받기 전에는 묻는 쪽으로 센다).
+  const askContact = !rerolled && (hasFeatured || (pool.featured.length === 0 && pool.rest.length === 0));
+  const flowSteps: Step[] = ['date', 'region', 'venue', 'mood', 'part', 'gender', 'results', ...(askContact ? (['contact'] as Step[]) : []), 'phone'];
+  const progressOf = (s: Step) => {
+    const i = flowSteps.indexOf(s);
+    return i < 0 ? undefined : { at: i + 1, total: flowSteps.length };
+  };
 
   // 검색 화면 뒷배경: 사회자 프로필 사진들을 1초마다 크로스페이드로 순환
   const bgImgs = useMemo(() => {
@@ -317,11 +325,13 @@ export default function QuickMatchPage() {
     const ids = displayed.map((p) => p.id);
     setSelected(new Set()); // 처음부터 하나씩 체크되는 애니메이션이 보이도록 초기화
     ids.forEach((id, i) => setTimeout(() => setSelected((prev) => new Set(prev).add(id)), 60 + i * 130));
-    setTimeout(() => {
-      if (phoneShared) { setStep('contact'); return; }
-      setContact('프리티풀 채팅');
-      setStep('phone');
-    }, 60 + ids.length * 130 + 380);
+    setTimeout(goAfterSelect, 60 + ids.length * 130 + 380);
+  }
+  /** 고른 사회자로 다음 단계 — 번호가 가는 신청이면 연락 방식, 아니면 프리티풀 채팅으로 번호 입력 */
+  function goAfterSelect() {
+    if (phoneShared) { setStep('contact'); return; }
+    setContact('프리티풀 채팅');
+    setStep('phone');
   }
 
   async function submit() {
@@ -347,7 +357,7 @@ export default function QuickMatchPage() {
 
       {step === 'date' && (
         <div className="qm-page" key="date">
-          <Header onBack={() => { try { history.back(); } catch {} }} />
+          <Header onBack={() => { try { history.back(); } catch {} }} progress={progressOf('date')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">예식 일시가<br />언제인가요?</h1>
             <p className="qm-sub qm-a-sub">날짜와 시간에 맞춰 가능한 사회자만 찾아드려요.</p>
@@ -358,17 +368,18 @@ export default function QuickMatchPage() {
             </label>
             <label className="qm-datefield qm-a-item" style={stag(1)}>
               <Ic name="clock" size={22} color={time ? '#3182F6' : '#8B95A1'} />
-              <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요 (선택)'}</span>
+              <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요'}</span>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
             </label>
           </main>
-          <Cta disabled={!date} onClick={() => setStep('region')}>다음</Cta>
+          {/* 예식 시간도 필수(260927 사장) */}
+          <Cta disabled={!date || !time} onClick={() => setStep('region')}>다음</Cta>
         </div>
       )}
 
       {step === 'region' && (
         <div className="qm-page" key="region">
-          <Header onBack={() => back('date')} />
+          <Header onBack={() => back('date')} progress={progressOf('region')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">예식장은<br />어느 권역인가요?</h1>
             <p className="qm-sub qm-a-sub">가까운 지역의 사회자를 우선 추천해드려요.</p>
@@ -387,19 +398,21 @@ export default function QuickMatchPage() {
 
       {step === 'venue' && (
         <div className="qm-page" key="venue">
-          <Header onBack={() => back('region')} />
+          <Header onBack={() => back('region')} progress={progressOf('venue')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">예식장 이름을<br />알려주세요</h1>
-            <p className="qm-sub qm-a-sub">예식장을 알면 더 잘 맞는 사회자를 찾아드려요. (선택)</p>
-            <input className="qm-textinput qm-a-item" style={stag(0)} type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="예: 빌라드지디 청담" enterKeyHint="next" />
+            <p className="qm-sub qm-a-sub">예식장을 알면 더 잘 맞는 사회자를 찾아드려요.</p>
+            <input className="qm-textinput qm-a-item" style={stag(0)} type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="예: 빌라드지디 청담" enterKeyHint="next"
+              onKeyDown={(e) => { if (e.key === 'Enter' && venue.trim()) setStep('mood'); }} />
           </main>
-          <Cta disabled={false} onClick={() => setStep('mood')}>{venue.trim() ? '다음' : '건너뛰기'}</Cta>
+          {/* 예식장(웨딩홀) 이름 필수(260927 사장) — 예전 '건너뛰기' 없앰 */}
+          <Cta disabled={!venue.trim()} onClick={() => setStep('mood')}>다음</Cta>
         </div>
       )}
 
       {step === 'mood' && (
         <div className="qm-page" key="mood">
-          <Header onBack={() => back('venue')} />
+          <Header onBack={() => back('venue')} progress={progressOf('mood')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">어떤 분위기의<br />예식을 원하세요?</h1>
             <p className="qm-sub qm-a-sub">원하는 분위기를 모두 선택하세요. 여러 개 선택할 수 있어요.</p>
@@ -423,7 +436,7 @@ export default function QuickMatchPage() {
 
       {step === 'part' && (
         <div className="qm-page" key="part">
-          <Header onBack={() => back('mood')} />
+          <Header onBack={() => back('mood')} progress={progressOf('part')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">몇 부 진행이<br />필요하세요?</h1>
             <p className="qm-sub qm-a-sub">1부(본식)·2부(피로연) 중 필요한 진행을 알려주세요.</p>
@@ -448,7 +461,7 @@ export default function QuickMatchPage() {
 
       {step === 'gender' && (
         <div className="qm-page" key="gender">
-          <Header onBack={() => back('part')} />
+          <Header onBack={() => back('part')} progress={progressOf('gender')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">선호하는<br />사회자 성별이 있나요?</h1>
             <p className="qm-sub qm-a-sub">원하시는 성별의 사회자를 우선 보여드려요.</p>
@@ -499,7 +512,7 @@ export default function QuickMatchPage() {
 
       {step === 'results' && (
         <div className="qm-page" key="results">
-          <Header onBack={() => back('gender')} />
+          <Header onBack={() => back('gender')} progress={progressOf('results')} />
           <main className="qm-main tight">
             <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{displayed.length || 5}명</b>을 찾았어요</h1>
             <p className="qm-sub qm-a-sub">영상을 보고 의뢰할 사회자를 선택하세요. 여러 명 선택할 수 있어요.</p>
@@ -515,14 +528,17 @@ export default function QuickMatchPage() {
           </main>
           <div className="qm-ctawrap qm-btnrow">
             <button type="button" className="qm-cta ghost" onClick={() => back('gender')} disabled={selectingAll}>이전으로</button>
-            <button type="button" className="qm-cta" onClick={selectAllAndGo} disabled={selectingAll}>{selectingAll ? '선택 중…' : '전체선택'}</button>
+            {/* 몇 명을 골랐으면 그 사람들에게만('N명 선택 완료'), 안 골랐으면 전체선택(260927 사장 — 골라도 전체선택만 돼 있던 것) */}
+            <button type="button" className="qm-cta" onClick={selected.size > 0 ? goAfterSelect : selectAllAndGo} disabled={selectingAll}>
+              {selectingAll ? '선택 중…' : selected.size > 0 ? `${selected.size}명 선택 완료` : '전체선택'}
+            </button>
           </div>
         </div>
       )}
 
       {step === 'contact' && (
         <div className="qm-page" key="contact">
-          <Header onBack={() => back('results')} />
+          <Header onBack={() => back('results')} progress={progressOf('contact')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">어떤 방식으로<br />연락받으시겠어요?</h1>
             <p className="qm-sub qm-a-sub">선택한 {selected.size}명의 사회자가 이 방법으로 연락드려요.</p>
@@ -544,7 +560,7 @@ export default function QuickMatchPage() {
 
       {step === 'phone' && (
         <div className="qm-page" key="phone">
-          <Header onBack={() => back(phoneShared ? 'contact' : 'results')} />
+          <Header onBack={() => back(phoneShared ? 'contact' : 'results')} progress={progressOf('phone')} />
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">연락받을 번호를<br />입력해주세요</h1>
             <p className="qm-sub qm-a-sub">{contact}(으)로 연락드려요. 매칭된 사회자 연결에만 사용돼요.</p>
@@ -587,8 +603,24 @@ export default function QuickMatchPage() {
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
-  return <header className="qm-header"><button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button></header>;
+/** 머리 — 뒤로 + 몇 단계째인지(진행 막대 + 'N / 전체'). 막대는 앞 단계 길이에서 이번 단계 길이로 늘어난다 */
+function Header({ onBack, progress }: { onBack: () => void; progress?: { at: number; total: number } }) {
+  return (
+    <header className="qm-header">
+      <button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button>
+      {progress && (
+        <div className="qm-progress" role="progressbar" aria-valuemin={1} aria-valuemax={progress.total} aria-valuenow={progress.at} aria-label={`전체 ${progress.total}단계 중 ${progress.at}단계`}>
+          <span className="qm-progress-track">
+            <span
+              className="qm-progress-fill"
+              style={{ '--from': `${((progress.at - 1) / progress.total) * 100}%`, '--to': `${(progress.at / progress.total) * 100}%` } as React.CSSProperties}
+            />
+          </span>
+          <span className="qm-progress-t"><b>{progress.at}</b> / {progress.total}</span>
+        </div>
+      )}
+    </header>
+  );
 }
 function Cta({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return <div className="qm-ctawrap"><button type="button" className="qm-cta" disabled={disabled} onClick={onClick}>{children}</button></div>;
@@ -611,6 +643,12 @@ const CSS = `
 .qm-header{height:56px;display:flex;align-items:center;padding:0 8px;flex:none;}
 .qm-header button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;border-radius:20px;cursor:pointer;}
 .qm-header button:active{background:var(--divider);}
+.qm-progress{flex:1;display:flex;align-items:center;gap:12px;padding:0 20px 0 6px;}
+.qm-progress-track{flex:1;height:4px;border-radius:2px;background:var(--divider);overflow:hidden;}
+.qm-progress-fill{display:block;height:100%;width:var(--to);border-radius:2px;background:var(--blue);animation:qm-progress .5s cubic-bezier(.22,.61,.36,1) both;}
+@keyframes qm-progress{from{width:var(--from)}to{width:var(--to)}}
+.qm-progress-t{flex:none;font-size:13px;font-weight:500;color:var(--t-ph);font-variant-numeric:tabular-nums;letter-spacing:.2px;}
+.qm-progress-t b{color:var(--blue);font-weight:600;}
 .qm-main{flex:1;padding:8px 24px 24px;}
 .qm-main.tight{padding:8px 16px 24px;}
 .qm-h1{font-size:24px;font-weight:600;line-height:1.4;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
