@@ -238,6 +238,8 @@ class ViewController: UIViewController,
       function overlayOpen() {
         var list = document.querySelectorAll('[aria-modal="true"], [role="dialog"]');
         for (var i = 0; i < list.length; i++) {
+          // 늘 붙어 있다가 밀려 나가기만 하는 서랍(웨딩숲 카테고리)처럼 닫힌 창은 aria-hidden·inert 로 표시된다
+          if (list[i].closest('[aria-hidden="true"], [inert]')) continue;
           var r = list[i].getBoundingClientRect();
           if (r.width < 2 || r.height < 2) continue;
           if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;
@@ -295,10 +297,18 @@ class ViewController: UIViewController,
       if (window.MutationObserver) {
         var observe = function() {
           if (!document.body) { setTimeout(observe, 50); return; }
-          new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+          // 창이 생기고 없어지는 것 + 붙어 있는 창의 열림·닫힘 표시(aria-hidden 등)가 바뀌는 것
+          new MutationObserver(schedule).observe(document.body, {
+            childList: true, subtree: true,
+            attributes: true, attributeFilter: ['aria-hidden', 'aria-modal', 'role', 'open', 'hidden', 'inert']
+          });
         };
         observe();
       }
+      // 안전장치 — 탭바가 모달 때문에 숨어 있는 동안엔 1초마다 다시 본다(닫힘을 어떤 식으로 놓쳐도 1초 안에 돌아오게)
+      setInterval(function() {
+        if (last.indexOf('"hasBlockingOverlay":true') !== -1) window.__freetifulNativeNavPostState(false);
+      }, 1000);
 
       window.__freetifulNativeNavPostState(true);
       setTimeout(function() { window.__freetifulNativeNavPostState(false); }, 800);
