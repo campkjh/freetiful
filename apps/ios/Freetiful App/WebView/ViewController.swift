@@ -62,7 +62,11 @@ class ViewController: UIViewController,
     private var navBadges: [String: Int] = [:]
 
     private var didShowFirstPage = false
+    private var didFinishFirstLoad = false   // 첫 화면을 한 번이라도 다 받았는지 — 그 전의 실패만 '다시 시도' 화면
     private var loadErrorView: UIView?
+    // 파일 받기(웹 채팅 첨부 등) — 받는 중인 파일의 저장 위치, 미리보기 창
+    private var downloadDestinations: [ObjectIdentifier: URL] = [:]
+    private var filePreview: UIDocumentInteractionController?
     private var pendingPushSubscriptionId: String?
 
     // Apple Sign In coordinator (retained during auth flow)
@@ -401,11 +405,15 @@ class ViewController: UIViewController,
 
     private func loadInitialPage() {
         var debugStart: String?
+        var debugURL: URL?
         #if DEBUG
-        // 개발용: `simctl launch … -startPath /community` 처럼 첫 화면을 고른다(출시 빌드엔 없음)
+        // 개발용: `simctl launch … -startPath /community`(또는 -startURL 전체 주소) 로 첫 화면을 고른다(출시 빌드엔 없음)
         debugStart = UserDefaults.standard.string(forKey: "startPath").flatMap { $0.hasPrefix("/") ? $0 : nil }
+        debugURL = UserDefaults.standard.string(forKey: "startURL").flatMap { URL(string: $0) }
         #endif
-        if let start = debugStart {
+        if let url = debugURL {
+            webView.load(URLRequest(url: url))
+        } else if let start = debugStart {
             loadInternalPath(start)
         } else if let deepLink = OneSignalManager.shared.consumePendingDeepLink(),
                   let path = normalizedInternalPath(from: deepLink) {
@@ -540,6 +548,7 @@ class ViewController: UIViewController,
 
     // MARK: - WKNavigationDelegate
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        didFinishFirstLoad = true
         loadErrorView?.removeFromSuperview()
         loadErrorView = nil
         revealWeb()
@@ -561,8 +570,9 @@ class ViewController: UIViewController,
         if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return }
         if e.domain == "WebKitErrorDomain" && e.code == 102 { return }
         print("❌ 웹 로드 실패:", e.domain, e.code, e.localizedDescription)
-        // 첫 화면만 안내 — 이미 떠 있는 화면은 WKWebView 가 그대로 두고 웹이 알아서 다시 받는다
-        if !didShowFirstPage { showLoadError() }
+        // 첫 화면을 아직 한 번도 다 못 받았을 때만 안내(느린 망에서 6초 뒤 로딩 화면을 걷은 뒤 실패해도 포함).
+        // 이미 떠 있는 화면은 WKWebView 가 그대로 두고 웹이 알아서 다시 받는다.
+        if !didFinishFirstLoad { showLoadError() }
     }
 
     /// 웹 콘텐츠 프로세스가 죽으면(메모리 부족) 흰 화면만 남는다 → 다시 불러온다
@@ -577,6 +587,11 @@ class ViewController: UIViewController,
         let scheme = (url.scheme ?? "").lowercased()
         let host = (url.host ?? "").lowercased()
 
+        // 파일 받기(<a download>·blob — 웹 채팅 첨부 파일) → 앱이 받아서 미리보기로
+        if navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
         // 웹 주소가 아니면 그 앱으로(전화·문자·메일·카카오·지도·결제 앱 등)
         if !["http", "https", "about", "blob", "data", "javascript"].contains(scheme) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
@@ -624,6 +639,27 @@ class ViewController: UIViewController,
         let safari = SFSafariViewController(url: url)
         safari.dismissButtonStyle = .close
         topPresenter().present(safari, animated: true)
+    }
+
+    /// 화면에 못 띄우는 파일(첨부로 내려오는 응답 등)은 받아서 미리보기로
+    func webView(_ webView: WKWebView,
+                 decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        let disposition = (navigationResponse.response as? HTTPURLResponse)?
+            .value(forHTTPHeaderField: "Content-Disposition")?.lowercased() ?? ""
+        if navigationResponse.isForMainFrame && (!navigationResponse.canShowMIMEType || disposition.hasPrefix("attachment")) {
+            decisionHandler(.download)
+            return
+        }
+        decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        download.delegate = self
     }
 
     private func topPresenter() -> UIViewController {
@@ -1065,6 +1101,57 @@ class AppleSignInCoordinator: NSObject,
             ?? scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
             ?? scenes.flatMap { $0.windows }.first
             ?? ASPresentationAnchor()
+    }
+}
+
+// MARK: - 파일 받기 → 미리보기(QuickLook)·공유
+// 웹 채팅의 파일 받기는 fetch→blob→<a download> 라, WKWebView 가 다운로드로 넘겨줘야 한다(안 받으면 무반응 또는 화면이 파일로 바뀜).
+extension ViewController: WKDownloadDelegate, UIDocumentInteractionControllerDelegate {
+    func download(_ download: WKDownload,
+                  decideDestinationUsing response: URLResponse,
+                  suggestedFilename: String,
+                  completionHandler: @escaping (URL?) -> Void) {
+        // 같은 이름이 있으면 실패하므로 받을 때마다 새 폴더
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("downloads", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let name = suggestedFilename.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dest = dir.appendingPathComponent(name.isEmpty ? "download" : name)
+        downloadDestinations[ObjectIdentifier(download)] = dest
+        completionHandler(dest)
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        guard let url = downloadDestinations.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        DispatchQueue.main.async { self.previewFile(url) }
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        print("❌ 파일 받기 실패:", error.localizedDescription)
+        DispatchQueue.main.async { self.showToast("파일을 받지 못했어요") }
+    }
+
+    /// 미리보기(공유·파일에 저장 버튼 포함) — 미리보기가 안 되는 형식이면 공유 시트
+    private func previewFile(_ url: URL) {
+        let controller = UIDocumentInteractionController(url: url)
+        controller.delegate = self
+        filePreview = controller
+        if !controller.presentPreview(animated: true) {
+            filePreview = nil
+            let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            share.popoverPresentationController?.sourceView = view
+            topPresenter().present(share, animated: true)
+        }
+    }
+
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        topPresenter()
+    }
+
+    func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+        filePreview = nil
     }
 }
 
