@@ -9,6 +9,7 @@ import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { uploadCommunityImage, revokeUploadPreview, type CommunityUpload } from "@/lib/communityUpload";
 import { clientCache } from "@/lib/clientCache";
+import AiIcon from "@/components/icons/AiIcon";
 
 interface GroupNode {
   id: string;
@@ -372,9 +373,7 @@ export default function TossComposer({
                   onClick={() => setPickerOpen((v) => !v)}
                 >
                   {groupSource === "ai" && currentSub && (
-                    <span className="tcomp-ai-mini" aria-label="AI 추천">
-                      <AiStarSvg gradientId="tcompStarGradMini" />
-                    </span>
+                    <AiIcon size={18} title="AI 추천" />
                   )}
                   <span className="tcomp-cat-label">
                     {currentSub ? `${currentSub.majorName} · ${currentSub.name}` : analyzing ? "카테고리 찾는 중…" : "카테고리 선택"}
@@ -607,34 +606,11 @@ function Avatar({ me }: { me: { name: string; avatar: string | null } | null }) 
   );
 }
 
-// 4각 별(오목한 변) — 삼성 갤럭시 AI 느낌의 반짝이.
-const STAR_PATH =
-  "M12 1.6C12.62 7.3 16.7 11.38 22.4 12C16.7 12.62 12.62 16.7 12 22.4C11.38 16.7 7.3 12.62 1.6 12C7.3 11.38 11.38 7.3 12 1.6Z";
-
-function AiStarSvg({ gradientId, twin = false }: { gradientId: string; twin?: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-      <defs>
-        <linearGradient id={gradientId} x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#4B8DFF" />
-          <stop offset="0.55" stopColor="#6C74FF" />
-          <stop offset="1" stopColor="#9A5CF6" />
-        </linearGradient>
-      </defs>
-      {twin && <path className="tcomp-star tcomp-star-b" d={STAR_PATH} fill={`url(#${gradientId})`} />}
-      <path className="tcomp-star tcomp-star-a" d={STAR_PATH} fill={`url(#${gradientId})`} />
-    </svg>
-  );
-}
-
-// AI 태그 아이콘: 평소엔 별 하나(은은히 숨쉬기) → 분석 중엔 두 개로 갈라져 서로 자리를 바꾸며 돈다
-// → 결과가 오면 하나로 합쳐지며 살짝 번쩍.
+// AI 태그 아이콘 = 공용 AiIcon(사장 지정 아이콘). 분석 중엔 별이 돌고, 결과가 오면 한 번 톡.
 function AiSparkle({ state }: { state: "idle" | "thinking" | "done" }) {
   return (
-    <span className={`tcomp-ai-ico is-${state}`} aria-hidden="true">
-      <span className="tcomp-ai-star">
-        <AiStarSvg gradientId="tcompStarGrad" twin />
-      </span>
+    <span key={state} className={`inline-flex${state === "done" ? " ai-icon-pop" : ""}`} aria-hidden="true">
+      <AiIcon size={24} spin={state === "thinking"} />
     </span>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from '@/lib/api/auto-reply.api';
 import { CloseIcon } from '@/components/icons/mono';
 import { MY_CARD, MySectionTitle, MyDetailHeader } from '../../my/_components/detail-ui';
+import AiIcon from '@/components/icons/AiIcon';
 
 /**
  * 사회자 자동응답 관리.
@@ -176,9 +177,10 @@ export default function AutoReplyPage() {
       type="button"
       disabled={rewriting !== null}
       onClick={() => rewriteWith(tag, text, apply)}
-      className="shrink-0 text-[13px] font-bold text-[#3180F7] disabled:opacity-50"
+      className="flex shrink-0 items-center gap-1 text-[13px] font-bold text-[#3180F7] disabled:opacity-50"
     >
-      {rewriting === tag ? '다듬는 중...' : '✨ 내 말투로 다듬기'}
+      <AiIcon size={18} spin={rewriting === tag} />
+      {rewriting === tag ? '다듬는 중...' : '내 말투로 다듬기'}
     </button>
   );
 
@@ -341,9 +343,10 @@ export default function AutoReplyPage() {
                         setDrafting(false);
                       }
                     }}
-                    className="shrink-0 text-[13px] font-bold text-[#3180F7] disabled:opacity-50"
+                    className="flex shrink-0 items-center gap-1 text-[13px] font-bold text-[#3180F7] disabled:opacity-50"
                   >
-                    {drafting ? '작성 중...' : '✨ 프로필로 자동 작성'}
+                    <AiIcon size={18} spin={drafting} />
+                    {drafting ? '작성 중...' : '프로필로 자동 작성'}
                   </button>
                 </div>
                 <textarea

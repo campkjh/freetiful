@@ -25,6 +25,7 @@ import { popItemDelay } from '@/lib/pop-menu';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { PhoneNumberNotice, containsPhoneNumber } from '@/components/chat/ChatNotice';
 import { useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import AiIcon from '@/components/icons/AiIcon';
 
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
@@ -1871,25 +1872,15 @@ export default function ChatRoomPage({ roomId: roomIdProp, embedded = false }: {
             aria-label="답장 추천"
             className="pointer-events-auto flex w-max max-w-full items-center gap-2 overflow-x-auto pb-1 pl-[max(1.5rem,calc(env(safe-area-inset-left)_+_0.75rem))] pr-[max(1.5rem,calc(env(safe-area-inset-right)_+_0.75rem))] pt-2.5 [scrollbar-width:none] sm:px-0 [&::-webkit-scrollbar]:hidden"
           >
-            {/* AI 아이콘 — 옅은 하늘색 둥근 타일 + 보라→파랑→하늘 그라데이션 네 갈래 별(사장이 준 아이콘) */}
+            {/* AI 아이콘 — 공용 AiIcon(사장이 준 아이콘: 옅은 하늘 타일 + 네 갈래 그라데이션 별). 추천 받는 중엔 별이 돈다 */}
             <button
               type="button"
               onClick={() => loadReplySuggest(true)}
               aria-label="AI 답장 다시 추천"
               title="AI 답장 다시 추천"
-              className="pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-b from-[#F8FBFF] to-[#EEF4FE] transition-transform active:scale-95"
+              className="pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center transition-transform active:scale-95"
             >
-              <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" className={suggestLoading ? 'animate-spin' : ''} style={suggestLoading ? { animationDuration: '1.1s' } : undefined}>
-                <defs>
-                  <linearGradient id="reply-ai-star" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#8A87F8" />
-                    <stop offset="0.45" stopColor="#5C7CF4" />
-                    <stop offset="0.8" stopColor="#57B4F8" />
-                    <stop offset="1" stopColor="#72CBFA" />
-                  </linearGradient>
-                </defs>
-                <path d="M12 2.5C12.8 8.4 15.4 11.1 21.5 12C15.4 12.9 12.8 15.6 12 21.5C11.2 15.6 8.6 12.9 2.5 12C8.6 11.1 11.2 8.4 12 2.5Z" fill="url(#reply-ai-star)" />
-              </svg>
+              <AiIcon size={44} spin={suggestLoading} />
             </button>
             {replySuggest.map((t, i) => (
               <button

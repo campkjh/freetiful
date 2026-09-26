@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { autoReplyApi, type AutoReplySettings } from '@/lib/api/auto-reply.api';
+import AiIcon from '@/components/icons/AiIcon';
 
 type Extra = { name: string; price: string };
 
@@ -112,9 +113,9 @@ export default function AiQuoteFab() {
       <button
         type="button"
         onClick={openSheet}
-        className="fixed right-4 z-40 flex h-12 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#3182F6] to-[#6B5CFF] pl-4 pr-5 text-[15px] font-semibold tracking-[-0.2px] text-white transition active:scale-95 bottom-[calc(env(safe-area-inset-bottom,0px)+74px)] lg:bottom-8 lg:right-8"
+        className="fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-gradient-to-r from-[#3182F6] to-[#6B5CFF] pl-2 pr-5 text-[15px] font-semibold tracking-[-0.2px] text-white transition active:scale-95 bottom-[calc(env(safe-area-inset-bottom,0px)+74px)] lg:bottom-8 lg:right-8"
       >
-        <span aria-hidden="true">✦</span>
+        <AiIcon size={32} />
         AI 자동매칭
       </button>
 
@@ -122,7 +123,7 @@ export default function AiQuoteFab() {
         <div className="ft-scrim" onClick={() => !saving && setOpen(false)}>
           <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="ft-grab" aria-hidden="true" />
-            <h2 className="ft-title">AI 자동매칭</h2>
+            <h2 className="ft-title flex items-center gap-2"><AiIcon size={28} />AI 자동매칭</h2>
             <p className="ft-desc">견적을 적어 두면 고객이 &lsquo;견적 얼마예요?&rsquo; 하고 물을 때 바로 답해 드려요.</p>
 
             {loading ? (

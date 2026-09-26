@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { preWarmExistingRoom } from '@/lib/chat-prewarm';
 import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import AiQuoteFab from './AiQuoteFab';
+import AiIcon from '@/components/icons/AiIcon';
 
 type Filter = 'all' | 'multi' | 'single' | 'archived';
 type RequestKind = 'multi' | 'single';
@@ -646,7 +647,12 @@ export default function ProRequestsPage() {
             {/* 거절 사유 추천 — 누르면 아래 칸에 문장이 채워지고 고칠 수 있다 */}
             {declineItems.length > 0 && (
               <div className="mt-5">
-                {declineAi && <p className="mb-2 text-[13px] font-semibold text-[#3182F6]">✦ AI 추천</p>}
+                {declineAi && (
+                  <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-[#3182F6]">
+                    <AiIcon size={18} />
+                    AI 추천
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {declineItems.map((item) => (
                     <button

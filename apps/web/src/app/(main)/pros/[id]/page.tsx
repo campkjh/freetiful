@@ -23,6 +23,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import GuestLoginForm from '@/components/GuestLoginForm';
+import AiIcon from '@/components/icons/AiIcon';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -985,22 +986,6 @@ function CareerSweepList({ lines, size = 'sm' }: { lines: string[]; size?: 'sm' 
         </li>
       ))}
     </ul>
-  );
-}
-
-/** AI 요약 스파클 — 큰 별 하나에 작은 별 둘이 엇박으로 반짝인다 */
-function AiSparkle({ size = 18 }: { size?: number }) {
-  const star = (cx: number, cy: number, r: number) =>
-    `M ${cx} ${cy - r} Q ${cx + r * 0.18} ${cy - r * 0.18} ${cx + r} ${cy}` +
-    ` Q ${cx + r * 0.18} ${cy + r * 0.18} ${cx} ${cy + r}` +
-    ` Q ${cx - r * 0.18} ${cy + r * 0.18} ${cx - r} ${cy}` +
-    ` Q ${cx - r * 0.18} ${cy - r * 0.18} ${cx} ${cy - r} Z`;
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="shrink-0" aria-hidden="true">
-      <path d={star(10, 13, 8)} fill="#8B5CF6" className="sparkle-big" />
-      <path d={star(19, 5.5, 4)} fill="#C4A6FF" className="sparkle-small" style={{ animationDelay: '0.5s' }} />
-      <path d={star(20, 16, 2.6)} fill="#E0CCFF" className="sparkle-small" style={{ animationDelay: '1s' }} />
-    </svg>
   );
 }
 
@@ -1968,7 +1953,7 @@ export default function ProDetailPage() {
                         <div className="relative flex h-[164px] flex-col overflow-hidden rounded-2xl border border-[#EEF0F4] bg-white p-5 shadow-[0_1px_4px_rgba(15,23,42,0.06)]" style={{ borderLeft: `3px solid ${BRAND}` }}>
                           <div className="relative z-10 flex items-center gap-2">
                             <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center">
-                              <img src="/icons/pro-detail/sparkle.svg" alt="" width={20} height={20} />
+                              <AiIcon size={22} />
                             </span>
                             <div>
                               <p className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</p>
@@ -2719,7 +2704,7 @@ export default function ProDetailPage() {
         {aiReviewSummary && (
           <div className="mb-2 rounded-[20px] border border-[#F0E7F8] bg-gradient-to-b from-[#FBF3FB] via-[#FDF9FE] to-white p-4">
             <div className="mb-2 flex items-center gap-1.5">
-              <AiSparkle size={18} />
+              <AiIcon size={22} />
               <span className="text-[15px] font-bold text-[#2B313D]">
                 고객들의 리뷰를 <span className="text-[#8B5CF6]">요약</span>했어요
               </span>
