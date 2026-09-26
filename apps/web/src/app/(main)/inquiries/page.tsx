@@ -4,21 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGroup, motion } from 'framer-motion';
-import {
-  ChevronRightIcon,
-  ClockIcon,
-  ChatBubbleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  CalendarIcon,
-  PinLocationIcon,
-  DocumentIcon,
-} from '@/components/icons/mono';
+import { ChevronRightIcon, CalendarIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getProfileImageUrl } from '@/lib/default-profile';
+import { useEntranceWindow, useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 
 type InquiryStatus = '요청중' | '요청승인' | '거래완료' | '거절';
 
@@ -102,18 +94,12 @@ function formatTime(value?: string | null) {
   return time || '시간 미정';
 }
 
+// 웨딩숲 배지 색(.tcard-badge tone-*)과 같은 값
 function getStatusTone(status: InquiryStatus) {
-  if (status === '거래완료') return 'bg-[#EAF7EF] text-[#159947]';
-  if (status === '요청승인') return 'bg-[#EAF2FF] text-[#3180F7]';
-  if (status === '거절') return 'bg-[#FDECEC] text-[#E5484D]';
-  return 'bg-[#F2F3F5] text-[#51535C]';
-}
-
-function getStatusIcon(status: InquiryStatus) {
-  if (status === '거래완료') return CheckCircleIcon;
-  if (status === '요청승인') return ChatBubbleIcon;
-  if (status === '거절') return XCircleIcon;
-  return ClockIcon;
+  if (status === '거래완료') return 'bg-[#E6F7EE] text-[#03A94D]';
+  if (status === '요청승인') return 'bg-[#E8F3FF] text-[#3182F6]';
+  if (status === '거절') return 'bg-[#FFEEEF] text-[#F04452]';
+  return 'bg-[#F2F4F6] text-[#6B7684]';
 }
 
 /** 진행 현황 목록에 쓰는 컬러 아이콘 — 상태색이 아이콘 자체에 들어 있다 */
@@ -143,12 +129,10 @@ function categoryIllust(category: string) {
   return '/images/category-icons/wedding-mc-icon.png';
 }
 
-/** 사회자별 진행 상태 태그 — 아이콘 + 글자, 상태색 */
+/** 사회자별 진행 상태 태그 — 웨딩숲 배지 모양(h24 · 모서리 6 · 13.5), 상태색 */
 function StatusTag({ status }: { status: InquiryStatus }) {
-  const Icon = getStatusIcon(status);
   return (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[3px] text-[12px] font-semibold ${getStatusTone(status)}`}>
-      <Icon size={12} className="shrink-0" />
+    <span className={`inline-flex h-6 shrink-0 items-center rounded-[6px] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] ${getStatusTone(status)}`}>
       {status}
     </span>
   );
@@ -380,6 +364,13 @@ export default function CustomerInquiriesPage() {
     return [...map.values()];
   }, [visibleCards]);
 
+  // 처음 들어올 때 퀵매칭 등장(제목↑·탭↑·행사 칸 ←) — 뒤로가기·30초 안 재진입은 생략(새요청·웨딩숲·채팅·마이와 같은 규칙)
+  const entrance = useTabEntrance('matching');
+  const enterStyle = useListEntrance(groups.map((g) => g.requestId), entrance);
+  const enterWindow = useEntranceWindow(entrance);
+  // 목록 통째 올라오는 효과는 상태 탭을 바꿨을 때만(첫 진입은 칸별 등장이 대신한다)
+  const [tabSwitched, setTabSwitched] = useState(false);
+
   // 스크롤하면 머리줄 아래로 흰 그라데이션(채팅 목록과 같은 결)
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -392,7 +383,7 @@ export default function CustomerInquiriesPage() {
   // 상태 탭 — 회색 트랙 위로 흰 알약이 미끄러진다(채팅 탭과 같은 모양). 개수가 0인 상태는 숨긴다
   const statusTabs = (
     <LayoutGroup id="inquiry-status-tabs">
-      <div className="scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
+      <div className={`scrollbar-hide flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1 ${entrance ? 'qd-a-sub' : ''}`}>
         {STATUS_TABS.map((tab) => {
           const on = statusTab === tab;
           const count = statusCounts[tab] || 0;
@@ -401,7 +392,7 @@ export default function CustomerInquiriesPage() {
             <button
               key={tab}
               type="button"
-              onClick={() => setStatusTab(tab)}
+              onClick={() => { setStatusTab(tab); setTabSwitched(true); }}
               className={`relative flex shrink-0 flex-1 items-center justify-center gap-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
                 on ? 'font-bold text-[#191F28]' : 'font-semibold text-[#8B95A1]'
               }`}
@@ -433,7 +424,7 @@ export default function CustomerInquiriesPage() {
           }`}
         />
         <div className="flex h-14 items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[#191F28]">매칭</h1>
+          <h1 className={`text-[20px] font-bold text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>매칭</h1>
           <Link
             href="/pros"
             className="flex h-9 items-center gap-1 rounded-full bg-[#F2F4F6] pl-3 pr-2.5 text-[13px] font-semibold text-[#4E5968] transition-transform active:scale-95"
@@ -449,28 +440,30 @@ export default function CustomerInquiriesPage() {
         <div className="min-w-0">
           {/* PC 타이틀 */}
           <div className="mb-5 hidden lg:block">
-            <h1 className="text-[26px] font-bold tracking-tight text-[#191F28]">매칭</h1>
+            <h1 className={`text-[26px] font-bold tracking-tight text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>매칭</h1>
             <p className="mt-1 text-[14px] text-[#8B95A1]">보낸 문의와 사회자별 진행 상태를 한눈에 확인하세요</p>
           </div>
           {cards.length > 0 && <div className="sticky top-[72px] z-10 hidden bg-white py-3 lg:block">{statusTabs}</div>}
 
           {loading ? (
-            <div className="space-y-6 px-4 pt-4 lg:px-0">
+            <div className="space-y-7 px-4 pt-5 lg:px-0">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-[16px] bg-[#F2F4F6]" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-1/3 rounded bg-[#F2F4F6]" />
-                      <div className="h-3 w-2/3 rounded bg-[#F2F4F6]" />
-                    </div>
+                <div key={item} className="flex animate-pulse gap-2.5">
+                  <div className="h-[42px] w-[42px] shrink-0 rounded-[14px] bg-[#F2F4F6]" />
+                  <div className="flex-1 space-y-2.5 pt-1">
+                    <div className="h-4 w-1/4 rounded bg-[#F2F4F6]" />
+                    <div className="h-3.5 w-2/5 rounded bg-[#F2F4F6]" />
+                    <div className="h-4 w-3/4 rounded bg-[#F2F4F6]" />
+                    <div className="h-[60px] rounded-[16px] bg-[#F9FAFB]" />
                   </div>
-                  <div className="mt-4 h-[64px] rounded-[16px] bg-[#F9FAFB]" />
                 </div>
               ))}
             </div>
           ) : cards.length === 0 ? (
-            <div className="flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center">
+            <div
+              className={`flex min-h-[46vh] flex-col items-center justify-center px-6 py-16 text-center ${enterWindow ? 'qd-a-item' : ''}`}
+              style={enterWindow ? { animationDelay: '.3s' } : undefined}
+            >
               <EmptyDocumentIcon size={72} className="mb-4" />
               <p className="text-[17px] font-bold text-[#191F28]">아직 문의한 사회자가 없어요</p>
               <p className="mt-2 text-[14px] leading-6 text-[#8B95A1]">마음에 드는 사회자에게 문의를 보내면 이곳에서 진행 상태를 볼 수 있어요.</p>
@@ -486,64 +479,73 @@ export default function CustomerInquiriesPage() {
               {statusTab} 상태인 문의가 없어요
             </div>
           ) : (
-            <div key={statusTab} style={{ animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+            <div key={statusTab} style={tabSwitched ? { animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' } : undefined}>
               {groups.map((g) => (
-                <section key={g.requestId} className="border-b border-[#F2F4F6] px-4 py-5 last:border-b-0 lg:px-0">
-                  {/* 1단 — 행사: 일러스트 타일 · 종류 · 일시 · 장소 · 신청일 */}
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#F6F6F6]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={categoryIllust(g.category)} alt="" className="h-9 w-9 object-contain" loading="lazy" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="min-w-0 truncate text-[16px] font-bold text-[#191F28]">{g.category}</p>
-                        <span className="ml-auto shrink-0 text-[12px] text-[#8B95A1]">{g.createdAt} 신청</span>
-                      </div>
-                      <p className="mt-1 flex items-center gap-1.5 text-[13.5px] text-[#4E5968]">
-                        <CalendarIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                // 웨딩숲 글 카드(.tcard)와 같은 계층 — 왼쪽 그림 칸 · 오른쪽 제목(16 굵게)/신청일(14 회색)/본문(16.5)/사회자 줄(댓글 계층)
+                <section
+                  key={g.requestId}
+                  className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-4 pt-[18px] last:border-b-0 min-[601px]:gap-3 min-[601px]:pb-[18px] min-[601px]:pt-[22px] lg:px-0"
+                  style={enterStyle(g.requestId)}
+                >
+                  <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] bg-[#F6F6F6] min-[601px]:h-12 min-[601px]:w-12 min-[601px]:rounded-[16px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={categoryIllust(g.category)} alt="" className="h-8 w-8 object-contain min-[601px]:h-9 min-[601px]:w-9" loading="lazy" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {/* 제목 — 행사 종류 */}
+                    <p className="truncate pt-px text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{g.category}</p>
+                    {/* 메타 — 신청일 · 문의한 사회자 수(회색 14) */}
+                    <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1] min-[601px]:text-[15px]">
+                      {g.createdAt} 신청 · 사회자 {g.cards.length}명
+                    </p>
+
+                    {/* 본문(16.5) — 행사 일시 · 장소 */}
+                    <div className="mt-3 space-y-1 text-[16.5px] leading-[1.5] tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17.5px]">
+                      <p className="flex items-center gap-1.5">
+                        <CalendarIcon size={18} className="shrink-0 text-[#B0B8C1]" />
                         <span className="min-w-0 truncate">{g.eventDate} · {g.eventTime}</span>
                       </p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-[#6B7684]">
-                        <PinLocationIcon size={14} className="shrink-0 text-[#B0B8C1]" />
+                      <p className="flex items-center gap-1.5">
+                        <PinLocationIcon size={18} className="shrink-0 text-[#B0B8C1]" />
                         <span className="min-w-0 truncate">{g.location}</span>
                       </p>
                     </div>
-                  </div>
 
-                  {/* 2단 — 이 행사로 문의한 사회자들과 각자의 진행 상태 */}
-                  <p className="mb-2 mt-4 text-[12px] font-semibold text-[#8B95A1]">문의한 사회자 {g.cards.length}명</p>
-                  <ul className="overflow-hidden rounded-[16px] bg-[#F9FAFB]">
-                    {g.cards.map((item) => (
-                      <li key={item.id} className="border-b border-white last:border-b-0">
-                        <button
-                          type="button"
-                          onClick={() => openInquiry(item)}
-                          className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F2F4F6]"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={getProfileImageUrl(item.proImage, item.proName)}
-                            alt=""
-                            className="h-10 w-10 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
-                            loading="lazy"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[15px] font-semibold text-[#191F28]">{item.proName}</span>
-                            {item.status === '거절' && item.declineReason && (
-                              <span className="mt-0.5 block truncate text-[12.5px] text-[#E5484D]">거절 사유 · {item.declineReason}</span>
+                    {/* 문의한 사회자 — 웨딩숲 댓글 줄 계층(프사 36 · 이름 15 굵게 · 상태 배지) */}
+                    <ul className="mt-3.5 overflow-hidden rounded-[16px] bg-[#F9FAFB]">
+                      {g.cards.map((item) => (
+                        <li key={item.id} className="border-b border-white last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => openInquiry(item)}
+                            className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F2F4F6]"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={getProfileImageUrl(item.proImage, item.proName)}
+                              alt=""
+                              className="h-9 w-9 shrink-0 rounded-full bg-[#F2F3F5] object-cover"
+                              loading="lazy"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="min-w-0 truncate text-[15px] font-bold tracking-[-0.2px] text-[#333D4B]">{item.proName}</span>
+                                <StatusTag status={item.status} />
+                              </span>
+                              {item.status === '거절' && item.declineReason && (
+                                <span className="mt-1 line-clamp-2 break-words text-[14px] leading-[1.45] tracking-[-0.2px] text-[#F04452]">거절 사유 · {item.declineReason}</span>
+                              )}
+                            </span>
+                            {item.roomId ? (
+                              <ChevronRightIcon size={18} className="shrink-0 text-[#C9CED6]" />
+                            ) : (
+                              <span className="w-[18px] shrink-0" aria-hidden="true" />
                             )}
-                          </span>
-                          <StatusTag status={item.status} />
-                          {item.roomId ? (
-                            <ChevronRightIcon size={16} className="shrink-0 text-[#C9CED6]" />
-                          ) : (
-                            <span className="w-4 shrink-0" aria-hidden="true" />
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </section>
               ))}
               {hasMore && (
