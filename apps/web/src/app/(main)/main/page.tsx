@@ -24,6 +24,7 @@ import { matchApi } from '@/lib/api/match.api';
 import {
   WEDDING_PARTNER_CATEGORIES,
   WEDDING_PARTNER_CATEGORY_ICONS,
+  categoryTileColor,
   WEDDING_PARTNER_CATEGORY_TABS,
 } from '@/lib/business-categories';
 import {
@@ -1218,8 +1219,12 @@ function CategorySwiper() {
                   className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
                   style={skipAnim ? { opacity: 1 } : { animation: `fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${0.3 + index * 0.04}s forwards` }}
                 >
-                  {/* 아이콘 뒤 연회색 둥근 타일(사장 레퍼런스 260925: 타일 #F6F6F6 · 모서리 약 1/3) — 투명 배경 일러스트를 72% 크기로 가운데 */}
-                  <div className="relative flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-[20px] bg-[#F6F6F6] lg:h-16 lg:w-16 lg:rounded-[21px]">
+                  {/* 아이콘 뒤 둥근 타일(사장 레퍼런스 260925: 모서리 약 1/3) — 색은 아이콘마다 그 그림 색을 아주 옅게(260926, lib/business-categories CATEGORY_TILE_TINTS).
+                      투명 배경 일러스트를 72% 크기로 가운데 */}
+                  <div
+                    className="relative flex h-[60px] w-[60px] items-center justify-center overflow-hidden rounded-[20px] lg:h-16 lg:w-16 lg:rounded-[21px]"
+                    style={{ backgroundColor: categoryTileColor(item.img) }}
+                  >
                     <span className="relative block h-[44px] w-[44px] lg:h-[46px] lg:w-[46px]">
                       <HomeCategoryIcon item={item} />
                     </span>

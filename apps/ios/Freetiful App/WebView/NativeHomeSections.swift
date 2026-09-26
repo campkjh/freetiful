@@ -381,6 +381,30 @@ final class HomeCategoryIcons: UIView {
         ("스냅", "snap.png", "/businesses?category=스냅"),
     ]
 
+    /// 칸 타일 색 — 아이콘마다 그 그림 색을 아주 옅게(웹 lib/business-categories CATEGORY_TILE_TINTS 와 같은 값, 260926)
+    private static let tileTints: [String: UInt32] = [
+        "wedding-mc-icon.png": 0xF2F6E8,
+        "event-mc-icon.png": 0xFBEBEC,
+        "foreign-mc.png": 0xEAF3FC,
+        "wedding-hall.png": 0xFAF3E3,
+        "dress.png": 0xEBF2FC,
+        "derma.png": 0xEAF5EE,
+        "studio.png": 0xFEEFE4,
+        "hair.png": 0xFCEAF2,
+        "makeup.png": 0xFCEDE8,
+        "snap.png": 0xEFF6EC,
+    ]
+
+    private static func tileColor(_ icon: String) -> UIColor {
+        let hex = tileTints[icon] ?? 0xF6F6F6
+        return UIColor(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+
     init(imageBase: String) {
         self.imageBase = imageBase
         super.init(frame: .zero)
@@ -418,8 +442,8 @@ final class HomeCategoryIcons: UIView {
 
         let iconWrap = UIView()
         iconWrap.translatesAutoresizingMaskIntoConstraints = false
-        // 연회색 둥근 타일 위에 투명 배경 일러스트(웹 홈과 같게, 260925)
-        iconWrap.backgroundColor = UIColor(red: 246 / 255, green: 246 / 255, blue: 246 / 255, alpha: 1)
+        // 둥근 타일 위에 투명 배경 일러스트(웹 홈과 같게) — 타일 색은 아이콘마다 옅은 그림 색(260926)
+        iconWrap.backgroundColor = Self.tileColor(item.icon)
         iconWrap.layer.cornerRadius = 20
         iconWrap.layer.cornerCurve = .continuous
         iconWrap.clipsToBounds = true
