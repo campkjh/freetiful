@@ -764,9 +764,9 @@ const BANNERS = [
  * (PC 첫 화면·iOS 네이티브 홈은 그대로 관리자 배너). 누르면: 가입 5천원 = 비로그인 가입 창·로그인 시 친구 초대 / 빌라드지디 = 웨딩홀 목록
  * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
  */
-/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임). 설명 문구 260927 사장 */
+/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임). 설명 문구·퀵매칭 버튼 '빠른찾기' 260927 사장 */
 const HOME_SHORTCUTS = [
-  { href: '/quick-match', image: '/images/home/shortcut-quick-match.webp', title: '퀵매칭', desc: '결혼식 사회자, 1분 만에 퀵매칭', cta: '시작하기' },
+  { href: '/quick-match', image: '/images/home/shortcut-quick-match.webp', title: '퀵매칭', desc: '결혼식 사회자, 1분 만에 퀵매칭', cta: '빠른찾기' },
   { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', title: '웨딩숲', desc: '예비부부의 결혼 준비 커뮤니티', cta: '구경하기' },
 ];
 
