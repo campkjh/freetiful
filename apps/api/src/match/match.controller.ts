@@ -88,6 +88,15 @@ export class MatchController {
     return this.matchService.cancelMatchRequest(req.user.id, id);
   }
 
+  /** 사회자 한 명에게 보낸 요청만 취소(고객) — 아직 답하지 않은 요청만 */
+  @Post('deliveries/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '사회자 한 명에게 보낸 매칭 요청 취소' })
+  cancelMatchDelivery(@Request() req: any, @Param('id') id: string) {
+    return this.matchService.cancelMatchDelivery(req.user.id, id);
+  }
+
   /** 전문가에게 전달된 매칭 요청 목록 */
   @Get('pro/requests')
   @UseGuards(JwtAuthGuard)

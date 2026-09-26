@@ -2117,3 +2117,43 @@ textarea.qd-input { height: auto; min-height: 140px; padding: 16px 18px; line-he
 @media (prefers-reduced-motion: reduce) {
   .qd-a-title, .qd-a-sub, .qd-a-item, .qd-body > * { animation: none !important; }
 }
+
+/* ═══ 모달·시트 공통 = 웨딩숲 톤(260926 사장 "모든 모달 웨딩숲 톤앤매너 · 버튼 높이 56 · r17 · 17pt") ═══
+   · 모바일 = 아래에서 올라오는 흰 시트(위 모서리 24 · 손잡이 40×4 · 0.34s), 넓은 화면(≥640) = 가운데 카드(모서리 24).
+   · 제목 21 굵게 · 설명 16 회색 · 버튼 56 / 모서리 17 / 17pt(primary 파랑 · secondary 회색 · danger 빨강).
+   · 새 모달도 이걸로: <div class="ft-scrim"><div class="ft-sheet"><div class="ft-grab"/>…<div class="ft-actions"><button class="ft-btn secondary">… */
+.ft-scrim { position: fixed; inset: 0; z-index: 700; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .4); animation: ftFade .22s ease; }
+.ft-sheet { position: relative; width: 100%; max-width: 448px; max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; padding: 20px 24px calc(24px + env(safe-area-inset-bottom, 0px)); background: #fff; border-radius: 24px 24px 0 0; text-align: left; animation: ftUp .34s cubic-bezier(.16, 1, .3, 1); }
+.ft-sheet.wide { max-width: 560px; }
+.ft-grab { width: 40px; height: 4px; margin: 0 auto 22px; border-radius: 999px; background: #D1D6DB; }
+.ft-title { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.42; letter-spacing: -0.4px; color: #191F28; white-space: pre-line; }
+.ft-desc { margin: 8px 0 0; font-size: 16px; line-height: 1.55; letter-spacing: -0.2px; color: #6B7684; white-space: pre-line; }
+.ft-actions { display: flex; gap: 8px; margin-top: 24px; }
+.ft-actions.col { flex-direction: column; }
+.ft-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: 56px; padding: 0 16px; border: 0; border-radius: 17px; font-size: 17px; font-weight: 600; letter-spacing: -0.2px; line-height: 1; cursor: pointer; font-family: inherit; text-decoration: none; transition: transform .1s ease, background-color .15s ease, opacity .15s ease; }
+.ft-btn:active:not(:disabled) { transform: scale(.97); }
+.ft-btn:disabled { opacity: .5; cursor: default; }
+.ft-btn.primary { background: #3182F6; color: #fff; }
+.ft-btn.primary:active:not(:disabled) { background: #2272EB; }
+.ft-btn.secondary { background: #F2F4F6; color: #4E5968; }
+.ft-btn.secondary:active:not(:disabled) { background: #E5E8EB; }
+.ft-btn.danger { background: #F04452; color: #fff; }
+.ft-btn.danger:active:not(:disabled) { background: #E42939; }
+.ft-btn.ghost { background: transparent; color: #8B95A1; }
+.ft-input, .ft-textarea { display: block; width: 100%; box-sizing: border-box; border: 1.5px solid #E5E8EB; border-radius: 17px; background: #fff; font-size: 17px; color: #191F28; outline: none; font-family: inherit; transition: border-color .15s ease; }
+.ft-input { height: 56px; padding: 0 18px; }
+.ft-textarea { padding: 16px 18px; line-height: 1.55; resize: none; }
+.ft-input:focus, .ft-textarea:focus { border-color: #3182F6; }
+.ft-input::placeholder, .ft-textarea::placeholder { color: #B0B8C1; }
+.ft-chip { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: #F2F4F6; color: #4E5968; font-size: 15px; font-weight: 600; letter-spacing: -0.2px; cursor: pointer; font-family: inherit; transition: background-color .15s ease, color .15s ease, transform .1s ease; }
+.ft-chip:active { transform: scale(.96); }
+.ft-chip.on { background: #E8F3FF; color: #3182F6; }
+@media (min-width: 640px) {
+  .ft-scrim { align-items: center; padding: 24px; }
+  .ft-sheet { border-radius: 24px; padding: 28px 28px 24px; animation: ftPop .28s cubic-bezier(.16, 1, .3, 1); }
+  .ft-grab { display: none; }
+}
+@keyframes ftFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ftUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes ftPop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ft-scrim, .ft-sheet { animation: none !important; } }

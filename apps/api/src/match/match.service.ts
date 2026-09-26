@@ -579,6 +579,50 @@ export class MatchService {
     return { ok: true, cancelledDeliveries: open.length };
   }
 
+  /**
+   * 고객이 사회자 한 명에게 보낸 요청만 취소(260926 사장 '요청 취소 버튼은 사회자 옆에').
+   * 아직 답하지 않은(pending/viewed/archived) 전달분만 'cancelled' 로 거둔다 — 사회자 새요청 목록·미확인 리마인더에서 빠진다.
+   * 수락·거절한 건은 취소할 수 없고, 결제로 matched 된 요청도 불가. 이 요청의 전달분이 전부 취소되면 요청도 닫는다.
+   */
+  async cancelMatchDelivery(userId: string, deliveryId: string) {
+    const delivery = await this.prisma.matchDelivery.findUnique({
+      where: { id: deliveryId },
+      select: {
+        id: true,
+        status: true,
+        matchRequestId: true,
+        matchRequest: { select: { userId: true, status: true } },
+        proProfile: { select: { userId: true } },
+      },
+    });
+    if (!delivery || delivery.matchRequest?.userId !== userId) throw new NotFoundException('요청을 찾을 수 없습니다');
+    if (delivery.matchRequest.status === 'matched') throw new BadRequestException('결제까지 끝난 요청은 취소할 수 없어요');
+    if (delivery.status === 'cancelled') return { ok: true };
+    if (!['pending', 'viewed', 'archived'].includes(delivery.status)) {
+      throw new BadRequestException('사회자가 이미 답한 요청은 취소할 수 없어요');
+    }
+
+    await this.prisma.matchDelivery.updateMany({
+      where: { id: deliveryId, status: { in: ['pending', 'viewed', 'archived'] } },
+      data: { status: 'cancelled' },
+    });
+    const alive = await this.prisma.matchDelivery.count({
+      where: { matchRequestId: delivery.matchRequestId, status: { not: 'cancelled' } },
+    });
+    if (alive === 0) {
+      await this.prisma.matchRequest.updateMany({
+        where: { id: delivery.matchRequestId, status: 'open' },
+        data: { status: 'cancelled' },
+      });
+    }
+
+    const notifyIds = [userId, delivery.proProfile?.userId];
+    const payload = { kind: 'match-delivery-cancelled', matchDeliveryId: deliveryId, matchRequestId: delivery.matchRequestId };
+    this.chatRealtimeService.emitMatchUpdated(notifyIds, payload);
+    this.chatRealtimeService.emitDashboardUpdated(notifyIds, payload);
+    return { ok: true };
+  }
+
   /** 전문가에게 전달된 매칭 요청 목록 */
   // userId 로 직접 조인 — 컨트롤러의 proProfile 선조회(DB 왕복 1회) 제거용
   async getMatchRequestsForProUser(userId: string, limit = 50, skip = 0) {

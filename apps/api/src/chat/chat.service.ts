@@ -1346,6 +1346,12 @@ export class ChatService implements OnModuleInit {
       select: { status: true },
     });
     if (mr && mr.status !== 'open') return;
+    // 고객이 이 사회자에게 보낸 요청만 취소했으면(사회자 옆 '요청 취소') 방·인사를 만들지 않는다
+    const cancelled = await this.prisma.matchDelivery.findFirst({
+      where: { matchRequestId, proProfileId: proProfile.id, status: 'cancelled' },
+      select: { id: true },
+    });
+    if (cancelled) return;
 
     const room = await this.createRoomAsPro(proUserId, { customerUserId, matchRequestId } as any);
     const roomId = (room as any)?.id;
