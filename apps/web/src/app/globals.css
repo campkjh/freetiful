@@ -2273,6 +2273,8 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
    순서 = 카드 페이드업 → 본문 칸 촤락 펼침(grid rows 0fr→1fr) → 요약 문장 단어 단위 흐림→선명 → 특징 칩 차례로 */
 .style-intro { background: linear-gradient(135deg, #FFF7FA 0%, #FBF7FF 55%, #F6F8FF 100%); animation: styleIntroIn .55s cubic-bezier(.22, 1, .36, 1) both; }
 @keyframes styleIntroIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* 상세처럼 아래쪽에 있으면 화면에 닿기 전엔 숨겨 두고, 닿는 순간 페이드업(StyleIntroCard seen) */
+.style-intro.is-waiting { animation: none; opacity: 0; }
 .style-intro-title { background: linear-gradient(90deg, #8A1F3D 0%, #6A2C8F 58%, #4A3AA8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .style-intro-wait { animation: styleWait 1.4s ease-in-out infinite; }
 @keyframes styleWait { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }

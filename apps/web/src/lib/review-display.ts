@@ -9,7 +9,10 @@ export type ReviewDisplayItem = {
   orderRange: string;
   badge?: string;
   photos?: string[];
-  proReply?: { date: string; content: string };
+  proReply?: { date: string; content: string; at?: string };
+  /** 리뷰어 프사(익명·없으면 null) · 원본 작성 시각 — 댓글형 리뷰 줄(260926) */
+  avatar?: string | null;
+  createdAt?: string;
 };
 
 const LEGACY_REVIEW_FALLBACKS: Omit<ReviewDisplayItem, 'id'>[] = [

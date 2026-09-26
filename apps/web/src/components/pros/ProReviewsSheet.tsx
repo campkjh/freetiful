@@ -7,139 +7,19 @@
 //  · 실제로 쓰인 리뷰만 — 본문 없는 사회자에게 예시 리뷰를 채우지 않는다(lib/pro-reviews).
 import { useEffect, useRef, useState } from 'react';
 import { loadProReviews, peekProReviews, type ProReviewItem } from '@/lib/pro-reviews';
-import { getProfileImageUrl } from '@/lib/default-profile';
-import { formatRelativeTime } from '@/lib/relativeTime';
-import { reviewApi } from '@/lib/api/review.api';
-import AiIcon from '@/components/icons/AiIcon';
+import ReviewCommentRow, { ReviewStars } from '@/components/pros/ReviewCommentRow';
+import StyleIntroCard, { useProStyleSummary } from '@/components/pros/StyleIntroCard';
 
 export type ReviewSheetPro = { id: string; name: string; image?: string; rating: number; reviews: number };
 
 const STEP = 15;
-
-type StyleSummary = { summary: string; keywords: string[]; source: 'ai' | 'rule'; reviewCount: number };
-// 스타일 소개도 같은 사회자를 다시 열면 바로(서버도 하루 기억한다)
-const summaryCache = new Map<string, { at: number; value: StyleSummary | null }>();
-
-/**
- * 이 사회자의 스타일을 소개합니다 — 토스 '✦ 이런 서비스도 좋아하실 것 같아요' 카드 결(260926 사장 레퍼런스).
- * 순서: 카드가 아래에서 페이드업 → 본문 칸이 촤락 펼쳐지고 → 요약 문장이 단어 단위로 흐림→선명 → 특징 칩이 차례로.
- * 요약은 서버가 실제 리뷰만 읽고 만든 것(없으면 카드가 접혀 사라진다).
- */
-function StyleIntroCard({ summary, loading }: { summary: StyleSummary | null; loading: boolean }) {
-  const words = summary ? summary.summary.split(/\s+/).filter(Boolean) : [];
-  const wordBase = 0.55; // 칸이 펼쳐지기 시작한 뒤
-  const chipBase = wordBase + words.length * 0.045 + 0.2;
-  return (
-    <div className="style-intro mt-4 rounded-[20px] border border-[#F5E4EE] px-[18px] py-4">
-      <div className="flex items-center gap-2">
-        <AiIcon size={20} tile={false} spin={loading && !summary} />
-        <p className="style-intro-title text-[17px] font-bold tracking-[-0.3px]">이 사회자의 스타일을 소개합니다</p>
-      </div>
-      {loading && !summary && (
-        <p className="style-intro-wait mt-2.5 text-[14px] tracking-[-0.2px] text-[#9A8FAE]">리뷰를 읽고 있어요…</p>
-      )}
-      <div className={`style-intro-body${summary ? ' is-open' : ''}`}>
-        <div className="min-h-0 overflow-hidden">
-          {summary && (
-            <>
-              <p className="mt-3 text-[15.5px] leading-[1.7] tracking-[-0.3px] text-[#333D4B]">
-                {words.map((word, i) => (
-                  <span key={i} className="style-word" style={{ animationDelay: `${wordBase + i * 0.045}s` }}>
-                    {word}{i < words.length - 1 ? ' ' : ''}
-                  </span>
-                ))}
-              </p>
-              {summary.keywords.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {summary.keywords.map((keyword, i) => (
-                    <span
-                      key={keyword}
-                      className="style-chip rounded-[8px] bg-white/80 px-2.5 py-[5px] text-[13px] font-semibold tracking-[-0.2px] text-[#6A4BB8] ring-1 ring-[#EFE6FB]"
-                      style={{ animationDelay: `${chipBase + i * 0.08}s` }}
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Stars({ value, size = 13 }: { value: number; size?: number }) {
-  const full = Math.round(value);
-  return (
-    <span className="inline-flex items-center gap-px" aria-label={`별점 ${value.toFixed(1)}`}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill={i < full ? '#FFC933' : '#E5E8EB'} />
-        </svg>
-      ))}
-    </span>
-  );
-}
-
-function ReviewComment({ review, pro, first }: { review: ProReviewItem; pro: ReviewSheetPro; first: boolean }) {
-  return (
-    <div className={`py-4 ${first ? '' : 'border-t border-[#F2F4F6]'}`}>
-      <div className="flex gap-2.5">
-        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#F2F4F6]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={getProfileImageUrl(review.avatar, review.id)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-h-[20px] flex-wrap items-center gap-x-1.5 gap-y-1">
-            <span className="text-[15px] font-bold tracking-[-0.2px] text-[#333D4B]">{review.name}</span>
-            {review.rating > 0 && <Stars value={review.rating} />}
-          </div>
-          {review.content && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-[16px] leading-[1.6] tracking-[-0.2px] text-[#191F28] [overflow-wrap:anywhere]">
-              {review.content}
-            </p>
-          )}
-          {review.photos.length > 0 && (
-            <div className="mt-2.5 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {review.photos.slice(0, 6).map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={src + i} src={src} alt="" loading="lazy" decoding="async" className="h-[84px] w-[84px] shrink-0 rounded-[12px] bg-[#F2F4F6] object-cover" />
-              ))}
-            </div>
-          )}
-          <p className="mt-1.5 text-[13.5px] tracking-[-0.2px] text-[#8B95A1]">{formatRelativeTime(review.createdAt)}</p>
-
-          {/* 사회자 답글 — 한 칸 들여(프사 28) */}
-          {review.proReply && (
-            <div className="mt-3 flex gap-2">
-              <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-[#F2F4F6]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={getProfileImageUrl(pro.image, pro.id)} alt="" loading="lazy" className="h-full w-full object-cover" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[14.5px] font-bold tracking-[-0.2px] text-[#333D4B]">{pro.name}</span>
-                  <span className="inline-flex h-5 items-center rounded-[5px] bg-[#E8F3FF] px-1.5 text-[12px] font-bold text-[#3182F6]">사회자</span>
-                </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-[15px] leading-[1.6] tracking-[-0.2px] text-[#191F28]">{review.proReply.content}</p>
-                <p className="mt-1 text-[13px] text-[#8B95A1]">{formatRelativeTime(review.proReply.at)}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro | null; onClose: () => void }) {
   const [shownPro, setShownPro] = useState<ReviewSheetPro | null>(pro);
   const [closing, setClosing] = useState(false);
   const [data, setData] = useState<{ items: ProReviewItem[]; total: number } | null>(null);
   const [failed, setFailed] = useState(false);
-  const [style, setStyle] = useState<{ loading: boolean; value: StyleSummary | null }>({ loading: false, value: null });
+
   const [shown, setShown] = useState(STEP);
   const [dragY, setDragY] = useState(0);
   const dragRef = useRef<{ y: number; t: number } | null>(null);
@@ -160,21 +40,6 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
     loadProReviews(pro.id)
       .then((res) => { if (alive) setData(res); })
       .catch(() => { if (alive && !hit) setFailed(true); });
-    // 스타일 소개(리뷰 요약) — 리뷰가 2개 이상일 때만
-    const cachedStyle = summaryCache.get(pro.id);
-    if (cachedStyle && Date.now() - cachedStyle.at < 10 * 60_000) {
-      setStyle({ loading: false, value: cachedStyle.value });
-    } else if (pro.reviews >= 2) {
-      setStyle({ loading: true, value: null });
-      reviewApi.getSummary(pro.id)
-        .then((value) => {
-          summaryCache.set(pro.id, { at: Date.now(), value });
-          if (alive) setStyle({ loading: false, value });
-        })
-        .catch(() => { if (alive) setStyle({ loading: false, value: null }); });
-    } else {
-      setStyle({ loading: false, value: null });
-    }
     return () => { alive = false; };
   }, [pro]);
 
@@ -205,6 +70,9 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownPro, closing]);
+
+  // 스타일 소개(리뷰 AI 요약) — 공용 카드(components/pros/StyleIntroCard)
+  const style = useProStyleSummary(shownPro?.id, shownPro?.reviews ?? 0);
 
   // 아래로 굴리면 15개씩 이어서
   const total = data?.items.length || 0;
@@ -278,7 +146,7 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
               <p className="mt-0.5 flex items-center gap-1.5 truncate text-[14px] tracking-[-0.2px] text-[#8B95A1]">
                 {avg > 0 && (
                   <>
-                    <Stars value={avg} size={13} />
+                    <ReviewStars value={avg} size={13} />
                     <b className="font-semibold text-[#4E5968]">{avg.toFixed(1)}</b>
                     <span>·</span>
                   </>
@@ -319,10 +187,10 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
             </div>
           ) : (
             <>
-              {(style.loading || style.value) && <StyleIntroCard summary={style.value} loading={style.loading} />}
+              <StyleIntroCard summary={style.value} loading={style.loading} className="mt-4" />
               {items.slice(0, shown).map((review, i) => (
                 <div key={review.id} className={i < 8 ? 'qd-a-item' : ''} style={i < 8 ? { animationDelay: `${0.18 + i * 0.04}s` } : undefined}>
-                  <ReviewComment review={review} pro={p} first={i === 0} />
+                  <ReviewCommentRow review={review} pro={p} first={i === 0} />
                 </div>
               ))}
               {shown < items.length && <div ref={moreRef} className="h-10" />}

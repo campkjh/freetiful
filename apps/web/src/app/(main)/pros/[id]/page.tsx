@@ -24,6 +24,8 @@ import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import AiIcon from '@/components/icons/AiIcon';
+import StyleIntroCard, { useProStyleSummary } from '@/components/pros/StyleIntroCard';
+import ReviewCommentRow from '@/components/pros/ReviewCommentRow';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
@@ -233,7 +235,10 @@ interface ProDetailData {
     orderRange: string;
     badge?: string;
     photos?: string[];
-    proReply?: { date: string; content: string };
+    proReply?: { date: string; content: string; at?: string };
+    /** 리뷰어 프사(익명·없으면 null) · 원본 작성 시각 — 댓글형 리뷰 줄(260926) */
+    avatar?: string | null;
+    createdAt?: string;
   }[];
   recommendedPros: { id: string; name: string; role: string; rating: number; reviews: number; experience: number; image: string; tags: string[]; isPartner: boolean }[];
   alsoViewed: { id: string; title: string; price: number; rating?: number; reviewCount?: number; author: string; image: string; category?: string }[];
@@ -245,7 +250,10 @@ function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
     .filter(Boolean);
   return {
     id: r.id,
-    name: r.isAnonymous ? '익명' : (r.reviewer?.name ? r.reviewer.name.slice(0, 2) + '********' : '고객'),
+    // 가리기 = 목록 리뷰 시트와 같게(첫 글자 + **)
+    name: r.isAnonymous ? '익명' : (r.reviewer?.name ? `${r.reviewer.name.slice(0, 1)}**` : '고객'),
+    avatar: r.isAnonymous ? null : (r.reviewer?.profileImageUrl || null),
+    createdAt: r.createdAt ? String(r.createdAt) : undefined,
     rating: Number(r.avgRating) || 5.0,
     date: r.createdAt ? new Date(r.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '',
     scores: {
@@ -263,6 +271,7 @@ function mapApiReviewToDetail(r: any): ProDetailData['reviews'][number] {
     proReply: r.proReply
       ? {
           date: r.proRepliedAt ? new Date(r.proRepliedAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' }) : '',
+          at: r.proRepliedAt ? String(r.proRepliedAt) : undefined,
           content: r.proReply,
         }
       : undefined,
@@ -371,30 +380,6 @@ function hasRichTextContent(html: string | null | undefined) {
     .replace(/&nbsp;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim().length > 0;
-}
-
-function buildAiReviewSummary(pro: ProDetailData, reviews: ProDetailData['reviews']) {
-  const source = reviews.map((review) => review.content).join(' ');
-  const keywordRules = [
-    { label: '진행 안정감', pattern: /안정|매끄|차분|진행|깔끔|능숙/ },
-    { label: '분위기 센스', pattern: /분위기|센스|위트|유쾌|재미|웃/ },
-    { label: '빠른 응답', pattern: /응답|빠르|친절|소통|상담/ },
-    { label: '꼼꼼한 준비', pattern: /준비|대본|꼼꼼|미팅|확인/ },
-    { label: '높은 만족도', pattern: /만족|추천|최고|감사|좋았|완벽/ },
-  ];
-  const fallbackKeywords = ['진행 안정감', '분위기 센스', '높은 만족도'];
-  const keywords = keywordRules
-    .filter((item) => item.pattern.test(source))
-    .map((item) => item.label)
-    .slice(0, 3);
-  const topKeywords = keywords.length > 0 ? keywords : fallbackKeywords;
-  const reviewCount = Math.max(reviews.length, pro.reviewCount);
-  const ratingText = pro.rating > 0 ? `${pro.rating.toFixed(1)}점` : '높은 평점';
-
-  return {
-    text: `AI가 ${reviewCount.toLocaleString()}개 고객 리뷰를 읽고 요약했어요. ${pro.name} 사회자는 ${topKeywords.join(', ')}에서 좋은 평가가 많고, 전체 평점은 ${ratingText}이에요.`,
-    keywords: topKeywords,
-  };
 }
 
 /** 리뷰 본문에서 자주 언급된 표현을 뽑아 많이 나온 순으로 돌려준다 */
@@ -1036,44 +1021,33 @@ function VerifiedBadge({ size = 18 }: { size?: number }) {
 }
 
 /** 리뷰 이름 마스킹 — 첫 글자만 남긴다 */
-function maskReviewer(name?: string) {
-  const n = (name || '').trim();
-  if (!n) return '익명';
-  return `${n[0]}${'*'.repeat(Math.max(2, Math.min(5, n.length)))}`;
-}
-
 /**
  * 별점 아래에 리뷰 카드들이 서로 어긋난 높이로 놓여 천천히 떠다닌다.
  * 카드마다 주기와 시작 지연이 달라야 '두둥실' 느낌이 나서 인덱스로 어긋나게 준다.
  */
-function FloatingReviewCards({ reviews }: { reviews: ProDetailData['reviews'] }) {
+function FloatingReviewCards({ reviews, pro }: { reviews: ProDetailData['reviews']; pro: { id: string; name: string; image?: string } }) {
   const items = (reviews || []).filter((r) => (r.content || '').trim()).slice(0, 6);
   if (items.length === 0) return null;
+  // 카드 속은 목록 리뷰 시트와 같은 댓글형 줄(260926 사장 "리뷰 카드도 모달처럼") — 흰 카드 한 톤, 둥실 떠다니는 움직임은 유지
   return (
     <div className="-mx-5 mt-2.5 overflow-x-auto px-5 pb-2 pt-1 scrollbar-hide">
       <div className="flex items-start gap-3" style={{ width: 'max-content' }}>
-        {items.map((r, i) => {
-          const accent = i % 3 === 1;
-          return (
-            <div
-              key={r.id}
-              className={`review-float w-[232px] shrink-0 rounded-[20px] p-4 ${accent ? 'bg-[#3180F7]' : 'bg-[#F7F8FA]'}`}
-              style={{
-                marginTop: (i % 3) * 14,
-                animation: `reviewFloat ${(4.2 + (i % 3) * 0.9).toFixed(1)}s ease-in-out ${(i * 0.35).toFixed(2)}s infinite`,
-              }}
-            >
-              <StarRating value={r.rating} size={12} />
-              <p className={`mt-2 line-clamp-3 text-[13px] leading-[1.6] ${accent ? 'text-white' : 'text-[#4E5968]'}`}>
-                {r.content}
-              </p>
-              <div className={`mt-3 flex items-center justify-between text-[11px] ${accent ? 'text-white/75' : 'text-[#A4ABBA]'}`}>
-                <span>{maskReviewer(r.name)}</span>
-                <span>{r.date}</span>
-              </div>
-            </div>
-          );
-        })}
+        {items.map((r, i) => (
+          <div
+            key={r.id}
+            className="review-float w-[248px] shrink-0 rounded-[20px] border border-[#EEF0F3] bg-white p-4"
+            style={{
+              marginTop: (i % 3) * 14,
+              animation: `reviewFloat ${(4.2 + (i % 3) * 0.9).toFixed(1)}s ease-in-out ${(i * 0.35).toFixed(2)}s infinite`,
+            }}
+          >
+            <ReviewCommentRow
+              compact
+              pro={pro}
+              review={{ id: r.id, name: r.name, avatar: r.avatar ?? null, rating: r.rating, createdAt: r.createdAt, date: r.date, content: r.content }}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1711,6 +1685,9 @@ export default function ProDetailPage() {
 
   // Error state: 사회자를 찾을 수 없습니다
   // 캐시/프리뷰에서라도 pro 가 들어왔다면 에러 화면이 덮지 않도록 보호한다
+  // 리뷰 AI 요약('이 사회자의 스타일을 소개합니다', 260926) — 실제 리뷰만 서버가 요약. 조기 반환 앞에서 부른다
+  const styleSummary = useProStyleSummary(pro?.id, pro?.reviewCount ?? 0);
+
   if (apiError && !pro) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center" style={{ letterSpacing: '-0.02em' }}>
@@ -1787,7 +1764,6 @@ export default function ProDetailPage() {
     : mapRecommendedProsToAlsoViewed(pro.recommendedPros);
   const hasReviewMetricOnly = displayReviewCount > 0 && displayReviews.length === 0;
   const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
-  const aiReviewSummary = displayReviews.length > 0 ? buildAiReviewSummary(pro, displayReviews) : null;
 
   return (
     <div className="bg-white lg:bg-white" style={{ letterSpacing: '-0.02em' }}>
@@ -1964,31 +1940,19 @@ export default function ProDetailPage() {
                   <div className="relative overflow-hidden rounded-lg">
                     {displayReviews.length > 0 ? (
                       <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
-                        <div className="relative flex h-[164px] flex-col overflow-hidden rounded-2xl border border-[#EEF0F4] bg-white p-5 shadow-[0_1px_4px_rgba(15,23,42,0.06)]" style={{ borderLeft: `3px solid ${BRAND}` }}>
-                          <div className="relative z-10 flex items-center gap-2">
-                            <span className="ai-review-summary-icon flex h-6 w-6 items-center justify-center">
-                              <AiIcon size={22} />
-                            </span>
-                            <div>
-                              <p className="text-[12px] font-bold text-[#3180F7]">AI 리뷰 요약</p>
-                              <p className="mt-0.5 text-[11px] font-medium text-[#8B95A1]">
-                                고객 리뷰를 분석해 작성했어요
-                                <span className="ai-review-thinking-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
-                              </p>
+                        {/* 리뷰 AI 요약 — '이 사회자의 스타일을 소개합니다'(모바일·목록 리뷰 시트와 같은 카드, 좁은 칸용). 요약이 없으면 평점 칸 */}
+                        {styleSummary.loading || styleSummary.value ? (
+                          <StyleIntroCard summary={styleSummary.value} loading={styleSummary.loading} compact className="h-[164px] overflow-hidden" />
+                        ) : (
+                          <div className="flex h-[164px] flex-col justify-center rounded-2xl border border-[#EEF0F4] bg-white p-5">
+                            <p className="text-[13px] font-semibold text-[#8B95A1]">고객 평점</p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <StarRating value={pro.rating} size={16} />
+                              <span className="text-[22px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
                             </div>
+                            <p className="mt-1 text-[13px] text-[#8B95A1]">리뷰 {displayReviewCount}개</p>
                           </div>
-                          <p className="ai-review-summary-copy relative z-10 mt-3 line-clamp-2 text-[14px] leading-relaxed text-[#4E5968]">
-                            {aiReviewSummary?.text}
-                            <span className="ai-review-summary-cursor" aria-hidden="true" />
-                          </p>
-                          <div className="relative z-10 mt-auto flex flex-wrap gap-1 pt-2">
-                            {aiReviewSummary?.keywords.map((keyword) => (
-                              <span key={keyword} className="rounded-full bg-[#F2F4F6] px-2 py-1 text-[11px] font-semibold text-[#4E5968]">
-                                {keyword}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
+                        )}
                         <div className="recent-reviews-carousel-frame relative overflow-hidden rounded-lg">
                           <div className="recent-reviews-carousel flex w-max">
                             {[0, 1].map((loop) => (
@@ -2497,7 +2461,7 @@ export default function ProDetailPage() {
             <span className="text-[18px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
             <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
           </div>
-          <FloatingReviewCards reviews={displayReviews} />
+          <FloatingReviewCards reviews={displayReviews} pro={{ id: pro.id, name: pro.name, image: pro.profileImage }} />
         </Reveal>
 
         {/* ─── 주요 경력 — 아이콘 타일 헤더 + 구분선 행 목록 ─── */}
@@ -2714,31 +2678,8 @@ export default function ProDetailPage() {
           <span className="text-[14px] text-[#8B95A1]">({displayReviewCount})</span>
         </div>
 
-        {/* AI 리뷰 요약 — 흰 카드 + 좌측 브랜드색 세로 라인 + 스파클 아이콘 */}
-        {aiReviewSummary && (
-          <div className="mb-2 rounded-[20px] border border-[#F0E7F8] bg-gradient-to-b from-[#FBF3FB] via-[#FDF9FE] to-white p-4">
-            <div className="mb-2 flex items-center gap-1.5">
-              <AiIcon size={22} />
-              <span className="text-[15px] font-bold text-[#2B313D]">
-                고객들의 리뷰를 <span className="text-[#8B5CF6]">요약</span>했어요
-              </span>
-              <span
-                title="AI 가 실제 리뷰를 모아 요약한 내용이에요"
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#C8CEDA] text-[10px] font-bold leading-none text-[#A4ABBA]"
-              >
-                i
-              </span>
-            </div>
-            <p className="text-[14px] leading-[1.6] text-[#4E5968]">{aiReviewSummary.text}</p>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {aiReviewSummary.keywords.map((keyword) => (
-                <span key={keyword} className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12px] font-semibold text-[#4E5968]">
-                  {keyword}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 리뷰 AI 요약 — '이 사회자의 스타일을 소개합니다'(목록 리뷰 시트와 같은 카드 · 화면에 닿으면 페이드업→펼침→문장) */}
+        <StyleIntroCard summary={styleSummary.value} loading={styleSummary.loading} className="mb-3" />
 
         <ReviewKeywordCloud items={reviewKeywords} reviewCount={displayReviewCount} />
 
@@ -2766,80 +2707,51 @@ export default function ProDetailPage() {
             </div>
           )}
 
-          {displayReviews.map((review) => (
-            <div key={review.id} className="pb-6 border-b border-[#F2F4F6] last:border-0 relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-[#F2F4F6] flex items-center justify-center">
-                    <img src="/icons/pro-detail/person.svg" alt="" width={20} height={20} />
-                  </div>
-                  <span className="text-[14px] text-[#4E5968]">{review.name}</span>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#F2F4F6] transition-colors"
-                  >
-                    <span className="text-[16px] text-[#8B95A1] leading-none">⋯</span>
-                  </button>
-                  {reviewMenu === review.id && (
-                    <div className="pop-menu nt-menu absolute right-0 top-8 z-20" style={{ transformOrigin: 'top right' }}>
-                      {/* 리뷰 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(0)}><img src="/icons/toss/siren.svg" alt="" />신고하기</button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(1)}><img src="/icons/toss/user-blocked.svg" alt="" />차단하기</button>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(2)}><img src="/icons/toss/copy.svg" alt="" />복사하기</button>
+          {/* 리뷰 줄 — 목록 리뷰 시트와 같은 댓글형(260926 사장 "리뷰 카드도 모달처럼") */}
+          {displayReviews.length > 0 && (
+            <div className="-mt-2">
+              {displayReviews.map((review, i) => (
+                <ReviewCommentRow
+                  key={review.id}
+                  first={i === 0}
+                  pro={{ id: pro.id, name: pro.name, image: pro.profileImage }}
+                  review={{
+                    id: review.id,
+                    name: review.name,
+                    avatar: review.avatar ?? null,
+                    rating: review.rating,
+                    createdAt: review.createdAt,
+                    date: review.date,
+                    content: review.content,
+                    photos: review.photos,
+                    proReply: review.proReply ? { content: review.proReply.content, at: review.proReply.at, date: review.proReply.date } : undefined,
+                  }}
+                  menu={
+                    <div className="relative shrink-0">
+                      <button
+                        onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
+                        aria-label="리뷰 메뉴"
+                        className="-mr-1 -mt-0.5 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-[#F2F4F6]"
+                      >
+                        <span className="text-[16px] leading-none text-[#8B95A1]">⋯</span>
+                      </button>
+                      {reviewMenu === review.id && (
+                        <div className="pop-menu nt-menu absolute right-0 top-8 z-20" style={{ transformOrigin: 'top right' }}>
+                          {/* 리뷰 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(0)}><img src="/icons/toss/siren.svg" alt="" />신고하기</button>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(1)}><img src="/icons/toss/user-blocked.svg" alt="" />차단하기</button>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(2)}><img src="/icons/toss/copy.svg" alt="" />복사하기</button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <StarRating value={parseFloat(review.rating.toFixed(1))} size={14} />
-                <span className="text-[13px] font-bold text-[#191F28]">{review.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-[#D5DAE0]">|</span>
-                <span className="text-[12px] text-[#8B95A1]">{review.date}</span>
-              </div>
-              {(review as typeof review & { scores?: Record<string, number> }).scores && (
-                <div className="flex flex-wrap gap-1 mb-2.5">
-                  {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
-                    <span key={key} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-[#F2F4F6] text-[#4E5968] flex items-center" style={{ height: 22 }}>
-                      {key} <span className="font-bold text-[#3180F7] ml-1">{val}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-[14px] leading-[1.7] text-[#333D4B] mb-3 whitespace-pre-line">{review.content}</p>
-              {review.photos && review.photos.length > 0 && (
-                <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
-                  {review.photos.slice(0, 5).map((photo, index) => (
-                    <img
-                      key={`${review.id}-photo-${index}`}
-                      src={photo}
-                      alt=""
-                      className="h-[82px] w-[82px] shrink-0 rounded-xl object-cover"
-                      loading="lazy"
-                    />
-                  ))}
-                </div>
-              )}
-              <p className="text-[12px] text-gray-400 mb-2">
-              </p>
-              {review.badge && (
-                <span className="inline-block text-[11px] text-[#4E5968] bg-[#F2F4F6] px-2 py-1 rounded-full">{review.badge}</span>
-              )}
-              {review.proReply && (
-                <div className="mt-3 bg-[#F7F8FA] rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-semibold text-[#191F28]">{pro.name}</span>
-                    <span className="text-[12px] text-[#8B95A1]">{review.proReply.date}</span>
-                  </div>
-                  <p className="text-[13px] leading-[1.7] text-[#4E5968] whitespace-pre-line">{review.proReply.content}</p>
-                </div>
-              )}
+                  }
+                />
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         {displayReviewCount > 0 && (
@@ -3252,55 +3164,8 @@ export default function ProDetailPage() {
           right: 0;
           background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
         }
-        @keyframes aiReviewSummaryReveal {
-          0% { clip-path: inset(0 100% 0 0); filter: blur(3px); opacity: 0.65; }
-          100% { clip-path: inset(0 0 0 0); filter: blur(0); opacity: 1; }
-        }
-        @keyframes aiReviewCursorBlink {
-          0%, 45% { opacity: 1; }
-          46%, 100% { opacity: 0; }
-        }
-        @keyframes aiReviewDotPulse {
-          0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
-          40% { opacity: 1; transform: translateY(-1px); }
-        }
-        @keyframes aiReviewIconPulse {
-          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(49,128,247,0)); }
-          50% { transform: scale(1.08); filter: drop-shadow(0 4px 8px rgba(49,128,247,0.22)); }
-        }
-        .ai-review-summary-icon {
-          transform-origin: center;
-          animation: aiReviewIconPulse 2s ease-in-out infinite;
-        }
-        .ai-review-summary-copy {
-          animation: aiReviewSummaryReveal 1.25s ease-out both;
-        }
-        .ai-review-summary-cursor {
-          display: inline-block;
-          width: 2px;
-          height: 1em;
-          margin-left: 3px;
-          transform: translateY(2px);
-          border-radius: 999px;
-          background: #3180F7;
-          animation: aiReviewCursorBlink 0.82s steps(1) infinite;
-        }
-        .ai-review-thinking-dots span {
-          display: inline-block;
-          animation: aiReviewDotPulse 1.2s ease-in-out infinite;
-        }
-        .ai-review-thinking-dots span:nth-child(2) {
-          animation-delay: 0.15s;
-        }
-        .ai-review-thinking-dots span:nth-child(3) {
-          animation-delay: 0.3s;
-        }
         @media (prefers-reduced-motion: reduce) {
-          .recent-reviews-carousel,
-          .ai-review-summary-icon,
-          .ai-review-summary-copy,
-          .ai-review-summary-cursor,
-          .ai-review-thinking-dots span {
+          .recent-reviews-carousel {
             animation: none;
           }
         }
