@@ -829,8 +829,8 @@ function BusinessPartnerSection({
           />
         ))}
       </div>
-      {/* 섹션 사이 줄 — 모바일은 없이 간격만(260926 사장 '웨딩파트너 각 섹션 하단 줄 없애줘'), PC 는 그대로 */}
-      {showDivider && <div className="h-7 lg:my-6 lg:h-0 lg:border-t lg:border-gray-100" />}
+      {/* 섹션 사이 — 줄 없이 간격만(260926 사장 '웨딩파트너 각 섹션 하단 줄 없애줘' → '홈 각 섹션 얇은 줄 없애줘', PC 도) */}
+      {showDivider && <div aria-hidden className="h-7 lg:h-12" />}
     </section>
   );
 }
@@ -874,6 +874,49 @@ const BANNERS = [
   { id: 'b1', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490590.png', linkUrl: '/my/invite' },
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
+
+/** BEST 포디움 알약 — 사진(위 70%) 아래쪽을 사진 색 바탕으로 녹인다(이름 줄과 안 겹치게) */
+const PODIUM_FADE = 'linear-gradient(to bottom, #000 0%, #000 58%, rgba(0,0,0,.4) 82%, transparent 100%)';
+
+/**
+ * BEST 결혼식 사회자 포디움 카드(모바일) — 알약 모양은 그대로, '결혼식 사회자' 사진 색 카드처럼 바탕 = 사진에서 뽑은 색(lib/image-tone)이고
+ * 사진 아래쪽이 그 색으로 녹아든다. 이름·경력은 알약 안 가운데 두 줄(260926 사장 "알약 형태지만 프로필 결혼식사회자 카드랑 비슷하게,
+ * 내용은 중간에 문정은 / 경력10년"). 테두리 = 금·은·동, 메달은 알약 아래 끝에 걸친다.
+ * 알약 칸은 aspect-ratio 로 크기가 정해지니 안의 사진은 absolute — 세로로 긴 원본에 칸이 늘어나던 문제(2등만 길던 것) 재발 방지.
+ */
+function BestPodiumCard({ pro, border, trophy, offset }: { pro: ProData; border: string; trophy: string; offset: boolean }) {
+  const img = pro.image || pro.images[0] || '/images/default-profile.png';
+  const tone = useImageTone(img);
+  return (
+    <Link href={`/pros/${pro.id}`} className={`block ${offset ? 'mt-5' : ''}`}>
+      <div
+        className="relative w-full overflow-hidden rounded-full shadow-md"
+        style={{
+          aspectRatio: '3 / 5',
+          backgroundColor: tone?.bg || '#F2F4F6',
+          border: `1.4px solid ${border}`,
+          transition: 'background-color .5s ease',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={img}
+          alt={pro.name}
+          className="absolute inset-x-0 top-0 h-[70%] w-full object-cover"
+          style={{ objectPosition: 'center 18%', WebkitMaskImage: PODIUM_FADE, maskImage: PODIUM_FADE }}
+        />
+        <div className="absolute inset-x-0 bottom-[10%] px-2 text-center">
+          <p className="whitespace-nowrap text-[15px] font-bold leading-[1.55] tracking-[-0.3px] text-[#191F28]">{pro.name}</p>
+          <p className="whitespace-nowrap text-[12.5px] font-medium leading-[1.55] tracking-[-0.2px]" style={{ color: tone?.sub || '#6B7684' }}>
+            {formatCareerLabel(pro.experience)}
+          </p>
+        </div>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={trophy} alt="" className="relative z-[1] mx-auto -mt-[11px] block h-[18px] w-[29px]" />
+    </Link>
+  );
+}
 
 /** 사진 아래쪽을 카드 바탕색으로 녹여 이어지게(마스크) — 60% 까지 그대로, 끝에서 완전히 투명 */
 const PRO_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 58%, rgba(0,0,0,.4) 82%, transparent 100%)';
@@ -2886,21 +2929,7 @@ export default function HomePage() {
               { pro: bestWeddingPros[0], border: '#FBBF24', trophy: '/images/group-1707482189.svg', offset: false },
               { pro: bestWeddingPros[2], border: '#CD7F32', trophy: '/images/group-1707482190.svg', offset: true },
             ].map(({ pro, border, trophy, offset }) => (
-              <Link key={pro.id} href={`/pros/${pro.id}`} className={`flex flex-col items-center ${offset ? 'mt-5' : ''}`}>
-                {/* 사진 칸 3:4 고정 — 세로 흐름(flex) 안에선 사진이 칸보다 세로로 길면(예 785×1200) 칸이 사진 비율대로 늘어나
-                    2등만 더 길어 보였다(260926 사장 제보). 사진을 칸에 띄워(absolute) 칸 크기에 끼워 맞춘다 */}
-                <div className="relative w-full aspect-[3/4] min-h-0">
-                  <img
-                    src={pro.image}
-                    alt={pro.name}
-                    className="absolute inset-0 w-full h-full object-cover shadow-md"
-                    style={{ borderRadius: '9999px', border: `1.4px solid ${border}` }}
-                  />
-                  <img src={trophy} alt="" className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[29px] h-[18px]" />
-                </div>
-                <p className="text-[14px] font-bold text-gray-900 mt-4">{pro.name}</p>
-                <p className="text-[12px] text-gray-400">{formatCareerLabel(pro.experience)}</p>
-              </Link>
+              <BestPodiumCard key={pro.id} pro={pro} border={border} trophy={trophy} offset={offset} />
             )) : (
               [
                 { border: '#D1D5DB', offset: true },
@@ -2909,11 +2938,9 @@ export default function HomePage() {
               ].map((s, i) => (
                 <div key={i} className={`flex flex-col items-center ${s.offset ? 'mt-5' : ''}`}>
                   <div
-                    className="relative w-full aspect-[3/4] bg-gray-200 animate-pulse shadow-md"
-                    style={{ borderRadius: '9999px', border: `1.4px solid ${s.border}` }}
+                    className="relative w-full bg-gray-200 animate-pulse shadow-md"
+                    style={{ aspectRatio: '3 / 5', borderRadius: '9999px', border: `1.4px solid ${s.border}` }}
                   />
-                  <div className="h-3.5 w-16 bg-gray-200 rounded-full animate-pulse mt-4" />
-                  <div className="h-2.5 w-10 bg-gray-100 rounded-full animate-pulse mt-2" />
                 </div>
               ))
             )}
@@ -2978,7 +3005,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-        <div className="my-6 border-t border-gray-100" />
+        {/* 섹션 사이 — 줄 없이 간격만(260926 사장 "홈 각 섹션 얇은 줄 없애줘") */}
+        <div aria-hidden className="h-12" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 3. 더 많은 사회자 — PC 5×2, Mobile 2×3                     */}
@@ -3036,7 +3064,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-        <div className="my-6 border-t border-gray-100" />
+        {/* 섹션 사이 — 줄 없이 간격만(260926 사장 "홈 각 섹션 얇은 줄 없애줘") */}
+        <div aria-hidden className="h-12" />
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* 4. 프리티풀의 행사 사회자                                  */}
@@ -3094,7 +3123,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-        <div className="my-6 border-t border-gray-100" />
+        {/* 섹션 사이 — 줄 없이 간격만(260926 사장 "홈 각 섹션 얇은 줄 없애줘") */}
+        <div aria-hidden className="h-12" />
 
         {/* 6. 웨딩 파트너 — 업체가 있는 카테고리만 섹션 노출 */}
         {businessPartnerSections.length > 0 && (
@@ -3107,7 +3137,7 @@ export default function HomePage() {
                 showDivider={sectionIndex < businessPartnerSections.length - 1}
               />
             ))}
-            <div className="hidden lg:my-6 lg:block lg:border-t lg:border-gray-100" />
+            <div aria-hidden className="h-12" />
           </>
         )}
         </LazySection>
