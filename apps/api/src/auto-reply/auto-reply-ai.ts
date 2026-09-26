@@ -181,10 +181,13 @@ export type SmallTalkKind = 'thanks' | 'goodwill' | 'greet';
 export function smallTalkOf(text: string): SmallTalkKind | null {
   const body = (text || '').trim();
   if (!body || body.length > 30) return null;
-  const tail = '[\\s.!~^ㅎㅠㅜ♡♥😊🙂🙏👍🥰😄]*$';
+  // 끝에 붙는 문장부호·ㅎㅎ·이모지(☺️ 처럼 변형 선택자가 붙은 것까지)
+  const tail = '[\\s.!~^ㅎㅠㅜ♡♥\\p{Extended_Pictographic}\\uFE0F\\u200D]*$';
   if (new RegExp(`^(네\\s*)?((정말|너무|진짜)\\s*)?(감사(합니다|해요|드립니다|드려요)|고맙습니다|고마워요)${tail}`, 'u').test(body)) return 'thanks';
-  if (new RegExp(`^(저도\\s*)?잘\\s*부탁(드립니다|드려요|해요|합니다)${tail}`, 'u').test(body)) return 'goodwill';
-  if (new RegExp(`^(안녕하세요|안녕하십니까|반갑습니다)${tail}`, 'u').test(body)) return 'greet';
+  const hi = '(안녕하세요|안녕하십니까|반갑습니다|반가워요|반가워용)';
+  // '안녕하세요! 잘 부탁드립니다' 처럼 인사+부탁이 붙은 말도 흔하다(운영 실데이터) — 부탁 쪽으로 받는다
+  if (new RegExp(`^(${hi}[\\s,.!~]*)?(저도\\s*)?잘\\s*부탁(드립니다|드려요|해요|합니다)${tail}`, 'u').test(body)) return 'goodwill';
+  if (new RegExp(`^${hi}([\\s,.!~]*${hi})?${tail}`, 'u').test(body)) return 'greet';
   return null;
 }
 

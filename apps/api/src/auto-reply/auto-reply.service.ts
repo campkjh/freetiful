@@ -364,13 +364,15 @@ export class AutoReplyService {
     if (!body) return null;
     const used = new Set(ctx.alreadySentKeys || []);
 
-    // ── 0-1. 티키타카 — 메시지 전체가 감사·인사면 짧게 받아 준다(AI 를 켠 사회자만, 방마다 종류별 1번).
-    //         새 사실·약속이 없는 고정 문장이라 AI 를 부르지 않는다(토큰 0). 방 인사말이 나갔으면 '안녕하세요' 는 다시 안 한다.
+    // ── 0-1. 티키타카 — 메시지 전체가 감사·인사면 짧게 받아 준다(방마다 종류별 1번).
+    //         새 사실·약속이 없는 고정 문장이라 AI 를 부르지 않는다(토큰 0) — 그래서 AI 를 안 켜도 자동응답을 하나라도
+    //         켜 둔 사회자면 된다(260926 사장 '안녕하세요 쳤는데 안 됨': 견적 항목만 켠 사회자라 AI 조건에 막혔다).
+    //         방 인사말 뒤에 고객이 '안녕하세요' 로 받으면 한 번은 받아 준다(주고받기).
     const small = smallTalkOf(body);
     if (small) {
-      const persona = await this.getPersona(ctx.proProfileId);
+      const [persona, optedIn] = await Promise.all([this.getPersona(ctx.proProfileId), this.candidateRows(ctx.proProfileId)]);
       const key = `small:${small}`;
-      if (!persona.aiEnabled || used.has(key) || (small === 'greet' && used.has('greeting'))) return null;
+      if (!(persona.aiEnabled || optedIn.length > 0) || used.has(key)) return null;
       const answer = smallTalkText(small, this.callNameFor(persona, ctx.customerName, ctx.eventCategoryName), persona.emoji);
       return { key, kind: 'small', why: key, answer, amount: null, risks: [], needsHuman: false, unknownParts: [] };
     }
@@ -473,8 +475,8 @@ export class AutoReplyService {
       if (decided) return decided;
     }
     // ── 6. 위험 문구라 AI 를 못 쓴 말(일정·금액·흥정·계약·결제) — 사회자가 직접 답해야 한다.
-    //       AI 를 켠 사회자면 약속 없는 한 줄로 받아 두고(방마다 1번) 사회자에게 알린다.
-    if (aiBlocked && persona.aiEnabled) return this.holdForHuman(persona, used, risks, 'risk', []);
+    //       자동응답을 켜 둔 사회자면(여기까지 왔으면 항목이 있다) 약속 없는 한 줄로 받아 두고(방마다 1번) 사회자에게 알린다.
+    if (aiBlocked) return this.holdForHuman(persona, used, risks, 'risk', []);
     return null;
   }
 
@@ -483,7 +485,7 @@ export class AutoReplyService {
    * 정체 질문·인젝션·민감정보는 받아 두는 말도 없이 알림만.
    */
   private holdForHuman(persona: Persona, used: Set<string>, risks: RiskFlag[], why: string, unknownParts: string[]): DecidedReply {
-    const canHold = persona.aiEnabled && !used.has('holding') && !risks.some((r) => NO_HOLDING_RISKS.includes(r));
+    const canHold = !used.has('holding') && !risks.some((r) => NO_HOLDING_RISKS.includes(r));
     return {
       key: canHold ? 'holding' : why,
       kind: canHold ? 'holding' : 'none',

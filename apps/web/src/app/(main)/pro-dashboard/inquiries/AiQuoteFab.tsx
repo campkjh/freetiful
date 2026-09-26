@@ -94,9 +94,11 @@ export default function AiQuoteFab() {
         quoteEnabled: enabled,
         autoApprove: settings.autoApprove,
       });
+      // 'AI 자동매칭' 이니 AI 도 같이 켠다 — '견적 얼마예요?' 의 다른 표현('페이가 어느 정도예요?')까지 알아듣게(끄면 같이 끈다)
+      await autoReplyApi.savePersona({ aiEnabled: enabled }).catch(() => undefined);
       setSettings(next);
       setOpen(false);
-      toast.success(enabled ? '견적 자동 답장을 켰어요' : '저장했어요 (자동 답장은 꺼 둠)');
+      toast.success(enabled ? 'AI 자동 답장을 켰어요' : '저장했어요 (자동 답장은 꺼 둠)');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '저장하지 못했어요');
     } finally {
@@ -206,7 +208,7 @@ export default function AiQuoteFab() {
                   className="mt-5 flex w-full items-center justify-between py-2 text-left"
                   aria-pressed={enabled}
                 >
-                  <span className="text-[16px] font-semibold text-[#191F28]">견적 자동 답장</span>
+                  <span className="text-[16px] font-semibold text-[#191F28]">AI 자동 답장</span>
                   <span className={`relative h-7 w-12 rounded-full transition-colors ${enabled ? 'bg-[#3182F6]' : 'bg-[#D1D6DB]'}`}>
                     <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${enabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </span>
