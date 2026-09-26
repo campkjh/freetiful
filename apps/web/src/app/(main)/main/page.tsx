@@ -44,6 +44,7 @@ import {
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 import { discoveryApi, getCachedProList } from '@/lib/api/discovery.api';
+import { useImageTone } from '@/lib/image-tone';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
@@ -960,6 +961,22 @@ const BANNERS = [
   { id: 'b2', title: '', subtitle: '', bgColor: '', image: '/images/frame-1707490591.png', linkUrl: null },
 ];
 
+/** 사진 아래쪽을 카드 바탕색으로 녹여 이어지게(마스크) — 60% 까지 그대로, 끝에서 완전히 투명 */
+const PRO_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 58%, rgba(0,0,0,.4) 82%, transparent 100%)';
+
+/** '수도권(서울/인천/경기)' → '수도권' */
+function proCardRegion(pro: ProData) {
+  if (pro.isNationwide) return '전국';
+  return String(pro.regions[0] || '').replace(/\(.*?\)/g, '').trim();
+}
+
+/**
+ * 홈 사회자 카드(더 많은 결혼식 사회자 · 행사 사회자) — 260926 사장 시안(토스 쇼핑 카드):
+ *  카드 바탕 = 그 사람 프로필 사진에서 뽑은 색(lib/image-tone, 스튜디오 배경색을 옅은 파스텔로)이고,
+ *  사진 아래쪽이 그 색으로 자연스럽게 녹아 이어진다. 왼쪽 위 배지 = 경력(실제 값 있을 때만, 검은 반투명 유리),
+ *  이름 17 굵게('사회자' 글자 없음) · 한 줄 정보(★ 평점 (리뷰) | 지역 — 바탕 색을 머금은 진회색) · 소개 한 줄 · 흰 반투명 칩.
+ *  사진 위 영상 썸네일은 뺐다(사장 '영상 부분은 프로필 사진에서 빼줘').
+ */
 function ProCard({ pro, index, onQuickView, onPreload }: {
   pro: ProData;
   index: number;
@@ -968,6 +985,10 @@ function ProCard({ pro, index, onQuickView, onPreload }: {
 }) {
   const skipAnim = useHomeAnimationSkip();
   const primaryImage = pro.images[0] || pro.image || '/images/default-profile.png';
+  const tone = useImageTone(primaryImage);
+  const sub = tone?.sub || '#6B7684';
+  const reviews = pro.reviewCount || 0;
+  const region = proCardRegion(pro);
   return (
     <Link
       href={`/pros/${pro.id}`}
@@ -982,54 +1003,73 @@ function ProCard({ pro, index, onQuickView, onPreload }: {
         e.preventDefault();
         onQuickView(pro);
       }}
-      className={`block group card-press ${skipAnim ? 'opacity-100' : 'opacity-0 animate-fade-in'}`}
-      style={skipAnim ? undefined : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
+      className={`group card-press block h-full overflow-hidden rounded-[20px] border ${skipAnim ? 'opacity-100' : 'opacity-0 animate-fade-in'}`}
+      style={{
+        backgroundColor: tone?.bg || '#F2F4F6',
+        borderColor: tone?.line || '#EAEDF0',
+        transition: 'background-color .5s ease, border-color .5s ease',
+        ...(skipAnim ? {} : { animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' as const }),
+      }}
     >
-      <div className="relative rounded-xl lg:rounded-full overflow-hidden bg-gray-100">
-        {/* 모바일·PC 모두 사진 한 장. PC 는 BEST 결혼식 사회자 카드와 같은 알약형(3장 콜라주 폐지) */}
-        <div style={{ aspectRatio: '3 / 4' }}>
-          <img
-            src={primaryImage}
-            alt={pro.name}
-            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-          />
-        </div>
-        {/* YouTube 썸네일 이미지 (iframe 대신 — 성능 최적화) */}
-        {pro.youtubeId && (
-          <div className="absolute bottom-2 right-2 w-[40%] aspect-video rounded-lg overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.3)] border border-white/90 bg-black z-10 flex items-center justify-center lg:hidden">
-            <img
-              src={`https://img.youtube.com/vi/${pro.youtubeId}/mqdefault.jpg`}
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
-                <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><path d="M0 0L8 5L0 10V0Z" fill="#333"/></svg>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="mt-1.5">
-        {pro.isPartner && (
-          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3180F7] bg-[#EAF3FF] px-1.5 py-[2px] rounded-full mb-1">
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Partners
+      <div className="relative" style={{ aspectRatio: '4 / 5' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={primaryImage}
+          alt={pro.name}
+          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          style={{ objectPosition: 'center 20%', WebkitMaskImage: PRO_CARD_FADE, maskImage: PRO_CARD_FADE }}
+        />
+        {/* 경력 배지 — 검은 반투명 + 뒤 흐림(유리), 파란색 아님(260926 사장) */}
+        {pro.experience > 0 && (
+          <span
+            className="absolute left-2 top-2 inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white lg:left-2.5 lg:top-2.5"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px) saturate(140%)', backdropFilter: 'blur(10px) saturate(140%)', boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)' }}
+          >
+            경력 {pro.experience}년
           </span>
         )}
-        <h4 className="text-[15px] font-semibold text-gray-900 leading-tight lg:text-[15px] lg:font-bold">사회자 {pro.name}</h4>
-        <div className="flex flex-wrap gap-1">
-          {pro.experience > 0 && (
-            <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-primary-50 text-primary-600 flex items-center" style={{ height: 22 }}>경력{pro.experience}년</span>
+      </div>
+      <div className="relative -mt-3 px-3 pb-3.5 lg:px-3.5">
+        <p className="flex items-center gap-1 break-keep text-[17px] font-bold leading-[1.4] tracking-[-0.4px] text-[#191F28]">
+          <span className="min-w-0">{pro.name}</span>
+          {pro.isPartner && (
+            <svg width="15" height="15" viewBox="0 0 24 24" className="shrink-0" aria-label="프리티풀 파트너">
+              <path d="M12 1.8l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.2l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#3182F6" />
+              <path d="M8.2 12.2l2.5 2.5 5-5.2" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           )}
-          {pro.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="text-[10px] font-medium px-1.5 rounded-[5px] bg-gray-100 text-gray-600 flex items-center" style={{ height: 22 }}>{tag}</span>
-          ))}
-          {pro.tags.length > 3 && (
-            <span className="text-[10px] font-bold px-1.5 rounded-[5px] bg-gray-100 text-gray-500 flex items-center" style={{ height: 22 }}>+{pro.tags.length - 3}</span>
+        </p>
+        {/* 한 줄 정보 — 시안의 '👁 46만 명 | ★ 4.8 (65,240)' 자리 */}
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.5] tracking-[-0.2px]" style={{ color: sub }}>
+          {reviews > 0 ? (
+            <span className="inline-flex items-center gap-[3px]">
+              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+                <path d="M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" fill="currentColor" />
+              </svg>
+              {Number(pro.avgRating || 0).toFixed(1)} ({reviews})
+            </span>
+          ) : (
+            <span>새로 온 사회자</span>
           )}
-        </div>
+          {region && (
+            <>
+              <span aria-hidden="true" className="h-2.5 w-px" style={{ backgroundColor: sub, opacity: 0.35 }} />
+              <span>{region}</span>
+            </>
+          )}
+        </p>
+        {/* 소개 한 줄 — 시안의 '지금 30일 내 최저가' 자리 */}
+        {pro.intro && (
+          <p className="mt-0.5 line-clamp-1 break-all text-[13px] leading-[1.65] tracking-[-0.2px]" style={{ color: sub }}>{pro.intro}</p>
+        )}
+        {/* 칩 — 흰 반투명(시안 '최대 308원 적립'), 한 줄 높이만(넘치는 칩은 통째로 가려진다) */}
+        {pro.tags.length > 0 && (
+          <div className="mt-2.5 flex h-[26px] flex-wrap gap-1 overflow-hidden">
+            {pro.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="flex h-[26px] items-center whitespace-nowrap rounded-[8px] bg-white/60 px-2 text-[12.5px] font-semibold tracking-[-0.2px] text-[#333D4B]">{tag}</span>
+            ))}
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -3027,19 +3067,22 @@ export default function HomePage() {
               />
             </div>
           </Reveal>
-          {/* Mobile: 3열, Desktop: 6열 */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-7">
+          {/* Mobile: 2열 6장(사진 색 카드는 글 칸이 있어 3열엔 좁다 — 나머지는 '전체보기'), Desktop: 6열 12장 */}
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-6">
             {apiPros === null ? (
               [1,2,3,4,5,6,7,8,9,10,11,12].map((i) => (
-                <div key={i}>
-                  <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
-                  <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
-                  <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
-                  <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+                // 새 카드 뼈대(사진 4:5 · 이름 · 한 줄 정보 · 칩) — 모바일은 6장만
+                <div key={i} className={`overflow-hidden rounded-[20px] bg-[#F7F8FA] ${i > 6 ? 'hidden lg:block' : ''}`}>
+                  <div className="skeleton" style={{ width: '100%', aspectRatio: '4/5', borderRadius: 0 }} />
+                  <div className="px-3 pb-3.5 pt-2.5">
+                    <div className="skeleton" style={{ width: '46%', height: 17, borderRadius: 6 }} />
+                    <div className="skeleton mt-2" style={{ width: '78%', height: 12, borderRadius: 5 }} />
+                    <div className="skeleton mt-3" style={{ width: '52%', height: 24, borderRadius: 8 }} />
+                  </div>
                 </div>
               ))
             ) : moreProsPager.slice(morePros).map((pro, i) => (
-              <div key={moreProsPager.itemKey(i)} style={moreProsPager.itemStyle(i)}>
+              <div key={moreProsPager.itemKey(i)} style={moreProsPager.itemStyle(i)} className={!moreProsPager.expanded && i >= 6 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} onPreload={setQuickViewPreloadId} />
               </div>
             ))}
@@ -3082,19 +3125,22 @@ export default function HomePage() {
               />
             </div>
           </Reveal>
-          {/* Mobile: 3열, Desktop: 「더 많은 사회자」와 동일한 6열 */}
-          <div className="grid grid-cols-3 gap-x-2 gap-y-4 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-7">
+          {/* Mobile: 2열 6장, Desktop: 「더 많은 사회자」와 동일한 6열 */}
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-6">
             {apiPros === null ? (
               [1,2,3,4,5,6,7,8,9,10,11,12].map((i) => (
-                <div key={i}>
-                  <div className="skeleton mb-2 rounded-xl lg:rounded-full" style={{ width: '100%', aspectRatio: '3/4' }} />
-                  <div className="skeleton mb-1" style={{ width: 48, height: 10, borderRadius: 4 }} />
-                  <div className="skeleton mb-1" style={{ width: '80%', height: 13, borderRadius: 4 }} />
-                  <div className="skeleton" style={{ width: '55%', height: 11, borderRadius: 4 }} />
+                // 새 카드 뼈대(사진 4:5 · 이름 · 한 줄 정보 · 칩) — 모바일은 6장만
+                <div key={i} className={`overflow-hidden rounded-[20px] bg-[#F7F8FA] ${i > 6 ? 'hidden lg:block' : ''}`}>
+                  <div className="skeleton" style={{ width: '100%', aspectRatio: '4/5', borderRadius: 0 }} />
+                  <div className="px-3 pb-3.5 pt-2.5">
+                    <div className="skeleton" style={{ width: '46%', height: 17, borderRadius: 6 }} />
+                    <div className="skeleton mt-2" style={{ width: '78%', height: 12, borderRadius: 5 }} />
+                    <div className="skeleton mt-3" style={{ width: '52%', height: 24, borderRadius: 8 }} />
+                  </div>
                 </div>
               ))
             ) : eventProsPager.slice(eventPros).map((pro, i) => (
-              <div key={eventProsPager.itemKey(i)} style={eventProsPager.itemStyle(i)}>
+              <div key={eventProsPager.itemKey(i)} style={eventProsPager.itemStyle(i)} className={!eventProsPager.expanded && i >= 6 ? 'hidden lg:block' : ''}>
                 <ProCard pro={pro} index={i} onQuickView={setQuickViewPro} onPreload={setQuickViewPreloadId} />
               </div>
             ))}
