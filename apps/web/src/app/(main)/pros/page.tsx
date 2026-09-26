@@ -858,7 +858,7 @@ function ProsListContent() {
 
       </div>
 
-      {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 옆에 성별 탭(웨딩숲 카테고리 알약 칩 · 선택은 짙은 남색) */}
+      {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 옆에 성별 탭(같은 칩 모양 · 고른 탭은 쿨그레이) */}
       <div className="flex items-center gap-2 bg-white px-4 pb-1 pt-2">
         <div className="relative shrink-0">
           <button
@@ -894,7 +894,12 @@ function ProsListContent() {
             </>
           )}
         </div>
-        <div className="-mr-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="성별">
+        <div
+          className="-mr-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ maskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent)' }}
+          role="tablist"
+          aria-label="성별"
+        >
           {([
             { key: '', label: '전체' },
             { key: 'male', label: '남성사회자' },
@@ -908,8 +913,9 @@ function ProsListContent() {
                 role="tab"
                 aria-selected={on}
                 onClick={() => { if (!on) { setGenderTab(t.key); window.scrollTo({ top: 0 }); } }}
-                className={`h-9 shrink-0 rounded-full border px-[13px] text-[14px] font-semibold tracking-[-0.2px] transition-colors active:scale-[0.97] ${
-                  on ? 'border-[#191F28] bg-[#191F28] text-white' : 'border-[#E5E8EB] bg-white text-[#333D4B]'
+                // '추천순' 칩과 같은 모양(높이 42 · 모서리 12 · 16 굵게), 고른 탭은 쿨그레이(260926 사장)
+                className={`h-[42px] shrink-0 rounded-[12px] px-3.5 text-[16px] font-semibold tracking-[-0.3px] transition-colors duration-200 active:scale-[0.97] ${
+                  on ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#6B7684] active:bg-[#E8EBED]'
                 }`}
               >
                 {t.label}

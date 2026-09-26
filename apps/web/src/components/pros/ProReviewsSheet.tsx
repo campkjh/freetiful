@@ -3,7 +3,7 @@
 // 사회자 리뷰 시트 — 목록 카드의 '리뷰'를 누르면 페이지 이동 없이 댓글처럼(260926 사장 "리뷰 페이지네이션 말고 댓글처럼 모달로").
 //  · 공용 시트(globals .ft-scrim/.ft-sheet) 위에 웨딩숲 댓글(.tcm) 계층: 프사 36 · 이름 15 굵게 + 별 · 본문 16 · 사진 · 회색 시간 13.5,
 //    사회자 답글은 한 칸 들여 프사 28 + '사회자' 표시(웨딩숲 '작성자' 뱃지 결).
-//  · 쪽 나눔 없이 아래로 굴리면 이어서 그린다(15개씩). 머리(손잡이·제목)를 끌어내리면 닫힌다.
+//  · 쪽 나눔 없이 아래로 굴리면 이어서 그린다(15개씩). 닫기 버튼은 없고(사장) 머리(손잡이·제목)를 끌어내리거나 바깥·Esc 로 닫힌다.
 //  · 실제로 쓰인 리뷰만 — 본문 없는 사회자에게 예시 리뷰를 채우지 않는다(lib/pro-reviews).
 import { useEffect, useRef, useState } from 'react';
 import { loadProReviews, peekProReviews, type ProReviewItem } from '@/lib/pro-reviews';
@@ -195,7 +195,7 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
           transition: dragRef.current ? 'none' : 'transform .26s cubic-bezier(.22,1,.36,1)',
         }}
       >
-        {/* 머리 — 손잡이 · '리뷰 N' · 평균 별점 · 닫기 (여기를 끌어내리면 닫힘) */}
+        {/* 머리 — 손잡이 · '리뷰 N' · 평균 별점. 닫기 버튼은 없음(260926 사장) — 여기를 끌어내리거나 바깥·Esc 로 닫힘 */}
         <div className="shrink-0 touch-none select-none px-5 pb-3 pt-3" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           <div className="ft-grab" style={{ margin: '0 auto 14px' }} aria-hidden="true" />
           <div className="flex items-center justify-between gap-3">
@@ -214,17 +214,6 @@ export default function ProReviewsSheet({ pro, onClose }: { pro: ReviewSheetPro 
                 <span className="truncate">{p.name}</span>
               </p>
             </div>
-            <button
-              type="button"
-              onClick={close}
-              onPointerDown={(e) => e.stopPropagation()}
-              aria-label="닫기"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6] text-[#6B7684] transition active:scale-90"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-              </svg>
-            </button>
           </div>
         </div>
         <div className="h-px shrink-0 bg-[#F2F4F6]" />
