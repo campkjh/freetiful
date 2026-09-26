@@ -815,6 +815,8 @@ function BusinessPartnerSection({
   const [atEnd, setAtEnd] = useState(false);
   /** PC 한 줄에 놓을 칸 수 — 업체가 적으면 그만큼만 나눠 빈칸이 생기지 않게 */
   const pcCols = Math.min(3, Math.max(1, businesses.length));
+  const partnerIconFile = (WEDDING_PARTNER_CATEGORY_ICONS as Record<string, string | undefined>)[category];
+  const partnerIcon = partnerIconFile ? `${HOME_CATEGORY_ICON_DIR}/${partnerIconFile}` : null;
 
   const syncEdges = useCallback(() => {
     const el = rowRef.current;
@@ -847,9 +849,15 @@ function BusinessPartnerSection({
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
-              <PartnerCategoryIcon category={category} size={24} />
-            </span>
+            {/* 앞 그림 = 홈 카테고리 칸과 같은 컬러 일러스트(샹들리에·드레스·카메라…) — 사회자 섹션처럼 배경 없이 48(PC 56), 모바일도(260926 사장) */}
+            {partnerIcon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={partnerIcon} alt="" className="h-12 w-12 shrink-0 object-contain lg:h-14 lg:w-14" />
+            ) : (
+              <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] lg:flex">
+                <PartnerCategoryIcon category={category} size={24} />
+              </span>
+            )}
             <div>
               <h3 className="section-title">{category}</h3>
               <p className="section-subtitle mt-1">프리티풀이 엄선한 {category} 업체를 만나보세요</p>
@@ -1229,7 +1237,8 @@ function CategorySwiper() {
       <div ref={scrollRef} className="flex snap-x snap-mandatory overflow-x-auto scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
         {pages.map((pageCats, pageIndex) => (
           <div key={pageIndex} className="w-full shrink-0 snap-start">
-            <div className="grid grid-cols-5 gap-x-1 gap-y-3 py-2 pl-[18px] pr-[10px] lg:gap-x-3 lg:px-2 lg:py-3">
+            <div className="grid grid-cols-5 gap-x-1 gap-y-3 py-2 pl-[18px] pr-[10px] lg:grid-cols-10 lg:gap-x-3 lg:px-2 lg:py-3">
+              {/* PC 는 10칸 한 줄(260926 사장 "5×2 말고 일렬로 나란히"), 모바일은 5×2 그대로 */}
               {pageCats.map((item, index) => (
                 <Link
                   key={item.name}
