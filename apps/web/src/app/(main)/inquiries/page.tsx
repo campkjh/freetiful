@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGroup, motion } from 'framer-motion';
-import { ChevronRightIcon, CalendarIcon, PinLocationIcon } from '@/components/icons/mono';
+import { ChevronRightIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon, DocumentColorIcon, PendingIcon, RepliedIcon, DoneIcon, DeclinedIcon } from '@/components/icons/color';
 import toast from 'react-hot-toast';
 import { matchApi } from '@/lib/api/match.api';
@@ -121,12 +121,10 @@ type InquiryGroup = {
   cards: InquiryCard[];
 };
 
-/** 행사 머리 타일의 일러스트 — 홈 카테고리 칸과 같은 그림(연회색 둥근 타일 위) */
-function categoryIllust(category: string) {
-  const c = (category || '').replace(/\s/g, '');
-  if (/외국어|통역|번역|영어/.test(c)) return '/images/category-icons/foreign-mc.png';
-  if (/행사|기업|체육|돌잔치|컨퍼런스|세미나|송년|워크숍/.test(c)) return '/images/category-icons/event-mc-icon.png';
-  return '/images/category-icons/wedding-mc-icon.png';
+/** 행사 칸 제목 = 행사 일시 — 종류는 거의 전부 '사회자'라 구분이 안 돼서 뺐다(260926 사장 "사회자·공용 그림 필요없음") */
+function eventTitle(g: { eventDate: string; eventTime: string }) {
+  if (g.eventDate === '일자 미정') return '행사일 미정';
+  return g.eventTime && g.eventTime !== '시간 미정' ? `${g.eventDate} ${g.eventTime}` : g.eventDate;
 }
 
 /** 사회자별 진행 상태 태그 — 웨딩숲 배지 모양(h24 · 모서리 6 · 13.5), 상태색 */
@@ -448,9 +446,8 @@ export default function CustomerInquiriesPage() {
           {loading ? (
             <div className="space-y-7 px-4 pt-5 lg:px-0">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="flex animate-pulse gap-2.5">
-                  <div className="h-[42px] w-[42px] shrink-0 rounded-[14px] bg-[#F2F4F6]" />
-                  <div className="flex-1 space-y-2.5 pt-1">
+                <div key={item} className="animate-pulse">
+                  <div className="space-y-2.5 pt-1">
                     <div className="h-4 w-1/4 rounded bg-[#F2F4F6]" />
                     <div className="h-3.5 w-2/5 rounded bg-[#F2F4F6]" />
                     <div className="h-4 w-3/4 rounded bg-[#F2F4F6]" />
@@ -481,35 +478,26 @@ export default function CustomerInquiriesPage() {
           ) : (
             <div key={statusTab} style={tabSwitched ? { animation: 'proPageExpand 0.34s cubic-bezier(0.16, 1, 0.3, 1) both' } : undefined}>
               {groups.map((g) => (
-                // 웨딩숲 글 카드(.tcard)와 같은 계층 — 왼쪽 그림 칸 · 오른쪽 제목(16 굵게)/신청일(14 회색)/본문(16.5)/사회자 줄(댓글 계층)
+                // 웨딩숲 글 카드(.tcard) 계층 — 제목(16 굵게, 행사 일시)/메타(14 회색)/본문(16.5, 장소)/사회자 줄(댓글 계층).
+                // 종류('사회자')와 공용 그림 칸은 칸마다 똑같아서 뺐다
                 <section
                   key={g.requestId}
-                  className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-4 pt-[18px] last:border-b-0 min-[601px]:gap-3 min-[601px]:pb-[18px] min-[601px]:pt-[22px] lg:px-0"
+                  className="border-b border-[#F2F4F6] px-4 pb-4 pt-[18px] last:border-b-0 min-[601px]:pb-[18px] min-[601px]:pt-[22px] lg:px-0"
                   style={enterStyle(g.requestId)}
                 >
-                  <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] bg-[#F6F6F6] min-[601px]:h-12 min-[601px]:w-12 min-[601px]:rounded-[16px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={categoryIllust(g.category)} alt="" className="h-8 w-8 object-contain min-[601px]:h-9 min-[601px]:w-9" loading="lazy" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {/* 제목 — 행사 종류 */}
-                    <p className="truncate pt-px text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{g.category}</p>
-                    {/* 메타 — 신청일 · 문의한 사회자 수(회색 14) */}
+                  <div className="min-w-0">
+                    {/* 제목 — 행사 일시 */}
+                    <p className="truncate text-[16px] font-bold tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17px]">{eventTitle(g)}</p>
+                    {/* 메타 — 신청일 · 몇 명에게 문의했는지(회색 14) */}
                     <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1] min-[601px]:text-[15px]">
-                      {g.createdAt} 신청 · 사회자 {g.cards.length}명
+                      {g.createdAt} 신청 · {g.cards.length}명에게 문의
                     </p>
 
-                    {/* 본문(16.5) — 행사 일시 · 장소 */}
-                    <div className="mt-3 space-y-1 text-[16.5px] leading-[1.5] tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17.5px]">
-                      <p className="flex items-center gap-1.5">
-                        <CalendarIcon size={18} className="shrink-0 text-[#B0B8C1]" />
-                        <span className="min-w-0 truncate">{g.eventDate} · {g.eventTime}</span>
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <PinLocationIcon size={18} className="shrink-0 text-[#B0B8C1]" />
-                        <span className="min-w-0 truncate">{g.location}</span>
-                      </p>
-                    </div>
+                    {/* 본문(16.5) — 장소 */}
+                    <p className="mt-3 flex items-center gap-1.5 text-[16.5px] leading-[1.5] tracking-[-0.3px] text-[#191F28] min-[601px]:text-[17.5px]">
+                      <PinLocationIcon size={18} className="shrink-0 text-[#B0B8C1]" />
+                      <span className="min-w-0 truncate">{g.location}</span>
+                    </p>
 
                     {/* 문의한 사회자 — 웨딩숲 댓글 줄 계층(프사 36 · 이름 15 굵게 · 상태 배지) */}
                     <ul className="mt-3.5 overflow-hidden rounded-[16px] bg-[#F9FAFB]">
