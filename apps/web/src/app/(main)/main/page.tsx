@@ -775,13 +775,77 @@ const HOME_SHORTCUTS = [
  * 260927 사장: 웨딩숲을 퀵매칭 뒤에 접어 두던 효과(스크롤하면 펼침)는 없앴다 — 두 장 다 그대로 보인다.
  * 첫 진입 등장(fadeSlideUp)과 누름 효과(active:scale)가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
  */
+/** 퀵매칭 말풍선을 닫으면 7일 동안 안 보인다 */
+const QM_BUBBLE_HIDE_KEY = 'ft-home-qm-bubble-hide-until';
+/** 말풍선 꼬리 가로 위치 = 퀵매칭 카드 '빠른찾기' 버튼 가운데(카드 왼쪽에서) */
+const QM_BUBBLE_TAIL_X = 64;
+
+/**
+ * 퀵매칭 말풍선(홈, 모바일) — 토스 하단 탭 말풍선을 그대로, 꼬리만 위로 뒤집어 퀵매칭 카드 '빠른찾기'를 가리킨다(260927 사장).
+ *  · 모양(토스 화면 3배 해상도 실측): 흰 바탕·모서리 22·짙게 번지는 아래 그림자, 왼쪽 아이콘(사장 아이콘 세트 icon-emoji-fire),
+ *    제목 17 굵게 — 아이콘 쪽 글씨는 아이콘 빨강에서 오른쪽으로 어두워지며 검은 본문으로 이어지는 그라데이션(토스: 파랑→남색→검정),
+ *    부제 15 회색, 오른쪽 위 회색 원 ×. 꼬리 28×12·옆면 45°·끝 둥글게.
+ *  · 등장(토스 화면 녹화 프레임별 실측, globals .qm-bubble): 꼬리를 기준으로 납작하게(가로 53%·세로 16%·투명 20%) 나타나 0.2초에 제 크기
+ *    (1.3% 살짝 넘침), 그동안 꼬리 쪽으로 10 붙어 있다가 반대로 6.3 넘어갔다 0.87초에 제자리. 아이콘·글씨는 조금 늦게(~0.38초) 진해진다.
+ *  · 누르면 퀵매칭, × 는 7일 안 보이게.
+ */
+function QuickMatchBubble({ delay }: { delay: number }) {
+  const router = useRouter();
+  const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
+  useEffect(() => {
+    try { if (Number(localStorage.getItem(QM_BUBBLE_HIDE_KEY) || 0) > Date.now()) return; } catch { /* 저장소 막힘 — 그냥 띄운다 */ }
+    const t = window.setTimeout(() => setPhase('in'), delay);
+    return () => window.clearTimeout(t);
+  }, [delay]);
+  if (phase === 'hidden') return null;
+  const close = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try { localStorage.setItem(QM_BUBBLE_HIDE_KEY, String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch { /* 이번만 닫힘 */ }
+    setPhase('out');
+    window.setTimeout(() => setPhase('hidden'), 200);
+  };
+  const go = () => router.push('/quick-match');
+  return (
+    <div
+      className={`qm-bubble${phase === 'out' ? ' is-out' : ''}`}
+      style={{ '--tail-x': `${QM_BUBBLE_TAIL_X}px` } as CSSProperties}
+      role="link"
+      tabIndex={0}
+      aria-label="인기 사회자, 1분 만에 찾아요. 빠른찾기로 딱 맞는 사회자 추천받기"
+      onClick={go}
+      onKeyDown={(e) => { if (e.key === 'Enter') go(); }}
+    >
+      <svg className="qm-bubble-tail" width="28" height="12" viewBox="0 0 28 12" aria-hidden="true">
+        <path d="M0 12L11.2 1.4Q14 -1.1 16.8 1.4L28 12Z" fill="#fff" />
+      </svg>
+      <div className="qm-bubble-body">
+        <span className="qm-bubble-ic" aria-hidden="true">
+          {/* 사장 아이콘 세트 icon-emoji-fire */}
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M18.9999 6.50004C19.1999 8.10004 19.4999 9.10004 18.3999 9.10004C16.7999 9.10004 16.7999 5.30004 14.0999 3.20004C11.3999 1.00004 9.4999 1.50004 9.3999 1.60004C11.5999 3.50004 10.3999 6.50004 8.8999 7.30004C7.4999 8.10004 5.9999 7.10004 6.7999 4.70004C4.9999 7.20004 3.3999 10.3 3.3999 13.3C3.3999 18.2 7.3999 22.2 12.2999 22.2C17.1999 22.2 21.1999 18.2 21.1999 13.3C21.2999 10.9 20.2999 8.60004 18.9999 6.50004Z" fill="#F93052" />
+            <path d="M12.2999 11.8999C12.2999 11.8999 16.1999 14.0999 16.1999 17.2999C16.1999 19.3999 14.4999 21.1999 12.2999 21.1999C10.0999 21.1999 8.3999 19.4999 8.3999 17.2999C8.3999 14.0999 12.2999 11.8999 12.2999 11.8999Z" fill="#FF7978" />
+          </svg>
+        </span>
+        <p className="qm-bubble-title">인기 사회자, 1분 만에 찾아요.</p>
+        <p className="qm-bubble-sub">빠른찾기로 딱 맞는 사회자 추천받기</p>
+        <button type="button" className="qm-bubble-x" aria-label="말풍선 닫기" onClick={close}>
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
+            <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
   return (
     <div className="flex flex-col gap-[10px] px-[10px] pt-[10px]">
       {HOME_SHORTCUTS.map((b, i) => (
         <div
           key={b.href}
-          className={skipAnim ? '' : 'opacity-0'}
+          // 퀵매칭 칸은 말풍선이 아래 웨딩숲 칸 위로 겹치게 위쪽 층(z-10)
+          className={`${i === 0 ? 'relative z-10' : ''} ${skipAnim ? '' : 'opacity-0'}`}
           style={skipAnim ? undefined : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 + i * 0.1}s forwards` }}
         >
           <Link
@@ -805,6 +869,7 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
               </span>
             </div>
           </Link>
+          {i === 0 && <QuickMatchBubble delay={skipAnim ? 250 : 850} />}
         </div>
       ))}
     </div>
