@@ -970,13 +970,22 @@ function HomeTopBanner() {
             </button>
           ))}
         </div>
-        {/* N/M — 검은 반투명 유리 알약 */}
-        <span
-          className="pointer-events-none absolute bottom-3 right-3 inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
+        {/* 인디케이터 — 왼쪽 아래 길고 얇은 선(반투명 흰 선 위를 흰 막대가 지금 장으로 미끄러진다, 260926 사장 "1/5 말고 길고 얇은 선을 좌측에") */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-[14px] left-[14px] h-[2px] w-[80px] overflow-hidden rounded-full bg-white/35"
+          style={{ filter: 'drop-shadow(0 0 1px rgba(0, 0, 0, 0.18))' }}
         >
-          {idx + 1} / {count}
-        </span>
+          <div
+            className="h-full rounded-full bg-white"
+            style={{
+              width: `${100 / count}%`,
+              transform: `translateX(${idx * 100}%)`,
+              transition: 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+            }}
+          />
+        </div>
+        <span className="sr-only" aria-live="polite">{idx + 1}번째 배너 / 전체 {count}개</span>
       </div>
     </div>
   );
