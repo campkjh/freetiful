@@ -31,6 +31,7 @@ import {
 } from '@/lib/business-quality';
 import { deriveBusinessTagSuggestions, extractBusinessTagsFromHtml, normalizeBusinessTags } from '@/lib/business-tags';
 import VilladegdHero from '@/components/VilladegdHero';
+import { TossCommentIcon, TossShareIcon } from '@/components/community/TossIcons';
 import {
   getWeddingPartnerImageSet,
   getWeddingPartnerSectionCategories,
@@ -54,6 +55,10 @@ interface RankItem {
   hasAppBooking: boolean;
   image: string;
   imageFallback: string;
+  /** 웨딩숲 카드 사진 모음(앞 4장) — 옛 캐시엔 없을 수 있다 */
+  images?: string[];
+  /** 사진 총 장수 */
+  photoCount?: number;
   tags: string[];
   verifiedBadge?: string;
   isPopular?: boolean;
@@ -234,6 +239,8 @@ function mapBusinessToRankItem(b: any, index: number, rankOffset = 0): RankItem 
     hasAppBooking: b.hasAppBooking ?? false,
     image: mergedImages[0] || '',
     imageFallback: '',
+    images: mergedImages.slice(0, 4),
+    photoCount: mergedImages.length,
     tags,
     verifiedBadge: b.verifiedBadge,
     isPopular,
@@ -301,100 +308,135 @@ async function fetchBusinessPage(category: string, page: number, limit: number, 
   };
 }
 
-interface BusinessRankListProps {
-  items: RankItem[];
-  muted?: boolean;
-}
-
-function BusinessRankList({
-  items,
-  muted = false,
-}: BusinessRankListProps) {
+/**
+ * 웨딩파트너 목록 한 줄 — 웨딩숲 글 카드(.tcard) 계층(260926 사장 "웨딩파트너 리스트 웨딩숲 느낌으로, 인터랙션도 퀵매칭").
+ *  사회자 목록 카드(components/pros/ProFeedCard)와 같은 결: 대표 사진 프사 42 · 이름 16 굵게 + 분야 배지(h24 · 모서리 6) ·
+ *  한 줄 정보 14 회색(지역 · 분야) · 오른쪽 '문의'(웨딩숲 팔로우 버튼 톤 → 상세 문의 시트 바로 열기) · 사진 3장(대표 사진 뺀 정사각 · 3px 틈 ·
+ *  모서리 16) · 회색 칩 · 아래 줄(문의 · 사진 N장 · 공유). 카드 전체가 상세로 가는 링크(바닥), 버튼만 위로 누를 수 있게.
+ *  등장 = 퀵매칭(.qd-a-item 오른쪽→왼쪽, 10장 단위로 0.045s 씩 차례).
+ */
+function BusinessFeedList({ items, muted = false }: { items: RankItem[]; muted?: boolean }) {
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
   const visibleItems = useMemo(
     () => items.filter((item) => item.image && !brokenIds.has(item.id)),
     [brokenIds, items],
   );
+  const share = async (event: React.MouseEvent, item: RankItem) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const url = `${window.location.origin}/businesses/${item.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${item.title} · 프리티풀`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('링크를 복사했어요');
+      }
+    } catch { /* 공유 창을 닫았다 */ }
+  };
+  const actCls = 'pointer-events-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-0.5 py-1 text-[16px] font-medium tracking-[-0.2px] text-[#6B7684] transition-transform active:scale-[0.92]';
 
   return (
-    <div className={`divide-y divide-gray-50 bg-white ${muted ? 'pointer-events-none opacity-70' : ''}`}>
-      {visibleItems.map((item, index) => (
-        <Link
-          key={item.id}
-          href={`/businesses/${item.id}`}
-          tabIndex={muted ? -1 : 0}
-          aria-hidden={muted}
-          className="flex gap-3 px-4 py-4 group active:bg-gray-50/50 transition-colors"
-        >
-          <div className="relative w-[120px] h-[120px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
-            {item.image ? (
-              <img
-                src={item.image}
-                alt={item.title}
-                loading={!muted && index < 2 ? 'eager' : 'lazy'}
-                decoding="async"
-                referrerPolicy="no-referrer"
-                className="h-full w-full object-cover"
-                onError={(event) => {
-                  event.currentTarget.style.display = 'none';
-                  event.currentTarget.removeAttribute('src');
-                  setBrokenIds((prev) => {
-                    const next = new Set(prev);
-                    next.add(item.id);
-                    return next;
-                  });
-                }}
-              />
-            ) : null}
-          </div>
-
-          <div className="flex-1 min-w-0 flex flex-col">
-            {item.verifiedBadge && (
-              <div className="flex items-center gap-1 mb-0.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="#3180F7">
-                  <path d="M12 2l2.5 4.5 5 .5-3.5 3.5 1 5-5-2.5-5 2.5 1-5L4.5 7l5-.5L12 2z" />
-                </svg>
-                <span className="text-[11px] font-bold text-[#3180F7]">{item.verifiedBadge}</span>
+    <div className={muted ? 'pointer-events-none opacity-70' : ''} aria-hidden={muted || undefined}>
+      {visibleItems.map((item, index) => {
+        const detailHref = `/businesses/${item.id}`;
+        const photos = (item.images || []).filter((src) => src && src !== item.image).slice(0, 3);
+        const count = item.photoCount || (item.images?.length ?? 1);
+        const meta = [item.region, item.clinic && item.clinic !== item.category ? item.clinic : ''].filter(Boolean).join(' · ');
+        // 칩 — '인기'는 안 보이고, 같은 말이 두 번 들어온 업체도 있어 한 번만
+        const chips = Array.from(new Set(item.tags.filter((tag) => tag && tag !== '인기'))).slice(0, 4);
+        return (
+          <article
+            key={item.id}
+            className={`${muted ? '' : 'qd-a-item '}relative flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px] transition-colors active:bg-[#FAFBFC]`}
+            style={muted ? undefined : { animationDelay: `${0.06 + (index % 10) * 0.045}s` }}
+          >
+            <Link href={detailHref} tabIndex={muted ? -1 : 0} className="absolute inset-0 z-0" aria-label={`${item.title} 보기`} />
+            {/* 왼쪽 — 대표 사진 프사 42 */}
+            <div className="pointer-events-none relative z-[1] w-[42px] shrink-0">
+              <div className="h-[42px] w-[42px] overflow-hidden rounded-full bg-[#F2F4F6]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.image}
+                  alt=""
+                  loading={!muted && index < 4 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                  onError={() => setBrokenIds((prev) => new Set(prev).add(item.id))}
+                />
               </div>
-            )}
-
-            <p className="text-[15px] font-bold text-gray-900 leading-[1.3] line-clamp-2 pr-6">{item.title}</p>
-            <p className="text-[12px] text-gray-500 mt-0.5 leading-tight">
-              {item.region} · {item.clinic}
-            </p>
-
-            {item.tags.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {item.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-[5px] bg-[#F2F4F6] px-2 py-0.5 text-[10px] font-medium text-[#4E5968]"
-                  >
-                    {tag}
-                  </span>
-                ))}
+            </div>
+            <div className="pointer-events-none relative z-[1] min-w-0 flex-1">
+              {/* 이름 + 분야 배지 · 한 줄 정보 / 오른쪽 '문의' */}
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="min-w-0 pt-px">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="break-keep text-[16px] font-bold tracking-[-0.3px] text-[#191F28]">{item.title}</span>
+                    {item.category && item.category !== '전체' && (
+                      <span className="inline-flex h-6 shrink-0 items-center rounded-[6px] bg-[#F2F4F6] px-[7px] text-[13.5px] font-semibold tracking-[-0.2px] text-[#6B7684]">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                  {meta && <p className="mt-1 text-[14px] tracking-[-0.2px] text-[#8B95A1]">{meta}</p>}
+                </div>
+                <Link
+                  href={`${detailHref}?inquiry=1`}
+                  tabIndex={muted ? -1 : 0}
+                  className="pointer-events-auto flex h-[34px] shrink-0 items-center rounded-[10px] bg-[#E8F3FF] px-3 text-[15px] font-semibold tracking-[-0.2px] text-[#3182F6] transition active:scale-[0.97] active:bg-[#D6E9FF]"
+                >
+                  문의
+                </Link>
               </div>
-            )}
 
-            {(item.hasAppPay || item.hasAppBooking) && (
-              <div className="flex items-center gap-1.5 mt-2">
-                {item.hasAppPay && (
-                  <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#EAF3FF] text-[10px] font-bold text-[#3180F7]">
-                    <span className="w-3 h-3 rounded-sm bg-[#3180F7] flex items-center justify-center text-white text-[8px]">$</span>
-                    앱결제
-                  </span>
-                )}
-                {item.hasAppBooking && (
-                  <span className="inline-flex items-center gap-1 px-2 h-[22px] rounded bg-[#E7F9EC] text-[10px] font-bold text-[#00A550]">
-                    <span className="w-3 h-3 rounded-sm bg-[#00A550] flex items-center justify-center text-white text-[8px]">✓</span>
-                    앱예약
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </Link>
-      ))}
+              {/* 사진 모음 — 웨딩숲 사진 칸(모서리 16 · 3px 틈), 대표 사진 뺀 3장 */}
+              {photos.length > 0 && (
+                <div className="mt-3 grid max-w-[420px] grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
+                  {photos.map((src, i) => (
+                    <div key={src + i} className="aspect-square overflow-hidden bg-[#F2F4F6]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" loading={!muted && index < 2 ? 'eager' : 'lazy'} decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 칩 — 웨딩숲 카테고리 칩 */}
+              {chips.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  {chips.map((tag) => (
+                    <span key={tag} className="rounded-[6px] bg-[#F2F4F6] px-[9px] py-1 text-[13px] font-semibold text-[#6B7684]">{tag}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* 아래 줄 — 문의 · 사진 N장 · 공유(웨딩숲 좋아요·댓글·공유 줄 어법) */}
+              {!muted && (
+                // 목록 칸이 옆 분류를 살짝 보여 주는 폭(화면-72)이라 간격 16 · 한 줄 고정
+                <div className="mt-3.5 flex items-center gap-4">
+                  <Link href={`${detailHref}?inquiry=1`} className={actCls}>
+                    <TossCommentIcon />
+                    문의
+                  </Link>
+                  <Link href={detailHref} className={actCls}>
+                    <svg viewBox="0 0 24 24" width="23" height="23" fill="none" aria-hidden="true">
+                      <rect x="3.5" y="4.5" width="17" height="15" rx="3.5" stroke="currentColor" strokeWidth="1.8" />
+                      <circle cx="9" cy="10" r="1.7" fill="currentColor" />
+                      <path d="m4.5 17.2 4.6-4.2a1.3 1.3 0 0 1 1.8 0l1.6 1.5 2.9-2.7a1.3 1.3 0 0 1 1.8 0l3.3 3.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    사진 {count}
+                  </Link>
+                  <button type="button" onClick={(e) => share(e, item)} className={actCls} aria-label="공유하기">
+                    <TossShareIcon />
+                    공유
+                  </button>
+                </div>
+              )}
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -719,7 +761,6 @@ export default function BusinessListPage() {
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const swipeOffsetRef = useRef(0);
   const lastWheelSwipeAtRef = useRef(0);
-  const [tabIndicator, setTabIndicator] = useState({ left: 28, width: 36 });
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [rankItems, setRankItems] = useState<RankItem[]>(() => initialBusinessSnapshot.cache?.data ?? MOCK_RANK_ITEMS);
   const [businessPage, setBusinessPage] = useState(() => initialBusinessSnapshot.cache?.page ?? 1);
@@ -767,15 +808,6 @@ export default function BusinessListPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const updateTabIndicator = useCallback(() => {
-    const activeTab = activeTabRef.current;
-    if (!activeTab) return;
-    setTabIndicator({
-      left: activeTab.offsetLeft + 12,
-      width: Math.max(28, activeTab.offsetWidth - 24),
-    });
   }, []);
 
   const selectCategory = useCallback((category: string) => {
@@ -876,18 +908,13 @@ export default function BusinessListPage() {
     return () => window.removeEventListener('popstate', syncCategoryFromUrl);
   }, []);
 
+  // 고른 분류 칩이 보이게 가운데로(밑줄 표시는 없앴다 — 칩 색으로 고른 것 표시, 260926)
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      updateTabIndicator();
       activeTabRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     });
     return () => cancelAnimationFrame(frame);
-  }, [selectedCategory, updateTabIndicator]);
-
-  useEffect(() => {
-    window.addEventListener('resize', updateTabIndicator);
-    return () => window.removeEventListener('resize', updateTabIndicator);
-  }, [updateTabIndicator]);
+  }, [selectedCategory]);
 
   useEffect(() => {
     const element = listViewportRef.current;
@@ -1077,7 +1104,7 @@ export default function BusinessListPage() {
           <div className="px-4 py-3 border-b border-gray-50">
             <span className="text-[13px] font-bold text-gray-900">{category}</span>
           </div>
-          <BusinessRankList
+          <BusinessFeedList
             items={(categoryPreviewItems[category] || []).slice(0, 3)}
             muted
           />
@@ -1271,51 +1298,52 @@ export default function BusinessListPage() {
     </div>
 
     <div className="bg-white min-h-screen pb-20 lg:hidden" style={{ letterSpacing: '-0.02em' }}>
-      {/* ─── Header ─── */}
+      {/* ─── 머리줄 — 사회자 목록과 같은 결(뒤로 · 제목 18), 퀵매칭 등장(제목 아래→위) ─── */}
       <div className="sticky top-0 z-30 bg-white">
-        <div className="flex items-center px-3 h-[52px]">
-          <button onClick={() => router.back()} className="p-1.5 active:scale-90 transition-transform">
-            <ChevronLeft size={26} className="text-gray-900" />
+        <div className="flex h-[52px] items-center gap-3 px-4">
+          <button onClick={() => router.back()} className="-ml-2 shrink-0 p-1 transition-transform active:scale-90" aria-label="뒤로">
+            <ChevronLeft size={24} className="text-gray-800" />
           </button>
-          <h1 className="ml-1 text-[18px] font-bold text-gray-900">웨딩파트너</h1>
+          {/* 제목은 고정 — 고른 분류는 아래 칩 색으로 보인다(분류를 넣으면 서버는 주소를 몰라 '웨딩파트너'로 그려 첫 화면 글자가 어긋난다) */}
+          <h1 className="qd-a-title truncate text-[18px] font-bold tracking-[-0.3px] text-[#191F28]">웨딩파트너</h1>
         </div>
-      </div>
 
-      {/* ─── Category Tabs (underline slide, sticky below header) ─── */}
-      <div className="border-b border-gray-100 sticky top-[52px] z-20 bg-white">
-        <div ref={categoryTabsRef} className="flex overflow-x-auto scrollbar-hide pl-4 pr-8 scroll-px-4 relative">
-          {SUB_CATEGORIES.map((cat) => {
-            const active = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                ref={active ? activeTabRef : undefined}
-                onClick={() => selectCategory(cat)}
-                className={`shrink-0 px-4 py-3 text-[14px] font-medium transition-colors duration-300 ${
-                  active ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
-          {/* Sliding indicator */}
-          <span
-            className="absolute bottom-0 h-[2px] bg-gray-900 rounded-full pointer-events-none"
-            style={{
-              left: tabIndicator.left,
-              width: tabIndicator.width,
-              transition: 'left 0.35s cubic-bezier(0.22, 1, 0.36, 1), width 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
-            }}
-          />
+        {/* ─── 분류 — 사회자 목록 '추천순' 칩 모양(높이 42 · 모서리 12 · 16), 고른 분류 쿨그레이 · 밑줄/아래 선 없음 · 오른쪽 흰 그라데이션(260926) ─── */}
+        <div className="qd-a-sub relative">
+          <div
+            ref={categoryTabsRef}
+            className="flex items-center gap-1.5 overflow-x-auto px-4 pb-2.5 pt-1 scrollbar-hide"
+            style={{ maskImage: 'linear-gradient(to right, #000 calc(100% - 32px), transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 32px), transparent)' }}
+            role="tablist"
+            aria-label="분야"
+          >
+            {SUB_CATEGORIES.map((cat) => {
+              const active = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  ref={active ? activeTabRef : undefined}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => selectCategory(cat)}
+                  className={`h-[42px] shrink-0 rounded-[12px] px-3.5 text-[16px] font-semibold tracking-[-0.3px] transition-colors duration-200 active:scale-[0.97] ${
+                    active ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#6B7684]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* ─── 웨딩홀 히어로 (빌라드지디) ─── */}
       {selectedCategory === '웨딩홀' && <VilladegdHero />}
 
-      {/* ─── Region + Filter Row ─── */}
-      <div className="px-4 py-2.5 flex items-center gap-2">
+      {/* ─── 지역 · 필터 — 웨딩숲 칩(회색 면, 고른 것 쿨그레이) ─── */}
+      <div className="qd-a-sub flex items-center gap-2 px-4 pb-1 pt-1.5">
         <div className="relative flex-1 overflow-hidden">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
           {/* 내 위치 버튼 */}
@@ -1337,13 +1365,13 @@ export default function BusinessListPage() {
                 toast.success('현재 위치 기반으로 검색합니다');
               }
             }}
-            className={`shrink-0 px-3 h-[30px] rounded-full text-[12px] font-semibold border flex items-center gap-1 transition-all active:scale-95 ${
+            className={`flex h-[34px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
               selectedRegion === '내 위치'
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'bg-white text-gray-700 border-gray-200'
+                ? 'bg-[#4E5968] text-white'
+                : 'bg-[#F2F4F6] text-[#6B7684]'
             }`}
           >
-            <MapPin size={11} />
+            <MapPin size={13} />
             내 위치
           </button>
           {REGIONS.map((region) => {
@@ -1352,10 +1380,10 @@ export default function BusinessListPage() {
               <button
                 key={region}
                 onClick={() => setSelectedRegion(region)}
-                className={`shrink-0 px-3.5 h-[30px] rounded-full text-[12px] font-semibold border transition-all active:scale-95 ${
+                className={`h-[34px] shrink-0 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
                   active
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-200'
+                    ? 'bg-[#4E5968] text-white'
+                    : 'bg-[#F2F4F6] text-[#6B7684]'
                 }`}
               >
                 {region}
@@ -1370,13 +1398,13 @@ export default function BusinessListPage() {
         {/* 상세 필터 버튼 */}
         <button
           onClick={() => setFilterOpen(true)}
-          className={`shrink-0 inline-flex items-center gap-1 px-3 h-[30px] rounded-full text-[12px] font-medium transition-all active:scale-95 ${
+          className={`inline-flex h-[34px] shrink-0 items-center gap-1 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-all active:scale-95 ${
             totalActiveFilters > 0
-              ? 'bg-[#2B313D] text-white'
-              : 'bg-gray-100 text-gray-700'
+              ? 'bg-[#4E5968] text-white'
+              : 'bg-[#F2F4F6] text-[#6B7684]'
           }`}
         >
-          <SlidersHorizontal size={12} />
+          <SlidersHorizontal size={14} />
           필터
           {totalActiveFilters > 0 && (
             <span className="min-w-[16px] h-[16px] px-1 rounded-full bg-white text-[#2B313D] text-[10px] font-bold flex items-center justify-center">
@@ -1508,33 +1536,34 @@ export default function BusinessListPage() {
 
           <div className="shrink-0 bg-white" style={{ width: paneWidth }}>
             {showListSkeleton ? (
-              <div className="px-4 mt-4 space-y-4">
-                {[1, 2, 3, 4].map((item) => (
-                  <div key={item} className="flex gap-3">
-                    <div className="skeleton w-[120px] h-[120px] rounded-xl shrink-0" />
-                    <div className="flex-1 space-y-2 py-1">
-                      <div className="skeleton h-4 w-20 rounded" />
-                      <div className="skeleton h-5 w-full rounded" />
-                      <div className="skeleton h-3 w-32 rounded" />
-                      <div className="skeleton h-4 w-24 rounded" />
+              <div aria-hidden="true">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="flex gap-2.5 border-b border-[#F2F4F6] px-4 pb-3.5 pt-[18px]">
+                    <div className="skeleton h-[42px] w-[42px] shrink-0" style={{ borderRadius: 9999 }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="skeleton h-4 w-32" style={{ borderRadius: 6 }} />
+                      <div className="skeleton mt-2 h-3.5 w-24" style={{ borderRadius: 6 }} />
+                      <div className="skeleton mt-3.5 aspect-[3/1] w-full max-w-[420px]" style={{ borderRadius: 16 }} />
+                      <div className="skeleton mt-3 h-6 w-40" style={{ borderRadius: 6 }} />
                     </div>
                   </div>
                 ))}
               </div>
             ) : visibleRankItems.length > 0 ? (
               <>
-                <BusinessRankList
+                <BusinessFeedList
+                  key={selectedCategory}
                   items={visibleRankItems}
                 />
                 {hasMoreBusinesses && (
                   <div ref={loadMoreRef} className="px-4 py-5">
                     {loadingMore ? (
-                      <div className="flex gap-3">
-                        <div className="skeleton w-[96px] h-[96px] rounded-xl shrink-0" />
-                        <div className="flex-1 space-y-2 py-1">
-                          <div className="skeleton h-4 w-20 rounded" />
-                          <div className="skeleton h-5 w-full rounded" />
-                          <div className="skeleton h-3 w-32 rounded" />
+                      <div className="flex gap-2.5">
+                        <div className="skeleton h-[42px] w-[42px] shrink-0" style={{ borderRadius: 9999 }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="skeleton h-4 w-32" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-2 h-3.5 w-24" style={{ borderRadius: 6 }} />
+                          <div className="skeleton mt-3.5 aspect-[3/1] w-full max-w-[420px]" style={{ borderRadius: 16 }} />
                         </div>
                       </div>
                     ) : (
