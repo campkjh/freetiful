@@ -881,7 +881,7 @@ const PODIUM_FADE = 'linear-gradient(to bottom, #000 0%, #000 58%, rgba(0,0,0,.4
 /**
  * BEST 결혼식 사회자 포디움 카드(모바일) — 알약 모양은 그대로, '결혼식 사회자' 사진 색 카드처럼 바탕 = 사진에서 뽑은 색(lib/image-tone)이고
  * 사진 아래쪽이 그 색으로 녹아든다. 이름·경력은 알약 안 가운데 두 줄(260926 사장 "알약 형태지만 프로필 결혼식사회자 카드랑 비슷하게,
- * 내용은 중간에 문정은 / 경력10년"). 테두리 = 금·은·동, 메달은 알약 아래 끝에 걸친다.
+ * 내용은 중간에 문정은 / 경력10년"). 테두리 = 금·은·동, 메달은 알약 아래 끝에 걸친다. 그림자 없음(사장 지시).
  * 알약 칸은 aspect-ratio 로 크기가 정해지니 안의 사진은 absolute — 세로로 긴 원본에 칸이 늘어나던 문제(2등만 길던 것) 재발 방지.
  */
 function BestPodiumCard({ pro, border, trophy, offset }: { pro: ProData; border: string; trophy: string; offset: boolean }) {
@@ -890,7 +890,7 @@ function BestPodiumCard({ pro, border, trophy, offset }: { pro: ProData; border:
   return (
     <Link href={`/pros/${pro.id}`} className={`block ${offset ? 'mt-5' : ''}`}>
       <div
-        className="relative w-full overflow-hidden rounded-full shadow-md"
+        className="relative w-full overflow-hidden rounded-full"
         style={{
           aspectRatio: '3 / 5',
           backgroundColor: tone?.bg || '#F2F4F6',
@@ -2938,7 +2938,7 @@ export default function HomePage() {
               ].map((s, i) => (
                 <div key={i} className={`flex flex-col items-center ${s.offset ? 'mt-5' : ''}`}>
                   <div
-                    className="relative w-full bg-gray-200 animate-pulse shadow-md"
+                    className="relative w-full bg-gray-200 animate-pulse"
                     style={{ aspectRatio: '3 / 5', borderRadius: '9999px', border: `1.4px solid ${s.border}` }}
                   />
                 </div>
