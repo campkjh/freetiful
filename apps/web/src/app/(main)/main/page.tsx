@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type RefObject, type TouchEvent as ReactTouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -775,32 +775,119 @@ const HOME_SHORTCUTS = [
  * 260927 사장: 웨딩숲을 퀵매칭 뒤에 접어 두던 효과(스크롤하면 펼침)는 없앴다 — 두 장 다 그대로 보인다.
  * 첫 진입 등장(fadeSlideUp)과 누름 효과(active:scale)가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
  */
-/** 퀵매칭 말풍선을 닫으면 7일 동안 안 보인다 */
-const QM_BUBBLE_HIDE_KEY = 'ft-home-qm-bubble-hide-until';
-/** 말풍선 꼬리 가로 위치 = 퀵매칭 카드 '빠른찾기' 버튼 가운데(카드 왼쪽에서) */
-const QM_BUBBLE_TAIL_X = 64;
+/** 꼬리 끝과 '빠른찾기' 버튼 아래 사이 간격(260927 사장 '빠른찾기 버튼 쪽으로 좀 올려줘') */
+const QM_BUBBLE_GAP = 5;
+/** 말풍선 좌우 = 카드와 같은 여백(바로가기 묶음 px-[10px]) */
+const QM_BUBBLE_INSET = 10;
+
+/** 꼬리 높이·몸통 모서리(토스 실측) — globals .qm-bubble-body margin-top·.qm-bubble-shadow 와 같게 */
+const QM_TAIL_H = 13;
+const QM_RADIUS = 26;
+
+/**
+ * 말풍선 윤곽(꼬리 + 둥근 몸통) 한 줄 path — 유리 한 장을 이 모양으로 잘라 쓴다.
+ * 꼬리(토스 실측, 밑동 28 · 높이 12.5 · 옆면 52° · 밑동 오목 · 끝 둥글게)를 몸통 윗변에 이어 그린다.
+ */
+function quickMatchBubblePath(w: number, h: number, tailX: number) {
+  const t = QM_TAIL_H;
+  const r = Math.min(QM_RADIUS, (h - t) / 2);
+  const x = Math.min(Math.max(tailX, r + 14), w - r - 14);
+  const n = (v: number) => Math.round(v * 100) / 100;
+  return [
+    `M${n(r)} ${t}`,
+    `L${n(x - 14)} ${t}`,
+    `C${n(x - 11.4)} ${t} ${n(x - 10.7)} ${n(t - 1.8)} ${n(x - 9.8)} ${n(t - 2.9)}`,
+    `L${n(x - 3.9)} ${n(t - 10.2)}`,
+    `Q${n(x)} ${n(t - 14.6)} ${n(x + 3.9)} ${n(t - 10.2)}`,
+    `L${n(x + 9.8)} ${n(t - 2.9)}`,
+    `C${n(x + 10.7)} ${n(t - 1.8)} ${n(x + 11.4)} ${t} ${n(x + 14)} ${t}`,
+    `L${n(w - r)} ${t}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(w)} ${n(t + r)}`,
+    `L${n(w)} ${n(h - r)}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(w - r)} ${n(h)}`,
+    `L${n(r)} ${n(h)}`,
+    `A${n(r)} ${n(r)} 0 0 1 0 ${n(h - r)}`,
+    `L0 ${n(t + r)}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(r)} ${t}`,
+    'Z',
+  ].join('');
+}
+
+/**
+ * 말풍선 바탕 유리 — 꼬리와 몸통을 한 장으로(260927 사장 '꼬리랑 본체랑 잘리는 선').
+ * 둘을 따로 흐리면 각자 뒤를 따로 흐려(꼬리는 사진만, 몸통은 사진+흰 틈) 만나는 자리에 색이 6단계 툭 끊겼다.
+ * 제 크기를 재서(ResizeObserver) 윤곽 path 로 잘라 쓴다 — 크기를 재기 전엔 숨김.
+ */
+function QuickMatchBubbleGlass({ tailX }: { tailX: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setSize((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const clip = size ? `path('${quickMatchBubblePath(size.w, size.h, tailX)}')` : undefined;
+  return <span ref={ref} className="qm-bubble-glass" aria-hidden="true" style={{ clipPath: clip, WebkitClipPath: clip, visibility: size ? undefined : 'hidden' }} />;
+}
 
 /**
  * 퀵매칭 말풍선(홈, 모바일) — 토스 하단 탭 말풍선을 그대로, 꼬리만 위로 뒤집어 퀵매칭 카드 '빠른찾기'를 가리킨다(260927 사장).
- *  · 모양(토스 화면 3배 해상도 실측): 흰 바탕·모서리 22·짙게 번지는 아래 그림자, 왼쪽 아이콘(사장 아이콘 세트 icon-emoji-fire),
- *    제목 17 굵게 — 아이콘 쪽 글씨는 아이콘 빨강에서 오른쪽으로 어두워지며 검은 본문으로 이어지는 그라데이션(토스: 파랑→남색→검정),
- *    부제 15 회색, 오른쪽 위 회색 원 ×. 꼬리 28×12·옆면 45°·끝 둥글게.
- *  · 등장(토스 화면 녹화 프레임별 실측, globals .qm-bubble): 꼬리를 기준으로 납작하게(가로 53%·세로 16%·투명 20%) 나타나 0.2초에 제 크기
+ *  · 모양(토스 화면 3배 해상도 실측 — 사장이 보낸 '물티슈' 말풍선): 모서리 26·꼬리 28×12.5(옆면 52°·밑동 오목·끝 둥글게),
+ *    왼쪽 아이콘(사장 아이콘 세트 icon-emoji-fire 를 푸른 불꽃으로), 제목 17 굵게 — 앞쪽 44% 는 파랑 #2955B5 에서 남색으로 짙어져
+ *    검은 본문으로 이어지는 그라데이션(토스 글자 속 색을 구간별로 잰 값), 부제 15 회색, 오른쪽 위 회색 원 ×.
+ *  · 바탕(260927 사장 '꼬리부터 35% 까지 오퍼시티 80 에 블러, 그림자 아주 옅게, 말풍선 그라데이션 아주 옅게'): 꼬리 쪽이 옅은 푸른 흰색 80%
+ *    + 뒤 흐림(backdrop blur), 35% 에서 불투명 흰색 · 그림자는 아래로만 옅게. 바탕은 꼬리+몸통 한 장(QuickMatchBubbleGlass).
+ *    → 흐림이 먹으려면 조상에 filter·opacity<1·mask 가 없어야 해서(Backdrop Root) 카드 칸(등장 애니 fadeSlideUp 끝값이 filter:blur(0))
+ *      밖, 바로가기 묶음에 바로 붙이고, 투명도 애니도 흐림을 가진 유리에 직접 건다(globals .qm-bubble).
+ *  · 자리: '빠른찾기' 버튼을 재서(offset — 등장 애니 transform 영향 없음) 꼬리 끝을 버튼 아래 5 · 버튼 가운데에 둔다. 글꼴·폭이 바뀌면 다시 잰다.
+ *  · 등장(토스 화면 녹화 프레임별 실측): 꼬리를 기준으로 납작하게(가로 53%·세로 16%·투명 20%) 나타나 0.2초에 제 크기
  *    (1.3% 살짝 넘침), 그동안 꼬리 쪽으로 10 붙어 있다가 반대로 6.3 넘어갔다 0.87초에 제자리. 아이콘·글씨는 조금 늦게(~0.38초) 진해진다.
- *  · 누르면 퀵매칭, × 는 7일 안 보이게.
+ *  · 누르면 퀵매칭. × 는 지금 떠 있는 것만 닫는다 — 홈에 다시 들어오면 또 뜬다(260927 사장 '한 번 x 누르면 안 뜨는데 뜨게끔'; 예전엔 7일 숨김).
  */
-function QuickMatchBubble({ delay }: { delay: number }) {
+function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; containerRef: RefObject<HTMLDivElement>; anchorRef: RefObject<HTMLSpanElement> }) {
   const router = useRouter();
+  const gradId = useId().replace(/:/g, '');
   const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
+  const [pos, setPos] = useState<{ top: number; tailX: number } | null>(null);
+  const visible = phase !== 'hidden';
   useEffect(() => {
-    try { if (Number(localStorage.getItem(QM_BUBBLE_HIDE_KEY) || 0) > Date.now()) return; } catch { /* 저장소 막힘 — 그냥 띄운다 */ }
     const t = window.setTimeout(() => setPhase('in'), delay);
     return () => window.clearTimeout(t);
   }, [delay]);
-  if (phase === 'hidden') return null;
+  useLayoutEffect(() => {
+    if (!visible) return;
+    const box = containerRef.current;
+    const anchor = anchorRef.current;
+    if (!box || !anchor) return;
+    const measure = () => {
+      let x = 0;
+      let y = 0;
+      let el: HTMLElement | null = anchor;
+      while (el && el !== box) {
+        x += el.offsetLeft;
+        y += el.offsetTop;
+        el = el.offsetParent as HTMLElement | null;
+      }
+      if (el !== box) return;
+      setPos({ top: Math.round(y + anchor.offsetHeight + QM_BUBBLE_GAP), tailX: Math.round(x + anchor.offsetWidth / 2 - QM_BUBBLE_INSET) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    ro.observe(anchor);
+    return () => ro.disconnect();
+  }, [visible, containerRef, anchorRef]);
+  if (!visible || !pos) return null;
   const close = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try { localStorage.setItem(QM_BUBBLE_HIDE_KEY, String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch { /* 이번만 닫힘 */ }
     setPhase('out');
     window.setTimeout(() => setPhase('hidden'), 200);
   };
@@ -808,22 +895,33 @@ function QuickMatchBubble({ delay }: { delay: number }) {
   return (
     <div
       className={`qm-bubble${phase === 'out' ? ' is-out' : ''}`}
-      style={{ '--tail-x': `${QM_BUBBLE_TAIL_X}px` } as CSSProperties}
+      style={{ top: pos.top, left: QM_BUBBLE_INSET, right: QM_BUBBLE_INSET, '--tail-x': `${pos.tailX}px` } as CSSProperties}
       role="link"
       tabIndex={0}
       aria-label="인기 사회자, 1분 만에 찾아요. 빠른찾기로 딱 맞는 사회자 추천받기"
       onClick={go}
       onKeyDown={(e) => { if (e.key === 'Enter') go(); }}
     >
-      <svg className="qm-bubble-tail" width="28" height="12" viewBox="0 0 28 12" aria-hidden="true">
-        <path d="M0 12L11.2 1.4Q14 -1.1 16.8 1.4L28 12Z" fill="#fff" />
-      </svg>
+      {/* 그림자(몸통 바깥에만 그려져 반투명한 윗부분에 안 비친다) → 유리(꼬리+몸통 한 장) → 글씨 */}
+      <span className="qm-bubble-shadow" aria-hidden="true" />
+      <QuickMatchBubbleGlass tailX={pos.tailX} />
       <div className="qm-bubble-body">
         <span className="qm-bubble-ic" aria-hidden="true">
-          {/* 사장 아이콘 세트 icon-emoji-fire */}
+          {/* 사장 아이콘 세트 icon-emoji-fire — 푸른 불꽃(260927 사장), 색은 토스 파랑 아이콘(#4A82EA·밝은 #CBE2FA) 결 */}
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <path d="M18.9999 6.50004C19.1999 8.10004 19.4999 9.10004 18.3999 9.10004C16.7999 9.10004 16.7999 5.30004 14.0999 3.20004C11.3999 1.00004 9.4999 1.50004 9.3999 1.60004C11.5999 3.50004 10.3999 6.50004 8.8999 7.30004C7.4999 8.10004 5.9999 7.10004 6.7999 4.70004C4.9999 7.20004 3.3999 10.3 3.3999 13.3C3.3999 18.2 7.3999 22.2 12.2999 22.2C17.1999 22.2 21.1999 18.2 21.1999 13.3C21.2999 10.9 20.2999 8.60004 18.9999 6.50004Z" fill="#F93052" />
-            <path d="M12.2999 11.8999C12.2999 11.8999 16.1999 14.0999 16.1999 17.2999C16.1999 19.3999 14.4999 21.1999 12.2999 21.1999C10.0999 21.1999 8.3999 19.4999 8.3999 17.2999C8.3999 14.0999 12.2999 11.8999 12.2999 11.8999Z" fill="#FF7978" />
+            <defs>
+              <linearGradient id={`${gradId}-o`} x1="12" y1="1.5" x2="12" y2="22.2" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#62A0F8" />
+                <stop offset="0.55" stopColor="#4A82EA" />
+                <stop offset="1" stopColor="#3566DA" />
+              </linearGradient>
+              <linearGradient id={`${gradId}-i`} x1="12.3" y1="11.9" x2="12.3" y2="21.2" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#EAF4FF" />
+                <stop offset="1" stopColor="#B6D5FA" />
+              </linearGradient>
+            </defs>
+            <path d="M18.9999 6.50004C19.1999 8.10004 19.4999 9.10004 18.3999 9.10004C16.7999 9.10004 16.7999 5.30004 14.0999 3.20004C11.3999 1.00004 9.4999 1.50004 9.3999 1.60004C11.5999 3.50004 10.3999 6.50004 8.8999 7.30004C7.4999 8.10004 5.9999 7.10004 6.7999 4.70004C4.9999 7.20004 3.3999 10.3 3.3999 13.3C3.3999 18.2 7.3999 22.2 12.2999 22.2C17.1999 22.2 21.1999 18.2 21.1999 13.3C21.2999 10.9 20.2999 8.60004 18.9999 6.50004Z" fill={`url(#${gradId}-o)`} />
+            <path d="M12.2999 11.8999C12.2999 11.8999 16.1999 14.0999 16.1999 17.2999C16.1999 19.3999 14.4999 21.1999 12.2999 21.1999C10.0999 21.1999 8.3999 19.4999 8.3999 17.2999C8.3999 14.0999 12.2999 11.8999 12.2999 11.8999Z" fill={`url(#${gradId}-i)`} />
           </svg>
         </span>
         <p className="qm-bubble-title">인기 사회자, 1분 만에 찾아요.</p>
@@ -839,13 +937,15 @@ function QuickMatchBubble({ delay }: { delay: number }) {
 }
 
 function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
+  // 말풍선 자리 재기 — 묶음(기준)과 퀵매칭 '빠른찾기' 버튼
+  const boxRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLSpanElement>(null);
   return (
-    <div className="flex flex-col gap-[10px] px-[10px] pt-[10px]">
+    <div ref={boxRef} className="relative flex flex-col gap-[10px] px-[10px] pt-[10px]">
       {HOME_SHORTCUTS.map((b, i) => (
         <div
           key={b.href}
-          // 퀵매칭 칸은 말풍선이 아래 웨딩숲 칸 위로 겹치게 위쪽 층(z-10)
-          className={`${i === 0 ? 'relative z-10' : ''} ${skipAnim ? '' : 'opacity-0'}`}
+          className={skipAnim ? '' : 'opacity-0'}
           style={skipAnim ? undefined : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.05 + i * 0.1}s forwards` }}
         >
           <Link
@@ -861,6 +961,7 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
               <p className="text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white">{b.title}</p>
               <p className="mt-0.5 break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.desc}</p>
               <span
+                ref={i === 0 ? ctaRef : undefined}
                 className="mt-2.5 inline-flex h-[28px] w-fit items-center gap-0.5 rounded-full pl-3 pr-2 text-[13px] font-semibold tracking-[-0.2px] text-white"
                 style={{ backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', textShadow: 'none' }}
               >
@@ -869,9 +970,10 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
               </span>
             </div>
           </Link>
-          {i === 0 && <QuickMatchBubble delay={skipAnim ? 250 : 850} />}
         </div>
       ))}
+      {/* 카드 칸 밖에 둔다 — 칸의 등장 애니(filter) 안에 있으면 말풍선 뒤 흐림이 안 먹는다 */}
+      <QuickMatchBubble delay={skipAnim ? 250 : 850} containerRef={boxRef} anchorRef={ctaRef} />
     </div>
   );
 }
