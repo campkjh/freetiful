@@ -775,6 +775,9 @@ const HOME_SHORTCUTS = [
  * 260927 사장: 웨딩숲을 퀵매칭 뒤에 접어 두던 효과(스크롤하면 펼침)는 없앴다 — 두 장 다 그대로 보인다.
  * 첫 진입 등장(fadeSlideUp)과 누름 효과(active:scale)가 서로 transform 을 덮어쓰지 않게 칸을 나눠 건다.
  */
+/** × 로 닫으면 30분 동안 안 뜬다(260927 사장 — 처음엔 7일, 그다음 '다시 뜨게', 지금 30분) */
+const QM_BUBBLE_HIDE_KEY = 'ft-home-qm-bubble-hide-until';
+const QM_BUBBLE_HIDE_MS = 30 * 60 * 1000;
 /** 꼬리 끝과 '빠른찾기' 버튼 아래 사이 간격(260927 사장 '빠른찾기 버튼 쪽으로 좀 올려줘') */
 const QM_BUBBLE_GAP = 5;
 /** 말풍선 좌우 = 카드와 같은 여백(바로가기 묶음 px-[10px]) */
@@ -850,7 +853,7 @@ function QuickMatchBubbleGlass({ tailX }: { tailX: number }) {
  *  · 자리: '빠른찾기' 버튼을 재서(offset — 등장 애니 transform 영향 없음) 꼬리 끝을 버튼 아래 5 · 버튼 가운데에 둔다. 글꼴·폭이 바뀌면 다시 잰다.
  *  · 등장(토스 화면 녹화 프레임별 실측): 꼬리를 기준으로 납작하게(가로 53%·세로 16%·투명 20%) 나타나 0.2초에 제 크기
  *    (1.3% 살짝 넘침), 그동안 꼬리 쪽으로 10 붙어 있다가 반대로 6.3 넘어갔다 0.87초에 제자리. 아이콘·글씨는 조금 늦게(~0.38초) 진해진다.
- *  · 누르면 퀵매칭. × 는 지금 떠 있는 것만 닫는다 — 홈에 다시 들어오면 또 뜬다(260927 사장 '한 번 x 누르면 안 뜨는데 뜨게끔'; 예전엔 7일 숨김).
+ *  · 누르면 퀵매칭. × 는 30분 동안 안 보이게(QM_BUBBLE_HIDE_MS). 제목 '맞춤 사회자'(260927 사장, 처음엔 '인기 사회자').
  */
 function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; containerRef: RefObject<HTMLDivElement>; anchorRef: RefObject<HTMLSpanElement> }) {
   const router = useRouter();
@@ -859,6 +862,7 @@ function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; c
   const [pos, setPos] = useState<{ top: number; tailX: number } | null>(null);
   const visible = phase !== 'hidden';
   useEffect(() => {
+    try { if (Number(localStorage.getItem(QM_BUBBLE_HIDE_KEY) || 0) > Date.now()) return; } catch { /* 저장소 막힘 — 그냥 띄운다 */ }
     const t = window.setTimeout(() => setPhase('in'), delay);
     return () => window.clearTimeout(t);
   }, [delay]);
@@ -888,6 +892,7 @@ function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; c
   if (!visible || !pos) return null;
   const close = (e: React.MouseEvent) => {
     e.stopPropagation();
+    try { localStorage.setItem(QM_BUBBLE_HIDE_KEY, String(Date.now() + QM_BUBBLE_HIDE_MS)); } catch { /* 이번만 닫힘 */ }
     setPhase('out');
     window.setTimeout(() => setPhase('hidden'), 200);
   };
@@ -898,7 +903,7 @@ function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; c
       style={{ top: pos.top, left: QM_BUBBLE_INSET, right: QM_BUBBLE_INSET, '--tail-x': `${pos.tailX}px` } as CSSProperties}
       role="link"
       tabIndex={0}
-      aria-label="인기 사회자, 1분 만에 찾아요. 빠른찾기로 딱 맞는 사회자 추천받기"
+      aria-label="맞춤 사회자, 1분 만에 찾아요. 빠른찾기로 딱 맞는 사회자 추천받기"
       onClick={go}
       onKeyDown={(e) => { if (e.key === 'Enter') go(); }}
     >
@@ -924,7 +929,7 @@ function QuickMatchBubble({ delay, containerRef, anchorRef }: { delay: number; c
             <path d="M12.2999 11.8999C12.2999 11.8999 16.1999 14.0999 16.1999 17.2999C16.1999 19.3999 14.4999 21.1999 12.2999 21.1999C10.0999 21.1999 8.3999 19.4999 8.3999 17.2999C8.3999 14.0999 12.2999 11.8999 12.2999 11.8999Z" fill={`url(#${gradId}-i)`} />
           </svg>
         </span>
-        <p className="qm-bubble-title">인기 사회자, 1분 만에 찾아요.</p>
+        <p className="qm-bubble-title">맞춤 사회자, 1분 만에 찾아요.</p>
         <p className="qm-bubble-sub">빠른찾기로 딱 맞는 사회자 추천받기</p>
         <button type="button" className="qm-bubble-x" aria-label="말풍선 닫기" onClick={close}>
           <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">

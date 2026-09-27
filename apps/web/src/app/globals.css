@@ -2330,7 +2330,7 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 .qm-bubble-ic { position: absolute; left: 21px; top: 50%; width: 28px; height: 28px; margin-top: -14px; display: block; animation: qmBubbleIcon 1s linear both; }
 .qm-bubble-ic svg { display: block; }
 .qm-bubble-title, .qm-bubble-sub, .qm-bubble-x { animation: qmBubbleContent 1s linear both; }
-/* 제목 — 토스처럼 앞쪽(강조 말 '인기 사회자,')은 파랑에서 남색으로 짙어지다 44~48% 에서 검은 본문으로(토스 글자 속 색을 4% 구간마다 잰 값) */
+/* 제목 — 토스처럼 앞쪽(강조 말 '맞춤 사회자,')은 파랑에서 남색으로 짙어지다 44~48% 에서 검은 본문으로(토스 글자 속 색을 4% 구간마다 잰 값) */
 .qm-bubble-title {
   width: fit-content; max-width: 100%; margin: 0;
   font-size: 17px; font-weight: 700; line-height: 1.42; letter-spacing: -0.3px;
