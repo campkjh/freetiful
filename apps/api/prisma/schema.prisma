@@ -1390,3 +1390,13 @@ model CommunityScoreBonus {
 
   @@map("community_score_bonuses")
 }
+
+/// 웨딩숲 직접 정한 닉네임(260928) — 허용된 계정만 설정, 계정당 하나(바꾸면 그 계정의 글·댓글 전체가 새 닉네임).
+/// 없으면 '꾸밈말 동물' 랜덤 닉네임(community-nickname.ts). 표는 추가만 하는 DDL 로 만들었다(db push 없이).
+model CommunityNickname {
+  userId    String   @id
+  nickname  String
+  updatedAt DateTime @updatedAt
+
+  @@map("community_nicknames")
+}

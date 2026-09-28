@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -201,6 +202,23 @@ export class CommunityController {
   @ApiOperation({ summary: '팔로우 토글' })
   toggleFollow(@Request() req: any, @Body() body: any) {
     return this.community.toggleFollow(req.user.id, body?.userId);
+  }
+
+  // ── 내 웨딩숲 닉네임(260928) — 허용된 계정만 직접 정한다, 나머지는 '꾸밈말 동물' 랜덤 ──
+  @Get('me/nickname')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 웨딩숲 닉네임(보이는 이름·직접 정한 이름·정할 수 있는지)' })
+  myNickname(@Request() req: any) {
+    return this.community.getMyNickname(req.user.id);
+  }
+
+  @Put('me/nickname')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 웨딩숲 닉네임 정하기(허용 계정만, 계정당 하나)' })
+  setMyNickname(@Request() req: any, @Body() body: any) {
+    return this.community.setMyNickname(req.user.id, body?.nickname);
   }
 
   @Get('me/comments')

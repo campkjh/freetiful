@@ -14,6 +14,8 @@ import TossPoll from "@/components/community/TossPoll";
 import TossLikers, { type TossLiker } from "@/components/community/TossLikers";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { communityNickname } from "@/lib/community/nickname";
+import { fetchMyNickname } from "@/lib/community/my-nickname";
+import NicknameBar from "@/components/community/NicknameBar";
 import {
   formatCount,
   TossHeartIcon,
@@ -243,6 +245,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         setCurrentUserId(d?.user?.id ?? null);
         setIsAdmin(d?.user?.role === "admin");
         setMe(d?.user ? { nickname: d.user.nickname ?? "나", avatar: d.user.avatar ?? null } : null);
+        // 직접 정한 웨딩숲 닉네임이 있으면 그걸로(허용 계정)
+        if (d?.user) fetchMyNickname().then((n) => { if (n?.custom) setMe((m) => (m ? { ...m, nickname: n.nickname } : m)); });
       })
       .catch(() => {
         setCurrentUserId(null);
@@ -1160,6 +1164,16 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                     취소
                   </button>
                 </div>
+              )}
+              {/* 지정 계정만 — '닉네임 ○○ · 바꾸기'(계정당 하나, 바꾸면 내 글·댓글 전체에 반영) */}
+              {currentUserId && (
+                <NicknameBar
+                  onChanged={(n) => {
+                    setMe((m) => (m ? { ...m, nickname: n.nickname } : m));
+                    changeCommentSort(commentSort); // 댓글만 다시 받아 새 닉네임으로(화면 전체 로딩 없이)
+                    showToast("닉네임을 바꿨어요");
+                  }}
+                />
               )}
               <div className="tdet-inputrow">
                 <span className="tdet-me" aria-hidden="true">

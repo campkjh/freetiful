@@ -27,6 +27,14 @@ import {
 } from './community.constants';
 import { communityNickname } from './community-nickname';
 
+/**
+ * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
+ * 닉네임은 계정당 하나 — 댓글마다 다른 이름을 쓰면 한 사람이 여러 회원처럼 보여서(사칭·가짜 반응) 그렇게 만들지 않았다.
+ */
+const CUSTOM_NICKNAME_EMAILS = new Set(['cbkyeong@naver.com', 'seeipssister@naver.com', 'campkjh@nate.com']);
+/** 운영진·사회자처럼 보이는 이름은 막는다 */
+const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
+
 type Author = {
   nickname: string;
   avatar: string | null;
@@ -240,6 +248,7 @@ export class CommunityService implements OnModuleInit {
       where: { id: { in: ids } },
       select: { id: true, name: true, profileImageUrl: true, role: true },
     });
+    const customNick = await this.customNicknames(ids);
 
     // 활동 점수(글×10 + 댓글×3 + 받은좋아요×2 + 보너스)
     const [postCounts, commentCounts, bonuses] = await Promise.all([
@@ -323,7 +332,7 @@ export class CommunityService implements OnModuleInit {
       if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
       map.set(u.id, {
         // 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신), 사회자·업체·운영자·운영진 에디터는 이름 그대로 — community-nickname.ts
-        nickname: communityNickname(u),
+        nickname: customNick.get(u.id) || communityNickname(u),
         avatar: u.profileImageUrl || null,
         isAdmin: u.role === 'admin',
         tier: tierForScore(score),
@@ -532,6 +541,37 @@ export class CommunityService implements OnModuleInit {
     return map;
   }
 
+  /** 직접 정한 닉네임(허용 계정만 있음) */
+  private async customNicknames(userIds: string[]): Promise<Map<string, string>> {
+    const ids = Array.from(new Set(userIds.filter(Boolean)));
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.communityNickname.findMany({ where: { userId: { in: ids } }, select: { userId: true, nickname: true } });
+    return new Map(rows.map((r) => [r.userId, r.nickname]));
+  }
+
+  /** 내 웨딩숲 닉네임 — 보이는 이름 · 직접 정한 이름 · 정할 수 있는지 */
+  async getMyNickname(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, profileImageUrl: true } });
+    if (!user) throw new NotFoundException('회원을 찾을 수 없어요');
+    const custom = (await this.customNicknames([userId])).get(userId) || null;
+    return {
+      nickname: custom || communityNickname(user),
+      custom,
+      canSetNickname: CUSTOM_NICKNAME_EMAILS.has(String(user.email || '').trim().toLowerCase()),
+    };
+  }
+
+  async setMyNickname(userId: string, raw: unknown) {
+    const me = await this.getMyNickname(userId);
+    if (!me.canSetNickname) throw new ForbiddenException('닉네임을 바꿀 수 없는 계정이에요');
+    const nickname = String(raw ?? '').replace(/\s+/g, ' ').trim();
+    if (nickname.length < 2 || nickname.length > 12) throw new BadRequestException('닉네임은 2~12자로 정해 주세요');
+    if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(nickname)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
+    if (NICKNAME_BLOCK.test(nickname)) throw new BadRequestException('운영진이나 사회자로 보일 수 있는 이름은 쓸 수 없어요');
+    await this.prisma.communityNickname.upsert({ where: { userId }, create: { userId, nickname }, update: { nickname } });
+    return this.getMyNickname(userId);
+  }
+
   // 글마다 최근에 좋아요 누른 5명(이름·프사만). 창 함수로 글당 5개만 읽고, 유저는 가볍게 조회한다.
   private async likersForPosts(postIds: string[]) {
     const map = new Map<string, { userId: string; nickname: string; avatar: string | null }[]>();
@@ -549,10 +589,11 @@ export class CommunityService implements OnModuleInit {
       select: { id: true, name: true, profileImageUrl: true, role: true },
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
+    const customNick = await this.customNicknames(users.map((u) => u.id));
     for (const r of rows) {
       const u = userMap.get(r.userId);
       const arr = map.get(r.postId) || [];
-      arr.push({ userId: r.userId, nickname: u ? communityNickname(u) : '회원', avatar: u?.profileImageUrl || null });
+      arr.push({ userId: r.userId, nickname: u ? customNick.get(u.id) || communityNickname(u) : '회원', avatar: u?.profileImageUrl || null });
       map.set(r.postId, arr);
     }
     return map;

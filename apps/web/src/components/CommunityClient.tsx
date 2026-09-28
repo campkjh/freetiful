@@ -19,6 +19,7 @@ import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
 import { communityNickname } from "@/lib/community/nickname";
+import NicknameBar from "@/components/community/NicknameBar";
 import TossPoll from "@/components/community/TossPoll";
 import TossLikers from "@/components/community/TossLikers";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
@@ -2034,6 +2035,8 @@ function CommentModal({
           )}
         </div>
         {msg && <p className="ccs-msg">{msg}</p>}
+        {/* 지정 계정만 — '닉네임 ○○ · 바꾸기'(계정당 하나) */}
+        <NicknameBar className="mx-4 mb-0 mt-2" onChanged={() => { load(); }} />
         <div className="ccs-compose">
           {/* 글자가 너비를 넘으면 줄바꿈되며 높이가 늘어난다(최대 120px, 그 뒤는 스크롤). Enter=등록, Shift+Enter=줄바꿈 */}
           <textarea
