@@ -55,6 +55,12 @@ function dealArt(ids: string[]): Art[] {
   });
 }
 
+/** '#RRGGBB' → rgba(…, a) */
+function withAlpha(hex: string, a: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -101,10 +107,11 @@ function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index:
             maskImage: BLUR_FADE,
           }}
         />
+        {/* 막은 흰색이 아니라 카드 자기 색으로 — 흰 막이면 아래쪽이 하얗게 떠 흰 바탕에 묻혀 아래 모서리 둥근 게 안 보였다(260928 사장 'r값이 적용 안 된 게 있는 것 같음') */}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[66%]"
-          style={{ background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.34) 48%, rgba(255, 255, 255, 0.55) 100%)' }}
+          style={{ background: `linear-gradient(to bottom, ${withAlpha(art.bg, 0)} 0%, ${withAlpha(art.bg, 0.42)} 50%, ${withAlpha(art.bg, 0.62)} 100%)` }}
         />
 
         <span className="absolute inset-x-0 bottom-0 block px-6 pb-6 sm:px-7 sm:pb-7 lg:px-[38px] lg:pb-[38px]">
