@@ -13,6 +13,7 @@ import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import TossPoll from "@/components/community/TossPoll";
 import TossLikers, { type TossLiker } from "@/components/community/TossLikers";
 import { useAuthStore } from "@/lib/store/auth.store";
+import { communityNickname } from "@/lib/community/nickname";
 import {
   formatCount,
   TossHeartIcon,
@@ -377,7 +378,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     }
     const before = post;
     const nextType = post.myReaction === type ? null : type;
-    const meLiker = { userId: auth.user.id, nickname: auth.user.name || "나", avatar: auth.user.profileImageUrl || null };
+    const meLiker = { userId: auth.user.id, nickname: communityNickname(auth.user), avatar: auth.user.profileImageUrl || null };
     // 낙관적 갱신 — 내 프사가 겹침 스택에 바로 붙는다.
     setPost({
       ...post,

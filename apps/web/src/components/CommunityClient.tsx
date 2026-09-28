@@ -18,6 +18,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "framer-motio
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
+import { communityNickname } from "@/lib/community/nickname";
 import TossPoll from "@/components/community/TossPoll";
 import TossLikers from "@/components/community/TossLikers";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
@@ -243,7 +244,7 @@ export default function CommunityClient() {
     }
     setLikingPostId(post.id);
     const wasLiked = !!post.myReaction;
-    const meLiker: Liker = { userId: auth.user.id, nickname: auth.user.name || "나", avatar: auth.user.profileImageUrl || null };
+    const meLiker: Liker = { userId: auth.user.id, nickname: communityNickname(auth.user), avatar: auth.user.profileImageUrl || null };
     // 낙관적 갱신 — 좋아요면 내 프사가 겹침 스택 맨 앞에 톡 붙고, 취소면 빠진다.
     setPosts((prev) =>
       prev.map((p) =>

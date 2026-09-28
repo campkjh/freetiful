@@ -25,6 +25,7 @@ import {
   BadgeKey,
   BadgeTone,
 } from './community.constants';
+import { communityNickname } from './community-nickname';
 
 type Author = {
   nickname: string;
@@ -321,7 +322,8 @@ export class CommunityService implements OnModuleInit {
       if (postN >= BADGE_THRESHOLDS.heavyWriter) keys.push('heavyWriter');
       if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
       map.set(u.id, {
-        nickname: u.name || '사용자',
+        // 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신), 사회자·업체·운영자·운영진 에디터는 이름 그대로 — community-nickname.ts
+        nickname: communityNickname(u),
         avatar: u.profileImageUrl || null,
         isAdmin: u.role === 'admin',
         tier: tierForScore(score),
@@ -544,13 +546,13 @@ export class CommunityService implements OnModuleInit {
       ORDER BY "postId", t.rn`;
     const users = await this.prisma.user.findMany({
       where: { id: { in: Array.from(new Set(rows.map((r) => r.userId))) } },
-      select: { id: true, name: true, profileImageUrl: true },
+      select: { id: true, name: true, profileImageUrl: true, role: true },
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
     for (const r of rows) {
       const u = userMap.get(r.userId);
       const arr = map.get(r.postId) || [];
-      arr.push({ userId: r.userId, nickname: u?.name || '회원', avatar: u?.profileImageUrl || null });
+      arr.push({ userId: r.userId, nickname: u ? communityNickname(u) : '회원', avatar: u?.profileImageUrl || null });
       map.set(r.postId, arr);
     }
     return map;

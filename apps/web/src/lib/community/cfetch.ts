@@ -6,6 +6,7 @@
 // - 프리티풀 JWT(Bearer, useAuthStore accessToken)를 자동 첨부(쿠키 대신)
 // - /api/auth/me 응답을 스타디가 기대하는 { user: {...nickname, avatar} } 형태로 정규화
 import { useAuthStore } from '@/lib/store/auth.store';
+import { communityNickname } from './nickname';
 
 const PATH_MAP: [RegExp, string][] = [
   [/^\/api\/community\//, '/api/v1/community/'],
@@ -40,7 +41,8 @@ export async function cfetch(input: string, init: RequestInit = {}): Promise<Res
       const body = JSON.stringify({
         user: {
           ...u,
-          nickname: u.name ?? u.nickname ?? '사용자',
+          // 웨딩숲 이름 — 일반 회원은 '사랑받는 오리' 식 닉네임(서버와 같은 계산, lib/community/nickname)
+          nickname: communityNickname(u),
           avatar: u.profileImageUrl ?? u.avatar ?? null,
         },
       });

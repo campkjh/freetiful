@@ -7,6 +7,7 @@
 import { ChangeEvent, type CSSProperties, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
+import { communityNickname } from "@/lib/community/nickname";
 import { uploadCommunityImage, revokeUploadPreview, type CommunityUpload } from "@/lib/communityUpload";
 import { clientCache } from "@/lib/clientCache";
 import AiIcon from "@/components/icons/AiIcon";
@@ -89,7 +90,7 @@ export default function TossComposer({
 
   // 저장소(localStorage) 복원값은 클라이언트에만 있으니 마운트 뒤에 읽는다(하이드레이션 불일치 방지).
   useEffect(() => {
-    setMe(authUser ? { name: authUser.name || "나", avatar: authUser.profileImageUrl || null } : null);
+    setMe(authUser ? { name: communityNickname(authUser), avatar: authUser.profileImageUrl || null } : null);
   }, [authUser]);
 
   // 접힌 쪽은 포커스·탭 이동에서 빼 둔다.
