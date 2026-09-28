@@ -16,12 +16,12 @@ export type BannerStrip = {
   bottom?: string;
 };
 
-// 테두리 선 없이(260928 사장 '보더 빼줘') — 흐림 + 옅은 흰 그라데이션 + 아주 옅은 그림자만
+// 어두운 흐린 유리(260928 사장 '화이트 말고 어두운 블러') · 테두리 선 없이('보더 빼줘') — 흐림 + 짙은 반투명 그라데이션 + 옅은 그림자만
 const GLASS: CSSProperties = {
-  background: 'linear-gradient(135deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)',
-  WebkitBackdropFilter: 'blur(22px) saturate(170%)',
-  backdropFilter: 'blur(22px) saturate(170%)',
-  boxShadow: '0 10px 28px rgba(0,0,0,0.12)',
+  background: 'linear-gradient(135deg, rgba(14,16,22,0.5) 0%, rgba(14,16,22,0.32) 100%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(160%)',
+  backdropFilter: 'blur(24px) saturate(160%)',
+  boxShadow: '0 10px 28px rgba(0,0,0,0.18)',
 };
 
 export default function BannerPhotoStrip({
@@ -65,7 +65,7 @@ export default function BannerPhotoStrip({
             draggable={false}
             aria-label={p.label ? `${p.label} 보기` : '사진 보기'}
             // 1024~1279 는 배너가 좁아(484~592px) 48 — 줄이 배너 폭의 2/3 안쪽에서 끝나야 오른쪽 아래 로고를 안 가린다
-            className="group/ph relative aspect-square w-[48px] shrink-0 overflow-hidden rounded-[9px] bg-white/20 transition-transform duration-300 hover:-translate-y-0.5 xl:w-[64px] xl:rounded-[10px]"
+            className="group/ph relative aspect-square w-[48px] shrink-0 overflow-hidden rounded-[9px] bg-black/20 transition-transform duration-300 hover:-translate-y-0.5 xl:w-[64px] xl:rounded-[10px]"
             style={active ? { animation: `bannerThumbIn 0.62s cubic-bezier(0.34, 1.36, 0.64, 1) ${0.4 + i * 0.06}s both` } : undefined}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -92,9 +92,9 @@ export default function BannerPhotoStrip({
           href={strip.moreHref}
           onClick={guard}
           draggable={false}
-          className="group/more flex h-[48px] shrink-0 items-center gap-0.5 rounded-[9px] pl-2.5 pr-1.5 text-[14px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/15 xl:h-[64px] xl:pl-3 xl:pr-2 xl:text-[15px]"
+          className="group/more flex h-[48px] shrink-0 items-center gap-0.5 rounded-[9px] pl-2.5 pr-1.5 text-[14px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/10 xl:h-[64px] xl:pl-3 xl:pr-2 xl:text-[15px]"
           style={{
-            textShadow: '0 1px 6px rgba(0,0,0,0.25)',
+            textShadow: '0 1px 4px rgba(0,0,0,0.2)',
             ...(active ? { animation: `bannerThumbIn 0.62s cubic-bezier(0.22, 1, 0.36, 1) ${0.4 + strip.photos.length * 0.06}s both` } : {}),
           }}
         >
