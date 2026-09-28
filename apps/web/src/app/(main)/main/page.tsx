@@ -57,14 +57,6 @@ const OFFICIAL_OPEN_MODAL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
 const POPUP_SEEN_KEY = 'freetiful-popup-seen-session';
 const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
 
-/* iOS WKWebView 감지 — autoplay 영상 강제 풀스크린 우회용 */
-function isIOSWebView(): boolean {
-  if (typeof window === 'undefined') return false;
-  const ua = navigator.userAgent;
-  // iOS 네이티브 WebView: Safari 토큰 없음 + iPhone/iPad/iPod UA
-  return /iPhone|iPad|iPod/.test(ua) && !/Safari/.test(ua) && !/CriOS/.test(ua);
-}
-
 /* ─── 홈 애니메이션은 세션 첫 진입 때만 실행 ───────────────────── */
 let _homeSkipPrepared = false;
 let _homeSkipValue = false;
@@ -769,8 +761,8 @@ const BANNERS = [
  * 퀵매칭 사진은 파란 꽃 여자 사회자로 교체(260927). 260928 사장: 설명 줄을 빼고 제목 위 작은 글씨(kicker)로 — '결혼식사회자 / 퀵매칭', '예비부부 커뮤니티 / 웨딩숲'.
  */
 const HOME_SHORTCUTS = [
-  { href: '/quick-match', image: '/images/home/shortcut-quick-match-blue.webp', kicker: '결혼식사회자', title: '퀵매칭', cta: '빠른찾기' },
-  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', kicker: '예비부부 커뮤니티', title: '웨딩숲', cta: '구경하기' },
+  { href: '/quick-match', image: '/images/home/shortcut-quick-match-blue.webp', tallImage: '/images/home/pc-quick-match-tall.webp', kicker: '결혼식사회자', title: '퀵매칭', cta: '빠른찾기' },
+  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', tallImage: '/images/home/pc-wedding-forest-tall.webp', kicker: '예비부부 커뮤니티', title: '웨딩숲', cta: '구경하기' },
 ];
 
 /**
@@ -986,18 +978,60 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
   );
 }
 
-const HOME_TOP_BANNERS: { id: string; image: string; alt: string; title?: string[]; href?: string; action?: 'signup' }[] = [
+const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup' }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
-  { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
-  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
-  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
-  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
-  { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
+  // pcImage = PC 첫 화면 4:3 판(260928 사장 — 빌라드지디·슈슈몽드·세라미크는 로고만 든 사진, 제목은 같은 웹 글자로).
+  { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', pcImage: '/images/banners/pc-hero-villadegd.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
+  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
+  { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', pcImage: '/images/banners/pc-hero-ceramique.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
-function HomeTopBanner() {
+/**
+ * PC 첫 화면 오른쪽 세로 카드(퀵매칭·웨딩숲) — 260928 사장 '오늘의집 첫 화면처럼, 오른쪽 버튼 2개 같은 비율, 모서리는 모바일과 같게'.
+ * 사장이 준 세로 사진(907:1735)을 그대로 비율로 쓰고, 글씨(작은 글씨·제목·유리 버튼)는 위쪽 — 모바일 바로가기와 같은 문구.
+ * 마우스를 올리면 사진이 천천히 살짝 커진다.
+ */
+function PcHeroCard({ href, tallImage, kicker, title, cta }: (typeof HOME_SHORTCUTS)[number]) {
+  return (
+    <Link
+      href={href}
+      className="group relative block min-w-0 overflow-hidden rounded-[5px] bg-[#F2F4F6] transition-transform duration-200 active:scale-[0.98]"
+      style={{ aspectRatio: '907 / 1735' }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={tallImage}
+        alt=""
+        width={600}
+        height={1148}
+        decoding="async"
+        draggable={false}
+        className="absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
+      />
+      {/* 위쪽만 옅게 어둡게 — 밝은 하늘·숲 빛에서도 흰 글씨가 읽히게 */}
+      <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0) 52%)' }} />
+      <div className="absolute inset-x-0 top-0 p-6 text-left" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.22)' }}>
+        <p className="break-keep text-[15px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{kicker}</p>
+        <p className="text-[27px] font-bold leading-[1.3] tracking-[-0.6px] text-white">{title}</p>
+        <span
+          className="mt-3.5 inline-flex h-[32px] w-fit items-center gap-0.5 rounded-full pl-3.5 pr-2.5 text-[14px] font-semibold tracking-[-0.2px] text-white"
+          style={{ backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)', textShadow: 'none' }}
+        >
+          {cta}
+          <ChevronRight size={16} />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
+  // PC 첫 화면 왼쪽 배너도 이 컴포넌트(4:3 판 사진·큰 제목) — 넘김·제목 페이드 업·인디케이터는 모바일과 같다
+  const pc = variant === 'pc';
   const router = useRouter();
   const authUser = useAuthStore((st) => st.user);
   const skipAnim = useHomeAnimationSkip();
@@ -1050,12 +1084,12 @@ function HomeTopBanner() {
     // 첫 진입 등장 — 위에서부터 차례로(퀵매칭 → 웨딩숲 → 카테고리 칸 → 배너), 세션 첫 진입 때만(260926 사장)
     <div
       data-hswipe-ignore
-      className={`-mt-1.5 px-[10px] ${skipAnim ? '' : 'opacity-0'}`}
-      style={skipAnim ? undefined : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards' }}
+      className={pc ? 'min-w-0' : `-mt-1.5 px-[10px] ${skipAnim ? '' : 'opacity-0'}`}
+      style={pc || skipAnim ? undefined : { animation: 'fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards' }}
     >
       <div
         className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
-        style={{ aspectRatio: '8 / 3', touchAction: 'pan-y' }}
+        style={{ aspectRatio: pc ? '4 / 3' : '8 / 3', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
           startRef.current = { x: e.clientX, y: e.clientY };
           setDrag(0);
@@ -1094,15 +1128,19 @@ function HomeTopBanner() {
               style={{ width: `${100 / count}%` }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={b.image} alt={b.alt} width={1200} height={450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
+              <img src={pc ? b.pcImage : b.image} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
               {b.title && (
                 <>
-                  {/* 왼쪽만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결) */}
-                  <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0) 70%)' }} />
+                  {/* 왼쪽(PC 는 왼쪽 위)만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결) */}
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{ background: pc ? 'linear-gradient(160deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.12) 34%, rgba(0,0,0,0) 58%)' : 'linear-gradient(90deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0) 70%)' }}
+                  />
                   <span
                     key={i === idx ? `on-${turn}` : 'off'}
                     aria-hidden
-                    className="pointer-events-none absolute left-5 top-[14px] text-left text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white"
+                    className={`pointer-events-none absolute text-left font-bold text-white ${pc ? 'left-9 top-8 text-[32px] leading-[1.32] tracking-[-0.7px]' : 'left-5 top-[14px] text-[21px] leading-[1.35] tracking-[-0.4px]'}`}
                     style={{
                       textShadow: '0 1px 8px rgba(0,0,0,0.22)',
                       ...(i === idx
@@ -1120,7 +1158,7 @@ function HomeTopBanner() {
         {/* 인디케이터 — 왼쪽 아래 길고 얇은 선(반투명 흰 선 위를 흰 막대가 지금 장으로 미끄러진다, 260926 사장 "1/5 말고 길고 얇은 선을 좌측에") */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-[14px] left-[14px] h-[2px] w-[80px] overflow-hidden rounded-full bg-white/35"
+          className={`pointer-events-none absolute h-[2px] overflow-hidden rounded-full bg-white/35 ${pc ? 'bottom-4 left-6 w-[96px]' : 'bottom-[14px] left-[14px] w-[80px]'}`}
           style={{ filter: 'drop-shadow(0 0 1px rgba(0, 0, 0, 0.18))' }}
         >
           <div
@@ -2236,59 +2274,6 @@ export default function HomePage() {
     return () => { clearTimeout(t1); clearTimeout(t2); try { delete (window as any).__freetifulHomeRowsPost; delete (window as any).__freetifulHomeSectionsPost; } catch {} };
   }, []);
 
-  /* hero 자동재생 영상 — iOS WebView는 autoPlay가 fullscreen 강제 트리거하므로
-     PC/일반 브라우저에서만 안전하게 재생을 재시도한다. */
-  const heroVideoRefs = useRef<HTMLVideoElement[]>([]);
-  const heroVideoCleanupRefs = useRef<WeakMap<HTMLVideoElement, () => void>>(new WeakMap());
-  const startHeroVideo = (video: HTMLVideoElement) => {
-    if (isIOSWebView() || typeof document === 'undefined') return;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.loop = true;
-    video.autoplay = true;
-    video.preload = 'auto';
-    video.playsInline = true;
-    video.setAttribute('muted', '');
-    video.setAttribute('playsinline', '');
-    video.setAttribute('webkit-playsinline', 'true');
-    video.play().catch(() => undefined);
-  };
-  const wireHeroVideoRetry = (video: HTMLVideoElement) => {
-    if (heroVideoCleanupRefs.current.has(video)) return;
-    const retry = () => startHeroVideo(video);
-    video.addEventListener('loadeddata', retry);
-    video.addEventListener('canplay', retry);
-    video.addEventListener('stalled', retry);
-    heroVideoCleanupRefs.current.set(video, () => {
-      video.removeEventListener('loadeddata', retry);
-      video.removeEventListener('canplay', retry);
-      video.removeEventListener('stalled', retry);
-    });
-  };
-  const registerHeroVideo = (node: HTMLVideoElement | null) => {
-    if (!node || heroVideoRefs.current.includes(node)) return;
-    heroVideoRefs.current.push(node);
-    wireHeroVideoRetry(node);
-    startHeroVideo(node);
-  };
-  useEffect(() => {
-    if (isIOSWebView()) return;
-    const videos = heroVideoRefs.current.filter(Boolean);
-    videos.forEach(startHeroVideo);
-
-    const retryVisibleVideos = () => {
-      if (document.hidden) return;
-      heroVideoRefs.current.forEach(startHeroVideo);
-    };
-
-    document.addEventListener('visibilitychange', retryVisibleVideos);
-    window.addEventListener('focus', retryVisibleVideos);
-    return () => {
-      document.removeEventListener('visibilitychange', retryVisibleVideos);
-      window.removeEventListener('focus', retryVisibleVideos);
-      heroVideoRefs.current.forEach((video) => heroVideoCleanupRefs.current.get(video)?.());
-    };
-  }, []);
 
 
   // Fetch pro list from API
@@ -2474,12 +2459,7 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
-  const [bannerIdx, setBannerIdx] = useState(0);
-  const [bannerDragOffset, setBannerDragOffset] = useState(0);
-  const bannerPointerStartRef = useRef<{ x: number; y: number; active: boolean } | null>(null);
-  const bannerSwipeLockRef = useRef(false);
-
-  // 배너: DB → API, 실패 시 하드코딩 폴백
+  // 관리자 배너(DB, placement=home) — 옛 iOS 네이티브 홈(2.1.10 이하)만 쓴다(nativeHomeBanners 브리지). 웹 PC·모바일 첫 화면은 HOME_TOP_BANNERS(260928).
   const [banners, setBanners] = useState(BANNERS);
   useEffect(() => {
     let cancelled = false;
@@ -2497,14 +2477,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const timer = setInterval(() => {
-      setBannerIdx((i) => (bannerPointerStartRef.current?.active ? i : (i + 1) % banners.length));
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [banners.length]);
-
   // iOS 네이티브 홈 배너 데이터 브리지 (B6) — 배너 로드/변경 시 푸시
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2519,20 +2491,6 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, [banners]);
 
-  const moveBanner = (direction: 1 | -1, length = banners.length) => {
-    if (length <= 1) return;
-    setBannerIdx((current) => (current + direction + length) % length);
-  };
-
-  const finishBannerSwipe = (dx: number, dy: number, length = banners.length) => {
-    setBannerDragOffset(0);
-    if (Math.abs(dx) < 34 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-    bannerSwipeLockRef.current = true;
-    moveBanner(dx < 0 ? 1 : -1, length);
-    window.setTimeout(() => { bannerSwipeLockRef.current = false; }, 260);
-  };
-  const desktopHeroBanners = banners.length > 0 ? banners : BANNERS;
-  const desktopHeroBannerIdx = bannerIdx % desktopHeroBanners.length;
   const headerRef = useRef<HTMLDivElement>(null);
   const rankScrollRef = useRef<HTMLDivElement>(null);
   const [headerH, setHeaderH] = useState(56);
@@ -2923,146 +2881,11 @@ export default function HomePage() {
           </Reveal>
 
           <Reveal delay={150} className="relative z-10">
-            <div className="mx-auto mb-8 grid max-w-6xl grid-cols-[minmax(480px,1.95fr)_1fr_1fr] gap-4">
-              <div
-                className="group relative h-[140px] select-none overflow-hidden rounded-2xl shadow-sm"
-                style={{ touchAction: 'pan-y' }}
-                onPointerDown={(e) => {
-                  if (desktopHeroBanners.length <= 1) return;
-                  bannerPointerStartRef.current = { x: e.clientX, y: e.clientY, active: true };
-                  setBannerDragOffset(0);
-                  if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
-                }}
-                onPointerMove={(e) => {
-                  const start = bannerPointerStartRef.current;
-                  if (!start?.active) return;
-                  const dx = e.clientX - start.x;
-                  const dy = e.clientY - start.y;
-                  if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
-                  setBannerDragOffset(Math.max(-110, Math.min(110, dx)));
-                }}
-                onPointerUp={(e) => {
-                  const start = bannerPointerStartRef.current;
-                  if (!start?.active) return;
-                  bannerPointerStartRef.current = null;
-                  finishBannerSwipe(e.clientX - start.x, e.clientY - start.y, desktopHeroBanners.length);
-                }}
-                onPointerCancel={() => {
-                  bannerPointerStartRef.current = null;
-                  setBannerDragOffset(0);
-                }}
-              >
-                <div
-                  className="flex h-full"
-                  style={{
-                    width: `${desktopHeroBanners.length * 100}%`,
-                    transform: `translateX(-${desktopHeroBannerIdx * (100 / desktopHeroBanners.length)}%) translateX(${bannerDragOffset}px)`,
-                    transition: bannerDragOffset === 0 ? 'transform 0.62s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-                  }}
-                >
-                  {desktopHeroBanners.map((banner, index) => (
-                    <div
-                      key={banner.id || index}
-                      className="h-full shrink-0 cursor-pointer"
-                      style={{ width: `${100 / desktopHeroBanners.length}%` }}
-                      onClick={() => {
-                        if (bannerSwipeLockRef.current) return;
-                        const link = (banner as any).linkUrl;
-                        if (!link) return;
-                        if (/^https?:\/\//.test(link)) window.open(link, '_blank');
-                        else window.location.href = link;
-                      }}
-                    >
-                      {banner.image ? (
-                        <img
-                          src={banner.image}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className={`flex h-full w-full items-center px-6 ${banner.bgColor || 'bg-[#2B313D]'}`}>
-                          <div className="text-left">
-                            <p className="text-[13px] font-medium text-white/80">{banner.title}</p>
-                            <p className="mt-1 text-[20px] font-bold text-white">{banner.subtitle}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <div className="absolute bottom-3 right-4 rounded-full bg-black/30 px-2.5 py-1 text-[11px] font-medium text-white">
-                  {desktopHeroBannerIdx + 1} / {desktopHeroBanners.length}
-                </div>
-              </div>
-
-              <Link
-                href="/wedding-mc"
-                className="group relative h-[140px] flex-1 overflow-hidden rounded-2xl shadow-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
-              >
-                <video
-                  ref={registerHeroVideo}
-                  src="/images/reference-video-1775801211148.mp4#t=0.001"
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                  controls={false}
-                  disablePictureInPicture
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/35 to-transparent" />
-                <span className="absolute right-3 top-3 rounded-full bg-[#2B313D] px-3 py-1 text-[11px] font-bold text-white">빠른무료견적</span>
-                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                  <div>
-                    <span className="block text-[18px] font-bold leading-tight text-[#2B313D]">전문결혼식</span>
-                    <span className="block text-[18px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
-                  </div>
-                  <ChevronRight size={22} className="shrink-0 text-[#2B313D]/80" />
-                </div>
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => router.push('/corporate-mc')}
-                className="group relative flex h-[140px] flex-1 items-center gap-3 overflow-visible rounded-2xl border border-gray-200 bg-white py-3 pl-2 pr-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
-              >
-                <span className="event-biz-float-bubble absolute -top-5 right-4 z-30 rounded-full bg-[#3180F7] px-3.5 py-1.5 text-[11px] font-bold leading-none text-white">
-                  Biz
-                </span>
-                <video
-                  ref={registerHeroVideo}
-                  src="/images/kling_20260410_作品_A_specific_3877_0.mp4#t=0.001"
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                  controls={false}
-                  disablePictureInPicture
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  className="relative z-10 -ml-3 h-[112px] w-[112px] shrink-0 rounded-2xl object-cover"
-                  style={{ transition: 'opacity 0.2s ease' }}
-                  onTimeUpdate={(e) => {
-                    const v = e.currentTarget;
-                    if (v.duration - v.currentTime <= 0.2) {
-                      v.style.opacity = `${(v.duration - v.currentTime) / 0.2}`;
-                    } else if (v.currentTime <= 0.2) {
-                      v.style.opacity = `${v.currentTime / 0.2}`;
-                    } else {
-                      v.style.opacity = '1';
-                    }
-                  }}
-                />
-                <div className="relative z-10 min-w-0 flex-1 text-left">
-                  <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">전문행사</span>
-                  <span className="block whitespace-nowrap text-[20px] font-bold leading-tight text-[#2B313D]">사회자 찾기</span>
-                </div>
-              </button>
+            {/* PC 첫 화면(260928 사장, 오늘의집 첫 화면 참고) — 왼쪽 4:3 배너(모바일과 같은 5장, 4:3 판) + 오른쪽 세로 카드 2개(퀵매칭·웨딩숲, 907:1735 같은 비율).
+                칸 너비를 각 비율(4/3 · 907/1735 · 907/1735)로 나눠 세 칸 높이가 딱 맞는다. 모서리 5 = 모바일과 같게. */}
+            <div className="mx-auto mb-8 grid max-w-6xl gap-4" style={{ gridTemplateColumns: '1.3333fr 0.5228fr 0.5228fr' }}>
+              <HomeTopBanner variant="pc" />
+              {HOME_SHORTCUTS.map((b) => <PcHeroCard key={b.href} {...b} />)}
             </div>
           </Reveal>
 
