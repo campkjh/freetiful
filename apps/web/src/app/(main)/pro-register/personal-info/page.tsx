@@ -2,12 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Check } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RegisterShell, RgChip, RgCta, RgField, RgOption } from '../_components/RegisterKit';
 
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
 const EVENT_TAGS = ['기업행사', '컨퍼런스/세미나', '체육대회', '송년회/시무식', '레크리에이션', '팀빌딩', '라이브커머스', '기업PT', '축제/페스티벌', '공식행사'];
 const OTHER_TAGS = ['레슨/클래스', '쇼호스트', '축가/연주'];
+/** 전문영역 칩 묶음(줄 제목 + 칩) */
+const TAG_GROUPS = [
+  { label: '웨딩 · 가족행사', tags: WEDDING_TAGS },
+  { label: '기업 · 공식행사', tags: EVENT_TAGS },
+  { label: '기타', tags: OTHER_TAGS },
+];
 
 export default function PersonalInfoPage() {
   const router = useRouter();
@@ -74,157 +81,73 @@ export default function PersonalInfoPage() {
   };
 
   return (
-    <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
-      {/* Header — fixed */}
-      <div className="shrink-0 px-6 pt-4 pb-4">
-        <motion.button onClick={() => router.back()} className="mb-4" whileTap={{ scale: 0.9 }}>
-          <ChevronLeft size={24} className="text-gray-900" />
-        </motion.button>
-        {/* Progress bar */}
-        <div className="relative h-[3px] bg-gray-100 rounded-full overflow-hidden mb-2">
-          <motion.div
-            className="absolute left-0 top-0 h-full bg-[#3180F7] rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${(2 / 6) * 100}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-          />
-        </div>
-        <motion.h1
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-2xl font-bold text-gray-900"
-        >
-          개인정보 <span className="text-[11px] text-gray-400">2/6</span>
-        </motion.h1>
-      </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-[100px] left-1/2 -translate-x-1/2 bg-white px-6 py-3.5 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50"
-          >
-            <p className="text-sm font-medium text-gray-900">{toast}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Form — scrollable */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {/* 이름 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-8">
-          {name && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">이름</label>}
+    <>
+      <RegisterShell step={2} title="개인정보" cta={<RgCta disabled={!isFormValid} onClick={handleNext}>다음</RgCta>}>
+        <RgField label="이름">
           <input
             type="text"
             value={name}
             onChange={(e) => { if (e.target.value.length <= 4) setName(e.target.value); }}
             maxLength={4}
             placeholder="이름 (최대 4자)"
-            className={`w-full text-[16px] font-semibold outline-none pb-2 transition-all placeholder:text-gray-300 ${
-              name ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-900'
-            } focus:border-b-2 focus:border-[#3180F7]`}
+            className="qd-input"
           />
-        </motion.div>
+        </RgField>
 
-        {/* 전화번호 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-          {phone && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">전화번호</label>}
+        <RgField label="전화번호">
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
             placeholder="010-0000-0000"
-            className={`w-full text-[16px] font-semibold outline-none pb-2 transition-all ${
-              phone ? 'border-b-2 border-[#3180F7] text-gray-900' : 'border-b border-gray-300 text-gray-400'
-            } focus:border-b-2 focus:border-[#3180F7]`}
+            className="qd-input"
           />
-        </motion.div>
+        </RgField>
 
-        {/* 성별 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-8">
-          {gender && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">성별</label>}
-          <motion.button
-            onClick={() => setShowGenderSheet(true)}
-            whileTap={{ scale: 0.99 }}
-            className={`w-full flex items-center justify-between pb-2 transition-all ${
-              gender ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
-            }`}
-          >
-            <span className={`text-[16px] font-semibold ${gender ? 'text-gray-900' : 'text-gray-400'}`}>
-              {gender || '성별을 선택해주세요'}
-            </span>
-            <ChevronDown size={20} className="text-gray-400" />
-          </motion.button>
-        </motion.div>
+        <RgField label="성별">
+          <SheetField value={gender} placeholder="성별을 선택해주세요" open={showGenderSheet} onClick={() => setShowGenderSheet(true)} />
+        </RgField>
 
-        {/* 사회자분류 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mb-10">
-          {category && <label className="block text-xs mb-1 text-[#3180F7] transition-colors">사회자분류</label>}
-          <motion.button
-            onClick={() => setShowCategorySheet(true)}
-            whileTap={{ scale: 0.99 }}
-            className={`w-full flex items-center justify-between pb-2 transition-all ${
-              category ? 'border-b-2 border-[#3180F7]' : 'border-b border-gray-300 focus:border-b-2 focus:border-[#3180F7]'
-            }`}
-          >
-            <span className={`text-[16px] font-semibold ${category ? 'text-gray-900' : 'text-gray-400'}`}>
-              {displayCategory() || '사회자분류를 선택해주세요'}
-            </span>
-            <ChevronDown size={20} className="text-gray-400" />
-          </motion.button>
-        </motion.div>
+        <RgField label="사회자분류">
+          <SheetField value={displayCategory()} placeholder="사회자분류를 선택해주세요" open={showCategorySheet} onClick={() => setShowCategorySheet(true)} />
+        </RgField>
 
-        {/* [필수]전문영역 */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-6">
-          <p className="text-sm font-bold text-gray-900 mb-1">[필수]전문영역</p>
-          <p className="text-xs text-gray-400 mb-4">가능한 분야를 모두 선택해주세요</p>
-
-          {/* 웨딩/가족행사 */}
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">웨딩 · 가족행사</p>
-          <div className="flex flex-wrap gap-2 mb-5">
-            {WEDDING_TAGS.map((cat, i) => (
-              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.4 + i * 0.03} />
+        <RgField label={<>전문영역<span className="ml-1.5 text-[13px] font-semibold text-[#3182F6]">필수</span></>}>
+          <p className="mb-4 text-[13px] leading-[1.5] text-[#8B95A1]">가능한 분야를 모두 선택해주세요</p>
+          <div className="space-y-5">
+            {TAG_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="mb-2.5 text-[13px] font-medium text-[#8B95A1]">{group.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {group.tags.map((cat) => (
+                    <RgChip key={cat} on={selectedCategories.includes(cat)} onClick={() => toggleCategory(cat)}>
+                      {cat}
+                    </RgChip>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
+        </RgField>
+      </RegisterShell>
 
-          {/* 기업/공식행사 */}
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기업 · 공식행사</p>
-          <div className="flex flex-wrap gap-2 mb-5">
-            {EVENT_TAGS.map((cat, i) => (
-              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.5 + i * 0.03} />
-            ))}
+      {/* 토스트 — 앱 공통 토스트(AppToaster)와 같은 흰 유리 알약, 오류라 빨간 글자. 가운데 정렬은 감싼 칸이 맡는다(framer transform 이 translate 를 덮어써서) */}
+      <AnimatePresence>
+        {toast && (
+          <div className="pointer-events-none fixed inset-x-0 top-6 z-50 flex justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0, y: -16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+              role="alert"
+              className="rounded-[20px] border-[0.6px] border-[#E5E9F0]/90 bg-white/[.92] px-[18px] py-[13px] text-[14px] font-bold leading-[1.35] text-[#E5484D] shadow-[0_18px_42px_rgba(15,23,42,0.14)] backdrop-blur-[18px]"
+            >
+              {toast}
+            </motion.div>
           </div>
-
-          {/* 기타 */}
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">기타</p>
-          <div className="flex flex-wrap gap-2">
-            {OTHER_TAGS.map((cat, i) => (
-              <TagChip key={cat} label={cat} selected={selectedCategories.includes(cat)} onToggle={() => toggleCategory(cat)} delay={0.6 + i * 0.03} />
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Next Button — fixed bottom */}
-      <div className="shrink-0 p-6 pb-8 bg-white">
-        <motion.button
-          onClick={handleNext}
-          disabled={!isFormValid}
-          whileTap={{ scale: 0.96 }}
-          animate={{
-            backgroundColor: isFormValid ? '#3180F7' : '#F3F4F6',
-            color: isFormValid ? '#FFFFFF' : '#9CA3AF',
-          }}
-          transition={{ duration: 0.25 }}
-          className="w-full py-4 rounded-2xl font-bold text-base"
-        >
-          다음
-        </motion.button>
-      </div>
+        )}
+      </AnimatePresence>
 
       {/* 성별 선택 바텀시트 — 등장·퇴장은 framer 가 맡아 ft 자체 CSS 애니는 끔 */}
       <AnimatePresence>
@@ -249,21 +172,12 @@ export default function PersonalInfoPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="ft-grab" aria-hidden="true" />
-              <h2 className="ft-title !mb-6">성별을 선택해주세요.</h2>
-              {['남성', '여성'].map((g) => (
-                <motion.button
-                  key={g}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => { setGender(g); setShowGenderSheet(false); }}
-                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
-                    gender === g
-                      ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
-                      : 'bg-white border-2 border-gray-200 text-gray-400'
-                  }`}
-                >
-                  {g}
-                </motion.button>
-              ))}
+              <h2 className="ft-title">성별을 선택해주세요.</h2>
+              <div className="rg-list mt-6" role="radiogroup" aria-label="성별">
+                {['남성', '여성'].map((g) => (
+                  <RgOption key={g} role="radio" on={gender === g} onClick={() => { setGender(g); setShowGenderSheet(false); }} label={g} />
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -293,45 +207,33 @@ export default function PersonalInfoPage() {
             >
               <div className="ft-grab" aria-hidden="true" />
               <h2 className="ft-title">사회자분류를 선택해주세요.</h2>
-              <p className="ft-desc !mb-6">선택한 사회자분류로 활동이 가능합니다.</p>
-              {['사회자', '쇼호스트', '축가/연주'].map((item) => (
-                <motion.button
-                  key={item}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => { setCategory(item); setShowCategorySheet(false); }}
-                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
-                    category === item
-                      ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7] font-medium'
-                      : 'bg-white border-2 border-gray-200 text-gray-400'
-                  }`}
-                >
-                  {item}
-                </motion.button>
-              ))}
+              <p className="ft-desc">선택한 사회자분류로 활동이 가능합니다.</p>
+              <div className="rg-list mt-6" role="radiogroup" aria-label="사회자분류">
+                {['사회자', '쇼호스트', '축가/연주'].map((item) => (
+                  <RgOption key={item} role="radio" on={category === item} onClick={() => { setCategory(item); setShowCategorySheet(false); }} label={item} />
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 
-function TagChip({ label, selected, onToggle, delay }: { label: string; selected: boolean; onToggle: () => void; delay: number }) {
+/** 시트로 고르는 칸 — 입력칸(.qd-input)과 같은 모양 + 꺾쇠. 시트가 떠 있는 동안은 파란 테두리·꺾쇠 뒤집힘 */
+function SheetField({ value, placeholder, open, onClick }: { value: string; placeholder: string; open: boolean; onClick: () => void }) {
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay }}
-      whileTap={{ scale: 0.93 }}
-      onClick={onToggle}
-      className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-colors"
-      style={{
-        backgroundColor: selected ? '#3180F7' : '#FFFFFF',
-        color: selected ? '#FFFFFF' : '#4B5563',
-        border: selected ? '1px solid #3180F7' : '1px solid #D1D5DB',
-      }}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      className="qd-input flex items-center justify-between gap-3 text-left"
+      style={open ? { borderColor: '#3182F6' } : undefined}
     >
-      {label}
-    </motion.button>
+      <span className={`min-w-0 truncate ${value ? 'text-[#191F28]' : 'text-[#B0B8C1]'}`}>{value || placeholder}</span>
+      <ChevronDown size={20} className={`flex-none text-[#B0B8C1] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+    </button>
   );
 }
