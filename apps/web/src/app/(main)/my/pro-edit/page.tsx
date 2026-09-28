@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronDown, ChevronUp, Plus, X, Check, Star } from 'lucide-react';
-import { MyDetailHeader } from '../_components/detail-ui';
+import { AnimatePresence, MotionConfig, motion, type Transition } from 'framer-motion';
+import { MyDetailHeader, QdBackIcon, QdBody } from '../_components/detail-ui';
+import { RgChip, RgCta, RgField, RgOption, RgToggle } from '../../pro-register/_components/RegisterKit';
+import { CameraIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, CloseIcon, LockIcon, StarIcon } from '@/components/icons/mono';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { prosApi } from '@/lib/api/pros.api';
 import { usersApi } from '@/lib/api/users.api';
@@ -257,38 +260,84 @@ async function normalizeProfilePhoto(file: File): Promise<ProPhotoItem> {
   }
 }
 
-/* ─── Section wrapper ─── */
-function Section({ title, defaultOpen = false, index = 0, children }: { title: string; defaultOpen?: boolean; index?: number; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  // 퀵매칭 카드(1.5px 테두리 · 모서리 16) — 위에서부터 오른쪽→왼쪽으로 차례로 들어온다
+/* ─── 화면 부품 — 퀵매칭 어법(260928 사장 "태그·버튼·토글 전부 지금 톤앤매너·애니메이션에 맞게").
+   칩·선택 카드·스위치·입력 묶음·버튼은 RegisterKit(파트너 신청과 공통), 여기엔 이 화면에만 쓰는 것만 ─── */
+const SHEET_SPRING: Transition = { type: 'spring', stiffness: 380, damping: 36, mass: 0.9 };
+const POP_SPRING: Transition = { type: 'spring', stiffness: 520, damping: 26 };
+// 상세설명 서식 도구 버튼(폭 32 — 묶음 다섯 개가 375 폭에서 두 줄에 들어간다)
+const TOOL_BTN = 'flex h-9 min-w-[32px] items-center justify-center rounded-[10px] px-1.5 text-[#4E5968] transition-colors active:bg-[#E5E8EB] lg:hover:bg-[#EEF0F3]';
+
+/** 묶음 — 제목 18 · 회색 설명 · 오른쪽 보조(개수) + 내용. QdBody 직계 칸이라 차례로 들어온다 */
+function EditSection({ title, desc, aside, children }: { title: string; desc?: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="qd-card qd-a-item mx-5 mb-3 overflow-hidden" style={{ animationDelay: `${0.3 + Math.min(index, 9) * 0.07}s` }}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex min-h-[60px] w-full items-center justify-between px-[18px] py-4 transition-colors active:bg-[#F8F9FA]"
-      >
-        <span className="text-[17px] font-semibold text-[#333D4B]">{title}</span>
-        {open ? <ChevronUp size={20} className="text-[#B0B8C1]" /> : <ChevronDown size={20} className="text-[#B0B8C1]" />}
-      </button>
-      {open && <div className="px-[18px] pb-5">{children}</div>}
-    </div>
+    <section>
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[18px] font-semibold leading-[1.4] tracking-[-0.3px] text-[#191F28]">{title}</h2>
+          {desc && <p className="mt-1 text-[14px] leading-[1.5] text-[#8B95A1]">{desc}</p>}
+        </div>
+        {aside}
+      </div>
+      {children}
+    </section>
   );
 }
 
-/* ─── Tag chip ─── */
-function TagChip({ label, selected, onToggle }: { label: string; selected: boolean; onToggle: () => void }) {
+/** 'N / 최대' — 채운 수는 파랑(진행 막대 'N / 5' 와 같은 결) */
+function Count({ n, max }: { n: number; max: number }) {
   return (
-    <button
-      onClick={onToggle}
-      className="px-3.5 py-2 rounded-full text-[13px] font-medium transition-colors"
-      style={{
-        backgroundColor: selected ? '#3180F7' : '#FFFFFF',
-        color: selected ? '#FFFFFF' : '#4B5563',
-        border: selected ? '1px solid #3180F7' : '1px solid #D1D5DB',
-      }}
-    >
-      {label}
+    <span className="flex-none text-[14px] font-medium tabular-nums text-[#8B95A1]">
+      <b className={`font-semibold ${n > 0 ? 'text-[#3182F6]' : ''}`}>{n}</b> / {max}
+    </span>
+  );
+}
+
+/** 눌러서 아래 시트로 고르는 칸 — .qd-input 모양 + 오른쪽 꺾쇠 */
+function SheetPicker({ value, placeholder, onClick }: { value?: string; placeholder?: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="qd-input flex items-center justify-between gap-3 text-left active:bg-[#F9FAFB]">
+      <span className={`truncate ${value ? 'text-[#191F28]' : 'text-[#B0B8C1]'}`}>{value || placeholder}</span>
+      <ChevronDownIcon size={22} className="flex-none text-[#B0B8C1]" />
     </button>
+  );
+}
+
+/** 아래 시트 — 스프링으로 올라오고 닫을 땐 내려간다(PC 는 가운데 카드로 떠오름) · 떠 있는 동안 뒤 화면 잠금.
+ *  AI 응답설정 시트(pro-dashboard/inquiries/AiQuoteFab)와 같은 결 — .ft-* 의 CSS 등장은 끄고 framer 로 */
+function Sheet({ open, onClose, className = '', style, children }: { open: boolean; onClose: () => void; className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  useBodyScrollLock(open);
+  const centered = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="scrim"
+          className="ft-scrim"
+          style={{ animation: 'none' }}
+          initial={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
+          animate={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+          exit={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          onClick={onClose}
+        >
+          <motion.div
+            className={`ft-sheet ${className}`}
+            role="dialog"
+            aria-modal="true"
+            style={{ animation: 'none', overscrollBehavior: 'contain', ...style }}
+            initial={centered ? { opacity: 0, y: 18, scale: 0.97 } : { y: '100%' }}
+            animate={centered ? { opacity: 1, y: 0, scale: 1 } : { y: 0 }}
+            exit={centered ? { opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.18 } } : { y: '100%', transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } }}
+            transition={SHEET_SPRING}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* flex 열 시트에서도 손잡이가 눌려 사라지지 않게 shrink-0 */}
+            <div className="ft-grab shrink-0" aria-hidden="true" />
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -423,6 +472,10 @@ export default function ProEditPage() {
   const removeVideo = (url: string) => {
     setVideos((prev) => prev.filter((v) => v !== url));
   };
+
+  // YouTube 검색 닫기(뒤로·완료 공통) — 검색 상태 초기화
+  const closeYoutubeSearch = () => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); };
+  useBodyScrollLock(showYoutubeSearch);   // 전체 화면 검색이 떠 있는 동안 뒤 화면 잠금
 
   /* ── 동영상 파일 직접 업로드 (유튜브 없이) ── */
   const videoFileInputRef = useRef<HTMLInputElement>(null);
@@ -986,314 +1039,226 @@ export default function ProEditPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen max-w-lg mx-auto lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
+    <MotionConfig reducedMotion="user">
+    <div className="mx-auto min-h-screen max-w-lg bg-white lg:max-w-2xl" style={{ letterSpacing: '-0.02em' }}>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
-      {/* ─── Header — 퀵매칭 어법(뒤로 + 큰 제목) ─── */}
+      {/* ─── Header — 퀵매칭 어법(뒤로 + 큰 제목 아래→위 페이드) ─── */}
       <MyDetailHeader title="프로필 수정" sub="고객에게 보이는 사회자 프로필이에요" />
 
-      {/* ─── Toast ─── */}
-      <>
-        {toast && (
-          <div
-            className="fixed top-[70px] left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50"
-          >
-            <p className="text-[14px] font-bold flex items-center gap-2">
-              <Check size={16} className="text-green-400" /> {toast}
-            </p>
-          </div>
-        )}
-      </>
-
-      {/* ─── 1. 기본 정보 ─── */}
-      <Section index={0} title="기본 정보" defaultOpen={true}>
-        <div className="space-y-4">
-          {/* 이름 (read-only) */}
-          <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">이름</label>
-            <div className="w-full h-11 bg-gray-50 rounded-xl px-4 flex items-center text-[15px] text-gray-500">
-              {name || '-'}
+      {/* ─── 본문 — 묶음(직계 칸)이 오른쪽→왼쪽으로 차례 등장. 시트·토스트는 밖에(안에 두면 늦게 미끄러진다) ─── */}
+      <QdBody className="space-y-11 px-6 pb-8 pt-1">
+        {/* ─── 1. 기본 정보 ─── */}
+        <EditSection title="기본 정보">
+          <RgField label="이름" hint={<span className="inline-flex items-center gap-1"><LockIcon size={12} />이름은 바꿀 수 없어요</span>}>
+            <div className="qd-input flex items-center !bg-[#F9FAFB] !text-[#8B95A1]">
+              <span className="truncate">{name || '-'}</span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">이름은 변경할 수 없습니다</p>
-          </div>
+          </RgField>
 
-          {/* 전화번호 */}
-          <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">전화번호</label>
+          <RgField label="전화번호">
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
               placeholder="010-0000-0000"
-              className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+              className="qd-input"
             />
-          </div>
+          </RgField>
 
-          {/* 성별 (editable) */}
-          <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">성별</label>
-            <div className="flex gap-2">
+          {/* 성별 — 한 번 더 누르면 해제 */}
+          <RgField label="성별">
+            <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="성별">
               {['남성', '여성'].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGender(gender === g ? '' : g)}
-                  className="flex-1 h-11 rounded-xl text-[14px] font-bold border-2 transition-colors"
-                  style={{
-                    backgroundColor: gender === g ? '#EFF6FF' : '#FFFFFF',
-                    borderColor: gender === g ? '#3180F7' : '#E5E7EB',
-                    color: gender === g ? '#3180F7' : '#9CA3AF',
-                  }}
-                >
-                  {g}
-                </button>
+                <RgOption key={g} role="radio" on={gender === g} onClick={() => setGender(gender === g ? '' : g)} label={g} />
               ))}
             </div>
-          </div>
+          </RgField>
 
-          {/* 사회자분류 */}
-          <div>
-            <label className="block text-[12px] font-bold text-gray-400 mb-1.5">사회자분류</label>
-            <button
-              onClick={() => setShowCategorySheet(true)}
-              className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] text-gray-900 active:bg-gray-50 transition-colors"
-            >
-              <span className={category ? 'text-gray-900' : 'text-gray-400'}>{category || '선택해주세요'}</span>
-              <ChevronDown size={18} className="text-gray-400" />
-            </button>
-          </div>
-        </div>
-      </Section>
+          <RgField label="사회자분류">
+            <SheetPicker value={category} placeholder="선택해주세요" onClick={() => setShowCategorySheet(true)} />
+          </RgField>
+        </EditSection>
 
-      <Section index={1} title="프로필 공개 설정" defaultOpen={true}>
-        <button
-          type="button"
-          onClick={handleToggleProfileVisibility}
-          disabled={visibilitySaving}
-          className="flex w-full items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left transition-colors active:bg-gray-50 disabled:cursor-wait disabled:opacity-70"
-        >
-          <div className="pr-4">
-            <p className="text-[15px] font-bold text-gray-900">프로필 숨김</p>
-            <p className="mt-1 text-[12px] leading-5 text-gray-500">
-              켜두면 홈, 리스트, 검색에서 내 프로필이 보이지 않습니다.
-            </p>
-          </div>
-          <div
-            className={`relative h-7 w-12 rounded-full transition-colors ${isProfileHidden ? 'bg-[#111827]' : 'bg-gray-200'}`}
-            aria-hidden="true"
-          >
-            <span
-              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${isProfileHidden ? 'translate-x-6' : 'translate-x-1'}`}
+        {/* ─── 프로필 공개 설정 — 누르는 즉시 서버 반영 ─── */}
+        <EditSection title="프로필 공개 설정">
+          <div className="qd-card px-[18px] py-2.5">
+            <RgToggle
+              checked={isProfileHidden}
+              onChange={() => handleToggleProfileVisibility()}
+              disabled={visibilitySaving}
+              label="프로필 숨김"
+              hint="켜 두면 홈, 리스트, 검색에서 내 프로필이 보이지 않아요"
             />
           </div>
-        </button>
-      </Section>
+        </EditSection>
 
-      {/* ─── 2. 한줄 소개 ─── */}
-      <Section index={2} title="한줄 소개" defaultOpen={true}>
-        <div>
+        {/* ─── 2. 한줄 소개 ─── */}
+        <EditSection title="한줄 소개" aside={<Count n={intro.length} max={50} />}>
           <input
             type="text"
             value={intro}
             onChange={(e) => { if (e.target.value.length <= 50) setIntro(e.target.value); }}
             maxLength={50}
             placeholder="한줄로 자신을 소개해주세요"
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 text-[16px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+            className="qd-input"
           />
-          <p className="text-right text-[11px] text-gray-400 mt-1">{intro.length}/50</p>
-        </div>
-      </Section>
+        </EditSection>
 
-      {/* ─── 3. 경력 ─── */}
-      <Section index={3} title="경력">
-        <div>
-          <button
-            onClick={() => setShowCareerSheet(true)}
-            className="w-full h-11 border border-gray-200 rounded-xl px-4 flex items-center justify-between text-[15px] active:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-900">{careerYears}년</span>
-            <ChevronDown size={18} className="text-gray-400" />
-          </button>
-          {/* Horizontal pill preview */}
-          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-            {[1, 3, 5, 7, 10, 15, 20, 25, 30].map(y => (
-              <button
-                key={y}
-                onClick={() => setCareerYears(y)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors"
-                style={{
-                  backgroundColor: careerYears === y ? '#3180F7' : '#F3F4F6',
-                  color: careerYears === y ? '#FFFFFF' : '#6B7280',
-                }}
-              >
-                {y}년
-              </button>
+        {/* ─── 3. 경력 — 칸을 누르면 1~30년 시트, 아래 칩은 바로 고르기 ─── */}
+        <EditSection title="경력">
+          <SheetPicker value={`${careerYears}년`} onClick={() => setShowCareerSheet(true)} />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[1, 3, 5, 7, 10, 15, 20, 25, 30].map((y) => (
+              <RgChip key={y} on={careerYears === y} onClick={() => setCareerYears(y)}>{y}년</RgChip>
             ))}
           </div>
-        </div>
-      </Section>
+        </EditSection>
 
-      {/* ─── 5. 행사 가능 지역 ─── */}
-      <Section index={4} title="행사 가능 지역">
-        <div className="space-y-2">
-          {REGIONS.map(region => {
-            const selected = selectedRegions.includes(region);
-            return (
-              <button
-                key={region}
-                onClick={() => toggleRegion(region)}
-                className="w-full py-3 rounded-xl text-[14px] font-bold border-2 flex items-center justify-center gap-2 transition-colors"
-                style={{
-                  backgroundColor: selected ? '#EFF6FF' : '#FFFFFF',
-                  borderColor: selected ? '#3180F7' : '#E5E7EB',
-                  color: selected ? '#3180F7' : '#9CA3AF',
-                }}
-              >
-                <>
-                  {selected && (
-                    <span>
-                      <Check size={16} className="text-[#3180F7] stroke-[3]" />
-                    </span>
-                  )}
-                </>
-                {region}
-              </button>
-            );
-          })}
-        </div>
-      </Section>
+        {/* ─── 5. 행사 가능 지역 ─── */}
+        <EditSection title="행사 가능 지역" desc="여러 곳을 고를 수 있어요">
+          <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+            {REGIONS.map((region) => (
+              <RgOption key={region} on={selectedRegions.includes(region)} onClick={() => toggleRegion(region)} label={region} />
+            ))}
+          </div>
+        </EditSection>
 
-      {/* ─── 6. 프로필 사진 ─── */}
-      <Section index={5} title="프로필 사진">
-        <div className="grid grid-cols-3 gap-2.5">
-          {/* Add button */}
-          <button
-            onClick={handleAddPhoto}
-            className="aspect-square bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-[#3180F7] hover:bg-blue-50/30 transition-colors"
-          >
-            <Plus size={22} className="text-gray-400" />
-            <span className="text-[11px] text-gray-400 font-medium">여러 장 추가</span>
-            <span className="text-[10px] text-gray-300">{photos.length}/10</span>
-          </button>
+        {/* ─── 6. 프로필 사진 — 대표는 파란 테두리 + 배지(톡), 나머지는 '대표로' ─── */}
+        <EditSection title="프로필 사진" aside={<Count n={photos.length} max={10} />}>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={handleAddPhoto}
+              className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-[16px] bg-[#F2F4F6] text-[#8B95A1] transition-[transform,background-color] active:scale-[0.97] active:bg-[#E5E8EB] lg:hover:bg-[#EEF0F3]"
+            >
+              <CameraIcon size={26} />
+              <span className="text-[13px] font-semibold text-[#4E5968]">여러 장 추가</span>
+            </button>
 
-          {/* Photos */}
-          {photos.map((photo, index) => (
-            <div key={photo.id || `${photo.url}-${index}`} className="aspect-square relative rounded-xl overflow-hidden group">
-              {/* Main badge */}
-              {mainPhotoIndex === index && (
-                <div className="absolute top-1.5 left-1.5 bg-[#3180F7] text-white text-[10px] px-2 py-0.5 rounded-full z-10 font-bold flex items-center gap-0.5">
-                  <Star size={8} className="fill-white" /> 대표
-                </div>
-              )}
-              <img src={photo.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
-              {/* Overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-center pb-1.5 gap-1.5 opacity-0 group-hover:opacity-100">
-                <button
-                  onClick={() => handleSetMain(index)}
-                  className="px-2 py-1 bg-white/90 backdrop-blur-sm rounded-full text-[10px] font-bold text-gray-700"
-                >
-                  대표설정
-                </button>
-              </div>
-              {/* Delete */}
-              <button
-                onClick={() => handleRemovePhoto(index)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center z-10"
-              >
-                <X size={12} className="text-white stroke-[2.5]" />
-              </button>
-            </div>
-          ))}
-        </div>
-        {photos.length > 0 && (
-          <p className="text-[11px] text-gray-400 mt-2">사진은 한 번에 여러 장 선택할 수 있고, 사진 위에 마우스를 올려 대표 사진을 설정하세요</p>
-        )}
-      </Section>
-
-      {/* ─── 8. 언어 ─── */}
-      <Section index={6} title="언어">
-        <div className="flex flex-wrap gap-2">
-          {LANGUAGES.map(lang => (
-            <TagChip key={lang} label={lang} selected={languages.includes(lang)} onToggle={() => toggleLanguage(lang)} />
-          ))}
-        </div>
-      </Section>
-
-      {/* ─── 10. 소개영상 ─── */}
-      <Section index={7} title="소개영상">
-        <div className="space-y-3">
-          {videos.map((url, i) => {
-            const isUploadedVideo = url.includes('/uploads/');
-            const embedSrc = url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
-            return (
-              <div key={i} className="relative">
-                {isUploadedVideo ? (
-                  <video
-                    src={`${url}#t=0.1`}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="w-full rounded-xl bg-black object-contain"
-                    style={{ maxHeight: '70vh' }}
-                  />
+            {photos.map((photo, index) => (
+              <div key={photo.id || `${photo.url}-${index}`} className="relative aspect-square overflow-hidden rounded-[16px] bg-[#F2F4F6]">
+                <img src={photo.url} alt={`프로필 사진 ${index + 1}`} className="h-full w-full object-cover" />
+                {mainPhotoIndex === index ? (
+                  <>
+                    <motion.span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-[16px] ring-2 ring-inset ring-[#3182F6]"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                    <motion.span
+                      className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-[#3182F6] px-2 py-[3px] text-[11px] font-semibold text-white"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={POP_SPRING}
+                    >
+                      <StarIcon size={10} /> 대표
+                    </motion.span>
+                  </>
                 ) : (
-                  <div className="rounded-xl overflow-hidden bg-gray-100 aspect-video">
-                    <iframe src={embedSrc} className="w-full h-full" allowFullScreen title={`영상 ${i + 1}`} />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSetMain(index)}
+                    className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 text-[12px] font-semibold text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform active:scale-95"
+                  >
+                    대표로
+                  </button>
                 )}
                 <button
                   type="button"
-                  onClick={() => removeVideo(url)}
-                  className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white active:scale-90"
+                  onClick={() => handleRemovePhoto(index)}
+                  aria-label="사진 삭제"
+                  className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition-transform active:scale-90"
                 >
-                  <X size={16} />
+                  <CloseIcon size={14} />
                 </button>
               </div>
-            );
-          })}
-          {/* 영상 추가 버튼 */}
-          <button
-            type="button"
-            onClick={() => setShowYoutubeSearch(true)}
-            className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7] active:scale-[0.98] transition-all"
-          >
-            <Plus size={16} /> 영상 추가 (YouTube 검색)
-          </button>
-          {/* 동영상 파일 직접 업로드 */}
-          <input
-            ref={videoFileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={handleVideoFileSelected}
-          />
-          <button
-            type="button"
-            disabled={videoUploading}
-            onClick={() => videoFileInputRef.current?.click()}
-            className="w-full h-12 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 text-[14px] font-medium text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7] active:scale-[0.98] transition-all disabled:opacity-60 disabled:active:scale-100"
-          >
-            {videoUploading ? (
-              <>
-                <span className="w-4 h-4 rounded-full border-2 border-[#3180F7] border-t-transparent animate-spin" />
-                업로드 중... {videoUploadPct}%
-              </>
-            ) : (
-              <>
-                <Plus size={16} /> 동영상 파일 업로드 (100MB 이하)
-              </>
-            )}
-          </button>
-          {videoUploading && (
-            <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full bg-[#3180F7] rounded-full transition-all" style={{ width: `${videoUploadPct}%` }} />
-            </div>
+            ))}
+          </div>
+          {photos.length > 0 && (
+            <p className="rg-hint">여러 장을 한 번에 고를 수 있어요. ‘대표로’를 누르면 대표 사진이 바뀌어요</p>
           )}
-          {/* URL 직접 입력 */}
-          <div className="flex gap-2">
+        </EditSection>
+
+        {/* ─── 8. 언어 ─── */}
+        <EditSection title="언어" desc="여러 개 고를 수 있어요">
+          <div className="flex flex-wrap gap-2">
+            {LANGUAGES.map((lang) => (
+              <RgChip key={lang} on={languages.includes(lang)} onClick={() => toggleLanguage(lang)}>{lang}</RgChip>
+            ))}
+          </div>
+        </EditSection>
+
+        {/* ─── 10. 소개영상 ─── */}
+        <EditSection title="소개영상">
+          <div className="space-y-2.5">
+            {videos.map((url, i) => {
+              const isUploadedVideo = url.includes('/uploads/');
+              const embedSrc = url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
+              return (
+                <div key={i} className="relative overflow-hidden rounded-[16px] bg-[#F2F4F6]">
+                  {/* 업로드 영상은 원본 비율 그대로(세로 영상 — aspect-video 래퍼 금지) */}
+                  {isUploadedVideo ? (
+                    <video
+                      src={`${url}#t=0.1`}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="block w-full bg-black object-contain"
+                      style={{ maxHeight: '70vh' }}
+                    />
+                  ) : (
+                    <div className="aspect-video">
+                      <iframe src={embedSrc} className="h-full w-full" allowFullScreen title={`영상 ${i + 1}`} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeVideo(url)}
+                    aria-label="영상 삭제"
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white transition-transform active:scale-90"
+                  >
+                    <CloseIcon size={16} />
+                  </button>
+                </div>
+              );
+            })}
+            <RgCta ghost onClick={() => setShowYoutubeSearch(true)}>영상 추가 (YouTube 검색)</RgCta>
+            {/* 동영상 파일 직접 업로드 — 올라가는 만큼 버튼이 연파랑으로 차오른다 */}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={handleVideoFileSelected}
+            />
+            <button
+              type="button"
+              disabled={videoUploading}
+              onClick={() => videoFileInputRef.current?.click()}
+              className="qd-cta ghost relative overflow-hidden disabled:!text-[#3182F6]"
+            >
+              {videoUploading && (
+                <span aria-hidden="true" className="absolute inset-y-0 left-0 bg-[#E8F3FF] transition-[width] duration-300 ease-out" style={{ width: `${videoUploadPct}%` }} />
+              )}
+              <span className="relative flex items-center gap-2">
+                {videoUploading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    업로드 중... {videoUploadPct}%
+                  </>
+                ) : (
+                  '동영상 파일 업로드 (100MB 이하)'
+                )}
+              </span>
+            </button>
+            {/* URL 직접 입력 — 엔터로 추가 */}
             <input
               type="url"
               placeholder="또는 YouTube 링크 직접 입력"
-              className="flex-1 h-11 border border-gray-200 rounded-xl px-4 text-[14px] text-gray-900 outline-none focus:border-[#3180F7] focus:ring-1 focus:ring-[#3180F7]/20 transition-all"
+              className="qd-input"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const val = (e.target as HTMLInputElement).value;
@@ -1302,292 +1267,291 @@ export default function ProEditPage() {
               }}
             />
           </div>
-        </div>
-      </Section>
+        </EditSection>
 
-      {/* YouTube 검색 모달 */}
-      {showYoutubeSearch && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col" style={{ animation: 'slideInRight 0.3s ease' }}>
-          <div className="shrink-0 px-4 pt-4 pb-3 border-b border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <button onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}>
-                <ChevronLeft size={24} className="text-gray-900" />
-              </button>
-              <h2 className="text-[18px] font-bold text-gray-900">YouTube 영상 검색</h2>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={ytChannelQuery}
-                onChange={(e) => setYtChannelQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
-                placeholder="채널명을 검색하세요"
-                className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#3180F7]"
-                autoFocus
-              />
-              <button onClick={searchYtChannels} className="h-11 px-4 bg-[#3180F7] text-white rounded-xl text-[14px] font-bold shrink-0 active:scale-95">
-                검색
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {ytLoading && (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-[#3180F7] border-t-transparent rounded-full animate-spin" />
+        {/* ─── 10-1. 상세설명 (서식 도구 + 에디터 한 칸, 포커스면 파란 테두리) ─── */}
+        <EditSection title="상세설명" desc="프로필 상세페이지에 보이는 자기소개예요">
+          <div className="overflow-hidden rounded-[16px] border-[1.5px] border-[#E5E8EB] transition-colors focus-within:border-[#3182F6]">
+            {/* 서식 도구 — 묶음 단위로만 줄바꿈 · onMouseDown preventDefault 로 에디터 포커스(선택 영역) 유지 */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-[#F2F4F6] bg-[#F9FAFB] px-2 py-1.5">
+              <div className="flex items-center gap-0.5">
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('bold'); }} className={`${TOOL_BTN} text-[15px] font-bold`} title="굵게" aria-label="굵게">B</button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('italic'); }} className={`${TOOL_BTN} text-[15px] italic`} title="기울임" aria-label="기울임">I</button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('underline'); }} className={`${TOOL_BTN} text-[15px] underline`} title="밑줄" aria-label="밑줄">U</button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('strikeThrough'); }} className={`${TOOL_BTN} text-[15px] line-through`} title="취소선" aria-label="취소선">S</button>
               </div>
-            )}
-
-            {!ytSelectedChannel && ytChannels.length > 0 && !ytLoading && (
-              <div className="p-4">
-                <p className="text-[12px] text-gray-400 font-bold uppercase mb-3">채널 선택</p>
-                <div className="space-y-2">
-                  {ytChannels.map((ch) => (
-                    <button
-                      key={ch.id}
-                      onClick={() => loadYtVideos(ch.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 text-left active:scale-[0.98] transition-all"
-                    >
-                      <img src={ch.thumbnail} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-200" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-semibold text-gray-900 truncate">{ch.title}</p>
-                        <p className="text-[12px] text-gray-400 truncate">{ch.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              <div className="flex items-center gap-0.5">
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<h3>'); }} className={`${TOOL_BTN} text-[13px] font-bold`} title="제목" aria-label="제목">H</button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<p>'); }} className={`${TOOL_BTN} text-[13px]`} title="본문" aria-label="본문">P</button>
               </div>
-            )}
-
-            {ytSelectedChannel && ytVideos.length > 0 && !ytLoading && (
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[12px] text-gray-400 font-bold uppercase">영상 선택</p>
-                  <button onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }} className="text-[12px] text-[#3180F7] font-semibold">
-                    채널 다시 선택
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {ytVideos.map((v) => {
-                    const url = `https://www.youtube.com/watch?v=${v.id}`;
-                    const already = videos.includes(url);
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => { if (!already) addVideoUrl(url); }}
-                        className={`w-full rounded-xl overflow-hidden border text-left transition-all ${already ? 'border-[#3180F7] bg-blue-50/30' : 'border-gray-100'}`}
-                      >
-                        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                          <img src={v.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                          {already && (
-                            <div className="absolute top-2 right-2 w-7 h-7 bg-[#3180F7] rounded-full flex items-center justify-center shadow-md">
-                              <Check size={16} className="text-white stroke-[3]" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-3">
-                          <p className="text-[14px] font-semibold text-gray-900 line-clamp-2">{v.title}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {!ytLoading && !ytChannelQuery && ytChannels.length === 0 && (
-              <div className="flex flex-col items-center py-16">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="4" fill="#DBEAFE"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#3180F7"/></svg>
-                <p className="text-[14px] text-gray-500 mt-4">채널명을 검색해주세요</p>
-              </div>
-            )}
-            {!ytLoading && ytChannels.length === 0 && !ytSelectedChannel && ytChannelQuery && (
-              <p className="text-center text-gray-400 text-[14px] py-12">검색 결과가 없습니다</p>
-            )}
-          </div>
-
-          {videos.length > 0 && (
-            <div className="shrink-0 p-4 pb-8 bg-white border-t border-gray-100">
-              <button
-                onClick={() => { setShowYoutubeSearch(false); setYtChannels([]); setYtVideos([]); setYtSelectedChannel(null); setYtChannelQuery(''); }}
-                className="w-full py-4 bg-[#3180F7] text-white rounded-2xl font-bold text-[16px] active:scale-[0.98]"
-              >
-                완료 ({videos.length}개 영상)
-              </button>
-            </div>
-          )}
-
-          <style dangerouslySetInnerHTML={{ __html: `@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }` }} />
-        </div>
-      )}
-
-      {/* ─── 10-1. 상세설명 (네이버 스마트에디터 스타일 + AI 자동 생성) ─── */}
-      <Section index={8} title="상세설명" defaultOpen={false}>
-        <div className="space-y-3">
-          <p className="text-[12px] text-gray-400">프로필 상세페이지에 노출될 자기소개 영역입니다.</p>
-
-          {/* Toolbar — 네이버 스마트에디터 스타일 */}
-          <div className="bg-[#F9F9F9] rounded-xl px-3 py-2 flex items-center gap-0.5 flex-wrap">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('bold'); }} className="w-8 h-8 flex items-center justify-center font-bold text-gray-800 text-sm rounded hover:bg-gray-200" title="굵게">B</button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('italic'); }} className="w-8 h-8 flex items-center justify-center italic text-gray-800 text-sm rounded hover:bg-gray-200" title="기울임">I</button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('underline'); }} className="w-8 h-8 flex items-center justify-center underline text-gray-800 text-sm rounded hover:bg-gray-200" title="밑줄">U</button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('strikeThrough'); }} className="w-8 h-8 flex items-center justify-center line-through text-gray-800 text-sm rounded hover:bg-gray-200" title="취소선">S</button>
-            <div className="w-px h-5 bg-gray-300 mx-1" />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<h3>'); }} className="px-2 h-8 flex items-center justify-center text-xs font-bold text-gray-700 rounded hover:bg-gray-200" title="제목">H</button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('formatBlock', '<p>'); }} className="px-2 h-8 flex items-center justify-center text-xs text-gray-700 rounded hover:bg-gray-200" title="본문">P</button>
-            <div className="w-px h-5 bg-gray-300 mx-1" />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyLeft'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="왼쪽">
-              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="0" y="6" width="10" height="2" rx="1"/><rect x="0" y="12" width="13" height="2" rx="1"/></svg>
-            </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyCenter'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="중앙">
-              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="3" y="6" width="10" height="2" rx="1"/><rect x="1.5" y="12" width="13" height="2" rx="1"/></svg>
-            </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyRight'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="오른쪽">
-              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="6" y="6" width="10" height="2" rx="1"/><rect x="3" y="12" width="13" height="2" rx="1"/></svg>
-            </button>
-            <div className="w-px h-5 bg-gray-300 mx-1" />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertUnorderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="글머리기호">
-              <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><circle cx="1.5" cy="2" r="1.5"/><rect x="5" y="1" width="11" height="2" rx="1"/><circle cx="1.5" cy="7" r="1.5"/><rect x="5" y="6" width="11" height="2" rx="1"/><circle cx="1.5" cy="12" r="1.5"/><rect x="5" y="11" width="11" height="2" rx="1"/></svg>
-            </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertOrderedList'); }} className="w-8 h-8 flex items-center justify-center text-gray-800 text-xs font-bold rounded hover:bg-gray-200" title="번호목록">1.</button>
-            <div className="w-px h-5 bg-gray-300 mx-1" />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); detailColorInputRef.current?.click(); }} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200" title="글자색">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><text x="8" y="11" textAnchor="middle" fill="#1F2937" fontSize="10" fontWeight="bold">A</text><rect x="4" y="13" width="8" height="2" fill="#3180F7"/></svg>
-            </button>
-            <input ref={detailColorInputRef} type="color" className="hidden" onChange={(e) => execDetailFormat('foreColor', e.target.value)} />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); detailImageInputRef.current?.click(); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="사진 삽입">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            </button>
-            <input ref={detailImageInputRef} type="file" accept="image/*" className="hidden" onChange={onDetailImageSelected} />
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); const url = window.prompt('링크 URL'); if (url) execDetailFormat('createLink', url); }} className="w-8 h-8 flex items-center justify-center text-gray-800 rounded hover:bg-gray-200" title="링크">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            </button>
-          </div>
-
-          {/* Editable content */}
-          <div
-            ref={setDetailEditorRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={(e) => { detailDirtyRef.current = true; setDetailHtml(e.currentTarget.innerHTML); }}
-            className="min-h-[180px] p-4 border border-gray-200 rounded-xl text-[15px] text-gray-900 leading-relaxed outline-none focus:border-[#3180F7] [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_h3]:text-[16px] [&_h3]:font-bold [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#3180F7] [&_a]:underline empty:before:content-['상세_소개를_직접_작성하거나_AI_자동_생성을_눌러주세요'] empty:before:text-gray-300"
-          />
-        </div>
-      </Section>
-
-      {/* ─── Save Button ─── */}
-      <div className="px-5 pb-10 pt-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="qd-cta"
-        >
-          {saving && <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
-          {saving ? '저장 중...' : '저장하기'}
-        </button>
-      </div>
-
-      {/* ─── 회원 탈퇴 (프로 계정도 탈퇴 가능하도록) ─── */}
-      <div className="px-4 pb-10 text-center">
-        <button type="button" onClick={() => setShowWithdraw(true)} className="text-[13px] text-red-400 font-medium">
-          회원 탈퇴
-        </button>
-      </div>
-
-      {/* 회원탈퇴 확인 모달 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
-      {showWithdraw && (
-        <div className="ft-scrim" onClick={() => setShowWithdraw(false)}>
-          <div className="ft-sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div className="ft-grab" aria-hidden="true" />
-            <p className="ft-title">정말 탈퇴하시겠어요?</p>
-            <p className="ft-desc">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
-            <div className="ft-actions">
-              <button onClick={() => setShowWithdraw(false)} className="ft-btn secondary">아니오</button>
-              <button
-                onClick={() => {
-                  setShowWithdraw(false);
-                  usersApi.deleteAccount()
-                    .then(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); })
-                    .catch(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); });
-                }}
-                className="ft-btn danger"
-              >탈퇴하기</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── 사회자분류 바텀시트 ─── */}
-      <>
-        {showCategorySheet && (
-          <div
-            className="ft-scrim"
-            onClick={() => setShowCategorySheet(false)}
-          >
-            <div
-              className="ft-sheet"
-              role="dialog"
-              aria-modal="true"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="ft-grab" aria-hidden="true" />
-              <h2 className="ft-title">사회자분류를 선택해주세요</h2>
-              <p className="ft-desc !mb-6">선택한 사회자분류로 활동이 가능합니다</p>
-              {['사회자', '쇼호스트', '축가/연주'].map(item => (
-                <button
-                  key={item}
-                  onClick={() => { setCategory(item); setShowCategorySheet(false); }}
-                  className={`w-full h-14 rounded-[17px] mb-3 text-[17px] font-bold transition-all ${
-                    category === item
-                      ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7]'
-                      : 'bg-white border-2 border-gray-200 text-gray-400'
-                  }`}
-                >
-                  {item}
+              <div className="flex items-center gap-0.5">
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyLeft'); }} className={TOOL_BTN} title="왼쪽" aria-label="왼쪽 정렬">
+                  <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="0" y="6" width="10" height="2" rx="1"/><rect x="0" y="12" width="13" height="2" rx="1"/></svg>
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </>
-
-      {/* ─── 경력 바텀시트 ─── */}
-      <>
-        {showCareerSheet && (
-          <div
-            className="ft-scrim"
-            onClick={() => setShowCareerSheet(false)}
-          >
-            {/* 30개 목록 — 시트 높이 60vh 유지, 제목은 두고 목록만 스크롤 */}
-            <div
-              className="ft-sheet flex flex-col"
-              style={{ maxHeight: '60vh' }}
-              role="dialog"
-              aria-modal="true"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* flex 열에서 손잡이가 눌려 사라지지 않게 shrink-0 */}
-              <div className="ft-grab shrink-0" aria-hidden="true" />
-              <h2 className="ft-title">경력을 선택해주세요</h2>
-              <div className="mt-4 flex-1 overflow-y-auto space-y-2 pb-4">
-                {CAREER_YEARS.map(y => (
-                  <button
-                    key={y}
-                    onClick={() => { setCareerYears(y); setShowCareerSheet(false); }}
-                    className={`w-full h-14 rounded-[17px] text-[17px] font-bold transition-all ${
-                      careerYears === y
-                        ? 'bg-blue-50 border-2 border-[#3180F7] text-[#3180F7]'
-                        : 'bg-white border-2 border-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {y}년
-                  </button>
-                ))}
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyCenter'); }} className={TOOL_BTN} title="중앙" aria-label="가운데 정렬">
+                  <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="3" y="6" width="10" height="2" rx="1"/><rect x="1.5" y="12" width="13" height="2" rx="1"/></svg>
+                </button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('justifyRight'); }} className={TOOL_BTN} title="오른쪽" aria-label="오른쪽 정렬">
+                  <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><rect x="0" y="0" width="16" height="2" rx="1"/><rect x="6" y="6" width="10" height="2" rx="1"/><rect x="3" y="12" width="13" height="2" rx="1"/></svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertUnorderedList'); }} className={TOOL_BTN} title="글머리기호" aria-label="글머리기호">
+                  <svg width="16" height="14" viewBox="0 0 16 14" fill="currentColor"><circle cx="1.5" cy="2" r="1.5"/><rect x="5" y="1" width="11" height="2" rx="1"/><circle cx="1.5" cy="7" r="1.5"/><rect x="5" y="6" width="11" height="2" rx="1"/><circle cx="1.5" cy="12" r="1.5"/><rect x="5" y="11" width="11" height="2" rx="1"/></svg>
+                </button>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); execDetailFormat('insertOrderedList'); }} className={`${TOOL_BTN} text-[13px] font-bold`} title="번호목록" aria-label="번호목록">1.</button>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); detailColorInputRef.current?.click(); }} className={TOOL_BTN} title="글자색" aria-label="글자색">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><text x="8" y="11" textAnchor="middle" fill="#333D4B" fontSize="10" fontWeight="bold">A</text><rect x="4" y="13" width="8" height="2" fill="#3182F6"/></svg>
+                </button>
+                <input ref={detailColorInputRef} type="color" className="hidden" onChange={(e) => execDetailFormat('foreColor', e.target.value)} />
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); detailImageInputRef.current?.click(); }} className={TOOL_BTN} title="사진 삽입" aria-label="사진 삽입">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                </button>
+                <input ref={detailImageInputRef} type="file" accept="image/*" className="hidden" onChange={onDetailImageSelected} />
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); const url = window.prompt('링크 URL'); if (url) execDetailFormat('createLink', url); }} className={TOOL_BTN} title="링크" aria-label="링크">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                </button>
               </div>
             </div>
+
+            {/* Editable content */}
+            <div
+              ref={setDetailEditorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={(e) => { detailDirtyRef.current = true; setDetailHtml(e.currentTarget.innerHTML); }}
+              className="min-h-[220px] px-[18px] py-4 text-[16px] leading-[1.7] text-[#191F28] outline-none [&_a]:text-[#3182F6] [&_a]:underline [&_h3]:mt-3 [&_h3]:text-[18px] [&_h3]:font-bold [&_img]:my-2 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-[12px] [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5 empty:before:text-[#B0B8C1] empty:before:content-['상세_소개를_자유롭게_작성해_주세요']"
+            />
           </div>
+        </EditSection>
+
+        {/* ─── 회원 탈퇴 (프로 계정도 탈퇴 가능하도록) ─── */}
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setShowWithdraw(true)}
+            className="text-[13px] font-medium text-[#E5484D]/70 transition-colors hover:text-[#E5484D]"
+          >
+            회원 탈퇴
+          </button>
+        </div>
+      </QdBody>
+
+      {/* ─── 저장 — 아래 고정, 위에 흰 페이드(내용이 밑으로 스며든다) ─── */}
+      <div className="sticky bottom-0 z-10 bg-white px-5 pt-2.5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-gradient-to-t from-white to-white/0" />
+        <RgCta onClick={handleSave} disabled={saving}>
+          {saving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+          {saving ? '저장 중...' : '저장하기'}
+        </RgCta>
+      </div>
+
+      {/* ─── Toast — 앱 공통 토스트(AppToaster)와 같은 유리 알약, 톡 내려오고 위로 사라진다 ─── */}
+      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[70px] z-[800] flex justify-center px-4">
+        <AnimatePresence>
+          {toast && (
+            <motion.p
+              key="toast"
+              className="max-w-full rounded-[20px] border-[0.6px] border-[rgba(229,233,240,0.9)] bg-white/[0.92] px-[18px] py-[13px] text-center text-[14px] font-bold leading-[1.35] text-[#2B313D] shadow-[0_18px_42px_rgba(15,23,42,0.14)] backdrop-blur-[18px] [overflow-wrap:anywhere]"
+              initial={{ opacity: 0, y: -28, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.94, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 480, damping: 28 }}
+            >
+              {toast}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 회원탈퇴 확인 시트 — confirm() 대신(네이티브 WKWebView 빌드 무관하게 동작) */}
+      <Sheet open={showWithdraw} onClose={() => setShowWithdraw(false)}>
+        <p className="ft-title">정말 탈퇴하시겠어요?</p>
+        <p className="ft-desc">탈퇴 시 모든 데이터가 삭제되며<br />복구할 수 없습니다.</p>
+        <div className="ft-actions">
+          <button type="button" onClick={() => setShowWithdraw(false)} className="ft-btn secondary">아니오</button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowWithdraw(false);
+              usersApi.deleteAccount()
+                .then(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); })
+                .catch(() => { useAuthStore.getState().logout(); try { localStorage.clear(); } catch {} router.push('/'); });
+            }}
+            className="ft-btn danger"
+          >탈퇴하기</button>
+        </div>
+      </Sheet>
+
+      {/* ─── 사회자분류 시트 — 고르면 체크가 톡 튄 뒤 내려간다(퀵매칭 단일 선택처럼) ─── */}
+      <Sheet open={showCategorySheet} onClose={() => setShowCategorySheet(false)}>
+        <h2 className="ft-title">사회자분류를 선택해주세요</h2>
+        <p className="ft-desc">선택한 사회자분류로 활동이 가능합니다</p>
+        <div className="rg-list mt-6" role="radiogroup" aria-label="사회자분류">
+          {['사회자', '쇼호스트', '축가/연주'].map((item) => (
+            <RgOption
+              key={item}
+              role="radio"
+              on={category === item}
+              label={item}
+              onClick={() => { setCategory(item); setTimeout(() => setShowCategorySheet(false), 180); }}
+            />
+          ))}
+        </div>
+      </Sheet>
+
+      {/* ─── 경력 시트 — 30개 목록: 높이 60vh 유지, 제목은 두고 목록만 스크롤 ─── */}
+      <Sheet open={showCareerSheet} onClose={() => setShowCareerSheet(false)} className="flex flex-col" style={{ maxHeight: '60vh' }}>
+        <h2 className="ft-title">경력을 선택해주세요</h2>
+        <div className="rg-list mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain" role="radiogroup" aria-label="경력">
+          {CAREER_YEARS.map((y) => (
+            <RgOption
+              key={y}
+              role="radio"
+              on={careerYears === y}
+              label={`${y}년`}
+              onClick={() => { setCareerYears(y); setTimeout(() => setShowCareerSheet(false), 180); }}
+            />
+          ))}
+        </div>
+      </Sheet>
+
+      {/* ─── YouTube 검색 — 오른쪽에서 밀려 들어오는 전체 화면(닫으면 다시 오른쪽으로) ─── */}
+      <AnimatePresence>
+        {showYoutubeSearch && (
+          <motion.div
+            key="yt-search"
+            className="fixed inset-0 z-50 flex flex-col bg-white"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%', transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
+            transition={SHEET_SPRING}
+          >
+            <header className="flex h-14 flex-none items-center px-2">
+              <button type="button" onClick={closeYoutubeSearch} aria-label="뒤로가기" className="qd-back">
+                <QdBackIcon />
+              </button>
+            </header>
+            <div className="flex-none px-6 pb-4">
+              <h2 className="text-[24px] font-semibold leading-[1.4] tracking-[-0.4px] text-[#191F28]">YouTube 영상 검색</h2>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  value={ytChannelQuery}
+                  onChange={(e) => setYtChannelQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
+                  placeholder="채널명을 검색하세요"
+                  className="qd-input min-w-0 flex-1"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={searchYtChannels}
+                  className="h-[60px] flex-none rounded-[16px] bg-[#3182F6] px-5 text-[17px] font-semibold text-white transition-[transform,background-color] active:scale-[0.97] active:bg-[#2272EB]"
+                >
+                  검색
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
+              {ytLoading && (
+                <div className="flex items-center justify-center py-14">
+                  <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#3182F6] border-t-transparent" />
+                </div>
+              )}
+
+              {/* 결과 줄은 새로 뜰 때만 오른쪽→왼쪽으로 차례 등장 */}
+              {!ytSelectedChannel && ytChannels.length > 0 && !ytLoading && (
+                <div>
+                  <p className="mb-3 px-1 text-[15px] font-semibold text-[#4E5968]">채널 선택</p>
+                  <div className="space-y-2.5">
+                    {ytChannels.map((ch, i) => (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => loadYtVideos(ch.id)}
+                        className="qd-card qd-a-item flex w-full items-center gap-3.5 px-4 py-3 text-left transition-colors active:bg-[#F8F9FA]"
+                        style={{ animationDelay: `${Math.min(i, 8) * 0.04}s` }}
+                      >
+                        <img src={ch.thumbnail} alt="" className="h-11 w-11 flex-none rounded-full bg-[#F2F4F6] object-cover" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[16px] font-semibold text-[#191F28]">{ch.title}</span>
+                          <span className="mt-0.5 block truncate text-[13px] text-[#8B95A1]">{ch.description}</span>
+                        </span>
+                        <ChevronRightIcon size={18} className="flex-none text-[#B0B8C1]" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {ytSelectedChannel && ytVideos.length > 0 && !ytLoading && (
+                <div>
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <p className="text-[15px] font-semibold text-[#4E5968]">영상 선택</p>
+                    <button type="button" onClick={() => { setYtSelectedChannel(null); setYtVideos([]); }} className="text-[14px] font-semibold text-[#3182F6]">
+                      채널 다시 선택
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {ytVideos.map((v, i) => {
+                      const url = `https://www.youtube.com/watch?v=${v.id}`;
+                      const already = videos.includes(url);
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => { if (!already) addVideoUrl(url); }}
+                          className={`qd-a-item block w-full overflow-hidden rounded-[16px] border-[1.5px] text-left transition-colors ${already ? 'border-[#3182F6] bg-[#EDF4FF]' : 'border-[#E5E8EB] bg-white active:bg-[#F8F9FA]'}`}
+                          style={{ animationDelay: `${Math.min(i, 8) * 0.04}s` }}
+                        >
+                          <div className="relative w-full bg-[#F2F4F6]" style={{ paddingBottom: '56.25%' }}>
+                            <img src={v.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                            {already && (
+                              <motion.span
+                                className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#3182F6] text-white shadow-[0_2px_8px_rgba(49,130,246,0.4)]"
+                                initial={{ scale: 0.4, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={POP_SPRING}
+                              >
+                                <CheckIcon size={16} />
+                              </motion.span>
+                            )}
+                          </div>
+                          <p className={`line-clamp-2 px-4 py-3 text-[15px] font-semibold leading-[1.45] ${already ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{v.title}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!ytLoading && !ytChannelQuery && ytChannels.length === 0 && (
+                <div className="flex flex-col items-center py-16 text-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#F2F4F6]">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="4" fill="#DCEBFF"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="#3182F6"/></svg>
+                  </span>
+                  <p className="mt-4 text-[15px] text-[#8B95A1]">채널명을 검색해주세요</p>
+                </div>
+              )}
+              {!ytLoading && ytChannels.length === 0 && !ytSelectedChannel && ytChannelQuery && (
+                <p className="py-14 text-center text-[15px] text-[#8B95A1]">검색 결과가 없어요</p>
+              )}
+            </div>
+
+            {videos.length > 0 && (
+              <div className="relative flex-none bg-white px-5 pt-2.5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+                <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-gradient-to-t from-white to-white/0" />
+                <RgCta onClick={closeYoutubeSearch}>완료 ({videos.length}개 영상)</RgCta>
+              </div>
+            )}
+          </motion.div>
         )}
-      </>
+      </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }
