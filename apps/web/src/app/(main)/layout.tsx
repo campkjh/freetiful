@@ -193,7 +193,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 홈은 흰 배경. 목록 화면들은 카드 구분을 위해 기존 연회색(#FAFBFC)을 유지한다.
   const isHome = pathname === '/' || pathname === '/main';
   /** 사회자 상세는 화면 전체가 흰 카드라 뒤에 연회색이 깔리면 아래쪽이 회색으로 보인다 */
-  const whiteBackground = isHome || /^\/pros\/[^/]+/.test(pathname);
+  // 사회자 · 웨딩파트너 목록도 흰 바탕 — PC 에서 가운데 흰 칸 양옆으로 회색 띠가 비쳤다
+  const whiteBackground = isHome || /^\/pros\/[^/]+/.test(pathname) || /^\/(pros|businesses)$/.test(pathname);
   // 채팅은 모바일만 흰 바탕 — 목록 아래 여백(pb-24)으로 회색(surface-50)이 띠처럼 비치던 것. PC 는 회색 바탕 위 흰 카드 유지.
   const chatRoute = /^\/chat(\/|$)/.test(pathname);
   // 매칭·새요청 목록도 흰 종이 한 장 — 같은 이유로 모바일만 흰 바탕
@@ -205,6 +206,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 커뮤니티는 폭 제한 없이 자기 사이드바 화면. PC 전체 헤더는 웨딩숲에서도 보인다(260928 사장 'PC 웨딩숲에서 빠져나갈 방법이 없음') —
   // 웨딩숲 자기 머리줄·사이드바·글쓰기 칸은 그 아래에 붙는다(community.css --fcom-pc-top).
   const communityRoute = /^\/community(\/|$)/.test(pathname);
+  // 사회자 목록 · 웨딩파트너 목록 — 모바일은 자기 머리줄(하단 탭 없음) 그대로, PC 는 전체 헤더를 보인다(260928 사장 'PC 목록 화면도 지금 톤앤매너로')
+  const pcHeaderRoute = /^\/(pros|businesses)$/.test(pathname);
   // PC 웨딩숲 검색창(전체 헤더) — 웨딩숲 글 목록이 같은 값으로 찾는다. 웨딩숲을 벗어나면 비운다.
   const communityQuery = useCommunitySearch((s) => s.query);
   const setCommunityQuery = useCommunitySearch((s) => s.setQuery);
@@ -516,7 +519,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
-      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
+      <header className={`${hideNav && !pcHeaderRoute ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         {/* 가운데 칸 고정(1fr · auto · 1fr) — 웨딩숲에서 오른쪽에 검색창이 붙어도 탭 줄이 옆으로 밀리지 않는다 */}
         <div className="mx-auto grid h-[72px] max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-8">
           <Link href={homeHref} className="flex items-center justify-self-start" aria-label="Freetiful 홈">

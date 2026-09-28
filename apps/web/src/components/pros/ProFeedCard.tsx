@@ -35,6 +35,8 @@ export interface ProFeedItem {
   images: string[];
   /** 소개 영상 — 여러 개면 줄바꿈으로 이어 붙어 온다 */
   youtubeUrl: string;
+  /** 프리티풀 파트너(사진 색 카드 이름 옆 체크) */
+  isPartner?: boolean;
 }
 
 /** 남성/여성 사회자 거르기 — DB 값이 male/female 과 남성/여성 두 가지라 둘 다 본다 */
@@ -81,6 +83,7 @@ export function mapProFeedItems(items: ProListItem[]): ProFeedItem[] {
       gender: p.gender || '',
       images: Array.isArray(p.images) ? p.images.filter(Boolean) : [],
       youtubeUrl: p.youtubeUrl || '',
+      isPartner: Boolean(p.showPartnersLogo || p.isFeatured),
     }));
 }
 

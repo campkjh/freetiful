@@ -4,14 +4,10 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  BriefcaseBusiness,
   ChevronLeft,
-  Star,
-  ChevronDown,
   Search,
   X,
   ChevronUp,
-  Grid2X2,
 } from 'lucide-react';
 import { Suspense } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
@@ -22,6 +18,9 @@ import { SortArrowsIcon } from '@/components/community/TossIcons';
 import { popItemDelay } from '@/lib/pop-menu';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
+import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
+import ProQuickView, { type QuickViewPro } from '@/components/ProQuickView';
+import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 
 type ProItem = ProFeedItem;
 
@@ -32,7 +31,60 @@ const SORT_OPTIONS = [
   { value: 'experience', label: '경력순', icon: 'calendar-check' },
 ];
 
-const PC_NAV_ITEMS = ['결혼식 사회자', '행사 사회자', '외국어 사회자', '쇼호스트'];
+/** 결혼식 · 행사 사회자 — 홈 섹션(isWeddingTaggedPro · isEventMcPro)과 같은 낱말로 가린다. 아무도 빼지 않고 해당되는 사람을 앞으로만 올린다 */
+type McKind = '' | 'wedding' | 'event';
+const MC_KIND_WORDS: Record<Exclude<McKind, ''>, string[]> = {
+  wedding: ['결혼식'],
+  event: ['행사', '기업', '컨퍼런스', '컨벤션', '쇼호스트', 'event'],
+};
+function proHasWord(pro: ProItem, words: string[]) {
+  return [...(pro.categories || []), ...(pro.tags || [])].some((v) => {
+    const value = String(v).toLowerCase();
+    return words.some((w) => value.includes(w));
+  });
+}
+
+/** PC 큰 제목 ⌄ 메뉴(알림 ⌄ 어법) — 고르면 주소(?category=)도 같이 바뀐다 */
+type PcKind = 'all' | 'wedding' | 'event' | 'foreign' | 'showhost';
+const PC_KIND: Record<PcKind, { type: string; mcKind: McKind; category: string }> = {
+  all: { type: '전체', mcKind: '', category: '' },
+  wedding: { type: '사회자', mcKind: 'wedding', category: '결혼식사회자' },
+  event: { type: '사회자', mcKind: 'event', category: '전문행사사회자' },
+  foreign: { type: '외국어사회자', mcKind: '', category: '외국어사회자' },
+  showhost: { type: '쇼호스트', mcKind: '', category: '쇼호스트' },
+};
+const kindIcon = (src: string) => (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img src={src} alt="" className="h-6 w-6 object-contain" draggable={false} />
+);
+const PC_KIND_OPTIONS: TitleFilterOption<PcKind>[] = [
+  { key: 'all', label: '전체 사회자', title: '전체 사회자', icon: kindIcon('/icons/toss/user.svg') },
+  { key: 'wedding', label: '결혼식 사회자', title: '결혼식 사회자', icon: kindIcon('/images/category-icons/wedding-mc-icon.png') },
+  { key: 'event', label: '행사 사회자', title: '행사 사회자', icon: kindIcon('/images/category-icons/event-mc-icon.png') },
+  { key: 'foreign', label: '외국어 사회자', title: '외국어 사회자', icon: kindIcon('/images/category-icons/foreign-mc.png') },
+  { key: 'showhost', label: '쇼호스트', title: '쇼호스트', icon: kindIcon('/icons/toss/headphone.svg') },
+];
+
+/** '수도권(서울/인천/경기)' → '수도권' */
+function toneRegion(pro: ProItem) {
+  if (pro.isNationwide) return '전국';
+  return String(pro.regions[0] || '').replace(/\(.*?\)/g, '').trim();
+}
+/** 목록 값 → 홈 사회자 사진 색 카드 값 */
+function toToneCard(pro: ProItem): ProToneCardData {
+  return {
+    id: pro.id,
+    name: pro.name,
+    image: pro.images[0] || pro.image,
+    experience: pro.experience,
+    isPartner: pro.isPartner,
+    rating: pro.rating,
+    reviews: pro.reviews,
+    region: toneRegion(pro),
+    intro: pro.intro,
+    tags: pro.tags,
+  };
+}
 
 const PAGE_SIZE = 10;
 const INITIAL_PRO_LIST_PARAMS = { limit: 80, sort: 'reviews' as const, withTotal: true };
@@ -73,140 +125,86 @@ function matchesRegion(pro: ProItem, region: string) {
 
 
 
-function DesktopProsHeader({
-  searchQuery,
-  setSearchQuery,
-  selectedType,
-  setSelectedType,
+/** 정렬 칩 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법(모바일 · PC 같이 쓴다) */
+function SortMenuChip({
+  sortBy,
+  onChange,
+  open,
+  setOpen,
 }: {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  selectedType: string;
-  setSelectedType: (value: string) => void;
+  sortBy: string;
+  onChange: (value: string) => void;
+  open: boolean;
+  setOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
 }) {
-  const applyNav = (label: string) => {
-    if (label === '외국어 사회자') {
-      setSelectedType('외국어사회자');
-      return;
-    }
-    if (label === '쇼호스트') {
-      setSelectedType('쇼호스트');
-      return;
-    }
-    setSelectedType('사회자');
-  };
-
-  const isActive = (label: string) => {
-    if (label === '외국어 사회자') return selectedType === '외국어사회자';
-    if (label === '쇼호스트') return selectedType === '쇼호스트';
-    if (label === '결혼식 사회자' || label === '행사 사회자') return selectedType === '사회자';
-    return false;
-  };
-
   return (
-    <header className="border-b border-[#EEF1F5] bg-white">
-      <div className="mx-auto flex h-[86px] max-w-[1540px] items-center gap-8 px-8">
-        <Link href="/main" className="shrink-0" aria-label="Freetiful 홈">
-          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-[34px] w-auto" />
-        </Link>
-        <div className="relative h-[60px] w-full max-w-[640px]">
-          {/* pointer-events-none — 아이콘이 input 위에 겹쳐 그려져 그 부분 클릭이 먹히지 않던 문제 */}
-          <Search className="pointer-events-none absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="어떤 사회자가 필요하세요?"
-            className="h-full w-full rounded-full border border-[#D9DEE7] bg-white pl-8 pr-20 text-[22px] font-semibold text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.07)] outline-none transition focus:border-[#3180F7] focus:shadow-[0_10px_30px_rgba(49,128,247,0.12)] placeholder:text-[#A4AAB5]"
-          />
-        </div>
-        <nav className="ml-auto flex items-center gap-8 text-[16px] font-bold text-gray-900">
-          <Link href="/biz" className="whitespace-nowrap transition hover:text-[#3180F7]">비즈문의</Link>
-          <Link href="/pro-register" className="whitespace-nowrap transition hover:text-[#3180F7]">사회자 등록</Link>
-          <Link href="/my" className="whitespace-nowrap transition hover:text-[#3180F7]">마이페이지</Link>
-        </nav>
-      </div>
-      <div className="border-t border-[#F2F4F7]">
-        <div className="mx-auto flex h-[72px] max-w-[1540px] items-center gap-9 px-8 text-[18px] font-bold text-gray-900">
-          <button type="button" className="flex items-center gap-3 text-[#3180F7]">
-            <BriefcaseBusiness className="h-6 w-6" />
-            업종별
-          </button>
-          <span className="h-7 w-px bg-[#E5E8EF]" />
-          <button type="button" onClick={() => setSelectedType('전체')} className="flex items-center gap-3 transition hover:text-[#3180F7]">
-            <Grid2X2 className="h-5 w-5" />
-            전체
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          </button>
-          {PC_NAV_ITEMS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => applyNav(item)}
-              className={`whitespace-nowrap transition ${isActive(item) ? 'text-[#3180F7]' : 'hover:text-[#3180F7]'}`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
-    </header>
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex h-[42px] items-center gap-1 rounded-[12px] bg-[#F2F4F6] px-3.5 text-[16px] font-semibold tracking-[-0.3px] text-[#333D4B] transition-colors active:bg-[#E8EBED] lg:hover:bg-[#EAECEF]"
+      >
+        {SORT_OPTIONS.find((o) => o.value === sortBy)?.label || '추천순'}
+        <SortArrowsIcon />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="pop-menu nt-menu absolute left-0 top-[calc(100%+6px)] z-50" style={{ transformOrigin: 'top left' }} role="menu">
+            {SORT_OPTIONS.map((opt, i) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={sortBy === opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`pop-menu-item nt-menu-item${sortBy === opt.value ? ' on' : ''}`}
+                style={popItemDelay(i)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/icons/toss/${opt.icon}.svg`} alt="" />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-function DesktopProMarketCard({
-  pro,
-  index,
-}: {
-  pro: ProItem;
-  index: number;
-}) {
-  const displayCategory = pro.categories[0] || '사회자';
-  const tagItems = [
-    pro.experience > 0 ? `경력 ${pro.experience}년` : '',
-    ...(pro.isNationwide ? ['전국가능'] : pro.regions.slice(0, 2)),
-  ].filter(Boolean);
+const GENDER_TABS = [
+  { key: '', label: '전체' },
+  { key: 'male', label: '남성사회자' },
+  { key: 'female', label: '여성사회자' },
+] as const;
 
+/** 성별 탭 — '추천순' 칩과 같은 모양(높이 42 · 모서리 12 · 16 굵게), 고른 탭은 쿨그레이(260926 사장) */
+function GenderTabButtons({ value, onChange }: { value: '' | 'male' | 'female'; onChange: (next: '' | 'male' | 'female') => void }) {
   return (
-    <article className="group min-w-0">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
-        <Link href={`/pros/${pro.id}`} onMouseEnter={() => discoveryApi.getProDetail(pro.id).catch(() => {})} className="block h-full w-full">
-          <img
-            src={pro.image || '/images/default-profile.png'}
-            alt={pro.name}
-            loading={index < 8 ? 'eager' : 'lazy'}
-            decoding="async"
-            onError={(e) => { const el = e.currentTarget; if (el.dataset.fb) return; const base = (pro.image || '').split('?')[0]; if (!el.dataset.retry && base) { el.dataset.retry = '1'; setTimeout(() => { el.src = `${base}?r=1`; }, 500); } else { el.dataset.fb = '1'; el.src = '/images/default-profile.png'; } }}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-          />
-        </Link>
-        {pro.rank > 0 && pro.rank <= 12 && (
-          <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
-            BEST
-          </span>
-        )}
-      </div>
-      <Link href={`/pros/${pro.id}`} className="mt-4 block">
-        <p className="line-clamp-2 min-h-[54px] text-[19px] font-extrabold leading-[1.42] tracking-[-0.035em] text-gray-950 transition group-hover:text-[#3180F7]">
-          {displayCategory} {pro.name}의 프리미엄 진행 서비스
-        </p>
-        <div className="mt-3 flex items-center gap-1.5 text-[16px]">
-          <Star size={16} className="fill-[#5AD36A] text-[#5AD36A]" />
-          <span className="font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-          <span className="font-medium text-gray-400">({pro.reviews.toLocaleString()})</span>
-        </div>
-        <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{displayCategory} {pro.name}</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {tagItems.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-[6px] bg-[#F2F4F7] px-2 py-1 text-[13px] font-semibold text-[#5B6270]">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </Link>
-    </article>
+    <>
+      {GENDER_TABS.map((t) => {
+        const on = value === t.key;
+        return (
+          <button
+            key={t.key || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => { if (!on) onChange(t.key); }}
+            className={`h-[42px] shrink-0 rounded-[12px] px-3.5 text-[16px] font-semibold tracking-[-0.3px] transition-colors duration-200 active:scale-[0.97] ${
+              on ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#6B7684] active:bg-[#E8EBED] lg:hover:bg-[#EAECEF]'
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </>
   );
 }
-
 
 function ProsListContent() {
   const router = useRouter();
@@ -283,6 +281,36 @@ function ProsListContent() {
   // 외국어 여부는 아래 selectedType==='외국어사회자' 조건이 담당한다.
   const [selectedLang, setSelectedLang] = useState('전체');
   const [selectedType, setSelectedType] = useState(initialType);
+  // 결혼식 / 행사 사회자 — 둘 다 전체 사회자를 보여 주되 해당되는 사람을 앞으로(홈 섹션과 같은 낱말)
+  const [mcKind, setMcKind] = useState<McKind>(() =>
+    ['결혼식사회자', '전문결혼식사회자'].includes(normalizedCategoryParam)
+      ? 'wedding'
+      : ['전문행사사회자', '행사MC', '행사사회자'].includes(normalizedCategoryParam)
+        ? 'event'
+        : '',
+  );
+  const pcKind: PcKind =
+    selectedType === '외국어사회자' ? 'foreign'
+      : selectedType === '쇼호스트' ? 'showhost'
+        : selectedType === '사회자' && mcKind ? mcKind
+          : 'all';
+  const applyKind = (key: PcKind) => {
+    const next = PC_KIND[key];
+    setSelectedType(next.type);
+    setMcKind(next.mcKind);
+    // 주소도 맞춘다(새로고침·공유해도 같은 목록) — 페이지 이동 없이
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (next.category) params.set('category', next.category);
+      else params.delete('category');
+      const qs = params.toString();
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    } catch {}
+    window.scrollTo({ top: 0 });
+  };
+  // PC — 카드를 누르면 목록을 두고 오른쪽 미리보기(홈과 같은 ProQuickView)
+  const [quickPro, setQuickPro] = useState<QuickViewPro | null>(null);
+  const [preloadId, setPreloadId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [scrolled, setScrolled] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -294,7 +322,7 @@ function ProsListContent() {
   const openReviews = (pro: ProItem) => setReviewPro({ id: pro.id, name: pro.name, image: pro.image, rating: pro.rating, reviews: pro.reviews });
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [listSettled, setListSettled] = useState(true);
-  const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}|${genderTab}`;
+  const tabSignature = `${selectedRegion}|${sortBy}|${selectedLang}|${selectedType}|${mcKind}|${genderTab}`;
   const didMountTabMotion = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -405,7 +433,10 @@ function ProsListContent() {
       if (selectedType === '외국어사회자' && (!p.languages || p.languages.length === 0)) return false;
       if (genderTab && !matchesGender(p.gender, genderTab)) return false;
       // 결혼식/행사(사회자)는 승인+비숨김 전체 노출 (카테고리 제한 없음)
-      if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
+      // 쇼호스트는 분류가 대부분 '사회자'라 전문 분야 태그로도 본다(분류에만 있으면 1명뿐이었다)
+      if (selectedType === '쇼호스트') {
+        if (!proHasWord(p, ['쇼호스트'])) return false;
+      } else if (selectedType !== '전체' && selectedType !== '외국어사회자' && selectedType !== '사회자' && !(p.categories || []).includes(selectedType)) return false;
       // 검색어는 이름·소개·카테고리뿐 아니라 전문분야 태그(주례없는 예식 등)도 대상으로.
       // 태그 표기 흔들림("주례없는"/"주례 없는")을 흡수하려고 공백 제거 후 비교한다.
       if (q) {
@@ -434,8 +465,14 @@ function ProsListContent() {
         break;
     }
 
+    // 결혼식 / 행사 사회자 — 해당 낱말이 있는 사람을 앞으로(고른 정렬 순서는 그 안에서 그대로)
+    if (selectedType === '사회자' && mcKind) {
+      const words = MC_KIND_WORDS[mcKind];
+      results = [...results.filter((p) => proHasWord(p, words)), ...results.filter((p) => !proHasWord(p, words))];
+    }
+
     return results;
-  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, genderTab, ALL_PROS]);
+  }, [selectedRegion, sortBy, searchQuery, selectedLang, selectedType, mcKind, genderTab, ALL_PROS]);
 
   const paginatedPros = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginatedPros.length < filtered.length;
@@ -501,75 +538,116 @@ function ProsListContent() {
   return (
     <LayoutGroup id="pros-list-tabs">
     <>
-      <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
-      <DesktopProsHeader
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedType={selectedType}
-        setSelectedType={setSelectedType}
-      />
-
-      <div className="mx-auto max-w-[1540px] px-8 py-14">
-        <section className="min-w-0">
-          <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
-            <div />
-
-            <div className="flex items-center gap-5">
-              <p className="text-[16px] font-semibold text-[#4B5563]">
-                <span className="font-extrabold text-gray-950">{filtered.length.toLocaleString()}</span>개의 서비스
-              </p>
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                className="h-[42px] rounded-[9px] border-none bg-white text-[16px] font-bold text-gray-900 outline-none"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+      {/* ─── PC — 전체 헤더 아래 한 화면(260928 사장 'PC 결혼식·행사 사회자 페이지 카드·화면을 지금 톤앤매너로') ───
+          큰 제목 ⌄(분류 — 알림 ⌄ 어법) · 오른쪽 검색칸 · 정렬 칩 + 성별 탭(모바일과 같은 칩) · 홈 사회자 사진 색 카드 격자.
+          카드를 누르면 홈처럼 목록을 두고 오른쪽 미리보기. */}
+      <div className="hidden min-h-screen bg-white pb-24 lg:block" style={{ letterSpacing: '-0.02em' }}>
+        <div className="flex items-end justify-between gap-8 pb-6 pt-10">
+          <div className="min-w-0">
+            <TitleFilterMenu
+              value={pcKind}
+              options={PC_KIND_OPTIONS}
+              onChange={applyKind}
+              titleClassName="text-[30px] leading-[1.3]"
+              enterClassName="qd-a-title"
+            />
+            <p className="qd-a-sub mt-1.5 text-[15px] tracking-[-0.2px] text-[#8B95A1]">
+              사회자 <b className="font-semibold text-[#4E5968]">{filtered.length.toLocaleString()}</b>명
+              {genderTab ? ` · ${genderTab === 'male' ? '남성' : '여성'}` : ''}
+              {searchQuery.trim() ? ` · '${searchQuery.trim()}' 검색 결과` : ''}
+            </p>
           </div>
-
-          <motion.div
-            animate={{
-              opacity: listSettled ? 1 : 0.72,
-              y: listSettled ? 0 : 8,
-              filter: listSettled ? 'blur(0px)' : 'blur(1.5px)',
-            }}
-            transition={{ duration: 0.22, ease: PANEL_EASE }}
-          >
-            {filtered.length > 0 ? (
-              <>
-                <div className="grid grid-cols-4 gap-x-8 gap-y-12">
-                  {paginatedPros.map((pro, index) => (
-                    <DesktopProMarketCard key={pro.id} pro={pro} index={index} />
-                  ))}
-                </div>
-                {hasMore && (
-                  <div ref={desktopLoadMoreRef} className="py-12 text-center">
-                    <span className="inline-flex items-center gap-2 rounded-full bg-[#F2F6FF] px-4 py-2 text-[14px] font-bold text-[#3180F7]">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#3180F7]" />
-                      {paginatedPros.length}/{filtered.length} 불러오는 중
-                    </span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[18px] bg-[#F8FAFC] text-center">
-                <Search size={38} className="text-gray-300" />
-                <p className="mt-5 text-[18px] font-bold text-gray-500">해당 조건의 사회자가 없습니다</p>
-                <button
-                  onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); setSelectedType('전체'); }}
-                  className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
-                >
-                  필터 초기화
-                </button>
-              </div>
+          <label className="qd-a-sub flex h-12 w-[320px] shrink-0 items-center gap-2 rounded-[14px] bg-[#F2F4F6] pl-4 pr-2 transition-colors focus-within:bg-[#EAECEF] xl:w-[360px]">
+            <Search size={18} className="shrink-0 text-[#8B95A1]" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Escape') setSearchQuery(''); }}
+              placeholder="이름, 소개, 전문 분야로 검색"
+              aria-label="사회자 검색"
+              className="h-full min-w-0 flex-1 bg-transparent text-[16px] font-medium text-[#191F28] outline-none placeholder:font-normal placeholder:text-[#8B95A1]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="검색어 지우기"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C9CED6] text-white transition-transform active:scale-90"
+              >
+                <X size={13} strokeWidth={3} />
+              </button>
             )}
-          </motion.div>
-        </section>
+          </label>
+        </div>
+
+        <div className="qd-a-item flex items-center gap-2" style={{ animationDelay: '0.1s' }} role="tablist" aria-label="정렬 · 성별">
+          <SortMenuChip sortBy={sortBy} onChange={setSortBy} open={sortOpen} setOpen={setSortOpen} />
+          <span aria-hidden="true" className="mx-1 h-5 w-px bg-[#E5E8EB]" />
+          <GenderTabButtons value={genderTab} onChange={(next) => { setGenderTab(next); window.scrollTo({ top: 0 }); }} />
+        </div>
+
+        <motion.div
+          className="mt-6"
+          animate={{
+            opacity: listSettled ? 1 : 0.72,
+            y: listSettled ? 0 : 8,
+          }}
+          transition={{ duration: 0.22, ease: PANEL_EASE }}
+        >
+          {filtered.length > 0 ? (
+            <>
+              <div key={tabSignature} className="grid grid-cols-4 gap-x-4 gap-y-5 xl:grid-cols-5">
+                {paginatedPros.map((pro, index) => (
+                  <ProToneCard
+                    key={pro.id}
+                    pro={toToneCard(pro)}
+                    index={index}
+                    className="qd-a-item"
+                    style={{ animationDelay: `${0.14 + (index % PAGE_SIZE) * 0.04}s` }}
+                    onPreload={setPreloadId}
+                    onQuickView={(p) => setQuickPro({ id: p.id, name: p.name, image: p.image })}
+                  />
+                ))}
+              </div>
+              {hasMore && (
+                <div ref={desktopLoadMoreRef} className="flex justify-center py-12">
+                  <span className="inline-flex items-center gap-2 text-[14px] font-medium text-[#8B95A1]">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#B0B8C1]" />
+                    {paginatedPros.length}/{filtered.length} 불러오는 중
+                  </span>
+                </div>
+              )}
+              {!hasMore && (
+                <div className="flex flex-col items-center gap-3 py-12">
+                  {filtered.length > PAGE_SIZE && <p className="text-[14px] text-[#B0B8C1]">모든 사회자를 확인했어요</p>}
+                  {/* 예전 PC 머리줄의 '사회자 등록'(전체 헤더로 바꾸며 자리를 옮겼다) */}
+                  <Link href="/pro-register" className="inline-flex items-center gap-0.5 text-[14px] font-semibold text-[#6B7684] transition-colors hover:text-[#3182F6]">
+                    사회자로 활동하고 싶다면 등록하기
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center py-28 text-center">
+              <div className="srch-pop"><EmptySearchIcon size={72} /></div>
+              <p className="qd-a-title mt-5 text-[19px] font-bold text-[#191F28]">조건에 맞는 사회자가 없어요</p>
+              <p className="qd-a-sub mt-1.5 text-[15px] text-[#8B95A1]">검색어나 조건을 바꿔 다시 찾아보세요</p>
+              <button
+                type="button"
+                onClick={() => { setSelectedRegion('전체'); setSortBy('popular'); setSelectedLang('전체'); applyKind('all'); setGenderTab(''); setSearchQuery(''); }}
+                className="qd-a-sub mt-5 inline-flex h-[44px] items-center rounded-[12px] bg-[#E8F3FF] px-5 text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition hover:bg-[#DCEBFF] active:scale-[0.97]"
+              >
+                조건 초기화
+              </button>
+            </div>
+          )}
+        </motion.div>
+
+        <ProQuickView pro={quickPro} preloadId={preloadId} onClose={() => setQuickPro(null)} />
       </div>
-    </div>
 
     <div className="min-h-screen bg-white lg:hidden" style={{ letterSpacing: '-0.02em', overscrollBehaviorY: 'contain' }}>
       {/* Header */}
@@ -606,7 +684,7 @@ function ProsListContent() {
                 key="title"
                 className="text-[18px] font-bold text-gray-900 truncate"
               >
-                {genderTab ? (genderTab === 'male' ? '남성 사회자' : '여성 사회자') : isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType !== '전체' ? selectedType : '사회자'}
+                {genderTab ? (genderTab === 'male' ? '남성 사회자' : '여성 사회자') : isForeignFilter ? '외국어 사회자 통번역' : selectedLang !== '전체' ? `${selectedLang} 사회자` : selectedType === '사회자' && mcKind ? (mcKind === 'wedding' ? '결혼식 사회자' : '행사 사회자') : selectedType !== '전체' ? selectedType : '사회자'}
               </h1>
             )}
           </>
@@ -627,68 +705,14 @@ function ProsListContent() {
 
       {/* 정렬 — 웨딩숲 '최신순 ⇅' 칩 + 알림 메뉴 어법, 옆에 성별 탭(같은 칩 모양 · 고른 탭은 쿨그레이) */}
       <div className="flex items-center gap-2 bg-white px-4 pb-1 pt-2">
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setSortOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={sortOpen}
-            className="inline-flex h-[42px] items-center gap-1 rounded-[12px] bg-[#F2F4F6] px-3.5 text-[16px] font-semibold tracking-[-0.3px] text-[#333D4B] transition-colors active:bg-[#E8EBED]"
-          >
-            {SORT_OPTIONS.find((o) => o.value === sortBy)?.label || '추천순'}
-            <SortArrowsIcon />
-          </button>
-          {sortOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setSortOpen(false)} />
-              <div className="pop-menu nt-menu absolute left-0 top-[calc(100%+6px)] z-50" style={{ transformOrigin: 'top left' }} role="menu">
-                {SORT_OPTIONS.map((opt, i) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={sortBy === opt.value}
-                    onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
-                    className={`pop-menu-item nt-menu-item${sortBy === opt.value ? ' on' : ''}`}
-                    style={popItemDelay(i)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/icons/toss/${opt.icon}.svg`} alt="" />
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <SortMenuChip sortBy={sortBy} onChange={setSortBy} open={sortOpen} setOpen={setSortOpen} />
         <div
           className="-mr-4 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent)' }}
           role="tablist"
           aria-label="성별"
         >
-          {([
-            { key: '', label: '전체' },
-            { key: 'male', label: '남성사회자' },
-            { key: 'female', label: '여성사회자' },
-          ] as const).map((t) => {
-            const on = genderTab === t.key;
-            return (
-              <button
-                key={t.key || 'all'}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => { if (!on) { setGenderTab(t.key); window.scrollTo({ top: 0 }); } }}
-                // '추천순' 칩과 같은 모양(높이 42 · 모서리 12 · 16 굵게), 고른 탭은 쿨그레이(260926 사장)
-                className={`h-[42px] shrink-0 rounded-[12px] px-3.5 text-[16px] font-semibold tracking-[-0.3px] transition-colors duration-200 active:scale-[0.97] ${
-                  on ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#6B7684] active:bg-[#E8EBED]'
-                }`}
-              >
-                {t.label}
-              </button>
-            );
-          })}
+          <GenderTabButtons value={genderTab} onChange={(next) => { setGenderTab(next); window.scrollTo({ top: 0 }); }} />
         </div>
       </div>
 

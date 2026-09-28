@@ -5,20 +5,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUp,
-  BriefcaseBusiness,
   ChevronLeft,
-  ChevronDown,
   ChevronUp,
-  Grid2X2,
   MapPin,
   Search,
   SlidersHorizontal,
   X,
-  Zap,
 } from 'lucide-react';
+import { LayoutGroup, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api/client';
-import { WEDDING_PARTNER_CATEGORY_TABS } from '@/lib/business-categories';
+import { WEDDING_PARTNER_CATEGORY_ICONS, WEDDING_PARTNER_CATEGORY_TABS, type WeddingPartnerCategory } from '@/lib/business-categories';
+import { SortArrowsIcon } from '@/components/community/TossIcons';
+import { popItemDelay } from '@/lib/pop-menu';
 import {
   isPopularBusinessPartner,
   sortPopularPartnersFirst,
@@ -78,12 +77,13 @@ interface ListBanner {
 const REGIONS = ['전국', '경기', '서울', '부산', '인천', '대구', '충남/세종'];
 
 const SUB_CATEGORIES = WEDDING_PARTNER_CATEGORY_TABS;
-const PC_BUSINESS_NAV_ITEMS = ['웨딩홀', '드레스', '스튜디오', '헤어·메이크업', '스냅', '혼수', '신혼여행'];
-const PC_BUSINESS_SIDEBAR_GROUPS = [
-  { title: '웨딩', items: ['전체', '웨딩홀', '드레스', '스튜디오', '스냅', '한복'] },
-  { title: '뷰티·의료', items: ['헤어', '메이크업', '피부과', '성형외과'] },
-  { title: '혼수', items: ['가전', '가구', '보석', '답례품', '자동차', '신혼여행'] },
-];
+/** PC 정렬 — 사회자 목록 '추천순 ⇅' 칩 + 알림 메뉴 어법 */
+const BUSINESS_SORT_OPTIONS = [
+  { value: 'popular', label: '추천순', icon: 'medal-check' },
+  { value: 'name', label: '이름순', icon: 'list' },
+  { value: 'recent', label: '최근 등록순', icon: 'clock' },
+] as const;
+type BusinessSort = (typeof BUSINESS_SORT_OPTIONS)[number]['value'];
 
 // ─── Advanced Filter Groups ───────────────────────────────
 const FILTER_GROUPS = [
@@ -442,87 +442,22 @@ function WeddingPartnerListBanner({ banners }: { banners: ListBanner[] }) {
   );
 }
 
-function DesktopBusinessHeader({
-  searchQuery,
-  setSearchQuery,
-  selectedCategory,
-  selectCategory,
-}: {
-  searchQuery: string;
-  setSearchQuery: (value: string) => void;
-  selectedCategory: string;
-  selectCategory: (value: string) => void;
-}) {
-  const applyNav = (label: string) => {
-    if (label === '헤어·메이크업') {
-      selectCategory('헤어');
-      return;
-    }
-    if (label === '혼수') {
-      selectCategory('가전');
-      return;
-    }
-    selectCategory(label);
-  };
-
-  const isActive = (label: string) => {
-    if (label === '헤어·메이크업') return selectedCategory === '헤어' || selectedCategory === '메이크업';
-    if (label === '혼수') return ['가전', '가구', '보석', '답례품', '자동차'].includes(selectedCategory);
-    return selectedCategory === label;
-  };
-
+/** '전체' 아이콘 — 네 칸(웨딩숲 사이드바 '전체'와 같은 결) */
+function AllCategoriesIcon() {
   return (
-    <header className="border-b border-[#EEF1F5] bg-white">
-      <div className="mx-auto flex h-[86px] max-w-[1540px] items-center gap-8 px-8">
-        <Link href="/main" className="shrink-0" aria-label="Freetiful 홈">
-          <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-[34px] w-auto" />
-        </Link>
-        <div className="relative h-[60px] w-full max-w-[640px]">
-          <Search className="absolute right-7 top-1/2 h-7 w-7 -translate-y-1/2 text-gray-900" strokeWidth={2.4} />
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="어떤 웨딩파트너가 필요하세요?"
-            className="h-full w-full rounded-full border border-[#D9DEE7] bg-white pl-8 pr-20 text-[22px] font-semibold text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.07)] outline-none transition focus:border-[#3180F7] focus:shadow-[0_10px_30px_rgba(49,128,247,0.12)] placeholder:text-[#A4AAB5]"
-          />
-        </div>
-        <nav className="ml-auto flex items-center gap-8 text-[16px] font-bold text-gray-900">
-          <Link href="/biz" className="whitespace-nowrap transition hover:text-[#3180F7]">비즈문의</Link>
-          <Link href="/pro-register" className="whitespace-nowrap transition hover:text-[#3180F7]">파트너 등록</Link>
-          <Link href="/my" className="whitespace-nowrap transition hover:text-[#3180F7]">마이페이지</Link>
-          <Link href="/biz" className="rounded-[14px] bg-[#111318] px-6 py-4 text-white shadow-[0_12px_24px_rgba(17,19,24,0.14)] transition hover:bg-[#3180F7]">
-            입점문의
-          </Link>
-        </nav>
-      </div>
-      <div className="border-t border-[#F2F4F7]">
-        <div className="mx-auto flex h-[72px] max-w-[1540px] items-center gap-9 px-8 text-[18px] font-bold text-gray-900">
-          <button type="button" className="flex items-center gap-3 text-[#3180F7]">
-            <BriefcaseBusiness className="h-6 w-6" />
-            업종별
-          </button>
-          <span className="h-7 w-px bg-[#E5E8EF]" />
-          <button type="button" onClick={() => selectCategory('전체')} className="flex items-center gap-3 transition hover:text-[#3180F7]">
-            <Grid2X2 className="h-5 w-5" />
-            전체
-            <ChevronDown className="h-5 w-5 text-gray-500" />
-          </button>
-          {PC_BUSINESS_NAV_ITEMS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => applyNav(item)}
-              className={`whitespace-nowrap transition ${isActive(item) ? 'text-[#3180F7]' : 'hover:text-[#3180F7]'}`}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
-    </header>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="2" fill="#C5CBD3" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="2" fill="#DDE1E6" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="2" fill="#DDE1E6" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="2" fill="#C5CBD3" />
+    </svg>
   );
 }
 
+/**
+ * PC 왼쪽 분야 카드 — 웨딩숲 PC 사이드바와 같은 흰 카드(모서리 32 · 아주 옅게 퍼지는 그림자, 260928 사장 '웨딩파트너도 지금 톤앤매너로').
+ * 분야 아이콘(홈 카테고리 아이콘) + 이름, 고른 분야는 옅은 회색 알약이 미끄러져 옮겨 간다.
+ */
 function DesktopBusinessSidebar({
   selectedCategory,
   selectCategory,
@@ -531,94 +466,121 @@ function DesktopBusinessSidebar({
   selectCategory: (value: string) => void;
 }) {
   return (
-    <aside className="sticky top-8 self-start">
-      <h2 className="text-[34px] font-extrabold tracking-[-0.04em] text-gray-950">웨딩파트너</h2>
-      <div className="mt-9 space-y-9">
-        {PC_BUSINESS_SIDEBAR_GROUPS.map((group) => (
-          <div key={group.title}>
-            <p className="mb-4 text-[17px] font-extrabold text-gray-950">{group.title}</p>
-            <div className="space-y-3">
-              {group.items.map((item) => (
-                <button
-                  key={`${group.title}-${item}`}
-                  type="button"
-                  onClick={() => selectCategory(item)}
-                  className={`block text-left text-[16px] font-semibold leading-6 transition ${
-                    selectedCategory === item ? 'text-[#3180F7]' : 'text-[#5B6270] hover:text-[#3180F7]'
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+    <aside
+      className="sticky top-[97px] self-start overflow-y-auto rounded-[32px] bg-white px-3 pb-3 pt-6 shadow-[0_12px_48px_rgba(17,24,39,0.06),0_2px_10px_rgba(17,24,39,0.025)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={{ maxHeight: 'calc(100vh - 121px)', overscrollBehavior: 'contain' }}
+    >
+      <h2 className="mb-2.5 px-3.5 text-[19px] font-bold tracking-[-0.3px] text-[#191F28]">웨딩파트너</h2>
+      <LayoutGroup id="biz-pc-cats">
+        <nav className="flex flex-col gap-0.5" aria-label="분야">
+          {SUB_CATEGORIES.map((category) => {
+            const active = selectedCategory === category;
+            const icon = category === '전체' ? null : WEDDING_PARTNER_CATEGORY_ICONS[category as WeddingPartnerCategory];
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => selectCategory(category)}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex w-full items-center gap-2.5 rounded-[14px] px-3.5 py-[9px] text-left text-[15px] tracking-[-0.3px] transition-colors ${
+                  active ? 'font-bold text-[#191F28]' : 'font-medium text-[#4E5968] hover:bg-[#F9FAFB]'
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="biz-pc-cat-pill"
+                    className="absolute inset-0 rounded-[14px] bg-[#F2F4F6]"
+                    transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                  />
+                )}
+                <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+                  {icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/images/category-icons/${icon}`} alt="" className="h-6 w-6 object-contain" draggable={false} />
+                  ) : (
+                    <AllCategoriesIcon />
+                  )}
+                </span>
+                <span className="relative min-w-0 truncate">{category}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </LayoutGroup>
+      {/* 예전 PC 머리줄의 '입점문의'(전체 헤더로 바꾸며 자리를 옮겼다) */}
+      <Link
+        href="/biz"
+        className="mt-3 flex items-center justify-between rounded-[16px] bg-[#F2F7FF] px-3.5 py-3 text-[14px] font-semibold tracking-[-0.2px] text-[#3182F6] transition-colors hover:bg-[#E8F1FF]"
+      >
+        우리 업체도 입점하기
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </Link>
     </aside>
   );
 }
 
-function DesktopBusinessMarketCard({
-  item,
-  index,
+/** PC 칩 + 팝 메뉴(지역 · 정렬) — 사회자 목록 '추천순 ⇅' 칩과 같은 모양(높이 42 · 모서리 12 · 16 굵게) */
+function DesktopPopChip<V extends string>({
+  label,
+  trailing,
+  value,
+  options,
+  onChange,
 }: {
-  item: RankItem;
-  index: number;
+  label: string;
+  trailing: React.ReactNode;
+  value: V;
+  options: readonly { value: V; label: string; icon: string }[];
+  onChange: (value: V) => void;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <article className="group min-w-0">
-      <div className="relative aspect-[16/12] overflow-hidden rounded-[10px] bg-[#F2F4F7]">
-        <Link href={`/businesses/${item.id}`} className="block h-full w-full">
-          <img
-            src={item.image}
-            alt={item.title}
-            loading={index < 8 ? 'eager' : 'lazy'}
-            decoding="async"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-            onError={(event) => {
-              const image = event.currentTarget;
-              if (image.dataset.fallbackUsed === 'true') {
-                image.src = '/images/default-profile.png';
-                return;
-              }
-              image.dataset.fallbackUsed = 'true';
-              image.src = item.imageFallback || '/images/default-profile.png';
-            }}
-          />
-        </Link>
-        {item.isPopular && (
-          <span className="absolute left-3 top-3 rounded-[4px] bg-[#111318] px-2.5 py-1 text-[13px] font-extrabold italic text-white">
-            PICK
-          </span>
-        )}
-      </div>
-      <Link href={`/businesses/${item.id}`} className="mt-4 block">
-        <p className="line-clamp-2 min-h-[54px] text-[19px] font-extrabold leading-[1.42] tracking-[-0.035em] text-gray-950 transition group-hover:text-[#3180F7]">
-          {item.title}
-        </p>
-        <p className="mt-3 text-[15px] font-semibold text-[#6B7280]">{item.region} · {item.clinic}</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {[item.category, ...item.tags].filter(Boolean).slice(0, 4).map((tag) => (
-            <span key={tag} className="rounded-[6px] bg-[#F2F4F7] px-2 py-1 text-[13px] font-semibold text-[#5B6270]">
-              {tag}
-            </span>
-          ))}
-        </div>
-        {(item.hasAppPay || item.hasAppBooking || item.verifiedBadge) && (
-          <div className="mt-4 flex flex-wrap items-center gap-1.5">
-            {item.verifiedBadge && (
-              <span className="rounded-[6px] bg-[#EAF3FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">{item.verifiedBadge}</span>
-            )}
-            {item.hasAppPay && (
-              <span className="rounded-[6px] bg-[#EAF3FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">앱결제</span>
-            )}
-            {item.hasAppBooking && (
-              <span className="rounded-[6px] bg-[#F0F7FF] px-2.5 py-1 text-[12px] font-extrabold text-[#3180F7]">앱예약</span>
-            )}
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex h-[42px] items-center gap-1 rounded-[12px] bg-[#F2F4F6] px-3.5 text-[16px] font-semibold tracking-[-0.3px] text-[#333D4B] transition-colors hover:bg-[#EAECEF] active:bg-[#E8EBED]"
+      >
+        {label}
+        {trailing}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="pop-menu nt-menu absolute left-0 top-[calc(100%+6px)] z-50" style={{ transformOrigin: 'top left' }} role="menu">
+            {options.map((opt, i) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={value === opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`pop-menu-item nt-menu-item${value === opt.value ? ' on' : ''}`}
+                style={popItemDelay(i)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/icons/toss/${opt.icon}.svg`} alt="" />
+                {opt.label}
+              </button>
+            ))}
           </div>
-        )}
-      </Link>
-    </article>
+        </>
+      )}
+    </div>
+  );
+}
+
+const REGION_OPTIONS = REGIONS.map((region) => ({ value: region, label: region, icon: 'pin' }));
+
+function ChevronGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-px shrink-0">
+      <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -649,7 +611,11 @@ export default function BusinessListPage() {
   });
   const [listBanners, setListBanners] = useState<ListBanner[]>(() => readBusinessBannerCache());
   const [businessSearch, setBusinessSearch] = useState('');
-  const [businessSort, setBusinessSort] = useState<'popular' | 'name' | 'recent'>('popular');
+  const [businessSort, setBusinessSort] = useState<BusinessSort>('popular');
+  // PC 제목·분야 카드의 '고른 분야' — 서버는 주소(?category=)를 몰라 '전체'로 그리므로 붙은 뒤에 바꾼다(첫 화면 글자·모양 어긋남 방지)
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  const pcCategory = hydrated ? selectedCategory : '전체';
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<Record<string, Set<string>>>(() =>
     Object.fromEntries(FILTER_GROUPS.map((g) => [g.key, new Set<string>()]))
@@ -870,100 +836,102 @@ export default function BusinessListPage() {
 
   return (
     <>
-    <div className="relative left-1/2 hidden min-h-screen w-screen -translate-x-1/2 bg-white lg:block" style={{ letterSpacing: '-0.02em' }}>
-      <DesktopBusinessHeader
-        searchQuery={businessSearch}
-        setSearchQuery={setBusinessSearch}
-        selectedCategory={selectedCategory}
-        selectCategory={selectCategory}
-      />
-
-      <div className="mx-auto grid max-w-[1540px] grid-cols-[230px_minmax(0,1fr)] gap-16 px-8 py-14">
-        <DesktopBusinessSidebar selectedCategory={selectedCategory} selectCategory={selectCategory} />
+    {/* ─── PC — 전체 헤더 아래(260928 사장 '웨딩파트너도 지금 톤앤매너로') ───
+        왼쪽 = 웨딩숲 사이드바와 같은 흰 분야 카드 · 오른쪽 = 큰 제목(고른 분야) · 검색칸 · 지역/정렬 칩(팝 메뉴) · 상세 필터 · 배너 ·
+        홈 웨딩파트너 사진 색 카드(가로형) 격자, 등장 = 퀵매칭 차례. */}
+    <div className="hidden min-h-screen bg-white pb-24 lg:block" style={{ letterSpacing: '-0.02em' }}>
+      <div className="grid grid-cols-[240px_minmax(0,1fr)] gap-10 pt-10 xl:grid-cols-[256px_minmax(0,1fr)]">
+        <DesktopBusinessSidebar selectedCategory={pcCategory} selectCategory={selectCategory} />
 
         <section className="min-w-0">
-          <div className="mb-10 flex flex-wrap items-center justify-between gap-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={selectedCategory}
-                onChange={(event) => selectCategory(event.target.value)}
-                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
-              >
-                {SUB_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>{category === '전체' ? '카테고리 선택' : category}</option>
-                ))}
-              </select>
-              <select
-                value={selectedRegion}
-                onChange={(event) => setSelectedRegion(event.target.value)}
-                className="h-[46px] rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 outline-none transition focus:border-[#3180F7]"
-              >
-                {REGIONS.map((region) => (
-                  <option key={region} value={region}>{region === '전국' ? '지역' : region}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(true)}
-                className={`inline-flex h-[46px] items-center gap-2 rounded-[10px] border px-5 text-[16px] font-bold transition ${
-                  totalActiveFilters > 0
-                    ? 'border-[#3180F7] bg-[#EAF3FF] text-[#3180F7]'
-                    : 'border-[#DDE2EA] bg-white text-gray-900 hover:border-[#3180F7] hover:text-[#3180F7]'
-                }`}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                상세 필터
-                {totalActiveFilters > 0 && <span className="text-[#3180F7]">{totalActiveFilters}</span>}
-              </button>
-              <button
-                type="button"
-                className="inline-flex h-[46px] items-center gap-2 rounded-[10px] border border-[#DDE2EA] bg-white px-5 text-[16px] font-bold text-gray-900 transition hover:border-[#3180F7] hover:text-[#3180F7]"
-              >
-                <Zap className="h-4 w-4 fill-[#3180F7] text-[#3180F7]" />
-                빠른 응답
-              </button>
-            </div>
-
-            <div className="flex items-center gap-5">
-              <p className="text-[16px] font-semibold text-[#4B5563]">
-                <span className="font-extrabold text-gray-950">{visibleRankItems.length.toLocaleString()}</span>개의 파트너
+          <div className="flex items-end justify-between gap-8 pb-6">
+            <div key={pcCategory} className="min-w-0">
+              <h1 className="qd-a-title m-0 text-[30px] font-bold leading-[1.3] tracking-[-0.6px] text-[#191F28]">
+                {pcCategory === '전체' ? '웨딩파트너' : pcCategory}
+              </h1>
+              <p className="qd-a-sub mt-1.5 text-[15px] tracking-[-0.2px] text-[#8B95A1]">
+                {!hydrated || showListSkeleton ? '파트너를 불러오고 있어요' : (
+                  <>파트너 <b className="font-semibold text-[#4E5968]">{visibleRankItems.length.toLocaleString()}</b>곳{hasMoreBusinesses ? ' 이상' : ''}</>
+                )}
               </p>
-              <select
-                value={businessSort}
-                onChange={(event) => setBusinessSort(event.target.value as typeof businessSort)}
-                className="h-[42px] rounded-[9px] border-none bg-white text-[16px] font-bold text-gray-900 outline-none"
-              >
-                <option value="popular">추천순</option>
-                <option value="name">이름순</option>
-                <option value="recent">최근 등록순</option>
-              </select>
             </div>
+            <label className="qd-a-sub flex h-12 w-[320px] shrink-0 items-center gap-2 rounded-[14px] bg-[#F2F4F6] pl-4 pr-2 transition-colors focus-within:bg-[#EAECEF] xl:w-[360px]">
+              <Search size={18} className="shrink-0 text-[#8B95A1]" />
+              <input
+                value={businessSearch}
+                onChange={(event) => setBusinessSearch(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Escape') setBusinessSearch(''); }}
+                placeholder="업체 이름, 지역, 분위기로 검색"
+                aria-label="웨딩파트너 검색"
+                className="h-full min-w-0 flex-1 bg-transparent text-[16px] font-medium text-[#191F28] outline-none placeholder:font-normal placeholder:text-[#8B95A1]"
+              />
+              {businessSearch && (
+                <button
+                  type="button"
+                  onClick={() => setBusinessSearch('')}
+                  aria-label="검색어 지우기"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C9CED6] text-white transition-transform active:scale-90"
+                >
+                  <X size={13} strokeWidth={3} />
+                </button>
+              )}
+            </label>
           </div>
 
-          {filterOpen && (
-            <div className="mb-8 rounded-[18px] border border-[#E8ECF3] bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-              <div className="mb-5 flex items-center justify-between">
-                <p className="text-[18px] font-extrabold text-gray-950">상세 필터</p>
-                <button type="button" onClick={() => setFilterOpen(false)} className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="space-y-5">
+          <div className="qd-a-item flex items-center gap-2" style={{ animationDelay: '0.1s' }}>
+            <DesktopPopChip<BusinessSort>
+              label={BUSINESS_SORT_OPTIONS.find((o) => o.value === businessSort)?.label || '추천순'}
+              trailing={<SortArrowsIcon />}
+              value={businessSort}
+              options={BUSINESS_SORT_OPTIONS}
+              onChange={setBusinessSort}
+            />
+            <span aria-hidden="true" className="mx-1 h-5 w-px bg-[#E5E8EB]" />
+            <DesktopPopChip
+              label={selectedRegion === '전국' ? '지역 전체' : selectedRegion}
+              trailing={<ChevronGlyph />}
+              value={selectedRegion}
+              options={REGION_OPTIONS}
+              onChange={setSelectedRegion}
+            />
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              aria-expanded={filterOpen}
+              className={`inline-flex h-[42px] items-center gap-1.5 rounded-[12px] px-3.5 text-[16px] font-semibold tracking-[-0.3px] transition-colors active:scale-[0.97] ${
+                totalActiveFilters > 0 || filterOpen ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#333D4B] hover:bg-[#EAECEF]'
+              }`}
+            >
+              <SlidersHorizontal className="h-4 w-4" strokeWidth={2.2} />
+              상세 필터
+              {totalActiveFilters > 0 && <span className="tabular-nums">{totalActiveFilters}</span>}
+            </button>
+          </div>
+
+          {/* 상세 필터 — 흰 카드가 스프링으로 펼쳐지고 칩은 사회자 목록 성별 탭과 같은 칩(고른 칩 쿨그레이) */}
+          <motion.div
+            initial={false}
+            animate={{ height: filterOpen ? 'auto' : 0, opacity: filterOpen ? 1 : 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 40 }}
+            className="overflow-hidden"
+            aria-hidden={!filterOpen}
+          >
+            <div className="mt-4 rounded-[24px] bg-white p-6 shadow-[0_12px_48px_rgba(17,24,39,0.07),0_2px_10px_rgba(17,24,39,0.03)]">
+              <div className="space-y-4">
                 {FILTER_GROUPS.map((group) => (
-                  <div key={group.key} className="grid grid-cols-[120px_minmax(0,1fr)] gap-5">
-                    <p className="pt-1 text-[14px] font-extrabold text-gray-900">{group.label}</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div key={group.key} className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-4">
+                    <p className="pt-2 text-[14px] font-semibold tracking-[-0.2px] text-[#4E5968]">{group.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {group.options.map((option) => {
                         const active = filters[group.key]?.has(option);
                         return (
                           <button
                             key={option}
                             type="button"
+                            tabIndex={filterOpen ? 0 : -1}
                             onClick={() => toggleFilterOption(group.key, option)}
-                            className={`h-[34px] rounded-full border px-3.5 text-[13px] font-bold transition ${
-                              active
-                                ? 'border-[#3180F7] bg-[#3180F7] text-white'
-                                : 'border-[#E1E6EF] bg-white text-gray-500 hover:border-[#3180F7] hover:text-[#3180F7]'
+                            className={`h-9 rounded-[10px] px-3 text-[14px] font-semibold tracking-[-0.2px] transition-colors active:scale-[0.97] ${
+                              active ? 'bg-[#4E5968] text-white' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#EAECEF]'
                             }`}
                           >
                             {option}
@@ -975,72 +943,79 @@ export default function BusinessListPage() {
                 ))}
               </div>
               <div className="mt-6 flex justify-end gap-2">
-                <button type="button" onClick={clearAllFilters} className="h-[40px] rounded-[10px] border border-[#DDE2EA] px-4 text-[14px] font-bold text-gray-700">
+                <button type="button" tabIndex={filterOpen ? 0 : -1} onClick={clearAllFilters} className="h-11 rounded-[12px] bg-[#F2F4F6] px-4 text-[15px] font-semibold text-[#4E5968] transition hover:bg-[#EAECEF] active:scale-[0.97]">
                   초기화
                 </button>
-                <button type="button" onClick={() => setFilterOpen(false)} className="h-[40px] rounded-[10px] bg-[#3180F7] px-5 text-[14px] font-bold text-white">
+                <button type="button" tabIndex={filterOpen ? 0 : -1} onClick={() => setFilterOpen(false)} className="h-11 rounded-[12px] bg-[#3182F6] px-5 text-[15px] font-semibold text-white transition hover:bg-[#2272EB] active:scale-[0.97]">
                   적용
                 </button>
               </div>
             </div>
-          )}
+          </motion.div>
 
-          <WeddingPartnerListBanner banners={listBanners} />
+          <div className="mt-6">
+            <WeddingPartnerListBanner banners={listBanners} />
+          </div>
 
-          {showListSkeleton ? (
-            <div className="grid grid-cols-4 gap-x-8 gap-y-12">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <div key={index}>
-                  <div className="skeleton aspect-[16/12] rounded-[10px]" />
-                  <div className="mt-4 space-y-2">
-                    <div className="skeleton h-5 w-full rounded" />
-                    <div className="skeleton h-5 w-3/4 rounded" />
-                    <div className="skeleton h-4 w-1/2 rounded" />
+          <div className="mt-4">
+            {showListSkeleton ? (
+              <div aria-hidden="true" className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="overflow-hidden rounded-[20px] bg-[#F7F8FA]">
+                    <div className="skeleton aspect-[16/9] w-full" style={{ borderRadius: 0 }} />
+                    <div className="px-4 pb-4 pt-3">
+                      <div className="skeleton h-[17px] w-40" style={{ borderRadius: 6 }} />
+                      <div className="skeleton mt-2 h-3 w-28" style={{ borderRadius: 5 }} />
+                      <div className="skeleton mt-3 h-[26px] w-44" style={{ borderRadius: 8 }} />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : visibleRankItems.length > 0 ? (
-            <>
-              <div className="grid grid-cols-4 gap-x-8 gap-y-12">
-                {visibleRankItems.map((item, index) => (
-                  <DesktopBusinessMarketCard
-                    key={item.id}
-                    item={item}
-                    index={index}
-                  />
                 ))}
               </div>
-              {hasMoreBusinesses && (
-                <div ref={desktopLoadMoreRef} className="py-12 text-center">
-                  {loadingMore ? (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-[#F2F6FF] px-4 py-2 text-[14px] font-bold text-[#3180F7]">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#3180F7]" />
-                      파트너를 더 불러오는 중
-                    </span>
-                  ) : (
-                    <span className="inline-block h-8" />
-                  )}
+            ) : visibleRankItems.length > 0 ? (
+              <>
+                <div key={`${selectedCategory}|${selectedRegion}|${businessSort}`} className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                  {visibleRankItems.map((item, index) => (
+                    <PartnerToneCard
+                      key={item.id}
+                      biz={toToneCard(item)}
+                      index={index}
+                      wrapperClassName="qd-a-item"
+                      wrapperStyle={{ animationDelay: `${0.12 + (index % 12) * 0.04}s` }}
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[18px] bg-[#F8FAFC] text-center">
-              <Search size={38} className="text-gray-300" />
-              <p className="mt-5 text-[18px] font-bold text-gray-500">조건에 맞는 업체가 없습니다</p>
-              <button
-                onClick={() => {
-                  selectCategory('전체');
-                  setSelectedRegion('전국');
-                  clearAllFilters();
-                  setBusinessSearch('');
-                }}
-                className="mt-5 rounded-full bg-[#3180F7] px-5 py-3 text-[15px] font-bold text-white"
-              >
-                필터 초기화
-              </button>
-            </div>
-          )}
+                {hasMoreBusinesses && (
+                  <div ref={desktopLoadMoreRef} className="flex justify-center py-12">
+                    {loadingMore ? (
+                      <span className="inline-flex items-center gap-2 text-[14px] font-medium text-[#8B95A1]">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#B0B8C1]" />
+                        파트너를 더 불러오는 중
+                      </span>
+                    ) : (
+                      <span className="inline-block h-8" />
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center py-24 text-center">
+                <p className="qd-a-title text-[19px] font-bold text-[#191F28]">조건에 맞는 업체가 없어요</p>
+                <p className="qd-a-sub mt-1.5 text-[15px] text-[#8B95A1]">분야나 지역, 상세 필터를 바꿔 다시 찾아보세요</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectCategory('전체');
+                    setSelectedRegion('전국');
+                    clearAllFilters();
+                    setBusinessSearch('');
+                  }}
+                  className="qd-a-sub mt-5 inline-flex h-[44px] items-center rounded-[12px] bg-[#E8F3FF] px-5 text-[16px] font-bold tracking-[-0.3px] text-[#3182F6] transition hover:bg-[#DCEBFF] active:scale-[0.97]"
+                >
+                  조건 초기화
+                </button>
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </div>
