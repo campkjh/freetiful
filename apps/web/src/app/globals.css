@@ -2456,3 +2456,21 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @keyframes pkPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @keyframes pkShake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
 @media (prefers-reduced-motion: reduce) { .pk, .pk.is-leaving, .pk-pad, .pk-pad.is-shake, .pk-dot.on, .pk-dots.is-ok .pk-dot.on { animation: none; } }
+
+/* PC 첫 화면 배너 사진 줄(components/home/BannerPhotoStrip) — 유리 판이 아래에서 떠오르고 사진이 차례로 톡톡(260928).
+   바깥 칸 = 위치·크기(Rise), 유리 판 자신 = 투명도(GlassIn). 조상에 filter/opacity 를 걸면 backdrop 흐림이 사진을 못 본다. */
+@keyframes bannerStripRise {
+  from { transform: translateY(22px) scale(0.97); }
+  to { transform: translateY(0) scale(1); }
+}
+@keyframes bannerGlassIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bannerThumbIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.84); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-banner-strip], [data-banner-strip] * { animation: none !important; }
+}

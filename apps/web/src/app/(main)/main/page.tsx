@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ChevronRight, X } from 'lucide-react';
 import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import ProQuickView from '@/components/ProQuickView';
+import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
 import {
@@ -968,14 +969,37 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
   );
 }
 
-const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup' }[] = [
+const VDGD = '/images/wedding-partners/wedding-hall';
+const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
   // pcImage = PC 첫 화면 4:3 판(260928 사장 — 빌라드지디·슈슈몽드·세라미크는 로고만 든 사진, 제목은 같은 웹 글자로).
-  { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', pcImage: '/images/banners/pc-hero-villadegd.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}` },
+  // strip = PC 배너 아래 사진 줄(260928 사장 — 오늘의집 카드처럼, 유리 판) · 빌라드지디는 지점마다 대표 사진 한 장 → 그 지점 상세
+  { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', pcImage: '/images/banners/pc-hero-villadegd.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
+    strip: {
+      photos: [
+        { src: `${VDGD}/villadegd-cheongdam/01.webp`, href: '/businesses/8afc8e16-edfb-473f-8f60-5654e7cddfe1', label: '청담' },
+        { src: `${VDGD}/villadegd-nonhyeon/04.webp`, href: '/businesses/bfd0674b-6295-40a2-8fcc-86704a2c6f10', label: '논현' },
+        { src: `${VDGD}/villadegd-suseo/01.webp`, href: '/businesses/69df8352-1b66-4f9d-af54-1576f6b9d9f3', label: '수서' },
+        { src: `${VDGD}/villadegd-anyang/01.webp`, href: '/businesses/eb492956-bbf5-4c61-b6e4-441b4a964877', label: '안양' },
+        { src: `${VDGD}/villadegd-ansan/01.webp`, href: '/businesses/dfbb9a38-db98-4ff3-83ad-0bc9b85782c3', label: '안산' },
+      ],
+      moreHref: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
+    } },
   { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
-  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드' },
+  // 슈슈몽드 강남 — 제휴 웨딩홀 사진(다이렉트결혼준비, 업체 상세와 같은 사진) · 배너·사진 모두 업체 상세로
+  { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
+    strip: {
+      photos: [
+        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d586b4b4bef8e0a619_1491381951_img_4559_0_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
+        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a5c6_1491381951_img_4559_1_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
+        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a5b4_1491381951_img_4559_2_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
+        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a518_1491381951_img_4559_3_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
+        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d386b4b4bef8e0a3cb_1491381951_img_4559_4_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
+      ],
+      moreHref: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
+    } },
   { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
   { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', pcImage: '/images/banners/pc-hero-ceramique.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
@@ -1081,6 +1105,8 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
         className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
         style={{ aspectRatio: pc ? '4 / 3' : '8 / 3', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
+          // 사진 줄(링크)에서 시작한 누름은 넘기기로 잡지 않는다 — 잡으면(pointer capture) 링크 눌림이 배너로 가 버린다
+          if ((e.target as HTMLElement).closest?.('[data-banner-strip]')) return;
           startRef.current = { x: e.clientX, y: e.clientY };
           setDrag(0);
           if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
@@ -1109,13 +1135,13 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
           }}
         >
           {HOME_TOP_BANNERS.map((b, i) => (
+            // 장 = 칸(div) 안에 배너 단추(가득) + PC 사진 줄(링크들) — 단추 안에 링크를 넣으면 안 돼서 나란히 둔다
+            <div key={b.id} className="relative h-full shrink-0 overflow-hidden" style={{ width: `${100 / count}%` }}>
             <button
-              key={b.id}
               type="button"
               onClick={() => open(b)}
               aria-label={b.alt}
-              className={`relative h-full shrink-0 overflow-hidden ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
-              style={{ width: `${100 / count}%` }}
+              className={`absolute inset-0 overflow-hidden ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={pc ? b.pcImage : b.image} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
@@ -1143,12 +1169,23 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
                 </>
               )}
             </button>
+            {pc && b.strip && (
+              <BannerPhotoStrip
+                strip={b.strip}
+                active={i === idx}
+                leaving={i === leaving}
+                animKey={i === idx ? `on-${turn}` : 'off'}
+                canNavigate={() => !lockRef.current}
+              />
+            )}
+            </div>
           ))}
         </div>
-        {/* 인디케이터 — 왼쪽 아래 길고 얇은 선(반투명 흰 선 위를 흰 막대가 지금 장으로 미끄러진다, 260926 사장 "1/5 말고 길고 얇은 선을 좌측에") */}
+        {/* 인디케이터 — 왼쪽 아래 길고 얇은 선(반투명 흰 선 위를 흰 막대가 지금 장으로 미끄러진다, 260926 사장 "1/5 말고 길고 얇은 선을 좌측에").
+            PC 는 오른쪽 위 — 아래는 사진 줄(유리 판) 자리(260928) */}
         <div
           aria-hidden="true"
-          className={`pointer-events-none absolute h-[2px] overflow-hidden rounded-full bg-white/35 ${pc ? 'bottom-4 left-6 w-[96px]' : 'bottom-[14px] left-[14px] w-[80px]'}`}
+          className={`pointer-events-none absolute h-[2px] overflow-hidden rounded-full bg-white/35 ${pc ? 'right-7 top-7 w-[96px]' : 'bottom-[14px] left-[14px] w-[80px]'}`}
           style={{ filter: 'drop-shadow(0 0 1px rgba(0, 0, 0, 0.18))' }}
         >
           <div
