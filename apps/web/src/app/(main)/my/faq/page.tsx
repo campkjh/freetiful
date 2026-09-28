@@ -57,6 +57,8 @@ interface Section {
   items: Faq[];
 }
 
+const FAQ_CATEGORY_ORDER = ['서비스 이용', '퀵매칭·견적', '채팅·예약', '결제·환불', '웨딩숲(커뮤니티)', '사회자·파트너', '계정·알림'];
+
 export default function FaqPage() {
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,11 +89,15 @@ export default function FaqPage() {
       arr.push(f);
       map.set(f.category, arr);
     }
-    // 각 카테고리 내부 정렬은 서버가 해주지만 안전을 위해 한 번 더
-    return Array.from(map.entries()).map(([category, items]) => ({
-      category,
-      items: items.sort((a, b) => a.displayOrder - b.displayOrder),
-    }));
+    // 각 카테고리 내부 정렬은 서버가 해주지만 안전을 위해 한 번 더.
+    // 카테고리 순서 = 이용 흐름(260928 FAQ 새로 씀) — 서버는 이름 가나다순이라 '결제·환불'이 맨 앞에 왔다. 목록에 없는 카테고리는 뒤에.
+    const rank = (c: string) => { const i = FAQ_CATEGORY_ORDER.indexOf(c); return i < 0 ? FAQ_CATEGORY_ORDER.length : i; };
+    return Array.from(map.entries())
+      .sort(([a], [b]) => rank(a) - rank(b))
+      .map(([category, items]) => ({
+        category,
+        items: items.sort((a, b) => a.displayOrder - b.displayOrder),
+      }));
   }, [faqs]);
 
   const categories = sections.map((s) => s.category);
