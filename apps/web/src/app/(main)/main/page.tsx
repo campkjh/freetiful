@@ -764,10 +764,13 @@ const BANNERS = [
  * (PC 첫 화면·iOS 네이티브 홈은 그대로 관리자 배너). 누르면: 가입 5천원 = 비로그인 가입 창·로그인 시 친구 초대 / 빌라드지디 = 웨딩홀 목록
  * (맨 위 빌라드지디 소개) / 결혼식사회자 1등 = 퀵매칭 / 슈슈몽드·세라미크 = 업체 페이지가 없어 이동 없음.
  */
-/** 홈 퀵매칭·웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임). 설명 문구·퀵매칭 버튼 '빠른찾기' 260927 사장, 퀵매칭 사진은 파란 꽃 여자 사회자로 교체(260927) */
+/**
+ * 홈 퀵매칭·웨딩숲 바로가기(모바일, 홈 맨 위) — 사장 제공 사진 8:3(public/images/home, 1200 폭으로 줄임). 퀵매칭 버튼 '빠른찾기' 260927 사장,
+ * 퀵매칭 사진은 파란 꽃 여자 사회자로 교체(260927). 260928 사장: 설명 줄을 빼고 제목 위 작은 글씨(kicker)로 — '결혼식사회자 / 퀵매칭', '예비부부 커뮤니티 / 웨딩숲'.
+ */
 const HOME_SHORTCUTS = [
-  { href: '/quick-match', image: '/images/home/shortcut-quick-match-blue.webp', title: '퀵매칭', desc: '결혼식 사회자, 1분 만에 퀵매칭', cta: '빠른찾기' },
-  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', title: '웨딩숲', desc: '예비부부의 결혼 준비 커뮤니티', cta: '구경하기' },
+  { href: '/quick-match', image: '/images/home/shortcut-quick-match-blue.webp', kicker: '결혼식사회자', title: '퀵매칭', cta: '빠른찾기' },
+  { href: '/community', image: '/images/home/shortcut-wedding-forest.webp', kicker: '예비부부 커뮤니티', title: '웨딩숲', cta: '구경하기' },
 ];
 
 /**
@@ -963,8 +966,8 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
             {/* 왼쪽만 옅게 어둡게 — 밝은 사진(웨딩숲 숲 빛)에서도 흰 글자가 읽히게 */}
             <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.14) 42%, rgba(0,0,0,0) 68%)' }} />
             <div className="absolute inset-y-0 left-0 flex max-w-[64%] flex-col justify-center pl-5" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.22)' }}>
+              <p className="break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.kicker}</p>
               <p className="text-[21px] font-bold leading-[1.35] tracking-[-0.4px] text-white">{b.title}</p>
-              <p className="mt-0.5 break-keep text-[13.5px] font-medium leading-[1.5] tracking-[-0.2px] text-white/90">{b.desc}</p>
               <span
                 ref={i === 0 ? ctaRef : undefined}
                 className="mt-2.5 inline-flex h-[28px] w-fit items-center gap-0.5 rounded-full pl-3 pr-2 text-[13px] font-semibold tracking-[-0.2px] text-white"

@@ -295,13 +295,10 @@ export default function QuickMatchPage() {
   const canReroll = !rerolled && (hasFeatured ? pool.rest.length > 0 : pool.rest.length > 5);
   // 지정 사회자에게 보내는 신청만 번호가 간다 → 리롤 뒤에 고른 사회자는 연락 방식을 묻지 않고 프리티풀 채팅으로
   const phoneShared = hasFeatured && !rerolled;
-  // 몇 단계째인지(260927 사장) — 질문 화면마다 머리에 'N / 전체' + 진행 막대. 연락 방식은 번호가 가는 신청일 때만 묻는다
-  // (후보를 받기 전에는 묻는 쪽으로 센다).
-  const askContact = !rerolled && (hasFeatured || (pool.featured.length === 0 && pool.rest.length === 0));
-  const flowSteps: Step[] = ['date', 'region', 'venue', 'mood', 'part', 'gender', 'results', ...(askContact ? (['contact'] as Step[]) : []), 'phone'];
+  // 몇 단계째인지 — 머리에 'N / 5' + 진행 막대(QUICK_PROGRESS). 결과·연락 방식·번호 화면은 표시 없이.
   const progressOf = (s: Step) => {
-    const i = flowSteps.indexOf(s);
-    return i < 0 ? undefined : { at: i + 1, total: flowSteps.length };
+    const p = QUICK_PROGRESS[s];
+    return p ? { at: p.at, total: QUICK_PROGRESS_TOTAL, from: p.from / QUICK_PROGRESS_TOTAL, to: p.to / QUICK_PROGRESS_TOTAL } : undefined;
   };
 
   // 검색 화면 뒷배경: 사회자 프로필 사진들을 1초마다 크로스페이드로 순환
@@ -604,7 +601,21 @@ export default function QuickMatchPage() {
 }
 
 /** 머리 — 뒤로 + 몇 단계째인지(진행 막대 + 'N / 전체'). 막대는 앞 단계 길이에서 이번 단계 길이로 늘어난다 */
-function Header({ onBack, progress }: { onBack: () => void; progress?: { at: number; total: number } }) {
+/**
+ * 진행 단계(260928 사장 '1/9 → 1/5 — 1~5 끝나면 매칭 화면이라 그다음은 번호 없어도 됨'): 성별까지 다섯 단계.
+ * 예식 장소는 권역 → 예식장 이름 두 화면을 한 단계로 센다(번호는 2 그대로, 막대만 반 칸씩 찬다) → 5/5(성별) 다음이 바로 매칭.
+ */
+const QUICK_PROGRESS_TOTAL = 5;
+const QUICK_PROGRESS: Partial<Record<Step, { at: number; from: number; to: number }>> = {
+  date: { at: 1, from: 0, to: 1 },
+  region: { at: 2, from: 1, to: 1.5 },
+  venue: { at: 2, from: 1.5, to: 2 },
+  mood: { at: 3, from: 2, to: 3 },
+  part: { at: 4, from: 3, to: 4 },
+  gender: { at: 5, from: 4, to: 5 },
+};
+
+function Header({ onBack, progress }: { onBack: () => void; progress?: { at: number; total: number; from: number; to: number } }) {
   return (
     <header className="qm-header">
       <button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button>
@@ -613,7 +624,7 @@ function Header({ onBack, progress }: { onBack: () => void; progress?: { at: num
           <span className="qm-progress-track">
             <span
               className="qm-progress-fill"
-              style={{ '--from': `${((progress.at - 1) / progress.total) * 100}%`, '--to': `${(progress.at / progress.total) * 100}%` } as React.CSSProperties}
+              style={{ '--from': `${progress.from * 100}%`, '--to': `${progress.to * 100}%` } as React.CSSProperties}
             />
           </span>
           <span className="qm-progress-t"><b>{progress.at}</b> / {progress.total}</span>
