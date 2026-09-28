@@ -2227,9 +2227,9 @@ export default function HomePage() {
       }
     };
     if (!useAuthStore.getState().user) {
-      // 비로그인 — 가입 5천원(사장 제공 세로 그림 887×1774 → 위쪽 기준 3:5)
+      // 비로그인 — 가입 5천원(사장 제공 세로 그림 887×1774, 비율 그대로 — 260929 사장 '이 이미지와 ratio 로')
       if (!hidden('signup-5000')) {
-        schedule({ id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 3 / 5, ctaLabel: '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금' });
+        schedule({ id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 887 / 1774, ctaLabel: '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금' });
       }
       return () => { cancelled = true; stopWaiting(); };
     }

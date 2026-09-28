@@ -143,6 +143,7 @@ const HIDE_NAV_PATTERNS = [
   /^\/careers$/,
   /^\/search/,
   /^\/community\/.+/,
+  /^\/safe-payment/,
 ];
 
 const HIDE_FOOTER_PATTERNS = [

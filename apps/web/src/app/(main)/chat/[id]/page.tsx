@@ -1578,13 +1578,11 @@ export default function ChatRoomPage({
             </div>
             </div>
 
-            {/* 안전결제 띠 — 좌우 여백 없이 가로 끝까지, 내용만 카드와 같은 줄에 맞춘다 */}
+            {/* 안전결제 띠 — 좌우 여백 없이 가로 끝까지, 내용만 카드와 같은 줄에 맞춘다.
+                누르면 안전결제 안내 글(/safe-payment, 260929 사장 — 블로그 결) · 견적서로 가기는 위 '견적서 보기' 칩 */}
             <button
               type="button"
-              onClick={() => {
-                if (q) scrollToLatestQuote();
-                else toast('견적서를 받으면 채팅 안에서 바로 안전결제할 수 있어요', { icon: '🛡️' });
-              }}
+              onClick={() => router.push('/safe-payment')}
               className="block w-full border-y border-[#E3EDFC] bg-[#EEF4FF] text-left"
             >
               <span className="block px-safe">

@@ -2,8 +2,8 @@
 
 // 홈 첫 진입 팝업 — 오늘의집 '오늘의딜' 팝업 결(260929 사장 '첫 번째 이미지를 두 번째 팝업처럼, 모달형 말고, 뜰 때 고급스럽게, r 5').
 //  · 가운데 카드(모서리 5) = 그림 + 아래에 붙은 파란 띠 단추 · 카드 밖 아래 = '다시 보지 않기'(왼쪽) · '닫기'(오른쪽) 어두운 알약.
-//  · 뜰 때: 딤이 스르르 → 카드가 아래에서 스프링으로 떠오르며 커지고 → 그림은 살짝 크게 시작해 제자리로 가라앉고 → 빛 한 줄이 비스듬히 스쳐 지나가고 →
-//    띠 단추가 아래에서 올라오고 → 알약 둘이 차례로. 닫을 땐 살짝 작아지며 사라진다.
+//  · 뜰 때: 딤이 스르르 → 카드가 아래에서 스프링으로 떠오르며 커지고 → 그림은 살짝 크게 시작해 제자리로 가라앉고 →
+//    띠 단추가 아래에서 올라오고 → 알약 둘이 차례로. 닫을 땐 살짝 작아지며 사라진다. (빛이 스치는 효과는 사장 지시로 뺐다 260929)
 //  · 카드 크기는 화면 높이에 맞춘다(작은 폰에서도 알약까지 한 화면).
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,7 +12,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 export type HomePromo = {
   id: string;
   imageUrl: string;
-  /** 그림 칸 비율(가로/세로) — 세로 그림은 3/5 로 위쪽 기준 자름 */
+  /** 그림 칸 비율(가로/세로) — 그림 원본 비율 그대로(자르지 않음) */
   aspect: number;
   ctaLabel: string;
   alt: string;
@@ -81,15 +81,6 @@ export default function HomePromoPopup({
                   initial={{ scale: 1.12 }}
                   animate={{ scale: 1 }}
                   transition={{ duration: 1.4, ease: EASE_OUT, delay: 0.06 }}
-                />
-                {/* 빛 한 줄 — 비스듬히 한 번 스쳐 지나간다 */}
-                <motion.span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2"
-                  style={{ background: 'linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.0) 30%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0) 70%, transparent 100%)' }}
-                  initial={{ x: '0%' }}
-                  animate={{ x: '320%' }}
-                  transition={{ duration: 1.1, ease: [0.45, 0, 0.2, 1], delay: 0.55 }}
                 />
               </button>
               {/* 띠 단추 — 카드 아래에 붙어 아래에서 올라온다 */}
