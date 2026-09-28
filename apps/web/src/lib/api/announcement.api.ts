@@ -7,6 +7,8 @@ export interface Announcement {
   title: string;
   content: string;
   tag: string | null;
+  /** 카드 그림 경로(없으면 동물 친구 그림) */
+  imageUrl?: string | null;
   isPinned: boolean;
   isPublished: boolean;
   publishedAt: string | null;

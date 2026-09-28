@@ -928,6 +928,7 @@ model Announcement {
   title       String
   content     String    @db.Text
   tag         String? // '필독', '업데이트', '안내', '이벤트', '점검' 등
+  imageUrl    String? // 카드 그림(웹 public 경로 '/images/notices/v2/NN.webp' 등, 260929) — 없으면 웹이 동물 친구 그림으로
   target      String    @default("all")
   isPinned    Boolean   @default(false)
   isPublished Boolean   @default(true)

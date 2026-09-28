@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** 공지 카드 그림 — 사이트 안 경로('/…') 또는 https 주소만, 나머지는 없음 */
+function cleanImageUrl(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.trim() : '';
+  return /^(\/[^\s]*|https:\/\/[^\s]+)$/.test(s) ? s : null;
+}
+
 @Injectable()
 export class AnnouncementService {
   constructor(private prisma: PrismaService) {}
@@ -43,6 +49,8 @@ export class AnnouncementService {
     isPublished?: boolean;
     /** 지난 업데이트 공지를 그 날짜로 올릴 때(관리자 전용 경로) — 목록 순서(createdAt)와 표시 날짜(publishedAt) 둘 다 이 날짜 */
     publishedAt?: string | null;
+    /** 카드 그림 경로('/…' 또는 https) */
+    imageUrl?: string | null;
   }) {
     if (!data.title) throw new NotFoundException('title은 필수입니다');
     const at = data.publishedAt ? new Date(data.publishedAt) : null;
@@ -52,6 +60,7 @@ export class AnnouncementService {
         title: data.title,
         content: data.content ?? '',
         tag: data.tag ?? null,
+        imageUrl: cleanImageUrl(data.imageUrl),
         isPinned: data.isPinned ?? false,
         isPublished: data.isPublished ?? true,
         publishedAt: data.isPublished === false ? null : backdated || new Date(),
@@ -68,6 +77,7 @@ export class AnnouncementService {
     if (data.title !== undefined) allowed.title = String(data.title ?? '');
     if (data.content !== undefined) allowed.content = String(data.content ?? '');
     if (data.tag !== undefined) allowed.tag = data.tag || null;
+    if (data.imageUrl !== undefined) allowed.imageUrl = cleanImageUrl(data.imageUrl);
     if (data.isPinned !== undefined) allowed.isPinned = !!data.isPinned;
     if (data.isPublished !== undefined) {
       allowed.isPublished = !!data.isPublished;

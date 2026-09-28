@@ -4,9 +4,10 @@
 //  · 큰 제목 '공지사항'(뉴스룸처럼 크게) 아래로 카드가 모바일 1열 · 넓은 화면 2열.
 //  · 카드 = 4:3 · 모서리 크게 · 그림이 칸을 가득 채우고, 아래쪽은 점점 짙어지는 흐림(그라데이션 블러) + 옅은 흰 막 위에
 //    '태그 | 날짜'(회색) · 굵은 제목 2줄. 테두리·그림자 없음.
-//  · 그림 = 동물 친구 20종(public/images/notices)을 공지 id 해시로 고르게 나눠 준다.
-//    DB 에 그림 칸이 없어도 되고, 새 공지가 올라와도 알아서 한 장을 받는다.
-//    낱장 배경이 파스텔 단색이라 그 색을 카드 바탕에 깔면 그림을 조금 위로 올려 앉혀도 이음새가 없다(주인공 얼굴이 글자 위로 오게).
+//  · 그림 = 공지마다 정한 그림(DB imageUrl — 260929 사장 제공 41장, public/images/notices/v2)이 있으면 칸 가득(cover),
+//    없으면 동물 친구 20종(public/images/notices)을 공지 id 해시로 고르게 나눠 준다(새 공지도 알아서 한 장).
+//    동물 친구 낱장은 배경이 파스텔 단색이라 그 색을 카드 바탕에 깔면 그림을 조금 위로 올려 앉혀도 이음새가 없다(주인공 얼굴이 글자 위로 오게).
+//    아래 막 색 = 동물 친구는 그 배경색, 공지 그림은 그림 아래쪽 평균 색(lib/notice-art).
 //  · 누르면 아래에서 스프링으로 올라오는 시트에 본문(뒤 화면 잠금, 닫을 땐 내려간다).
 import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -14,6 +15,7 @@ import { announcementApi, type Announcement } from '@/lib/api/announcement.api';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { QdBackHeader } from '../_components/detail-ui';
+import { noticeArtTint } from '@/lib/notice-art';
 
 /** 동물 친구 20종 — 낱장마다 배경이 단색이라 그 색을 카드 바탕으로 쓴다 */
 const ART_COUNT = 20;
@@ -24,7 +26,8 @@ const ART_BG = [
   '#B4DEF6', '#FCCCCC', '#BAE4E4', '#D8C0F0', '#C6DEC6',
 ];
 
-type Art = { src: string; bg: string };
+/** cover = 공지 전용 그림(칸 가득) · 아니면 동물 친구(위로 올려 앉히고 좌우 끝을 녹임) */
+type Art = { src: string; bg: string; cover?: boolean };
 
 function art(n: number): Art {
   return { src: `/images/notices/notice-${String(n + 1).padStart(2, '0')}.webp`, bg: ART_BG[n] };
@@ -72,6 +75,11 @@ const ART_FEATHER = 'linear-gradient(to right, transparent 0%, #000 10%, #000 90
 /** 아래쪽 흐림 — 위는 0, 내려갈수록 짙어진다(마스크로 흐림 자체를 서서히) */
 const BLUR_FADE = 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 30%, #000 60%)';
 
+/** 공지 전용 그림이 있으면 그것, 없으면 동물 친구 */
+function artFor(a: Announcement, fallback: Art): Art {
+  return a.imageUrl ? { src: a.imageUrl, bg: noticeArtTint(a.imageUrl), cover: true } : fallback;
+}
+
 /** 뉴스룸 카드 — 4:3 · 그림 가득 · 아래 그라데이션 블러 위에 '태그 | 날짜' + 굵은 제목 */
 function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
   return (
@@ -86,16 +94,31 @@ function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index:
         className="relative overflow-hidden rounded-[28px] sm:rounded-[32px] lg:rounded-[40px]"
         style={{ aspectRatio: '4 / 3', backgroundColor: art.bg, transform: 'translateZ(0)' }}
       >
-        {/* 그림 — 바탕과 같은 단색이라 칸보다 살짝 크게, 위로 올려 앉힌다(얼굴이 글자 위) */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={art.src}
-          alt=""
-          draggable={false}
-          loading={index < 2 ? 'eager' : 'lazy'}
-          className="absolute left-1/2 top-[-6%] h-[108%] w-auto max-w-none -translate-x-1/2 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-          style={{ WebkitMaskImage: ART_FEATHER, maskImage: ART_FEATHER }}
-        />
+        {art.cover ? (
+          // 공지 전용 그림(3:2) — 칸 가득(좌우만 살짝 잘림), 가운데 주인공이 글자 위로 오게 조금 위쪽 기준
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={art.src}
+            alt=""
+            draggable={false}
+            loading={index < 2 ? 'eager' : 'lazy'}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+            style={{ objectPosition: '50% 35%' }}
+          />
+        ) : (
+          <>
+            {/* 그림 — 바탕과 같은 단색이라 칸보다 살짝 크게, 위로 올려 앉힌다(얼굴이 글자 위) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={art.src}
+              alt=""
+              draggable={false}
+              loading={index < 2 ? 'eager' : 'lazy'}
+              className="absolute left-1/2 top-[-6%] h-[108%] w-auto max-w-none -translate-x-1/2 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+              style={{ WebkitMaskImage: ART_FEATHER, maskImage: ART_FEATHER }}
+            />
+          </>
+        )}
         {/* 그라데이션 블러 + 옅은 흰 막 */}
         <span
           aria-hidden="true"
@@ -158,7 +181,12 @@ export default function AnnouncementsPage() {
   }, []);
 
   // 서버가 고정 공지를 앞으로 보내 준다 — 목록 순서 그대로.
-  const arts = useMemo(() => dealArt(items.map((x) => x.id)), [items]);
+  // 공지 전용 그림이 있으면 그것, 없는 공지만 동물 친구를 나눠 받는다(겹침 피하기는 동물 친구끼리)
+  const arts = useMemo(() => {
+    const fallback = dealArt(items.filter((x) => !x.imageUrl).map((x) => x.id));
+    let k = 0;
+    return items.map((x) => artFor(x, x.imageUrl ? fallback[0] : fallback[k++]));
+  }, [items]);
   const openIndex = open ? items.findIndex((x) => x.id === open.id) : -1;
   const openArt = openIndex >= 0 ? arts[openIndex] : null;
 
