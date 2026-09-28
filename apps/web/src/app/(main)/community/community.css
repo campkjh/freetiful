@@ -1172,6 +1172,8 @@
     max-height: calc(100vh - 116px - var(--fcom-pc-top) - env(safe-area-inset-top, 0px));
   }
   .fcom .tcomp-sticky { top: calc(var(--fcom-pc-top) + var(--community-header-height, 0px)); }
+  /* 펼친 작성기는 relative(고정 안 함) — 위 top 이 relative 에도 걸려 작성기가 헤더 높이만큼 통째로 밀려 내려갔다(260928 사장 'PC 글쓰기 누르면 위가 엄청 밀림') */
+  .fcom .tcomp-sticky.is-open { top: auto; }
   .fcom .tdet-topbar { top: var(--fcom-pc-top); }
   /* 오른쪽 상세 패널 안은 패널이 스크롤 칸 — 거기선 맨 위에 붙는다 */
   .fcom .community-panel .tdet-topbar { top: 0; }
