@@ -16,6 +16,7 @@ import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
 import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import { getCachedUnreadCount } from '@/lib/api/notification.api';
+import { useCommunitySearch } from '@/lib/community/search-store';
 
 // ─── 하단 탭 아이콘(토스 하단바 어법, 사장 레퍼런스 260926) ───
 // 평소엔 가는 선(1.6) 아이콘, 선택된 탭만 채운 아이콘. 색은 currentColor(탭에서 쿨그레이 #4E5968).
@@ -204,6 +205,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 커뮤니티는 폭 제한 없이 자기 사이드바 화면. PC 전체 헤더는 웨딩숲에서도 보인다(260928 사장 'PC 웨딩숲에서 빠져나갈 방법이 없음') —
   // 웨딩숲 자기 머리줄·사이드바·글쓰기 칸은 그 아래에 붙는다(community.css --fcom-pc-top).
   const communityRoute = /^\/community(\/|$)/.test(pathname);
+  // PC 웨딩숲 검색창(전체 헤더) — 웨딩숲 글 목록이 같은 값으로 찾는다. 웨딩숲을 벗어나면 비운다.
+  const communityQuery = useCommunitySearch((s) => s.query);
+  const setCommunityQuery = useCommunitySearch((s) => s.setQuery);
+  useEffect(() => {
+    if (!communityRoute) useCommunitySearch.getState().setQuery('');
+  }, [communityRoute]);
   const [navVisible, setNavVisible] = useState(true);
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
   const [categoryDocked, setCategoryDocked] = useState(false);
@@ -510,8 +517,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
       <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-8">
-          <Link href={homeHref} className="flex items-center" aria-label="Freetiful 홈">
+        {/* 가운데 칸 고정(1fr · auto · 1fr) — 웨딩숲에서 오른쪽에 검색창이 붙어도 탭 줄이 옆으로 밀리지 않는다 */}
+        <div className="mx-auto grid h-[72px] max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-8">
+          <Link href={homeHref} className="flex items-center justify-self-start" aria-label="Freetiful 홈">
             <Image
               src="/images/logo-freetiful-wordmark.svg"
               alt="Freetiful"
@@ -555,8 +563,43 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             </nav>
           </LayoutGroup>
 
-          {/* 모바일 홈 헤더와 같은 종·돋보기(260928 사장 'PC 도 모바일 헤더랑 동일하게') — 종 = 오른쪽 알림 서랍(모바일 알림 화면 그대로), 돋보기 = 검색 */}
-          <div className="flex items-center">
+          {/* 모바일 홈 헤더와 같은 종·돋보기(260928 사장 'PC 도 모바일 헤더랑 동일하게') — 종 = 오른쪽 알림 서랍(모바일 알림 화면 그대로), 돋보기 = 검색
+              웨딩숲에선 돋보기 대신 웨딩숲 검색창(260928 사장 'PC 웨딩숲 헤더 2개 → 원래 헤더 빼고 검색창도 헤더로') */}
+          <div className="flex items-center justify-self-end">
+            {communityRoute && (
+              <label className="mr-1.5 flex h-10 w-[220px] items-center gap-2 rounded-full bg-[#F2F4F6] pl-3.5 pr-1.5 transition-colors focus-within:bg-[#EAECEF] xl:w-[280px]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-[#8B95A1]">
+                  <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2.2" />
+                  <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                </svg>
+                <input
+                  value={communityQuery}
+                  onChange={(e) => setCommunityQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setCommunityQuery('');
+                    // 글 화면에서 찾으면 목록으로 돌아가 결과를 보여 준다
+                    if (e.key === 'Enter' && pathname !== '/community') router.push('/community');
+                  }}
+                  placeholder="웨딩숲 검색"
+                  aria-label="웨딩숲 검색"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[14.5px] font-medium text-[#191F28] outline-none placeholder:font-normal placeholder:text-[#8B95A1]"
+                />
+                {communityQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setCommunityQuery('')}
+                    aria-label="검색어 지우기"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8B95A1] transition hover:bg-[#E0E3E7] active:scale-90"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </label>
+            )}
             <button
               type="button"
               onClick={() => setNotifOpen(true)}
@@ -565,13 +608,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             >
               <HeaderBellIcon dot={notifUnread > 0} />
             </button>
-            <Link
-              href="/search"
-              aria-label="검색"
-              className="flex h-11 w-11 items-center justify-center rounded-full transition duration-150 hover:bg-[#F2F4F6] active:scale-90"
-            >
-              <HeaderSearchIcon />
-            </Link>
+            {!communityRoute && (
+              <Link
+                href="/search"
+                aria-label="검색"
+                className="flex h-11 w-11 items-center justify-center rounded-full transition duration-150 hover:bg-[#F2F4F6] active:scale-90"
+              >
+                <HeaderSearchIcon />
+              </Link>
+            )}
           </div>
         </div>
 

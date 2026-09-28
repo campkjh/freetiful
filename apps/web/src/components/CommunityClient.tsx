@@ -33,6 +33,8 @@ import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/useTabEntrance";
 import { popItemDelay } from "@/lib/pop-menu";
 import { HeaderSearchIcon, HeaderCloseIcon } from "@/components/icons/HeaderIcons";
+import { useCommunitySearch } from "@/lib/community/search-store";
+import TrendPanel from "@/components/community/TrendPanel";
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
 const postsKey = communityPostsKey;
@@ -167,6 +169,20 @@ export default function CommunityClient() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [panelPostId]);
+  // PC '실시간 인기글' 칸 자리 — 1280 이상은 오른쪽 칸, 1024~1279 는 왼쪽 카테고리 카드 아래, 그보다 좁으면 없음.
+  const [trendSlot, setTrendSlot] = useState<"" | "side" | "right">("");
+  useEffect(() => {
+    const pc = window.matchMedia("(min-width: 1024px)");
+    const wide = window.matchMedia("(min-width: 1280px)");
+    const sync = () => setTrendSlot(wide.matches ? "right" : pc.matches ? "side" : "");
+    sync();
+    pc.addEventListener("change", sync);
+    wide.addEventListener("change", sync);
+    return () => {
+      pc.removeEventListener("change", sync);
+      wide.removeEventListener("change", sync);
+    };
+  }, []);
   const topbarRef = useRef<HTMLElement | null>(null);
   // 캐시된 값으로 초기화 → 탭 재진입 시 즉시 표시(로딩/깜빡임 없음).
   const [groups, setGroups] = useState<CategoryGroup[]>(() => clientCache.get<CategoryGroup[]>("community-groups") ?? []);
@@ -180,8 +196,10 @@ export default function CommunityClient() {
   const [sortOpen, setSortOpen] = useState(false);
   const [toast, setToast] = useState("");
   const toastTimerRef = useRef(0);
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
+  // 검색어는 PC 전체 헤더의 검색창과 같이 쓴다(lib/community/search-store) — 글에서 돌아와도 검색 결과 그대로(칸도 열린 채).
+  const query = useCommunitySearch((s) => s.query);
+  const setQuery = useCommunitySearch((s) => s.setQuery);
+  const [searchOpen, setSearchOpen] = useState(() => !!useCommunitySearch.getState().query);
   const communitySearchRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState("");
   // 주간 인기글 옆 '내 글 / 내 댓글' 필터. 전체 탭·검색 없음일 때만 보인다.
@@ -962,6 +980,7 @@ export default function CommunityClient() {
             selectedGroupId={selectedGroupId}
             onSelect={selectGroup}
           />
+          {trendSlot === "side" && <TrendPanel compact onOpen={openPost} />}
         </aside>
 
         <section className="community-feed">
@@ -1300,6 +1319,11 @@ export default function CommunityClient() {
             {!loading && visiblePosts.length > renderCount && <div ref={renderMoreRef} className="h-10" aria-hidden="true" />}
           </div>
         </section>
+
+        {/* PC 오른쪽 칸 — 실시간 인기글(1280 이상에서만 보인다). 칸은 늘 두어 인기글이 늦게 떠도 가운데 글 목록 폭이 흔들리지 않게. */}
+        <aside className="fcom-trend-col">
+          {trendSlot === "right" && <TrendPanel onOpen={openPost} />}
+        </aside>
       </div>
 
       {/* 모바일 카테고리 서랍 — 언마운트(AnimatePresence exit)에 기대지 않고 항상 붙여 둔 채 열림/닫힘만 애니메이션.
@@ -2069,7 +2093,8 @@ function CommentModal({
 
 function CommunityStyles() {
   return (
-    <style>{`
+    // 글자 그대로 넣는다 — {`…`} 로 넣으면 서버가 CSS 속 ' 와 > 를 &#x27; &gt; 로 바꿔 보내 하이드레이션이 어긋나고(첫 화면을 통째로 다시 그림) '>' 선택자도 첫 화면에서 안 먹었다.
+    <style dangerouslySetInnerHTML={{ __html: `
       /* ── 넓은 화면 상세 패널 ─────────────────────────────────
          목록을 그대로 둔 채 오른쪽 38% 를 덮는다. 1024px 미만에서는 아예 쓰지 않는다
          (openPost 가 그 폭에서는 기존처럼 상세 페이지로 보낸다). */
@@ -3126,7 +3151,7 @@ function CommunityStyles() {
         from { background-position: 200% 0; }
         to { background-position: -200% 0; }
       }
-    `}</style>
+    ` }} />
   );
 }
 

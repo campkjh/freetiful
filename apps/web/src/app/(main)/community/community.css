@@ -1166,10 +1166,12 @@
 .fcom { --fcom-pc-top: 0px; }
 @media (min-width: 1024px) {
   .fcom { --fcom-pc-top: 73px; }
-  .fcom .community-topbar { top: var(--fcom-pc-top); }
+  /* 웨딩숲 자체 머리줄(제목·검색)은 PC 에서 뺀다 — 헤더가 두 줄로 보였다. 검색창은 전체 헤더로 옮겼다(260928 사장).
+     머리줄 높이를 재는 --community-header-height 도 0 이 되어 글 목록이 전체 헤더 바로 아래에서 시작한다. */
+  .fcom .community-topbar { display: none; }
   .fcom .community-filter-panel {
-    top: calc(var(--fcom-pc-top) + 92px + env(safe-area-inset-top, 0px));
-    max-height: calc(100vh - 116px - var(--fcom-pc-top) - env(safe-area-inset-top, 0px));
+    top: calc(var(--fcom-pc-top) + 22px);
+    max-height: calc(100vh - var(--fcom-pc-top) - 44px);
   }
   .fcom .tcomp-sticky { top: calc(var(--fcom-pc-top) + var(--community-header-height, 0px)); }
   /* 펼친 작성기는 relative(고정 안 함) — 위 top 이 relative 에도 걸려 작성기가 헤더 높이만큼 통째로 밀려 내려갔다(260928 사장 'PC 글쓰기 누르면 위가 엄청 밀림') */
@@ -1177,4 +1179,46 @@
   .fcom .tdet-topbar { top: var(--fcom-pc-top); }
   /* 오른쪽 상세 패널 안은 패널이 스크롤 칸 — 거기선 맨 위에 붙는다 */
   .fcom .community-panel .tdet-topbar { top: 0; }
+}
+
+/* ── PC 실시간 인기글(260928 사장 'PC 에서는 실시간 검색어 같은 UI' — 토스 숏텐츠 목록 톤) ──
+   1280 이상: 오른쪽 칸(사이드바와 같은 흰 카드) · 1024~1279: 왼쪽 카테고리 카드 아래(is-compact) · 그보다 좁으면 없음. */
+.fcom-trend-col { display: none; }
+@media (min-width: 1280px) {
+  .fcom .community-layout { grid-template-columns: 264px minmax(0, 1fr) 320px; max-width: 1360px; gap: 32px; }
+  .fcom .fcom-trend-col { display: block; position: sticky; top: calc(var(--fcom-pc-top) + 22px); align-self: start; }
+}
+.fcom-trend { padding: 26px 10px 10px; background: #fff; border-radius: 32px; box-shadow: 0 12px 48px rgba(17, 24, 39, .06), 0 2px 10px rgba(17, 24, 39, .025); }
+.fcom-trend.is-compact { margin-top: 16px; padding: 18px 0 0; border-top: 1px solid #F2F4F6; border-radius: 0; background: none; box-shadow: none; }
+.fcom-trend-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 14px; margin-bottom: 8px; }
+.fcom-trend-head h3 { margin: 0; font-size: 19px; font-weight: 700; color: #191F28; letter-spacing: -0.3px; }
+.fcom-trend.is-compact .fcom-trend-head h3 { font-size: 16px; }
+.fcom-trend-head span { flex: none; font-size: 12.5px; font-weight: 500; color: #8B95A1; letter-spacing: -0.2px; }
+.fcom-trend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.fcom-trend-item { border: 1px solid transparent; border-radius: 20px; transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.fcom-trend-item.is-open { background: #fff; border-color: #E5E8EB; box-shadow: 0 8px 24px rgba(17, 24, 39, .07); }
+.fcom-trend-row { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 58px; padding: 7px 12px; border: none; border-radius: 19px; background: none; cursor: pointer; text-align: left; font-family: inherit; transition: background-color .14s ease, transform .12s ease; }
+.fcom-trend-item:not(.is-open) .fcom-trend-row:hover { background: #F9FAFB; }
+.fcom-trend-row:active { transform: scale(.985); }
+.fcom-trend-glyph { flex: none; color: #4E5968; }
+.fcom-trend-title { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 700; line-height: 1.4; color: #191F28; letter-spacing: -0.35px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcom-trend-item.is-open .fcom-trend-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fcom-trend-n { flex: none; width: 17px; height: 17px; border-radius: 999px; background: #F04452; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.fcom-trend-thumb { flex: none; width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: #F2F4F6; }
+.fcom-trend-more { overflow: hidden; }
+.fcom-trend-card { display: flex; align-items: flex-start; gap: 12px; width: calc(100% - 20px); margin: 0 10px 10px; padding: 14px; border: none; border-radius: 14px; background: #F4F5F7; cursor: pointer; text-align: left; font-family: inherit; transition: background-color .14s ease; }
+.fcom-trend-card:hover { background: #EEF0F3; }
+.fcom-trend-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fcom-trend-snippet { font-size: 14px; line-height: 1.55; color: #4E5968; letter-spacing: -0.2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: keep-all; overflow-wrap: anywhere; }
+.fcom-trend-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fcom-trend-time { font-size: 13px; color: #8B95A1; letter-spacing: -0.2px; }
+.fcom-trend-go { display: inline-flex; align-items: center; gap: 1px; font-size: 13px; font-weight: 600; color: #6B7684; letter-spacing: -0.2px; }
+.fcom-trend-card:hover .fcom-trend-go { color: #3182F6; }
+.fcom-trend-photo { flex: none; width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #E5E8EB; }
+@media (prefers-reduced-motion: reduce) {
+  .fcom-trend-item, .fcom-trend-row { transition: none; }
+}
+/* 태블릿(720~1023): 머리줄에 '웨딩숲'(제목) + '웨딩숲 ⌄'(카테고리 서랍)이 나란히 두 번 보였다 → 서랍 제목만 남긴다(모바일과 같은 모양). */
+@media (min-width: 720px) and (max-width: 1023.98px) {
+  .fcom .community-title-wrap { display: none; }
 }
