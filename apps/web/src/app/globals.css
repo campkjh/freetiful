@@ -2398,3 +2398,61 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @media (prefers-reduced-motion: reduce) {
   .qm-bubble, .qm-bubble * { animation: none !important; }
 }
+
+/* ═══ 파트너 신청·사회자 프로필 수정 공통(260928 사장 '톤앤매너 맞춰서, 전환 인터랙션 퀵매칭처럼') = 퀵매칭 선택 카드 어법 ═══
+   · 선택 카드 .rg-opt(60 · 1.5px 테두리 · 모서리 16, 고르면 파랑 테두리·연파랑 바탕) + 동그라미 체크 .rg-chk(체크가 톡 튀어나온다)
+   · 라벨 15 · 도움말 13 · 오류 13 빨강. 입력은 .qd-input, 버튼은 .qd-cta, 칩은 .ft-chip(.on) 을 같이 쓴다.
+   · 짝 = pro-register/_components/RegisterKit.tsx */
+.rg-list { display: flex; flex-direction: column; gap: 10px; }
+.rg-opt { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 0 18px; border: 1.5px solid #E5E8EB; border-radius: 16px; background: #fff; cursor: pointer; text-align: left; font-family: inherit; transition: border-color .15s, background-color .15s, transform .08s; }
+.rg-opt.tall { padding: 14px 18px; }
+.rg-opt:active { background: #F8F9FA; transform: scale(.995); }
+.rg-opt.on { border-color: #3182F6; background: #EDF4FF; }
+.rg-opt-t { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; letter-spacing: -.3px; color: #333D4B; transition: color .15s; }
+.rg-opt.on .rg-opt-t { color: #3182F6; }
+.rg-opt-hint { display: block; margin-top: 3px; font-size: 13px; font-weight: 400; color: #8B95A1; }
+@media (hover: hover) { .rg-opt:hover:not(.on) { border-color: #C4CCD4; background: #FBFCFD; } }
+.rg-chk { width: 26px; height: 26px; flex: none; display: flex; align-items: center; justify-content: center; border: 2px solid #D1D6DB; border-radius: 50%; background: #fff; transition: background-color .15s, border-color .15s; }
+.rg-chk.sm { width: 22px; height: 22px; }
+.rg-chk.on { border-color: #3182F6; background: #3182F6; }
+.rg-chk svg { opacity: 0; transform: scale(.4); transition: opacity .15s, transform .28s cubic-bezier(.34, 1.56, .64, 1); }
+.rg-chk.on svg { opacity: 1; transform: scale(1); }
+.rg-label { display: block; margin-bottom: 8px; font-size: 15px; font-weight: 600; letter-spacing: -.2px; color: #4E5968; }
+.rg-hint { margin-top: 7px; font-size: 13px; line-height: 1.5; color: #8B95A1; }
+.rg-error { margin-top: 7px; font-size: 13px; line-height: 1.5; color: #F04452; }
+.rg-section + .rg-section { margin-top: 28px; }
+@media (prefers-reduced-motion: reduce) { .rg-opt, .rg-chk, .rg-chk svg { transition: none; } }
+
+/* ═══ 파트너 신청 입구 비밀번호 — 유앤미 키패드판 그대로(onelinesolution secondary-password-dialog.css .spd-* 이식, 260928 사장 '유앤미 비번 입력처럼').
+   숫자는 열 때마다·틀릴 때마다 섞이고, 점은 자릿수만(최소 6), 틀리면 판이 흔들리며 점이 빨개진다. 색은 프리티풀(흰 바탕·토스 파랑). ═══ */
+.pk { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; background: #fff; user-select: none; -webkit-user-select: none; animation: pkFade .2s ease-out; }
+.pk.is-leaving { animation: pkLeave .26s cubic-bezier(.4, 0, 1, 1) forwards; }
+.pk-back { position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px; }
+.pk-pad { width: min(340px, 100vw - 32px); display: flex; flex-direction: column; align-items: center; animation: pkRise .32s cubic-bezier(.22, 1, .36, 1); }
+.pk-pad:focus { outline: none; }
+.pk-pad.is-shake { animation: pkShake .4s cubic-bezier(.36, .07, .19, .97); }
+.pk-context { margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #3182F6; }
+.pk-title { font-size: 20px; font-weight: 700; letter-spacing: -.4px; color: #191F28; }
+.pk-sub { margin-top: 8px; font-size: 14px; line-height: 1.5; color: #8B95A1; text-align: center; }
+.pk-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; row-gap: 8px; max-width: 100%; min-height: 13px; margin-top: 30px; }
+.pk-dot { width: 13px; height: 13px; border-radius: 50%; background: #D1D6DB; transition: background-color .12s ease, transform .12s ease; }
+.pk-dot.on { background: #3182F6; animation: pkPop .16s ease-out; }
+.pk-dots.is-err .pk-dot, .pk-dots.is-err .pk-dot.on { background: #F04452; }
+.pk-dots.is-ok .pk-dot.on { animation: pkPulse .9s ease-in-out infinite; }
+.pk-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pk-error { margin-top: 18px; font-size: 13px; font-weight: 600; color: #F04452; }
+.pk-keys { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; margin-top: 34px; }
+.pk-key { display: flex; align-items: center; justify-content: center; height: 62px; border: 0; border-radius: 14px; background: transparent; font-family: inherit; font-size: 26px; font-weight: 400; color: #191F28; cursor: pointer; touch-action: manipulation; transition: background-color .15s ease; }
+.pk-key:active { background: rgba(25, 31, 40, .07); }
+.pk-key-ok { font-size: 16px; font-weight: 700; color: #3182F6; }
+.pk-key-ok:disabled { color: #B0B8C1; cursor: default; }
+.pk-key-back { color: #4E5968; }
+.pk.is-busy .pk-key { pointer-events: none; opacity: .55; }
+.pk-hint { margin-top: 16px; font-size: 12px; font-weight: 500; line-height: 1.5; color: #8B95A1; text-align: center; }
+@keyframes pkFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pkLeave { to { opacity: 0; transform: scale(.98); } }
+@keyframes pkRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pkPop { 0% { transform: scale(.5); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes pkPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes pkShake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
+@media (prefers-reduced-motion: reduce) { .pk, .pk.is-leaving, .pk-pad, .pk-pad.is-shake, .pk-dot.on, .pk-dots.is-ok .pk-dot.on { animation: none; } }

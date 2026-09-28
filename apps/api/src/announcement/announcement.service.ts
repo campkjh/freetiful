@@ -41,8 +41,12 @@ export class AnnouncementService {
     tag?: string | null;
     isPinned?: boolean;
     isPublished?: boolean;
+    /** 지난 업데이트 공지를 그 날짜로 올릴 때(관리자 전용 경로) — 목록 순서(createdAt)와 표시 날짜(publishedAt) 둘 다 이 날짜 */
+    publishedAt?: string | null;
   }) {
     if (!data.title) throw new NotFoundException('title은 필수입니다');
+    const at = data.publishedAt ? new Date(data.publishedAt) : null;
+    const backdated = at && !Number.isNaN(at.getTime()) && at.getTime() <= Date.now() ? at : null;
     return this.prisma.announcement.create({
       data: {
         title: data.title,
@@ -50,7 +54,8 @@ export class AnnouncementService {
         tag: data.tag ?? null,
         isPinned: data.isPinned ?? false,
         isPublished: data.isPublished ?? true,
-        publishedAt: data.isPublished === false ? null : new Date(),
+        publishedAt: data.isPublished === false ? null : backdated || new Date(),
+        ...(backdated ? { createdAt: backdated } : {}),
       },
     });
   }
