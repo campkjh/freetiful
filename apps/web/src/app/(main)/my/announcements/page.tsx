@@ -1,18 +1,19 @@
 'use client';
 
-// 공지사항 — 토스 뉴스룸 어법(261001 사장 지시).
-//  · 맨 위 = 뉴스룸 큰 카드 한 장(고정 공지 우선, 없으면 최신). 그림 4:3 · 아래 '태그 | 날짜' · 큰 제목.
-//  · 그 아래 = 2열 카드. 그림 1:1 · 제목 2줄 · 날짜. 테두리·바탕 없이 그림만 둥글게(레퍼런스 그대로).
+// 공지사항 — 토스 뉴스룸 카드 그대로(261001 · 260928 사장 '공지사항 카드 이렇게 — 완전 똑같이, 하단엔 그라데이션 블러, 카드는 4:3').
+//  · 큰 제목 '공지사항'(뉴스룸처럼 크게) 아래로 카드가 모바일 1열 · 넓은 화면 2열.
+//  · 카드 = 4:3 · 모서리 크게 · 그림이 칸을 가득 채우고, 아래쪽은 점점 짙어지는 흐림(그라데이션 블러) + 옅은 흰 막 위에
+//    '태그 | 날짜'(회색) · 굵은 제목 2줄. 테두리·그림자 없음.
 //  · 그림 = 동물 친구 20종(public/images/notices)을 공지 id 해시로 고르게 나눠 준다.
 //    DB 에 그림 칸이 없어도 되고, 새 공지가 올라와도 알아서 한 장을 받는다.
-//    낱장 배경이 파스텔 단색이라 그 색을 카드 바탕에 깔면 4:3·1:1 어느 칸이든 잘리지 않는다.
+//    낱장 배경이 파스텔 단색이라 그 색을 카드 바탕에 깔면 그림을 조금 위로 올려 앉혀도 이음새가 없다(주인공 얼굴이 글자 위로 오게).
 //  · 누르면 아래에서 스프링으로 올라오는 시트에 본문(뒤 화면 잠금, 닫을 땐 내려간다).
 import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { announcementApi, type Announcement } from '@/lib/api/announcement.api';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
-import { MyDetailHeader } from '../_components/detail-ui';
+import { QdBackHeader } from '../_components/detail-ui';
 
 /** 동물 친구 20종 — 낱장마다 배경이 단색이라 그 색을 카드 바탕으로 쓴다 */
 const ART_COUNT = 20;
@@ -60,93 +61,69 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const GLASS = {
-  backgroundColor: 'rgba(0, 0, 0, 0.36)',
-  WebkitBackdropFilter: 'blur(10px) saturate(140%)',
-  backdropFilter: 'blur(10px) saturate(140%)',
-  boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)',
-} as const;
+/** 그림 좌우 끝을 바탕색으로 녹인다 — 낱장 배경과 카드 바탕(ART_BG)이 한두 끗 달라 세로 이음새가 비쳤다 */
+const ART_FEATHER = 'linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%)';
+/** 아래쪽 흐림 — 위는 0, 내려갈수록 짙어진다(마스크로 흐림 자체를 서서히) */
+const BLUR_FADE = 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 30%, #000 60%)';
 
-/** 맨 위 큰 카드 — 뉴스룸 첫 장 */
-function HeadlineCard({ a, art, onOpen }: { a: Announcement; art: Art; onOpen: () => void }) {
+/** 뉴스룸 카드 — 4:3 · 그림 가득 · 아래 그라데이션 블러 위에 '태그 | 날짜' + 굵은 제목 */
+function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
       className="qd-a-item group card-press block w-full text-left"
-      style={{ animationDelay: '0.26s' }}
+      style={{ animationDelay: `${0.22 + Math.min(index, 10) * 0.05}s` }}
     >
       <div
-        className="relative overflow-hidden rounded-[20px]"
-        style={{ aspectRatio: '4 / 3', backgroundColor: art.bg }}
+        // translateZ(0): 사파리에서 안쪽 backdrop 흐림이 둥근 모서리 밖으로 번지지 않게
+        className="relative overflow-hidden rounded-[28px] sm:rounded-[32px] lg:rounded-[40px]"
+        style={{ aspectRatio: '4 / 3', backgroundColor: art.bg, transform: 'translateZ(0)' }}
       >
+        {/* 그림 — 바탕과 같은 단색이라 칸보다 살짝 크게, 위로 올려 앉힌다(얼굴이 글자 위) */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={art.src}
           alt=""
           draggable={false}
-          className="absolute left-1/2 top-1/2 h-full -translate-x-1/2 -translate-y-1/2 object-contain transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          loading={index < 2 ? 'eager' : 'lazy'}
+          className="absolute left-1/2 top-[-6%] h-[108%] w-auto max-w-none -translate-x-1/2 transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+          style={{ WebkitMaskImage: ART_FEATHER, maskImage: ART_FEATHER }}
         />
-        {a.isPinned && (
-          <span
-            className="absolute left-3 top-3 inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white"
-            style={GLASS}
-          >
-            고정
-          </span>
-        )}
-      </div>
-
-      <p className="mt-3.5 text-[13px] leading-[1.5] tracking-[-0.2px] text-[#8B95A1]">
-        {a.tag || '안내'}
-        <span className="px-1.5 text-[#D1D6DB]">|</span>
-        {formatDate(a.publishedAt || a.createdAt)}
-      </p>
-      <p className="mt-1.5 line-clamp-2 break-keep text-[20px] font-bold leading-[1.4] tracking-[-0.5px] text-[#191F28]">
-        {a.title}
-      </p>
-    </button>
-  );
-}
-
-/** 아래 2열 카드 */
-function NoticeCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      // button 은 줄 높이만큼 늘면 내용을 세로 가운데로 모은다 → flex 세로로 위부터
-      className="qd-a-item group card-press flex h-full flex-col text-left"
-      style={{ animationDelay: `${0.34 + Math.min(index, 12) * 0.05}s` }}
-    >
-      <div
-        className="relative w-full overflow-hidden rounded-[16px]"
-        style={{ aspectRatio: '1 / 1', backgroundColor: art.bg }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={art.src}
-          alt=""
-          draggable={false}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+        {/* 그라데이션 블러 + 옅은 흰 막 */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[66%]"
+          style={{
+            WebkitBackdropFilter: 'blur(28px) saturate(150%)',
+            backdropFilter: 'blur(28px) saturate(150%)',
+            WebkitMaskImage: BLUR_FADE,
+            maskImage: BLUR_FADE,
+          }}
         />
-        {a.isPinned && (
-          <span
-            className="absolute left-2 top-2 inline-flex h-[24px] items-center rounded-[7px] px-1.5 text-[11.5px] font-bold tracking-[-0.2px] text-white"
-            style={GLASS}
-          >
-            고정
-          </span>
-        )}
-      </div>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[66%]"
+          style={{ background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.34) 48%, rgba(255, 255, 255, 0.55) 100%)' }}
+        />
 
-      <p className="mt-2.5 line-clamp-2 break-keep text-[15px] font-bold leading-[1.42] tracking-[-0.35px] text-[#191F28]">
-        {a.title}
-      </p>
-      <p className="mt-1 text-[12.5px] leading-[1.5] tracking-[-0.2px] text-[#8B95A1]">
-        {formatDate(a.publishedAt || a.createdAt)}
-      </p>
+        <span className="absolute inset-x-0 bottom-0 block px-6 pb-6 sm:px-7 sm:pb-7 lg:px-[38px] lg:pb-[38px]">
+          <span className="flex items-center text-[13px] font-medium leading-[1.4] tracking-[-0.2px] text-[#6B7684] lg:text-[15px]">
+            {a.isPinned && (
+              <>
+                <b className="font-semibold text-[#3182F6]">고정</b>
+                <span aria-hidden="true" className="mx-2 h-[11px] w-px bg-[#8B95A1] opacity-50 lg:mx-2.5 lg:h-[13px]" />
+              </>
+            )}
+            {a.tag || '안내'}
+            <span aria-hidden="true" className="mx-2 h-[11px] w-px bg-[#8B95A1] opacity-50 lg:mx-2.5 lg:h-[13px]" />
+            {formatDate(a.publishedAt || a.createdAt)}
+          </span>
+          <span className="mt-2.5 line-clamp-2 break-keep text-[19px] font-bold leading-[1.38] tracking-[-0.5px] text-[#191F28] sm:text-[20px] lg:mt-[18px] lg:text-[24px] lg:leading-[1.36]">
+            {a.title}
+          </span>
+        </span>
+      </div>
     </button>
   );
 }
@@ -173,32 +150,26 @@ export default function AnnouncementsPage() {
     })();
   }, []);
 
-  // 맨 앞 한 장만 크게. 서버가 고정 공지를 앞으로 보내 주므로 목록 첫 장을 그대로 쓴다.
+  // 서버가 고정 공지를 앞으로 보내 준다 — 목록 순서 그대로.
   const arts = useMemo(() => dealArt(items.map((x) => x.id)), [items]);
-  const [headline, ...rest] = items;
   const openIndex = open ? items.findIndex((x) => x.id === open.id) : -1;
   const openArt = openIndex >= 0 ? arts[openIndex] : null;
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="공지사항" sub="프리티풀의 새 소식을 알려 드려요" />
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-24 sm:max-w-[1100px]" style={{ letterSpacing: '-0.02em' }}>
+      <QdBackHeader />
+      {/* 큰 제목 — 뉴스룸처럼 굵고 크게 */}
+      <div className="px-6 pb-6 pt-2 sm:px-8 lg:px-10 lg:pb-9 lg:pt-4" data-native-back-header>
+        <h1 className="qd-a-title m-0 text-[30px] font-bold leading-[1.25] tracking-[-0.8px] text-[#191F28] lg:text-[54px] lg:tracking-[-1.8px]">공지사항</h1>
+      </div>
 
-      <div className="px-5 pt-1">
+      <div className="px-5 sm:px-8 lg:px-10">
         {loading ? (
-          <>
-            <div className="animate-pulse">
-              <div className="rounded-[20px] bg-[#F2F4F6]" style={{ aspectRatio: '4 / 3' }} />
-              <div className="mt-3.5 h-[62px]" />
-            </div>
-            <div className="mt-7 grid grid-cols-2 gap-x-3 gap-y-6">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="rounded-[16px] bg-[#F2F4F6]" style={{ aspectRatio: '1 / 1' }} />
-                  <div className="h-[58px]" />
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse rounded-[28px] bg-[#F2F4F6] sm:rounded-[32px] lg:rounded-[40px]" style={{ aspectRatio: '4 / 3' }} />
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
             <EmptyDocumentIcon size={64} className="mb-3" />
@@ -206,17 +177,11 @@ export default function AnnouncementsPage() {
             <p className="mt-1.5 text-[13px] text-[#A4ABBA]">새로운 소식이 생기면 이곳에 알려드릴게요.</p>
           </div>
         ) : (
-          <>
-            <HeadlineCard a={headline} art={arts[0]} onOpen={() => setOpenId(headline.id)} />
-
-            {rest.length > 0 && (
-              <div className="mt-7 grid grid-cols-2 gap-x-3 gap-y-6">
-                {rest.map((a, i) => (
-                  <NoticeCard key={a.id} a={a} art={arts[i + 1]} index={i} onOpen={() => setOpenId(a.id)} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
+            {items.map((a, i) => (
+              <NewsCard key={a.id} a={a} art={arts[i]} index={i} onOpen={() => setOpenId(a.id)} />
+            ))}
+          </div>
         )}
       </div>
 
