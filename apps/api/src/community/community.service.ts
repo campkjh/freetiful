@@ -31,7 +31,7 @@ import { communityNickname } from './community-nickname';
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
  * 닉네임은 계정당 하나 — 댓글마다 다른 이름을 쓰면 한 사람이 여러 회원처럼 보여서(사칭·가짜 반응) 그렇게 만들지 않았다.
  */
-const CUSTOM_NICKNAME_EMAILS = new Set(['cbkyeong@naver.com', 'seeipssister@naver.com', 'campkjh@nate.com']);
+const CUSTOM_NICKNAME_EMAILS = new Set(['cbkyeong@naver.com', 'seeipssister@naver.com', 'campkjh@nate.com', 'hjalover@hanmail.net']);
 /** 운영진·사회자처럼 보이는 이름은 막는다 */
 const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
 
