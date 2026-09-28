@@ -2183,7 +2183,7 @@ export default function HomePage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
-  // 홈 첫 진입 팝업(260929 — 오늘의집 카드 결) — 비로그인 = 가입 5천원 · 로그인 = 관리자 배너(placement=popup)
+  // 홈 첫 진입 팝업(260929 — 오늘의집 카드 결) — 모두에게 가입 5천원 한 장(관리자 팝업 배너는 더 안 씀)
   const [popupBanner, setPopupBanner] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null }) | null>(null);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
   const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
@@ -2191,7 +2191,7 @@ export default function HomePage() {
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
 
-  // 홈 진입 팝업 모달 — 어드민 배너(placement=popup)로 동적 관리. 배너별 '3일 안보기' 기억.
+  // 홈 진입 팝업 — 가입 5천원 한 장(예전엔 어드민 배너 placement=popup). '다시 보지 않기'는 팝업 id 별로 기억.
   // 예전 iOS 앱(네이티브 홈이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다: 네이티브 홈에 가려 안 보이고
   // 네이티브가 자체 팝업을 띄운다. 웹 화면만 쓰는 iOS 앱(260927~)은 웹 팝업 그대로 — 탭바는 모달이 닫히면 다시 나온다.
   useEffect(() => {
@@ -2226,22 +2226,15 @@ export default function HomePage() {
         show();
       }
     };
-    if (!useAuthStore.getState().user) {
-      // 비로그인 — 가입 5천원(사장 제공 세로 그림 887×1774, 비율 그대로 — 260929 사장 '이 이미지와 ratio 로')
-      if (!hidden('signup-5000')) {
-        schedule({ id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 887 / 1774, ctaLabel: '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금' });
-      }
-      return () => { cancelled = true; stopWaiting(); };
+    // 오픈 팝업 = 가입 5천원 한 장(사장 제공 세로 그림 887×1774, 원본 비율) — 로그인 여부와 상관없이 모두에게(260929 사장 '오픈팝업 이거 써, 지금 거 말고').
+    // 예전 관리자 팝업 배너(placement=popup, 친구 초대)는 더 이상 띄우지 않는다. 로그인한 사람은 띠 단추가 친구 초대로 간다.
+    if (!hidden('signup-5000')) {
+      const loggedIn = !!useAuthStore.getState().user;
+      schedule({
+        id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 887 / 1774,
+        ctaLabel: loggedIn ? '친구 초대하러 가기' : '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금',
+      });
     }
-    fetch('/api/v1/banners?placement=popup')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !Array.isArray(data) || data.length === 0) return;
-        const b = data[0];
-        if (!b?.imageUrl || hidden(b.id)) return;
-        schedule({ id: b.id, kind: 'banner', imageUrl: b.imageUrl, linkUrl: b.linkUrl, aspect: 4 / 3, ctaLabel: '자세히 보기', alt: b.title || '안내 팝업' });
-      })
-      .catch(() => {});
     return () => { cancelled = true; stopWaiting(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHydrated]);
