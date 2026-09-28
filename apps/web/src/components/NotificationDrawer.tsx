@@ -1,81 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/store/auth.store';
-import { notificationApi, getCachedNotifications } from '@/lib/api/notification.api';
-import { AlarmIcon, CloseIcon, ChevronRightIcon } from '@/components/icons/mono';
-import { EmptyAlarmIcon } from '@/components/icons/color';
+import { useEffect, useRef, useState } from 'react';
+import NotificationsView from '@/components/notifications/NotificationsView';
 
 /**
- * PC 헤더의 알림 서랍.
- *
- * 예전엔 종을 누르면 /notifications 전체 화면으로 넘어가 보던 화면이 통째로 사라졌다.
- * 홈을 그대로 두고 오른쪽만 살짝 덮도록 서랍으로 바꿨다. (모바일은 기존 전체 화면 유지)
+ * PC 헤더의 알림 서랍 — 홈을 그대로 두고 오른쪽만 덮는다(예전엔 종을 누르면 /notifications 전체 화면으로 넘어가 보던 화면이 사라졌다).
+ * 260928 사장 '알림 UI 도 모바일이랑 동일한 UI·인터랙션': 서랍 안은 모바일 알림 화면(NotificationsView) 그대로 —
+ * '알림 ⌄' 거르기·모두 읽음·전체 삭제, 새 알림 파란 바탕 + 지난 알림, 같은 곳 'N건' 묶음, 밀어서 삭제, 제목 페이드·줄 순차 슬라이드.
+ * 열 때마다 새로 그려 등장 애니가 다시 돌고, 닫을 땐 밀려 나가는 동안(300ms) 내용을 둔다.
  */
-
-type Notif = {
-  id: string;
-  title: string;
-  body: string;
-  isRead: boolean;
-  date: string;
-  link?: string;
-};
-
-function resolveLink(type: string, data: any): string | undefined {
-  const explicit = data?.link || data?.url || data?.deepLink || data?.deeplink;
-  if (typeof explicit === 'string' && explicit.trim()) return explicit;
-  const roomId = data?.chatRoomId || data?.roomId || data?.chat_room_id || data?.room_id;
-  if (roomId) return `/chat/${roomId}`;
-  if (data?.paymentId) return '/my/payment-history';
-  if (data?.quotationId) return '/my/purchase-history';
-  if (data?.proProfileId) return `/pros/${data.proProfileId}`;
-  if (type === 'chat') return '/chat';
-  if (type === 'payment') return '/my/payment-history';
-  if (type === 'review') return '/my/purchase-history';
-  if (type === 'system') return '/my/announcements';
-  return undefined;
-}
-
-function mapNotif(n: any): Notif {
-  return {
-    id: String(n.id),
-    title: n.title || '',
-    body: n.body || '',
-    isRead: !!n.isRead,
-    date: n.createdAt ? new Date(n.createdAt).toLocaleDateString('ko-KR') : '',
-    link: resolveLink(String(n.type || ''), n.data),
-  };
-}
-
 export default function NotificationDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const router = useRouter();
-  const authUser = useAuthStore((s) => s.user);
-  const [items, setItems] = useState<Notif[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // 열릴 때마다 캐시부터 즉시 보여주고, 서버 응답이 오면 갈아끼운다
-  const load = useCallback(async () => {
-    if (!authUser) { setItems([]); return; }
-    const cached: any = getCachedNotifications();
-    const cachedItems = Array.isArray(cached?.data) ? cached.data : Array.isArray(cached) ? cached : [];
-    if (cachedItems.length) setItems(cachedItems.map(mapNotif));
-    setLoading(true);
-    try {
-      const res: any = await notificationApi.getList({ limit: 30 });
-      const next = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      setItems(next.map(mapNotif));
-    } catch {
-      // 실패해도 캐시된 목록은 그대로 둔다
-    } finally {
-      setLoading(false);
-    }
-  }, [authUser]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(open);
 
   useEffect(() => {
-    if (open) load().catch(() => {});
-  }, [open, load]);
+    if (open) {
+      setMounted(true);
+      scrollRef.current?.scrollTo({ top: 0 });
+      return;
+    }
+    const t = window.setTimeout(() => setMounted(false), 320);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   // ESC 로 닫기
   useEffect(() => {
@@ -84,16 +30,6 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-
-  const unread = items.filter((n) => !n.isRead).length;
-
-  const openItem = (n: Notif) => {
-    if (!n.isRead) {
-      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-      notificationApi.markAsRead(n.id).catch(() => {});
-    }
-    if (n.link) { onClose(); router.push(n.link); }
-  };
 
   return (
     <>
@@ -109,89 +45,17 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
       <aside
         data-notification-drawer
         // 닫히면 슬라이드가 끝난 뒤 invisible — 화면 밖에 걸린 서랍 그림자가 모든 페이지 오른쪽 끝에 회색 띠로 번지던 것
-        className={`fixed right-0 top-0 z-[61] flex h-full w-[400px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] ease-out ${
+        className={`fixed right-0 top-0 z-[61] flex h-full w-[420px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] ease-out ${
           open
             ? 'visible translate-x-0 [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s]'
             : 'invisible translate-x-full [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s_linear_300ms]'
         }`}
         aria-hidden={!open}
+        aria-label="알림"
       >
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-gray-100 px-5">
-          <div className="flex items-center gap-2">
-            <AlarmIcon size={20} className="text-[#2B313D]" />
-            <span className="text-[17px] font-bold text-[#2B313D]">알림</span>
-            {unread > 0 && (
-              <span className="rounded-full bg-[#3180F7] px-2 py-[2px] text-[11px] font-bold text-white">{unread}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {unread > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
-                  notificationApi.markAllAsRead().catch(() => {});
-                }}
-                className="rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#A4ABBA] transition-colors hover:bg-[#F2F3F5] hover:text-[#2B313D]"
-              >
-                모두 읽음
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="알림 닫기"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[#A4ABBA] transition-colors hover:bg-[#F2F3F5] hover:text-[#2B313D]"
-            >
-              <CloseIcon size={18} />
-            </button>
-          </div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {mounted && <NotificationsView variant="drawer" onBack={onClose} onNavigate={onClose} scrollRootRef={scrollRef} />}
         </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {!authUser ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <EmptyAlarmIcon size={64} />
-              <p className="text-[14px] text-[#A4ABBA]">로그인하면 알림을 받아볼 수 있어요</p>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <EmptyAlarmIcon size={64} />
-              <p className="text-[14px] text-[#A4ABBA]">{loading ? '알림을 불러오는 중이에요' : '아직 받은 알림이 없어요'}</p>
-            </div>
-          ) : (
-            <ul>
-              {items.map((n) => (
-                <li key={n.id}>
-                  <button
-                    type="button"
-                    onClick={() => openItem(n)}
-                    className="flex w-full items-start gap-3 border-b border-gray-50 px-5 py-4 text-left transition-colors hover:bg-[#FAFBFC]"
-                  >
-                    <span
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.isRead ? 'bg-transparent' : 'bg-[#3180F7]'}`}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className={`block truncate text-[14px] ${n.isRead ? 'font-medium text-[#51535C]' : 'font-bold text-[#2B313D]'}`}>
-                        {n.title}
-                      </span>
-                      {n.body && <span className="mt-0.5 block line-clamp-2 text-[13px] text-[#8B93A1]">{n.body}</span>}
-                      <span className="mt-1 block text-[11px] text-[#C7CBD3]">{n.date}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => { onClose(); router.push('/notifications'); }}
-          className="flex h-[56px] shrink-0 items-center justify-center gap-1 border-t border-gray-100 text-[13px] font-semibold text-[#A4ABBA] transition-colors hover:text-[#2B313D]"
-        >
-          알림 전체보기 <ChevronRightIcon size={14} />
-        </button>
       </aside>
     </>
   );

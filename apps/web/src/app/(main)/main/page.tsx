@@ -11,7 +11,6 @@ import ProQuickView from '@/components/ProQuickView';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
 import {
-  SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
@@ -545,15 +544,6 @@ function HomeHeroProfileMarquee({ images }: { images: string[] }) {
     </div>
   );
 }
-
-const homeSearchSlotKeywords = [
-  '결혼식사회자',
-  '컨퍼런스사회자',
-  '돌잔치사회자',
-  '기업행사사회자',
-  '체육대회사회자',
-  '쇼호스트',
-];
 
 function proCategoryHref(category: string) {
   return `/pros?category=${encodeURIComponent(category)}`;
@@ -2856,30 +2846,7 @@ export default function HomePage() {
       <div className="relative hidden overflow-hidden bg-white lg:block">
         <HomeHeroProfileMarquee images={heroProfileImages} />
         <div className="relative z-10 max-w-6xl mx-auto px-8 pt-8 pb-0 text-center">
-          <Reveal>
-            {/* 알약형 검색 — 제이씨랩 가이드 검색과 동일한 톤(회색 트랙·테두리 없음) */}
-            <Link
-              href="/search"
-              onMouseEnter={warmProsList}
-              className="relative mx-auto mb-10 flex h-12 max-w-[520px] items-center rounded-full bg-[#F2F3F5] pl-12 pr-5 text-left transition-colors duration-200 hover:bg-[#E9EBEF]"
-            >
-              <SearchIcon size={18} className="pointer-events-none absolute left-4 top-1/2 shrink-0 -translate-y-1/2 text-[#A4ABBA]" />
-              <span className="flex min-w-0 items-center gap-1.5 text-[14px]">
-                <span className="shrink-0 text-[#A4ABBA]">어떤 사회자를 찾으시나요?</span>
-                <span className="home-search-slot" aria-hidden="true">
-                  <span className="home-search-slot-track">
-                    {[...homeSearchSlotKeywords, homeSearchSlotKeywords[0]].map((keyword, index) => (
-                      <span key={`${keyword}-${index}`} className="home-search-slot-item">
-                        {keyword}
-                      </span>
-                    ))}
-                  </span>
-                </span>
-                <span className="sr-only">{homeSearchSlotKeywords.join(', ')}</span>
-              </span>
-            </Link>
-          </Reveal>
-
+          {/* 배너 위 알약 검색창은 뺐다(260928 사장) — 검색은 헤더 돋보기로 */}
           <Reveal delay={150} className="relative z-10">
             {/* PC 첫 화면(260928 사장, 오늘의집 첫 화면 참고) — 왼쪽 4:3 배너(모바일과 같은 5장, 4:3 판) + 오른쪽 세로 카드 2개(퀵매칭·웨딩숲, 907:1735 같은 비율).
                 칸 너비를 각 비율(4/3 · 907/1735 · 907/1735)로 나눠 세 칸 높이가 딱 맞는다. 모서리 5 = 모바일과 같게. */}

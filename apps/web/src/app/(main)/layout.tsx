@@ -14,8 +14,8 @@ import GuestLoginForm from '@/components/GuestLoginForm';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
+import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import { getCachedUnreadCount } from '@/lib/api/notification.api';
-import { AlarmIcon } from '@/components/icons/mono';
 
 // ─── 하단 탭 아이콘(토스 하단바 어법, 사장 레퍼런스 260926) ───
 // 평소엔 가는 선(1.6) 아이콘, 선택된 탭만 채운 아이콘. 색은 currentColor(탭에서 쿨그레이 #4E5968).
@@ -201,7 +201,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const myRoute = pathname === '/my';
   const router = useRouter();
   const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(pathname));
-  // 커뮤니티는 하단 탭(모바일)만 같이 쓰고, PC 는 원래 자기 머리줄·사이드바 화면 그대로(겹치지 않게 PC 머리줄·폭 제한 없음)
+  // 커뮤니티는 폭 제한 없이 자기 사이드바 화면. PC 전체 헤더는 웨딩숲에서도 보인다(260928 사장 'PC 웨딩숲에서 빠져나갈 방법이 없음') —
+  // 웨딩숲 자기 머리줄·사이드바·글쓰기 칸은 그 아래에 붙는다(community.css --fcom-pc-top).
   const communityRoute = /^\/community(\/|$)/.test(pathname);
   const [navVisible, setNavVisible] = useState(true);
   const [navMounted, setNavMounted] = useState(false); // 초기 등장 애니메이션 (한 번만)
@@ -508,7 +509,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {!embedded && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
-      <header className={`${hideNav || communityRoute ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
+      <header className={`${hideNav ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-8">
           <Link href={homeHref} className="flex items-center" aria-label="Freetiful 홈">
             <Image
@@ -554,20 +555,24 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             </nav>
           </LayoutGroup>
 
-          <button
-            type="button"
-            onClick={() => setNotifOpen(true)}
-            aria-label="알림 열기"
-            className="relative flex items-center gap-1.5 rounded-[14px] bg-[#2B313D] px-4 py-2 text-[13px] font-bold text-white transition-all hover:bg-[#3A414F] active:scale-95"
-          >
-            <AlarmIcon size={16} />
-            알림
-            {notifUnread > 0 && (
-              <span className="min-w-[18px] rounded-full bg-[#3180F7] px-1 text-[10px] font-bold leading-[18px] text-white">
-                {notifUnread > 99 ? '99+' : notifUnread}
-              </span>
-            )}
-          </button>
+          {/* 모바일 홈 헤더와 같은 종·돋보기(260928 사장 'PC 도 모바일 헤더랑 동일하게') — 종 = 오른쪽 알림 서랍(모바일 알림 화면 그대로), 돋보기 = 검색 */}
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setNotifOpen(true)}
+              aria-label={notifUnread > 0 ? `알림 (안 읽은 알림 ${notifUnread}개)` : '알림'}
+              className="flex h-11 w-11 items-center justify-center rounded-full transition duration-150 hover:bg-[#F2F4F6] active:scale-90"
+            >
+              <HeaderBellIcon dot={notifUnread > 0} />
+            </button>
+            <Link
+              href="/search"
+              aria-label="검색"
+              className="flex h-11 w-11 items-center justify-center rounded-full transition duration-150 hover:bg-[#F2F4F6] active:scale-90"
+            >
+              <HeaderSearchIcon />
+            </Link>
+          </div>
         </div>
 
         {/* 스크롤을 내리면 홈 카테고리가 헤더에 이어붙는다 */}

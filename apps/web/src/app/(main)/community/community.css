@@ -1160,3 +1160,19 @@
 .tdet-post .tlikers { margin-top: 14px; }
 @keyframes tlikerIn { from { opacity: 0; transform: scale(.35); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .tlikers-av { animation: none; } }
+
+/* ── PC: 전체 헤더(로고·홈/웨딩숲/매칭/채팅/마이·종·돋보기)를 웨딩숲에서도 보인다(260928 사장 'PC 웨딩숲에서 빠져나갈 방법이 없음 — 헤더 통일').
+   전체 헤더(sticky, 72 + 선 1)가 위에 있으니, 화면에 붙는 웨딩숲 칸들은 그 아래(--fcom-pc-top)에서 붙는다. */
+.fcom { --fcom-pc-top: 0px; }
+@media (min-width: 1024px) {
+  .fcom { --fcom-pc-top: 73px; }
+  .fcom .community-topbar { top: var(--fcom-pc-top); }
+  .fcom .community-filter-panel {
+    top: calc(var(--fcom-pc-top) + 92px + env(safe-area-inset-top, 0px));
+    max-height: calc(100vh - 116px - var(--fcom-pc-top) - env(safe-area-inset-top, 0px));
+  }
+  .fcom .tcomp-sticky { top: calc(var(--fcom-pc-top) + var(--community-header-height, 0px)); }
+  .fcom .tdet-topbar { top: var(--fcom-pc-top); }
+  /* 오른쪽 상세 패널 안은 패널이 스크롤 칸 — 거기선 맨 위에 붙는다 */
+  .fcom .community-panel .tdet-topbar { top: 0; }
+}
