@@ -163,10 +163,11 @@ export default function FaqPage() {
     {
       category: 'payment',
       question: t({ ko: '취소 및 환불 정책이 궁금해요.', en: 'What is the cancellation and refund policy?', ja: 'キャンセル及び返金ポリシーを教えてください。', zh: '取消及退款政策是什么?' }),
-      answer: t({ ko: '행사 7일 전 취소 시 전액 환불, 3~6일 전 취소 시 50% 환불, 2일 전 이내 취소 시 환불이 어렵습니다. 다만, 천재지변 등 불가피한 사유의 경우 별도 협의가 가능합니다. 자세한 사항은 고객센터로 문의해주세요.',
-        en: 'Cancellations 7+ days before the event: full refund. 3-6 days before: 50% refund. Within 2 days: refund not possible. Unavoidable circumstances (e.g. natural disasters) are handled separately. Contact customer support for details.',
-        ja: 'イベント 7 日前キャンセル時は全額返金、3~6 日前は 50% 返金、2 日前以内のキャンセルは返金困難です。ただし、天災など不可避な事由の場合は別途協議が可能です。詳細はカスタマーセンターにお問合せください。',
-        zh: '活动 7 天前取消全额退款,3-6 天前取消退还 50%,2 天以内取消难以退款。但不可抗力(如自然灾害)可单独协商。详情请联系客服中心。' }),
+      // 환불 기준 = 「플랫폼 환불 규정」(260928 통일 — 예전엔 '행사 7일 전 전액' 식으로 규정과 달랐다)
+      answer: t({ ko: '환불은 프리티풀 플랫폼 환불 규정에 따라 입금일(예약 당일 포함)을 기준으로 해요. 입금일로부터 4일 이내에는 100%, 5~7일 이내에는 50% 환불되고, 7일이 지났거나 사전미팅을 진행한 뒤에는 환불이 어려워요. 행사일이 입금일로부터 7일 이내라면 환불이 어렵습니다. 사회자 사정으로 취소되면 전액 환불과 함께 규정에 따른 보상을 드리고, 고객 사정으로 취소하면 행사일 기준 위약금이 생길 수 있어요. 자세한 기준은 플랫폼 환불 규정에서 확인하거나 고객센터로 문의해주세요.',
+        en: 'Refunds follow the Freetiful platform refund policy, counted from the payment date (including the booking day): 100% within 4 days of payment, 50% within 5-7 days, and no refund after 7 days or once a pre-event meeting has taken place. If the event is within 7 days of the payment date, the deposit cannot be refunded. If the MC cancels, you receive a full refund plus compensation under the policy; if you cancel, a cancellation fee may apply based on the event date. See the platform refund policy or contact customer support for details.',
+        ja: '返金はフリティフルのプラットフォーム返金規定に基づき、入金日(予約当日を含む)を基準とします。入金日から4日以内は100%、5~7日以内は50%返金され、7日経過後または事前ミーティング実施後は返金できません。イベント日が入金日から7日以内の場合も返金できません。司会者の都合によるキャンセルは全額返金と規定に基づく補償を行い、お客様の都合によるキャンセルはイベント日を基準に違約金が発生する場合があります。詳細はプラットフォーム返金規定をご確認いただくか、カスタマーセンターにお問合せください。',
+        zh: '退款依照Freetiful平台退款规定,以付款日(含预约当天)为准:付款后4天内退还100%,5~7天内退还50%,超过7天或已进行事前会议则不予退款。若活动日在付款日起7天内,定金不予退还。因主持人原因取消时,全额退款并依规定给予补偿;因客户原因取消时,可能依活动日期产生违约金。详情请查看平台退款规定或联系客服中心。' }),
     },
     {
       category: 'expert',

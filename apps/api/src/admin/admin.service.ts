@@ -2617,12 +2617,15 @@ export class AdminService {
         ? `오늘 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다.`
         : `3일 뒤 ${q.proProfile.user.name} 사회자와 행사가 예정되어 있습니다. 준비하세요!`;
 
+      // 누르면 서로의 채팅방(행사 준비 대화) — 방이 없으면 고객은 구매 내역, 사회자는 받은 결제 내역(예전엔 없는 /quote/:id 404, 260928)
       this.notificationService.createNotification(q.userId, 'system' as any, title, body, {
         quotationId: q.id,
+        ...(q.chatRoomId ? { roomId: q.chatRoomId } : { url: '/my/purchase-history' }),
       }).catch(() => {});
 
       this.notificationService.createNotification(q.proProfile.userId, 'system' as any, title, body, {
         quotationId: q.id,
+        ...(q.chatRoomId ? { roomId: q.chatRoomId } : { url: '/my/payment-history' }),
       }).catch(() => {});
     }
 
@@ -2657,7 +2660,8 @@ export class AdminService {
           'review' as any,
           '행사는 어떠셨나요? ⭐',
           `${proName} 사회자와의 행사 후기를 남겨주세요.`,
-          { quotationId: q.id, proProfileId: q.proProfileId },
+          // 누르면 바로 후기 쓰기 화면
+          { quotationId: q.id, proProfileId: q.proProfileId, url: `/pros/${q.proProfileId}/reviews/write` },
         )
         .catch(() => {});
     }

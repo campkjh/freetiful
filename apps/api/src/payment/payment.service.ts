@@ -678,22 +678,25 @@ export class PaymentService {
       throw new BadRequestException('완료된 결제만 취소할 수 있습니다.');
     }
 
-    // 환불 정책: 행사일 기준 D-day 계산
+    // 환불 = 「플랫폼 환불 규정」 제1조(260928 기준 통일 — 예전엔 행사일 D-day 14/7/1일 기준이라 결제 몇 달 뒤에도 전액 환불됐다).
+    //  · 입금일(결제 완료일, 예약 당일 포함) 기준: 4일 이내 100% · 5~7일 이내 50% · 7일 경과 환불 불가
+    //  · 서비스 공급일(행사일)이 입금일로부터 7일 이내(예약 당일 포함)면 환불 불가 · 사전미팅 뒤 불가(시스템이 모름 → 고객센터)
+    //  · 입금일 = 결제 완료 시각. 가상계좌는 입금 확인 때 completed 로 바뀐 시각(updatedAt), 그 밖에는 결제를 만든 시각.
+    //  · 사회자 귀책 보상·고객 사정 위약금(규정 제2·3조)은 고객센터가 규정대로 처리한다.
     const quotation = (payment as any).quotations?.[0];
     const eventDate = quotation?.eventDate ? new Date(quotation.eventDate) : null;
     const amount = Number(payment.amount);
-    let refundAmount = amount;
-    let refundRate = 100;
-    if (eventDate) {
-      const now = new Date();
-      const diffDays = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 1) {
-        throw new BadRequestException('행사 당일에는 취소할 수 없습니다. 전문가에게 직접 연락해 주세요.');
-      }
-      if (diffDays >= 14) { refundRate = 100; refundAmount = amount; }
-      else if (diffDays >= 7) { refundRate = 90; refundAmount = Math.round(amount * 0.9); }
-      else { refundRate = 50; refundAmount = Math.round(amount * 0.5); }
+    const paidAt = payment.method === '가상계좌' ? payment.updatedAt : payment.createdAt;
+    const kstDay = (d: Date) => Math.floor((d.getTime() + 9 * 60 * 60 * 1000) / (24 * 60 * 60 * 1000));
+    const dayOfPayment = kstDay(new Date()) - kstDay(paidAt) + 1; // 예약 당일 = 1일째
+    if (eventDate && kstDay(eventDate) - kstDay(paidAt) + 1 <= 7) {
+      throw new BadRequestException('행사일이 입금일로부터 7일 이내인 예약은 환불 규정에 따라 예약금 환불이 어려워요. 고객센터로 문의해 주세요.');
     }
+    if (dayOfPayment > 7) {
+      throw new BadRequestException('입금일로부터 7일이 지나 환불 규정에 따라 예약금 환불이 어려워요. 고객센터로 문의해 주세요.');
+    }
+    const refundRate = dayOfPayment <= 4 ? 100 : 50;
+    const refundAmount = refundRate === 100 ? amount : Math.round(amount * 0.5);
 
     // 토스 결제 취소 API (부분 환불 지원)
     if (payment.pgTransactionId) {

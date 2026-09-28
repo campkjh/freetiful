@@ -67,7 +67,8 @@ export class NotificationService {
     // (sw.js 와 iOS clickTarget 도 url 을 먼저 보므로 이쪽이 전 구간 일관된 순서다)
     if (explicitLink) next.url = String(explicitLink);
     else if (roomId) next.url = `/chat/${String(roomId)}`;
-    else if (next.quotationId) next.url = `/quote/${next.quotationId}`;
+    // 견적 알림인데 방·목적지가 없으면 채팅 목록(견적서는 채팅방에 있다) — 예전엔 없는 /quote/:id 로 보내 404 가 났다(260928)
+    else if (next.quotationId) next.url = '/chat';
     else if (next.proProfileId) next.url = `/pros/${next.proProfileId}`;
     else if (next.matchRequestId || next.type === 'match_request') next.url = '/pro-dashboard/inquiries';
     else if (String(type) === 'chat') next.url = '/chat';

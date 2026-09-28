@@ -155,7 +155,8 @@ export class QuotationService {
       'system' as any,
       '견적서가 도착했습니다',
       `${quotation.proProfile.user.name} 사회자가 ${(data.amount || 0).toLocaleString()}원 견적서를 보냈습니다.`,
-      { quotationId: quotation.id },
+      // 누르면 그 채팅방(견적서 카드가 있는 곳)
+      data.chatRoomId ? { quotationId: quotation.id, roomId: data.chatRoomId } : { quotationId: quotation.id },
     ).catch(() => {});
 
     const proUserId = quotation.proProfile?.user?.id;
@@ -326,7 +327,7 @@ export class QuotationService {
           'system' as any,
           '견적서가 수락되었습니다! 💰',
           `${customerName}님이 견적서를 수락했습니다.`,
-          { quotationId: id },
+          updated.chatRoomId ? { quotationId: id, roomId: updated.chatRoomId } : { quotationId: id },
         ).catch(() => {});
       } else {
         this.notificationService.createNotification(
@@ -334,7 +335,7 @@ export class QuotationService {
           'system' as any,
           '견적서가 취소되었습니다',
           `${customerName}님이 견적서를 취소했습니다.`,
-          { quotationId: id },
+          updated.chatRoomId ? { quotationId: id, roomId: updated.chatRoomId } : { quotationId: id },
         ).catch(() => {});
       }
     }
