@@ -1,4 +1,4 @@
-// 웨딩홀 상세 정보(260928 다이렉트결혼준비 제휴 웨딩홀 가져오기) — 업체 descriptionHtml 안의 숨은 표시
+// 제휴 업체 상세 정보(260928 다이렉트결혼준비 제휴 — 웨딩홀·스튜디오·드레스·메이크업·예물·예복·한복) — 업체 descriptionHtml 안의 숨은 표시
 // `<!--freetiful-hall-info:BASE64(JSON)-->` 로 들어온다(스키마 변경 없이, 태그 표시와 같은 방식).
 // 상세 화면(businesses/[id])이 '웨딩홀 정보'(이런 점이 좋아요 · 홀 타입 · 메뉴 · 식대 · 보증 인원 · 주차)와 '홀 안내'(홀별 사진 · 예식 · 수용 · 식대 · 대관료…)로 그린다.
 
@@ -22,7 +22,13 @@ export type HallInfo = {
   v: number;
   /** 정보 출처(제휴사 이름) */
   source?: string;
+  /** 칸 제목 — 없으면 '웨딩홀 정보'(스튜디오·드레스 등은 '업체 안내') */
+  heading?: string;
   keypoints?: string[];
+  /** 분야마다 다른 기본 정보 줄(촬영 방식 · 소재 · 영업 시간 …) */
+  rows?: Array<{ label: string; value: string }>;
+  /** 긴 글 칸(상품 안내 등) — 여러 줄 글 그대로, 길면 접어서 보여 준다 */
+  sections?: Array<{ title: string; text: string }>;
   hallType?: string;
   menu?: string;
   mealPrice?: string;

@@ -1,8 +1,10 @@
 'use client';
 
-// 웨딩홀 상세 칸 — '웨딩홀 정보'(이런 점이 좋아요 · 기본 정보) + '홀 안내'(홀마다 사진 줄 · 예식 · 수용 · 식대 · 대관료 · 꽃장식 · 주류).
+// 제휴 업체 상세 칸 — '웨딩홀 정보'(이런 점이 좋아요 · 기본 정보) + '홀 안내'(홀마다 사진 줄 · 예식 · 수용 · 식대 · 대관료 · 꽃장식 · 주류).
+// 스튜디오·드레스 등은 제목 '업체 안내' + 분야별 줄(rows) + '상품 안내' 긴 글(sections, 10줄 넘으면 더 보기).
 // 데이터 = lib/business-hall-info(업체 소개 안의 숨은 표시). 업체 상세(businesses/[id])의 사진 모아보기와 위치 사이에 들어간다.
 // 줄 모양은 같은 화면 '업체 정보'(왼쪽 회색 이름 72 · 오른쪽 값 15)와 같게, 홀 카드는 옅은 테두리 모서리 18.
+import { useLayoutEffect, useRef, useState } from 'react';
 import { TossCheckIcon } from '@/components/icons/TossMonoIcons';
 import {
   formatCapacity,
@@ -29,6 +31,33 @@ function Rows({ rows }: { rows: Array<{ label: string; value?: string }> }) {
   );
 }
 
+/** 긴 글(상품 안내) — 10줄까지 보이고 넘치면 '더 보기'로 펼친다(실제로 넘칠 때만 단추) */
+function LongText({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) setOverflow(el.scrollHeight > el.clientHeight + 2);
+  }, [text]);
+  return (
+    <div className="mt-3 rounded-[16px] bg-[#F7F9FC] px-4 py-3.5">
+      <p
+        ref={ref}
+        className="whitespace-pre-line break-keep text-[15px] leading-[1.65] tracking-[-0.2px] text-[#333D4B]"
+        style={open ? undefined : { display: '-webkit-box', WebkitLineClamp: 10, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+      >
+        {text}
+      </p>
+      {(overflow || open) && (
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[14px] font-semibold text-[#3182F6]">
+          {open ? '접기' : '더 보기'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function HallInfoSections({
   info,
   images,
@@ -41,10 +70,14 @@ export default function HallInfoSections({
 }) {
   const keypoints = (info.keypoints || []).filter(Boolean);
   const halls = (info.halls || []).filter((h) => h && (h.name || h.meal || h.capacity));
+  const extraRows = (info.rows || []).filter((r) => r && r.label && r.value);
+  const sections = (info.sections || []).filter((x) => x && x.title && x.text);
+  const hasBasic = !!(info.hallType || info.menu || info.mealPrice || info.guarantee || info.parking || extraRows.length || keypoints.length);
   return (
     <>
+      {hasBasic && (
       <section className="px-5 pt-8">
-        <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">웨딩홀 정보</h2>
+        <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">{info.heading || '웨딩홀 정보'}</h2>
         {keypoints.length > 0 && (
           <ul className="mt-3 space-y-2.5 rounded-[16px] bg-[#F7F9FC] px-4 py-3.5">
             {keypoints.map((k) => (
@@ -63,10 +96,19 @@ export default function HallInfoSections({
               { label: '식대', value: info.mealPrice },
               { label: '보증 인원', value: formatGuarantee(info.guarantee) },
               { label: '주차', value: formatParking(info.parking) },
+              ...extraRows,
             ]}
           />
         </div>
       </section>
+      )}
+
+      {sections.map((sec) => (
+        <section key={sec.title} className="px-5 pt-8">
+          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">{sec.title}</h2>
+          <LongText text={sec.text} />
+        </section>
+      ))}
 
       {halls.length > 0 && (
         <section className="px-5 pt-8">
@@ -122,7 +164,7 @@ export default function HallInfoSections({
 
       {info.source && (
         <p className="px-5 pt-3 text-[13px] leading-[1.5] tracking-[-0.2px] text-[#8B95A1]">
-          정보 제공 {info.source} · 웨딩홀 사정에 따라 메뉴와 가격이 바뀔 수 있어요
+          정보 제공 {info.source} · {halls.length > 0 || info.mealPrice ? '웨딩홀 사정에 따라 메뉴와 가격이 바뀔 수 있어요' : '업체 사정에 따라 상품 구성과 가격이 바뀔 수 있어요'}
         </p>
       )}
     </>

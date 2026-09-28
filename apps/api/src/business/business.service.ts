@@ -7,7 +7,8 @@ import {
 } from './business-tags';
 import { isBusinessRelevantToAnyCategory, isBusinessRelevantToCategory } from './business-quality';
 
-const BUSINESS_LIST_MAX_CANDIDATES = 1000;
+// 보이는 업체만 후보로 뽑는다(아래 where) — 제휴 업체가 늘어 1000 → 3000(260928 다이렉트결혼준비 700여 곳)
+const BUSINESS_LIST_MAX_CANDIDATES = 3000;
 
 // 리스트 상단 고정 — 빌라드지디 제휴 지점을 이 순서대로 최상단에 노출한다.
 // (나머지 업체들은 기존 createdAt asc 순서 유지 — Array#sort 는 stable)
