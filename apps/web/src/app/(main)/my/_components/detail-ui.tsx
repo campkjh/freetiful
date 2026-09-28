@@ -22,7 +22,11 @@ export function MySectionTitle({ children, className = '' }: { children: React.R
   return <p className={`px-1 pb-2.5 text-[15px] font-semibold text-[#333D4B] ${className}`}>{children}</p>;
 }
 
-/** 퀵매칭 뒤로 화살표(public/quick-match/icons/back.svg)를 글자색으로 칠한다 */
+/** 퀵매칭 뒤로 화살표(public/quick-match/icons/back.svg)를 글자색으로 칠한다 — 제목 ⌄ 헤더(구매·결제내역)도 같은 아이콘을 쓴다 */
+export function QdBackIcon() {
+  return <BackIcon />;
+}
+
 function BackIcon() {
   return (
     <i

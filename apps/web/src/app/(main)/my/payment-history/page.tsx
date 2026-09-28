@@ -1,15 +1,24 @@
 'use client';
 
+// 결제/환불내역(260928 사장 '구매내역과 동일하게'): 사진 색 카드(PaymentToneCard) + 제목 ⌄ 거르기(TitleFilterMenu).
+// 고객 화면 = 사회자 사진·이름, 사회자 화면(받은 결제) = 고객 사진·이름·연락처.
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { EmptyDocumentIcon } from '@/components/icons/color';
-import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
+import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
+import { QdBackIcon } from '../_components/detail-ui';
+import PaymentToneCard, { TossMenuIcon, type PaymentToneRow } from '../_components/PaymentToneCard';
+
+type Filter = 'all' | 'paid' | 'waiting' | 'refunded';
 
 interface PaymentItem {
   id: string;
   title: string;
+  /** 카드 사진 — 고객 화면이면 사회자, 사회자 화면이면 고객 */
+  image?: string;
+  proId?: string;
   /** 고객 화면이면 사회자 이름, 사회자 화면이면 고객 이름 */
   proName: string;
   phone?: string;
@@ -20,14 +29,33 @@ interface PaymentItem {
   refundAmount?: number;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  completed: { label: '결제완료', color: 'bg-[#E9F8EF] text-[#12B76A]' },
-  escrowed: { label: '에스크로', color: 'bg-[#EAF2FF] text-[#3182F6]' },
-  refunded: { label: '환불완료', color: 'bg-[#FFF0F0] text-[#E5484D]' },
-  pending: { label: '결제대기', color: 'bg-[#FFF6E5] text-[#D98A00]' },
+/** 결제 상태 → 배지·거르기 묶음 */
+function statusInfo(status: string, viewerIsPro: boolean): { label: string; dot: string; group: Filter | null } {
+  switch (status) {
+    case 'completed':
+    case 'escrowed':
+      return { label: '결제완료', dot: '#3182F6', group: 'paid' };
+    case 'settled':
+      return { label: viewerIsPro ? '정산완료' : '결제완료', dot: '#3182F6', group: 'paid' };
+    case 'refunded':
+      return { label: '환불완료', dot: '#F04452', group: 'refunded' };
+    case 'waiting_for_deposit':
+      return { label: '입금대기', dot: '#FFB020', group: 'waiting' };
+    case 'failed':
+      return { label: '결제실패', dot: '#B0B8C1', group: null };
+    default:
+      return { label: '결제대기', dot: '#FFB020', group: 'waiting' };
+  }
+}
+
+const FILTER_META: Record<Exclude<Filter, 'all'>, { label: string; icon: string }> = {
+  paid: { label: '결제완료', icon: 'pay-card' },
+  waiting: { label: '결제대기', icon: 'clock' },
+  refunded: { label: '환불', icon: 'coin' },
 };
 
-const CACHE_KEY = 'freetiful-payment-cache';
+// v2 — 사진·사회자 id 를 담기 시작(옛 캐시엔 없다)
+const CACHE_KEY = 'freetiful-payment-cache-v2';
 
 function getCache(): PaymentItem[] | null {
   if (typeof window === 'undefined') return null;
@@ -44,9 +72,12 @@ function setCache(data: PaymentItem[]) {
 
 function Skeleton() {
   return (
-    <div className="space-y-2.5 px-6 pt-1">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[150px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
+    <div className="space-y-3 px-5 pt-2">
+      {[0, 1].map((i) => (
+        <div key={i} className="animate-pulse overflow-hidden rounded-[20px] bg-[#F7F8FA]">
+          <div className="w-full bg-[#F2F4F6]" style={{ aspectRatio: '16 / 9' }} />
+          <div className="h-[118px]" />
+        </div>
       ))}
     </div>
   );
@@ -60,6 +91,7 @@ export default function PaymentHistoryPage() {
   const [payments, setPayments] = useState<PaymentItem[] | null>(cached);
   const [viewerIsPro, setViewerIsPro] = useState(false);
   const [isLoading, setIsLoading] = useState(cached === null);
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -92,15 +124,20 @@ export default function PaymentHistoryPage() {
             return {
               id: p.id,
               title: p.description || q?.title || '결제',
+              image: isPro
+                ? (p.customer?.profileImageUrl || undefined)
+                : (p.pro?.image || q?.proProfile?.images?.[0]?.imageUrl || q?.proProfile?.user?.profileImageUrl || undefined),
+              proId: isPro ? undefined : (p.pro?.id || p.proProfileId || q?.proProfile?.id || undefined),
               // 사회자 계정이면 서버가 customer 를 실어준다 → 고객 이름을 보여준다
               proName: isPro
                 ? (p.customer?.name || '고객')
-                : (q?.proProfile?.user?.name || ''),
+                : (p.pro?.name || q?.proProfile?.user?.name || ''),
               phone: isPro ? (p.customerPhone || undefined) : undefined,
               amount: Number(p.amount ?? 0),
               status: p.status,
               date: new Date(p.createdAt).toLocaleDateString('ko-KR'),
-              method: p.paymentMethod || '',
+              // 결제 수단 — 서버 Payment.method(토스가 준 '카드'·'가상계좌'·간편결제 이름). 예전엔 없는 paymentMethod 를 읽어 늘 비었다
+              method: p.method || '',
               refundAmount: p.refundAmount ? Number(p.refundAmount) : undefined,
             };
           });
@@ -115,55 +152,56 @@ export default function PaymentHistoryPage() {
     }
   }, [authUser]);
 
+  const all = payments || [];
+  const filtered = all.filter((p) => filter === 'all' || statusInfo(p.status, viewerIsPro).group === filter);
+  const countOf = (f: Filter) => (f === 'all' ? all.length : all.filter((p) => statusInfo(p.status, viewerIsPro).group === f).length);
+  // 사회자 화면(받은 결제)은 입금 전 건이 서버에서 빠져 '결제대기'가 없다
+  const filterKeys: Exclude<Filter, 'all'>[] = viewerIsPro ? ['paid', 'refunded'] : ['paid', 'waiting', 'refunded'];
+  const options: TitleFilterOption<Filter>[] = [
+    { key: 'all', label: '전체', title: viewerIsPro ? '고객 결제 내역' : '결제/환불 내역', icon: <TossMenuIcon name="list" />, count: countOf('all') },
+    ...filterKeys.map((f) => ({ key: f, label: FILTER_META[f].label, title: `${FILTER_META[f].label} 내역`, icon: <TossMenuIcon name={FILTER_META[f].icon} />, count: countOf(f) })),
+  ];
+
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title={viewerIsPro ? '고객 결제 내역' : '결제/환불 내역'} sub={viewerIsPro ? '고객이 결제한 내역이에요' : '결제와 환불 기록을 확인하세요'} onBack={() => router.back()} />
+      {/* 헤더 — 채팅 목록처럼 제목 ⌄ 거르기(260928 사장). iOS 옛 앱은 네이티브 헤더가 덮어 숨김 */}
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-1 bg-white pl-2 pr-4" data-native-back-header>
+        <button type="button" onClick={() => router.back()} aria-label="뒤로가기" className="qd-back">
+          <QdBackIcon />
+        </button>
+        <TitleFilterMenu<Filter> value={filter} options={options} onChange={setFilter} enterClassName="qd-a-title" />
+      </header>
 
       {isLoading && !cached ? (
         <Skeleton />
       ) : (
-        <div className="qd-body space-y-2.5 px-6 pt-1">
-          {!payments || payments.length === 0 ? (
+        <div key={filter} className="qd-body space-y-3 px-5 pt-2">
+          {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
               <EmptyDocumentIcon size={64} className="mb-3" />
-              <p className="text-[15px] font-bold text-[#2B313D]">결제 내역이 없습니다</p>
+              <p className="text-[15px] font-bold text-[#2B313D]">{filter === 'all' ? '결제 내역이 없습니다' : `${FILTER_META[filter].label} 내역이 없어요`}</p>
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">결제가 완료되면 이곳에서 확인할 수 있어요.</p>
             </div>
-          ) : payments.map((p) => {
-            const status = STATUS_MAP[p.status] || STATUS_MAP.pending;
+          ) : filtered.map((p, i) => {
+            const st = statusInfo(p.status, viewerIsPro);
+            const rows: PaymentToneRow[] = [{ label: viewerIsPro ? '고객 결제금액' : '결제금액', value: `${p.amount.toLocaleString()}원` }];
+            if (p.refundAmount) rows.push({ label: '환불금액', value: `${p.refundAmount.toLocaleString()}원`, tone: 'danger' });
             return (
-              <div key={p.id} className={`${MY_CARD} space-y-2 px-[18px] py-4`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[12px] text-[#A4ABBA]">{p.date}</span>
-                  <span className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${status.color}`}>
-                    {status.label}
-                  </span>
-                </div>
-                <p className="text-[17px] font-semibold text-[#333D4B]">{p.title}</p>
-                <p className="text-[13px] font-medium text-[#8B95A1]">
-                  {viewerIsPro ? `고객 ${p.proName}` : p.proName}
-                  {p.method ? ` · ${p.method}` : ''}
-                </p>
-                {viewerIsPro && p.phone && (
-                  <a href={`tel:${p.phone}`} className="block text-[13px] font-bold text-[#3180F7]">
-                    {p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')}
+              <PaymentToneCard
+                key={p.id}
+                index={i}
+                href={p.proId ? `/pros/${p.proId}` : undefined}
+                image={p.image}
+                name={viewerIsPro ? `고객 ${p.proName}` : (p.proName ? `${p.proName} 사회자` : p.title)}
+                badge={{ label: st.label, dot: st.dot }}
+                meta={[p.date, ...(p.method ? [p.method] : []), p.title]}
+                rows={rows}
+                footer={viewerIsPro && p.phone ? (
+                  <a href={`tel:${p.phone}`} className="mt-3 flex h-11 items-center justify-center rounded-[12px] bg-white/70 text-[14px] font-bold text-[#3182F6] active:scale-[0.99]">
+                    {p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')} 전화하기
                   </a>
-                )}
-                <div className="flex items-center justify-between border-t border-[#F5F6F8] pt-3">
-                  <span className="text-[13px] text-[#8B95A1]">{viewerIsPro ? '고객 결제금액' : '결제금액'}</span>
-                  <span className="text-[17px] font-bold tabular-nums text-[#2B313D]">
-                    {p.amount.toLocaleString()}원
-                  </span>
-                </div>
-                {p.refundAmount && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] text-[#E5484D]">환불금액</span>
-                    <span className="text-[15px] font-bold tabular-nums text-[#E5484D]">
-                      {p.refundAmount.toLocaleString()}원
-                    </span>
-                  </div>
-                )}
-              </div>
+                ) : undefined}
+              />
             );
           })}
         </div>

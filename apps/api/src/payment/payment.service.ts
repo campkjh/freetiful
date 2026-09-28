@@ -572,8 +572,24 @@ export class PaymentService {
       this.prisma.payment.count({ where }),
     ]);
 
+    // 카드에 쓸 사회자 이름·사진 — 견적(quotations)은 결제가 끝나야 이어져 가상계좌 입금대기 등은 비어 있다.
+    // Payment 에 적힌 proProfileId 로 따로 불러 늘 채운다(260928 구매·결제내역 카드에 사회자 사진).
+    const proIds = Array.from(new Set(payments.map((p) => p.proProfileId).filter((id): id is string => Boolean(id))));
+    const pros = proIds.length
+      ? await this.prisma.proProfile.findMany({
+          where: { id: { in: proIds } },
+          select: {
+            id: true,
+            user: { select: { name: true, profileImageUrl: true } },
+            images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+          },
+        })
+      : [];
+    const proMap = new Map(pros.map((pr) => [pr.id, { id: pr.id, name: pr.user?.name || '', image: pr.images[0]?.imageUrl || pr.user?.profileImageUrl || null }]));
+    const withPro = payments.map((p) => ({ ...p, pro: (p.proProfileId && proMap.get(p.proProfileId)) || null }));
+
     // 프로 화면은 '누가 결제했는지'가 핵심 — Payment↔User 관계가 스키마에 없어 별도 조회 후 머지
-    let withCustomer: any[] = payments;
+    let withCustomer: any[] = withPro;
     if (proProfile && payments.length > 0) {
       const ids = Array.from(new Set(payments.map((p) => p.userId)));
       const users = await this.prisma.user.findMany({
@@ -581,7 +597,7 @@ export class PaymentService {
         select: { id: true, name: true, profileImageUrl: true },
       });
       const map = new Map(users.map((u) => [u.id, u]));
-      withCustomer = payments.map((p) => ({
+      withCustomer = withPro.map((p) => ({
         ...p,
         customer: map.get(p.userId) || null,
         // 프로 화면에서만 연락처를 함께 준다(본인이 받은 결제라 응대에 필요)

@@ -1,18 +1,22 @@
 'use client';
 
+// 구매내역(260928 사장): 카드 = 빌라드지디 카드 같은 '사진 색 카드'에 사회자 사진(PaymentToneCard),
+// 거르기 = 채팅 목록처럼 제목 ⌄ 메뉴(TitleFilterMenu) — 예전 회색 세그먼트 탭 대신.
 import { useState, useEffect, useMemo } from 'react';
-import { LayoutGroup, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { CalendarIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon } from '@/components/icons/color';
-import { MY_CARD, MyDetailHeader } from '../_components/detail-ui';
+import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
+import { QdBackIcon } from '../_components/detail-ui';
+import PaymentToneCard, { TossMenuIcon } from '../_components/PaymentToneCard';
 
 type Status = 'all' | 'paid' | 'upcoming' | 'completed' | 'refunded';
 
 interface PurchaseItem {
   id: string;
+  proId?: string;
   proName: string;
   service: string;
   amount: number;
@@ -22,14 +26,22 @@ interface PurchaseItem {
   hasReview: boolean;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  paid: { label: '결제완료', color: 'bg-[#EAF2FF] text-[#3182F6]' },
-  upcoming: { label: '행사 예정', color: 'bg-[#E9F8EF] text-[#12B76A]' },
-  completed: { label: '행사 완료', color: 'bg-[#F2F3F5] text-[#51535C]' },
-  refunded: { label: '환불됨', color: 'bg-[#FFF0F0] text-[#E5484D]' },
+const STATUS_MAP: Record<string, { label: string; dot: string; icon: string }> = {
+  paid: { label: '결제완료', dot: '#3182F6', icon: 'pay-card' },
+  upcoming: { label: '행사 예정', dot: '#12B76A', icon: 'calendar-check' },
+  completed: { label: '행사 완료', dot: '#B0B8C1', icon: 'check-circle' },
+  refunded: { label: '환불됨', dot: '#F04452', icon: 'coin' },
 };
 
-const CACHE_KEY = 'freetiful-purchase-cache';
+/** 2026-12-19 → 2026.12.19 (토) */
+function prettyDate(ymd: string) {
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return `${ymd.replace(/-/g, '.')} (${'일월화수목금토'[d.getDay()]})`;
+}
+
+// v2 — 사회자 id·사진을 서버 pro 로 채우기 시작(옛 캐시엔 없다)
+const CACHE_KEY = 'freetiful-purchase-cache-v2';
 
 function getCache(): PurchaseItem[] | null {
   if (typeof window === 'undefined') return null;
@@ -46,9 +58,12 @@ function setCache(data: PurchaseItem[]) {
 
 function Skeleton() {
   return (
-    <div className="space-y-2.5 px-6 pt-1">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[116px] animate-pulse rounded-[16px] bg-[#F7F8FA]" />
+    <div className="space-y-3 px-5 pt-2">
+      {[0, 1].map((i) => (
+        <div key={i} className="animate-pulse overflow-hidden rounded-[20px] bg-[#F7F8FA]">
+          <div className="w-full bg-[#F2F4F6]" style={{ aspectRatio: '16 / 9' }} />
+          <div className="h-[118px]" />
+        </div>
       ))}
     </div>
   );
@@ -58,7 +73,6 @@ export default function PurchaseHistoryPage() {
   const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<Status>('all');
-  const [hasDemoData, setHasDemoData] = useState(false);
 
   // 캐시에서 즉시 표시
   const cached = useMemo(() => getCache(), []);
@@ -85,12 +99,14 @@ export default function PurchaseHistoryPage() {
             else status = 'paid'; // escrowed/settled = 결제완료 (pending/failed 는 위에서 제외됨)
             return {
               id: p.id,
-              proName: q?.proProfile?.user?.name || '',
+              proId: p.pro?.id || p.proProfileId || q?.proProfile?.id || undefined,
+              proName: p.pro?.name || q?.proProfile?.user?.name || '',
               service: p.description || q?.title || '결제',
               amount: Number(p.amount ?? 0),
               eventDate: eventDate.toISOString().slice(0, 10),
               status,
-              image: q?.proProfile?.user?.profileImageUrl || q?.proProfile?.images?.[0]?.imageUrl || '',
+              // 서버가 채워 주는 pro.image(대표 사진 → 프로필 사진) 우선
+              image: p.pro?.image || q?.proProfile?.images?.[0]?.imageUrl || q?.proProfile?.user?.profileImageUrl || '',
               hasReview: false,
             };
           });
@@ -115,94 +131,59 @@ export default function PurchaseHistoryPage() {
     return () => window.removeEventListener('popstate', onPop);
   }, [router]);
 
-  const filtered = (purchases || []).filter((p) => filter === 'all' || p.status === filter);
+  const all = purchases || [];
+  const filtered = all.filter((p) => filter === 'all' || p.status === filter);
+  const countOf = (st: Status) => (st === 'all' ? all.length : all.filter((p) => p.status === st).length);
+  const options: TitleFilterOption<Status>[] = [
+    { key: 'all', label: '전체', title: '구매 내역', icon: <TossMenuIcon name="list" />, count: countOf('all') },
+    ...(['paid', 'upcoming', 'completed', 'refunded'] as const).map((st) => ({
+      key: st,
+      label: STATUS_MAP[st].label,
+      title: STATUS_MAP[st].label,
+      icon: <TossMenuIcon name={STATUS_MAP[st].icon} />,
+      count: countOf(st),
+    })),
+  ];
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
-      <MyDetailHeader title="구매 내역" sub="섭외한 사회자와 진행 상황이에요" onBack={() => router.replace('/my')} />
-      {/* 탭 — 헤더 아래 고정(iOS 는 예전처럼 숨김: data-native-back-header) */}
-      <div className="sticky top-14 z-10 bg-white pb-2" data-native-back-header>
-        {/* 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
-        <LayoutGroup id="purchase-tabs">
-        <div className="scrollbar-hide mx-6 flex gap-1 overflow-x-auto rounded-2xl bg-[#F2F3F5] p-1">
-          {(['all', 'paid', 'upcoming', 'completed', 'refunded'] as Status[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`relative shrink-0 flex-1 rounded-[13px] px-3 py-2 text-[13px] transition-colors ${
-                filter === s ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
-              }`}
-            >
-              {filter === s && (
-                <motion.span
-                  layoutId="purchase-tab-pill"
-                  className="absolute inset-0 rounded-[13px] bg-white shadow-sm"
-                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                />
-              )}
-              <span className="relative whitespace-nowrap">{s === 'all' ? '전체' : STATUS_MAP[s].label}</span>
-            </button>
-          ))}
-        </div>
-        </LayoutGroup>
-      </div>
+      {/* 헤더 — 채팅 목록처럼 제목 ⌄ 를 누르면 거르기 메뉴(260928 사장). iOS 옛 앱은 네이티브 헤더가 덮어 숨김(data-native-back-header) */}
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-1 bg-white pl-2 pr-4" data-native-back-header>
+        <button type="button" onClick={() => router.replace('/my')} aria-label="뒤로가기" className="qd-back">
+          <QdBackIcon />
+        </button>
+        <TitleFilterMenu<Status> value={filter} options={options} onChange={setFilter} enterClassName="qd-a-title" />
+      </header>
 
       {isLoading && !cached ? (
         <Skeleton />
       ) : (
-        <div
-          key={filter}
-          className="qd-body space-y-2.5 px-6 pt-2"
-        >
+        <div key={filter} className="qd-body space-y-3 px-5 pt-2">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
               <EmptyDocumentIcon size={64} className="mb-3" />
-              <p className="text-[15px] font-bold text-[#2B313D]">구매 내역이 없습니다</p>
+              <p className="text-[15px] font-bold text-[#2B313D]">{filter === 'all' ? '구매 내역이 없습니다' : `${STATUS_MAP[filter].label} 내역이 없어요`}</p>
               <p className="mt-1.5 text-[13px] text-[#A4ABBA]">사회자를 섭외하면 이곳에서 확인할 수 있어요.</p>
             </div>
           ) : (
-            filtered.map((item) => (
-              <div key={item.id} className={`${MY_CARD} px-[18px] py-4`}>
-                <div className="flex gap-3">
-                  <img
-                    src={item.image}
-                    alt={item.proName}
-                    className="h-14 w-14 shrink-0 rounded-[18px] bg-[#F2F3F5] object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="truncate text-[17px] font-semibold text-[#333D4B]">{item.proName}</p>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-[5px] text-[11.5px] font-bold ${
-                          STATUS_MAP[item.status]?.color || 'bg-[#F2F3F5] text-[#51535C]'
-                        }`}
-                      >
-                        {STATUS_MAP[item.status]?.label || item.status}
-                      </span>
-                    </div>
-                    <p className="truncate text-[13px] font-medium text-[#8B95A1]">{item.service}</p>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-[12px] text-[#A4ABBA]">
-                        <CalendarIcon size={13} className="text-[#C8CEDA]" /> {item.eventDate}
-                      </span>
-                      <span className="text-[15px] font-bold tabular-nums text-[#2B313D]">
-                        {item.amount.toLocaleString()}원
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {item.status === 'completed' && !item.hasReview && (
-                  <button className="mt-4 h-11 w-full rounded-[14px] bg-[#3180F7] text-[14px] font-bold text-white transition-colors active:scale-[0.99] lg:hover:bg-[#2470E6]">
-                    리뷰 작성하기
-                  </button>
-                )}
-                {item.status === 'upcoming' && (
-                  <button className="mt-4 h-11 w-full rounded-[14px] bg-[#F2F3F5] text-[14px] font-bold text-[#51535C] transition-colors active:scale-[0.99] lg:hover:bg-[#E9EBEF]">
-                    일정 변경 요청
-                  </button>
-                )}
-              </div>
-            ))
+            filtered.map((item, i) => {
+              const st = STATUS_MAP[item.status] || STATUS_MAP.paid;
+              return (
+                <PaymentToneCard
+                  key={item.id}
+                  index={i}
+                  href={item.proId ? `/pros/${item.proId}` : undefined}
+                  image={item.image}
+                  name={item.proName ? `${item.proName} 사회자` : '사회자'}
+                  badge={{ label: st.label, dot: st.dot }}
+                  meta={[
+                    <span key="d" className="inline-flex items-center gap-1"><CalendarIcon size={13} className="shrink-0" />{prettyDate(item.eventDate)}</span>,
+                    item.service,
+                  ]}
+                  rows={[{ label: '결제금액', value: `${item.amount.toLocaleString()}원` }]}
+                />
+              );
+            })
           )}
         </div>
       )}
