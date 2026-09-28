@@ -105,6 +105,8 @@ const CSS = `
 .vgd-hint{animation:vgdHint 1.8s ease-in-out infinite}
 @keyframes vgdHint{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(7px);opacity:1}}
 .vgd-fade{animation:vgdFade .5s ease both}
+.vgd-countdown{stroke-dasharray:128.8;stroke-dashoffset:128.8;animation:vgdCountdown 3s linear .15s forwards}
+@keyframes vgdCountdown{to{stroke-dashoffset:0}}
 @keyframes vgdFade{from{opacity:0}to{opacity:1}}
 .vgd-marquee-track{animation:vgdMarquee 34s linear infinite}
 @keyframes vgdMarquee{from{transform:translateX(-50%)}to{transform:translateX(0)}}
@@ -112,11 +114,14 @@ const CSS = `
 @media (prefers-reduced-motion: reduce){
   .vgd-reveal,.vgd-pop,.vgd-rise,.vgd-rise-sm{opacity:1 !important;transform:none !important}
   .vgd-curtain,.vgd-hint,.vgd-fade,.vgd-marquee-track{animation:none !important}
+  .vgd-countdown{animation-duration:3s !important}
 }
 `;
 
 export default function VilladegdEventOverlay() {
   const [open, setOpen] = useState(false);
+  // X 둘레 흰 선이 3초 동안 한 바퀴 돌고 다 돌면 닫힌다(260929 사장). 그 사이 스크롤·터치로 읽기 시작하면 멈추고(선이 사라짐) 그대로 둔다.
+  const [autoClose, setAutoClose] = useState(true);
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +149,24 @@ export default function VilladegdEventOverlay() {
     }
     setOpen(true);
   }, []);
+
+  useEffect(() => {
+    if (!open || !autoClose) return;
+    const root = rootRef.current;
+    if (!root) return;
+    const stop = () => setAutoClose(false);
+    const opts: AddEventListenerOptions = { passive: true };
+    root.addEventListener('scroll', stop, opts);
+    root.addEventListener('wheel', stop, opts);
+    root.addEventListener('touchmove', stop, opts);
+    window.addEventListener('keydown', stop);
+    return () => {
+      root.removeEventListener('scroll', stop);
+      root.removeEventListener('wheel', stop);
+      root.removeEventListener('touchmove', stop);
+      window.removeEventListener('keydown', stop);
+    };
+  }, [open, autoClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -177,10 +200,21 @@ export default function VilladegdEventOverlay() {
     <div ref={rootRef} className="vgd-fade fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-white" role="dialog" aria-modal="true" aria-label="빌라드지디">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      {/* 글래스 X (우상단 고정) */}
-      <button onClick={close} aria-label="닫기"
+      {/* 글래스 X (우상단 고정) — 둘레 흰 선이 3초 동안 12시부터 시계 방향으로 한 바퀴 → 다 돌면 닫힘 */}
+      <button onClick={close} aria-label={autoClose ? '닫기 (3초 뒤 자동으로 닫혀요)' : '닫기'}
         className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+14px)] z-[130] flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95 hover:bg-black/55">
         <X size={22} strokeWidth={2.4} />
+        {autoClose && (
+          <svg viewBox="0 0 44 44" className="pointer-events-none absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
+            {/* r 20.5 → 둘레 128.8 */}
+            <circle cx="22" cy="22" r="20.5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
+            <circle
+              cx="22" cy="22" r="20.5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"
+              className="vgd-countdown"
+              onAnimationEnd={close}
+            />
+          </svg>
+        )}
       </button>
 
       {/* ── 히어로 (풀스크린 시네마틱 · 자동재생 영상 + 커튼) ── */}

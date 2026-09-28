@@ -9,6 +9,7 @@ import { ChevronRight, X } from 'lucide-react';
 import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons';
 import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
+import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
 import {
@@ -52,7 +53,7 @@ import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.ap
 
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
 const OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY = 'freetiful-official-open-modal-dismissed-until-20260506';
-const OFFICIAL_OPEN_MODAL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
+const OFFICIAL_OPEN_MODAL_HIDE_MS = 365 * 24 * 60 * 60 * 1000; // '다시 보지 않기'(260929 — 예전 '3일 동안 안보기')
 // 홈 진입 팝업을 이 세션에서 이미 닫았는지 — 탭 안에서 홈을 다시 방문해도 재노출 안 되게
 const POPUP_SEEN_KEY = 'freetiful-popup-seen-session';
 const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
@@ -970,7 +971,10 @@ function HomeShortcuts({ skipAnim }: { skipAnim: boolean }) {
 }
 
 const VDGD = '/images/wedding-partners/wedding-hall';
-const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip }[] = [
+const APP_STORE_URL = 'https://apps.apple.com/nz/app/%ED%94%84%EB%A6%AC%ED%8B%B0%ED%92%80-%EA%B2%B0%ED%98%BC%EC%8B%9D%EC%82%AC%ED%9A%8C%EC%9E%90-%EC%A7%84%ED%96%89%EC%9E%90-%ED%96%89%EC%82%AC-%EC%A0%84%EB%AC%B8%EA%B0%80-%EC%84%AD%EC%99%B8/id6745000474';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.freetiful.freetiful&hl=ko';
+// pcCta = PC 배너 위 단추(260929 사장) — signup: 가입 5천원 '바로가기' · stores: 1등 배너 앱 다운로드(App Store · Google Play)
+const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip; pcCta?: 'signup' | 'stores' }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
@@ -987,7 +991,7 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
       ],
       moreHref: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
     } },
-  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match' },
+  { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match', pcCta: 'stores' },
   // 슈슈몽드 강남 — 제휴 웨딩홀 사진(다이렉트결혼준비, 업체 상세와 같은 사진) · 배너·사진 모두 업체 상세로
   { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
     strip: {
@@ -1001,7 +1005,7 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
       // 사진 왼쪽 아래 안내 문구('프리미엄 가든 웨딩홀에서…', 높이 84~93%) 위로 띄운다
       bottom: '19%',
     } },
-  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
+  { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup', pcCta: 'signup' },
   { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', pcImage: '/images/banners/pc-hero-ceramique.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
@@ -1170,6 +1174,60 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
                 </>
               )}
             </button>
+            {/* PC 배너 위 단추 — 배너 단추와 나란히(단추 안 단추 금지), 장이 들어올 때마다 떠오른다 */}
+            {pc && b.pcCta === 'signup' && (
+              <button
+                key={i === idx ? `cta-${turn}` : 'cta'}
+                type="button"
+                data-banner-strip
+                onClick={() => open(b)}
+                className="absolute left-9 top-[58%] z-[2] inline-flex h-[42px] items-center gap-0.5 rounded-full pl-4 pr-3 text-[16px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/30"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
+                  ...(i === idx ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' } : { visibility: i === leaving ? 'visible' : 'hidden' }),
+                }}
+              >
+                바로가기
+                <ChevronRight size={18} />
+              </button>
+            )}
+            {pc && b.pcCta === 'stores' && (
+              <div
+                key={i === idx ? `stores-${turn}` : 'stores'}
+                data-banner-strip
+                className="absolute bottom-5 left-5 z-[2] flex flex-col gap-1.5 xl:bottom-6 xl:left-6"
+                style={i === idx ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' } : { visibility: i === leaving ? 'visible' : 'hidden' }}
+              >
+                {[
+                  { href: APP_STORE_URL, label: 'App Store', aria: 'App Store 에서 앱 다운로드', icon: (
+                    <svg viewBox="0 0 398 398" className="h-[16px] w-[16px]" aria-hidden="true"><path d="M276.174 207.944C276.578 251.295 314.54 265.723 314.957 265.91C314.634 266.923 308.89 286.471 294.954 306.66C282.914 324.115 270.403 341.503 250.709 341.863C231.351 342.223 225.136 330.489 203.007 330.489C180.877 330.489 173.976 341.503 155.654 342.223C136.646 342.943 122.171 323.355 110.024 305.966C85.2175 270.377 66.2496 205.451 91.715 161.607C104.36 139.845 126.974 126.057 151.511 125.697C170.183 125.351 187.792 138.152 199.213 138.152C210.634 138.152 232.023 122.75 254.543 125.017C263.959 125.404 290.42 128.791 307.397 153.433C306.038 154.273 275.838 171.701 276.174 207.944ZM239.799 101.495C249.888 89.3874 256.682 72.5326 254.825 55.7578C240.283 56.3312 222.687 65.372 212.248 77.4664C202.899 88.1873 194.706 105.335 196.913 121.777C213.136 123.017 229.71 113.603 239.799 101.495Z" fill="currentColor" /></svg>
+                  ) },
+                  { href: PLAY_STORE_URL, label: 'Google Play', aria: 'Google Play 에서 앱 다운로드', icon: (
+                    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" aria-hidden="true">
+                      <path d="M4.2 2.6c-.3.3-.4.7-.4 1.2v16.4c0 .5.1.9.4 1.2l9.1-9.4z" fill="#00D7FE" />
+                      <path d="M16.3 15l-3-3 3-3 3.6 2.1c1 .6 1 1.2 0 1.8z" fill="#FFCE00" />
+                      <path d="M16.3 15L13.3 12l-9.1 9.4c.4.4 1 .4 1.6.1z" fill="#FF3A44" />
+                      <path d="M16.3 9L5.8 2.5c-.6-.3-1.2-.3-1.6.1l9.1 9.4z" fill="#00F076" />
+                    </svg>
+                  ) },
+                ].map((st) => (
+                  <a
+                    key={st.label}
+                    href={st.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={st.aria}
+                    draggable={false}
+                    onClick={(e) => { if (lockRef.current) e.preventDefault(); }}
+                    className="inline-flex h-9 w-fit items-center gap-1.5 rounded-[11px] px-2.5 text-[12px] font-semibold tracking-[-0.2px] text-white transition-colors hover:bg-black/70 xl:h-10 xl:px-3 xl:text-[13px]"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.55)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
+                  >
+                    {st.icon}
+                    {st.label}
+                  </a>
+                ))}
+              </div>
+            )}
             {pc && b.strip && (
               <BannerPhotoStrip
                 strip={b.strip}
@@ -2125,7 +2183,9 @@ export default function HomePage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
-  const [popupBanner, setPopupBanner] = useState<{ id: string; imageUrl: string; linkUrl?: string | null } | null>(null);
+  // 홈 첫 진입 팝업(260929 — 오늘의집 카드 결) — 비로그인 = 가입 5천원 · 로그인 = 관리자 배너(placement=popup)
+  const [popupBanner, setPopupBanner] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null }) | null>(null);
+  const authHydrated = useAuthStore((s) => s.hasHydrated);
   const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
   const [simpleRequestType, setSimpleRequestType] = useState<'wedding' | 'event'>('wedding');
   const skipHomeAnim = useHomeAnimationSkip();
@@ -2135,6 +2195,8 @@ export default function HomePage() {
   // 예전 iOS 앱(네이티브 홈이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다: 네이티브 홈에 가려 안 보이고
   // 네이티브가 자체 팝업을 띄운다. 웹 화면만 쓰는 iOS 앱(260927~)은 웹 팝업 그대로 — 탭바는 모달이 닫히면 다시 나온다.
   useEffect(() => {
+    // 로그인 상태를 알아야 무엇을 띄울지 정한다(비로그인 = 가입 5천원) — 저장된 로그인이 복원된 뒤 한 번
+    if (!authHydrated) return;
     const isLegacyNativeHome = typeof window !== 'undefined'
       && !!(window as any).webkit?.messageHandlers?.nativeHomeRows;
     if (isLegacyNativeHome) return;
@@ -2143,38 +2205,64 @@ export default function HomePage() {
     try { if (sessionStorage.getItem(POPUP_SEEN_KEY) === '1') return; } catch {}
     let cancelled = false;
     let stopWaiting = () => {};
+    const hidden = (id: string) => {
+      try {
+        const until = Number(localStorage.getItem(`freetiful-popup-hide:${id}`) || '0');
+        return !!until && Date.now() < until;
+      } catch { return false; }
+    };
+    const schedule = (next: NonNullable<typeof popupBanner>) => {
+      const show = () => {
+        if (cancelled) return;
+        setPopupBanner(next);
+        setShowOfficialOpenModal(true);
+      };
+      // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
+      if (document.querySelector('[role="dialog"][aria-label="빌라드지디"]')) {
+        const onClosed = () => { stopWaiting(); window.setTimeout(show, 350); };
+        window.addEventListener('freetiful:villadegd-closed', onClosed);
+        stopWaiting = () => window.removeEventListener('freetiful:villadegd-closed', onClosed);
+      } else {
+        show();
+      }
+    };
+    if (!useAuthStore.getState().user) {
+      // 비로그인 — 가입 5천원(사장 제공 세로 그림 887×1774 → 위쪽 기준 3:5)
+      if (!hidden('signup-5000')) {
+        schedule({ id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 3 / 5, ctaLabel: '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금' });
+      }
+      return () => { cancelled = true; stopWaiting(); };
+    }
     fetch('/api/v1/banners?placement=popup')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !Array.isArray(data) || data.length === 0) return;
         const b = data[0];
-        if (!b?.imageUrl) return;
-        try {
-          const until = Number(localStorage.getItem(`freetiful-popup-hide:${b.id}`) || '0');
-          if (until && Date.now() < until) return;
-        } catch {}
-        const show = () => {
-          if (cancelled) return;
-          setPopupBanner({ id: b.id, imageUrl: b.imageUrl, linkUrl: b.linkUrl });
-          setShowOfficialOpenModal(true);
-        };
-        // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
-        if (document.querySelector('[role="dialog"][aria-label="빌라드지디"]')) {
-          const onClosed = () => { stopWaiting(); window.setTimeout(show, 350); };
-          window.addEventListener('freetiful:villadegd-closed', onClosed);
-          stopWaiting = () => window.removeEventListener('freetiful:villadegd-closed', onClosed);
-        } else {
-          show();
-        }
+        if (!b?.imageUrl || hidden(b.id)) return;
+        schedule({ id: b.id, kind: 'banner', imageUrl: b.imageUrl, linkUrl: b.linkUrl, aspect: 4 / 3, ctaLabel: '자세히 보기', alt: b.title || '안내 팝업' });
       })
       .catch(() => {});
     return () => { cancelled = true; stopWaiting(); };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authHydrated]);
 
   /** 닫기(어떤 경로든) — 이 세션에선 다시 띄우지 않도록 표시 */
   const closeOfficialOpenModal = () => {
     try { sessionStorage.setItem(POPUP_SEEN_KEY, '1'); } catch {}
     setShowOfficialOpenModal(false);
+  };
+
+  const openPopupTarget = () => {
+    if (!popupBanner) return;
+    closeOfficialOpenModal();
+    if (popupBanner.kind === 'signup') {
+      if (useAuthStore.getState().user) router.push('/my/invite');
+      else window.dispatchEvent(new Event('freetiful:show-login'));
+      return;
+    }
+    if (popupBanner.linkUrl) {
+      try { window.location.href = popupBanner.linkUrl; } catch {}
+    }
   };
 
   const hideOfficialOpenModalFor3Days = () => {
@@ -2677,91 +2765,57 @@ export default function HomePage() {
         onClose={() => setSimpleRequestOpen(false)}
       />
 
-      {showOfficialOpenModal && popupBanner && (
-        <BodyPortal>
-        {/* 홈 진입 팝업 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17): 시트 안에 배너 이미지 + 아래 버튼 줄 */}
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="안내 팝업"
-          className="ft-scrim"
-          onClick={() => closeOfficialOpenModal()}
-        >
-          <div
-            className="ft-sheet"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="ft-grab" aria-hidden="true" />
-            {/* X = 이미지 우상단 12px — 이미지 위치(시트 패딩+손잡이: 모바일 위46·옆24 / 넓은 화면 28)에 맞춤 */}
-            <button
-              type="button"
-              onClick={() => closeOfficialOpenModal()}
-              aria-label="안내 닫기"
-              className="absolute right-9 top-[58px] z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95 sm:right-10 sm:top-10"
-            >
-              <X size={18} strokeWidth={2.4} />
-            </button>
-            {/* 가로 4 : 세로 3 — 어드민 배너(placement=popup) 이미지 동적 표시 */}
-            <button
-              type="button"
-              onClick={() => {
-                if (popupBanner.linkUrl) {
-                  try { window.location.href = popupBanner.linkUrl; } catch {}
-                } else {
-                  closeOfficialOpenModal();
-                }
-              }}
-              className="relative block aspect-[4/3] w-full select-none overflow-hidden rounded-[17px]"
-              aria-label="배너 보기"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={popupBanner.imageUrl}
-                alt="안내 팝업"
-                className="absolute inset-0 h-full w-full object-cover"
-                draggable={false}
-              />
-            </button>
-            <div className="ft-actions">
-              <button
-                type="button"
-                onClick={hideOfficialOpenModalFor3Days}
-                className="ft-btn ghost"
-              >
-                3일 동안 안보기
-              </button>
-              <button
-                type="button"
-                onClick={() => closeOfficialOpenModal()}
-                className="ft-btn secondary"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-        </BodyPortal>
-      )}
+      {/* 홈 첫 진입 팝업 — 오늘의집 카드 결(모서리 5 · 아래 붙은 띠 단추 · 카드 밖 '다시 보지 않기'/'닫기'), 고급 등장(260929 사장) */}
+      <HomePromoPopup
+        promo={popupBanner}
+        open={showOfficialOpenModal && !!popupBanner}
+        onCta={openPopupTarget}
+        onClose={() => closeOfficialOpenModal()}
+        onHideForever={hideOfficialOpenModalFor3Days}
+      />
 
       {/* PC 우하단 앱 홍보 — 폰 목업(iframe)은 제거했다. hidden lg:flex 로 PC 에서만 보인다 */}
       <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">
+          {/* 네이버 첫 화면 검색창 그대로(260929 사장 영상 분석) — 초록 테두리 알약 · 초록 N · '전문결혼식사회자는 프리티풀' 타이핑 + 깜빡이는 커서 ·
+              자판 · AI 단추(글자 청록→파랑 · 빛 테두리가 한 바퀴 돌고 가라앉음). 모양·색은 영상에서 잰 값(globals .home-floating-naver-*) */}
           <div className="home-floating-naver-search pointer-events-none" aria-hidden="true">
-            <svg className="home-floating-naver-n" viewBox="0 0 398 398" focusable="false">
-              <path d="M154.426 319.75H78.248V78.25H154.426L240.166 208.488V78.25H319.748V319.75H240.166L154.426 208.488V319.75Z" fill="#03EA6F" />
+            <svg className="home-floating-naver-n" viewBox="78 78 242 242" focusable="false">
+              <path d="M154.426 319.75H78.248V78.25H154.426L240.166 208.488V78.25H319.748V319.75H240.166L154.426 208.488V319.75Z" fill="#03C75A" />
             </svg>
             <span className="home-floating-search-query">
               <span className="home-floating-search-query-text">전문결혼식사회자는 프리티풀</span>
             </span>
             <span className="home-floating-search-caret" />
-            <svg className="home-floating-naver-ring" viewBox="0 0 312 312" focusable="false">
-              <path d="M155.928 0C242.044 0.00026389 311.854 69.8117 311.854 155.928C311.854 242.044 242.044 311.855 155.928 311.855C69.8115 311.855 0 242.044 0 155.928C0 69.8115 69.8115 0 155.928 0ZM155.929 93.2666C121.322 93.2666 93.2676 121.321 93.2676 155.928C93.2676 190.535 121.322 218.589 155.929 218.589C190.535 218.589 218.59 190.535 218.59 155.928C218.59 121.321 190.535 93.2666 155.929 93.2666Z" fill="url(#home-floating-naver-gradient)" />
-              <defs>
-                <linearGradient id="home-floating-naver-gradient" x1="80.9828" y1="32.1584" x2="227.505" y2="285.943" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#29FFAF" />
-                  <stop offset="1" stopColor="#00FF6D" />
-                </linearGradient>
-              </defs>
+            <svg className="home-floating-naver-kbd" viewBox="0 0 19 13" focusable="false">
+              <rect width="19" height="13" rx="2.6" fill="#999" />
+              <g fill="#fff">
+                <rect x="3" y="3" width="1.6" height="1.6" rx="0.4" /><rect x="5.8" y="3" width="1.6" height="1.6" rx="0.4" /><rect x="8.7" y="3" width="1.6" height="1.6" rx="0.4" /><rect x="11.6" y="3" width="1.6" height="1.6" rx="0.4" /><rect x="14.4" y="3" width="1.6" height="1.6" rx="0.4" />
+                <rect x="4.4" y="5.9" width="1.6" height="1.6" rx="0.4" /><rect x="7.2" y="5.9" width="1.6" height="1.6" rx="0.4" /><rect x="10.1" y="5.9" width="1.6" height="1.6" rx="0.4" /><rect x="13" y="5.9" width="1.6" height="1.6" rx="0.4" />
+                <rect x="5.2" y="8.9" width="8.6" height="1.6" rx="0.8" />
+              </g>
             </svg>
+            <span className="home-floating-naver-ai">
+              <i className="nv-ai-glow" />
+              <i className="nv-ai-base" />
+              <i className="nv-ai-tint" />
+              <i className="nv-ai-ring" />
+              <svg viewBox="0 0 24 24" focusable="false">
+                <defs>
+                  <linearGradient id="home-nv-ai-grad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#22D0C4" />
+                    <stop offset="0.55" stopColor="#2F9BF7" />
+                    <stop offset="1" stopColor="#3E6CF5" />
+                  </linearGradient>
+                </defs>
+                {/* 네이버 AI 표시 — 두 잎이 X 로 엇갈린 모양 */}
+                <path d="M4.2 3.4c3.1-.9 6.3 1.4 8.5 4.1 2.3 2.9 4.9 5.4 7.9 6.9 1.1.6 1.1 2.1.1 2.9-3.3 2.4-7.6 1.1-10.2-1.9C7.9 12.3 5.2 9.9 3.1 7.4c-.9-1.1-.3-3.6 1.1-4z" fill="url(#home-nv-ai-grad)" />
+                <path d="M19.8 3.4c-3.1-.9-6.3 1.4-8.5 4.1-2.3 2.9-4.9 5.4-7.9 6.9-1.1.6-1.1 2.1-.1 2.9 3.3 2.4 7.6 1.1 10.2-1.9 2.6-3.1 5.3-5.5 7.4-8 .9-1.1.3-3.6-1.1-4z" fill="url(#home-nv-ai-grad)" opacity="0.92" />
+              </svg>
+              <span className="nv-ai-text">
+                <span className="nv-ai-dark">AI</span>
+                <span className="nv-ai-grad">AI</span>
+              </span>
+            </span>
           </div>
 
           <div className="home-app-download-buttons pointer-events-auto">
