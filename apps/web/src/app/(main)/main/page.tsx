@@ -975,7 +975,8 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
   // pcImage = PC 첫 화면 4:3 판(260928 사장 — 빌라드지디·슈슈몽드·세라미크는 로고만 든 사진, 제목은 같은 웹 글자로).
-  // strip = PC 배너 아래 사진 줄(260928 사장 — 오늘의집 카드처럼, 유리 판) · 빌라드지디는 지점마다 대표 사진 한 장 → 그 지점 상세
+  // strip = PC 배너 아래 사진 줄(260928 사장 — 오늘의집 카드처럼, 유리 판) · 빌라드지디는 지점마다 대표 사진 한 장 → 그 지점 상세.
+  // 사진 4장까지 — 줄이 왼쪽에서 사진 폭의 2/3 안쪽에서 끝나야 오른쪽 아래 로고(VILLA de GD · ChouchouMonde)를 안 가린다(1024 폭 기준).
   { id: 'villadegd', image: '/images/banners/home-top-villadegd-bg.webp', pcImage: '/images/banners/pc-hero-villadegd.webp', title: ['변하지 않는 가치,', '품격 있는 웨딩의 시작', '빌라드지디'], alt: '변하지 않는 가치, 품격 있는 웨딩의 시작 빌라드지디', href: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
     strip: {
       photos: [
@@ -983,7 +984,6 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
         { src: `${VDGD}/villadegd-nonhyeon/04.webp`, href: '/businesses/bfd0674b-6295-40a2-8fcc-86704a2c6f10', label: '논현' },
         { src: `${VDGD}/villadegd-suseo/01.webp`, href: '/businesses/69df8352-1b66-4f9d-af54-1576f6b9d9f3', label: '수서' },
         { src: `${VDGD}/villadegd-anyang/01.webp`, href: '/businesses/eb492956-bbf5-4c61-b6e4-441b4a964877', label: '안양' },
-        { src: `${VDGD}/villadegd-ansan/01.webp`, href: '/businesses/dfbb9a38-db98-4ff3-83ad-0bc9b85782c3', label: '안산' },
       ],
       moreHref: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
     } },
@@ -996,9 +996,10 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
         { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a5c6_1491381951_img_4559_1_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
         { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a5b4_1491381951_img_4559_2_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
         { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d486b4b4bef8e0a518_1491381951_img_4559_3_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
-        { src: 'https://cdn.prod.website-files.com/66a1eeaa00f1c86c3dbae974/66e002d386b4b4bef8e0a3cb_1491381951_img_4559_4_1707118657.avif', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206' },
       ],
       moreHref: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
+      // 사진 왼쪽 아래 안내 문구('프리미엄 가든 웨딩홀에서…', 높이 84~93%) 위로 띄운다
+      bottom: '19%',
     } },
   { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup' },
   { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', pcImage: '/images/banners/pc-hero-ceramique.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },

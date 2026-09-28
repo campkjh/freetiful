@@ -12,13 +12,16 @@ export type BannerStrip = {
   photos: Array<{ src: string; href: string; label?: string }>;
   moreHref: string;
   moreLabel?: string;
+  /** 아래에서 띄울 거리(CSS) — 사진 속 아래 글씨를 피할 때(슈슈몽드 안내 문구). 기본 20px */
+  bottom?: string;
 };
 
+// 테두리 선 없이(260928 사장 '보더 빼줘') — 흐림 + 옅은 흰 그라데이션 + 아주 옅은 그림자만
 const GLASS: CSSProperties = {
   background: 'linear-gradient(135deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.16) 100%)',
   WebkitBackdropFilter: 'blur(22px) saturate(170%)',
   backdropFilter: 'blur(22px) saturate(170%)',
-  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.34), inset 0 1px 0 rgba(255,255,255,0.45), 0 12px 32px rgba(0,0,0,0.16)',
+  boxShadow: '0 10px 28px rgba(0,0,0,0.12)',
 };
 
 export default function BannerPhotoStrip({
@@ -42,12 +45,16 @@ export default function BannerPhotoStrip({
     <div
       key={animKey}
       data-banner-strip
-      className="absolute inset-x-5 bottom-5 z-[2]"
+      // 왼쪽 아래에 내용만큼만(오른쪽 아래 로고를 가리지 않게, 260928 사장 'PC 배너 로고 안 가려지게') — 사진 4장 + 더보기
+      className="absolute left-6 z-[2] w-max"
       // 바깥 칸은 위치·크기만 움직이고(transform), 투명도는 유리 판 자신에 — 조상에 opacity 가 걸리면 그동안 흐림이 사진을 못 본다
-      style={active ? { animation: 'bannerStripRise 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both' } : { visibility: leaving ? 'visible' : 'hidden' }}
+      style={{
+        bottom: strip.bottom || '20px',
+        ...(active ? { animation: 'bannerStripRise 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both' } : { visibility: leaving ? 'visible' : 'hidden' }),
+      }}
     >
       <div
-        className="flex items-center gap-2 rounded-[18px] p-2.5"
+        className="flex items-center gap-2 rounded-[16px] p-2"
         style={{ ...GLASS, ...(active ? { animation: 'bannerGlassIn 0.6s ease-out 0.26s both' } : {}) }}
       >
         {strip.photos.map((p, i) => (
@@ -57,7 +64,8 @@ export default function BannerPhotoStrip({
             onClick={guard}
             draggable={false}
             aria-label={p.label ? `${p.label} 보기` : '사진 보기'}
-            className="group/ph relative aspect-square w-[76px] shrink-0 overflow-hidden rounded-[11px] bg-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-transform duration-300 hover:-translate-y-0.5"
+            // 1024~1279 는 배너가 좁아(484~592px) 48 — 줄이 배너 폭의 2/3 안쪽에서 끝나야 오른쪽 아래 로고를 안 가린다
+            className="group/ph relative aspect-square w-[48px] shrink-0 overflow-hidden rounded-[9px] bg-white/20 transition-transform duration-300 hover:-translate-y-0.5 xl:w-[64px] xl:rounded-[10px]"
             style={active ? { animation: `bannerThumbIn 0.62s cubic-bezier(0.34, 1.36, 0.64, 1) ${0.4 + i * 0.06}s both` } : undefined}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -72,7 +80,7 @@ export default function BannerPhotoStrip({
             />
             {p.label && (
               <span
-                className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex h-[22px] translate-y-1 items-center justify-center rounded-full text-[12px] font-semibold tracking-[-0.2px] text-white opacity-0 transition-all duration-300 group-hover/ph:translate-y-0 group-hover/ph:opacity-100"
+                className="pointer-events-none absolute inset-x-1 bottom-1 flex h-[20px] translate-y-1 items-center justify-center rounded-full text-[11.5px] font-semibold tracking-[-0.2px] text-white opacity-0 transition-all duration-300 group-hover/ph:translate-y-0 group-hover/ph:opacity-100"
                 style={{ backgroundColor: 'rgba(0,0,0,0.38)', WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
               >
                 {p.label}
@@ -84,14 +92,14 @@ export default function BannerPhotoStrip({
           href={strip.moreHref}
           onClick={guard}
           draggable={false}
-          className="group/more ml-auto flex h-[76px] shrink-0 items-center gap-0.5 rounded-[12px] px-4 text-[16px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/15"
+          className="group/more flex h-[48px] shrink-0 items-center gap-0.5 rounded-[9px] pl-2.5 pr-1.5 text-[14px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/15 xl:h-[64px] xl:pl-3 xl:pr-2 xl:text-[15px]"
           style={{
             textShadow: '0 1px 6px rgba(0,0,0,0.25)',
             ...(active ? { animation: `bannerThumbIn 0.62s cubic-bezier(0.22, 1, 0.36, 1) ${0.4 + strip.photos.length * 0.06}s both` } : {}),
           }}
         >
           {strip.moreLabel || '더보기'}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="transition-transform duration-300 group-hover/more:translate-x-0.5">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="transition-transform duration-300 group-hover/more:translate-x-0.5">
             <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
