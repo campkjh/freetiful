@@ -1,77 +1,57 @@
 'use client';
 
-// 공지사항 — 홈 사회자 카드(사진 색 카드)처럼 2열 카드(260928 사장 "공지사항 UI 사회자 카드랑 비슷하게, 2*n 으로").
-//  · 카드 = 모서리 20 · 테두리, 위 1:1 그림 칸(주제 색 그라데이션 + 토스 컬러 아이콘 크게, 아래쪽이 카드 색으로 녹는다) +
-//    왼쪽 위 검은 반투명 유리 배지(업데이트·안내…) · 제목 2줄 · 날짜 · 첫 문장 한 줄.
-//  · 색·아이콘 = 제목의 주제(웨딩숲·퀵매칭·채팅·결제…)로 고른다 — 사회자 사진마다 색이 다르듯 카드마다 결이 달라진다.
-//  · 누르면 아래에서 스프링으로 올라오는 시트에 본문(뒤 화면 잠금, 닫을 땐 내려간다). 카드는 순서대로 떠오른다.
-import { useState, useEffect } from 'react';
+// 공지사항 — 토스 뉴스룸 어법(261001 사장 지시).
+//  · 맨 위 = 뉴스룸 큰 카드 한 장(고정 공지 우선, 없으면 최신). 그림 4:3 · 아래 '태그 | 날짜' · 큰 제목.
+//  · 그 아래 = 2열 카드. 그림 1:1 · 제목 2줄 · 날짜. 테두리·바탕 없이 그림만 둥글게(레퍼런스 그대로).
+//  · 그림 = 동물 친구 20종(public/images/notices)을 공지 id 해시로 고르게 나눠 준다.
+//    DB 에 그림 칸이 없어도 되고, 새 공지가 올라와도 알아서 한 장을 받는다.
+//    낱장 배경이 파스텔 단색이라 그 색을 카드 바탕에 깔면 4:3·1:1 어느 칸이든 잘리지 않는다.
+//  · 누르면 아래에서 스프링으로 올라오는 시트에 본문(뒤 화면 잠금, 닫을 땐 내려간다).
+import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { announcementApi, type Announcement } from '@/lib/api/announcement.api';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { MyDetailHeader } from '../_components/detail-ui';
 
-type Palette = { bg: string; line: string; sub: string; cover: string };
-
-const PALETTES: Record<string, Palette> = {
-  blue: { bg: '#EEF4FF', line: '#DCE7FA', sub: '#5470A0', cover: '#D6E4FF' },
-  amber: { bg: '#FFF6E6', line: '#FBE8C6', sub: '#98722F', cover: '#FFE5B3' },
-  orange: { bg: '#FFF1E8', line: '#FCDDC8', sub: '#A0613A', cover: '#FFDBC2' },
-  purple: { bg: '#F4F0FF', line: '#E5DDFB', sub: '#6F5FA5', cover: '#E3D8FF' },
-  mint: { bg: '#EAF8F4', line: '#D2EFE6', sub: '#3F8572', cover: '#CDEFE4' },
-  green: { bg: '#EDF8EE', line: '#D7EFD9', sub: '#4E8456', cover: '#D2F0D6' },
-  pink: { bg: '#FFF0F5', line: '#FBDCE7', sub: '#A5587A', cover: '#FFD8E6' },
-  teal: { bg: '#EAF6F8', line: '#D1EBF0', sub: '#3F7E8A', cover: '#CDEDF3' },
-  sky: { bg: '#EBF6FF', line: '#D3E9FB', sub: '#4A7BA6', cover: '#CFE8FF' },
-  coral: { bg: '#FFF1EE', line: '#FBDDD6', sub: '#A45F52', cover: '#FFD9D0' },
-  gray: { bg: '#F2F4F6', line: '#E5E8EB', sub: '#6B7684', cover: '#E3E7EB' },
-  gold: { bg: '#FFF8E6', line: '#F8EAC2', sub: '#94792F', cover: '#FCE8AE' },
-  indigo: { bg: '#EFF1FF', line: '#DDE1FA', sub: '#5A63A3', cover: '#D9DEFF' },
-};
-
-const TOSS = (n: string) => `/icons/toss/${n}.svg`;
-const EMOJI = (n: string) => `/icons/community/cat/${n}.svg`;
-
-/** 제목 주제 → 아이콘·색(먼저 맞는 것) */
-const TOPICS: { re: RegExp; icon: string; palette: keyof typeof PALETTES }[] = [
-  { re: /웨딩숲|커뮤니티/, icon: EMOJI('ring'), palette: 'pink' },
-  { re: /퀵매칭|매칭/, icon: TOSS('star'), palette: 'gold' },
-  { re: /채팅|대화/, icon: TOSS('chat'), palette: 'blue' },
-  { re: /결제|정산|환불|금액|견적/, icon: TOSS('coin'), palette: 'amber' },
-  { re: /알림|푸시/, icon: TOSS('alarm'), palette: 'orange' },
-  { re: /리뷰|후기/, icon: TOSS('star'), palette: 'gold' },
-  { re: /동영상|영상|사진|이모티콘/, icon: TOSS('picture'), palette: 'mint' },
-  { re: /웨딩 파트너|웨딩홀|업체/, icon: EMOJI('store'), palette: 'teal' },
-  { re: /홈/, icon: EMOJI('home'), palette: 'green' },
-  { re: /로그인|계정|회원/, icon: TOSS('account'), palette: 'indigo' },
-  { re: /검색|찾기/, icon: TOSS('search'), palette: 'sky' },
-  { re: /마이페이지/, icon: TOSS('user'), palette: 'purple' },
-  { re: /자동응답|AI/, icon: TOSS('headphone'), palette: 'purple' },
-  { re: /사회자|프로필|파트너/, icon: TOSS('medal-check'), palette: 'purple' },
-  { re: /오픈/, icon: TOSS('crown-gold'), palette: 'gold' },
-  { re: /문의/, icon: TOSS('question'), palette: 'sky' },
-  { re: /회사 소개|기업|언어/, icon: TOSS('document'), palette: 'gray' },
-  { re: /안전|규정/, icon: TOSS('check-circle'), palette: 'green' },
+/** 동물 친구 20종 — 낱장마다 배경이 단색이라 그 색을 카드 바탕으로 쓴다 */
+const ART_COUNT = 20;
+const ART_BG = [
+  '#FCD8BA', '#FCBAB4', '#9C9CE4', '#D8FCE4', '#FCEAA8',
+  '#D8C0E4', '#B4D8F0', '#D8F6DE', '#FCD2B4', '#D8C6F6',
+  '#C6E4C6', '#F6E4C6', '#D2F0CC', '#FCD2C0', '#FCF0AE',
+  '#B4DEF6', '#FCCCCC', '#BAE4E4', '#D8C0F0', '#C6DEC6',
 ];
 
-const TAG_DEFAULT: Record<string, { icon: string; palette: keyof typeof PALETTES }> = {
-  이벤트: { icon: TOSS('gift'), palette: 'coral' },
-  점검: { icon: TOSS('setting'), palette: 'gray' },
-  안내: { icon: TOSS('loudspeaker'), palette: 'green' },
-  필독: { icon: TOSS('siren'), palette: 'coral' },
-};
+type Art = { src: string; bg: string };
 
-function lookOf(a: Announcement): { icon: string; palette: Palette } {
-  const tag = a.tag || '안내';
-  if (tag === '이벤트' || tag === '점검' || tag === '필독') {
-    const d = TAG_DEFAULT[tag];
-    return { icon: d.icon, palette: PALETTES[d.palette] };
-  }
-  const t = TOPICS.find((x) => x.re.test(a.title));
-  if (t) return { icon: t.icon, palette: PALETTES[t.palette] };
-  const d = TAG_DEFAULT[tag] || { icon: EMOJI('bulb'), palette: 'blue' as const };
-  return { icon: d.icon, palette: PALETTES[d.palette] };
+function art(n: number): Art {
+  return { src: `/images/notices/notice-${String(n + 1).padStart(2, '0')}.webp`, bg: ART_BG[n] };
+}
+
+/** 공지 id → 그림 번호(0~19). 같은 공지는 늘 같은 그림이 나온다. */
+function seedOf(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % ART_COUNT;
+}
+
+/**
+ * 목록 전체에 그림을 나눠 준다.
+ * id 해시가 먼저지만, 바로 앞 NEAR 칸이 쓴 그림이면 다음 번호로 밀어 준다.
+ * 공지가 20건을 넘으면 그림은 반드시 겹치는데, 옆 칸·윗줄과 같은 그림이 붙으면
+ * 복사한 것처럼 보이기 때문(2열이라 6칸만 떨어져도 눈에 안 띈다).
+ */
+const NEAR = 5;
+function dealArt(ids: string[]): Art[] {
+  const recent: number[] = [];
+  return ids.map((id) => {
+    let n = seedOf(id);
+    for (let step = 0; step < ART_COUNT && recent.includes(n); step++) n = (n + 1) % ART_COUNT;
+    recent.push(n);
+    if (recent.length > NEAR) recent.shift();
+    return art(n);
+  });
 }
 
 function formatDate(iso: string): string {
@@ -80,47 +60,93 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** 본문 첫 문장 — 카드의 '소개 한 줄' 자리 */
-function firstLine(content: string) {
-  return (content || '').split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('•') && !l.startsWith('[')) || '';
-}
+const GLASS = {
+  backgroundColor: 'rgba(0, 0, 0, 0.36)',
+  WebkitBackdropFilter: 'blur(10px) saturate(140%)',
+  backdropFilter: 'blur(10px) saturate(140%)',
+  boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)',
+} as const;
 
-const GLASS = { backgroundColor: 'rgba(0, 0, 0, 0.36)', WebkitBackdropFilter: 'blur(10px) saturate(140%)', backdropFilter: 'blur(10px) saturate(140%)', boxShadow: 'inset 0 0 0 0.5px rgba(255, 255, 255, 0.18)' } as const;
-
-function NoticeCard({ a, index, onOpen }: { a: Announcement; index: number; onOpen: () => void }) {
-  const { icon, palette } = lookOf(a);
-  const tag = a.tag || '안내';
+/** 맨 위 큰 카드 — 뉴스룸 첫 장 */
+function HeadlineCard({ a, art, onOpen }: { a: Announcement; art: Art; onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      // button 은 줄 높이만큼 늘면 내용을 세로 가운데로 모아 그림 칸이 내려간다 → flex 세로로 위부터
-      className="qd-a-item group card-press flex h-full flex-col overflow-hidden rounded-[20px] border text-left"
-      style={{ backgroundColor: palette.bg, borderColor: palette.line, animationDelay: `${0.3 + Math.min(index, 12) * 0.05}s` }}
+      className="qd-a-item group card-press block w-full text-left"
+      style={{ animationDelay: '0.26s' }}
     >
-      <div className="relative flex items-center justify-center" style={{ aspectRatio: '1 / 1', background: `linear-gradient(165deg, ${palette.cover} 0%, ${palette.bg} 88%)` }}>
-        {/* 아이콘 뒤 흰 빛 — 그림 칸에 깊이 */}
-        <span aria-hidden className="absolute left-1/2 top-1/2 h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45 blur-[18px]" />
+      <div
+        className="relative overflow-hidden rounded-[20px]"
+        style={{ aspectRatio: '4 / 3', backgroundColor: art.bg }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={icon}
+          src={art.src}
           alt=""
           draggable={false}
-          className="relative h-[44%] w-[44%] object-contain transition-transform duration-500 ease-out group-hover:scale-[1.06]"
-          style={{ filter: 'drop-shadow(0 10px 18px rgba(25, 31, 40, 0.10))' }}
+          className="absolute left-1/2 top-1/2 h-full -translate-x-1/2 -translate-y-1/2 object-contain transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
-        <span className="absolute left-2 top-2 flex items-center gap-1">
-          <span className="inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white" style={GLASS}>{tag}</span>
-          {a.isPinned && <span className="inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white" style={GLASS}>고정</span>}
-        </span>
-      </div>
-      <div className="relative -mt-2 px-3 pb-3.5">
-        <p className="line-clamp-2 break-keep text-[16px] font-bold leading-[1.4] tracking-[-0.4px] text-[#191F28]">{a.title}</p>
-        <p className="mt-1 text-[13px] leading-[1.5] tracking-[-0.2px]" style={{ color: palette.sub }}>{formatDate(a.publishedAt || a.createdAt)}</p>
-        {firstLine(a.content) && (
-          <p className="mt-0.5 line-clamp-1 break-all text-[13px] leading-[1.6] tracking-[-0.2px]" style={{ color: palette.sub }}>{firstLine(a.content)}</p>
+        {a.isPinned && (
+          <span
+            className="absolute left-3 top-3 inline-flex h-[26px] items-center rounded-[8px] px-2 text-[12.5px] font-bold tracking-[-0.2px] text-white"
+            style={GLASS}
+          >
+            고정
+          </span>
         )}
       </div>
+
+      <p className="mt-3.5 text-[13px] leading-[1.5] tracking-[-0.2px] text-[#8B95A1]">
+        {a.tag || '안내'}
+        <span className="px-1.5 text-[#D1D6DB]">|</span>
+        {formatDate(a.publishedAt || a.createdAt)}
+      </p>
+      <p className="mt-1.5 line-clamp-2 break-keep text-[20px] font-bold leading-[1.4] tracking-[-0.5px] text-[#191F28]">
+        {a.title}
+      </p>
+    </button>
+  );
+}
+
+/** 아래 2열 카드 */
+function NoticeCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      // button 은 줄 높이만큼 늘면 내용을 세로 가운데로 모은다 → flex 세로로 위부터
+      className="qd-a-item group card-press flex h-full flex-col text-left"
+      style={{ animationDelay: `${0.34 + Math.min(index, 12) * 0.05}s` }}
+    >
+      <div
+        className="relative w-full overflow-hidden rounded-[16px]"
+        style={{ aspectRatio: '1 / 1', backgroundColor: art.bg }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={art.src}
+          alt=""
+          draggable={false}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+        />
+        {a.isPinned && (
+          <span
+            className="absolute left-2 top-2 inline-flex h-[24px] items-center rounded-[7px] px-1.5 text-[11.5px] font-bold tracking-[-0.2px] text-white"
+            style={GLASS}
+          >
+            고정
+          </span>
+        )}
+      </div>
+
+      <p className="mt-2.5 line-clamp-2 break-keep text-[15px] font-bold leading-[1.42] tracking-[-0.35px] text-[#191F28]">
+        {a.title}
+      </p>
+      <p className="mt-1 text-[12.5px] leading-[1.5] tracking-[-0.2px] text-[#8B95A1]">
+        {formatDate(a.publishedAt || a.createdAt)}
+      </p>
     </button>
   );
 }
@@ -147,7 +173,11 @@ export default function AnnouncementsPage() {
     })();
   }, []);
 
-  const openLook = open ? lookOf(open) : null;
+  // 맨 앞 한 장만 크게. 서버가 고정 공지를 앞으로 보내 주므로 목록 첫 장을 그대로 쓴다.
+  const arts = useMemo(() => dealArt(items.map((x) => x.id)), [items]);
+  const [headline, ...rest] = items;
+  const openIndex = open ? items.findIndex((x) => x.id === open.id) : -1;
+  const openArt = openIndex >= 0 ? arts[openIndex] : null;
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
@@ -155,14 +185,20 @@ export default function AnnouncementsPage() {
 
       <div className="px-5 pt-1">
         {loading ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse overflow-hidden rounded-[20px] bg-[#F7F8FA]">
-                <div className="bg-[#F2F4F6]" style={{ aspectRatio: '1 / 1' }} />
-                <div className="h-[86px]" />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="animate-pulse">
+              <div className="rounded-[20px] bg-[#F2F4F6]" style={{ aspectRatio: '4 / 3' }} />
+              <div className="mt-3.5 h-[62px]" />
+            </div>
+            <div className="mt-7 grid grid-cols-2 gap-x-3 gap-y-6">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="rounded-[16px] bg-[#F2F4F6]" style={{ aspectRatio: '1 / 1' }} />
+                  <div className="h-[58px]" />
+                </div>
+              ))}
+            </div>
+          </>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
             <EmptyDocumentIcon size={64} className="mb-3" />
@@ -170,18 +206,24 @@ export default function AnnouncementsPage() {
             <p className="mt-1.5 text-[13px] text-[#A4ABBA]">새로운 소식이 생기면 이곳에 알려드릴게요.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
-            {items.map((a, i) => (
-              <NoticeCard key={a.id} a={a} index={i} onOpen={() => setOpenId(a.id)} />
-            ))}
-          </div>
+          <>
+            <HeadlineCard a={headline} art={arts[0]} onOpen={() => setOpenId(headline.id)} />
+
+            {rest.length > 0 && (
+              <div className="mt-7 grid grid-cols-2 gap-x-3 gap-y-6">
+                {rest.map((a, i) => (
+                  <NoticeCard key={a.id} a={a} art={arts[i + 1]} index={i} onOpen={() => setOpenId(a.id)} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* 공지 본문 시트 — 아래에서 스프링으로 올라오고, 닫을 땐 내려간다 */}
       <MotionConfig reducedMotion="user">
         <AnimatePresence>
-          {open && openLook && (
+          {open && openArt && (
             <motion.div
               key="notice-scrim"
               className="ft-scrim"
@@ -206,12 +248,15 @@ export default function AnnouncementsPage() {
               >
                 <div className="ft-grab" aria-hidden="true" />
                 <div className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px]" style={{ background: `linear-gradient(165deg, ${openLook.palette.cover}, ${openLook.palette.bg})` }}>
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px]"
+                    style={{ backgroundColor: openArt.bg }}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={openLook.icon} alt="" className="h-7 w-7 object-contain" />
+                    <img src={openArt.src} alt="" className="h-full w-full object-cover" />
                   </span>
-                  <span className="min-w-0 text-[13px] leading-[1.5]" style={{ color: openLook.palette.sub }}>
-                    <b className="font-semibold">{open.tag || '안내'}</b> · {formatDate(open.publishedAt || open.createdAt)}
+                  <span className="min-w-0 text-[13px] leading-[1.5] text-[#8B95A1]">
+                    <b className="font-semibold text-[#4E5968]">{open.tag || '안내'}</b> · {formatDate(open.publishedAt || open.createdAt)}
                   </span>
                 </div>
                 <h2 className="mt-4 text-[21px] font-bold leading-[1.4] tracking-[-0.5px] text-[#191F28]">{open.title}</h2>
