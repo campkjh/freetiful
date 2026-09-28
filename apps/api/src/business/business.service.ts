@@ -66,6 +66,21 @@ export class BusinessService {
       });
     }
 
+    // 숨김 업체(카카오 시드 기본 숨김 · 숨김 표시)를 DB 에서 먼저 거른다 — 아래 1000개 후보 창(createdAt 오래된 순)이
+    // 숨김 업체로 차 버려 새로 들어온 업체(260928 다이렉트결혼준비 제휴 웨딩홀 등)가 목록에 안 나왔다.
+    // 판정은 isBusinessVisible 과 같다: 보임 표시 > 숨김 표시 > 카카오 시드 계정이면 숨김. 아래 거르기도 그대로 둔다(이중 확인).
+    andFilters.push({
+      OR: [
+        { descriptionHtml: { contains: '<!--freetiful-business-visibility:visible-->' } },
+        {
+          AND: [
+            { OR: [{ descriptionHtml: null }, { NOT: { descriptionHtml: { contains: '<!--freetiful-business-visibility:hidden-->' } } }] },
+            { NOT: { user: { email: { startsWith: 'kakao-', endsWith: '@freetiful.local' } } } },
+          ],
+        },
+      ],
+    });
+
     if (andFilters.length > 0) {
       where.AND = andFilters;
     }

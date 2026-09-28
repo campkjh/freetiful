@@ -44,6 +44,8 @@ import {
   mergeWeddingPartnerImages,
 } from '@/lib/wedding-partner-images';
 import { getRelevantBusinessCategories, isBusinessRelevantToAnyCategory, sanitizeBusinessImageUrls } from '@/lib/business-quality';
+import { extractHallInfo } from '@/lib/business-hall-info';
+import HallInfoSections from '@/components/business/HallInfoSections';
 
 interface BizDetail {
   id: string;
@@ -358,7 +360,9 @@ export default function BusinessDetailPage() {
       : `https://map.kakao.com/link/search/${encodeURIComponent(address || biz.businessName)}`;
     const naverMap = `https://map.naver.com/p/search/${encodeURIComponent(biz.businessName)}`;
     const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&hl=ko&output=embed`;
-    return { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc };
+    // 웨딩홀 상세(식대·보증 인원·홀 안내) — 제휴 웨딩홀은 소개 안의 숨은 표시로 들어온다(lib/business-hall-info)
+    const hallInfo = extractHallInfo(biz.descriptionHtml);
+    return { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc, hallInfo };
   }, [biz]);
 
   const tone = useImageTone(view?.images[0], 'scene');
@@ -389,7 +393,7 @@ export default function BusinessDetailPage() {
     );
   }
 
-  const { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc } = view;
+  const { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc, hallInfo } = view;
 
   const share = async () => {
     const url = window.location.href;
@@ -548,6 +552,8 @@ export default function BusinessDetailPage() {
           ))}
         </div>
       </section>
+
+      {hallInfo && <HallInfoSections info={hallInfo} images={images} onOpenPhoto={(i) => { if (i >= 0) setViewerAt(i); }} />}
 
       {/* 위치 — 구글 지도 임베드(키 없이), 누르면 카카오맵 */}
       {address && (
