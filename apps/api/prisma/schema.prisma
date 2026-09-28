@@ -1396,6 +1396,8 @@ model CommunityScoreBonus {
 model CommunityNickname {
   userId    String   @id
   nickname  String
+  /// 웨딩숲에서만 보이는 프로필 사진(동물 친구 20종 중) — 실제 프로필 사진(사회자 페이지 등)은 그대로 둔다
+  avatarUrl String?
   updatedAt DateTime @updatedAt
 
   @@map("community_nicknames")

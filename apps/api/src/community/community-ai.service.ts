@@ -114,6 +114,49 @@ export class CommunityAiService {
     return ai ?? this.suggestWithRules(text, majors, lockedSubSlug);
   }
 
+  /**
+   * 웨딩숲 닉네임 추천(260928 사장 '닉네임 누르면 AI 가 추천 닉네임 + 그에 맞는 프로필 사진') — '꾸밈말 + 동물'.
+   * 동물은 동물 친구 프로필 20종 안에서만 골라 사진이 이름과 맞게 붙는다. 실패하면 빈 배열(부르는 쪽이 목록에서 채운다).
+   */
+  async suggestNicknames(count: number, animals: string[]): Promise<{ modifier: string; animal: string }[]> {
+    if (!this.client) return [];
+    const prompt = `너는 예비부부 커뮤니티 "웨딩숲"의 닉네임 작명가다. '꾸밈말 + 동물' 형태의 귀엽고 따뜻한 닉네임을 ${count}개 지어라.
+규칙:
+- 동물은 반드시 [동물] 목록 안에서만 고르고, 서로 겹치지 않게 다양하게.
+- 꾸밈말은 띄어쓰기 없는 한국어 2~7자. 결혼 준비·신혼·설렘·소소한 일상 느낌(예: 사랑받는, 행복회로, 청첩장쓰는, 드레스고민중, 신혼집꾸미는, 설렘가득, 꽃길걷는).
+- 흔한 말만 반복하지 말고 재치 있게. 비속어·비하, 운영진·사회자처럼 보이는 말(프리티풀, 운영, 관리자, 에디터, 공식, 사회자)은 금지.
+[동물] ${animals.join(', ')}
+형식: {"items":[{"modifier":"사랑받는","animal":"오리"}]}`;
+    const models = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
+    const deadline = Date.now() + 8000;
+    for (const name of Array.from(new Set(models))) {
+      const left = deadline - Date.now();
+      if (left < 800) break;
+      try {
+        const model = this.client.getGenerativeModel({
+          model: name,
+          generationConfig: {
+            temperature: 0.95,
+            responseMimeType: 'application/json',
+            ...(/2\.5/.test(name) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          } as any,
+        });
+        const res = (await Promise.race([
+          model.generateContent(prompt),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), Math.min(6000, left))),
+        ])) as any;
+        const parsed = JSON.parse(String(res.response.text() || '{}'));
+        const items = (Array.isArray(parsed?.items) ? parsed.items : [])
+          .map((x: any) => ({ modifier: String(x?.modifier || '').trim(), animal: String(x?.animal || '').trim() }))
+          .filter((x: { modifier: string; animal: string }) => x.modifier && animals.includes(x.animal));
+        if (items.length) return items;
+      } catch (e: any) {
+        this.logger.warn(`community nickname ${name} failed: ${String(e?.message || e).slice(0, 200)}`);
+      }
+    }
+    return [];
+  }
+
   private majorOfSub(majors: SuggestMajor[], slug: string | null | undefined) {
     if (!slug) return null;
     return majors.find((m) => m.subs.some((s) => s.slug === slug)) ?? null;

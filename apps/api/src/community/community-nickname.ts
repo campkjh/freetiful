@@ -9,7 +9,7 @@
  */
 
 /** 동물 친구 프로필 20종 — public/images/avatars/animal-01~20.webp 순서(원본 zip 파일 이름) */
-const AVATAR_ANIMALS = [
+export const AVATAR_ANIMALS = [
   '사막여우', '레서판다', '수달', '카피바라', '고슴도치', '라쿤', '코알라', '북극곰', '판다', '호랑이',
   '사자', '토끼', '다람쥐', '양', '사슴', '펭귄', '오리', '햄스터', '나무늘보', '물범',
 ];
@@ -17,7 +17,7 @@ const AVATAR_ANIMALS = [
 /** 직접 올린 사진인 회원용으로 더 넣는 동물 */
 const EXTRA_ANIMALS = ['오소리', '강아지', '고양이', '알파카', '부엉이', '돌고래', '해달', '미어캣', '너구리', '기린', '코끼리', '청설모'];
 
-const MODIFIERS = [
+export const MODIFIERS = [
   '사랑받는', '행복회로', '설레는', '반짝이는', '꿈꾸는', '포근한', '씩씩한', '느긋한',
   '다정한', '상큼한', '든든한', '말랑한', '보송한', '용감한', '수줍은', '당당한',
   '해맑은', '달달한', '산뜻한', '빛나는', '노래하는', '춤추는', '웃음많은', '눈치빠른',
@@ -35,6 +35,12 @@ const STAFF_USER_IDS = new Set<string>([
   '03d9933c-454f-4913-9493-d75dff85e8e7', // 프리티풀 웨딩가이드 서아
   'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
 ]);
+
+/** 동물 친구 프로필 사진 주소(DB 값과 같은 절대 주소) — 목록에 없는 동물이면 null */
+export function animalAvatarUrl(animal: string): string | null {
+  const i = AVATAR_ANIMALS.indexOf(animal);
+  return i < 0 ? null : `https://freetiful.com/images/avatars/animal-${String(i + 1).padStart(2, '0')}.webp`;
+}
 
 function hash32(text: string, seed: number): number {
   let h = (0x811c9dc5 ^ seed) >>> 0;

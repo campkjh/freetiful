@@ -218,7 +218,15 @@ export class CommunityController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '내 웨딩숲 닉네임 정하기(허용 계정만, 계정당 하나)' })
   setMyNickname(@Request() req: any, @Body() body: any) {
-    return this.community.setMyNickname(req.user.id, body?.nickname);
+    return this.community.setMyNickname(req.user.id, body);
+  }
+
+  @Post('me/nickname/suggest')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'AI 닉네임 추천 6개(꾸밈말+동물, 그 동물 사진) — 허용 계정만' })
+  suggestMyNicknames(@Request() req: any) {
+    return this.community.suggestMyNicknames(req.user.id);
   }
 
   @Get('me/comments')

@@ -8,7 +8,8 @@ import { ChangeEvent, type CSSProperties, KeyboardEvent, useEffect, useMemo, use
 import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { communityNickname } from "@/lib/community/nickname";
-import { fetchMyNickname } from "@/lib/community/my-nickname";
+import { fetchMyNickname, type MyNickname } from "@/lib/community/my-nickname";
+import IdentitySheet from "@/components/community/IdentitySheet";
 import { uploadCommunityImage, revokeUploadPreview, type CommunityUpload } from "@/lib/communityUpload";
 import { clientCache } from "@/lib/clientCache";
 import AiIcon from "@/components/icons/AiIcon";
@@ -46,6 +47,7 @@ export default function TossComposer({
   groups,
   contextGroupId,
   onPosted,
+  onIdentityChanged,
   onToast,
   enterClassName = "",
   enterStyle,
@@ -57,6 +59,8 @@ export default function TossComposer({
   /** 피드에서 보고 있는 카테고리 — 소분류면 기본값으로 쓴다. */
   contextGroupId?: string;
   onPosted: () => void;
+  /** 지정 계정이 웨딩숲 프로필(닉네임·사진)을 바꿨을 때 — 목록을 새 모습으로 다시 받게 */
+  onIdentityChanged?: () => void;
   onToast?: (text: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -78,6 +82,9 @@ export default function TossComposer({
   const [posting, setPosting] = useState(false);
   const [message, setMessage] = useState("");
   const [me, setMe] = useState<{ name: string; avatar: string | null } | null>(null);
+  // 지정 계정 — 글 올릴 때 닉네임·사진(웨딩숲 프로필 시트, AI 추천). 계정당 하나(260928)
+  const [identity, setIdentity] = useState<MyNickname | null>(null);
+  const [identityOpen, setIdentityOpen] = useState(false);
 
   const authUser = useAuthStore((s) => s.user);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -92,8 +99,13 @@ export default function TossComposer({
   // 저장소(localStorage) 복원값은 클라이언트에만 있으니 마운트 뒤에 읽는다(하이드레이션 불일치 방지).
   useEffect(() => {
     setMe(authUser ? { name: communityNickname(authUser), avatar: authUser.profileImageUrl || null } : null);
-    // 직접 정한 웨딩숲 닉네임이 있으면 그걸로(허용 계정)
-    if (authUser) fetchMyNickname().then((n) => { if (n?.custom) setMe((m) => (m ? { ...m, name: n.nickname } : m)); });
+    // 직접 정한 웨딩숲 닉네임·사진이 있으면 그걸로(허용 계정)
+    if (authUser) {
+      fetchMyNickname().then((n) => {
+        setIdentity(n);
+        if (n?.custom || n?.customAvatar) setMe((m) => (m ? { ...m, name: n.nickname, avatar: n.avatar } : m));
+      });
+    } else setIdentity(null);
   }, [authUser]);
 
   // 접힌 쪽은 포커스·탭 이동에서 빼 둔다.
@@ -369,7 +381,15 @@ export default function TossComposer({
             <div className="tcomp-head">
               <Avatar me={me} />
               <div className="tcomp-who">
-                <span className="tcomp-name">{me?.name ?? "나"}</span>
+                {identity?.canSetNickname ? (
+                  // 지정 계정 — 이름을 누르면 웨딩숲 프로필 시트(AI 추천 닉네임 + 그에 맞는 사진)
+                  <button type="button" className="tcomp-name inline-flex items-center gap-1" onClick={() => setIdentityOpen(true)} aria-label="웨딩숲 닉네임·사진 바꾸기">
+                    {me?.name ?? "나"}
+                    <span aria-hidden className="text-[12px] font-semibold text-[#3182F6]">✦ 바꾸기</span>
+                  </button>
+                ) : (
+                  <span className="tcomp-name">{me?.name ?? "나"}</span>
+                )}
                 <button
                   type="button"
                   className={`tcomp-cat${currentSub ? " is-set" : ""}`}
@@ -590,6 +610,14 @@ export default function TossComposer({
         </div>
       </div>
     </div>
+      {identity?.canSetNickname && (
+        <IdentitySheet
+          open={identityOpen}
+          current={identity}
+          onClose={() => setIdentityOpen(false)}
+          onSaved={(n) => { setIdentity(n); setMe((m) => (m ? { ...m, name: n.nickname, avatar: n.avatar } : m)); onToast?.("웨딩숲 프로필을 바꿨어요"); onIdentityChanged?.(); }}
+        />
+      )}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import {
   BadgeKey,
   BadgeTone,
 } from './community.constants';
-import { communityNickname } from './community-nickname';
+import { AVATAR_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
 
 /**
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
@@ -332,8 +332,9 @@ export class CommunityService implements OnModuleInit {
       if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
       map.set(u.id, {
         // 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신), 사회자·업체·운영자·운영진 에디터는 이름 그대로 — community-nickname.ts
-        nickname: customNick.get(u.id) || communityNickname(u),
-        avatar: u.profileImageUrl || null,
+        nickname: customNick.get(u.id)?.nickname || communityNickname(u),
+        // 웨딩숲 전용 사진(지정 계정이 고른 동물 친구)이 있으면 그걸로
+        avatar: customNick.get(u.id)?.avatarUrl || u.profileImageUrl || null,
         isAdmin: u.role === 'admin',
         tier: tierForScore(score),
         isAnswerKing: answerKing.has(u.id),
@@ -541,35 +542,76 @@ export class CommunityService implements OnModuleInit {
     return map;
   }
 
-  /** 직접 정한 닉네임(허용 계정만 있음) */
-  private async customNicknames(userIds: string[]): Promise<Map<string, string>> {
+  /** 직접 정한 닉네임·웨딩숲 사진(허용 계정만 있음) */
+  private async customNicknames(userIds: string[]): Promise<Map<string, { nickname: string; avatarUrl: string | null }>> {
     const ids = Array.from(new Set(userIds.filter(Boolean)));
     if (ids.length === 0) return new Map();
-    const rows = await this.prisma.communityNickname.findMany({ where: { userId: { in: ids } }, select: { userId: true, nickname: true } });
-    return new Map(rows.map((r) => [r.userId, r.nickname]));
+    const rows = await this.prisma.communityNickname.findMany({ where: { userId: { in: ids } }, select: { userId: true, nickname: true, avatarUrl: true } });
+    return new Map(rows.map((r) => [r.userId, { nickname: r.nickname, avatarUrl: r.avatarUrl }]));
   }
 
-  /** 내 웨딩숲 닉네임 — 보이는 이름 · 직접 정한 이름 · 정할 수 있는지 */
+  /** 내 웨딩숲 프로필 — 보이는 이름·사진 · 직접 정한 값 · 정할 수 있는지 */
   async getMyNickname(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, profileImageUrl: true } });
     if (!user) throw new NotFoundException('회원을 찾을 수 없어요');
-    const custom = (await this.customNicknames([userId])).get(userId) || null;
+    const own = (await this.customNicknames([userId])).get(userId);
     return {
-      nickname: custom || communityNickname(user),
-      custom,
+      nickname: own?.nickname || communityNickname(user),
+      custom: own?.nickname || null,
+      avatar: own?.avatarUrl || user.profileImageUrl || null,
+      customAvatar: own?.avatarUrl || null,
       canSetNickname: CUSTOM_NICKNAME_EMAILS.has(String(user.email || '').trim().toLowerCase()),
     };
   }
 
-  async setMyNickname(userId: string, raw: unknown) {
+  /** 닉네임(+웨딩숲 사진) 저장 — 계정당 하나. avatarUrl: 동물 친구 20종 주소 · null=원래 사진으로 · 없으면 그대로 */
+  async setMyNickname(userId: string, body: any) {
     const me = await this.getMyNickname(userId);
     if (!me.canSetNickname) throw new ForbiddenException('닉네임을 바꿀 수 없는 계정이에요');
-    const nickname = String(raw ?? '').replace(/\s+/g, ' ').trim();
+    const nickname = String(body?.nickname ?? '').replace(/\s+/g, ' ').trim();
     if (nickname.length < 2 || nickname.length > 12) throw new BadRequestException('닉네임은 2~12자로 정해 주세요');
     if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(nickname)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
     if (NICKNAME_BLOCK.test(nickname)) throw new BadRequestException('운영진이나 사회자로 보일 수 있는 이름은 쓸 수 없어요');
-    await this.prisma.communityNickname.upsert({ where: { userId }, create: { userId, nickname }, update: { nickname } });
+    let avatarUrl: string | null | undefined;
+    if (body && Object.prototype.hasOwnProperty.call(body, 'avatarUrl')) {
+      if (body.avatarUrl === null || body.avatarUrl === '') avatarUrl = null;
+      else {
+        // 아무 사진이나 받지 않는다(실존 인물 사진으로 남 행세 방지) — 동물 친구 20종만
+        const m = /\/images\/avatars\/animal-(\d{2})\.webp$/.exec(String(body.avatarUrl));
+        const n = m ? Number(m[1]) : 0;
+        if (n < 1 || n > AVATAR_ANIMALS.length) throw new BadRequestException('동물 친구 사진 중에서 골라 주세요');
+        avatarUrl = animalAvatarUrl(AVATAR_ANIMALS[n - 1]);
+      }
+    }
+    await this.prisma.communityNickname.upsert({
+      where: { userId },
+      create: { userId, nickname, avatarUrl: avatarUrl ?? null },
+      update: { nickname, ...(avatarUrl !== undefined ? { avatarUrl } : {}) },
+    });
     return this.getMyNickname(userId);
+  }
+
+  /** AI 닉네임 추천 6개 — '꾸밈말 + 동물' + 그 동물 사진. AI 가 모자라면 꾸밈말 목록에서 채운다 */
+  async suggestMyNicknames(userId: string) {
+    const me = await this.getMyNickname(userId);
+    if (!me.canSetNickname) throw new ForbiddenException('닉네임을 바꿀 수 없는 계정이에요');
+    const ai = await this.ai.suggestNicknames(8, AVATAR_ANIMALS).catch(() => [] as { modifier: string; animal: string }[]);
+    const seen = new Set<string>([me.nickname]);
+    const items: { nickname: string; avatarUrl: string }[] = [];
+    const push = (modifier: string, animal: string) => {
+      const mod = String(modifier || '').replace(/\s+/g, '');
+      const avatarUrl = animalAvatarUrl(animal);
+      if (!avatarUrl || mod.length < 2 || mod.length > 7 || !/^[가-힣]+$/.test(mod) || NICKNAME_BLOCK.test(mod)) return;
+      const nickname = `${mod} ${animal}`;
+      if (nickname.length > 12 || seen.has(nickname)) return;
+      seen.add(nickname);
+      items.push({ nickname, avatarUrl });
+    };
+    for (const x of ai) push(x.modifier, x.animal);
+    for (let guard = 0; items.length < 6 && guard < 200; guard++) {
+      push(MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)], AVATAR_ANIMALS[Math.floor(Math.random() * AVATAR_ANIMALS.length)]);
+    }
+    return { items: items.slice(0, 6), source: ai.length ? 'ai' : 'rule' };
   }
 
   // 글마다 최근에 좋아요 누른 5명(이름·프사만). 창 함수로 글당 5개만 읽고, 유저는 가볍게 조회한다.
@@ -593,7 +635,8 @@ export class CommunityService implements OnModuleInit {
     for (const r of rows) {
       const u = userMap.get(r.userId);
       const arr = map.get(r.postId) || [];
-      arr.push({ userId: r.userId, nickname: u ? customNick.get(u.id) || communityNickname(u) : '회원', avatar: u?.profileImageUrl || null });
+      const own = u ? customNick.get(u.id) : undefined;
+      arr.push({ userId: r.userId, nickname: u ? own?.nickname || communityNickname(u) : '회원', avatar: own?.avatarUrl || u?.profileImageUrl || null });
       map.set(r.postId, arr);
     }
     return map;

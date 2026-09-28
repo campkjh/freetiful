@@ -246,7 +246,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         setIsAdmin(d?.user?.role === "admin");
         setMe(d?.user ? { nickname: d.user.nickname ?? "나", avatar: d.user.avatar ?? null } : null);
         // 직접 정한 웨딩숲 닉네임이 있으면 그걸로(허용 계정)
-        if (d?.user) fetchMyNickname().then((n) => { if (n?.custom) setMe((m) => (m ? { ...m, nickname: n.nickname } : m)); });
+        if (d?.user) fetchMyNickname().then((n) => { if (n?.custom || n?.customAvatar) setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m)); });
       })
       .catch(() => {
         setCurrentUserId(null);
@@ -1169,9 +1169,9 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
               {currentUserId && (
                 <NicknameBar
                   onChanged={(n) => {
-                    setMe((m) => (m ? { ...m, nickname: n.nickname } : m));
-                    changeCommentSort(commentSort); // 댓글만 다시 받아 새 닉네임으로(화면 전체 로딩 없이)
-                    showToast("닉네임을 바꿨어요");
+                    setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m));
+                    changeCommentSort(commentSort); // 댓글만 다시 받아 새 닉네임·사진으로(화면 전체 로딩 없이)
+                    showToast("웨딩숲 프로필을 바꿨어요");
                   }}
                 />
               )}

@@ -1019,6 +1019,9 @@ export default function CommunityClient() {
             onPosted={() => {
               loadPosts();
             }}
+            onIdentityChanged={() => {
+              loadPosts();
+            }}
             onToast={showToast}
           />
 
