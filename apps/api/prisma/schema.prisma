@@ -1173,6 +1173,8 @@ model CommunityTag {
 model CommunityPost {
   id            String                  @id @default(uuid())
   userId        String?
+  /// 운영진 에디터 이름으로 올렸을 때 실제로 쓴 계정(260930 — 허용 계정만, 수정·삭제 권한·기록용)
+  postedById    String?
   groupId       String
   title         String
   content       String
@@ -1222,10 +1224,12 @@ model CommunityPostImage {
 }
 
 model CommunityComment {
-  id        String                  @id @default(uuid())
-  postId    String
-  parentId  String?
-  userId    String?
+  id         String                  @id @default(uuid())
+  postId     String
+  parentId   String?
+  userId     String?
+  /// 운영진 에디터 이름으로 남겼을 때 실제로 쓴 계정(260930)
+  postedById String?
   content   String
   isActive  Boolean                 @default(true)
   createdAt DateTime                @default(now())

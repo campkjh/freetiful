@@ -33,6 +33,14 @@ import { AVATAR_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from '.
  */
 const CUSTOM_NICKNAME_EMAILS = new Set(['cbkyeong@naver.com', 'seeipssister@naver.com', 'campkjh@nate.com', 'hjalover@hanmail.net']);
 /** 운영진·사회자처럼 보이는 이름은 막는다 */
+/** 운영진 에디터 계정 — 허용 계정(CUSTOM_NICKNAME_EMAILS)은 글·댓글을 이 이름으로 올릴 수 있다(260930 사장).
+ *  이름에 '프리티풀'이 붙어 운영진 글로 보인다(회원인 척이 아님). 실제로 쓴 계정은 postedById 에 남긴다. */
+const EDITOR_PERSONA_IDS = [
+  '939313a1-1b41-4f2a-b3c0-f9c189616daa', // 프리티풀 에디터 하나
+  'fe30b69f-5396-4fa6-b466-6e0cdca3431a', // 프리티풀 에디터 도윤
+  '03d9933c-454f-4913-9493-d75dff85e8e7', // 프리티풀 웨딩가이드 서아
+  'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
+];
 const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
 
 type Author = {
@@ -476,7 +484,7 @@ export class CommunityService implements OnModuleInit {
         authorBadges: author.badges,
         authorFollowerCount: author.followerCount,
         authorIsFollowing: author.isFollowing,
-        isMine: !!viewerId && p.userId === viewerId,
+        isMine: !!viewerId && (p.userId === viewerId || p.postedById === viewerId),
         isEdited: new Date(p.updatedAt).getTime() - new Date(p.createdAt).getTime() > 60_000,
         groupId: p.groupId,
         groupName: p.group?.name || '',
@@ -561,7 +569,23 @@ export class CommunityService implements OnModuleInit {
       avatar: own?.avatarUrl || user.profileImageUrl || null,
       customAvatar: own?.avatarUrl || null,
       canSetNickname: CUSTOM_NICKNAME_EMAILS.has(String(user.email || '').trim().toLowerCase()),
+      // 허용 계정만 — 글·댓글을 올릴 수 있는 운영진 에디터 이름들
+      editors: CUSTOM_NICKNAME_EMAILS.has(String(user.email || '').trim().toLowerCase())
+        ? (await this.prisma.user.findMany({ where: { id: { in: EDITOR_PERSONA_IDS }, isActive: true }, select: { id: true, name: true, profileImageUrl: true } }))
+            .sort((a, b) => EDITOR_PERSONA_IDS.indexOf(a.id) - EDITOR_PERSONA_IDS.indexOf(b.id))
+            .map((e) => ({ id: e.id, name: e.name, avatar: e.profileImageUrl || null }))
+        : [],
     };
+  }
+
+  /** 누구 이름으로 올릴지 — asEditorId 가 있으면 허용 계정 + 에디터 목록 안일 때만 그 이름, 실제 쓴 계정은 postedById */
+  private async resolveActingAuthor(userId: string, asEditorId?: unknown): Promise<{ authorId: string; postedById: string | null }> {
+    const editorId = typeof asEditorId === 'string' ? asEditorId.trim() : '';
+    if (!editorId || editorId === userId) return { authorId: userId, postedById: null };
+    if (!EDITOR_PERSONA_IDS.includes(editorId)) throw new BadRequestException('올릴 수 없는 이름이에요');
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!CUSTOM_NICKNAME_EMAILS.has(String(me?.email || '').trim().toLowerCase())) throw new ForbiddenException('운영진 이름으로 올릴 수 없는 계정이에요');
+    return { authorId: editorId, postedById: userId };
   }
 
   /** 닉네임(+웨딩숲 사진) 저장 — 계정당 하나. avatarUrl: 동물 친구 20종 주소 · null=원래 사진으로 · 없으면 그대로 */
@@ -753,8 +777,11 @@ export class CommunityService implements OnModuleInit {
       type?: string;
       pollOptions?: string[];
       quizItems?: { text: string; answer: boolean }[];
+      /** 운영진 에디터 이름으로 올리기(허용 계정만) */
+      asEditorId?: string;
     },
   ) {
+    const acting = await this.resolveActingAuthor(userId, body.asEditorId);
     const title = (body.title || '').trim();
     const content = (body.content || '').trim();
     if (!body.groupId) throw new BadRequestException('카테고리를 선택해주세요.');
@@ -793,7 +820,8 @@ export class CommunityService implements OnModuleInit {
 
     const post = await this.prisma.communityPost.create({
       data: {
-        userId,
+        userId: acting.authorId,
+        postedById: acting.postedById,
         groupId: body.groupId,
         title,
         content,
@@ -918,6 +946,7 @@ export class CommunityService implements OnModuleInit {
         authorRole: a.roleLabel,
         authorBadges: a.badges,
         isPostAuthor: !!postAuthorId && c.userId === postAuthorId,
+        postedByMe: !!viewerId && c.postedById === viewerId,
         isEdited:
           c.isActive && new Date(c.updatedAt).getTime() - new Date(c.createdAt).getTime() > 60_000,
         content: !c.isActive ? '삭제된 댓글입니다' : isBlocked ? '차단한 사용자의 댓글입니다' : c.content,
@@ -956,7 +985,7 @@ export class CommunityService implements OnModuleInit {
   private async assertPostOwnerOrAdmin(postId: string, userId: string, isAdmin: boolean) {
     const post = await this.prisma.communityPost.findUnique({ where: { id: postId } });
     if (!post) throw new NotFoundException('게시글을 찾을 수 없어요.');
-    if (!isAdmin && post.userId !== userId) throw new ForbiddenException('권한이 없어요.');
+    if (!isAdmin && post.userId !== userId && post.postedById !== userId) throw new ForbiddenException('권한이 없어요.');
     return post;
   }
 
@@ -991,7 +1020,8 @@ export class CommunityService implements OnModuleInit {
   }
 
   // ─── 댓글 ─────────────────────────────────────────────────────────
-  async createComment(postId: string, userId: string, body: { content: string; parentId?: string }) {
+  async createComment(postId: string, userId: string, body: { content: string; parentId?: string; asEditorId?: string }) {
+    const acting = await this.resolveActingAuthor(userId, body.asEditorId);
     const content = (body.content || '').trim();
     if (!content) throw new BadRequestException('내용을 입력해주세요.');
     if (content.length > 2000) throw new BadRequestException('댓글은 2000자 이내여야 해요.');
@@ -1004,7 +1034,7 @@ export class CommunityService implements OnModuleInit {
       if (parent && parent.postId === postId) parentId = parent.parentId || parent.id;
     }
     const c = await this.prisma.communityComment.create({
-      data: { postId, userId, content, parentId },
+      data: { postId, userId: acting.authorId, postedById: acting.postedById, content, parentId },
     });
     return { id: c.id };
   }
@@ -1012,7 +1042,7 @@ export class CommunityService implements OnModuleInit {
   async updateComment(id: string, userId: string, isAdmin: boolean, content: string) {
     const c = await this.prisma.communityComment.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('댓글을 찾을 수 없어요.');
-    if (!isAdmin && c.userId !== userId) throw new ForbiddenException('권한이 없어요.');
+    if (!isAdmin && c.userId !== userId && c.postedById !== userId) throw new ForbiddenException('권한이 없어요.');
     const text = (content || '').trim();
     if (!text) throw new BadRequestException('내용을 입력해주세요.');
     if (text.length > 2000) throw new BadRequestException('댓글은 2000자 이내여야 해요.');
@@ -1023,7 +1053,7 @@ export class CommunityService implements OnModuleInit {
   async deleteComment(id: string, userId: string, isAdmin: boolean) {
     const c = await this.prisma.communityComment.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('댓글을 찾을 수 없어요.');
-    if (!isAdmin && c.userId !== userId) throw new ForbiddenException('권한이 없어요.');
+    if (!isAdmin && c.userId !== userId && c.postedById !== userId) throw new ForbiddenException('권한이 없어요.');
     await this.prisma.communityComment.update({ where: { id }, data: { isActive: false } });
     return { ok: true };
   }

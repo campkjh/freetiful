@@ -14,8 +14,10 @@ import TossPoll from "@/components/community/TossPoll";
 import TossLikers, { type TossLiker } from "@/components/community/TossLikers";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { communityNickname } from "@/lib/community/nickname";
-import { fetchMyNickname } from "@/lib/community/my-nickname";
+import { fetchMyNickname, type MyNickname } from "@/lib/community/my-nickname";
+import { useActiveEditor } from "@/components/community/PersonaPicker";
 import NicknameBar from "@/components/community/NicknameBar";
+import { personaBody } from "@/lib/community/persona-store";
 import {
   formatCount,
   TossHeartIcon,
@@ -66,6 +68,8 @@ interface CommunityComment {
   isEdited?: boolean;
   isActive?: boolean;
   isBlocked?: boolean;
+  /** 내가 운영진 에디터 이름으로 단 댓글(260930) — 고치기·지우기 가능 */
+  postedByMe?: boolean;
 }
 
 // 댓글 정렬(백엔드 CommentSort 키와 일치).
@@ -174,6 +178,10 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // 어떤 계정으로 쓰는지 보이도록 댓글 입력 위에 내 프로필을 띄운다.
   const [me, setMe] = useState<{ nickname: string; avatar: string | null } | null>(null);
+  // 허용 계정이 댓글 칸에서 고른 '올릴 이름'(운영진 에디터) — 입력 칸 옆 사진도 그 이름으로(260930)
+  const [identity, setIdentity] = useState<MyNickname | null>(null);
+  const activeEditor = useActiveEditor(identity);
+  const inputMe = activeEditor ? { nickname: activeEditor.name, avatar: activeEditor.avatar } : me;
   const [isAdmin, setIsAdmin] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -246,7 +254,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         setIsAdmin(d?.user?.role === "admin");
         setMe(d?.user ? { nickname: d.user.nickname ?? "나", avatar: d.user.avatar ?? null } : null);
         // 직접 정한 웨딩숲 닉네임이 있으면 그걸로(허용 계정)
-        if (d?.user) fetchMyNickname().then((n) => { if (n?.custom || n?.customAvatar) setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m)); });
+        if (d?.user) fetchMyNickname().then((n) => { setIdentity(n); if (n?.custom || n?.customAvatar) setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m)); });
       })
       .catch(() => {
         setCurrentUserId(null);
@@ -641,7 +649,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
       const res = await cfetch(`/api/community/posts/${encodeURIComponent(postId)}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(replyTargetId ? { content, parentId: replyTargetId } : { content }),
+        body: JSON.stringify({ ...(replyTargetId ? { content, parentId: replyTargetId } : { content }), ...personaBody() }),
       });
       if (res.status === 401) {
         window.dispatchEvent(new Event("freetiful:show-login"));
@@ -670,7 +678,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
     inputRef.current?.focus();
   }
 
-  const isOwner = !!post?.userId && currentUserId === post?.userId;
+  // 운영진 에디터 이름으로 올린 내 글도 내 글(isMine — 서버가 실제로 쓴 계정으로 판단, 260930)
+  const isOwner = (!!post?.userId && currentUserId === post?.userId) || !!post?.isMine;
   const canModerate = !!post && (isOwner || isAdmin);
   const body = post
     ? post.content.trim()
@@ -1169,6 +1178,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
               {currentUserId && (
                 <NicknameBar
                   onChanged={(n) => {
+                    setIdentity(n);
                     setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m));
                     changeCommentSort(commentSort); // 댓글만 다시 받아 새 닉네임·사진으로(화면 전체 로딩 없이)
                     showToast("웨딩숲 프로필을 바꿨어요");
@@ -1177,11 +1187,11 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
               )}
               <div className="tdet-inputrow">
                 <span className="tdet-me" aria-hidden="true">
-                  {me?.avatar ? (
+                  {inputMe?.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={me.avatar} alt="" referrerPolicy="no-referrer" />
+                    <img src={inputMe.avatar} alt="" referrerPolicy="no-referrer" />
                   ) : (
-                    <span>{(me?.nickname ?? "나").slice(0, 1)}</span>
+                    <span>{(inputMe?.nickname ?? "나").slice(0, 1)}</span>
                   )}
                 </span>
                 <textarea
@@ -1277,7 +1287,7 @@ interface CommentItemProps {
 function CommentItem(props: CommentItemProps) {
   const { comment: c, depth = 0 } = props;
   const isEditing = props.editingCommentId === c.id;
-  const isOwn = !!props.currentUserId && c.userId === props.currentUserId;
+  const isOwn = !!props.currentUserId && (c.userId === props.currentUserId || !!c.postedByMe);
   const dead = c.isActive === false || !!c.isBlocked;
   const canEdit = !dead && (isOwn || props.isAdmin);
   const isPinned = props.pinnedCommentId === c.id;

@@ -10,6 +10,8 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { communityNickname } from "@/lib/community/nickname";
 import { fetchMyNickname, type MyNickname } from "@/lib/community/my-nickname";
 import IdentitySheet from "@/components/community/IdentitySheet";
+import PersonaPicker, { useActiveEditor } from "@/components/community/PersonaPicker";
+import { personaBody } from "@/lib/community/persona-store";
 import { uploadCommunityImage, revokeUploadPreview, type CommunityUpload } from "@/lib/communityUpload";
 import { clientCache } from "@/lib/clientCache";
 import AiIcon from "@/components/icons/AiIcon";
@@ -85,6 +87,9 @@ export default function TossComposer({
   // 지정 계정 — 글 올릴 때 닉네임·사진(웨딩숲 프로필 시트, AI 추천). 계정당 하나(260928)
   const [identity, setIdentity] = useState<MyNickname | null>(null);
   const [identityOpen, setIdentityOpen] = useState(false);
+  // 허용 계정이 고른 '올릴 이름'(운영진 에디터) — 고르면 머리·사진도 그 이름으로(260930)
+  const activeEditor = useActiveEditor(identity);
+  const shown = activeEditor ? { name: activeEditor.name, avatar: activeEditor.avatar } : me;
 
   const authUser = useAuthStore((s) => s.user);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -325,6 +330,7 @@ export default function TossComposer({
           isBlinded: false,
           pollOptions: pollOn ? filledPoll.slice(0, 4) : [],
           quizItems: [],
+          ...personaBody(),
         }),
       });
       if (res.status === 401) {
@@ -367,7 +373,7 @@ export default function TossComposer({
       <div className="tcomp-fold" ref={foldRef}>
         <div>
           <button type="button" className="tcomp-bar" onClick={openComposer} aria-label="게시글 작성하기">
-            <Avatar me={me} />
+            <Avatar me={shown} />
             <span className={`tcomp-ph${draftLine ? " has-draft" : ""}`}>{draftLine || PLACEHOLDER}</span>
             <span className="tcomp-cta">의견 남기기</span>
           </button>
@@ -379,9 +385,17 @@ export default function TossComposer({
         <div>
           <div className="tcomp-editor">
             <div className="tcomp-head">
-              <Avatar me={me} />
+              <Avatar me={shown} />
               <div className="tcomp-who">
-                {identity?.canSetNickname ? (
+                {identity?.editors?.length ? (
+                  // 허용 계정 — 이름을 누르면 '올릴 이름' 메뉴(내 웨딩숲 프로필 / 운영진 에디터 이름 / 닉네임·사진 바꾸기)
+                  <PersonaPicker identity={identity} className="tcomp-name inline-flex max-w-full items-center gap-1" onEditProfile={() => setIdentityOpen(true)}>
+                    <span className="truncate">{shown?.name ?? "나"}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-[#8B95A1]">
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </PersonaPicker>
+                ) : identity?.canSetNickname ? (
                   // 지정 계정 — 이름을 누르면 웨딩숲 프로필 시트(AI 추천 닉네임 + 그에 맞는 사진)
                   <button type="button" className="tcomp-name inline-flex items-center gap-1" onClick={() => setIdentityOpen(true)} aria-label="웨딩숲 닉네임·사진 바꾸기">
                     {me?.name ?? "나"}

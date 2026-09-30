@@ -34,6 +34,7 @@ import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/
 import { popItemDelay } from "@/lib/pop-menu";
 import { HeaderSearchIcon, HeaderCloseIcon } from "@/components/icons/HeaderIcons";
 import { useCommunitySearch } from "@/lib/community/search-store";
+import { personaBody } from "@/lib/community/persona-store";
 import TrendPanel from "@/components/community/TrendPanel";
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
@@ -1791,6 +1792,8 @@ interface FeedComment {
   likeCount: number;
   likedByMe: boolean;
   replies: FeedComment[];
+  /** 내가 운영진 에디터 이름으로 단 댓글(260930) — 고치기·지우기 가능 */
+  postedByMe?: boolean;
 }
 
 // 댓글 정렬 옵션(백엔드 CommentSort 와 키 일치).
@@ -1819,7 +1822,7 @@ function CommentRow({
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const mine = !!meId && c.userId === meId;
+  const mine = !!meId && (c.userId === meId || !!c.postedByMe);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.content);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -1996,7 +1999,7 @@ function CommentModal({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, ...personaBody() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "댓글을 저장하지 못했습니다.");

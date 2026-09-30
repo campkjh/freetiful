@@ -15,6 +15,8 @@ export type MyNickname = {
   /** 직접 고른 웨딩숲 사진(없으면 null = 원래 프로필 사진) */
   customAvatar: string | null;
   canSetNickname: boolean;
+  /** 허용 계정만 — 글·댓글을 올릴 수 있는 운영진 에디터 이름들(260930) */
+  editors?: Array<{ id: string; name: string; avatar: string | null }>;
 };
 export type NicknameSuggestion = { nickname: string; avatarUrl: string };
 
