@@ -54,6 +54,7 @@ export default function NicknameBar({
         <span className="min-w-0 truncate">
           <b>{name}</b>{roParticle(name)} 남겨요
         </span>
+        {editor && <span className="shrink-0 text-[12.5px] font-semibold text-[#3182F6]">운영진</span>}
       </span>
       <span className="shrink-0 text-[13.5px] font-semibold text-[#3182F6]">{me.editors?.length ? '이름 고르기' : '✦ 바꾸기'}</span>
     </>

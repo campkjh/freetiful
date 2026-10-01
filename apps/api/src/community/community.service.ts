@@ -25,7 +25,7 @@ import {
   BadgeKey,
   BadgeTone,
 } from './community.constants';
-import { AVATAR_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
+import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
 
 /**
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
@@ -42,8 +42,12 @@ const EDITOR_PERSONA_IDS = [
   'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
 ];
 const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
-/** 운영진 에디터 이름('프리티풀' 뒤)에 못 쓰는 말 — 회원·예비부부·사회자(판매자)처럼 보이면 안 된다(261001) */
+/** 운영진 에디터 이름에 못 쓰는 말 — 회원·예비부부·사회자(판매자)처럼 보이면 안 된다(261001) */
 const EDITOR_NAME_BLOCK = /사회자|엠씨|\bmc\b|회원|고객|이용자|신부|신랑|예비|부부|커플|후기|탈퇴한/i;
+/** 회원 닉네임('꾸밈말 동물')과 같은 모양인지 — 에디터 이름이 실제 회원 이름과 겹치면 안 된다 */
+function looksLikeMemberNickname(name: string): boolean {
+  return [...AVATAR_ANIMALS, ...EXTRA_ANIMALS].some((animal) => name.endsWith(` ${animal}`) && MODIFIERS.includes(name.slice(0, -(animal.length + 1))));
+}
 
 type Author = {
   nickname: string;
@@ -349,7 +353,8 @@ export class CommunityService implements OnModuleInit {
         tier: tierForScore(score),
         isAnswerKing: answerKing.has(u.id),
         isPickKing: pickKing.has(u.id),
-        roleLabel: ROLE_LABELS[u.role as string] || null,
+        // 운영진 에디터는 이름과 상관없이 늘 '운영진' 표시(261001 — 이름에 '프리티풀'을 안 붙이는 대신)
+        roleLabel: EDITOR_PERSONA_IDS.includes(u.id) ? '운영진' : ROLE_LABELS[u.role as string] || null,
         followerCount: followerN,
         isFollowing: followingSet.has(u.id),
         badges: keys.map((k) => ({ key: k, ...BADGES[k] })),
@@ -591,7 +596,8 @@ export class CommunityService implements OnModuleInit {
     return { authorId: editorId, postedById: userId };
   }
 
-  /** 운영진 에디터 이름·사진 바꾸기(261001, 허용 계정만) — 앞의 '프리티풀'은 고정(운영진 글로 보이게).
+  /** 운영진 에디터 이름·사진 바꾸기(261001, 허용 계정만) — 이름은 자유(2~16자, '프리티풀' 안 붙임), 대신 글·댓글엔 늘 '운영진' 표시(mapAuthors).
+   *  회원·예비부부·사회자로 보이는 말, 회원 닉네임('꾸밈말 동물') 모양은 막는다.
    *  바꾸기 직전에 그 에디터의 예전 글·댓글에 그때 이름·사진(authorName·authorAvatar)을 박아 둔다 → 이름을 바꿔도 예전 글은 그대로. */
   async renameEditor(userId: string, editorId: string, body: any) {
     const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
@@ -600,12 +606,11 @@ export class CommunityService implements OnModuleInit {
     const editor = await this.prisma.user.findUnique({ where: { id: editorId }, select: { id: true, name: true, role: true, profileImageUrl: true } });
     if (!editor) throw new NotFoundException('에디터를 찾을 수 없어요');
 
-    // '프리티풀' 뒤만 받는다(앞에 붙여 보내도 떼고 다시 붙인다)
-    const rest = String(body?.name ?? '').replace(/\s+/g, ' ').trim().replace(/^프리티풀\s*/, '').trim();
-    if (rest.length < 2 || rest.length > 12) throw new BadRequestException("'프리티풀' 뒤 이름은 2~12자로 정해 주세요");
-    if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(rest)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
-    if (EDITOR_NAME_BLOCK.test(rest)) throw new BadRequestException('회원·예비부부·사회자로 보일 수 있는 말은 쓸 수 없어요');
-    const name = `프리티풀 ${rest}`;
+    const name = String(body?.name ?? '').replace(/\s+/g, ' ').trim();
+    if (name.length < 2 || name.length > 16) throw new BadRequestException('이름은 2~16자로 정해 주세요');
+    if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(name)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
+    if (EDITOR_NAME_BLOCK.test(name)) throw new BadRequestException('회원·예비부부·사회자로 보일 수 있는 말은 쓸 수 없어요');
+    if (looksLikeMemberNickname(name)) throw new BadRequestException('회원 닉네임과 같은 모양(꾸밈말 + 동물)은 쓸 수 없어요');
     const taken = await this.prisma.user.findFirst({ where: { id: { in: EDITOR_PERSONA_IDS.filter((x) => x !== editorId) }, name }, select: { id: true } });
     if (taken) throw new BadRequestException('다른 에디터가 쓰고 있는 이름이에요');
 
