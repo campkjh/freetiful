@@ -389,7 +389,7 @@ export default function TossComposer({
               <div className="tcomp-who">
                 {identity?.editors?.length ? (
                   // 허용 계정 — 이름을 누르면 '올릴 이름' 메뉴(내 웨딩숲 프로필 / 운영진 에디터 이름 / 닉네임·사진 바꾸기)
-                  <PersonaPicker identity={identity} className="tcomp-name inline-flex max-w-full items-center gap-1" onEditProfile={() => setIdentityOpen(true)}>
+                  <PersonaPicker identity={identity} className="tcomp-name inline-flex max-w-full items-center gap-1" onEditProfile={() => setIdentityOpen(true)} onIdentityUpdated={(n) => { setIdentity(n); onToast?.("에디터 이름을 바꿨어요"); }}>
                     <span className="truncate">{shown?.name ?? "나"}</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 text-[#8B95A1]">
                       <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />

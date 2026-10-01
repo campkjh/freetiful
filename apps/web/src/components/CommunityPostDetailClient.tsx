@@ -1177,6 +1177,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
               {/* 지정 계정만 — '닉네임 ○○ · 바꾸기'(계정당 하나, 바꾸면 내 글·댓글 전체에 반영) */}
               {currentUserId && (
                 <NicknameBar
+                  onEditorsChanged={setIdentity}
                   onChanged={(n) => {
                     setIdentity(n);
                     setMe((m) => (m ? { ...m, nickname: n.nickname, avatar: n.avatar } : m));

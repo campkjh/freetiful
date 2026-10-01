@@ -42,6 +42,8 @@ const EDITOR_PERSONA_IDS = [
   'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
 ];
 const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
+/** 운영진 에디터 이름('프리티풀' 뒤)에 못 쓰는 말 — 회원·예비부부·사회자(판매자)처럼 보이면 안 된다(261001) */
+const EDITOR_NAME_BLOCK = /사회자|엠씨|\bmc\b|회원|고객|이용자|신부|신랑|예비|부부|커플|후기|탈퇴한/i;
 
 type Author = {
   nickname: string;
@@ -474,8 +476,9 @@ export class CommunityService implements OnModuleInit {
       return {
         id: p.id,
         userId: p.userId,
-        nickname: author.nickname,
-        avatar: author.avatar,
+        // 에디터 이름을 바꾸기 전에 올린 글은 그때 이름·사진(authorName) 그대로
+        nickname: p.authorName || author.nickname,
+        avatar: p.authorName ? p.authorAvatar || null : author.avatar,
         authorTier: author.tier,
         authorIsAdmin: author.isAdmin,
         authorIsAnswerKing: author.isAnswerKing,
@@ -543,7 +546,7 @@ export class CommunityService implements OnModuleInit {
       map.set(x.pid, {
         id: x.c.id,
         content: x.c.isActive ? x.c.content : '삭제된 댓글입니다',
-        nickname: a.nickname,
+        nickname: x.c.authorName || a.nickname,
         pinned: x.pinned,
       });
     }
@@ -586,6 +589,47 @@ export class CommunityService implements OnModuleInit {
     const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
     if (!CUSTOM_NICKNAME_EMAILS.has(String(me?.email || '').trim().toLowerCase())) throw new ForbiddenException('운영진 이름으로 올릴 수 없는 계정이에요');
     return { authorId: editorId, postedById: userId };
+  }
+
+  /** 운영진 에디터 이름·사진 바꾸기(261001, 허용 계정만) — 앞의 '프리티풀'은 고정(운영진 글로 보이게).
+   *  바꾸기 직전에 그 에디터의 예전 글·댓글에 그때 이름·사진(authorName·authorAvatar)을 박아 둔다 → 이름을 바꿔도 예전 글은 그대로. */
+  async renameEditor(userId: string, editorId: string, body: any) {
+    const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!CUSTOM_NICKNAME_EMAILS.has(String(me?.email || '').trim().toLowerCase())) throw new ForbiddenException('에디터 이름을 바꿀 수 없는 계정이에요');
+    if (!EDITOR_PERSONA_IDS.includes(editorId)) throw new BadRequestException('바꿀 수 없는 이름이에요');
+    const editor = await this.prisma.user.findUnique({ where: { id: editorId }, select: { id: true, name: true, role: true, profileImageUrl: true } });
+    if (!editor) throw new NotFoundException('에디터를 찾을 수 없어요');
+
+    // '프리티풀' 뒤만 받는다(앞에 붙여 보내도 떼고 다시 붙인다)
+    const rest = String(body?.name ?? '').replace(/\s+/g, ' ').trim().replace(/^프리티풀\s*/, '').trim();
+    if (rest.length < 2 || rest.length > 12) throw new BadRequestException("'프리티풀' 뒤 이름은 2~12자로 정해 주세요");
+    if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(rest)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
+    if (EDITOR_NAME_BLOCK.test(rest)) throw new BadRequestException('회원·예비부부·사회자로 보일 수 있는 말은 쓸 수 없어요');
+    const name = `프리티풀 ${rest}`;
+    const taken = await this.prisma.user.findFirst({ where: { id: { in: EDITOR_PERSONA_IDS.filter((x) => x !== editorId) }, name }, select: { id: true } });
+    if (taken) throw new BadRequestException('다른 에디터가 쓰고 있는 이름이에요');
+
+    // 사진 — 동물 친구 20종만(생략하면 그대로)
+    let avatarUrl: string | undefined;
+    if (body?.avatarUrl) {
+      const m = /\/images\/avatars\/animal-(\d{2})\.webp$/.exec(String(body.avatarUrl));
+      const n = m ? Number(m[1]) : 0;
+      if (n < 1 || n > AVATAR_ANIMALS.length) throw new BadRequestException('동물 친구 사진 중에서 골라 주세요');
+      avatarUrl = animalAvatarUrl(AVATAR_ANIMALS[n - 1]) || undefined;
+    }
+
+    const sameAvatar = avatarUrl === undefined || avatarUrl === editor.profileImageUrl;
+    if (name === editor.name && sameAvatar) return this.getMyNickname(userId);
+    // 지금 보이는 이름·사진(mapAuthors 와 같은 규칙)을 예전 글·댓글에 박고 나서 바꾼다 — 한 번에(중간에 끊기면 아무것도 안 바뀜)
+    const own = (await this.customNicknames([editorId])).get(editorId);
+    const oldName = own?.nickname || communityNickname(editor);
+    const oldAvatar = own?.avatarUrl || editor.profileImageUrl || null;
+    await this.prisma.$transaction([
+      this.prisma.communityPost.updateMany({ where: { userId: editorId, authorName: null }, data: { authorName: oldName, authorAvatar: oldAvatar } }),
+      this.prisma.communityComment.updateMany({ where: { userId: editorId, authorName: null }, data: { authorName: oldName, authorAvatar: oldAvatar } }),
+      this.prisma.user.update({ where: { id: editorId }, data: { name, ...(avatarUrl !== undefined ? { profileImageUrl: avatarUrl } : {}) } }),
+    ]);
+    return this.getMyNickname(userId);
   }
 
   /** 닉네임(+웨딩숲 사진) 저장 — 계정당 하나. avatarUrl: 동물 친구 20종 주소 · null=원래 사진으로 · 없으면 그대로 */
@@ -937,8 +981,9 @@ export class CommunityService implements OnModuleInit {
         id: c.id,
         parentId: c.parentId,
         userId: c.userId,
-        nickname: a.nickname,
-        avatar: a.avatar,
+        // 에디터 이름을 바꾸기 전에 단 댓글은 그때 이름·사진 그대로
+        nickname: c.authorName || a.nickname,
+        avatar: c.authorName ? c.authorAvatar || null : a.avatar,
         authorTier: a.tier,
         authorIsAdmin: a.isAdmin,
         authorIsAnswerKing: a.isAnswerKing,

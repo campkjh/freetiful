@@ -229,6 +229,15 @@ export class CommunityController {
     return this.community.suggestMyNicknames(req.user.id);
   }
 
+  // ── 운영진 에디터 이름·사진 바꾸기(261001) — 허용 계정만, 앞의 '프리티풀' 고정 · 바꿔도 예전 글은 그때 이름 ──
+  @Put('editors/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '운영진 에디터 이름·사진 바꾸기(허용 계정만)' })
+  renameEditor(@Request() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.community.renameEditor(req.user.id, id, body);
+  }
+
   @Get('me/comments')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

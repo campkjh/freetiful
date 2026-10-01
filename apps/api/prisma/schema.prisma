@@ -1175,6 +1175,9 @@ model CommunityPost {
   userId        String?
   /// 운영진 에디터 이름으로 올렸을 때 실제로 쓴 계정(260930 — 허용 계정만, 수정·삭제 권한·기록용)
   postedById    String?
+  /// 에디터 이름을 바꾸기 전에 올린 글의 그때 이름·사진(261001 — 이름을 바꿔도 예전 글은 그대로). null = 지금 계정 이름
+  authorName    String?
+  authorAvatar  String?
   groupId       String
   title         String
   content       String
@@ -1230,6 +1233,9 @@ model CommunityComment {
   userId     String?
   /// 운영진 에디터 이름으로 남겼을 때 실제로 쓴 계정(260930)
   postedById String?
+  /// 에디터 이름을 바꾸기 전에 단 댓글의 그때 이름·사진(261001). null = 지금 계정 이름
+  authorName   String?
+  authorAvatar String?
   content   String
   isActive  Boolean                 @default(true)
   createdAt DateTime                @default(now())

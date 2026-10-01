@@ -18,7 +18,16 @@ function roParticle(word: string) {
   return jong === 0 || jong === 8 ? '로' : '으로';
 }
 
-export default function NicknameBar({ onChanged, className = '' }: { onChanged?: (next: MyNickname) => void; className?: string }) {
+export default function NicknameBar({
+  onChanged,
+  onEditorsChanged,
+  className = '',
+}: {
+  onChanged?: (next: MyNickname) => void;
+  /** 에디터 이름·사진을 바꿨을 때(내 닉네임은 그대로) — 부모가 들고 있는 목록을 갈아 끼운다 */
+  onEditorsChanged?: (next: MyNickname) => void;
+  className?: string;
+}) {
   const userId = useAuthStore((s) => s.user?.id);
   const [me, setMe] = useState<MyNickname | null>(null);
   const [open, setOpen] = useState(false);
@@ -53,7 +62,12 @@ export default function NicknameBar({ onChanged, className = '' }: { onChanged?:
   return (
     <>
       {me.editors?.length ? (
-        <PersonaPicker identity={me} className={`tdet-replying w-full text-left ${className}`} onEditProfile={() => setOpen(true)}>
+        <PersonaPicker
+          identity={me}
+          className={`tdet-replying w-full text-left ${className}`}
+          onEditProfile={() => setOpen(true)}
+          onIdentityUpdated={(next) => { setMe(next); onEditorsChanged?.(next); }}
+        >
           {row}
         </PersonaPicker>
       ) : (

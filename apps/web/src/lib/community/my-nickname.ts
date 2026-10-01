@@ -43,6 +43,16 @@ export async function saveMyNickname(nickname: string, avatarUrl?: string | null
   return r.data;
 }
 
+/** 운영진 에디터 이름·사진 바꾸기(허용 계정만, 261001) — name 은 '프리티풀' 뒤만 · avatarUrl 생략 = 그대로.
+ *  서버가 바꾸기 직전 이름을 그 에디터의 예전 글·댓글에 박아 둬서 예전 글은 그때 이름 그대로 보인다. */
+export async function renameEditor(editorId: string, name: string, avatarUrl?: string): Promise<MyNickname> {
+  const body = avatarUrl ? { name, avatarUrl } : { name };
+  const r = await apiClient.put<MyNickname>(`/api/v1/community/editors/${encodeURIComponent(editorId)}`, body);
+  const user = useAuthStore.getState().user;
+  if (user) cached = { userId: user.id, promise: Promise.resolve(r.data) };
+  return r.data;
+}
+
 /** AI 닉네임 추천 6개 — '꾸밈말 + 동물' + 그 동물 사진 */
 export async function suggestNicknames(): Promise<NicknameSuggestion[]> {
   const r = await apiClient.post<{ items: NicknameSuggestion[] }>('/api/v1/community/me/nickname/suggest');
