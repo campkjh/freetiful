@@ -1,0 +1,780 @@
+/* 결혼의 숲 UI — 둥근 크림색 패널 · 짙은 숲색 글자 · 잎과 꽃을 단순화한 아이콘(제작 프롬프트 13쪽).
+   버튼 반응 100~180ms · 패널 전환 180~280ms. 터치 버튼 44~48px. */
+.wf-root {
+  --wf-cream: #fbf7ee;
+  --wf-cream2: #f3ead8;
+  --wf-line: #e6d9bf;
+  --wf-ink: #2f4a35;
+  --wf-ink2: #5e7462;
+  --wf-green: #5c8f5f;
+  --wf-green2: #46774a;
+  --wf-pink: #e7b7c8;
+  --wf-gold: #e3b866;
+  --wf-warn: #d9785f;
+  --wf-fs: 16px;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #1c2b23;
+  color: var(--wf-ink);
+  font-family: Pretendard, 'Apple SD Gothic Neo', system-ui, sans-serif;
+  font-size: var(--wf-fs);
+  letter-spacing: -0.2px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+.wf-root.wf-big {
+  --wf-fs: 19px;
+}
+.wf-canvas {
+  position: absolute;
+  inset: 0;
+}
+.wf-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.wf-layer > * {
+  pointer-events: auto;
+}
+.wf-safe {
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+
+/* ── 패널 ── */
+.wf-panel {
+  background: var(--wf-cream);
+  border: 3px solid var(--wf-line);
+  border-radius: 26px;
+  box-shadow: 0 18px 50px rgba(28, 40, 30, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.7);
+}
+.wf-card {
+  background: rgba(251, 247, 238, 0.94);
+  border: 2px solid rgba(230, 217, 191, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 8px 22px rgba(28, 40, 30, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.wf-modal-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(24, 34, 26, 0.32);
+  animation: wfFade 220ms ease-out both;
+  pointer-events: auto;
+}
+.wf-modal {
+  width: min(760px, 100%);
+  max-height: min(86vh, 760px);
+  display: flex;
+  flex-direction: column;
+  animation: wfPop 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wf-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 10px;
+}
+.wf-modal-title {
+  font-size: 1.3em;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  flex: 1;
+}
+.wf-modal-body {
+  padding: 4px 20px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 640px) {
+  .wf-modal-wrap {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .wf-modal {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 26px 26px 0 0;
+    border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+@keyframes wfFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes wfPop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── 버튼 ── */
+.wf-btn {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 16px;
+  border: 0;
+  background: var(--wf-green);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--wf-green2);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease, background 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.wf-btn:hover {
+  filter: brightness(1.05);
+}
+.wf-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--wf-green2);
+}
+.wf-btn:disabled {
+  background: #c9c2b3;
+  box-shadow: 0 3px 0 #b3ab9b;
+  cursor: not-allowed;
+  filter: none;
+}
+.wf-btn.ghost {
+  background: var(--wf-cream2);
+  color: var(--wf-ink);
+  box-shadow: 0 3px 0 var(--wf-line);
+}
+.wf-btn.pink {
+  background: #dd8ea7;
+  box-shadow: 0 3px 0 #c47790;
+}
+.wf-btn.gold {
+  background: #d9a84e;
+  box-shadow: 0 3px 0 #bf9040;
+}
+.wf-btn.small {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+}
+.wf-icon-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 18px;
+  border: 2px solid var(--wf-line);
+  background: var(--wf-cream);
+  color: var(--wf-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(28, 40, 30, 0.18);
+  transition: transform 120ms ease, background 160ms ease;
+  font: inherit;
+  position: relative;
+}
+.wf-icon-btn:active {
+  transform: scale(0.94);
+}
+.wf-icon-btn .wf-kbd {
+  position: absolute;
+  right: -7px;
+  top: -7px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+.wf-kbd {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--wf-ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+.wf-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--wf-cream2);
+  color: var(--wf-ink);
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wf-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--wf-line);
+  background: #fff;
+  color: var(--wf-ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wf-chip:active {
+  transform: scale(0.96);
+}
+.wf-chip.on {
+  background: #e3efd9;
+  border-color: var(--wf-green);
+  color: var(--wf-green2);
+}
+.wf-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: var(--wf-cream2);
+  border-radius: 16px;
+}
+.wf-tab {
+  flex: 1;
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--wf-ink2);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.wf-tab.on {
+  background: #fff;
+  color: var(--wf-ink);
+  box-shadow: 0 2px 6px rgba(28, 40, 30, 0.12);
+}
+
+/* ── HUD ── */
+.wf-hud-tl {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(330px, calc(100vw - 100px));
+}
+.wf-clock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.wf-goal {
+  padding: 12px 14px 13px;
+  transition: transform 220ms ease;
+}
+.wf-goal.flash {
+  animation: wfGoal 900ms ease;
+}
+@keyframes wfGoal {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 4px rgba(227, 184, 102, 0.55), 0 8px 22px rgba(28, 40, 30, 0.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.wf-hud-tr {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.wf-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wf-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  will-change: transform;
+}
+.wf-hint-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 999px;
+  background: rgba(251, 247, 238, 0.96);
+  border: 2px solid var(--wf-line);
+  box-shadow: 0 6px 16px rgba(28, 40, 30, 0.2);
+  font-weight: 750;
+  white-space: nowrap;
+  margin-bottom: 8px;
+}
+.wf-toasts {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  width: min(520px, calc(100vw - 32px));
+}
+.wf-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  background: rgba(251, 247, 238, 0.97);
+  border: 2px solid var(--wf-line);
+  box-shadow: 0 8px 20px rgba(28, 40, 30, 0.2);
+  font-weight: 700;
+  animation: wfToast 2600ms ease both;
+  max-width: 100%;
+}
+.wf-toast.warn {
+  border-color: #efc2b1;
+  background: #fff4ef;
+}
+.wf-toast.gold {
+  border-color: #ecd29c;
+  background: #fff8e8;
+}
+@keyframes wfToast {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  8% {
+    opacity: 1;
+    transform: none;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.wf-zone {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(20, 30, 22, 0.55);
+  animation: wfZone 2400ms ease both;
+}
+@keyframes wfZone {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── 대화 ── */
+.wf-dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 28px));
+  padding: 26px 22px 18px;
+  animation: wfPop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  cursor: pointer;
+}
+.wf-name {
+  position: absolute;
+  top: -18px;
+  left: 22px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(28, 40, 30, 0.2);
+}
+.wf-dtext {
+  font-size: 1.12em;
+  line-height: 1.6;
+  min-height: 3.2em;
+  font-weight: 560;
+  word-break: keep-all;
+}
+.wf-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+.wf-next {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  animation: wfBob 900ms ease-in-out infinite;
+  color: var(--wf-green);
+}
+@keyframes wfBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+/* ── 가방 칸 ── */
+.wf-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .wf-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.wf-slot {
+  aspect-ratio: 1;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--wf-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 140ms ease;
+}
+.wf-slot.on {
+  border-color: var(--wf-green);
+  background: #f1f7ea;
+}
+.wf-slot.empty {
+  background: rgba(255, 255, 255, 0.5);
+  cursor: default;
+}
+.wf-qty {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--wf-ink);
+}
+
+/* ── 모바일 조작 ── */
+.wf-joy {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(251, 247, 238, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+.wf-joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(251, 247, 238, 0.92);
+  box-shadow: 0 6px 14px rgba(28, 40, 30, 0.25);
+}
+.wf-action {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid var(--wf-line);
+  background: var(--wf-cream);
+  color: var(--wf-ink);
+  font: inherit;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(28, 40, 30, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  text-align: center;
+  font-size: 13px;
+  padding: 6px;
+}
+.wf-action.on {
+  background: #e3efd9;
+  border-color: var(--wf-green);
+}
+
+/* ── 연출 ── */
+.wf-letterbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #101611;
+  transition: transform 500ms ease;
+  pointer-events: none;
+}
+.wf-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(9vh + 18px);
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 32px));
+  text-align: center;
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  word-break: keep-all;
+}
+.wf-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: wfCount 900ms ease both;
+}
+@keyframes wfCount {
+  0% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+.wf-fade {
+  position: absolute;
+  inset: 0;
+  background: #f7f2e7;
+  pointer-events: none;
+  transition: opacity 320ms ease;
+}
+.wf-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── 타이틀 ── */
+.wf-title-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 7vh;
+  background: linear-gradient(180deg, rgba(20, 32, 24, 0.0) 55%, rgba(20, 32, 24, 0.35) 100%);
+}
+.wf-logo {
+  font-size: clamp(44px, 7vw, 76px);
+  font-weight: 900;
+  letter-spacing: -2px;
+  color: #fff;
+  text-shadow: 0 4px 22px rgba(30, 50, 34, 0.45);
+  line-height: 1;
+}
+.wf-sub {
+  margin-top: 10px;
+  padding: 0 18px;
+  color: #fffdf6;
+  font-weight: 650;
+  text-shadow: 0 2px 10px rgba(30, 50, 34, 0.5);
+  text-align: center;
+  word-break: keep-all;
+}
+.wf-title-panel {
+  margin-top: auto;
+  margin-bottom: max(24px, env(safe-area-inset-bottom));
+  padding: 16px;
+  width: min(400px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+@media (min-width: 900px) {
+  /* 넓은 화면 — 오른쪽 아래(가운데 캐릭터를 가리지 않게) */
+  .wf-title-panel {
+    position: absolute;
+    right: 32px;
+    bottom: 32px;
+    margin: 0;
+    width: 360px;
+  }
+}
+.wf-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--wf-line);
+  cursor: pointer;
+}
+.wf-swatch.on {
+  box-shadow: 0 0 0 3px var(--wf-green);
+}
+.wf-input {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 2px solid var(--wf-line);
+  background: #fff;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--wf-ink);
+  outline: none;
+  width: 100%;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.wf-input:focus {
+  border-color: var(--wf-green);
+}
+.wf-range {
+  width: 100%;
+  accent-color: var(--wf-green);
+  height: 32px;
+}
+.wf-label {
+  font-size: 0.86em;
+  font-weight: 700;
+  color: var(--wf-ink2);
+  margin-bottom: 6px;
+}
+.wf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wf-sep {
+  height: 2px;
+  background: var(--wf-line);
+  border-radius: 2px;
+  margin: 14px 0;
+}
+.wf-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--wf-cream2);
+  overflow: hidden;
+}
+.wf-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--wf-green);
+  border-radius: 999px;
+  transition: width 260ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-root *,
+  .wf-root *::before,
+  .wf-root *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+/* 터치 기기에선 키보드 표시를 숨긴다 */
+.wf-touch .wf-pc-only {
+  display: none !important;
+}
+@media (pointer: coarse) {
+  .wf-pc-only {
+    display: none !important;
+  }
+}
+/* 작은 화면 — HUD 를 조금 작게 */
+@media (max-width: 640px) {
+  .wf-hud-tl {
+    width: min(270px, calc(100vw - 86px));
+    gap: 8px;
+  }
+  .wf-goal {
+    padding: 10px 12px;
+    font-size: 0.92em;
+  }
+  .wf-icon-btn {
+    width: 46px;
+    height: 46px;
+  }
+  .wf-menu {
+    gap: 8px;
+  }
+}
