@@ -104,6 +104,37 @@ function toneFromHue(h: number, s: number): ImageTone {
   };
 }
 
+/**
+ * 고른 표시(체크 원·테두리)용 진한 색 — 카드 바탕과 **같은 색상**을 진하게(261002 사장 '체크가 무조건 파랑 말고 그 사회자 톤에 맞게').
+ *  노랑·연두 쪽은 같은 밝기면 흰 체크가 안 보여 조금 더 어둡게. 무채색(회색 톤 카드)은 진한 슬레이트 회색.
+ *  soft = 같은 색 26% — 퍼진 그림자용.
+ */
+export function toneAccent(tone: ImageTone | null | undefined): { solid: string; soft: string } | null {
+  if (!tone) return null;
+  const m = /hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/.exec(tone.line || tone.bg);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const s = Number(m[2]) / 100;
+  const gray = s < 0.16;
+  const S = gray ? 0.13 : Math.min(0.78, s * 1.25 + 0.14);
+  // 흰 체크가 또렷하게 — 흰색 대비 3.3:1 이 될 때까지 어둡게(청록·하늘·노랑은 같은 밝기여도 훨씬 밝아 보인다)
+  let L = gray ? 0.42 : 0.5;
+  while (L > 0.28 && contrastWithWhite(h, S, L) < 3.3) L -= 0.02;
+  return { solid: hsl(h, S, L), soft: `hsla(${Math.round(h)}, ${Math.round(S * 100)}%, ${Math.round(L * 1000) / 10}%, 0.26)` };
+}
+
+/** hsl → 흰색과의 명암비(WCAG 상대 휘도) */
+function contrastWithWhite(h: number, s: number, l: number): number {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const Y = 0.2126 * lin(f(0)) + 0.7152 * lin(f(8)) + 0.0722 * lin(f(4));
+  return 1.05 / (Y + 0.05);
+}
+
 /** 픽셀 → 카드 색. API(business-image-tone.service)와 같은 계산 */
 function toneFromPixels(data: Uint8ClampedArray, W: number, H: number, mode: ToneMode): ImageTone | null {
   const BINS = 24;

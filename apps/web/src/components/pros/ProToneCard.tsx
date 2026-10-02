@@ -11,7 +11,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { discoveryApi } from '@/lib/api/discovery.api';
-import { useImageTone } from '@/lib/image-tone';
+import { toneAccent, useImageTone } from '@/lib/image-tone';
 
 export type ProToneCardData = {
   id: string;
@@ -74,12 +74,18 @@ export default function ProToneCard({
   const tone = useImageTone(image);
   const sub = tone?.sub || '#6B7684';
   const Z = SIZES[size];
+  // 고른 표시 색 = 이 사회자 사진 톤을 진하게(무조건 파랑 아님 — 261002 사장). 사진 위 체크 원도 --tone-accent 로 같은 색
+  const acc = toneAccent(tone);
+  const accSolid = acc?.solid || '#3182F6';
+  const accSoft = acc?.soft || 'rgba(49,130,246,0.22)';
   const shellStyle: CSSProperties = {
     backgroundColor: tone?.bg || '#F2F4F6',
-    borderColor: selected ? '#3182F6' : tone?.line || '#EAEDF0',
+    borderColor: selected ? accSolid : tone?.line || '#EAEDF0',
     transition: 'background-color .5s ease, border-color .25s ease, box-shadow .25s ease',
     ...(size === 'lg' ? { borderRadius: Z.radius } : {}),
-    ...(selected ? { boxShadow: '0 0 0 1.5px #3182F6, 0 14px 34px rgba(49,130,246,0.22)' } : {}),
+    ...(selected ? { boxShadow: `0 0 0 1.5px ${accSolid}, 0 14px 34px ${accSoft}` } : {}),
+    ['--tone-accent' as string]: accSolid,
+    ['--tone-accent-soft' as string]: accSoft,
     ...style,
   };
   const inner = (

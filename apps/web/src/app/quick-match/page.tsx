@@ -145,7 +145,15 @@ function toneOf(p: ProListItem): ProToneCardData {
   };
 }
 
-function QmProCarousel({ pros, selected, onToggle }: { pros: ProListItem[]; selected: Set<string>; onToggle: (id: string) => void }) {
+function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone }: {
+  pros: ProListItem[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  /** 전체선택 연출 — 켜지면 첫 장부터 끝 장까지 촤라락 넘기며 한 장씩 체크하고 onRunAllDone */
+  runAll?: boolean;
+  onSelectOne?: (id: string) => void;
+  onRunAllDone?: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [video, setVideo] = useState<ProListItem | null>(null);
@@ -169,6 +177,49 @@ function QmProCarousel({ pros, selected, onToggle }: { pros: ProListItem[]; sele
     setActive((prev) => (prev === i ? prev : i));
   };
   const go = (i: number) => ref.current?.scrollTo({ left: i * step(), behavior: 'smooth' });
+
+  /* 전체선택 — 스냅을 잠시 끄고 rAF 로 한 장씩 빠르게 넘기며(장당 0.14초) 도착한 카드를 체크한다.
+     ⚠ 스냅을 켠 채 scrollLeft 를 옮기면 브라우저가 중간에 가까운 칸으로 끌어당겨 덜컹거린다. */
+  const selectOneRef = useRef(onSelectOne);
+  selectOneRef.current = onSelectOne;
+  const runDoneRef = useRef(onRunAllDone);
+  runDoneRef.current = onRunAllDone;
+  useEffect(() => {
+    if (!runAll) return;
+    const el = ref.current;
+    if (!el) return;
+    let cancelled = false;
+    const ids = pros.map((p) => p.id);
+    const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+    const slideTo = (target: number, ms: number) => new Promise<void>((resolve) => {
+      const from = el.scrollLeft;
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        if (cancelled) { resolve(); return; }
+        const k = Math.min(1, (now - t0) / ms);
+        el.scrollLeft = from + (target - from) * (1 - Math.pow(1 - k, 3));
+        if (k < 1) requestAnimationFrame(tick); else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    (async () => {
+      el.style.scrollSnapType = 'none';
+      const st = step();
+      const max = el.scrollWidth - el.clientWidth;
+      for (let i = 0; i < ids.length; i++) {
+        if (cancelled) return;
+        await slideTo(Math.min(i * st, max), i === 0 ? 220 : 140);
+        if (cancelled) return;
+        selectOneRef.current?.(ids[i]);
+        await wait(55);
+      }
+      await wait(420);
+      el.style.scrollSnapType = '';
+      if (!cancelled) runDoneRef.current?.();
+    })();
+    return () => { cancelled = true; el.style.scrollSnapType = ''; };
+  }, [runAll]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
     <div className="qm-cwrap qm-a-item" style={stag(1)}>
@@ -183,7 +234,7 @@ function QmProCarousel({ pros, selected, onToggle }: { pros: ProListItem[]; sele
                 pro={tones[i]}
                 index={i}
                 selected={on}
-                onPress={() => { if (i !== active) go(i); else onToggle(p.id); }}
+                onPress={() => { if (runAll) return; if (i !== active) go(i); else onToggle(p.id); }}
                 photoOverlay={
                   <>
                     <span className={`qm-ccheck ${on ? 'on' : ''}`} aria-hidden="true">
@@ -515,12 +566,14 @@ export default function QuickMatchPage() {
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectingAll, setSelectingAll] = useState(false);
+  /** 전체선택 연출 중(카드 줄이 넘기며 체크) */
+  const [selectAllRun, setSelectAllRun] = useState(false);
   /** 찾는 중 화면이 데이터를 기다리는지 — 받기 끝나면(성공·실패 모두) true */
   const [poolReady, setPoolReady] = useState(false);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
-  useEffect(() => { if (step === 'results') setSelectingAll(false); }, [step]);
+  useEffect(() => { if (step === 'results') { setSelectingAll(false); setSelectAllRun(false); } }, [step]);
 
   // 단일선택 자동 진행. 빠른 연속 탭만 디바운스로 막고, 절대 영구히 막히지 않게 타임스탬프로 관리.
   const lastAdvanceRef = useRef(0);
@@ -593,13 +646,13 @@ export default function QuickMatchPage() {
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function reroll() { if (!canReroll) return; setRerolled(true); setSelected(new Set()); }
+  /** 전체선택 — 카드 줄이 첫 장부터 촤라락 넘기며 한 장씩 체크하고, 끝나면 다음 단계(QmProCarousel runAll) */
   function selectAllAndGo() {
     if (selectingAll) return;
     setSelectingAll(true);
-    const ids = displayed.map((p) => p.id);
-    setSelected(new Set()); // 처음부터 하나씩 체크되는 애니메이션이 보이도록 초기화
-    ids.forEach((id, i) => setTimeout(() => setSelected((prev) => new Set(prev).add(id)), 60 + i * 130));
-    setTimeout(goAfterSelect, 60 + ids.length * 130 + 380);
+    setSelected(new Set()); // 처음부터 하나씩 체크되는 게 보이도록 비운다
+    if (loadErr || displayed.length === 0) { setSelectingAll(false); return; }
+    setSelectAllRun(true);
   }
   /** 고른 사회자로 다음 단계 — 번호가 가는 신청이면 연락 방식, 아니면 프리티풀 채팅으로 번호 입력 */
   function goAfterSelect() {
@@ -757,18 +810,19 @@ export default function QuickMatchPage() {
 
       {step === 'results' && (
         <div className="qm-page" key="results">
-          <Header onBack={() => back('gender')} progress={progressOf('results')} />
+          {/* 다른 사회자 보기(리롤)는 머리 오른쪽, 'N명 선택됨' 줄은 없앰(261002 사장) — 고른 수는 아래 버튼('N명 선택 완료')이 말한다 */}
+          <Header onBack={() => back('gender')} progress={progressOf('results')}
+            right={<button type="button" className="qm-hreroll" onClick={reroll} disabled={!canReroll || selectingAll}><Ic name="refresh" size={15} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>} />
           <main className="qm-main tight">
             <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{displayed.length || 5}명</b>을 찾았어요</h1>
             <p className="qm-sub qm-a-sub">옆으로 넘겨 보고, 의뢰할 사회자를 눌러 선택하세요. 여러 명 선택할 수 있어요.</p>
-            <div className="qm-resbar qm-a-item" style={stag(0)}>
-              <span>{selected.size}명 선택됨</span>
-              <button type="button" className="qm-reroll" onClick={reroll} disabled={!canReroll}><Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>
-            </div>
             {loadErr ? (
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
             ) : (
-              <QmProCarousel pros={displayed} selected={selected} onToggle={toggle} />
+              <QmProCarousel pros={displayed} selected={selected} onToggle={toggle}
+                runAll={selectAllRun}
+                onSelectOne={(id) => setSelected((prev) => new Set(prev).add(id))}
+                onRunAllDone={() => { setSelectAllRun(false); goAfterSelect(); }} />
             )}
           </main>
           <div className="qm-ctawrap qm-btnrow">
@@ -863,7 +917,7 @@ const QUICK_PROGRESS: Partial<Record<Step, { at: number; from: number; to: numbe
   gender: { at: 5, from: 4, to: 5 },
 };
 
-function Header({ onBack, progress }: { onBack: () => void; progress?: { at: number; total: number; from: number; to: number } }) {
+function Header({ onBack, progress, right }: { onBack: () => void; progress?: { at: number; total: number; from: number; to: number }; right?: React.ReactNode }) {
   return (
     <header className="qm-header">
       <button type="button" onClick={onBack} aria-label="뒤로"><Ic name="back" size={26} color="#191F28" /></button>
@@ -878,6 +932,7 @@ function Header({ onBack, progress }: { onBack: () => void; progress?: { at: num
           <span className="qm-progress-t"><b>{progress.at}</b> / {progress.total}</span>
         </div>
       )}
+      {right && <div className="qm-header-right">{right}</div>}
     </header>
   );
 }
@@ -1013,11 +1068,10 @@ const CSS = `
 @keyframes qm-s-shine{from{background-position:200% 0}to{background-position:0 0}}
 @keyframes qm-s-fade{to{opacity:0}}
 @media (prefers-reduced-motion:reduce){.qm-s-title.in,.qm-s-title.out,.qm-s-row.new{animation:none;}}
-.qm-resbar{display:flex;align-items:center;justify-content:space-between;margin:18px 4px 0;}
-.qm-resbar>span{font-size:13px;font-weight:600;color:var(--t-sub);}
-.qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;}
-.qm-reroll:active{background:var(--divider);}
-.qm-reroll:disabled{opacity:.4;cursor:default;}
+.qm-header-right{margin-left:auto;padding-right:12px;display:flex;align-items:center;}
+.qm-header .qm-hreroll{width:auto;height:34px;display:flex;align-items:center;gap:5px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13.5px;font-weight:600;padding:0 13px 0 11px;border-radius:999px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.qm-header .qm-hreroll:active{background:var(--divider);}
+.qm-header .qm-hreroll:disabled{opacity:.4;cursor:default;}
 /* 사회자 카드 줄 — 상세 히어로와 같은 넘기기(왼쪽 정렬·peek·스냅·0.9배) */
 .qm-cwrap{margin:2px -16px 0;}
 .qm-carousel{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:14px 18px 20px;scroll-snap-type:x mandatory;scroll-padding-left:18px;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;}
@@ -1029,7 +1083,7 @@ const CSS = `
 .qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:#D5DAE0;transition:background-color .3s;cursor:pointer;}
 .qm-cdots button.on{background:#191F28;}
 .qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .2s,box-shadow .2s,transform .25s cubic-bezier(.34,1.56,.64,1);}
-.qm-ccheck.on{background:var(--blue);box-shadow:0 4px 12px rgba(49,130,246,.4);transform:scale(1.06);}
+.qm-ccheck.on{background:var(--tone-accent,var(--blue));box-shadow:0 4px 12px var(--tone-accent-soft,rgba(49,130,246,.4));transform:scale(1.06);}
 .qm-ccheck path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
 .qm-cvideo{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 13px 0 11px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
 .qm-cvideo:active{background:rgba(0,0,0,.5);}
@@ -1073,7 +1127,7 @@ const CSS = `
   .qm-opt:hover:not(.on){border-color:#C4CCD4;background:#FBFCFD;}
   .qm-cta:hover:not(:disabled){background:var(--blue-press);}
   .qm-btnrow .qm-cta.ghost:hover{background:#E5E8EB;}
-  .qm-reroll:hover{background:var(--divider);}
+  .qm-header .qm-hreroll:hover:not(:disabled){background:var(--divider);}
   .qm-header button:hover{background:var(--divider);}
   /* PC 틀(430×824) — 카드가 버튼 줄에 가리지 않게 */
   .qm-cslide{flex-basis:272px;}
