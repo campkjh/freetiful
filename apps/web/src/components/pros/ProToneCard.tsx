@@ -74,18 +74,16 @@ export default function ProToneCard({
   const tone = useImageTone(image);
   const sub = tone?.sub || '#6B7684';
   const Z = SIZES[size];
-  // 고른 표시 색 = 이 사회자 사진 톤을 진하게(무조건 파랑 아님 — 261002 사장). 사진 위 체크 원도 --tone-accent 로 같은 색
-  const acc = toneAccent(tone);
-  const accSolid = acc?.solid || '#3182F6';
-  const accSoft = acc?.soft || 'rgba(49,130,246,0.22)';
+  // 고른 표시 색 = 이 사회자 사진 톤(무조건 파랑 아님, 연하게 — 261002 사장). 사진 위 체크 원도 --tone-accent 로 같은 색
+  const accSolid = toneAccent(tone) || '#3182F6';
   const shellStyle: CSSProperties = {
     backgroundColor: tone?.bg || '#F2F4F6',
     borderColor: selected ? accSolid : tone?.line || '#EAEDF0',
     transition: 'background-color .5s ease, border-color .25s ease, box-shadow .25s ease',
     ...(size === 'lg' ? { borderRadius: Z.radius } : {}),
-    ...(selected ? { boxShadow: `0 0 0 1.5px ${accSolid}, 0 14px 34px ${accSoft}` } : {}),
+    // 고른 표시 = 테두리만(퍼진 그림자 없음 — 261002 사장 '셀렉했을 때 쉐도우 없애줘'). 1px 테두리를 1.5px 띠로 또렷하게
+    ...(selected ? { boxShadow: `0 0 0 1.5px ${accSolid}` } : {}),
     ['--tone-accent' as string]: accSolid,
-    ['--tone-accent-soft' as string]: accSoft,
     ...style,
   };
   const inner = (

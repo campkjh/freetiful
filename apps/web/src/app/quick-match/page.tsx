@@ -1083,7 +1083,7 @@ const CSS = `
 .qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:#D5DAE0;transition:background-color .3s;cursor:pointer;}
 .qm-cdots button.on{background:#191F28;}
 .qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .2s,box-shadow .2s,transform .25s cubic-bezier(.34,1.56,.64,1);}
-.qm-ccheck.on{background:var(--tone-accent,var(--blue));box-shadow:0 4px 12px var(--tone-accent-soft,rgba(49,130,246,.4));transform:scale(1.06);}
+.qm-ccheck.on{background:var(--tone-accent,var(--blue));box-shadow:none;transform:scale(1.06);}
 .qm-ccheck path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
 .qm-cvideo{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 13px 0 11px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
 .qm-cvideo:active{background:rgba(0,0,0,.5);}

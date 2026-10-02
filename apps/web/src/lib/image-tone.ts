@@ -105,22 +105,23 @@ function toneFromHue(h: number, s: number): ImageTone {
 }
 
 /**
- * 고른 표시(체크 원·테두리)용 진한 색 — 카드 바탕과 **같은 색상**을 진하게(261002 사장 '체크가 무조건 파랑 말고 그 사회자 톤에 맞게').
- *  노랑·연두 쪽은 같은 밝기면 흰 체크가 안 보여 조금 더 어둡게. 무채색(회색 톤 카드)은 진한 슬레이트 회색.
- *  soft = 같은 색 26% — 퍼진 그림자용.
+ * 고른 표시(체크 원·테두리)용 색 — 카드 바탕과 **같은 색상**(261002 사장 '체크가 무조건 파랑 말고 그 사회자 톤에 맞게',
+ *  이어서 '진하게 하지 말고 좀 연하게'). 무채색(회색 톤 카드)은 연한 슬레이트 회색.
+ *  고른 카드에 퍼진 그림자는 두지 않는다(같은 날 '셀렉했을 때 쉐도우 없애줘').
  */
-export function toneAccent(tone: ImageTone | null | undefined): { solid: string; soft: string } | null {
+export function toneAccent(tone: ImageTone | null | undefined): string | null {
   if (!tone) return null;
   const m = /hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/.exec(tone.line || tone.bg);
   if (!m) return null;
   const h = Number(m[1]);
   const s = Number(m[2]) / 100;
   const gray = s < 0.16;
-  const S = gray ? 0.13 : Math.min(0.78, s * 1.25 + 0.14);
-  // 흰 체크가 또렷하게 — 흰색 대비 3.3:1 이 될 때까지 어둡게(청록·하늘·노랑은 같은 밝기여도 훨씬 밝아 보인다)
-  let L = gray ? 0.42 : 0.5;
-  while (L > 0.28 && contrastWithWhite(h, S, L) < 3.3) L -= 0.02;
-  return { solid: hsl(h, S, L), soft: `hsla(${Math.round(h)}, ${Math.round(S * 100)}%, ${Math.round(L * 1000) / 10}%, 0.26)` };
+  // 연하게(261002 사장 '진하게 하지 말고 좀 연하게') — 밝기 62%·채도 낮춤.
+  // 다만 흰 체크가 사라지지 않게 흰색 대비 2:1 아래로만 내려가지 않게(청록·노랑처럼 원래 밝은 색만 살짝 내림)
+  const S = gray ? 0.12 : Math.min(0.6, s * 1.05 + 0.1);
+  let L = 0.62;
+  while (L > 0.4 && contrastWithWhite(h, S, L) < 2) L -= 0.02;
+  return hsl(h, S, L);
 }
 
 /** hsl → 흰색과의 명암비(WCAG 상대 휘도) */
