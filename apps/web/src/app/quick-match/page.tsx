@@ -1463,8 +1463,9 @@ const CSS = `
 .qm-tchips{position:relative;display:flex;gap:8px;margin:12px -24px 0;padding:0 24px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;}
 .qm-tchips::-webkit-scrollbar{display:none;}
 .qm-tchips.min{margin:8px 0 0;padding:0;overflow:visible;}
-.qm-tchip{flex:none;min-width:62px;height:40px;padding:0 14px;border:0;border-radius:12px;background:#F2F4F6;font-family:inherit;font-size:16px;font-weight:600;color:#6B7684;letter-spacing:-.2px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s,color .2s,transform .12s;}
-.qm-tchips.min .qm-tchip{flex:1;min-width:0;padding:0;}
+/* 시·분 칩 = 같은 너비(261002 사장 '시간 피커 너비만큼 분 피커도 동일하게') — 보이는 폭(내용 칸)을 6칸으로 나눈 값.
+   그래서 시 줄이 09시부터 놓이면 09~14시가 00~50분 바로 위에 칸 맞춰 선다(시 줄은 옆으로 넘김, 분 줄은 꽉 참) */
+.qm-tchip{flex:0 0 calc((100% - 40px) / 6);min-width:0;height:40px;padding:0;border:0;border-radius:12px;background:#F2F4F6;font-family:inherit;font-size:16px;font-weight:600;color:#6B7684;letter-spacing:-.2px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .2s,color .2s,transform .12s;}
 .qm-tchip:active:not(:disabled){transform:scale(.95);}
 .qm-tchip:disabled{background:#F9FAFB;color:#D1D6DB;cursor:default;}
 .qm-tchip.on{background:#E8F3FF;color:#3182F6;font-weight:700;}
