@@ -6,7 +6,7 @@
 //  왼쪽 위 경력 배지(검은 반투명 유리) · 이름 17 굵게 + 파트너 체크 · 한 줄 정보(★ 평점 (리뷰) | 지역) · 소개 한 줄 · 흰 반투명 칩(한 줄만).
 //  PC 는 누르면 페이지를 떠나지 않고 오른쪽 미리보기(onQuickView), 모바일·새 탭은 상세로 이동.
 //  퀵매칭(261002 사장 '퀵매칭 사회자 카드를 홈 사회자 카드처럼, 상세 프로필 사진처럼 넘기게')은 같은 카드를
-//  size='lg' + onPress(링크 대신 고르기) + selected(파란 테두리) + photoOverlay(체크·영상 버튼)로 쓴다.
+//  size='lg' + onPress(링크 대신 고르기) + selected(사진 톤 색 테두리) + photoOverlay(체크·포트폴리오 버튼)로 쓴다.
 //  ⚠ 이 넷을 안 주면 예전과 글자 하나 다르지 않게 그린다(/pros PC).
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
@@ -65,9 +65,9 @@ export default function ProToneCard({
   /** 링크 대신 누름 동작(퀵매칭 — 고르기). 주면 상세로 가지 않는다 */
   onPress?: () => void;
   size?: 'md' | 'lg';
-  /** 고른 상태 — 파란 테두리 + 퍼진 파란 그림자 */
+  /** 고른 상태 — 사진 톤 색 테두리(그림자 없음, 스르르 나타남) */
   selected?: boolean;
-  /** 사진 위에 얹을 것(퀵매칭: 체크 · 영상 보기) */
+  /** 사진 위에 얹을 것(퀵매칭: 체크 · 포트폴리오) */
   photoOverlay?: ReactNode;
 }) {
   const image = pro.image || '/images/default-profile.png';
@@ -76,13 +76,16 @@ export default function ProToneCard({
   const Z = SIZES[size];
   // 고른 표시 색 = 이 사회자 사진 톤(무조건 파랑 아님, 연하게 — 261002 사장). 사진 위 체크 원도 --tone-accent 로 같은 색
   const accSolid = toneAccent(tone) || '#3182F6';
+  /* 고른 테두리 = 1px 테두리 색 + 바깥 1px 띠(퍼진 그림자 없음 — 같은 날 '셀렉했을 때 쉐도우 없애줘').
+     툭 생기지 않게 띠가 0→1px 로 번지며 색이 차오르고, 빠질 때도 같은 속도로('체크되면 보더 생기는 게 딱딱해, 부드럽게').
+     transform 도 같이 적는다 — 이 inline transition 이 card-press 의 transform 전환을 덮어써 누를 때 뚝 줄었다 커졌다 했다. */
+  const soft = '.45s cubic-bezier(.4,0,.2,1)';
   const shellStyle: CSSProperties = {
     backgroundColor: tone?.bg || '#F2F4F6',
     borderColor: selected ? accSolid : tone?.line || '#EAEDF0',
-    transition: 'background-color .5s ease, border-color .25s ease, box-shadow .25s ease',
+    transition: `background-color .5s ease, border-color ${soft}, box-shadow ${soft}, transform .2s cubic-bezier(.4,0,.2,1)`,
     ...(size === 'lg' ? { borderRadius: Z.radius } : {}),
-    // 고른 표시 = 테두리만(퍼진 그림자 없음 — 261002 사장 '셀렉했을 때 쉐도우 없애줘'). 1px 테두리를 1.5px 띠로 또렷하게
-    ...(selected ? { boxShadow: `0 0 0 1.5px ${accSolid}` } : {}),
+    boxShadow: selected ? `0 0 0 1px ${accSolid}` : '0 0 0 0 transparent',
     ['--tone-accent' as string]: accSolid,
     ...style,
   };

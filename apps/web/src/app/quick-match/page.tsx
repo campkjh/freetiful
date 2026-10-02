@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm } from '@/lib/landing-track';
@@ -128,8 +128,9 @@ const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
  * 다음 사진 나오는 것처럼 다음 사회자 나오게".
  *  카드 = components/pros/ProToneCard(홈·/pros 와 같은 컴포넌트) size='lg'.
  *  넘기기 = 상세 히어로와 같은 방식: 왼쪽 정렬 + 다음 카드 살짝 보임(peek) + 스크롤 스냅 + 가운데 아닌 카드는 0.9배 + 아래 점.
+ *   크기는 넘기는 위치를 따라 매 프레임 이어서 바뀐다(같은 날 '스와이프도 부드럽게' — 예전엔 반쯤 넘어간 순간 0.3초 전환이 툭 걸렸다).
  *  누르기: 보고 있는 카드 = 고르기/빼기(오른쪽 위 체크가 그려진다), 옆에 걸친 카드 = 그 카드로 넘어가기.
- *  영상은 카드 위 '영상' 유리 버튼 → 아래 시트에서 재생(홈 카드엔 영상 썸네일을 안 올린다 — 사장 지시). */
+ *  영상은 카드 위 '포트폴리오 ›' 유리 버튼(같은 날 '영상' → '포트폴리오 >') → 아래 시트에서 재생(홈 카드엔 영상 썸네일을 안 올린다 — 사장 지시). */
 function toneOf(p: ProListItem): ProToneCardData {
   return {
     id: p.id,
@@ -145,6 +146,56 @@ function toneOf(p: ProListItem): ProToneCardData {
   };
 }
 
+/** 카드 한 칸 = 카드 폭 + 틈 12 */
+function slideStep(row: HTMLElement | null) {
+  const first = row?.firstElementChild as HTMLElement | null;
+  return first ? first.offsetWidth + 12 : 1;
+}
+
+/** 카드 한 장 — 넘기는 중(active 만 바뀔 때)엔 다시 그리지 않게 memo. 크기(transform)는 줄(QmProCarousel)이 DOM 에 직접 칠한다 */
+const QmSlide = memo(function QmSlide({ p, tone, index, on, vids, bind, onPress, onPortfolio }: {
+  p: ProListItem;
+  tone: ProToneCardData;
+  index: number;
+  on: boolean;
+  vids: number;
+  bind: (i: number, el: HTMLDivElement | null) => void;
+  onPress: (i: number) => void;
+  onPortfolio: (p: ProListItem) => void;
+}) {
+  return (
+    <div ref={(el) => bind(index, el)} className="qm-cslide">
+      <ProToneCard
+        size="lg"
+        pro={tone}
+        index={index}
+        selected={on}
+        onPress={() => onPress(index)}
+        photoOverlay={
+          <>
+            <span className={`qm-ccheck ${on ? 'on' : ''}`} aria-hidden="true">
+              {on && (
+                <svg viewBox="0 0 26 26" width="20" height="20" fill="none">
+                  <path d="M5.5 13.5 L10.8 18.6 L20.5 8" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+                </svg>
+              )}
+            </span>
+            {vids > 0 && (
+              <button type="button" className="qm-cport" aria-label={`${p.name} 포트폴리오 보기`}
+                onClick={(e) => { e.stopPropagation(); onPortfolio(p); }}>
+                포트폴리오
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+                  <path d="M9.5 6 15.5 12 9.5 18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </>
+        }
+      />
+    </div>
+  );
+});
+
 function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone }: {
   pros: ProListItem[];
   selected: Set<string>;
@@ -155,28 +206,72 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
   onRunAllDone?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const slides = useRef<(HTMLDivElement | null)[]>([]);
   const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
   const [video, setVideo] = useState<ProListItem | null>(null);
   const tones = useMemo(() => pros.map(toneOf), [pros]);
   const videoCount = useMemo(() => pros.map((p) => extractYoutubeIds(p.youtubeUrl).length), [pros]);
   const idsKey = pros.map((p) => p.id).join(',');
-  // 다른 사회자 보기(리롤)로 명단이 바뀌면 첫 카드부터
-  useEffect(() => {
-    ref.current?.scrollTo({ left: 0 });
-    setActive(0);
-  }, [idsKey]);
-  /** 카드 한 칸 = 카드 폭 + 틈 12 */
-  const step = () => {
-    const first = ref.current?.firstElementChild as HTMLElement | null;
-    return first ? first.offsetWidth + 12 : 1;
-  };
-  const onScroll = () => {
+  const count = pros.length;
+
+  /* 크기 칠하기 — 지금 스크롤 위치가 어느 두 카드 사이 몇 % 인지 재서 그 두 장만 1배↔0.9배를 나눠 갖는다(나머지는 0.9배).
+     손가락을 따라 이어서 줄고 커지니 '툭' 이 없다. 끝 쪽 카드는 왼쪽 정렬까지 못 가고 스크롤 끝에서 멈추므로
+     칸 위치를 스크롤 끝으로 자른 값으로 잰다. React 상태는 점·누르기 판정용 active 만, 바뀔 때만 넣는다. */
+  const raf = useRef(0);
+  const paint = useCallback(() => {
+    raf.current = 0;
     const el = ref.current;
     if (!el) return;
-    const i = Math.max(0, Math.min(pros.length - 1, Math.round(el.scrollLeft / step())));
-    setActive((prev) => (prev === i ? prev : i));
+    const st = slideStep(el);
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const at = (i: number) => Math.min(i * st, max);
+    const x = el.scrollLeft;
+    let k = 0;
+    while (k < count - 1 && at(k + 1) <= x) k++;
+    const a = at(k);
+    const b = k < count - 1 ? at(k + 1) : a;
+    const t = b > a ? Math.min(1, Math.max(0, (x - a) / (b - a))) : 0;
+    slides.current.forEach((s, i) => {
+      if (!s) return;
+      const d = i === k ? t : i === k + 1 ? 1 - t : 1;
+      s.style.transform = `scale(${(1 - 0.1 * d).toFixed(4)})`;
+    });
+    const now = t < 0.5 ? k : k + 1;
+    if (now !== activeRef.current) {
+      activeRef.current = now;
+      setActive(now);
+    }
+  }, [count]);
+  const onScroll = () => {
+    if (!raf.current) raf.current = requestAnimationFrame(paint);
   };
-  const go = (i: number) => ref.current?.scrollTo({ left: i * step(), behavior: 'smooth' });
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  useEffect(() => {
+    window.addEventListener('resize', paint);
+    return () => window.removeEventListener('resize', paint);
+  }, [paint]);
+  // 다른 사회자 보기(리롤)로 명단이 바뀌면 첫 카드부터(첫 그림 전에 크기까지 칠해 둔다)
+  useLayoutEffect(() => {
+    ref.current?.scrollTo({ left: 0 });
+    paint();
+  }, [idsKey, paint]);
+  const go = useCallback((i: number) => {
+    ref.current?.scrollTo({ left: i * slideStep(ref.current), behavior: 'smooth' });
+  }, []);
+  const bind = useCallback((i: number, el: HTMLDivElement | null) => { slides.current[i] = el; }, []);
+  // 카드 누르기 — 넘기는 중 다시 그리지 않으려고 최신 값은 ref 로 읽는다(memo 된 QmSlide 에 늘 같은 함수)
+  const runAllRef = useRef(runAll);
+  runAllRef.current = runAll;
+  const toggleRef = useRef(onToggle);
+  toggleRef.current = onToggle;
+  const idsRef = useRef<string[]>([]);
+  idsRef.current = pros.map((p) => p.id);
+  const pressSlide = useCallback((i: number) => {
+    if (runAllRef.current) return;
+    if (i !== activeRef.current) go(i);
+    else if (idsRef.current[i]) toggleRef.current(idsRef.current[i]);
+  }, [go]);
 
   /* 전체선택 — 스냅을 잠시 끄고 rAF 로 한 장씩 빠르게 넘기며(장당 0.14초) 도착한 카드를 체크한다.
      ⚠ 스냅을 켠 채 scrollLeft 를 옮기면 브라우저가 중간에 가까운 칸으로 끌어당겨 덜컹거린다. */
@@ -204,7 +299,7 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
     });
     (async () => {
       el.style.scrollSnapType = 'none';
-      const st = step();
+      const st = slideStep(el);
       const max = el.scrollWidth - el.clientWidth;
       for (let i = 0; i < ids.length; i++) {
         if (cancelled) return;
@@ -224,40 +319,12 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
     <>
     <div className="qm-cwrap qm-a-item" style={stag(1)}>
       <div ref={ref} className="qm-carousel" onScroll={onScroll}>
-        {pros.map((p, i) => {
-          const on = selected.has(p.id);
-          const vids = videoCount[i];
-          return (
-            <div key={p.id} className="qm-cslide" style={{ transform: `scale(${i === active ? 1 : 0.9})` }}>
-              <ProToneCard
-                size="lg"
-                pro={tones[i]}
-                index={i}
-                selected={on}
-                onPress={() => { if (runAll) return; if (i !== active) go(i); else onToggle(p.id); }}
-                photoOverlay={
-                  <>
-                    <span className={`qm-ccheck ${on ? 'on' : ''}`} aria-hidden="true">
-                      {on && (
-                        <svg viewBox="0 0 26 26" width="20" height="20" fill="none">
-                          <path d="M5.5 13.5 L10.8 18.6 L20.5 8" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
-                        </svg>
-                      )}
-                    </span>
-                    {vids > 0 && (
-                      <button type="button" className="qm-cvideo" aria-label={`${p.name} 소개영상 보기`}
-                        onClick={(e) => { e.stopPropagation(); setVideo(p); }}>
-                        <Ic name="play" size={13} color="#fff" />영상{vids > 1 ? ` ${vids}` : ''}
-                      </button>
-                    )}
-                  </>
-                }
-              />
-            </div>
-          );
-        })}
+        {pros.map((p, i) => (
+          <QmSlide key={p.id} p={p} tone={tones[i]} index={i} on={selected.has(p.id)} vids={videoCount[i]}
+            bind={bind} onPress={pressSlide} onPortfolio={setVideo} />
+        ))}
       </div>
-      {pros.length > 1 && (
+      {count > 1 && (
         <div className="qm-cdots">
           {pros.map((p, i) => (
             <button key={p.id} type="button" aria-label={`${i + 1}번째 사회자`} className={i === active ? 'on' : ''} onClick={() => go(i)} />
@@ -278,7 +345,7 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
   );
 }
 
-/** 소개영상 시트 — 아래에서 올라오는 흰 시트(토스 결) · 영상 여러 개면 아래 썸네일로 바꿔 보기 · 여기서도 고르기 */
+/** 포트폴리오(진행 영상) 시트 — 아래에서 올라오는 흰 시트(토스 결) · 영상 여러 개면 아래 썸네일로 바꿔 보기 · 여기서도 고르기 */
 function QmVideoSheet({ pro, selected, onToggle, onClose }: { pro: ProListItem; selected: boolean; onToggle: () => void; onClose: () => void }) {
   const ids = useMemo(() => extractYoutubeIds(pro.youtubeUrl), [pro.youtubeUrl]);
   const [at, setAt] = useState(0);
@@ -292,11 +359,11 @@ function QmVideoSheet({ pro, selected, onToggle, onClose }: { pro: ProListItem; 
   const id = ids[at];
   return (
     <div className="qm-vdim" onClick={onClose}>
-      <div className="qm-vsheet" role="dialog" aria-modal="true" aria-label={`${pro.name} 소개영상`} onClick={(e) => e.stopPropagation()}>
+      <div className="qm-vsheet" role="dialog" aria-modal="true" aria-label={`${pro.name} 포트폴리오`} onClick={(e) => e.stopPropagation()}>
         <span className="qm-vgrab" aria-hidden="true" />
         <div className="qm-vhead">
           <b>{pro.name}</b>
-          <span>소개영상{ids.length > 1 ? ` ${at + 1}/${ids.length}` : ''}</span>
+          <span>포트폴리오{ids.length > 1 ? ` ${at + 1}/${ids.length}` : ''}</span>
         </div>
         <div className="qm-vplayer">
           {id && (
@@ -679,7 +746,9 @@ export default function QuickMatchPage() {
 
   return (
     <div className="qm-root">
-      <style>{CSS}</style>
+      {/* ⚠ <style>{CSS}</style> 로 두면 서버가 ' > 를 &#x27; &gt; 로 바꿔 내보내(스타일 태그 안은 안 풀림) 글꼴·자식 선택자가 깨지고,
+          클라와 글자가 달라 hydration 이 매번 실패해 문서 전체를 다시 그렸다(운영 React #425) */}
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {step === 'date' && (
         <div className="qm-page" key="date">
@@ -1076,18 +1145,20 @@ const CSS = `
 .qm-cwrap{margin:2px -16px 0;}
 .qm-carousel{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:14px 18px 20px;scroll-snap-type:x mandatory;scroll-padding-left:18px;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;}
 .qm-carousel::-webkit-scrollbar{display:none;}
-.qm-cslide{flex:0 0 min(72vw,300px);scroll-snap-align:start;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
+/* 크기(scale)는 스크롤 위치로 매 프레임 JS 가 칠한다 — transition 을 걸면 손가락보다 늦게 따라와 출렁인다 */
+.qm-cslide{flex:0 0 min(72vw,300px);scroll-snap-align:start;will-change:transform;}
 /* 키 작은 폰 — 카드를 조금 줄여 이름 줄까지 첫 화면에 더 들어오게(넘치면 세로로 내려 본다) */
 @media (max-height:720px){.qm-cslide{flex-basis:min(64vw,260px);}}
 .qm-cdots{display:flex;justify-content:center;gap:6px;margin-top:-4px;}
 .qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:#D5DAE0;transition:background-color .3s;cursor:pointer;}
 .qm-cdots button.on{background:#191F28;}
-.qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .2s,box-shadow .2s,transform .25s cubic-bezier(.34,1.56,.64,1);}
+.qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .38s cubic-bezier(.4,0,.2,1),box-shadow .38s cubic-bezier(.4,0,.2,1),transform .3s cubic-bezier(.34,1.56,.64,1);}
 .qm-ccheck.on{background:var(--tone-accent,var(--blue));box-shadow:none;transform:scale(1.06);}
 .qm-ccheck path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
-.qm-cvideo{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 13px 0 11px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
-.qm-cvideo:active{background:rgba(0,0,0,.5);}
-/* 소개영상 시트 */
+.qm-cport{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:1px;height:32px;padding:0 9px 0 13px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
+.qm-cport:active{background:rgba(0,0,0,.5);}
+.qm-cport svg{flex:none;}
+/* 포트폴리오(영상) 시트 */
 .qm-vdim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;justify-content:center;animation:qm-pagefade .2s ease both;}
 .qm-vsheet{width:100%;max-width:520px;background:#fff;border-radius:28px 28px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 14px);animation:qm-sheetup .42s cubic-bezier(.32,.72,0,1) both;}
 @keyframes qm-sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
