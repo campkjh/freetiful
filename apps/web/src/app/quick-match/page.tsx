@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm } from '@/lib/landing-track';
+import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -123,71 +124,150 @@ function matchesRegion(p: ProListItem, group?: { match: string[] }) {
 }
 const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
 
-/* ── 사회자 카드 ─────────────────────────────────────────── */
-function VideoSlide({ id, name }: { id: string; name: string }) {
-  const [playing, setPlaying] = useState(false);
-  return (
-    <div className="qm-pro-slide">
-      {playing ? (
-        <iframe src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`} title={`${name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-      ) : (
-        <button type="button" onClick={() => setPlaying(true)} aria-label={`${name} 소개영상 재생`}>
-          <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt={name} loading="lazy" />
-          <span className="qm-play"><Ic name="play" size={22} color="#fff" /></span>
-        </button>
-      )}
-    </div>
-  );
+/* ── 사회자 카드 — 홈 사회자 카드(사진 색 카드)를 상세 프로필 사진처럼 옆으로 넘긴다 ──────────────
+ * 261002 사장 "퀵매칭 사회자 카드를 홈에 사회자 카드 디자인처럼, 사회자 상세페이지 프로필 사진 스와이프하면
+ * 다음 사진 나오는 것처럼 다음 사회자 나오게".
+ *  카드 = components/pros/ProToneCard(홈·/pros 와 같은 컴포넌트) size='lg'.
+ *  넘기기 = 상세 히어로와 같은 방식: 왼쪽 정렬 + 다음 카드 살짝 보임(peek) + 스크롤 스냅 + 가운데 아닌 카드는 0.9배 + 아래 점.
+ *  누르기: 보고 있는 카드 = 고르기/빼기(오른쪽 위 체크가 그려진다), 옆에 걸친 카드 = 그 카드로 넘어가기.
+ *  영상은 카드 위 '영상' 유리 버튼 → 아래 시트에서 재생(홈 카드엔 영상 썸네일을 안 올린다 — 사장 지시). */
+function toneOf(p: ProListItem): ProToneCardData {
+  return {
+    id: p.id,
+    name: p.name,
+    image: p.images?.[0] || p.profileImageUrl || '',
+    experience: p.careerYears || 0,
+    isPartner: Boolean(p.showPartnersLogo || p.isFeatured),
+    rating: p.avgRating || 0,
+    reviews: p.reviewCount || 0,
+    region: p.isNationwide ? '전국' : String((p.regions || [])[0] || '').replace(/\(.*?\)/g, '').trim(),
+    intro: p.shortIntro || p.mainExperience || '',
+    tags: p.tags || [],
+  };
 }
-function ProCard({ pro, selected, onToggle, style }: { pro: ProListItem; selected: boolean; onToggle: () => void; style?: React.CSSProperties }) {
-  const ytIds = useMemo(() => extractYoutubeIds(pro.youtubeUrl), [pro.youtubeUrl]);
+
+function QmProCarousel({ pros, selected, onToggle }: { pros: ProListItem[]; selected: Set<string>; onToggle: (id: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const [video, setVideo] = useState<ProListItem | null>(null);
+  const tones = useMemo(() => pros.map(toneOf), [pros]);
+  const videoCount = useMemo(() => pros.map((p) => extractYoutubeIds(p.youtubeUrl).length), [pros]);
+  const idsKey = pros.map((p) => p.id).join(',');
+  // 다른 사회자 보기(리롤)로 명단이 바뀌면 첫 카드부터
+  useEffect(() => {
+    ref.current?.scrollTo({ left: 0 });
+    setActive(0);
+  }, [idsKey]);
+  /** 카드 한 칸 = 카드 폭 + 틈 12 */
+  const step = () => {
+    const first = ref.current?.firstElementChild as HTMLElement | null;
+    return first ? first.offsetWidth + 12 : 1;
+  };
   const onScroll = () => {
-    const el = trackRef.current;
+    const el = ref.current;
     if (!el) return;
-    const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+    const i = Math.max(0, Math.min(pros.length - 1, Math.round(el.scrollLeft / step())));
     setActive((prev) => (prev === i ? prev : i));
   };
+  const go = (i: number) => ref.current?.scrollTo({ left: i * step(), behavior: 'smooth' });
   return (
-    <div className={`qm-pro qm-a-item ${selected ? 'on' : ''}`} style={style}>
-      <div className="qm-pro-video">
-        {ytIds.length > 0 ? (
-          <>
-            <div className="qm-pro-track" ref={trackRef} onScroll={onScroll}>
-              {ytIds.map((id) => <VideoSlide key={id} id={id} name={pro.name} />)}
+    <>
+    <div className="qm-cwrap qm-a-item" style={stag(1)}>
+      <div ref={ref} className="qm-carousel" onScroll={onScroll}>
+        {pros.map((p, i) => {
+          const on = selected.has(p.id);
+          const vids = videoCount[i];
+          return (
+            <div key={p.id} className="qm-cslide" style={{ transform: `scale(${i === active ? 1 : 0.9})` }}>
+              <ProToneCard
+                size="lg"
+                pro={tones[i]}
+                index={i}
+                selected={on}
+                onPress={() => { if (i !== active) go(i); else onToggle(p.id); }}
+                photoOverlay={
+                  <>
+                    <span className={`qm-ccheck ${on ? 'on' : ''}`} aria-hidden="true">
+                      {on && (
+                        <svg viewBox="0 0 26 26" width="20" height="20" fill="none">
+                          <path d="M5.5 13.5 L10.8 18.6 L20.5 8" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
+                        </svg>
+                      )}
+                    </span>
+                    {vids > 0 && (
+                      <button type="button" className="qm-cvideo" aria-label={`${p.name} 소개영상 보기`}
+                        onClick={(e) => { e.stopPropagation(); setVideo(p); }}>
+                        <Ic name="play" size={13} color="#fff" />영상{vids > 1 ? ` ${vids}` : ''}
+                      </button>
+                    )}
+                  </>
+                }
+              />
             </div>
-            {ytIds.length > 1 && (
-              <div className="qm-pro-dots">
-                {ytIds.map((id, i) => <span key={id} className={`qm-pro-dot ${i === active ? 'on' : ''}`} />)}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="qm-pro-track">
-            <div className="qm-pro-slide">
-              {pro.profileImageUrl ? <img src={pro.profileImageUrl} alt={pro.name} /> : <div className="qm-pro-noimg">소개영상 준비중</div>}
-            </div>
+          );
+        })}
+      </div>
+      {pros.length > 1 && (
+        <div className="qm-cdots">
+          {pros.map((p, i) => (
+            <button key={p.id} type="button" aria-label={`${i + 1}번째 사회자`} className={i === active ? 'on' : ''} onClick={() => go(i)} />
+          ))}
+        </div>
+      )}
+    </div>
+    {/* ⚠ 시트는 카드 줄(.qm-a-item) 밖에 — 등장 애니메이션의 transform 이 fixed 의 기준이 돼 시트가 줄 안에 갇혔다 */}
+    {video && (
+        <QmVideoSheet
+          pro={video}
+          selected={selected.has(video.id)}
+          onToggle={() => onToggle(video.id)}
+          onClose={() => setVideo(null)}
+        />
+    )}
+    </>
+  );
+}
+
+/** 소개영상 시트 — 아래에서 올라오는 흰 시트(토스 결) · 영상 여러 개면 아래 썸네일로 바꿔 보기 · 여기서도 고르기 */
+function QmVideoSheet({ pro, selected, onToggle, onClose }: { pro: ProListItem; selected: boolean; onToggle: () => void; onClose: () => void }) {
+  const ids = useMemo(() => extractYoutubeIds(pro.youtubeUrl), [pro.youtubeUrl]);
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+  const id = ids[at];
+  return (
+    <div className="qm-vdim" onClick={onClose}>
+      <div className="qm-vsheet" role="dialog" aria-modal="true" aria-label={`${pro.name} 소개영상`} onClick={(e) => e.stopPropagation()}>
+        <span className="qm-vgrab" aria-hidden="true" />
+        <div className="qm-vhead">
+          <b>{pro.name}</b>
+          <span>소개영상{ids.length > 1 ? ` ${at + 1}/${ids.length}` : ''}</span>
+        </div>
+        <div className="qm-vplayer">
+          {id && (
+            <iframe key={id} src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
+              title={`${pro.name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+          )}
+        </div>
+        {ids.length > 1 && (
+          <div className="qm-vthumbs">
+            {ids.map((v, k) => (
+              <button key={v} type="button" className={k === at ? 'on' : ''} onClick={() => setAt(k)} aria-label={`영상 ${k + 1}`}>
+                <img src={`https://i.ytimg.com/vi/${v}/mqdefault.jpg`} alt="" loading="lazy" />
+              </button>
+            ))}
           </div>
         )}
+        <div className="qm-btnrow qm-vbtns">
+          <button type="button" className="qm-cta ghost" onClick={onClose}>닫기</button>
+          <button type="button" className="qm-cta" onClick={() => { onToggle(); onClose(); }}>{selected ? '선택 빼기' : '이 사회자 선택'}</button>
+        </div>
       </div>
-      <button type="button" className="qm-pro-info" onClick={onToggle}>
-        <span className="qm-pro-ava">{pro.profileImageUrl && <img src={pro.profileImageUrl} alt="" />}</span>
-        <span className="qm-pro-body">
-          <span className="qm-pro-name">
-            사회자 {pro.name}
-            {pro.avgRating > 0 && <span className="qm-pro-rate"><Ic name="star" size={14} color="#FFC94D" />{pro.avgRating.toFixed(2)}<em>({pro.reviewCount})</em></span>}
-          </span>
-          <span className="qm-pro-desc">{[pro.careerYears ? `경력 ${pro.careerYears}년` : '', pro.shortIntro || pro.mainExperience || ''].filter(Boolean).join(' · ')}</span>
-        </span>
-        <span className={`qm-pro-chk ${selected ? 'on' : ''}`}>
-          {selected && (
-            <svg viewBox="0 0 26 26" width="26" height="26" fill="none" aria-hidden="true">
-              <path d="M5 13.5 L10.5 19 L21 7.5" stroke="#3182F6" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" pathLength={1} />
-            </svg>
-          )}
-        </span>
-      </button>
     </div>
   );
 }
@@ -512,7 +592,7 @@ export default function QuickMatchPage() {
           <Header onBack={() => back('gender')} progress={progressOf('results')} />
           <main className="qm-main tight">
             <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{displayed.length || 5}명</b>을 찾았어요</h1>
-            <p className="qm-sub qm-a-sub">영상을 보고 의뢰할 사회자를 선택하세요. 여러 명 선택할 수 있어요.</p>
+            <p className="qm-sub qm-a-sub">옆으로 넘겨 보고, 의뢰할 사회자를 눌러 선택하세요. 여러 명 선택할 수 있어요.</p>
             <div className="qm-resbar qm-a-item" style={stag(0)}>
               <span>{selected.size}명 선택됨</span>
               <button type="button" className="qm-reroll" onClick={reroll} disabled={!canReroll}><Ic name="refresh" size={16} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>
@@ -520,7 +600,7 @@ export default function QuickMatchPage() {
             {loadErr ? (
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
             ) : (
-              <div className="qm-pros">{displayed.map((p, i) => <ProCard key={p.id} pro={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} style={stag(i + 1)} />)}</div>
+              <QmProCarousel pros={displayed} selected={selected} onToggle={toggle} />
             )}
           </main>
           <div className="qm-ctawrap qm-btnrow">
@@ -738,34 +818,39 @@ const CSS = `
 .qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;}
 .qm-reroll:active{background:var(--divider);}
 .qm-reroll:disabled{opacity:.4;cursor:default;}
-.qm-pros{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
-.qm-pro{border-radius:36px;overflow:hidden;background:#fff;box-shadow:0 14px 44px rgba(17,24,39,.12),0 4px 14px rgba(17,24,39,.05);transition:box-shadow .18s,transform .18s;}
-.qm-pro.on{box-shadow:0 0 0 2px var(--blue),0 14px 44px rgba(49,130,246,.20),0 4px 14px rgba(49,130,246,.08);}
-.qm-pro-video{position:relative;aspect-ratio:16/9;background:#000;}
-.qm-pro-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-.qm-pro-track::-webkit-scrollbar{display:none;}
-.qm-pro-slide{position:relative;flex:0 0 100%;height:100%;scroll-snap-align:start;background:#000;}
-.qm-pro-video iframe,.qm-pro-video button,.qm-pro-video img{position:absolute;inset:0;width:100%;height:100%;border:0;}
-.qm-pro-video img{object-fit:cover;}
-.qm-pro-video button{background:none;cursor:pointer;padding:0;}
-.qm-pro-video button::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:linear-gradient(to top,rgba(255,255,255,1) 0%,rgba(255,255,255,.96) 9%,rgba(255,255,255,.72) 20%,rgba(255,255,255,.38) 36%,rgba(255,255,255,.12) 50%,rgba(255,255,255,0) 66%);}
-.qm-pro-noimg{display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,.4);font-size:14px;}
-.qm-pro-dots{position:absolute;left:0;right:0;bottom:9px;z-index:3;display:flex;justify-content:center;gap:5px;pointer-events:none;}
-.qm-pro-dot{width:6px;height:6px;border-radius:50%;background:rgba(25,31,40,.28);transition:width .2s,background .2s;}
-.qm-pro-dot.on{width:16px;border-radius:3px;background:var(--blue);}
-.qm-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:54px;height:54px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;}
-.qm-pro-info{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;background:none;border:0;cursor:pointer;text-align:left;}
-.qm-pro-ava{width:46px;height:46px;flex:none;border-radius:50%;overflow:hidden;background:var(--divider);}
-.qm-pro-ava img{width:100%;height:100%;object-fit:cover;}
-.qm-pro-body{flex:1;min-width:0;}
-.qm-pro-name{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:600;color:var(--t-strong);}
-.qm-pro-rate{display:flex;align-items:center;gap:2px;font-size:13px;font-weight:600;color:var(--t-strong);}
-.qm-pro-rate em{color:var(--t-ph);font-style:normal;font-weight:500;}
-.qm-pro-desc{display:block;margin-top:2px;font-size:13px;color:var(--t-weak);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* 사회자 카드 줄 — 상세 히어로와 같은 넘기기(왼쪽 정렬·peek·스냅·0.9배) */
+.qm-cwrap{margin:2px -16px 0;}
+.qm-carousel{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:14px 18px 20px;scroll-snap-type:x mandatory;scroll-padding-left:18px;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;}
+.qm-carousel::-webkit-scrollbar{display:none;}
+.qm-cslide{flex:0 0 min(72vw,300px);scroll-snap-align:start;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
+/* 키 작은 폰 — 카드를 조금 줄여 이름 줄까지 첫 화면에 더 들어오게(넘치면 세로로 내려 본다) */
+@media (max-height:720px){.qm-cslide{flex-basis:min(64vw,260px);}}
+.qm-cdots{display:flex;justify-content:center;gap:6px;margin-top:-4px;}
+.qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:#D5DAE0;transition:background-color .3s;cursor:pointer;}
+.qm-cdots button.on{background:#191F28;}
+.qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .2s,box-shadow .2s,transform .25s cubic-bezier(.34,1.56,.64,1);}
+.qm-ccheck.on{background:var(--blue);box-shadow:0 4px 12px rgba(49,130,246,.4);transform:scale(1.06);}
+.qm-ccheck path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
+.qm-cvideo{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 13px 0 11px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
+.qm-cvideo:active{background:rgba(0,0,0,.5);}
+/* 소개영상 시트 */
+.qm-vdim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;justify-content:center;animation:qm-pagefade .2s ease both;}
+.qm-vsheet{width:100%;max-width:520px;background:#fff;border-radius:28px 28px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 14px);animation:qm-sheetup .42s cubic-bezier(.32,.72,0,1) both;}
+@keyframes qm-sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.qm-vgrab{display:block;width:40px;height:5px;border-radius:3px;background:#D1D6DB;margin:0 auto 14px;}
+.qm-vhead{display:flex;align-items:baseline;gap:8px;margin:0 2px 12px;}
+.qm-vhead b{font-size:19px;font-weight:600;color:var(--t-strong);letter-spacing:-.3px;}
+.qm-vhead span{font-size:14px;color:var(--t-ph);}
+.qm-vplayer{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;}
+.qm-vplayer iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.qm-vthumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto;scrollbar-width:none;}
+.qm-vthumbs::-webkit-scrollbar{display:none;}
+.qm-vthumbs button{flex:none;width:96px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:0;padding:0;opacity:.55;box-shadow:inset 0 0 0 2px transparent;cursor:pointer;transition:opacity .2s;}
+.qm-vthumbs button.on{opacity:1;outline:2px solid var(--blue);outline-offset:-2px;}
+.qm-vthumbs img{width:100%;height:100%;object-fit:cover;display:block;}
+.qm-vbtns{margin-top:16px;}
 .qm-chk{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid #D1D6DB;display:flex;align-items:center;justify-content:center;}
 .qm-chk.on{border-color:var(--blue);background:var(--blue);}
-.qm-pro-chk{width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;}
-.qm-pro-chk path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
 @keyframes qm-check-draw{to{stroke-dashoffset:0;}}
 .qm-err{margin-top:40px;text-align:center;color:var(--t-ph);font-size:14px;line-height:1.6;}
 .qm-err button{margin-top:12px;background:var(--divider);color:var(--t-sub);font-weight:600;border:0;border-radius:12px;padding:9px 16px;cursor:pointer;font-family:inherit;}
@@ -790,5 +875,7 @@ const CSS = `
   .qm-btnrow .qm-cta.ghost:hover{background:#E5E8EB;}
   .qm-reroll:hover{background:var(--divider);}
   .qm-header button:hover{background:var(--divider);}
+  /* PC 틀(430×824) — 카드가 버튼 줄에 가리지 않게 */
+  .qm-cslide{flex-basis:272px;}
 }
 `;
