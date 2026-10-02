@@ -200,7 +200,9 @@ export function KeywordOrb({ text, still = false, className = '' }: { text: Keyw
   });
 
   return (
-    <div ref={boxRef} className={`relative w-full select-none ${className}`} style={{ height: W ? B.h * k : NARROW.h }} aria-label={`${text.titleTop} ${text.titleStrong}${text.titleRest} — ${chips.map((c) => c.label).join(', ')}`}>
+    /* ⚠ overflow-hidden 필수 — 뒤에 깔린 보라 빛(폭 4.2r)이 폰 판에선 칸보다 넓어 페이지에 가로 스크롤이 생겼다(2026-10-02 사장 신고).
+         칩·배지·점은 놓을 때 이미 칸 안으로 당겨 두므로 잘리는 것은 그 빛의 옅은 끝뿐이다. */
+    <div ref={boxRef} className={`relative w-full select-none overflow-hidden ${className}`} style={{ height: W ? B.h * k : NARROW.h }} aria-label={`${text.titleTop} ${text.titleStrong}${text.titleRest} — ${chips.map((c) => c.label).join(', ')}`}>
       <style>{KWO_CSS}</style>
       {W > 0 && (
         <>
