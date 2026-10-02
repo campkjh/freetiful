@@ -5,6 +5,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm } from '@/lib/landing-track';
 import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
+import { useRouter } from 'next/navigation';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -59,31 +60,6 @@ const CONTACTS: { k: string; label: string; hint: string; icon: string }[] = [
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
 
 /* ── helpers ─────────────────────────────────────────────── */
-function extractYoutubeId(url: string | null | undefined): string | undefined {
-  if (!url) return undefined;
-  const first = url.split(/\s+/).map((s) => s.trim()).find(Boolean) || url;
-  try {
-    const p = new URL(first);
-    const host = p.hostname.replace(/^www\./, '');
-    if (host === 'youtu.be') return p.pathname.split('/').filter(Boolean)[0];
-    if (host.includes('youtube.com')) {
-      const v = p.searchParams.get('v');
-      if (v) return v;
-      const parts = p.pathname.split('/').filter(Boolean);
-      if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1];
-    }
-  } catch {}
-  return first.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([a-zA-Z0-9_-]{11})/)?.[1];
-}
-function extractYoutubeIds(url: string | null | undefined): string[] {
-  if (!url) return [];
-  const ids: string[] = [];
-  for (const tok of url.split(/\s+/)) {
-    const id = extractYoutubeId(tok.trim());
-    if (id && !ids.includes(id)) ids.push(id);
-  }
-  return ids;
-}
 function normalizePhone(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 11);
   if (d.length < 4) return d;
@@ -127,10 +103,10 @@ const stag = (i: number) => ({ animationDelay: `${0.3 + i * 0.07}s` });
  * 261002 사장 "퀵매칭 사회자 카드를 홈에 사회자 카드 디자인처럼, 사회자 상세페이지 프로필 사진 스와이프하면
  * 다음 사진 나오는 것처럼 다음 사회자 나오게".
  *  카드 = components/pros/ProToneCard(홈·/pros 와 같은 컴포넌트) size='lg'.
- *  넘기기 = 상세 히어로와 같은 방식: 왼쪽 정렬 + 다음 카드 살짝 보임(peek) + 스크롤 스냅 + 가운데 아닌 카드는 0.9배 + 아래 점.
- *   크기는 넘기는 위치를 따라 매 프레임 이어서 바뀐다(같은 날 '스와이프도 부드럽게' — 예전엔 반쯤 넘어간 순간 0.3초 전환이 툭 걸렸다).
- *  누르기: 보고 있는 카드 = 고르기/빼기(오른쪽 위 체크가 그려진다), 옆에 걸친 카드 = 그 카드로 넘어가기.
- *  영상은 카드 위 '포트폴리오 ›' 유리 버튼(같은 날 '영상' → '포트폴리오 >') → 아래 시트에서 재생(홈 카드엔 영상 썸네일을 안 올린다 — 사장 지시). */
+ *  넘기기 = 상세 히어로처럼 왼쪽 정렬 + 다음 카드 살짝 보임(peek) + 가운데 아닌 카드는 0.9배 + 아래 점(보는 카드는 길쭉한 알약).
+ *   위치는 손가락·스프링으로 직접 굴린다(같은 날 '수우웅 툭 말고 고스트도어처럼 천천히 멈추게') — 크기도 위치 따라 이어서 바뀐다.
+ *  누르기: 어느 카드든(옆에 걸친 카드·멈추는 중이어도) 고르기/빼기 + 그 카드로 스르르(같은 날 '완전히 멈추지 않아도 체크되게').
+ *  카드 위 '포트폴리오 ›' = 그 사회자 상세로(같은 날). 돌아오면 보던 결과 그대로(QM_RETURN_KEY). */
 function toneOf(p: ProListItem): ProToneCardData {
   return {
     id: p.id,
@@ -146,22 +122,33 @@ function toneOf(p: ProListItem): ProToneCardData {
   };
 }
 
-/** 카드 한 칸 = 카드 폭 + 틈 12 */
-function slideStep(row: HTMLElement | null) {
-  const first = row?.firstElementChild as HTMLElement | null;
-  return first ? first.offsetWidth + 12 : 1;
+/** 카드 줄 치수 — 레이아웃 값만 읽는다(카드에 건 transform 은 안 섞인다).
+ *  step = 한 칸(카드 폭 + 틈), max = 마지막 카드가 오른쪽 끝에 닿는 위치(그 너머는 고무줄) */
+function rowMetrics(row: HTMLElement) {
+  const first = row.children[0] as HTMLElement | undefined;
+  const second = row.children[1] as HTMLElement | undefined;
+  const last = row.children[row.children.length - 1] as HTMLElement | undefined;
+  if (!first || !last) return { step: 1, max: 0 };
+  const step = (second ? second.offsetLeft - first.offsetLeft : first.offsetWidth + 12) || 1;
+  const padR = parseFloat(getComputedStyle(row).paddingRight) || 0;
+  return { step, max: Math.max(0, last.offsetLeft + last.offsetWidth + padR - row.clientWidth) };
 }
+/** 고무줄 — 끝을 넘겨 끌면 갈수록 덜 따라온다(iOS 와 같은 식). d = 줄 폭 */
+const rubber = (o: number, d: number) => (1 - 1 / ((o * 0.55) / d + 1)) * d;
+const unrubber = (r: number, d: number) => (r >= d * 0.999 ? d * 50 : (1 / (1 - r / d) - 1) * (d / 0.55));
+/** 고스트도어 세기 — 임계 감쇠 스프링의 고유 진동수(rad/s). 작을수록 끝이 더 길게 천천히 닿는다 */
+const QM_SETTLE_W = 8;
 
-/** 카드 한 장 — 넘기는 중(active 만 바뀔 때)엔 다시 그리지 않게 memo. 크기(transform)는 줄(QmProCarousel)이 DOM 에 직접 칠한다 */
-const QmSlide = memo(function QmSlide({ p, tone, index, on, vids, bind, onPress, onPortfolio }: {
+/** 카드 한 장 — 넘기는 중(active 만 바뀔 때)엔 다시 그리지 않게 memo. 위치·크기(transform)는 줄(QmProCarousel)이 DOM 에 직접 칠한다 */
+const QmSlide = memo(function QmSlide({ p, tone, index, on, bind, onPress, onPortfolio, onPortfolioIntent }: {
   p: ProListItem;
   tone: ProToneCardData;
   index: number;
   on: boolean;
-  vids: number;
   bind: (i: number, el: HTMLDivElement | null) => void;
   onPress: (i: number) => void;
-  onPortfolio: (p: ProListItem) => void;
+  onPortfolio: (i: number) => void;
+  onPortfolioIntent: (i: number) => void;
 }) {
   return (
     <div ref={(el) => bind(index, el)} className="qm-cslide">
@@ -180,15 +167,16 @@ const QmSlide = memo(function QmSlide({ p, tone, index, on, vids, bind, onPress,
                 </svg>
               )}
             </span>
-            {vids > 0 && (
-              <button type="button" className="qm-cport" aria-label={`${p.name} 포트폴리오 보기`}
-                onClick={(e) => { e.stopPropagation(); onPortfolio(p); }}>
-                포트폴리오
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
-                  <path d="M9.5 6 15.5 12 9.5 18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
+            {/* 포트폴리오 → 사회자 상세(같은 날 사장 '포트폴리오 누르면 상세페이지로'). Enter/Space 가 카드(고르기)로 새지 않게 막는다 */}
+            <button type="button" className="qm-cport" aria-label={`${p.name} 포트폴리오(상세) 보기`}
+              onPointerDown={() => onPortfolioIntent(index)}
+              onKeyDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onPortfolio(index); }}>
+              포트폴리오
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+                <path d="M9.5 6 15.5 12 9.5 18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </>
         }
       />
@@ -196,7 +184,21 @@ const QmSlide = memo(function QmSlide({ p, tone, index, on, vids, bind, onPress,
   );
 });
 
-function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone }: {
+type QmDrag = {
+  id: number;
+  type: string;
+  x0: number;
+  y0: number;
+  /** 잡은 순간 위치(고무줄 풀기 전 값) */
+  raw0: number;
+  /** 누른 카드(탭이면 그 카드로 간다) */
+  slide: number;
+  dragging: boolean;
+  /** 최근 0.1초 손 위치 [시각, x] — 놓을 때 속도 */
+  samples: Array<[number, number]>;
+};
+
+function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone, initialIndex = 0, onOpenPro }: {
   pros: ProListItem[];
   selected: Set<string>;
   onToggle: (id: string) => void;
@@ -204,124 +206,309 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
   runAll?: boolean;
   onSelectOne?: (id: string) => void;
   onRunAllDone?: () => void;
+  /** 처음 보여 줄 카드 — 상세(포트폴리오)에 갔다 돌아왔을 때 보던 카드 */
+  initialIndex?: number;
+  /** 포트폴리오 → 그 사회자 상세로(보던 카드 번호도 넘겨 돌아올 때 그 자리) */
+  onOpenPro?: (p: ProListItem, index: number) => void;
 }) {
+  const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const slides = useRef<(HTMLDivElement | null)[]>([]);
-  const [active, setActive] = useState(0);
-  const activeRef = useRef(0);
-  const [video, setVideo] = useState<ProListItem | null>(null);
+  const [active, setActive] = useState(initialIndex);
+  const activeRef = useRef(initialIndex);
   const tones = useMemo(() => pros.map(toneOf), [pros]);
-  const videoCount = useMemo(() => pros.map((p) => extractYoutubeIds(p.youtubeUrl).length), [pros]);
   const idsKey = pros.map((p) => p.id).join(',');
   const count = pros.length;
-
-  /* 크기 칠하기 — 지금 스크롤 위치가 어느 두 카드 사이 몇 % 인지 재서 그 두 장만 1배↔0.9배를 나눠 갖는다(나머지는 0.9배).
-     손가락을 따라 이어서 줄고 커지니 '툭' 이 없다. 끝 쪽 카드는 왼쪽 정렬까지 못 가고 스크롤 끝에서 멈추므로
-     칸 위치를 스크롤 끝으로 자른 값으로 잰다. React 상태는 점·누르기 판정용 active 만, 바뀔 때만 넣는다. */
-  const raf = useRef(0);
-  const paint = useCallback(() => {
-    raf.current = 0;
-    const el = ref.current;
-    if (!el) return;
-    const st = slideStep(el);
-    const max = Math.max(0, el.scrollWidth - el.clientWidth);
-    const at = (i: number) => Math.min(i * st, max);
-    const x = el.scrollLeft;
-    let k = 0;
-    while (k < count - 1 && at(k + 1) <= x) k++;
-    const a = at(k);
-    const b = k < count - 1 ? at(k + 1) : a;
-    const t = b > a ? Math.min(1, Math.max(0, (x - a) / (b - a))) : 0;
-    slides.current.forEach((s, i) => {
-      if (!s) return;
-      const d = i === k ? t : i === k + 1 ? 1 - t : 1;
-      s.style.transform = `scale(${(1 - 0.1 * d).toFixed(4)})`;
-    });
-    const now = t < 0.5 ? k : k + 1;
-    if (now !== activeRef.current) {
-      activeRef.current = now;
-      setActive(now);
-    }
-  }, [count]);
-  const onScroll = () => {
-    if (!raf.current) raf.current = requestAnimationFrame(paint);
-  };
-  useEffect(() => () => cancelAnimationFrame(raf.current), []);
-  useEffect(() => {
-    window.addEventListener('resize', paint);
-    return () => window.removeEventListener('resize', paint);
-  }, [paint]);
-  // 다른 사회자 보기(리롤)로 명단이 바뀌면 첫 카드부터(첫 그림 전에 크기까지 칠해 둔다)
-  useLayoutEffect(() => {
-    ref.current?.scrollTo({ left: 0 });
-    paint();
-  }, [idsKey, paint]);
-  const go = useCallback((i: number) => {
-    ref.current?.scrollTo({ left: i * slideStep(ref.current), behavior: 'smooth' });
-  }, []);
-  const bind = useCallback((i: number, el: HTMLDivElement | null) => { slides.current[i] = el; }, []);
-  // 카드 누르기 — 넘기는 중 다시 그리지 않으려고 최신 값은 ref 로 읽는다(memo 된 QmSlide 에 늘 같은 함수)
+  // 최신 값은 ref 로 — memo 된 카드에 늘 같은 함수를 주고, 아래 도우미들은 언제 불려도 지금 값을 읽는다
+  const countRef = useRef(count);
+  countRef.current = count;
+  const prosRef = useRef(pros);
+  prosRef.current = pros;
   const runAllRef = useRef(runAll);
   runAllRef.current = runAll;
   const toggleRef = useRef(onToggle);
   toggleRef.current = onToggle;
-  const idsRef = useRef<string[]>([]);
-  idsRef.current = pros.map((p) => p.id);
-  const pressSlide = useCallback((i: number) => {
-    if (runAllRef.current) return;
-    if (i !== activeRef.current) go(i);
-    else if (idsRef.current[i]) toggleRef.current(idsRef.current[i]);
-  }, [go]);
-
-  /* 전체선택 — 스냅을 잠시 끄고 rAF 로 한 장씩 빠르게 넘기며(장당 0.14초) 도착한 카드를 체크한다.
-     ⚠ 스냅을 켠 채 scrollLeft 를 옮기면 브라우저가 중간에 가까운 칸으로 끌어당겨 덜컹거린다. */
+  const openRef = useRef(onOpenPro);
+  openRef.current = onOpenPro;
   const selectOneRef = useRef(onSelectOne);
   selectOneRef.current = onSelectOne;
   const runDoneRef = useRef(onRunAllDone);
   runDoneRef.current = onRunAllDone;
+
+  /* ── 위치 — 네이티브 스크롤·CSS 스냅 대신 직접 굴린다(261002 사장 '스냅이 수우웅 툭 → 고스트도어처럼 천천히 멈추게',
+     '완전히 멈추지 않아도 체크되게'). 브라우저 스냅은 멈추는 속도를 못 바꾸고, 미끄러지는 중 탭은 멈추기로만 먹어 체크가 안 됐다.
+     pos = 줄이 앞으로 간 거리(px, 0 = 첫 카드). 끝을 넘으면 넘친 만큼 고무줄로 보인다. 그리기는 카드마다 transform 하나. */
+  const pos = useRef(0);
+  const vel = useRef(0);
+  const raf = useRef(0);
+  const dims = useRef({ step: 1, max: 0 });
+  const drag = useRef<QmDrag | null>(null);
+  const eatClick = useRef(false);
+  const measure = () => { if (ref.current) dims.current = rowMetrics(ref.current); };
+  const at = (i: number) => Math.min(Math.max(0, Math.min(countRef.current - 1, i)) * dims.current.step, dims.current.max);
+  /** 몇 번째 카드쯤인지(소수) — 끝 쪽 칸은 스크롤 끝에서 멈추므로 칸 위치를 끝으로 자른 값으로 잰다 */
+  const frac = (p: number) => {
+    const n = countRef.current;
+    const x = Math.min(dims.current.max, Math.max(0, p));
+    let k = 0;
+    while (k < n - 1 && at(k + 1) <= x) k++;
+    const a = at(k);
+    const b = k < n - 1 ? at(k + 1) : a;
+    return k + (b > a ? Math.min(1, Math.max(0, (x - a) / (b - a))) : 0);
+  };
+  const width = () => ref.current?.clientWidth || 390;
+  const fromRaw = (r: number) => (r < 0 ? -rubber(-r, width()) : r > dims.current.max ? dims.current.max + rubber(r - dims.current.max, width()) : r);
+  const toRaw = (p: number) => (p < 0 ? -unrubber(-p, width()) : p > dims.current.max ? dims.current.max + unrubber(p - dims.current.max, width()) : p);
+
+  /** 칠하기 — 모든 카드를 -pos 만큼 옮기고, pos 가 걸친 두 카드만 1배↔0.9배를 나눠 갖는다(손가락 따라 이어서) */
+  const paint = () => {
+    const n = countRef.current;
+    const f = frac(pos.current);
+    const k = Math.floor(f);
+    const t = f - k;
+    const tx = `translate3d(${(-pos.current).toFixed(2)}px,0,0)`;
+    for (let i = 0; i < n; i++) {
+      const s = slides.current[i];
+      if (!s) continue;
+      const d = i === k ? t : i === k + 1 ? 1 - t : 1;
+      s.style.transform = `${tx} scale(${(1 - 0.1 * d).toFixed(4)})`;
+    }
+    const now = Math.min(n - 1, Math.round(f));
+    if (now !== activeRef.current) {
+      activeRef.current = now;
+      setActive(now);
+    }
+  };
+  const stop = () => {
+    if (raf.current) cancelAnimationFrame(raf.current);
+    raf.current = 0;
+  };
+  /** 고스트도어 — 놓는 순간 속도를 그대로 이어 받아 목표 칸까지 미끄러지고, 끝에서 아주 천천히 멈춘다.
+   *  임계 감쇠 스프링 x(t) = (x0 + (v0 + ωx0)·t)·e^(−ωt): 튕기지 않고, 남은 거리 마지막 10% 에 0.4초쯤 쓴다.
+   *  목표 쪽으로 너무 빠르게 놓으면(ω·거리 초과) 넘어갔다 돌아오므로 그 속도로 자른다(댐퍼가 받아 주는 느낌). */
+  const settle = (target: number, v0 = 0) => {
+    stop();
+    const W = QM_SETTLE_W;
+    const x0 = pos.current - target;
+    let v = v0;
+    if (x0 < 0 && v > -W * x0) v = -W * x0;
+    if (x0 > 0 && v < -W * x0) v = -W * x0;
+    const B = v + W * x0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const t = (now - t0) / 1000;
+      const e = Math.exp(-W * t);
+      const x = (x0 + B * t) * e;
+      vel.current = (v - W * B * t) * e;
+      const done = Math.abs(x) < 0.2 && Math.abs(vel.current) < 5;
+      pos.current = done ? target : target + x;
+      if (done) { vel.current = 0; raf.current = 0; }
+      paint();
+      if (!done) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+  };
+  const go = (i: number) => { measure(); settle(at(i), raf.current ? vel.current : 0); };
+
+  // 처음·리롤(명단이 바뀜) — 첫 그림 전에 자리·크기를 칠해 둔다. 상세에서 돌아왔으면 보던 카드부터, 리롤은 첫 카드부터
+  const startRef = useRef(initialIndex);
+  useLayoutEffect(() => {
+    stop();
+    measure();
+    const start = Math.min(startRef.current, Math.max(0, count - 1));
+    startRef.current = 0;
+    pos.current = at(start);
+    vel.current = 0;
+    paint();
+  }, [idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!runAll) return;
+    const onResize = () => { stop(); measure(); pos.current = at(activeRef.current); paint(); };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); stop(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── 손가락·마우스 끌기 — 가로만 우리가(touch-action: pan-y, 세로 스크롤은 브라우저). 미끄러지는 중에 잡으면 그 자리에 멈추고,
+     그대로 떼면 '탭' — 누른 카드가 체크되고(카드 click) 그 카드로 스르르 간다. */
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (runAllRef.current || drag.current) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    stop();
+    vel.current = 0;
+    measure();
+    const slideEl = (e.target as HTMLElement).closest('.qm-cslide');
+    drag.current = {
+      id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, raw0: toRaw(pos.current),
+      slide: slideEl ? slides.current.indexOf(slideEl as HTMLDivElement) : -1,
+      dragging: false, samples: [[e.timeStamp, e.clientX]],
+    };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    if (!d.dragging) {
+      const dx = e.clientX - d.x0;
+      const dy = e.clientY - d.y0;
+      // 살짝 떨리는 탭은 탭으로(브라우저 click 이 체크한다). 세로가 더 크면 끌기 아님
+      if (Math.abs(dx) < (d.type === 'mouse' ? 5 : 10) || Math.abs(dx) < Math.abs(dy)) return;
+      d.dragging = true;
+      d.x0 = e.clientX; // 문턱만큼 툭 튀지 않게 여기서부터 잰다
+      ref.current?.classList.add('dragging');
+      if (d.type === 'mouse') { try { ref.current?.setPointerCapture(e.pointerId); } catch {} }
+    }
+    pos.current = fromRaw(d.raw0 + (d.x0 - e.clientX));
+    paint();
+    d.samples.push([e.timeStamp, e.clientX]);
+    while (d.samples.length > 2 && e.timeStamp - d.samples[0][0] > 100) d.samples.shift();
+  };
+  const finish = (e: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    drag.current = null;
+    ref.current?.classList.remove('dragging');
+    if (!d.dragging) {
+      // 탭(또는 세로 스크롤로 넘어감) — 탭이면 누른 카드로, 아니면 가까운 카드로 스르르
+      settle(at(!cancelled && d.slide >= 0 ? d.slide : Math.round(frac(pos.current))));
+      return;
+    }
+    if (d.type === 'mouse') { eatClick.current = true; window.setTimeout(() => { eatClick.current = false; }, 0); }
+    // 손 속도(최근 0.1초) → 줄 속도. 손이 왼쪽으로 가면 줄은 앞으로(+)
+    let v = 0;
+    if (!cancelled) {
+      d.samples.push([e.timeStamp, e.clientX]);
+      const [t1, x1] = d.samples[0];
+      const [t2, x2] = d.samples[d.samples.length - 1];
+      if (t2 - t1 > 8) v = -((x2 - x1) / (t2 - t1)) * 1000;
+    }
+    // 휙 넘기면 그 방향 다음 카드(세게면 몇 장 더), 천천히 놓으면 가까운 카드
+    const f = frac(pos.current);
+    let target = Math.round(f);
+    if (v > 300) target = Math.max(Math.floor(f) + 1, Math.round(frac(pos.current + v * 0.16)));
+    else if (v < -300) target = Math.min(Math.ceil(f) - 1, Math.round(frac(pos.current + v * 0.16)));
+    settle(at(target), v);
+  };
+  // 마우스로 끈 끝에 오는 click 은 고르기로 치지 않는다(터치는 끌면 click 이 안 온다)
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (!eatClick.current) return;
+    eatClick.current = false;
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  // 키보드(Tab)로 카드에 오면 그 카드로. 포커스가 줄을 몰래 스크롤하면 되돌린다(위치는 transform 이 맡는다)
+  const onFocusCapture = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (ref.current?.scrollLeft) ref.current.scrollLeft = 0;
+    const s = (e.target as HTMLElement).closest('.qm-cslide');
+    const i = s ? slides.current.indexOf(s as HTMLDivElement) : -1;
+    if (i >= 0 && !drag.current && i !== activeRef.current) go(i);
+  };
+  const onScroll = () => { if (ref.current?.scrollLeft) ref.current.scrollLeft = 0; };
+
+  // PC 트랙패드 가로 밀기 — 손 따라 움직이다 멈추면(0.14초) 같은 고스트도어로 가까운 카드에. 가로 밀기가 뒤로가기로 새지 않게 막는다
+  useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let raw = 0;
+    let f0 = 0;
+    let on = false;
+    let idle = 0;
+    let lastT = 0;
+    let v = 0;
+    const onWheel = (e: WheelEvent) => {
+      if (runAllRef.current) return;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
+      const dx = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0) * unit;
+      if (!dx) return;
+      e.preventDefault();
+      // 시각은 performance.now() 로 — 휠 이벤트 timeStamp 는 기준이 제각각이라 속도가 0 으로 나와 제자리로 돌아갔다
+      const now = performance.now();
+      if (!on) { stop(); measure(); raw = toRaw(pos.current); f0 = frac(pos.current); on = true; lastT = now; v = 0; }
+      raw += dx;
+      pos.current = fromRaw(raw);
+      paint();
+      v = v * 0.6 + (dx / Math.max(8, now - lastT)) * 1000 * 0.4;
+      lastT = now;
+      window.clearTimeout(idle);
+      idle = window.setTimeout(() => {
+        on = false;
+        // 트랙패드는 '놓기'가 없어 살살 밀어도 넘어가게 — 카드 20% 넘게 밀었거나 빠르면 그 방향 다음 카드
+        const f = frac(pos.current);
+        const moved = f - f0;
+        const target = v > 300 || moved > 0.2 ? Math.ceil(f - 0.001) : v < -300 || moved < -0.2 ? Math.floor(f + 0.001) : Math.round(f);
+        settle(at(target), Math.max(-1500, Math.min(1500, v)));
+      }, 140);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => { el.removeEventListener('wheel', onWheel); window.clearTimeout(idle); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* 전체선택 — 한 장씩 빠르게 넘기며(장당 0.14초) 도착한 카드를 체크한다 */
+  useEffect(() => {
+    if (!runAll) return;
     let cancelled = false;
+    stop();
+    measure();
     const ids = pros.map((p) => p.id);
     const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
     const slideTo = (target: number, ms: number) => new Promise<void>((resolve) => {
-      const from = el.scrollLeft;
+      const from = pos.current;
       const t0 = performance.now();
       const tick = (now: number) => {
         if (cancelled) { resolve(); return; }
         const k = Math.min(1, (now - t0) / ms);
-        el.scrollLeft = from + (target - from) * (1 - Math.pow(1 - k, 3));
+        pos.current = from + (target - from) * (1 - Math.pow(1 - k, 3));
+        paint();
         if (k < 1) requestAnimationFrame(tick); else resolve();
       };
       requestAnimationFrame(tick);
     });
     (async () => {
-      el.style.scrollSnapType = 'none';
-      const st = slideStep(el);
-      const max = el.scrollWidth - el.clientWidth;
       for (let i = 0; i < ids.length; i++) {
         if (cancelled) return;
-        await slideTo(Math.min(i * st, max), i === 0 ? 220 : 140);
+        await slideTo(at(i), i === 0 ? 220 : 140);
         if (cancelled) return;
         selectOneRef.current?.(ids[i]);
         await wait(55);
       }
       await wait(420);
-      el.style.scrollSnapType = '';
       if (!cancelled) runDoneRef.current?.();
     })();
-    return () => { cancelled = true; el.style.scrollSnapType = ''; };
+    return () => { cancelled = true; };
   }, [runAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const bind = useCallback((i: number, el: HTMLDivElement | null) => { slides.current[i] = el; }, []);
+  // 카드 누르기 = 그 카드 고르기/빼기 — 보고 있는 카드든 옆에 걸친 카드든, 멈추는 중이든(같은 날 '완전히 멈추지 않아도 체크되게')
+  const pressSlide = useCallback((i: number) => {
+    if (runAllRef.current) return;
+    const id = prosRef.current[i]?.id;
+    if (id) toggleRef.current(id);
+  }, []);
+  const openPortfolio = useCallback((i: number) => {
+    const p = prosRef.current[i];
+    if (p) openRef.current?.(p, i);
+  }, []);
+  // 누르는 순간 상세 화면·데이터를 미리 받아 둔다(떼면 바로 뜨게)
+  const portfolioIntent = useCallback((i: number) => {
+    const p = prosRef.current[i];
+    if (!p) return;
+    router.prefetch(`/pros/${p.id}`);
+    discoveryApi.getProDetail(p.id).catch(() => {});
+  }, [router]);
+
   return (
-    <>
     <div className="qm-cwrap qm-a-item" style={stag(1)}>
-      <div ref={ref} className="qm-carousel" onScroll={onScroll}>
+      <div
+        ref={ref}
+        className="qm-carousel"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={(e) => finish(e, false)}
+        onPointerCancel={(e) => finish(e, true)}
+        onClickCapture={onClickCapture}
+        onFocusCapture={onFocusCapture}
+        onScroll={onScroll}
+      >
         {pros.map((p, i) => (
-          <QmSlide key={p.id} p={p} tone={tones[i]} index={i} on={selected.has(p.id)} vids={videoCount[i]}
-            bind={bind} onPress={pressSlide} onPortfolio={setVideo} />
+          <QmSlide key={p.id} p={p} tone={tones[i]} index={i} on={selected.has(p.id)}
+            bind={bind} onPress={pressSlide} onPortfolio={openPortfolio} onPortfolioIntent={portfolioIntent} />
         ))}
       </div>
       {count > 1 && (
@@ -332,62 +519,9 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
         </div>
       )}
     </div>
-    {/* ⚠ 시트는 카드 줄(.qm-a-item) 밖에 — 등장 애니메이션의 transform 이 fixed 의 기준이 돼 시트가 줄 안에 갇혔다 */}
-    {video && (
-        <QmVideoSheet
-          pro={video}
-          selected={selected.has(video.id)}
-          onToggle={() => onToggle(video.id)}
-          onClose={() => setVideo(null)}
-        />
-    )}
-    </>
   );
 }
 
-/** 포트폴리오(진행 영상) 시트 — 아래에서 올라오는 흰 시트(토스 결) · 영상 여러 개면 아래 썸네일로 바꿔 보기 · 여기서도 고르기 */
-function QmVideoSheet({ pro, selected, onToggle, onClose }: { pro: ProListItem; selected: boolean; onToggle: () => void; onClose: () => void }) {
-  const ids = useMemo(() => extractYoutubeIds(pro.youtubeUrl), [pro.youtubeUrl]);
-  const [at, setAt] = useState(0);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
-  const id = ids[at];
-  return (
-    <div className="qm-vdim" onClick={onClose}>
-      <div className="qm-vsheet" role="dialog" aria-modal="true" aria-label={`${pro.name} 포트폴리오`} onClick={(e) => e.stopPropagation()}>
-        <span className="qm-vgrab" aria-hidden="true" />
-        <div className="qm-vhead">
-          <b>{pro.name}</b>
-          <span>포트폴리오{ids.length > 1 ? ` ${at + 1}/${ids.length}` : ''}</span>
-        </div>
-        <div className="qm-vplayer">
-          {id && (
-            <iframe key={id} src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`}
-              title={`${pro.name} 소개영상`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-          )}
-        </div>
-        {ids.length > 1 && (
-          <div className="qm-vthumbs">
-            {ids.map((v, k) => (
-              <button key={v} type="button" className={k === at ? 'on' : ''} onClick={() => setAt(k)} aria-label={`영상 ${k + 1}`}>
-                <img src={`https://i.ytimg.com/vi/${v}/mqdefault.jpg`} alt="" loading="lazy" />
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="qm-btnrow qm-vbtns">
-          <button type="button" className="qm-cta ghost" onClick={onClose}>닫기</button>
-          <button type="button" className="qm-cta" onClick={() => { onToggle(); onClose(); }}>{selected ? '선택 빼기' : '이 사회자 선택'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 /* ── 사회자 찾는 중 — 토스 '대출 비교' 조회 화면과 같게(261002 사장이 준 화면 녹화, "100% 동일하게") ──────────
  * 녹화에서 잰 것: 왼쪽 정렬 두 줄 제목(단계마다 흐려졌다 또렷해지며 바뀜: 시작 → 'N개 중 M개 금융사에 다녀왔어요'
  *  → 안심 문구 → 혜택 확인 → '거의 다 됐어요' → 다 되면 '찾았어요!') · 굵은 도넛 링(연한 하늘 바탕 위로 위에서 시계 방향,
@@ -614,6 +748,10 @@ function NoteCard({ note }: { note: Note }) {
   );
 }
 
+/** 포트폴리오(상세)에 갔다 뒤로 오면 보던 결과 그대로 — 갈 때 sessionStorage 에 적고, 돌아와 한 번 쓰고 지운다(30분 지나면 버림) */
+const QM_RETURN_KEY = 'qm-return-v1';
+const QM_RETURN_TTL = 30 * 60 * 1000;
+
 export default function QuickMatchPage() {
   const [step, setStep] = useState<Step>('date');
   const [date, setDate] = useState('');
@@ -637,9 +775,29 @@ export default function QuickMatchPage() {
   const [selectAllRun, setSelectAllRun] = useState(false);
   /** 찾는 중 화면이 데이터를 기다리는지 — 받기 끝나면(성공·실패 모두) true */
   const [poolReady, setPoolReady] = useState(false);
+  /** 상세에서 돌아왔을 때 처음 보여 줄 카드 */
+  const [restoreIndex, setRestoreIndex] = useState(0);
+  const router = useRouter();
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
+  // 상세(포트폴리오)에서 뒤로 왔으면 결과 화면을 그대로 되살린다 — 첫 그림 전에(날짜 화면이 번쩍이지 않게)
+  useLayoutEffect(() => {
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(QM_RETURN_KEY); sessionStorage.removeItem(QM_RETURN_KEY); } catch {}
+    if (!raw) return;
+    try {
+      const v = JSON.parse(raw);
+      if (v?.v !== 1 || !(Date.now() - v.ts < QM_RETURN_TTL) || !Array.isArray(v.pool?.featured) || !Array.isArray(v.pool?.rest)) return;
+      setDate(v.date || ''); setTime(v.time || ''); setRegionKey(v.regionKey || ''); setVenue(v.venue || '');
+      setMoods(new Set(v.moods || [])); setPart(v.part || ''); setGender(v.gender || '');
+      setPool({ featured: v.pool.featured, rest: v.pool.rest });
+      setRerolled(!!v.rerolled); setSelected(new Set(v.selected || []));
+      setLoadErr(false); setPoolReady(true);
+      setRestoreIndex(Math.max(0, Number(v.index) || 0));
+      setStep('results');
+    } catch {}
+  }, []);
   useEffect(() => { if (step === 'results') { setSelectingAll(false); setSelectAllRun(false); } }, [step]);
 
   // 단일선택 자동 진행. 빠른 연속 탭만 디바운스로 막고, 절대 영구히 막히지 않게 타임스탬프로 관리.
@@ -691,7 +849,8 @@ export default function QuickMatchPage() {
   useEffect(() => {
     if (step !== 'searching') return;
     // 시간표(링·목록·문구)는 QmSearching 이 맡고, 끝나면 onDone 으로 결과 화면에 넘긴다
-    setRerolled(false); setSelected(new Set()); setPoolReady(false);
+    // 새로 찾으면 처음부터(상세에서 돌아와 되살린 카드 자리는 버린다). ⚠ [step] 효과로 지우면 되살리기 직후 첫 화면 효과가 0 으로 덮었다
+    setRerolled(false); setSelected(new Set()); setPoolReady(false); setRestoreIndex(0);
     loadPros((gender || 'any') as any);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
@@ -720,6 +879,17 @@ export default function QuickMatchPage() {
     setSelected(new Set()); // 처음부터 하나씩 체크되는 게 보이도록 비운다
     if (loadErr || displayed.length === 0) { setSelectingAll(false); return; }
     setSelectAllRun(true);
+  }
+  /** 포트폴리오 → 그 사회자 상세로. 보던 결과(답·후보·고른 사람·보던 카드)를 적어 두고 간다 —
+   *  후보는 섞어서 뽑아(shuffle) 다시 받으면 순서가 달라지니 받은 명단을 그대로(리롤에 쓰는 앞 10명까지) */
+  function openPro(p: ProListItem, index: number) {
+    try {
+      sessionStorage.setItem(QM_RETURN_KEY, JSON.stringify({
+        v: 1, ts: Date.now(), date, time, regionKey, venue, moods: [...moods], part, gender,
+        pool: { featured: pool.featured, rest: pool.rest.slice(0, 10) }, rerolled, selected: [...selected], index,
+      }));
+    } catch {}
+    router.push(`/pros/${p.id}`);
   }
   /** 고른 사회자로 다음 단계 — 번호가 가는 신청이면 연락 방식, 아니면 프리티풀 채팅으로 번호 입력 */
   function goAfterSelect() {
@@ -889,6 +1059,7 @@ export default function QuickMatchPage() {
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
             ) : (
               <QmProCarousel pros={displayed} selected={selected} onToggle={toggle}
+                initialIndex={restoreIndex} onOpenPro={openPro}
                 runAll={selectAllRun}
                 onSelectOne={(id) => setSelected((prev) => new Set(prev).add(id))}
                 onRunAllDone={() => { setSelectAllRun(false); goAfterSelect(); }} />
@@ -1143,37 +1314,23 @@ const CSS = `
 .qm-header .qm-hreroll:disabled{opacity:.4;cursor:default;}
 /* 사회자 카드 줄 — 상세 히어로와 같은 넘기기(왼쪽 정렬·peek·스냅·0.9배) */
 .qm-cwrap{margin:2px -16px 0;}
-.qm-carousel{display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;padding:14px 18px 20px;scroll-snap-type:x mandatory;scroll-padding-left:18px;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;}
-.qm-carousel::-webkit-scrollbar{display:none;}
-/* 크기(scale)는 스크롤 위치로 매 프레임 JS 가 칠한다 — transition 을 걸면 손가락보다 늦게 따라와 출렁인다 */
-.qm-cslide{flex:0 0 min(72vw,300px);scroll-snap-align:start;will-change:transform;}
+.qm-carousel{position:relative;display:flex;gap:12px;overflow:hidden;padding:14px 18px 20px;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+/* 끄는 동안엔 카드 누름 축소(card-press)를 끈다 — 손가락이 닿아 있는 내내 0.97배로 눌려 보였다 */
+.qm-carousel.dragging .card-press:active{transform:none;}
+/* 위치(translate)·크기(scale)는 JS 가 매 프레임 칠한다(QmProCarousel paint) — transition 을 걸면 손가락보다 늦게 따라와 출렁인다 */
+.qm-cslide{flex:0 0 min(72vw,300px);will-change:transform;}
 /* 키 작은 폰 — 카드를 조금 줄여 이름 줄까지 첫 화면에 더 들어오게(넘치면 세로로 내려 본다) */
 @media (max-height:720px){.qm-cslide{flex-basis:min(64vw,260px);}}
 .qm-cdots{display:flex;justify-content:center;gap:6px;margin-top:-4px;}
-.qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:50%;background:#D5DAE0;transition:background-color .3s;cursor:pointer;}
-.qm-cdots button.on{background:#191F28;}
+.qm-cdots button{width:6px;height:6px;padding:0;border:0;border-radius:3px;background:#D5DAE0;transition:width .4s cubic-bezier(.4,0,.2,1),background-color .4s cubic-bezier(.4,0,.2,1);cursor:pointer;}
+/* 보는 카드 = 길쭉한 알약(261002 사장 '인디케이터 포커싱된 부분 알약 형태로 길게') — 옆 점이 줄고 이 점이 늘어 전체 폭은 그대로 */
+.qm-cdots button.on{width:18px;background:#191F28;}
 .qm-ccheck{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.26);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.85);transition:background-color .38s cubic-bezier(.4,0,.2,1),box-shadow .38s cubic-bezier(.4,0,.2,1),transform .3s cubic-bezier(.34,1.56,.64,1);}
 .qm-ccheck.on{background:var(--tone-accent,var(--blue));box-shadow:none;transform:scale(1.06);}
 .qm-ccheck path{stroke-dasharray:1;stroke-dashoffset:1;animation:qm-check-draw .36s .02s cubic-bezier(.65,0,.35,1) forwards;}
 .qm-cport{position:absolute;left:14px;bottom:24px;z-index:2;display:inline-flex;align-items:center;gap:1px;height:32px;padding:0 9px 0 13px;border:0;border-radius:16px;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;letter-spacing:-.2px;background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.2);cursor:pointer;}
 .qm-cport:active{background:rgba(0,0,0,.5);}
 .qm-cport svg{flex:none;}
-/* 포트폴리오(영상) 시트 */
-.qm-vdim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;justify-content:center;animation:qm-pagefade .2s ease both;}
-.qm-vsheet{width:100%;max-width:520px;background:#fff;border-radius:28px 28px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 14px);animation:qm-sheetup .42s cubic-bezier(.32,.72,0,1) both;}
-@keyframes qm-sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.qm-vgrab{display:block;width:40px;height:5px;border-radius:3px;background:#D1D6DB;margin:0 auto 14px;}
-.qm-vhead{display:flex;align-items:baseline;gap:8px;margin:0 2px 12px;}
-.qm-vhead b{font-size:19px;font-weight:600;color:var(--t-strong);letter-spacing:-.3px;}
-.qm-vhead span{font-size:14px;color:var(--t-ph);}
-.qm-vplayer{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;}
-.qm-vplayer iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-.qm-vthumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto;scrollbar-width:none;}
-.qm-vthumbs::-webkit-scrollbar{display:none;}
-.qm-vthumbs button{flex:none;width:96px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:0;padding:0;opacity:.55;box-shadow:inset 0 0 0 2px transparent;cursor:pointer;transition:opacity .2s;}
-.qm-vthumbs button.on{opacity:1;outline:2px solid var(--blue);outline-offset:-2px;}
-.qm-vthumbs img{width:100%;height:100%;object-fit:cover;display:block;}
-.qm-vbtns{margin-top:16px;}
 .qm-chk{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid #D1D6DB;display:flex;align-items:center;justify-content:center;}
 .qm-chk.on{border-color:var(--blue);background:var(--blue);}
 @keyframes qm-check-draw{to{stroke-dashoffset:0;}}
