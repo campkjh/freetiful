@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm } from '@/lib/landing-track';
@@ -56,7 +56,6 @@ const CONTACTS: { k: string; label: string; hint: string; icon: string }[] = [
   { k: '문자', label: '문자', hint: '문자로 편하게 상담받아요', icon: 'message' },
   { k: '프리티풀 채팅', label: '프리티풀 채팅', hint: '앱에서 실시간으로 채팅해요', icon: 'chat' },
 ];
-const SEARCH_STEPS = ['예식 정보를 확인했어요', '선호 조건을 분석했어요', '조건에 맞는 사회자를 찾았어요'];
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
 
 /* ── helpers ─────────────────────────────────────────────── */
@@ -271,6 +270,222 @@ function QmVideoSheet({ pro, selected, onToggle, onClose }: { pro: ProListItem; 
     </div>
   );
 }
+/* ── 사회자 찾는 중 — 토스 '대출 비교' 조회 화면과 같게(261002 사장이 준 화면 녹화, "100% 동일하게") ──────────
+ * 녹화에서 잰 것: 왼쪽 정렬 두 줄 제목(단계마다 흐려졌다 또렷해지며 바뀜: 시작 → 'N개 중 M개 금융사에 다녀왔어요'
+ *  → 안심 문구 → 혜택 확인 → '거의 다 됐어요' → 다 되면 '찾았어요!') · 굵은 도넛 링(연한 하늘 바탕 위로 위에서 시계 방향,
+ *  꼬리는 연하고 머리는 진한 파랑 · 둥근 머리) · 가운데 큰 숫자 + 연한 % · 링 아래에 걸친 3D 아이콘 ·
+ *  회색 바탕 두 칸 탭(흰 알약이 미끄러짐) · 결과가 하나씩 들어오며 제 순위에 끼어드는 목록(그 자리에서 커지며 등장 +
+ *  연한 파랑 바탕이 1초쯤 뒤 사라짐, 아래 줄은 밀려 내려감 — 아직인 줄은 '…하고 있어요' 회색) ·
+ *  100% 뒤 제목이 '찾았어요!' 로 바뀌고 잠시 뒤 링 → 탭 → 줄 차례로 사라지며 결과 화면으로.
+ * 바꾼 것: 금융사 → 사회자(사진·이름·경력·지역 / ★평점·리뷰 수), 금리 낮은 순·한도 높은 순 → 평점 높은 순·리뷰 많은 순,
+ *  은행 아이콘 → 홈 사회자 아이콘(백합+마이크), 64초 → 6초 남짓(토스는 실제 조회 시간이다). 결과 화면은 그대로. */
+const S_ROWS = 10;
+const S_INTRO_MS = 650;
+const S_COUNT_MS = 5400;
+const S_FOUND_HOLD_MS = 900;
+const S_OUT_MS = 600;
+
+type SRow = { id: string; name: string; photo: string; career: number; region: string; rating: number; reviews: number };
+
+/** 제목 바꾸기 — 옛 제목은 짧게 사라지고 새 제목은 흐렸다 또렷하게(녹화의 0.3초 바뀜) */
+function SwapTitle({ k, children }: { k: string; children: ReactNode }) {
+  const [prev, setPrev] = useState<{ k: string; node: ReactNode } | null>(null);
+  const lastK = useRef(k);
+  const lastNode = useRef<ReactNode>(children);
+  useLayoutEffect(() => {
+    if (lastK.current === k) return;
+    setPrev({ k: lastK.current, node: lastNode.current });
+    lastK.current = k;
+    const t = window.setTimeout(() => setPrev(null), 220);
+    return () => window.clearTimeout(t);
+  }, [k]);
+  useLayoutEffect(() => { lastNode.current = children; });
+  return (
+    <div className="qm-s-titlebox">
+      {prev && <h1 key={`p-${prev.k}`} className="qm-s-title out" aria-hidden="true">{prev.node}</h1>}
+      <h1 key={`c-${k}`} className="qm-s-title in" aria-live="polite">{children}</h1>
+    </div>
+  );
+}
+
+function QmSearching({ pool, ready, failed, onDone, onBack }: {
+  pool: { featured: ProListItem[]; rest: ProListItem[] };
+  ready: boolean;
+  failed: boolean;
+  onDone: () => void;
+  onBack: () => void;
+}) {
+  const rows = useMemo<SRow[]>(() => [...pool.featured, ...pool.rest].slice(0, S_ROWS).map((p) => ({
+    id: p.id,
+    name: p.name,
+    photo: p.images?.[0] || p.profileImageUrl || '',
+    career: p.careerYears || 0,
+    region: p.isNationwide ? '전국' : String((p.regions || [])[0] || '').replace(/\(.*?\)/g, '').trim(),
+    rating: p.avgRating || 0,
+    reviews: p.reviewCount || 0,
+  })), [pool]);
+  const total = pool.featured.length + pool.rest.length;
+  // 결과가 들어오는 순서 — 화면 순서와 다르게 섞는다(위에서부터 차례로 채우면 '조회'가 아니라 '목록'처럼 보인다)
+  const rowsKey = rows.map((r) => r.id).join(',');
+  const arrival = useMemo(() => shuffle(rows.map((r) => r.id)), [rowsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [pct, setPct] = useState(0);
+  const [phase, setPhase] = useState<'run' | 'found' | 'out'>('run');
+  const [tab, setTab] = useState<'rating' | 'reviews'>('rating');
+  const ringRef = useRef<HTMLDivElement>(null);
+  const readyRef = useRef(ready);
+  const failedRef = useRef(failed);
+  readyRef.current = ready;
+  failedRef.current = failed;
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+
+  /* 시간표 — 데이터 오기 전엔 0~2% 에서 기다리고, 오면 S_COUNT_MS 동안 100% 까지.
+     링은 매 프레임 CSS 변수로(다시 그리기 없음), 숫자는 정수가 바뀔 때만 상태로. */
+  useEffect(() => {
+    const reduce = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
+    const countMs = reduce ? 1200 : S_COUNT_MS;
+    const t0 = performance.now();
+    let countStart: number | null = null;
+    let raf = 0;
+    let lastInt = -1;
+    let finished = false;
+    const timers: number[] = [];
+    const tick = (now: number) => {
+      if (failedRef.current) {
+        if (countStart === null) countStart = now - countMs * 0.9; // 못 받았으면 얼른 끝내고 결과 화면이 안내한다
+      } else if (countStart === null && readyRef.current && now - t0 >= S_INTRO_MS) {
+        countStart = now;
+      }
+      const v = countStart === null ? Math.min(2, ((now - t0) / S_INTRO_MS) * 2) : 2 + 98 * Math.min(1, (now - countStart) / countMs);
+      const el = ringRef.current;
+      if (el) {
+        // 녹화 실측: 머리 뒤로 160° 쯤에서 바탕색까지 옅어지는 '혜성'(46% 땐 위쪽 시작점이 비어 있다),
+        // 아직 짧을 땐 머리도 옅다(2% ≈ 0.45 → 11% ≈ 0.65 → 46% ≈ 0.95)
+        const head = (v / 100) * 360;
+        el.style.setProperty('--head', `${head}deg`);
+        el.style.setProperty('--tail', `${Math.max(0, head - 160)}deg`);
+        // 0% 땐 아예 숨긴다 — 시작선(0°)에서 원뿔 그라데이션 이음매가 머리카락처럼 한 줄 보였다
+        el.style.setProperty('--a', head < 1 ? '0' : String(Math.min(1, 0.36 + head / 180)));
+      }
+      const iv = Math.floor(v);
+      if (iv !== lastInt) { lastInt = iv; setPct(iv); }
+      if (v >= 100 && !finished) {
+        finished = true;
+        setPhase('found');
+        timers.push(window.setTimeout(() => setPhase('out'), S_FOUND_HOLD_MS));
+        timers.push(window.setTimeout(() => doneRef.current(), S_FOUND_HOLD_MS + S_OUT_MS));
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); timers.forEach((t) => window.clearTimeout(t)); };
+  }, []);
+
+  /* 결과 들어온 줄 — 6% 부터 하나씩(마지막 줄은 90% 남짓) */
+  const n = rows.length;
+  const doneCount = ready && n ? Math.max(0, Math.min(n, Math.floor((pct - 6) / (84 / n)) + 1)) : 0;
+  const doneIds = useMemo(() => new Set(arrival.slice(0, doneCount)), [arrival, doneCount]);
+  /* 들어온 시각 — 그 줄만 '그 자리에서 커지며 + 연한 파랑' 을 탄다 */
+  const arrivedAt = useRef(new Map<string, number>());
+  doneIds.forEach((id) => { if (!arrivedAt.current.has(id)) arrivedAt.current.set(id, performance.now()); });
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+  const sortKey = (r: SRow) => (tab === 'rating' ? [r.rating, r.reviews] : [r.reviews, r.rating]);
+  const doneRows = [...doneIds].map((id) => byId.get(id)).filter((r): r is SRow => !!r)
+    .sort((a, b) => { const x = sortKey(a), y = sortKey(b); return y[0] - x[0] || y[1] - x[1]; });
+  const pendingRows = rows.filter((r) => !doneIds.has(r.id));
+  const ordered = [...doneRows, ...pendingRows];
+
+  /* 줄 자리 — DOM 순서는 처음 그대로 두고 자리(translateY)만 바꾼다. 탭을 바꾸거나 새 줄이 끼어들면 미끄러진다.
+     ⚠ React 가 DOM 을 옮기게 두면(순서대로 그리기) 옮겨진 줄의 등장 애니가 처음부터 다시 돈다(실측 — 여러 줄이 깜빡였다).
+     방금 들어온 줄만 미끄러지지 않고 제 자리로 바로 가서 그 자리에서 커진다(녹화의 끼어들기). */
+  const rankOf = new Map(ordered.map((r, i) => [r.id, i]));
+  const ROW_H = 70;
+
+  // 제목
+  const visited = total ? Math.min(total, Math.max(1, Math.round(total * Math.min(1, pct / 46)))) : 0;
+  const stage = phase !== 'run' ? 'found' : !ready || pct < 3 || !total ? 'intro' : pct < 52 ? 'count' : pct < 63 ? 'safe' : pct < 76 ? 'check' : 'almost';
+  const titles: Record<string, ReactNode> = {
+    intro: <>고객님의<br />사회자 매칭을 시작할게요</>,
+    count: <>{total}명 중<br />{visited}명의 사회자를 살펴봤어요</>,
+    safe: <>연락처는 걱정 마세요<br />고른 사회자에게만 전달돼요</>,
+    check: <>예식일과 분위기에 맞는지도<br />함께 확인할게요</>,
+    almost: <>거의 다 됐어요<br />곧 매칭이 완료돼요</>,
+    found: <>조건에 딱 맞는<br />사회자를 찾았어요!</>,
+  };
+  const pendingText = pct < 35 ? '프로필을 살펴보고 있어요' : '리뷰를 확인하고 있어요';
+  const out = phase === 'out';
+  const fade = (i: number): React.CSSProperties | undefined => (out ? { animation: `qm-s-fade ${S_OUT_MS - 120}ms ease ${i * 45}ms both` } : undefined);
+
+  return (
+    <div className="qm-page" key="searching">
+      <Header onBack={onBack} />
+      <main className="qm-main qm-s-main">
+        <div style={fade(0)}><SwapTitle k={stage}>{titles[stage]}</SwapTitle></div>
+
+        <div className="qm-s-ringwrap" style={fade(0)}>
+          <div ref={ringRef} className="qm-s-ring" style={{ ['--head' as string]: '0deg', ['--tail' as string]: '0deg', ['--a' as string]: '0' }}>
+            <span className="qm-s-track" />
+            <span className="qm-s-arc" />
+            {pct > 0 && <span className="qm-s-cap" />}
+          </div>
+          <div className="qm-s-num">
+            <b>{Math.min(100, pct)}</b>{pct < 100 && <i>%</i>}
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="qm-s-ic" src="/images/category-icons/wedding-mc-icon.png" alt="" draggable={false} />
+          <span className="qm-s-icshadow" aria-hidden="true" />
+        </div>
+
+        <div className="qm-s-tabs" role="tablist" style={fade(1)}>
+          <span className="qm-s-pill" style={{ transform: tab === 'rating' ? 'translateX(0)' : 'translateX(100%)' }} />
+          <button type="button" role="tab" aria-selected={tab === 'rating'} className={`qm-s-tab ${tab === 'rating' ? 'on' : ''}`} onClick={() => setTab('rating')}>평점 높은 순</button>
+          <button type="button" role="tab" aria-selected={tab === 'reviews'} className={`qm-s-tab ${tab === 'reviews' ? 'on' : ''}`} onClick={() => setTab('reviews')}>리뷰 많은 순</button>
+        </div>
+
+        <div className="qm-s-list">
+          {!ready && !failed
+            ? [0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="qm-s-row skel">
+                <span className="qm-s-ava" />
+                <span className="qm-s-txt"><span className="qm-s-bar w1" /><span className="qm-s-bar w2" /></span>
+              </div>
+            ))
+            : (
+              <div className="qm-s-rows" style={{ height: rows.length * ROW_H }}>
+                {rows.map((r) => {
+                  const done = doneIds.has(r.id);
+                  const age = done ? performance.now() - (arrivedAt.current.get(r.id) ?? 0) : Infinity;
+                  const rank = rankOf.get(r.id) ?? 0;
+                  const sub = [r.career ? `경력 ${r.career}년` : '', r.region].filter(Boolean).join(' · ');
+                  return (
+                    <div key={r.id} className="qm-s-slot"
+                      style={{ transform: `translateY(${rank * ROW_H}px)`, transition: age < 90 ? 'none' : undefined, ...(fade(2 + rank) || {}) }}>
+                      <div className={`qm-s-row ${age < 1250 ? 'new' : ''}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {r.photo ? <img className="qm-s-ava" src={r.photo} alt="" loading="eager" /> : <span className="qm-s-ava" />}
+                        <span className="qm-s-txt">
+                          <span className="qm-s-name">{r.name}</span>
+                          <span className={`qm-s-sub ${done ? '' : 'wait'}`}>{done ? sub || '프리티풀 사회자' : pendingText}</span>
+                        </span>
+                        {done && (
+                          <span className="qm-s-val">
+                            <b>{r.reviews > 0 ? `★ ${r.rating.toFixed(1)}` : '신규'}</b>
+                            <span>리뷰 {r.reviews}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function NoteCard({ note }: { note: Note }) {
   return (
     <div className="qm-note">
@@ -299,9 +514,9 @@ export default function QuickMatchPage() {
   const [contact, setContact] = useState('');
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [pct, setPct] = useState(0);
   const [selectingAll, setSelectingAll] = useState(false);
-  const [bgIdx, setBgIdx] = useState(0);
+  /** 찾는 중 화면이 데이터를 기다리는지 — 받기 끝나면(성공·실패 모두) true */
+  const [poolReady, setPoolReady] = useState(false);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
@@ -350,19 +565,14 @@ export default function QuickMatchPage() {
       const rest = [...others.filter((p) => matchesRegion(p, group)), ...others.filter((p) => !matchesRegion(p, group))];
       setPool({ featured, rest });
     } catch { setLoadErr(true); setPool({ featured: [], rest: [] }); }
+    setPoolReady(true);
   }
 
   useEffect(() => {
     if (step !== 'searching') return;
-    setPct(0); setRerolled(false); setSelected(new Set());
+    // 시간표(링·목록·문구)는 QmSearching 이 맡고, 끝나면 onDone 으로 결과 화면에 넘긴다
+    setRerolled(false); setSelected(new Set()); setPoolReady(false);
     loadPros((gender || 'any') as any);
-    const t0 = Date.now();
-    const timer = setInterval(() => {
-      const t = Math.min(1, (Date.now() - t0) / 2600);
-      setPct(Math.round((1 - Math.pow(1 - t, 2)) * 100));
-      if (t >= 1) { clearInterval(timer); setStep('results'); }
-    }, 40);
-    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
@@ -380,19 +590,6 @@ export default function QuickMatchPage() {
     const p = QUICK_PROGRESS[s];
     return p ? { at: p.at, total: QUICK_PROGRESS_TOTAL, from: p.from / QUICK_PROGRESS_TOTAL, to: p.to / QUICK_PROGRESS_TOTAL } : undefined;
   };
-
-  // 검색 화면 뒷배경: 사회자 프로필 사진들을 1초마다 크로스페이드로 순환
-  const bgImgs = useMemo(() => {
-    const seen = new Set<string>(); const out: string[] = [];
-    for (const p of [...pool.featured, ...pool.rest]) { const u = p.profileImageUrl; if (u && !seen.has(u)) { seen.add(u); out.push(u); } if (out.length >= 12) break; }
-    return out;
-  }, [pool]);
-  useEffect(() => {
-    if (step !== 'searching' || bgImgs.length === 0) return;
-    setBgIdx(0);
-    const id = setInterval(() => setBgIdx((i) => (i + 1) % bgImgs.length), 1000);
-    return () => clearInterval(id);
-  }, [step, bgImgs.length]);
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   function reroll() { if (!canReroll) return; setRerolled(true); setSelected(new Set()); }
@@ -425,7 +622,6 @@ export default function QuickMatchPage() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const R = 2 * Math.PI * 34;
   const phoneDigits = phone.replace(/\D/g, '');
 
   return (
@@ -556,35 +752,7 @@ export default function QuickMatchPage() {
       )}
 
       {step === 'searching' && (
-        <div className="qm-page center qm-searching" key="searching">
-          <div className="qm-search-bg" aria-hidden="true">
-            {bgImgs.map((src, i) => (
-              <span key={src} className={`qm-search-bgimg ${i === bgIdx ? 'on' : ''}`} style={{ backgroundImage: `url(${src})` }} />
-            ))}
-          </div>
-          <div className="qm-search-fg">
-            <div className="qm-ringwrap">
-              <svg viewBox="0 0 80 80" className="qm-ring">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="#EEF0F3" strokeWidth="6" />
-                <circle cx="40" cy="40" r="34" fill="none" stroke="#3182F6" strokeWidth="6" strokeLinecap="round" strokeDasharray={R} strokeDashoffset={R * (1 - pct / 100)} transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .1s linear' }} />
-              </svg>
-              <span className="qm-ring-ic"><Ic name="sparkle" size={30} color="#3182F6" /></span>
-            </div>
-            <h2 className="qm-h2 center">고객님의 예식에 알맞는<br />사회자를 찾고 있어요</h2>
-            <p className="qm-pct">{pct}% 진행 중</p>
-            <div className="qm-searchlist">
-              {SEARCH_STEPS.map((s, i) => {
-                const done = pct >= (i + 1) * 33;
-                return (
-                  <div className={`qm-searchrow ${done ? 'done' : ''}`} key={s}>
-                    <span className="qm-searchrow-ic">{done ? <Ic name="check" size={18} color="#3182F6" /> : <span className="qm-spin" />}</span>
-                    <span>{s}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <QmSearching pool={pool} ready={poolReady} failed={loadErr} onDone={() => setStep('results')} onBack={() => back('gender')} />
       )}
 
       {step === 'results' && (
@@ -797,22 +965,54 @@ const CSS = `
 .qm-key{height:62px;display:flex;align-items:center;justify-content:center;border:0;background:none;font-size:26px;font-weight:500;color:var(--t-strong);cursor:pointer;font-family:inherit;transition:background .1s;border-radius:14px;margin:2px 6px;}
 .qm-key:active:not(.empty){background:var(--divider);}
 .qm-key.empty{pointer-events:none;}
-.qm-ringwrap{position:relative;width:80px;height:80px;}
-.qm-ring{width:80px;height:80px;}
-.qm-ring-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
-.qm-pct{margin:14px 0 0;font-size:15px;font-weight:600;color:var(--blue);}
-.qm-searchlist{margin-top:34px;width:100%;max-width:280px;display:flex;flex-direction:column;gap:16px;}
-.qm-searchrow{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--t-dis);transition:color .3s;}
-.qm-searchrow.done{color:var(--t);font-weight:600;}
-.qm-searchrow-ic{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:none;}
-.qm-spin{width:15px;height:15px;border-radius:50%;border:2px solid #E5E8EB;border-top-color:var(--blue);animation:qm-spin .7s linear infinite;}
-@keyframes qm-spin{to{transform:rotate(360deg)}}
-.qm-searching{position:relative;overflow:hidden;padding:0;}
-.qm-search-bg{position:absolute;inset:0;z-index:0;background:#EDF0F3;}
-.qm-search-bgimg{position:absolute;inset:0;background-size:cover;background-position:center 22%;opacity:0;transform:scale(1.08);filter:blur(2px);transition:opacity .9s ease;}
-.qm-search-bgimg.on{opacity:1;}
-.qm-search-bg::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.74);}
-.qm-search-fg{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%;padding:0 32px;}
+.qm-s-main{padding:4px 24px 32px;}
+.qm-s-titlebox{position:relative;min-height:62px;}
+.qm-s-title{font-size:22px;font-weight:600;line-height:1.42;letter-spacing:-.4px;color:var(--t-strong);margin:0;}
+.qm-s-title.in{animation:qm-s-tin .34s cubic-bezier(.22,.61,.36,1) .08s both;}
+.qm-s-title.out{position:absolute;left:0;top:0;right:0;animation:qm-s-tout .16s ease both;}
+@keyframes qm-s-tin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes qm-s-tout{from{opacity:1}to{opacity:0}}
+/* 링 — 연한 하늘 도넛 위로 위에서부터 시계 방향(꼬리 연함 → 머리 진함), 둥근 머리·꼬리 */
+.qm-s-ringwrap{position:relative;width:178px;height:206px;margin:30px auto 0;}
+.qm-s-ring{position:absolute;left:0;top:0;width:178px;height:178px;}
+.qm-s-track,.qm-s-arc{position:absolute;inset:0;border-radius:50%;-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 38px),#000 calc(100% - 37.4px));mask:radial-gradient(closest-side,transparent calc(100% - 38px),#000 calc(100% - 37.4px));}
+.qm-s-track{background:#F4F7FE;}
+.qm-s-arc{background:conic-gradient(from 0deg,transparent var(--tail),rgba(61,132,247,0) var(--tail),rgba(61,132,247,var(--a)) var(--head),transparent var(--head));}
+/* 둥근 머리 — 바탕(링 색) 위에 머리와 같은 진하기로 */
+.qm-s-cap{position:absolute;left:50%;top:0;width:38px;height:38px;margin-left:-19px;border-radius:50%;transform-origin:19px 89px;transform:rotate(var(--head));background:radial-gradient(closest-side,rgba(61,132,247,var(--a)) 99%,transparent 100%),#F4F7FE;}
+.qm-s-num{position:absolute;left:0;top:0;width:178px;height:178px;display:flex;align-items:center;justify-content:center;gap:1px;padding-bottom:4px;}
+.qm-s-num b{font-size:46px;font-weight:700;letter-spacing:-1.6px;color:var(--blue);font-variant-numeric:tabular-nums;line-height:1;}
+.qm-s-num i{font-style:normal;font-size:21px;font-weight:600;color:#A6C8FA;margin-top:8px;}
+.qm-s-ic{position:absolute;left:50%;top:143px;width:58px;height:58px;margin-left:-29px;object-fit:contain;z-index:1;filter:drop-shadow(0 4px 6px rgba(70,100,160,.18));}
+.qm-s-icshadow{position:absolute;left:50%;top:192px;width:120px;height:14px;margin-left:-60px;border-radius:50%;background:radial-gradient(closest-side,rgba(120,150,210,.22),rgba(120,150,210,0));}
+/* 탭 — 회색 바탕 두 칸, 흰 알약이 미끄러진다 */
+.qm-s-tabs{position:relative;display:flex;height:46px;padding:4px;margin-top:22px;border-radius:14px;background:var(--bg-gray);}
+.qm-s-pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:10px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);transition:transform .32s cubic-bezier(.22,.61,.36,1);}
+.qm-s-tab{position:relative;z-index:1;flex:1;border:0;background:none;font-family:inherit;font-size:15px;font-weight:600;color:var(--t-ph);cursor:pointer;transition:color .2s;}
+.qm-s-tab.on{color:var(--t-strong);}
+/* 목록 — 들어온 줄은 제자리에서 커지며 + 연한 파랑이 1초쯤 뒤 사라진다 */
+.qm-s-list{position:relative;margin-top:10px;}
+.qm-s-rows{position:relative;}
+.qm-s-slot{position:absolute;left:0;right:0;top:0;transition:transform .38s cubic-bezier(.22,.61,.36,1);will-change:transform;}
+.qm-s-row{position:relative;display:flex;align-items:center;gap:14px;height:70px;padding:0 12px;margin:0 -12px;border-radius:16px;}
+.qm-s-row.new{animation:qm-s-rowin .42s cubic-bezier(.22,.61,.36,1) both,qm-s-hl 1.25s ease both;}
+@keyframes qm-s-rowin{from{opacity:.25;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes qm-s-hl{0%,35%{background:#EAF2FE}100%{background:rgba(234,242,254,0)}}
+.qm-s-ava{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;background:var(--divider);}
+.qm-s-txt{flex:1;min-width:0;display:flex;flex-direction:column;}
+.qm-s-name{font-size:17px;font-weight:600;letter-spacing:-.3px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qm-s-sub{margin-top:2px;font-size:13.5px;color:var(--t-ph);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qm-s-sub.wait{color:var(--t-dis);}
+.qm-s-val{flex:none;display:flex;flex-direction:column;align-items:flex-end;}
+.qm-s-val b{font-size:17px;font-weight:600;color:var(--blue);letter-spacing:-.2px;}
+.qm-s-val span{margin-top:2px;font-size:13.5px;color:var(--t-ph);}
+.qm-s-row.skel .qm-s-ava,.qm-s-bar{background:linear-gradient(90deg,#F2F4F6 0%,#E9ECEF 50%,#F2F4F6 100%);background-size:200% 100%;animation:qm-s-shine 1.2s linear infinite;}
+.qm-s-bar{display:block;height:13px;border-radius:7px;}
+.qm-s-bar.w1{width:38%;}
+.qm-s-bar.w2{width:58%;margin-top:8px;height:11px;}
+@keyframes qm-s-shine{from{background-position:200% 0}to{background-position:0 0}}
+@keyframes qm-s-fade{to{opacity:0}}
+@media (prefers-reduced-motion:reduce){.qm-s-title.in,.qm-s-title.out,.qm-s-row.new{animation:none;}}
 .qm-resbar{display:flex;align-items:center;justify-content:space-between;margin:18px 4px 0;}
 .qm-resbar>span{font-size:13px;font-weight:600;color:var(--t-sub);}
 .qm-reroll{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--t-sub);font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;}
