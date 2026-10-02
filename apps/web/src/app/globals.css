@@ -2036,22 +2036,6 @@ html[data-embedded='1'] [data-native-back-header] {
   .sparkle-big, .sparkle-small { animation: none; opacity: 1; transform: none; }
 }
 
-/* 리뷰 언급 키워드 — 어두운 판 위에서 둥실 뜨는 글자와 번지는 빛 */
-@keyframes kwFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-@keyframes kwGlow {
-  0%, 100% { opacity: 0.92; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
-
-/* 키워드 글자 안에서 색이 천천히 흘러간다 */
-@keyframes kwSpectrum {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
 /* 채팅 빈 화면 — 말풍선이 앞(아래)에서 튀어 들어오고, 앞에 있던 건 뒤(위)로 밀려 올라가고,
    뒤에 있던 건 그 자리에서 사라진다. 한 바퀴 1.8s · 전환 13%(≈0.23s). */
 .chat-empty-bubbles .ceb {

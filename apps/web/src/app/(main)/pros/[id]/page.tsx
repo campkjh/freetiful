@@ -25,6 +25,7 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import AiIcon from '@/components/icons/AiIcon';
 import StyleIntroCard, { useProStyleSummary } from '@/components/pros/StyleIntroCard';
+import ReviewKeywordOrb from '@/components/pros/ReviewKeywordOrb';
 import ReviewCommentRow from '@/components/pros/ReviewCommentRow';
 
 // ─── Brand Color ────────────────────────────────────────────
@@ -628,102 +629,6 @@ function mapApiProDetail(res: any, planTemplates: PlanTemplate[], recommendedPro
 }
 
 // ─── Components ─────────────────────────────────────────────
-
-/**
- * 리뷰에서 자주 언급된 키워드.
- *
- * 예전엔 이 자리에 포텐셜 점수(레이더 차트 + 항목별 점수)가 있었는데,
- * 숫자보다 "무슨 말을 들었는지"가 고르는 데 더 도움이 된다는 판단으로 바꿨다.
- * 가장 많이 언급된 키워드일수록 크고 밝게, 어두운 판 위에 둥실 떠 있게 뒀다.
- */
-const KEYWORD_SLOTS: {
-  x: number; y: number; size: number; weight: number; color: string; gradient?: string;
-}[] = [
-  // 많이 언급된 순서대로 — 겹치지 않게 줄을 나눠 두고 크기·색·들여쓰기만 흔들었다.
-  // 위 두 개는 글자 안에서 색이 천천히 흘러간다(파랑↔보라, 보라↔주황).
-  { x: 38, y: 42.8, size: 26, weight: 700, color: '#1B64DA',
-    gradient: 'linear-gradient(90deg, #1B64DA 0%, #4A6BE0 26%, #7C5CE0 50%, #3F73E8 74%, #1B64DA 100%)' },
-  { x: 49, y: 26.4, size: 21, weight: 700, color: '#191F28' },
-  { x: 52, y: 59.2, size: 20, weight: 700, color: '#7C5CE0',
-    gradient: 'linear-gradient(90deg, #7C5CE0 0%, #9B62D6 26%, #D4884F 50%, #A365D2 74%, #7C5CE0 100%)' },
-  { x: 40, y: 10, size: 17, weight: 600, color: '#4E5968' },
-  { x: 41, y: 75.6, size: 16, weight: 600, color: '#6B7684' },
-  { x: 57, y: 92, size: 15, weight: 600, color: '#A4ABBA' },
-];
-
-function ReviewKeywordCloud({ items, reviewCount }: { items: string[]; reviewCount: number }) {
-  const { ref, visible } = useReveal(0.25);
-  const shown = items.slice(0, KEYWORD_SLOTS.length);
-
-  return (
-    <div
-      ref={ref as unknown as React.RefObject<HTMLDivElement>}
-      data-kw-cloud
-      className="relative mb-2 h-[250px] w-full overflow-hidden rounded-[20px] bg-white"
-    >
-      {/* 원에서 번져 나오는 빛 */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            // 파랑이 중심, 위쪽으로 보라가 살짝 겹치며 번진다.
-            // 중심을 안쪽으로 넣고 반경을 줄여 가장자리에 닿기 전에 다 사그라들게 했다 — 잘려 보이지 않도록.
-            'radial-gradient(36% 40% at 38% 36%, rgba(139,92,246,0.22) 0%, rgba(139,92,246,0.09) 36%, rgba(255,255,255,0) 74%), ' +
-            'radial-gradient(40% 58% at 26% 50%, rgba(49,128,247,0.28) 0%, rgba(49,128,247,0.14) 30%, rgba(49,128,247,0.04) 52%, rgba(255,255,255,0) 76%)',
-          animation: visible ? 'kwGlow 6s ease-in-out infinite' : undefined,
-        }}
-      />
-      {/* 가운데 원 — 빛에 흰 구멍을 뚫는다 */}
-      <div className="absolute left-[20%] top-1/2 flex h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-white text-center">
-        <span className="text-[12px] font-semibold text-[#8B95A1]">언급 키워드</span>
-        <span className="mt-0.5 text-[19px] font-bold text-[#2B313D]">{shown.length}개</span>
-        <span className="mt-0.5 text-[11px] text-[#A4ABBA]">리뷰 {reviewCount}건</span>
-      </div>
-
-      {shown.map((keyword, i) => {
-        const slot = KEYWORD_SLOTS[i];
-        return (
-          <span
-            key={keyword}
-            className="absolute -translate-y-1/2 whitespace-nowrap"
-            style={{
-              left: `${slot.x}%`,
-              top: `${slot.y}%`,
-              opacity: visible ? 1 : 0,
-              transition: `opacity .6s ease ${i * 90}ms`,
-            }}
-          >
-            <span
-              className="block"
-              style={{
-                fontSize: slot.size,
-                fontWeight: slot.weight,
-                // 그라데이션이 있으면 글자 자체를 창으로 삼아 색이 흐르게 한다
-                ...(slot.gradient
-                  ? {
-                      backgroundImage: slot.gradient,
-                      backgroundSize: '260% 100%',
-                      WebkitBackgroundClip: 'text' as const,
-                      backgroundClip: 'text' as const,
-                      color: 'transparent',
-                      WebkitTextFillColor: 'transparent',
-                    }
-                  : { color: slot.color }),
-                animation: visible
-                  ? `kwFloat ${3.6 + i * 0.35}s ease-in-out ${i * 0.22}s infinite${
-                      slot.gradient ? `, kwSpectrum ${7 + i * 1.2}s ease-in-out ${i * 0.4}s infinite` : ''
-                    }`
-                  : undefined,
-              }}
-            >
-              {keyword}
-            </span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 // 기존 사회자별 기업로고 매핑 (각 사회자가 함께한 기업)
 const PRO_COMPANY_LOGOS: Record<string, string[]> = {
@@ -2080,13 +1985,12 @@ export default function ProDetailPage() {
 
                 <section id="desktop-info" className="mb-9">
                   <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 정보</h2>
-                  <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-5">
-                    <div className="rounded-lg border border-gray-200 p-5">
-                      <div className="mb-3 flex items-center justify-between">
-                        <h3 className="text-[17px] font-bold text-gray-950">고객이 자주 언급한 키워드</h3>
-                      </div>
-                      <ReviewKeywordCloud items={reviewKeywords} reviewCount={displayReviewCount} />
-                    </div>
+                  {/* 고객이 자주 언급한 키워드 — 사장이 준 그림 그대로(두 줄 제목 · 보라 원 · 체크 칩 넷 · 회색 칩 넷).
+                      ⚠ 칸을 통째로 쓴다 — 옆 280 칸과 나눠 쓰면 폭이 400 남짓이라 폰 판으로 떨어진다(그림 판은 560↑) */}
+                  <div className="mb-5 rounded-lg border border-gray-200 px-6 pb-5 pt-7">
+                    <ReviewKeywordOrb name={pro.name} keywords={reviewKeywords} reviewCount={displayReviewCount} />
+                  </div>
+                  <div>
                     <div className="rounded-lg border border-gray-200 p-5">
                       <div className="flex items-center gap-3">
                         <img src={pro.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
@@ -2681,7 +2585,8 @@ export default function ProDetailPage() {
         {/* 리뷰 AI 요약 — '이 사회자의 스타일을 소개합니다'(목록 리뷰 시트와 같은 카드 · 화면에 닿으면 페이드업→펼침→문장) */}
         <StyleIntroCard summary={styleSummary.value} loading={styleSummary.loading} className="mb-3" />
 
-        <ReviewKeywordCloud items={reviewKeywords} reviewCount={displayReviewCount} />
+        {/* 고객이 자주 언급한 키워드 — 사장이 준 그림 그대로(두 줄 제목 · 보라 원 · 체크 칩 넷 · 회색 칩 넷) */}
+        <ReviewKeywordOrb name={pro.name} keywords={reviewKeywords} reviewCount={displayReviewCount} className="mb-6 mt-5" />
 
 
         {/* Reviews list */}
