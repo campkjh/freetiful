@@ -764,6 +764,158 @@ function QmSearching({ pool, ready, failed, onDone, onBack }: {
   );
 }
 
+/* ── 예식 시간 다이얼 — 토스처럼 위아래로 굴리는 휠(261002 사장 '타임피커를 토스 다이얼처럼, 지금 네이티브 피커',
+ *    '날짜 고르자마자 다이얼이 나오게'). 오전/오후 · 시 · 분(10분 단위) 세 줄, 가운데 회색 띠에 걸린 값이 고른 값.
+ *    굴리기 = 네이티브 세로 스크롤 + 칸 스냅(관성은 기기 그대로), 가운데서 멀수록 기울고 흐려져 원통처럼 보인다. ── */
+const QM_WROW = 44; // 한 칸 높이
+const QM_WPAD = QM_WROW * 2; // 위아래 빈칸 — 첫·끝 칸도 가운데에 올 수 있게(보이는 칸 5개)
+const QM_HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const QM_MINUTES = ['00', '10', '20', '30', '40', '50'];
+
+function QmWheel({ items, index, onChange, label, width }: {
+  items: string[];
+  /** 처음 걸려 있을 칸(그 뒤엔 굴린 대로) */
+  index: number;
+  onChange: (i: number) => void;
+  label: string;
+  width: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const cur = useRef(index);
+  const raf = useRef(0);
+  const [now, setNow] = useState(index);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  /** 칠하기 — 칸마다 가운데에서 몇 칸 떨어졌는지(d)로 기울기·투명도. 가운데 칸만 진한 글자 */
+  const paint = () => {
+    raf.current = 0;
+    const el = ref.current;
+    if (!el) return;
+    const c = el.scrollTop / QM_WROW;
+    el.querySelectorAll<HTMLElement>('.qm-witem').forEach((it, i) => {
+      const d = i - c;
+      const ad = Math.min(3, Math.abs(d));
+      it.style.transform = `rotateX(${(-d * 18).toFixed(1)}deg)`;
+      it.style.opacity = (1 - ad * 0.22).toFixed(3);
+      it.classList.toggle('on', ad < 0.5);
+    });
+    const i = Math.max(0, Math.min(items.length - 1, Math.round(c)));
+    if (i !== cur.current) {
+      cur.current = i;
+      setNow(i);
+      onChangeRef.current(i);
+    }
+  };
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTop = index * QM_WROW;
+    paint();
+    return () => cancelAnimationFrame(raf.current);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = (i: number) => ref.current?.scrollTo({ top: Math.max(0, Math.min(items.length - 1, i)) * QM_WROW, behavior: 'smooth' });
+  return (
+    <div
+      ref={ref}
+      className="qm-wheel"
+      style={{ width }}
+      role="spinbutton"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuenow={now}
+      aria-valuemin={0}
+      aria-valuemax={items.length - 1}
+      aria-valuetext={items[now]}
+      onScroll={() => { if (!raf.current) raf.current = requestAnimationFrame(paint); }}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowUp') { e.preventDefault(); go(cur.current - 1); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); go(cur.current + 1); }
+      }}
+    >
+      <div style={{ height: QM_WPAD }} aria-hidden="true" />
+      {items.map((t, i) => (
+        <div key={t} className="qm-witem" onClick={() => go(i)}>{t}</div>
+      ))}
+      <div style={{ height: QM_WPAD }} aria-hidden="true" />
+    </div>
+  );
+}
+
+/** 예식 시간 시트 — 앱 공통 시트(.ft-*) 모양. 확인 = 값 반영 후 스르르 내려가며 닫힘(뚝 금지), 바깥·Esc·뒤로가기 = 그냥 닫기 */
+function QmTimeSheet({ value, dateLabel, onDone, onClose }: {
+  value: string;
+  dateLabel: string;
+  onDone: (v: string) => void;
+  onClose: () => void;
+}) {
+  // 처음 걸 값 — 고른 시간이 있으면 그것, 없으면 낮 12시(예식이 가장 많은 점심때)
+  const init = useMemo(() => {
+    const [hh, mm] = (value || '12:00').split(':').map(Number);
+    const h = Number.isFinite(hh) ? hh : 12;
+    const m = Number.isFinite(mm) ? mm : 0;
+    return { ap: h >= 12 ? 1 : 0, h: (h % 12 || 12) - 1, m: Math.min(5, Math.round(m / 10)) };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [ap, setAp] = useState(init.ap);
+  const [h, setH] = useState(init.h);
+  const [m, setM] = useState(init.m);
+  const [out, setOut] = useState(false);
+  const outRef = useRef(false);
+  const popped = useRef(false);
+  const pushed = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const close = () => {
+    if (outRef.current) return;
+    outRef.current = true;
+    setOut(true);
+    // 쌓아 둔 히스토리 한 칸을 되돌린다(뒤로가기로 닫혔으면 이미 빠졌다)
+    if (!popped.current && (window.history.state as { qmSheet?: boolean } | null)?.qmSheet) window.history.back();
+    window.setTimeout(() => onCloseRef.current(), 240);
+  };
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    // 안드로이드 뒤로가기 = 시트만 닫기 — 히스토리 한 칸을 쌓아 둔다(채팅 + 시트와 같은 방식). StrictMode 두 번 실행에도 한 번만
+    if (!pushed.current) { window.history.pushState({ qmSheet: true }, ''); pushed.current = true; }
+    const onPop = () => { popped.current = true; closeRef.current(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, []);
+  const confirm = () => {
+    const h24 = ((h + 1) % 12) + (ap ? 12 : 0);
+    onDone(`${String(h24).padStart(2, '0')}:${QM_MINUTES[m]}`);
+    close();
+  };
+  return (
+    <div className={`ft-scrim qm-tscrim ${out ? 'out' : ''}`} onClick={close}>
+      <div className="ft-sheet qm-tsheet" role="dialog" aria-modal="true" aria-label="예식 시간 선택" onClick={(e) => e.stopPropagation()}>
+        <div className="ft-grab" />
+        <h2 className="ft-title">예식 시간을 골라주세요</h2>
+        {dateLabel && <p className="ft-desc">{dateLabel}</p>}
+        <div className="qm-wheels">
+          <span className="qm-wband" aria-hidden="true" />
+          <QmWheel items={['오전', '오후']} index={init.ap} onChange={setAp} label="오전 오후" width={76} />
+          <QmWheel items={QM_HOURS} index={init.h} onChange={setH} label="시" width={54} />
+          <span className="qm-wunit" aria-hidden="true">시</span>
+          <QmWheel items={QM_MINUTES} index={init.m} onChange={setM} label="분" width={54} />
+          <span className="qm-wunit" aria-hidden="true">분</span>
+        </div>
+        <div className="ft-actions">
+          <button type="button" className="ft-btn primary" onClick={confirm}>확인</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoteCard({ note }: { note: Note }) {
   return (
     <div className="qm-note">
@@ -803,10 +955,31 @@ export default function QuickMatchPage() {
   const [poolReady, setPoolReady] = useState(false);
   /** 상세에서 돌아왔을 때 처음 보여 줄 카드 */
   const [restoreIndex, setRestoreIndex] = useState(0);
+  /** 예식 시간 다이얼 시트 */
+  const [timeOpen, setTimeOpen] = useState(false);
+  const dateRef = useRef<HTMLInputElement>(null);
+  const timeRef = useRef(time);
+  timeRef.current = time;
   const router = useRouter();
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   useEffect(() => { captureUtm(); }, []);
+  // 날짜를 고르면(확정 = change) 바로 시간 다이얼 — 다시 누를 필요 없이(261002 사장). 시간을 이미 골랐으면 그대로 둔다.
+  // 네이티브 달력이 닫히는 걸 한 박자 기다렸다가 띄워 겹치지 않게
+  useEffect(() => {
+    if (step !== 'date') return;
+    const el = dateRef.current;
+    if (!el) return;
+    let t = 0;
+    const onCommit = () => {
+      if (!el.value || timeRef.current) return;
+      el.blur();
+      window.clearTimeout(t);
+      t = window.setTimeout(() => setTimeOpen(true), 180);
+    };
+    el.addEventListener('change', onCommit);
+    return () => { el.removeEventListener('change', onCommit); window.clearTimeout(t); };
+  }, [step]);
   // 상세(포트폴리오)에서 뒤로 왔으면 결과 화면을 그대로 되살린다 — 첫 그림 전에(날짜 화면이 번쩍이지 않게)
   useLayoutEffect(() => {
     let raw: string | null = null;
@@ -955,16 +1128,17 @@ export default function QuickMatchPage() {
             <label className="qm-datefield qm-a-item" style={stag(0)}>
               <Ic name="calendar" size={22} color={date ? '#3182F6' : '#8B95A1'} />
               <span className={date ? 'val' : 'ph'}>{date ? formatKDate(date) : '예식일을 선택해주세요'}</span>
-              <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
+              <input ref={dateRef} type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
             </label>
-            <label className="qm-datefield qm-a-item" style={stag(1)}>
+            {/* 시간 = 네이티브 피커 대신 토스식 다이얼 시트(QmTimeSheet) */}
+            <button type="button" className={`qm-datefield qm-timefield qm-a-item ${timeOpen ? 'on' : ''}`} style={stag(1)} aria-haspopup="dialog" onClick={() => setTimeOpen(true)}>
               <Ic name="clock" size={22} color={time ? '#3182F6' : '#8B95A1'} />
               <span className={time ? 'val' : 'ph'}>{time ? formatKTime(time) : '예식 시간을 선택해주세요'}</span>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} onClick={(e) => { try { e.currentTarget.showPicker(); } catch {} }} />
-            </label>
+            </button>
           </main>
           {/* 예식 시간도 필수(260927 사장) */}
           <Cta disabled={!date || !time} onClick={() => setStep('region')}>다음</Cta>
+          {timeOpen && <QmTimeSheet value={time} dateLabel={date ? formatKDate(date) : ''} onDone={setTime} onClose={() => setTimeOpen(false)} />}
         </div>
       )}
 
@@ -1245,6 +1419,24 @@ const CSS = `
 .qm-datefield .ph{color:var(--t-ph);font-size:16px;}
 .qm-datefield .val{color:var(--t-strong);font-size:16px;font-weight:600;}
 .qm-datefield input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;background:none;cursor:pointer;}
+/* 시간 칸 = 버튼(다이얼 시트 열기). first-of-type 이 버튼에도 걸려 위 여백이 28 이 되던 것 → 16 고정 */
+.qm-datefield.qm-timefield{width:100%;margin-top:16px;font-family:inherit;text-align:left;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.qm-datefield.on{border-color:var(--blue);}
+/* 예식 시간 다이얼(QmTimeSheet) — 시트 모양은 앱 공통 .ft-*, 닫힐 때도 스르르(뚝 금지) */
+.ft-scrim.qm-tscrim.out{animation:qm-scrim-out .24s ease forwards;}
+.ft-scrim.qm-tscrim.out .ft-sheet{animation:qm-sheet-down .24s cubic-bezier(.4,0,1,1) forwards;}
+@keyframes qm-scrim-out{to{opacity:0}}
+@keyframes qm-sheet-down{from{transform:translateY(0)}to{transform:translateY(100%)}}
+@media (min-width:640px){.ft-scrim.qm-tscrim.out .ft-sheet{animation:qm-sheet-popout .2s ease forwards;}}
+@keyframes qm-sheet-popout{to{opacity:0;transform:translateY(12px) scale(.98)}}
+.qm-wheels{position:relative;display:flex;align-items:center;justify-content:center;gap:4px;height:220px;margin:16px 0 0;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 70%,transparent 100%);}
+.qm-wband{position:absolute;left:0;right:0;top:50%;height:44px;margin-top:-22px;border-radius:12px;background:#F2F4F6;pointer-events:none;}
+.qm-wheel{position:relative;height:220px;overflow-x:hidden;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;perspective:520px;touch-action:pan-y;outline:none;-webkit-tap-highlight-color:transparent;}
+.qm-wheel::-webkit-scrollbar{display:none;}
+.qm-wheel:focus-visible{box-shadow:inset 0 0 0 2px var(--blue,#3182F6);border-radius:12px;}
+.qm-witem{height:44px;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;letter-spacing:-.3px;color:#B0B8C1;scroll-snap-align:center;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-backface-visibility:hidden;backface-visibility:hidden;transition:color .15s;}
+.qm-witem.on{color:#191F28;}
+.qm-wunit{position:relative;font-size:19px;font-weight:600;color:#191F28;margin:0 8px 0 -2px;}
 .qm-list{margin-top:26px;display:flex;flex-direction:column;gap:10px;}
 .qm-optwrap{display:block;}
 .qm-opt{display:flex;align-items:center;gap:14px;width:100%;min-height:60px;padding:0 18px;border:1.5px solid var(--border);border-radius:16px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s;text-align:left;}
