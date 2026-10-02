@@ -198,7 +198,7 @@ type QmDrag = {
   samples: Array<[number, number]>;
 };
 
-function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone, initialIndex = 0, onOpenPro }: {
+function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, onRunAllDone, initialIndex = 0, onOpenPro, enterDelay }: {
   pros: ProListItem[];
   selected: Set<string>;
   onToggle: (id: string) => void;
@@ -210,6 +210,8 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
   initialIndex?: number;
   /** 포트폴리오 → 그 사회자 상세로(보던 카드 번호도 넘겨 돌아올 때 그 자리) */
   onOpenPro?: (p: ProListItem, index: number) => void;
+  /** 등장(옆에서 스르르) 지연(초) — 안 주면 첫 화면 순서(제목·부제 다음) */
+  enterDelay?: number;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -440,38 +442,62 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
     return () => { el.removeEventListener('wheel', onWheel); window.clearTimeout(idle); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* 전체선택 — 한 장씩 빠르게 넘기며(장당 0.14초) 도착한 카드를 체크한다 */
+  /* 전체선택 — 멈춤 없이 한 번에 쭉 '촤라라락' 미끄러지며 지나가는 카드를 차례로 체크하고, 끝은 같은 고스트도어로 천천히 닿는다
+     (261002 사장 '뚝뚝뚝 멈추면서 말고 스크롤 촤라라락' — 예전엔 장마다 0.14초 가서 멈추고 체크했다).
+     속도: 0.22초 가속 → 일정 속도 V → 남은 거리가 V/ω 가 되면 지수 감속(속도가 끊기지 않고 이어진다).
+     카드는 반 이상 들어오면 체크. 보던 카드보다 앞(왼쪽, 화면 밖) 카드는 바로 체크. */
   useEffect(() => {
     if (!runAll) return;
     let cancelled = false;
+    let doneTimer = 0;
     stop();
     measure();
     const ids = pros.map((p) => p.id);
-    const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
-    const slideTo = (target: number, ms: number) => new Promise<void>((resolve) => {
-      const from = pos.current;
+    const n = ids.length;
+    const { step } = dims.current;
+    let next = 0;
+    const pickUpTo = (p: number) => {
+      while (next < n && p >= at(next) - step * 0.55) selectOneRef.current?.(ids[next++]);
+    };
+    const finish = () => {
+      pickUpTo(Infinity);
+      doneTimer = window.setTimeout(() => { if (!cancelled) runDoneRef.current?.(); }, 320);
+    };
+    const p0 = pos.current;
+    const D = Math.max(0, at(n - 1) - p0);
+    pickUpTo(p0);
+    if (D < 1) {
+      finish();
+    } else {
+      const W = QM_SETTLE_W;
+      const Ta = 0.22;
+      // 12장이면 1초쯤 걸리는 속도(장당 0.1초 남짓). 짧은 줄은 가속·감속이 들어갈 만큼만
+      const V = Math.min(3200, Math.max(1400, D), D / (Ta / 3 + 1 / W));
+      const xa = (V * Ta) / 3; // 가속이 끝나는 거리
+      const r = V / W; // 감속을 시작하는 남은 거리 — 여기서 x = r·e^(−ωt) 로 넘기면 시작 속도가 정확히 V
+      const tC = Ta + (D - r - xa) / V;
       const t0 = performance.now();
       const tick = (now: number) => {
-        if (cancelled) { resolve(); return; }
-        const k = Math.min(1, (now - t0) / ms);
-        pos.current = from + (target - from) * (1 - Math.pow(1 - k, 3));
+        if (cancelled) return;
+        const t = (now - t0) / 1000;
+        let x: number;
+        let done = false;
+        if (t < Ta) x = (V * t * t * t) / (3 * Ta * Ta);
+        else if (t < tC) x = xa + V * (t - Ta);
+        else {
+          const rem = r * Math.exp(-W * (t - tC));
+          done = rem < 0.6;
+          x = done ? D : D - rem;
+        }
+        pos.current = p0 + x;
         paint();
-        if (k < 1) requestAnimationFrame(tick); else resolve();
+        pickUpTo(pos.current);
+        if (done) { raf.current = 0; finish(); return; }
+        raf.current = requestAnimationFrame(tick);
       };
-      requestAnimationFrame(tick);
-    });
-    (async () => {
-      for (let i = 0; i < ids.length; i++) {
-        if (cancelled) return;
-        await slideTo(at(i), i === 0 ? 220 : 140);
-        if (cancelled) return;
-        selectOneRef.current?.(ids[i]);
-        await wait(55);
-      }
-      await wait(420);
-      if (!cancelled) runDoneRef.current?.();
-    })();
-    return () => { cancelled = true; };
+      raf.current = requestAnimationFrame(tick);
+    }
+    return () => { cancelled = true; stop(); window.clearTimeout(doneTimer); };
   }, [runAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bind = useCallback((i: number, el: HTMLDivElement | null) => { slides.current[i] = el; }, []);
@@ -494,7 +520,7 @@ function QmProCarousel({ pros, selected, onToggle, runAll = false, onSelectOne, 
   }, [router]);
 
   return (
-    <div className="qm-cwrap qm-a-item" style={stag(1)}>
+    <div className="qm-cwrap qm-a-item" style={enterDelay == null ? stag(1) : { animationDelay: `${enterDelay}s` }}>
       <div
         ref={ref}
         className="qm-carousel"
@@ -871,7 +897,7 @@ export default function QuickMatchPage() {
   };
 
   function toggle(id: string) { setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
-  function reroll() { if (!canReroll) return; setRerolled(true); setSelected(new Set()); }
+  function reroll() { if (!canReroll) return; setRerolled(true); setSelected(new Set()); setRestoreIndex(0); }
   /** 전체선택 — 카드 줄이 첫 장부터 촤라락 넘기며 한 장씩 체크하고, 끝나면 다음 단계(QmProCarousel runAll) */
   function selectAllAndGo() {
     if (selectingAll) return;
@@ -1058,7 +1084,10 @@ export default function QuickMatchPage() {
             {loadErr ? (
               <div className="qm-err">사회자를 불러오지 못했어요.<br /><button type="button" onClick={() => setStep('searching')}>다시 시도</button></div>
             ) : (
-              <QmProCarousel pros={displayed} selected={selected} onToggle={toggle}
+              /* 다른 사회자 보기 = 카드 줄을 새로 띄운다(key) — 처음 뜰 때처럼 옆에서 스르르 들어온다(261002 사장).
+                 제목은 그대로라 기다리지 않고 바로(0.08초) */
+              <QmProCarousel key={rerolled ? 'reroll' : 'first'} pros={displayed} selected={selected} onToggle={toggle}
+                enterDelay={rerolled ? 0.08 : undefined}
                 initialIndex={restoreIndex} onOpenPro={openPro}
                 runAll={selectAllRun}
                 onSelectOne={(id) => setSelected((prev) => new Set(prev).add(id))}
