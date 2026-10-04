@@ -111,6 +111,8 @@ export const ACTION_LABEL: Record<string, string> = {
   'community.post_delete': '커뮤니티 글 삭제',
   'community.comment_visibility': '커뮤니티 댓글 숨김/보이기',
   'community.report_resolve': '커뮤니티 신고 처리',
+  'community.nickname_change': '웨딩숲 닉네임 변경',
+  'community.nickname_reset': '웨딩숲 닉네임 원래대로',
 };
 
 /** 변경 전후 값 보기용 — 키 이름 */
@@ -137,4 +139,5 @@ export const FIELD_LABEL: Record<string, string> = {
   deleted: '지운 개수',
   userId: '계정',
   stats: '반응',
+  custom: '직접 정한 닉네임',
 };

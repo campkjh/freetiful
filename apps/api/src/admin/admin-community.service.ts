@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { communityNickname } from '../community/community-nickname';
+import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, communityNickname } from '../community/community-nickname';
+import { memberNicknameProblem } from '../community/community-operator';
 import { AdminActor, AdminAuditService } from './admin-audit.service';
 
 /**
@@ -429,5 +430,139 @@ export class AdminCommunityService {
       );
     });
     return { success: true, status };
+  }
+
+  // ─── 웨딩숲 닉네임 관리(261004 사장 '부적절한 닉네임일 수 있으니 어드민에서 바꿀 수 있게') ───
+  //  · 일반 회원 = 계정 id 로 정해지는 '꾸밈말 동물'(저장 안 됨), 허용 계정 = 직접 정한 닉네임, 사회자·업체 = 실명.
+  //  · 관리자가 바꾸면 community_nicknames 에 넣는다 → 앱의 글·댓글·좋아요 목록·본인 글쓰기 칸까지 새 이름(예전 글 포함).
+  //  · 운영 프로필은 여기서 안 바꾼다(운영 콘텐츠 › 운영 프로필).
+
+  /** 웨딩숲에 글·댓글을 쓴 계정 + 닉네임을 따로 가진 계정 — 지금 보이는 이름과 출처 */
+  async listMembers(params: { page?: number; limit?: number; q?: string; source?: string }) {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(100, Math.max(1, params.limit || 30));
+    const [postUsers, commentUsers, nickRows, opRows] = await Promise.all([
+      this.prisma.communityPost.groupBy({ by: ['userId'], where: { userId: { not: null } }, _count: { _all: true }, _max: { createdAt: true } }),
+      this.prisma.communityComment.groupBy({ by: ['userId'], where: { userId: { not: null } }, _count: { _all: true }, _max: { createdAt: true } }),
+      this.prisma.communityNickname.findMany({ select: { userId: true, nickname: true, avatarUrl: true, updatedAt: true } }),
+      this.prisma.communityOperatorProfile.findMany({ select: { userId: true } }),
+    ]);
+    const opSet = new Set(opRows.map((r) => r.userId));
+    const postMap = new Map(postUsers.map((r) => [r.userId as string, r]));
+    const commentMap = new Map(commentUsers.map((r) => [r.userId as string, r]));
+    const nickMap = new Map(nickRows.map((r) => [r.userId, r]));
+    const ids = Array.from(new Set([...postMap.keys(), ...commentMap.keys(), ...nickMap.keys()])).filter((id) => id && !opSet.has(id));
+    const [users, changes] = await Promise.all([
+      this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, role: true, profileImageUrl: true } }),
+      this.prisma.adminAuditLog.findMany({
+        where: { action: 'community.nickname_change', targetId: { in: ids } },
+        orderBy: { createdAt: 'desc' },
+        select: { targetId: true, createdAt: true, afterState: true },
+      }),
+    ]);
+    const lastChange = new Map<string, { at: Date; nickname: string | null }>();
+    for (const c of changes) {
+      if (!c.targetId || lastChange.has(c.targetId)) continue;
+      const after = (c.afterState || {}) as Record<string, any>;
+      lastChange.set(c.targetId, { at: c.createdAt, nickname: typeof after.nickname === 'string' ? after.nickname : null });
+    }
+    const rows = users.map((u) => {
+      const own = nickMap.get(u.id);
+      const auto = communityNickname(u);
+      const lc = lastChange.get(u.id);
+      const source = own ? (lc && lc.nickname === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name';
+      const p = postMap.get(u.id);
+      const c = commentMap.get(u.id);
+      const last = [p?._max.createdAt, c?._max.createdAt].filter(Boolean).sort((a: any, b: any) => +b - +a)[0] || null;
+      return {
+        userId: u.id,
+        nickname: own?.nickname || auto,
+        autoNickname: auto,
+        source,
+        realName: u.name || null,
+        role: u.role,
+        avatar: own?.avatarUrl || u.profileImageUrl || null,
+        posts: p?._count._all || 0,
+        comments: c?._count._all || 0,
+        lastActiveAt: last,
+        changedAt: source === 'admin' ? lc?.at || null : null,
+      };
+    });
+    const counts = { auto: 0, custom: 0, admin: 0, name: 0 } as Record<string, number>;
+    for (const r of rows) counts[r.source] += 1;
+    const q = (params.q || '').trim().toLowerCase();
+    let filtered = rows;
+    if (params.source && counts[params.source] !== undefined) filtered = filtered.filter((r) => r.source === params.source);
+    if (q) filtered = filtered.filter((r) => r.nickname.toLowerCase().includes(q) || (r.realName || '').toLowerCase().includes(q) || r.autoNickname.toLowerCase().includes(q));
+    filtered.sort((a, b) => +(b.lastActiveAt || 0) - +(a.lastActiveAt || 0));
+    return { data: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, page, limit, counts };
+  }
+
+  /** 바꿀 닉네임 추천 — 회원 닉네임과 같은 '꾸밈말 동물' 모양 */
+  suggestNicknames(count = 6) {
+    const animals = [...AVATAR_ANIMALS, ...EXTRA_ANIMALS];
+    const out = new Set<string>();
+    while (out.size < count) out.add(`${MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)]} ${animals[Math.floor(Math.random() * animals.length)]}`);
+    return { items: Array.from(out) };
+  }
+
+  private async nicknameTarget(userId: string) {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, role: true, profileImageUrl: true } });
+    if (!u) throw new NotFoundException('회원을 찾을 수 없어요.');
+    const op = await this.prisma.communityOperatorProfile.findUnique({ where: { userId }, select: { id: true } });
+    if (op) throw new BadRequestException('운영 프로필 이름은 운영 콘텐츠 › 운영 프로필에서 바꿔 주세요.');
+    const own = await this.prisma.communityNickname.findUnique({ where: { userId } });
+    return { u, own, current: own?.nickname || communityNickname(u) };
+  }
+
+  /** 한 사람 — 지금 이름 · 원래(자동) 이름 · 출처(바꾸기 창용) */
+  async getNickname(userId: string) {
+    const { u, own, current } = await this.nicknameTarget(userId);
+    const last = own
+      ? await this.prisma.adminAuditLog.findFirst({ where: { action: 'community.nickname_change', targetId: userId }, orderBy: { createdAt: 'desc' }, select: { afterState: true } })
+      : null;
+    const lastNick = (last?.afterState as any)?.nickname;
+    return {
+      userId,
+      nickname: current,
+      autoNickname: communityNickname(u),
+      source: own ? (lastNick === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name',
+      realName: u.name || null,
+      role: u.role,
+      avatar: own?.avatarUrl || u.profileImageUrl || null,
+    };
+  }
+
+  /** 관리자가 닉네임 바꾸기 — 규칙은 회원이 직접 정할 때와 같고, 운영팀 이름과 같은 이름은 안 된다 */
+  async setNickname(actor: AdminActor, userId: string, body: any) {
+    const nickname = String(body?.nickname ?? '').replace(/\s+/g, ' ').trim();
+    const problem = memberNicknameProblem(nickname);
+    if (problem) throw new BadRequestException(problem);
+    const { own, current } = await this.nicknameTarget(userId);
+    if (nickname === current) return { success: true, changed: false, nickname };
+    const opSame = await this.prisma.communityOperatorProfile.findFirst({ where: { nickname: { equals: nickname, mode: 'insensitive' } }, select: { id: true } });
+    if (opSame) throw new BadRequestException('운영팀 이름과 같은 닉네임은 쓸 수 없어요.');
+    await this.run(async (db) => {
+      await db.communityNickname.upsert({ where: { userId }, create: { userId, nickname }, update: { nickname } });
+      await this.audit.log(
+        actor,
+        { action: 'community.nickname_change', targetType: 'user', targetId: userId, before: { nickname: current, custom: !!own }, after: { nickname }, reason: body?.reason },
+        db,
+      );
+    });
+    return { success: true, changed: true, nickname };
+  }
+
+  /** 원래대로 — 직접/관리자 닉네임을 지우고 자동 닉네임(회원)·실명(사회자·업체)으로. 웨딩숲 사진은 그대로 둔다 */
+  async resetNickname(actor: AdminActor, userId: string, reason?: string) {
+    const { u, own } = await this.nicknameTarget(userId);
+    if (!own) return { success: true, changed: false };
+    const auto = communityNickname(u);
+    await this.run(async (db) => {
+      if (own.avatarUrl) await db.communityNickname.update({ where: { userId }, data: { nickname: auto } });
+      else await db.communityNickname.delete({ where: { userId } });
+      await this.audit.log(actor, { action: 'community.nickname_reset', targetType: 'user', targetId: userId, before: { nickname: own.nickname }, after: { nickname: auto }, reason }, db);
+    });
+    return { success: true, changed: true, nickname: auto };
   }
 }

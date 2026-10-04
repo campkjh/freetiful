@@ -10,7 +10,7 @@ import { AdminSwitch } from '../../_components/AdminSwitch';
 import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
-import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, type CAuthor } from '../../_components/communityAdmin';
+import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
 
 interface CommentRow {
   id: string;
@@ -44,6 +44,9 @@ export default function AdminCommunityCommentsPage() {
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const LIMIT = 30;
+  // 닉네임 바꾸기(작성자 ✎) — 바뀌면 목록에서 이름만 제자리 갱신
+  const nick = useNicknameEditor();
+  useNicknameChanged((uid, nickname) => setRows((prev) => renameAuthorIn(prev, uid, nickname)));
 
   const fetchRows = async (p = 1, opts = { q, status, range: dateRange }, append = false) => {
     if (append) setLoadingMore(true);
@@ -155,7 +158,7 @@ export default function AdminCommunityCommentsPage() {
                     </button>
                     {!r.post.isActive && <span className="adm-cell-sub">숨긴 글</span>}
                   </td>
-                  <td><AuthorCell a={r.author} /></td>
+                  <td><AuthorCell a={r.author} onRename={nick.open} /></td>
                   <td className="whitespace-nowrap">
                     <span className="adm-cell-main adm-num">{formatKstDateTime(r.createdAt)}</span>
                     <span className="adm-cell-sub">{ago(r.createdAt)}</span>
@@ -181,6 +184,7 @@ export default function AdminCommunityCommentsPage() {
         }}
       />
 
+      {nick.modal}
       {openId && <PostDrawer id={openId} onClose={() => setOpenId(null)} onPostChange={() => fetchRows(1)} />}
     </div>
   );

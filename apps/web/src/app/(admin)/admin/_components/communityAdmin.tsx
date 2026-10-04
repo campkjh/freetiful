@@ -75,8 +75,10 @@ export function ago(iso: string): string {
 }
 
 /** 작성자 — 프사 · 웨딩숲 이름 / 실제 이름 · 역할 */
-export function AuthorCell({ a, small = false }: { a: CAuthor; small?: boolean }) {
+export function AuthorCell({ a, small = false, onRename }: { a: CAuthor; small?: boolean; onRename?: (a: CAuthor) => void }) {
   const sub = [a.realName && a.realName !== a.nickname ? a.realName : null, a.role ? ROLE_LABEL[a.role] || a.role : null].filter(Boolean).join(' · ');
+  // 닉네임 바꾸기 — 회원·사회자만(운영 프로필은 운영 콘텐츠에서)
+  const canRename = !!onRename && !!a.id && !a.isOperator && a.role !== 'operator';
   return (
     <span className={`adm-author ${small ? 'sm' : ''}`}>
       {a.avatar ? (
@@ -86,11 +88,164 @@ export function AuthorCell({ a, small = false }: { a: CAuthor; small?: boolean }
         <span className="adm-author-pic none">{(a.nickname || '?').slice(0, 1)}</span>
       )}
       <span className="min-w-0">
-        <span className="adm-cell-main">{a.nickname}</span>
+        <span className="adm-author-name-row">
+          <span className="adm-cell-main">{a.nickname}</span>
+          {canRename && (
+            <button type="button" className="adm-author-edit" onClick={(e) => { e.stopPropagation(); onRename!(a); }} aria-label={`${a.nickname} 닉네임 바꾸기`} title="닉네임 바꾸기">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /><path d="m13.5 6.5 4 4" stroke="currentColor" strokeWidth="2" /></svg>
+            </button>
+          )}
+        </span>
         {sub && <span className="adm-cell-sub">{sub}</span>}
       </span>
     </span>
   );
+}
+
+/* ── 웨딩숲 닉네임 바꾸기(관리자, 261004 사장 '부적절한 닉네임일 수 있으니') ── */
+type NickInfo = { userId: string; nickname: string; autoNickname: string; source: 'auto' | 'custom' | 'admin' | 'name'; realName: string | null; role: string; avatar: string | null };
+export const NICK_SOURCE_LABEL: Record<string, string> = { auto: '자동 닉네임', custom: '직접 정함', admin: '관리자가 바꿈', name: '실명 표시' };
+
+export function NicknameModal({ userId, onClose, onChanged }: { userId: string; onClose: () => void; onChanged?: (userId: string, nickname: string) => void }) {
+  const [info, setInfo] = useState<NickInfo | null>(null);
+  const [error, setError] = useState('');
+  const [value, setValue] = useState('');
+  const [reason, setReason] = useState('');
+  const [suggest, setSuggest] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState(false);
+
+  const loadSuggest = useCallback(() => {
+    adminFetch('GET', '/api/v1/admin/community/nickname-suggestions', undefined, { cache: false })
+      .then((d) => setSuggest(d.items || []))
+      .catch(() => setSuggest([]));
+  }, []);
+
+  useEffect(() => {
+    adminFetch('GET', `/api/v1/admin/community/members/${userId}/nickname`, undefined, { cache: false })
+      .then((d: NickInfo) => setInfo(d))
+      .catch((e: any) => setError(e?.response?.data?.message || '회원 정보를 불러오지 못했어요'));
+    loadSuggest();
+    const raf = requestAnimationFrame(() => setShown(true));
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); };
+  }, [userId, loadSuggest, onClose]);
+
+  const save = async () => {
+    const nick = value.replace(/\s+/g, ' ').trim();
+    if (nick.length < 2) { toast.error('새 닉네임을 2자 이상 넣어 주세요'); return; }
+    setBusy(true);
+    try {
+      const r = await adminFetch('PUT', `/api/v1/admin/community/members/${userId}/nickname`, { nickname: nick, reason: reason.trim() || undefined });
+      if (!r.changed) toast('지금 닉네임과 같아요');
+      else {
+        toast.success(`'${nick}'(으)로 바꿨어요`);
+        onChanged?.(userId, nick);
+        announceNickname(userId, nick);
+      }
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '바꾸지 못했어요', { duration: 6000 });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!info) return;
+    if (!confirm(`관리자·직접 정한 닉네임을 지우고 원래 이름('${info.autoNickname}')으로 돌릴까요?`)) return;
+    setBusy(true);
+    try {
+      const r = await adminFetch('DELETE', `/api/v1/admin/community/members/${userId}/nickname${reason.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : ''}`);
+      toast.success(r.changed ? '원래 닉네임으로 돌렸어요' : '이미 원래 닉네임이에요');
+      if (r.changed) { onChanged?.(userId, r.nickname); announceNickname(userId, r.nickname); }
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '돌리지 못했어요');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const modal = (
+    <div className={`admin-shell adm-modal-root ${shown ? 'on' : ''}`} role="dialog" aria-modal="true" aria-label="웨딩숲 닉네임 바꾸기">
+      <button type="button" className="adm-modal-dim" aria-label="닫기" onClick={onClose} />
+      <div className="adm-modal">
+        <p className="adm-modal-title">웨딩숲 닉네임 바꾸기</p>
+        {error ? (
+          <p className="adm-modal-note">{error}</p>
+        ) : !info ? (
+          <div className="adm-skel mt-4 h-[56px]" />
+        ) : (
+          <>
+            <div className="adm-modal-who">
+              <AuthorCell a={{ id: info.userId, nickname: info.nickname, realName: info.realName, role: info.role, avatar: info.avatar }} />
+              <span className={`adm-badge ${info.source === 'admin' ? 'orange' : info.source === 'custom' ? 'blue' : ''}`}>{NICK_SOURCE_LABEL[info.source]}</span>
+            </div>
+            <label className="adm-label mt-4">새 닉네임 <span className="adm-op-count">{value.length}/12 · 한글·영문·숫자, 운영진·사회자처럼 보이는 말은 안 돼요</span></label>
+            <input autoFocus value={value} maxLength={12} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} placeholder={info.autoNickname} className="adm-input" />
+            <div className="adm-modal-chips">
+              {suggest.map((sug) => (
+                <button key={sug} type="button" className={`adm-chip ${value === sug ? 'on' : ''}`} onClick={() => setValue(sug)}>{sug}</button>
+              ))}
+              <button type="button" className="adm-link-btn sub" onClick={loadSuggest}>다른 추천</button>
+            </div>
+            <label className="adm-label mt-3">사유 <span className="adm-op-count">변경 이력에 남아요(선택)</span></label>
+            <input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} placeholder="예: 욕설이 들어간 닉네임" className="adm-input" />
+            <p className="adm-modal-note">바꾸면 이 회원의 예전 글·댓글까지 새 이름으로 보이고, 회원 본인 화면에도 바로 반영돼요.</p>
+            <div className="adm-modal-actions">
+              {(info.source === 'custom' || info.source === 'admin') && (
+                <button type="button" className="adm-btn ghost adm-modal-reset" disabled={busy} onClick={reset}>원래대로({info.autoNickname})</button>
+              )}
+              <span className="grow" />
+              <button type="button" className="adm-btn" onClick={onClose}>취소</button>
+              <button type="button" className="adm-btn primary" disabled={busy || value.trim().length < 2} onClick={save}>{busy ? '바꾸는 중' : '바꾸기'}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+  return typeof document === 'undefined' ? null : createPortal(modal, document.body);
+}
+
+/** 닉네임이 바뀌면 — 목록·서랍이 제자리에서 이름만 바꾸도록 알린다 */
+export const NICKNAME_CHANGED_EVENT = 'admin:nickname-changed';
+function announceNickname(userId: string, nickname: string) {
+  window.dispatchEvent(new CustomEvent(NICKNAME_CHANGED_EVENT, { detail: { userId, nickname } }));
+}
+export function useNicknameChanged(cb: (userId: string, nickname: string) => void) {
+  const ref = useRef(cb);
+  ref.current = cb;
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      if (d.userId && d.nickname) ref.current(d.userId, d.nickname);
+    };
+    window.addEventListener(NICKNAME_CHANGED_EVENT, on);
+    return () => window.removeEventListener(NICKNAME_CHANGED_EVENT, on);
+  }, []);
+}
+/** 목록 줄의 작성자 이름만 바꾸기 */
+export function renameAuthorIn<T extends { author?: CAuthor | null; targetAuthor?: CAuthor | null }>(rows: T[], userId: string, nickname: string): T[] {
+  return rows.map((r) => {
+    let next = r;
+    if (r.author && r.author.id === userId) next = { ...next, author: { ...r.author, nickname } };
+    if (r.targetAuthor && r.targetAuthor.id === userId) next = { ...next, targetAuthor: { ...r.targetAuthor, nickname } };
+    return next;
+  });
+}
+
+/** 화면마다 — const nick = useNicknameEditor(); <AuthorCell onRename={nick.open} /> … {nick.modal} */
+export function useNicknameEditor(onChanged?: (userId: string, nickname: string) => void) {
+  const [target, setTarget] = useState<string | null>(null);
+  const close = useCallback(() => setTarget(null), []);
+  return {
+    open: (a: CAuthor) => { if (a.id) setTarget(a.id); },
+    openId: (userId: string) => setTarget(userId),
+    modal: target ? <NicknameModal userId={target} onClose={close} onChanged={onChanged} /> : null,
+  };
 }
 
 /** 맨 위 숫자 — 세 탭이 같이 쓴다 */
@@ -153,6 +308,17 @@ export function PostDrawer({
   const [shown, setShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const closing = useRef(false);
+  const nick = useNicknameEditor((uid, nickname) => {
+    setPost((p) =>
+      p
+        ? {
+            ...p,
+            author: p.author.id === uid ? { ...p.author, nickname } : p.author,
+            comments: p.comments.map((c) => (c.author.id === uid ? { ...c, author: { ...c.author, nickname } } : c)),
+          }
+        : p,
+    );
+  });
 
   useEffect(() => {
     let alive = true;
@@ -263,7 +429,7 @@ export function PostDrawer({
               </div>
               <h3 className="adm-pd-h">{post.title}</h3>
               <div className="adm-pd-author">
-                <AuthorCell a={post.author} />
+                <AuthorCell a={post.author} onRename={nick.open} />
                 <span className="adm-pd-time">{formatKstDateTime(post.createdAt)}</span>
               </div>
               <p className="adm-pd-text">{post.content}</p>
@@ -314,7 +480,7 @@ export function PostDrawer({
                   post.comments.map((c) => (
                     <div key={c.id} className={`adm-pd-cmt ${c.parentId ? 'reply' : ''} ${c.isActive ? '' : 'off'}`}>
                       <div className="adm-pd-cmt-top">
-                        <AuthorCell a={c.author} small />
+                        <AuthorCell a={c.author} small onRename={nick.open} />
                         <span className="adm-pd-time">{ago(c.createdAt)}</span>
                         <AdminSwitch checked={c.isActive} onChange={(v) => setCommentActive(c.id, v)} ariaLabel="댓글 노출" />
                       </div>
@@ -328,6 +494,7 @@ export function PostDrawer({
           )}
         </div>
       </aside>
+      {nick.modal}
     </div>
   );
 

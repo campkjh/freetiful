@@ -10,7 +10,7 @@ import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { formatKstDateTime } from '../_components/adminEvent';
-import { AuthorCell, CommunityStats, POST_TYPE_LABEL, PostDrawer, ago, notifyCommunityChanged, type CAuthor, type CGroup } from '../_components/communityAdmin';
+import { AuthorCell, CommunityStats, POST_TYPE_LABEL, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor, type CGroup } from '../_components/communityAdmin';
 
 interface PostRow {
   id: string;
@@ -53,6 +53,9 @@ export default function AdminCommunityPostsPage() {
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const LIMIT = 20;
+  // 닉네임 바꾸기(작성자 ✎) — 바뀌면 목록에서 이름만 제자리 갱신
+  const nick = useNicknameEditor();
+  useNicknameChanged((uid, nickname) => setRows((prev) => renameAuthorIn(prev, uid, nickname)));
 
   const fetchRows = async (p = 1, opts = { q, status, groupId, range: dateRange, kind }, append = false) => {
     if (append) setLoadingMore(true);
@@ -204,7 +207,7 @@ export default function AdminCommunityPostsPage() {
                       )}
                     </button>
                   </td>
-                  <td><AuthorCell a={r.author} /></td>
+                  <td><AuthorCell a={r.author} onRename={nick.open} /></td>
                   <td className="whitespace-nowrap">
                     <span className="adm-cell-main adm-num">댓글 {r.commentCount.toLocaleString()} · 좋아요 {r.likeCount.toLocaleString()}</span>
                     <span className="adm-cell-sub">조회 {r.viewCount.toLocaleString()}</span>
@@ -234,6 +237,7 @@ export default function AdminCommunityPostsPage() {
         }}
       />
 
+      {nick.modal}
       {openId && (
         <PostDrawer
           id={openId}

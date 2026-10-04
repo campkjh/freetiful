@@ -26,7 +26,7 @@ import {
   BadgeTone,
 } from './community.constants';
 import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
-import { OPERATOR_NAME_BLOCK, OPERATOR_ROLE_LABEL, looksLikeMemberNickname } from './community-operator';
+import { MEMBER_NICKNAME_BLOCK, OPERATOR_NAME_BLOCK, OPERATOR_ROLE_LABEL, looksLikeMemberNickname, memberNicknameProblem } from './community-operator';
 import { isTestMetricsEnabled } from '../common/app-env';
 
 /**
@@ -43,7 +43,7 @@ const EDITOR_PERSONA_IDS = [
   '03d9933c-454f-4913-9493-d75dff85e8e7', // 프리티풀 웨딩가이드 서아
   'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
 ];
-const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
+const NICKNAME_BLOCK = MEMBER_NICKNAME_BLOCK;
 /** 운영진 에디터 이름에 못 쓰는 말 · 회원 닉네임 모양 검사 — 운영 프로필과 같은 규칙(community-operator.ts, 261001→261004) */
 const EDITOR_NAME_BLOCK = OPERATOR_NAME_BLOCK;
 
@@ -696,9 +696,9 @@ export class CommunityService implements OnModuleInit {
     const me = await this.getMyNickname(userId);
     if (!me.canSetNickname) throw new ForbiddenException('닉네임을 바꿀 수 없는 계정이에요');
     const nickname = String(body?.nickname ?? '').replace(/\s+/g, ' ').trim();
-    if (nickname.length < 2 || nickname.length > 12) throw new BadRequestException('닉네임은 2~12자로 정해 주세요');
-    if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(nickname)) throw new BadRequestException('한글·영문·숫자와 . _ - 만 쓸 수 있어요');
-    if (NICKNAME_BLOCK.test(nickname)) throw new BadRequestException('운영진이나 사회자로 보일 수 있는 이름은 쓸 수 없어요');
+    // 규칙은 관리자 닉네임 변경과 같은 함수(community-operator.ts)
+    const problem = memberNicknameProblem(nickname);
+    if (problem) throw new BadRequestException(problem);
     let avatarUrl: string | null | undefined;
     if (body && Object.prototype.hasOwnProperty.call(body, 'avatarUrl')) {
       if (body.avatarUrl === null || body.avatarUrl === '') avatarUrl = null;

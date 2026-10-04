@@ -7,7 +7,7 @@ import { AdminInfiniteScroll, appendUniqueById } from '../../_components/AdminIn
 import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
-import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, type CAuthor } from '../../_components/communityAdmin';
+import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
 
 interface ReportRow {
   id: string;
@@ -46,6 +46,9 @@ export default function AdminCommunityReportsPage() {
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const LIMIT = 30;
+  // 닉네임 바꾸기(작성자 ✎) — 바뀌면 목록에서 이름만 제자리 갱신
+  const nick = useNicknameEditor();
+  useNicknameChanged((uid, nickname) => setRows((prev) => renameAuthorIn(prev, uid, nickname)));
 
   const fetchRows = async (p = 1, st = status, append = false) => {
     if (append) setLoadingMore(true);
@@ -155,7 +158,7 @@ export default function AdminCommunityReportsPage() {
                       {r.detail && <span className="adm-cell-sub adm-wrap">{r.detail}</span>}
                       {r.sameTargetPending > 1 && <span className="adm-cell-sub">같은 {r.targetType === 'comment' ? '댓글' : '글'} 신고 {r.sameTargetPending}건</span>}
                     </td>
-                    <td>{r.targetAuthor ? <AuthorCell a={r.targetAuthor} /> : <span className="text-[#D1D6DB]">—</span>}</td>
+                    <td>{r.targetAuthor ? <AuthorCell a={r.targetAuthor} onRename={nick.open} /> : <span className="text-[#D1D6DB]">—</span>}</td>
                     <td className="whitespace-nowrap">
                       <span className="adm-cell-main">{r.reporter}</span>
                       <span className="adm-cell-sub" title={formatKstDateTime(r.createdAt)}>{ago(r.createdAt)}</span>
@@ -189,6 +192,7 @@ export default function AdminCommunityReportsPage() {
         }}
       />
 
+      {nick.modal}
       {openId && <PostDrawer id={openId} onClose={() => setOpenId(null)} onPostChange={() => fetchRows(1)} />}
     </div>
   );

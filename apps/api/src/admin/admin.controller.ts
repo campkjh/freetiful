@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Put,
   Delete,
   Param,
   Query,
@@ -165,6 +166,32 @@ export class AdminController {
   @Patch('community/comments/:id')
   communityCommentUpdate(@Req() req: any, @Param('id') id: string, @Body() body: { isActive?: boolean }) {
     return this.community.setCommentActive(actorFrom(req), id, body?.isActive !== false);
+  }
+
+  // 웨딩숲 닉네임 — 부적절한 닉네임을 관리자가 바꾸기(261004)
+  @Get('community/members')
+  communityMembers(@Query('page') page?: string, @Query('limit') limit?: string, @Query('q') q?: string, @Query('source') source?: string) {
+    return this.community.listMembers({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 30, q, source });
+  }
+
+  @Get('community/nickname-suggestions')
+  communityNicknameSuggestions() {
+    return this.community.suggestNicknames();
+  }
+
+  @Get('community/members/:userId/nickname')
+  communityGetNickname(@Param('userId') userId: string) {
+    return this.community.getNickname(userId);
+  }
+
+  @Put('community/members/:userId/nickname')
+  communitySetNickname(@Req() req: any, @Param('userId') userId: string, @Body() body: any) {
+    return this.community.setNickname(actorFrom(req), userId, body);
+  }
+
+  @Delete('community/members/:userId/nickname')
+  communityResetNickname(@Req() req: any, @Param('userId') userId: string, @Query('reason') reason?: string) {
+    return this.community.resetNickname(actorFrom(req), userId, reason);
   }
 
   @Get('community/reports')

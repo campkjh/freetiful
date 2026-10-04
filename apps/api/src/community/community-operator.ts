@@ -27,6 +27,18 @@ export function operatorNameProblem(raw: unknown): string | null {
 
 export const normalizeOperatorName = (raw: unknown) => String(raw ?? '').replace(/\s+/g, ' ').trim();
 
+/** 회원 웨딩숲 닉네임에 못 쓰는 말 — 운영진·사회자로 보이면 안 된다(허용 계정 직접 정하기·관리자 변경 같은 규칙) */
+export const MEMBER_NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
+
+/** 회원 닉네임 형식 검사 — 문제가 있으면 이유, 없으면 null */
+export function memberNicknameProblem(raw: unknown): string | null {
+  const nickname = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  if (nickname.length < 2 || nickname.length > 12) return '닉네임은 2~12자로 정해 주세요';
+  if (!/^[가-힣a-zA-Z0-9 ._-]+$/.test(nickname)) return '한글·영문·숫자와 . _ - 만 쓸 수 있어요';
+  if (MEMBER_NICKNAME_BLOCK.test(nickname)) return '운영진이나 사회자로 보일 수 있는 이름은 쓸 수 없어요';
+  return null;
+}
+
 /** 운영 글 상태 */
 export const POST_STATUSES = ['published', 'draft', 'scheduled', 'private'] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
