@@ -44,12 +44,8 @@ const emptyDraft = () => ({
   proProfileId: '',
   reviewerName: '',
   reviewerEmail: '',
-  ratingSatisfaction: 5,
-  ratingComposition: 5,
-  ratingExperience: 5,
-  ratingAppearance: 5,
-  ratingVoice: 5,
-  ratingWit: 5,
+  /** 평점 하나(261004 사장 '경험·외형·목소리 등등 없애줘') — 서버엔 항목 6개를 같은 값으로 보내 평균 = 이 값 */
+  rating: 5,
   comment: '',
   eventTitle: '결혼식 사회',
   eventDate: '',
@@ -140,7 +136,16 @@ export default function AdminReviewsPage() {
     if (!draft.comment.trim()) { toast.error('리뷰 내용을 입력해주세요'); return; }
     setCreating(true);
     try {
-      await adminFetch('POST', '/api/v1/admin/reviews', draft);
+      const { rating, ...rest } = draft;
+      await adminFetch('POST', '/api/v1/admin/reviews', {
+        ...rest,
+        ratingSatisfaction: rating,
+        ratingComposition: rating,
+        ratingExperience: rating,
+        ratingAppearance: rating,
+        ratingVoice: rating,
+        ratingWit: rating,
+      });
       toast.success('관리자 리뷰가 등록되었습니다');
       setDraft((prev) => ({ ...emptyDraft(), proProfileId: prev.proProfileId }));
       fetchReviews(1, dateRange);
@@ -337,28 +342,28 @@ export default function AdminReviewsPage() {
               />
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-7">
-            {[
-              ['ratingSatisfaction', '만족도'],
-              ['ratingComposition', '구성'],
-              ['ratingExperience', '경험'],
-              ['ratingAppearance', '외형'],
-              ['ratingVoice', '목소리'],
-              ['ratingWit', '센스'],
-            ].map(([key, label]) => (
-              <div key={key}>
-                <label className="adm-label">{label}</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={5}
-                  step={1}
-                  value={(draft as any)[key]}
-                  onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) } as any)}
-                  className="adm-input"
-                />
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="adm-label">평점</label>
+              <div className="adm-stars" role="radiogroup" aria-label="평점">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.rating === n}
+                    aria-label={`${n}점`}
+                    onClick={() => setDraft({ ...draft, rating: n })}
+                    className={`adm-star ${n <= draft.rating ? 'on' : ''}`}
+                  >
+                    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 2.8l2.75 5.57 6.15.9-4.45 4.34 1.05 6.12L12 16.84l-5.5 2.89 1.05-6.12L3.1 9.27l6.15-.9L12 2.8z" />
+                    </svg>
+                  </button>
+                ))}
+                <span className="adm-stars-num">{draft.rating}.0</span>
               </div>
-            ))}
+            </div>
             <div>
               <label className="adm-label">금액</label>
               <input

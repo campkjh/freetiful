@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminCommunityService } from './admin-community.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ProModule } from '../pro/pro.module';
@@ -14,7 +15,7 @@ import { AdminGuard } from '../common/guards/admin.guard';
 @Module({
   imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController],
-  providers: [AdminService, AdminGuard],
+  providers: [AdminService, AdminCommunityService, AdminGuard],
   exports: [AdminService],
 })
 export class AdminModule {}

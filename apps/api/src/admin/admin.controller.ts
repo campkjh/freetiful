@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { AdminCommunityService } from './admin-community.service';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @ApiTags('admin')
@@ -26,7 +27,76 @@ import { AdminGuard } from '../common/guards/admin.guard';
 export class AdminController {
   private readonly logger = new Logger(AdminController.name);
 
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private adminService: AdminService,
+    private community: AdminCommunityService,
+  ) {}
+
+  // ─── 커뮤니티 관리(웨딩숲 글·댓글·신고, 261004) ───────────────────────────
+  @Get('community/summary')
+  communitySummary() {
+    return this.community.summary();
+  }
+
+  @Get('community/groups')
+  communityGroups() {
+    return this.community.groups();
+  }
+
+  @Get('community/posts')
+  communityPosts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('groupId') groupId?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.community.listPosts({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, q, groupId, status, startDate, endDate });
+  }
+
+  @Get('community/posts/:id')
+  communityPost(@Param('id') id: string) {
+    return this.community.getPost(id);
+  }
+
+  @Patch('community/posts/:id')
+  communityPostUpdate(@Param('id') id: string, @Body() body: { isActive?: boolean }) {
+    return this.community.setPostActive(id, body?.isActive !== false);
+  }
+
+  @Delete('community/posts/:id')
+  communityPostDelete(@Param('id') id: string) {
+    return this.community.deletePost(id);
+  }
+
+  @Get('community/comments')
+  communityComments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.community.listComments({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, q, status, startDate, endDate });
+  }
+
+  @Patch('community/comments/:id')
+  communityCommentUpdate(@Param('id') id: string, @Body() body: { isActive?: boolean }) {
+    return this.community.setCommentActive(id, body?.isActive !== false);
+  }
+
+  @Get('community/reports')
+  communityReports(@Query('page') page?: string, @Query('limit') limit?: string, @Query('status') status?: string) {
+    return this.community.listReports({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, status });
+  }
+
+  @Patch('community/reports/:id')
+  communityReportResolve(@Param('id') id: string, @Body() body: { action?: string }) {
+    return this.community.resolveReport(id, String(body?.action || ''));
+  }
 
   private getFallbackStats() {
     const now = Date.now();

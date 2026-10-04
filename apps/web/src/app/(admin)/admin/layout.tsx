@@ -62,6 +62,7 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph', desc: '광고·UTM 유입과 견적 전환을 봐요' },
       { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
+      { href: '/admin/community', label: '커뮤니티 관리', icon: 'message-square-text', desc: '웨딩숲 글·댓글·신고를 살피고 숨겨요' },
     ],
   },
 ];
@@ -87,6 +88,11 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
     { href: '/admin/users', label: '유저' },
     { href: '/admin/pros', label: '사회자' },
     { href: '/admin/pro-ranking', label: '사회자 랭킹' },
+  ],
+  [
+    { href: '/admin/community', label: '글' },
+    { href: '/admin/community/comments', label: '댓글' },
+    { href: '/admin/community/reports', label: '신고' },
   ],
 ];
 
