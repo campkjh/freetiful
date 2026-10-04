@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, Trash2, RefreshCw, AlertTriangle, Archive, Smartphone } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, Trash2, RefreshCw, AlertTriangle, Archive } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -48,20 +48,19 @@ function parseUsersPayload(data: any): { rows: UserItem[]; total: number } {
   return { rows, total: Number.isFinite(total) ? total : rows.length };
 }
 
-const roleColors: Record<string, string> = {
-  general: 'bg-gray-100 text-gray-600',
-  user: 'bg-gray-100 text-gray-600',
-  pro: 'bg-blue-50 text-blue-600',
-  business: 'bg-violet-50 text-violet-600',
-  admin: 'bg-red-50 text-red-600',
+/** 권한 칩(회원 관리 · 유저 탭) */
+const ROLE_FILTERS: Array<[string, string]> = [['전체', '전체'], ['general', '고객'], ['pro', '사회자'], ['business', '비즈'], ['admin', '관리자']];
+const DEVICE_TONE: Record<string, string> = { ios: 'blue', android: 'green', web: '' };
+/** 사회자 프로필 상태 → [이름, 뱃지 색] */
+const PRO_STATUS: Record<string, [string, string]> = {
+  approved: ['승인', 'green'],
+  pending: ['승인 대기', 'orange'],
+  rejected: ['반려', 'red'],
+  suspended: ['정지', ''],
+  draft: ['작성 중', ''],
 };
 
-const deviceColors: Record<string, string> = {
-  ios: 'bg-[#F3F8FF] text-[#3180F7]',
-  android: 'bg-emerald-50 text-emerald-600',
-  web: 'bg-gray-100 text-gray-600',
-  app: 'bg-violet-50 text-violet-600',
-};
+
 
 const roleLabel: Record<string, string> = {
   general: '일반',
@@ -295,21 +294,40 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 px-1">
-        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">회원 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">유저 관리</h1>
+      {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다 */}
+      <div className="adm-toolbar">
+        <label className="adm-search grow">
+          <Search size={17} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
+            placeholder="이름 또는 이메일 검색 (Enter)"
+            className="adm-input"
+          />
+        </label>
+        <div className="adm-chips">
+          {ROLE_FILTERS.map(([r, label]) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r, dateRange); }}
+              className={`adm-chip ${filterRole === r ? 'on' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
+          type="button"
           onClick={() => fetchUsers(1, search, filterRole, dateRange)}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="adm-btn icon"
           title="새로고침"
+          aria-label="새로고침"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -318,11 +336,12 @@ export default function AdminUsersPage() {
         <AdminErrorPanel error={lastError} label="유저 목록" />
 
         {/* 중복 진단 섹션 */}
-        <div className="admin-card-soft border-amber-200/70 bg-amber-50/80 p-4">
-          <button onClick={() => setDiagOpen((v) => !v)} className="flex items-center gap-2 text-sm font-bold text-amber-800 w-full text-left">
-            <AlertTriangle size={16} />
-            중복 유저 진단 (같은 이메일/이름으로 여러 계정이 있는지 확인)
-            <span className="ml-auto text-xs text-amber-600">{diagOpen ? '닫기' : '열기'}</span>
+        <div className="adm-fold">
+          <button type="button" onClick={() => setDiagOpen((v) => !v)} className="adm-fold-head" aria-expanded={diagOpen}>
+            <span className="adm-fold-ic"><AlertTriangle size={16} /></span>
+            <span className="adm-fold-title">중복 계정 진단</span>
+            <span className="adm-fold-sub">같은 이메일·이름으로 계정이 여럿인지 찾아 보관 처리해요</span>
+            <span className={`adm-fold-chev ${diagOpen ? 'on' : ''}`} aria-hidden>⌄</span>
           </button>
           {diagOpen && (
             <div className="mt-4 space-y-3">
@@ -408,33 +427,6 @@ export default function AdminUsersPage() {
           )}
         </div>
 
-        <div className="admin-toolbar p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
-                placeholder="이름 또는 이메일 검색 (Enter)"
-                className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-              />
-            </div>
-            <div className="flex gap-2">
-              {['전체', 'general', 'pro', 'business', 'admin'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r, dateRange); }}
-                  className={`admin-chip px-3.5 text-sm ${filterRole === r ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}
-                >
-                  {r === '전체' ? '전체' : r === 'general' ? '일반' : r === 'business' ? '비즈' : r}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <AdminDateFilter
           value={dateRange}
           onApply={(range) => {
@@ -445,7 +437,7 @@ export default function AdminUsersPage() {
         />
 
         {selectedMap.size > 0 && (
-          <div className="sticky top-2 z-10 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50/95 px-4 py-3 shadow-[0_8px_20px_rgba(220,38,38,0.10)] backdrop-blur">
+          <div className="adm-selbar">
             <span className="text-sm font-bold text-red-700">{selectedMap.size}명 선택됨</span>
             {bulkDeleting && (
               <span className="text-xs font-semibold text-red-500">삭제 중… {bulkDone}/{bulkTotal}</span>
@@ -485,22 +477,21 @@ export default function AdminUsersPage() {
                       title="현재 목록 전체 선택/해제"
                     />
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">연락처</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="가입기기">가입기기</AdminTerm></th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="권한">권한</AdminTerm></th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로프로필">프로프로필</AdminTerm></th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">결제수</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">가입일</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
+                  <th className="text-left px-4 py-3">유저</th>
+                  <th className="text-left px-4 py-3">연락처</th>
+                  <th className="text-center px-4 py-3"><AdminTerm term="가입기기">가입기기</AdminTerm></th>
+                  <th className="text-center px-4 py-3"><AdminTerm term="권한">권한</AdminTerm></th>
+                  <th className="text-center px-4 py-3"><AdminTerm term="프로프로필">사회자 프로필</AdminTerm></th>
+                  <th className="text-center px-4 py-3">결제</th>
+                  <th className="text-center px-4 py-3">가입일</th>
+                  <th className="text-center px-4 py-3" aria-label="관리" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={10} className="px-4 py-3">
+                      <td colSpan={9} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="skeleton h-9 w-9 rounded-full" />
                           <div className="flex-1 space-y-2">
@@ -513,7 +504,7 @@ export default function AdminUsersPage() {
                     </tr>
                   ))
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={10} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={9} className="adm-empty">검색 결과가 없어요</td></tr>
                 ) : users.map((user) => (
                   <tr key={user.id} className={`transition-colors ${selectedMap.has(user.id) ? 'bg-red-50/60' : 'hover:bg-gray-50'}`}>
                     <td className="w-10 px-3 py-3 text-center">
@@ -528,14 +519,16 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {user.profileImageUrl
-                          ? <img src={user.profileImageUrl} alt={user.name} className="w-9 h-9 rounded-full object-cover bg-gray-100" />
-                          : <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">{user.name?.[0] || '?'}</div>
+                          ? <img src={user.profileImageUrl} alt={user.name} className="adm-ava" />
+                          : <div className="adm-ava">{user.name?.[0] || '?'}</div>
                         }
-                        <span className="text-sm font-semibold text-gray-900">{user.name}</span>
+                        <span className="min-w-0">
+                          <span className="adm-cell-main">{user.name}</span>
+                          <span className="adm-cell-sub">{user.email}</span>
+                        </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{user.email}</td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {user.phone ? (
                         <a href={`tel:${user.phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">
                           {formatPhone(user.phone)}
@@ -545,34 +538,28 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold ${deviceColors[user.signupDevice?.platform || 'web'] || deviceColors.web}`}>
-                        <Smartphone size={11} />
-                        {user.signupDevice?.label || 'Web'}
+                      <span className={`adm-badge ${DEVICE_TONE[user.signupDevice?.platform || 'web'] || ''}`}>
+                        {user.signupDevice?.label || '웹'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <select
                         value={user.role}
                         onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-200 ${roleColors[user.role] || 'bg-gray-100 text-gray-600'}`}
+                        className={`adm-role ${user.role}`}
+                        aria-label={`${user.name} 권한`}
                       >
-                        <option value="general">general</option>
-                        <option value="pro">pro</option>
-                        <option value="business">business</option>
-                        <option value="admin">admin</option>
+                        <option value="general">고객</option>
+                        <option value="pro">사회자</option>
+                        <option value="business">비즈</option>
+                        <option value="admin">관리자</option>
                       </select>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {user.proProfile ? (
                         <div className="flex flex-col items-center gap-0.5">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            user.proProfile.status === 'approved' ? 'bg-emerald-50 text-emerald-600'
-                            : user.proProfile.status === 'pending' ? 'bg-amber-50 text-amber-600'
-                            : user.proProfile.status === 'rejected' ? 'bg-red-50 text-red-500'
-                            : user.proProfile.status === 'suspended' ? 'bg-slate-100 text-slate-600'
-                            : 'bg-gray-100 text-gray-500'
-                          }`}>{user.proProfile.status}</span>
-                          <span className="text-[10px] text-gray-400">
+                          <span className={`adm-badge ${PRO_STATUS[user.proProfile.status]?.[1] || ''}`}>{PRO_STATUS[user.proProfile.status]?.[0] || user.proProfile.status}</span>
+                          <span className="text-[12px] text-[#B0B8C1]">
                             사진 {user.proProfile.imageCount} · 서비스 {user.proProfile.serviceCount}
                           </span>
                           {user.proProfile.isEmpty && (
@@ -583,18 +570,20 @@ export default function AdminUsersPage() {
                         <span className="text-[11px] text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center text-sm text-gray-600">{user.paymentCount}</td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                    <td className="px-4 py-3 text-center tabular-nums">{user.paymentCount}</td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap text-[13px] text-[#8B95A1]">
                       {new Date(user.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' })}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Link href={`/admin/users/${user.id}`} className="px-2 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100">
+                        <Link href={`/admin/users/${user.id}`} className="adm-btn weak sm">
                           상세
                         </Link>
                         <button
+                          type="button"
                           onClick={() => handleDelete(user.id, user.name)}
-                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="adm-btn icon sm ghost text-[#F04452]"
+                          aria-label={`${user.name} 삭제`}
                         >
                           <Trash2 size={14} />
                         </button>

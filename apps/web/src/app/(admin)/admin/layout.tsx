@@ -1,16 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import {
-  ChevronDown,
-  ExternalLink,
-  LogOut,
-  Menu,
-  X,
-} from '@/app/(admin)/admin/_components/admin-icons';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 import { adminFetch } from './_components/adminFetch';
@@ -22,77 +15,156 @@ function isAdminUser(user: { email?: string | null; role?: string | null } | nul
   return !!user && (user.role === 'admin' || (!!email && ADMIN_EMAILS.includes(email)));
 }
 
-type AdminNavItem = {
+/* ─────────────────────────────────────────────────────────────
+ * 어드민 2.0 껍데기 — 퀵매칭·앱과 같은 토스 톤(261004 사장 '어드민도 디자인·UI·인터랙션 격변').
+ *  · 왼쪽 흰 사이드바(로고·메뉴·내 계정) + 회색 바탕 본문(흰 카드). 위 가로 메뉴줄은 없앴다.
+ *  · 메뉴 = 쓰는 것만(사장: 업체 관리·Biz 문의·웨딩MC 설문/리드·배너·공지·FAQ·약관·친구초대 이벤트 필요 없음 —
+ *    화면 파일은 그대로 두고 메뉴에서만 뺐다, 주소로는 들어가진다), 유저·사회자 = '회원 관리' 하나(탭: 유저 · 사회자 · 사회자 랭킹).
+ *  · 고른 메뉴 = 연한 파랑 알약이 메뉴 사이를 스르르 옮겨 다닌다. 아이콘은 회색 mono SVG 를 마스크로 칠해 고른 것만 파랑.
+ *  · 페이지 머리(제목·설명·탭)는 여기서 그린다 — 페이지는 본문만.
+ * ──────────────────────────────────────────────────────────── */
+
+type NavItem = {
   href: string;
   label: string;
+  /** /admin-icons/<icon>.svg */
+  icon: string;
   exact?: boolean;
-  icon?: string; // /admin-icons/*.svg
+  /** 이 메뉴로 칠 다른 주소들(통합 메뉴) */
+  paths?: string[];
+  /** 페이지 머리 설명 */
+  desc: string;
 };
 
-const TOP_NAV = [
-  { href: '/admin', label: '홈', exact: true, paths: ['/admin'] },
-  { href: '/admin/users', label: '유저 센터', paths: ['/admin/users', '/admin/referral-event'] },
-  { href: '/admin/pros', label: '사회자 센터', paths: ['/admin/pros', '/admin/partners', '/admin/businesses', '/admin/pro-ranking'] },
-  { href: '/admin/chat-connections', label: '채팅 매칭', paths: ['/admin/chat-connections'] },
-  { href: '/admin/inquiries', label: '문의 센터', paths: ['/admin/inquiries', '/admin/wedding-mc-leads'] },
-  { href: '/admin/landing-analytics', label: '랜딩 유입', paths: ['/admin/landing-analytics'] },
-];
-
-const NAV_SECTIONS: Array<{ label: string; items: AdminNavItem[] }> = [
+const NAV: Array<{ label: string; items: NavItem[] }> = [
   {
-    label: '운영 홈',
+    label: '',
+    items: [{ href: '/admin', label: '홈', icon: 'home', exact: true, desc: '' }],
+  },
+  {
+    label: '회원',
     items: [
-      { href: '/admin', label: '관리자 홈', exact: true, icon: 'home.svg' },
+      { href: '/admin/users', label: '회원 관리', icon: 'users', paths: ['/admin/users', '/admin/pros', '/admin/pro-ranking'], desc: '가입한 고객과 사회자를 한곳에서 관리해요' },
     ],
   },
   {
-    label: '유저 센터',
+    label: '거래',
     items: [
-      { href: '/admin/users', label: '유저 관리', icon: 'users.svg' },
-      { href: '/admin/referral-event', label: '친구초대 이벤트', icon: 'gift.svg' },
-      { href: '/admin/pros', label: '사회자 관리', icon: 'mic.svg' },
-      { href: '/admin/partners', label: '업체 관리', icon: 'store.svg' },
+      { href: '/admin/chat-connections', label: '채팅 매칭', icon: 'chat', desc: '고객과 사회자가 이어진 채팅방이에요' },
+      { href: '/admin/payments', label: '결제 조회', icon: 'card', desc: '결제·환불 내역을 확인해요' },
+      { href: '/admin/settlements', label: '정산 내역', icon: 'money-bag', desc: '사회자에게 보낼 정산과 그 행사 정보예요' },
     ],
   },
   {
-    label: '거래 센터',
+    label: '분석 · 콘텐츠',
     items: [
-      { href: '/admin/chat-connections', label: '채팅 매칭', icon: 'chat.svg' },
-      { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph.svg' },
-      { href: '/admin/payments', label: '결제조회', icon: 'card.svg' },
-      { href: '/admin/settlements', label: '정산내역', icon: 'money-bag.svg' },
-    ],
-  },
-  {
-    label: '문의 센터',
-    items: [
-      { href: '/admin/inquiries', label: 'Biz 문의', icon: 'envelope.svg' },
-      { href: '/admin/wedding-mc-leads', label: '웨딩MC 설문/리드', icon: 'survey.svg' },
-    ],
-  },
-  {
-    label: '콘텐츠 센터',
-    items: [
-      { href: '/admin/banners', label: '배너 관리', icon: 'picture.svg' },
-      { href: '/admin/reviews', label: '리뷰 관리', icon: 'star.svg' },
-      { href: '/admin/announcements', label: '공지사항', icon: 'loudspeaker.svg' },
-      { href: '/admin/faqs', label: 'FAQ', icon: 'question.svg' },
-      { href: '/admin/policies', label: '약관 관리', icon: 'policy.svg' },
+      { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph', desc: '광고·UTM 유입과 견적 전환을 봐요' },
+      { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
     ],
   },
 ];
 
-// 병합된 메뉴(사회자 관리·업체 관리)를 한 화면 안에서 탭으로 전환
-const SUB_TAB_GROUPS: { href: string; label: string }[][] = [
+/** 메뉴에서 뺀 화면 — 주소로 들어오면 머리 제목만 붙여 준다 */
+const HIDDEN_TITLES: Record<string, string> = {
+  '/admin/partners': '업체 관리',
+  '/admin/businesses': 'Biz 고객사',
+  '/admin/inquiries': 'Biz 문의',
+  '/admin/wedding-mc-leads': '웨딩MC 설문/리드',
+  '/admin/banners': '배너 관리',
+  '/admin/announcements': '공지사항',
+  '/admin/faqs': 'FAQ',
+  '/admin/policies': '약관 관리',
+  '/admin/referral-event': '친구초대 이벤트',
+  '/admin/bookings': '의뢰/예약 관리',
+  '/admin/plan-templates': '서비스 플랜 템플릿',
+};
+
+/** 한 메뉴 안의 탭(통합 메뉴) — 목록 화면에서만 보인다 */
+const TAB_GROUPS: { href: string; label: string }[][] = [
   [
-    { href: '/admin/pros', label: '사회자 관리' },
+    { href: '/admin/users', label: '유저' },
+    { href: '/admin/pros', label: '사회자' },
     { href: '/admin/pro-ranking', label: '사회자 랭킹' },
   ],
-  [
-    { href: '/admin/partners', label: '웨딩 파트너' },
-    { href: '/admin/businesses', label: 'Biz 고객사' },
-  ],
 ];
+
+const ALL_ITEMS = NAV.flatMap((s) => s.items);
+
+function matchItem(item: NavItem, pathname: string) {
+  if (item.exact) return pathname === item.href;
+  return (item.paths || [item.href]).some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/** 회색 mono 아이콘을 마스크로 — 색은 currentColor */
+function NavIcon({ name }: { name: string }) {
+  const url = `url(/admin-icons/${name}.svg)`;
+  return <i aria-hidden className="adm-ic" style={{ WebkitMaskImage: url, maskImage: url }} />;
+}
+
+function SideNav({ pathname, badge, onNavigate }: {
+  pathname: string;
+  badge: { todayUsers: number; pendingPros: number };
+  onNavigate?: () => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const activeHref = ALL_ITEMS.find((it) => matchItem(it, pathname))?.href || '';
+  const [pill, setPill] = useState<{ y: number; h: number } | null>(null);
+  // 고른 메뉴 알약 — 메뉴 사이를 스르르(처음 그릴 땐 제자리에 바로)
+  const first = useRef(true);
+  useLayoutEffect(() => {
+    const el = wrap.current?.querySelector<HTMLElement>(`[data-href="${activeHref}"]`);
+    setPill(el ? { y: el.offsetTop, h: el.offsetHeight } : null);
+  }, [activeHref]);
+  useEffect(() => { if (pill) first.current = false; }, [pill]);
+  return (
+    <nav ref={wrap} className="adm-nav" aria-label="관리자 메뉴">
+      {pill && (
+        <span
+          className="adm-nav-pill"
+          aria-hidden
+          style={{ transform: `translateY(${pill.y}px)`, height: pill.h, transition: first.current ? 'none' : undefined }}
+        />
+      )}
+      {NAV.map((section, si) => (
+        <div key={section.label || si} className="adm-nav-sec">
+          {section.label && <p className="adm-nav-label">{section.label}</p>}
+          {section.items.map((item) => {
+            const on = item.href === activeHref;
+            return (
+              <Link key={item.href} href={item.href} data-href={item.href} onClick={onNavigate} className={`adm-nav-item ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
+                <NavIcon name={item.icon} />
+                <span className="adm-nav-text">{item.label}</span>
+                {item.href === '/admin/users' && badge.pendingPros > 0 && <span className="adm-nav-badge warn">승인 {badge.pendingPros}</span>}
+                {item.href === '/admin/users' && badge.pendingPros === 0 && badge.todayUsers > 0 && <span className="adm-nav-badge">+{badge.todayUsers}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+/** 탭 — 고른 탭 바탕이 옆으로 미끄러진다 */
+function HeadTabs({ tabs, pathname }: { tabs: { href: string; label: string }[]; pathname: string }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const [ind, setInd] = useState<{ x: number; w: number } | null>(null);
+  const activeHref = tabs.find((t) => pathname === t.href)?.href;
+  useLayoutEffect(() => {
+    const el = wrap.current?.querySelector<HTMLElement>(`[data-tab="${activeHref}"]`);
+    setInd(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+  }, [activeHref]);
+  return (
+    <div ref={wrap} className="adm-tabs" role="tablist">
+      {ind && <span className="adm-tab-ind" aria-hidden style={{ transform: `translateX(${ind.x}px)`, width: ind.w }} />}
+      {tabs.map((t) => (
+        <Link key={t.href} href={t.href} data-tab={t.href} role="tab" aria-selected={t.href === activeHref} className={`adm-tab ${t.href === activeHref ? 'on' : ''}`}>
+          {t.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -104,6 +176,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasAdminKey, setHasAdminKey] = useState(false);
   const [navBadge, setNavBadge] = useState<{ todayUsers: number; pendingPros: number }>({ todayUsers: 0, pendingPros: 0 });
+  // 운영 이슈 서랍(종 버튼) — 숫자 = 정산 대기 + 승인 대기
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueCount, setIssueCount] = useState(0);
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -161,11 +236,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setChecked(true);
   }, [hydrated, authUser, router, isLoginPage, hasAdminKey]);
 
+  // 메뉴를 옮기면 서랍 닫고 본문은 맨 위부터(본문이 자체 스크롤이라 브라우저가 안 올려 준다)
+  const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
     setMobileOpen(false);
+    if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [pathname]);
 
-  // 사이드바 뱃지용 — 오늘 신규 유저 수 / 대기 사회자 신청 수
+  // 사이드바 뱃지 — 오늘 신규 유저 수 / 승인 대기 사회자 수
   useEffect(() => {
     if (!checked || isLoginPage) return;
     let stop = false;
@@ -184,13 +262,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { stop = true; clearInterval(t); };
   }, [checked, isLoginPage]);
 
-  const activeLabel = useMemo(() => {
-    for (const section of NAV_SECTIONS) {
-      const item = section.items.find((nav) => (nav.exact ? pathname === nav.href : pathname.startsWith(nav.href)));
-      if (item) return item.label;
-    }
-    return '관리자';
+  // 페이지 머리 — 제목·설명·탭
+  const head = useMemo(() => {
+    const item = ALL_ITEMS.find((it) => matchItem(it, pathname));
+    const hiddenKey = Object.keys(HIDDEN_TITLES).find((p) => pathname === p || pathname.startsWith(`${p}/`));
+    const tabs = TAB_GROUPS.find((g) => g.some((t) => pathname === t.href)) || null;
+    return {
+      title: item?.label || (hiddenKey ? HIDDEN_TITLES[hiddenKey] : '관리자'),
+      desc: item?.desc || '',
+      tabs,
+      home: pathname === '/admin',
+    };
   }, [pathname]);
+
+  const closeIssues = useCallback(() => setIssueOpen(false), []);
 
   const handleLogout = async () => {
     try {
@@ -202,235 +287,108 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.replace('/admin/login');
   };
 
-  const isTopActive = (item: typeof TOP_NAV[number]) => {
-    if (item.exact) return pathname === item.href;
-    return item.paths.some((path) => pathname.startsWith(path));
-  };
-
-  const isSideActive = (item: AdminNavItem) => {
-    if (item.exact) return pathname === item.href;
-    if (pathname.startsWith(item.href)) return true;
-    // 병합 메뉴(대표 탭)면 같은 그룹의 다른 탭에 있어도 활성 표시
-    const group = SUB_TAB_GROUPS.find((g) => g[0].href === item.href);
-    if (group) return group.some((t) => pathname === t.href || pathname.startsWith(`${t.href}/`));
-    return false;
-  };
-
-  const AdminBrand = () => (
-    <Link href="/admin" className="flex min-w-0 items-center gap-4" aria-label="Freetiful 관리자 홈">
-      <Image
-        src="/images/logo-freetiful-wordmark.svg"
-        alt="Freetiful"
-        width={118}
-        height={34}
-        priority
-        className="h-[24px] w-auto object-contain"
-      />
-      <span className="hidden h-4 w-px bg-[#E5E8EB] sm:block" />
-      <span className="hidden whitespace-nowrap text-[16px] font-bold leading-none text-[#191F28] sm:block">관리자 센터</span>
-    </Link>
-  );
-
-  const Sidebar = ({ onClickItem }: { onClickItem?: () => void }) => (
-    <nav className="space-y-5">
-      {NAV_SECTIONS.map((section) => (
-        <section key={section.label} className="space-y-1">
-          <div className="flex w-full items-center justify-between px-6 pb-1 text-left text-[13px] font-medium text-[#8B95A1]">
-            <span>{section.label}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-[#B0B8C1]" />
-          </div>
-          <div className="space-y-1">
-            {section.items.map((item) => {
-              const active = isSideActive(item);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onClickItem}
-                  className={`admin-nav-item flex min-h-[54px] items-center gap-3 rounded-lg px-6 py-[17px] text-[14px] font-semibold leading-5 ${
-                    active
-                      ? 'active bg-[#F7F9FC] text-[#3180F7]'
-                      : 'text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]'
-                  }`}
-                >
-                  {item.icon && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/admin-icons/${item.icon}`} alt="" aria-hidden className="h-[20px] w-[20px] shrink-0 object-contain" />
-                  )}
-                  <span>{item.label}</span>
-                  {item.href === '/admin/users' && navBadge.todayUsers > 0 && (
-                    <span className="ml-auto shrink-0 rounded-full bg-[#FFF0F0] px-1.5 py-0.5 text-[11px] font-bold text-[#F04452]">
-                      +{navBadge.todayUsers}
-                    </span>
-                  )}
-                  {item.href === '/admin/pros' && navBadge.pendingPros > 0 && (
-                    <span className="ml-auto shrink-0 rounded-full bg-[#FF5D8F] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                      new
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ))}
-    </nav>
-  );
-
   if (isLoginPage) return <>{children}</>;
 
   if (!checked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#E5E8EB] border-t-[#3180F7]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#F2F4F6]">
+        <div className="adm-spinner" aria-label="불러오는 중" />
       </div>
     );
   }
 
+  const bell = (
+    <button type="button" onClick={() => setIssueOpen(true)} className="adm-bell" aria-label={`운영 이슈${issueCount ? ` ${issueCount}건` : ''}`}>
+      <NavIcon name="bell-ring" />
+      {issueCount > 0 && <span className="adm-bell-n">{issueCount > 99 ? '99+' : issueCount}</span>}
+    </button>
+  );
+
+  const brand = (
+    <Link href="/admin" className="adm-brand" aria-label="Freetiful 관리자 홈">
+      <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={104} height={30} priority className="h-[22px] w-auto object-contain" />
+      <span className="adm-brand-tag">관리자</span>
+    </Link>
+  );
+
+  const account = (
+    <div className="adm-account">
+      <span className="adm-avatar">
+        {authUser?.profileImageUrl ? (
+          <span role="img" aria-label={authUser.name || '관리자'} style={{ backgroundImage: `url(${authUser.profileImageUrl})` }} />
+        ) : (
+          <Image src="/icon.svg" alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
+        )}
+      </span>
+      <span className="adm-account-name">{authUser?.name || '관리자'}</span>
+      <button type="button" onClick={handleLogout} className="adm-account-out">로그아웃</button>
+    </div>
+  );
+
+  const sidebarBody = (onNavigate?: () => void) => (
+    <>
+      <SideNav pathname={pathname} badge={navBadge} onNavigate={onNavigate} />
+      <div className="adm-side-foot">
+        <Link href="/main" onClick={onNavigate} className="adm-nav-item">
+          <NavIcon name="external-link" />
+          <span className="adm-nav-text">서비스 홈</span>
+        </Link>
+        {account}
+      </div>
+    </>
+  );
+
   return (
-    <div className="admin-shell flex h-screen flex-col overflow-hidden bg-white text-[#191F28]">
-      <header className="admin-topbar flex h-[68px] shrink-0 items-center border-b border-[#E5E8EB] bg-white px-5 md:px-8 xl:px-[60px]">
-        <AdminBrand />
+    <div className="admin-shell adm-shell">
+      <aside className="adm-side">
+        <div className="adm-side-top">{brand}</div>
+        <div className="adm-side-scroll">{sidebarBody()}</div>
+      </aside>
 
-        <nav className="ml-12 hidden h-full items-center gap-7 lg:flex">
-          {TOP_NAV.map((item) => {
-            const active = isTopActive(item);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`admin-topnav-link flex h-full items-center text-[14px] font-medium ${
-                  active ? 'text-[#3180F7]' : 'text-[#4E5968] hover:text-[#3180F7]'
-                }`}
-              >
-                <span className="relative flex h-full items-center">
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="ml-auto hidden items-center gap-3 md:flex">
-          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#F2F7FF]">
-            {authUser?.profileImageUrl ? (
-              <span
-                role="img"
-                aria-label={authUser.name || '관리자'}
-                className="h-full w-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${authUser.profileImageUrl})` }}
-              />
-            ) : (
-              <Image src="/icon.svg" alt="관리자" width={24} height={24} className="h-6 w-6 object-contain" />
-            )}
-          </span>
-          <span className="max-w-[120px] truncate text-[13px] font-semibold text-[#191F28]">
-            {authUser?.name || '관리자'}
-          </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="admin-icon-button flex items-center gap-1.5 rounded-md px-2.5 py-2 text-[12px] font-normal text-[#8B95A1] hover:bg-[#F7F8FA] hover:text-[#3180F7]"
-          >
-            <LogOut className="h-4 w-4" />
-            로그아웃
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="admin-icon-button ml-auto flex h-10 w-10 items-center justify-center rounded-md text-[#4E5968] hover:bg-[#F7F8FA] md:hidden"
-          aria-label="관리자 메뉴 열기"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[304px] shrink-0 overflow-y-auto border-r border-[#F2F4F6] bg-white px-6 py-8 md:block">
-          <Sidebar />
-          <div className="mt-8 border-t border-[#F2F4F6] pt-5">
-            <Link
-              href="/main"
-              className="admin-nav-item flex min-h-[54px] items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]"
-            >
-              <ExternalLink className="h-4 w-4" />
-              홈으로
-            </Link>
+      <div className="adm-body">
+        {/* 모바일 머리 — 로고 + 메뉴 */}
+        <header className="adm-mtop">
+          {brand}
+          <div className="flex items-center gap-1">
+            {bell}
+            <button type="button" onClick={() => setMobileOpen(true)} className="adm-mtop-btn" aria-label="관리자 메뉴 열기">
+              <NavIcon name="menu" />
+            </button>
           </div>
-        </aside>
+        </header>
 
-        <main className="admin-main min-w-0 flex-1 overflow-auto bg-white">
-          <div className={`admin-page-frame w-full px-5 py-8 md:px-9 lg:px-12 xl:px-14 2xl:px-[54px] ${pathname === '/admin/landing-analytics' ? 'bg-[#F2F4F6]' : ''}`} key={pathname}>
-            <div className="mb-7 flex items-center justify-between border-b border-transparent md:hidden">
-              <div>
-                <p className="text-[12px] font-normal text-[#B0B8C1]">관리자 센터</p>
-                <h1 className="mt-1 text-[16px] font-bold text-[#191F28]">{activeLabel}</h1>
-              </div>
-            </div>
-            {(() => {
-              const subTabs = SUB_TAB_GROUPS.find((g) => g.some((t) => pathname === t.href || pathname.startsWith(`${t.href}/`)));
-              if (!subTabs) return null;
-              return (
-                <div className="mb-6 inline-flex items-center gap-1 rounded-xl bg-[#F2F4F6] p-1">
-                  {subTabs.map((t) => {
-                    const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
-                    return (
-                      <Link
-                        key={t.href}
-                        href={t.href}
-                        className={`rounded-lg px-4 py-2 text-[13.5px] font-semibold transition ${active ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}
-                      >
-                        {t.label}
-                      </Link>
-                    );
-                  })}
+        <div className="flex min-h-0 flex-1">
+          <main ref={mainRef} className="admin-main adm-main">
+            <div className={`adm-frame ${head.home ? 'home' : ''}`}>
+              <div className="adm-util">{bell}</div>
+              {!head.home && (
+                <div className="adm-head">
+                  {/* 제목은 바뀔 때만 다시 올라오고, 탭은 남아서 고른 바탕이 미끄러진다 */}
+                  <div key={head.title}>
+                    <h1 className="adm-title">{head.title}</h1>
+                    {head.desc && <p className="adm-desc">{head.desc}</p>}
+                  </div>
+                  {head.tabs && <HeadTabs key={head.tabs[0].href} tabs={head.tabs} pathname={pathname} />}
                 </div>
-              );
-            })()}
-            {children}
-          </div>
-        </main>
-        <AdminIssuePanel />
+              )}
+              <div className="admin-page-frame adm-content" key={pathname}>{children}</div>
+            </div>
+          </main>
+          <AdminIssuePanel open={issueOpen} onClose={closeIssues} onCount={setIssueCount} />
+        </div>
       </div>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-[#191F28]/35 backdrop-blur-[2px]" onClick={() => setMobileOpen(false)} />
-          <aside className="admin-mobile-drawer absolute bottom-0 left-0 top-0 flex w-[320px] max-w-[86vw] flex-col bg-white shadow-2xl">
-            <div className="flex h-[68px] items-center justify-between border-b border-[#E5E8EB] px-5">
-              <AdminBrand />
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-md text-[#4E5968] hover:bg-[#F7F8FA]"
-                aria-label="관리자 메뉴 닫기"
-              >
-                <X className="h-5 w-5" />
+        <div className="adm-drawer-wrap" role="dialog" aria-modal="true" aria-label="관리자 메뉴">
+          <div className="adm-drawer-dim" onClick={() => setMobileOpen(false)} />
+          <aside className="adm-drawer">
+            <div className="adm-side-top">
+              {brand}
+              <button type="button" onClick={() => setMobileOpen(false)} className="adm-mtop-btn" aria-label="관리자 메뉴 닫기">
+                <NavIcon name="x" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-6">
-              <Sidebar onClickItem={() => setMobileOpen(false)} />
-              <div className="mt-8 border-t border-[#F2F4F6] pt-5">
-                <Link
-                  href="/main"
-                  onClick={() => setMobileOpen(false)}
-                  className="admin-nav-item flex min-h-[54px] items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#191F28]"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  홈으로
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="admin-nav-item mt-1 flex min-h-[54px] w-full items-center gap-2 rounded-lg px-6 py-[17px] text-[14px] font-semibold text-[#8B95A1] hover:bg-[#F7F9FC] hover:text-[#3180F7]"
-                >
-                  <LogOut className="h-4 w-4" />
-                  로그아웃
-                </button>
-              </div>
-            </div>
+            <div className="adm-side-scroll">{sidebarBody(() => setMobileOpen(false))}</div>
           </aside>
         </div>
       )}

@@ -26,12 +26,12 @@ function money(v?: number | null) {
 
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+    <section className="bg-white rounded-[20px] overflow-hidden">
+      <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center gap-3">
         <h2 className="text-sm font-extrabold text-gray-900">{title}</h2>
         <div className="ml-auto">{right}</div>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
@@ -143,12 +143,12 @@ export default function AdminUserDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-100"><ArrowLeft size={18} /></button>
+        <button type="button" onClick={() => router.back()} className="adm-btn icon bg-white" aria-label="뒤로"><ArrowLeft size={18} /></button>
         <div>
           <h1 className="text-xl font-extrabold text-gray-900">유저 상세 · 관계 데이터</h1>
           <p className="text-xs text-gray-400 mt-0.5">{user?.id}</p>
         </div>
-        <button onClick={load} className="ml-auto p-2 rounded-lg hover:bg-gray-100"><RefreshCw size={16} /></button>
+        <button type="button" onClick={load} className="adm-btn icon ml-auto bg-white" aria-label="새로고침"><RefreshCw size={16} /></button>
       </div>
 
       <AdminErrorPanel error={lastError} label="유저 상세" />
@@ -159,7 +159,7 @@ export default function AdminUserDetailPage() {
           ['매칭요청', counts.matchRequests],
           ['리뷰', counts.reviews],
         ].map(([label, value]) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
+          <div key={label} className="bg-white rounded-[20px] p-4">
             <p className="text-xs text-gray-400 font-bold">{label}</p>
             <p className="mt-1 text-2xl font-extrabold text-gray-900">{Number(value || 0).toLocaleString()}</p>
           </div>

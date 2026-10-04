@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Trash2, RefreshCw, Star, Plus } from '@/app/(admin)/admin/_components/admin-icons';
+import { Trash2, RefreshCw, Star, Plus } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -86,6 +85,8 @@ export default function AdminReviewsPage() {
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const [pros, setPros] = useState<ProOption[]>([]);
   const [creating, setCreating] = useState(false);
+  /** 직접 등록 칸 — 평소엔 접어 두고 도구막대 버튼으로 연다(어드민 2.0) */
+  const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const LIMIT = 20;
 
@@ -220,21 +221,21 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 px-1">
-        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">리뷰 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">리뷰 관리</h1>
-        </div>
-        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
+      {/* 도구막대 — 제목은 레이아웃 머리(리뷰 관리) */}
+      <div className="adm-toolbar">
+        <button type="button" onClick={() => setFormOpen((v) => !v)} className={`adm-btn ${formOpen ? 'weak' : 'primary'}`} aria-expanded={formOpen}>
+          <Plus size={15} /> {formOpen ? '등록 칸 닫기' : '리뷰 직접 등록'}
+        </button>
+        <span className="grow" />
+        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
+          type="button"
           onClick={() => fetchReviews(1, dateRange)}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="adm-btn icon"
           title="새로고침"
+          aria-label="새로고침"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -249,27 +250,24 @@ export default function AdminReviewsPage() {
             fetchReviews(1, range);
           }}
         />
-        <div className="admin-list-card border-y border-[#E5E8EB] py-5">
-          <div className="mb-4 flex items-center justify-between">
+        {formOpen && (
+        <div className="adm-card adm-form">
+          <div className="adm-card-head">
             <div>
-              <p className="text-[12px] font-normal text-[#B0B8C1]">관리자 등록</p>
-              <h2 className="mt-1 text-[16px] font-bold text-[#191F28]">사회자 리뷰 직접 등록</h2>
+              <h2 className="adm-card-title">사회자 리뷰 직접 등록</h2>
+              <p className="adm-card-sub">관리자가 받은 후기를 대신 올려요. 노출을 끄면 목록에만 남아요</p>
             </div>
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="admin-icon-button inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#3180F7] px-4 text-[13px] font-semibold text-white hover:bg-[#1B64DA] disabled:opacity-50"
-            >
-              <Plus size={15} /> {creating ? '등록 중' : '리뷰 등록'}
+            <button type="button" onClick={handleCreate} disabled={creating} className="adm-btn primary">
+              {creating ? '등록 중' : '등록하기'}
             </button>
           </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">사회자</label>
+              <label className="adm-label">사회자</label>
               <select
                 value={draft.proProfileId}
                 onChange={(e) => setDraft({ ...draft, proProfileId: e.target.value })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               >
                 <option value="">사회자 선택</option>
                 {pros.map((pro) => (
@@ -278,67 +276,67 @@ export default function AdminReviewsPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">작성자명</label>
+              <label className="adm-label">작성자명</label>
               <input
                 value={draft.reviewerName}
                 onChange={(e) => setDraft({ ...draft, reviewerName: e.target.value })}
                 placeholder="예: 김민지"
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">작성자 이메일</label>
+              <label className="adm-label">작성자 이메일</label>
               <input
                 value={draft.reviewerEmail}
                 onChange={(e) => setDraft({ ...draft, reviewerEmail: e.target.value })}
                 placeholder="선택 입력"
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">
+              <label className="adm-label">
                 <AdminTerm term="리뷰 작성일">리뷰 작성일</AdminTerm>
               </label>
               <input
                 type="datetime-local"
                 value={draft.reviewCreatedAt}
                 onChange={(e) => setDraft({ ...draft, reviewCreatedAt: e.target.value })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">행사명</label>
+              <label className="adm-label">행사명</label>
               <input
                 value={draft.eventTitle}
                 onChange={(e) => setDraft({ ...draft, eventTitle: e.target.value })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">행사일</label>
+              <label className="adm-label">행사일</label>
               <input
                 type="date"
                 value={draft.eventDate}
                 onChange={(e) => setDraft({ ...draft, eventDate: e.target.value })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">행사시간</label>
+              <label className="adm-label">행사시간</label>
               <input
                 type="time"
                 value={draft.eventTime}
                 onChange={(e) => setDraft({ ...draft, eventTime: e.target.value })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">행사장소</label>
+              <label className="adm-label">행사장소</label>
               <input
                 value={draft.eventLocation}
                 onChange={(e) => setDraft({ ...draft, eventLocation: e.target.value })}
                 placeholder="예: 더채플앳청담"
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
           </div>
@@ -352,7 +350,7 @@ export default function AdminReviewsPage() {
               ['ratingWit', '센스'],
             ].map(([key, label]) => (
               <div key={key}>
-                <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">{label}</label>
+                <label className="adm-label">{label}</label>
                 <input
                   type="number"
                   min={1}
@@ -360,18 +358,18 @@ export default function AdminReviewsPage() {
                   step={1}
                   value={(draft as any)[key]}
                   onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) } as any)}
-                  className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                  className="adm-input"
                 />
               </div>
             ))}
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-[#8B95A1]">금액</label>
+              <label className="adm-label">금액</label>
               <input
                 type="number"
                 min={0}
                 value={draft.amount}
                 onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })}
-                className="h-11 w-full rounded-lg bg-[#F9FAFB] px-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                className="adm-input"
               />
             </div>
           </div>
@@ -381,9 +379,9 @@ export default function AdminReviewsPage() {
               onChange={(e) => setDraft({ ...draft, comment: e.target.value })}
               placeholder="리뷰 내용을 입력하세요"
               rows={3}
-              className="w-full resize-y rounded-lg bg-[#F9FAFB] px-3 py-3 text-[13px] text-[#191F28] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+              className="adm-input adm-textarea"
             />
-            <div className="flex items-center rounded-lg bg-[#F9FAFB] px-4 py-3">
+            <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
               <AdminSwitch
                 checked={draft.isAnonymous}
                 onChange={(checked) => setDraft({ ...draft, isAnonymous: checked })}
@@ -391,7 +389,7 @@ export default function AdminReviewsPage() {
                 ariaLabel="익명"
               />
             </div>
-            <div className="flex items-center rounded-lg bg-[#F9FAFB] px-4 py-3">
+            <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
               <AdminSwitch
                 checked={draft.isVisible}
                 onChange={(checked) => setDraft({ ...draft, isVisible: checked })}
@@ -401,19 +399,20 @@ export default function AdminReviewsPage() {
             </div>
           </div>
         </div>
+        )}
         <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">작성자</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">내용</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">행사</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰일</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="구분">구분</AdminTerm></th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
+                  <th className="text-left px-4 py-3">작성자</th>
+                  <th className="text-left px-4 py-3">사회자</th>
+                  <th className="text-center px-4 py-3">평점</th>
+                  <th className="text-left px-4 py-3">내용</th>
+                  <th className="text-left px-4 py-3">행사</th>
+                  <th className="text-center px-4 py-3">리뷰일</th>
+                  <th className="text-center px-4 py-3"><AdminTerm term="구분">구분</AdminTerm></th>
+                  <th className="text-center px-4 py-3">액션</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -431,7 +430,7 @@ export default function AdminReviewsPage() {
                     </tr>
                   ))
                 ) : reviews.length === 0 ? (
-                  <tr><td colSpan={8} className="admin-empty-state text-center py-14 text-sm font-semibold">리뷰가 없습니다</td></tr>
+                  <tr><td colSpan={8} className="adm-empty">리뷰가 없어요</td></tr>
                 ) : reviews.map((review) => (
                   <tr key={review.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-700">
@@ -443,7 +442,7 @@ export default function AdminReviewsPage() {
                         className="w-full min-w-[70px] rounded bg-transparent px-1 py-0.5 text-sm text-gray-700 outline-none hover:bg-gray-100 focus:bg-white focus:ring-1 focus:ring-[#3180F7]"
                       />
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{review.proName || '-'}</td>
+                    <td className="px-4 py-3"><span className="adm-cell-main">{review.proName || '-'}</span></td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-0.5">
                         <Star size={12} className="fill-amber-400 text-amber-400" />
@@ -474,14 +473,16 @@ export default function AdminReviewsPage() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`rounded-lg px-2 py-1 text-[12px] font-semibold ${review.adminCreated ? 'bg-[#F3F8FF] text-[#3180F7]' : 'bg-gray-50 text-gray-500'}`}>
+                      <span className={`adm-badge ${review.adminCreated ? 'blue' : ''}`}>
                         {review.adminCreated ? '관리자' : '유저'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() => handleDelete(review.id)}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="adm-btn icon sm ghost"
+                        aria-label="리뷰 삭제"
                       >
                         <Trash2 size={14} />
                       </button>

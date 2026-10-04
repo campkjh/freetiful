@@ -1,26 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import {
-  Activity,
-  ArrowRightLeft,
-  Building2,
-  Calendar,
-  ChevronRight,
-  CreditCard,
-  RefreshCw,
-  Search,
-  ShieldCheck,
-  Star,
-  TrendingUp,
-  Trophy,
-  UserCheck,
-  Users,
-  Wallet,
-} from '@/app/(admin)/admin/_components/admin-icons';
+import { ChevronRight, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminTerm } from './_components/AdminHelpTooltip';
 import { adminFetch } from './_components/adminFetch';
 
@@ -133,11 +118,6 @@ interface Stats {
   degraded?: boolean;
 }
 
-const BLUE = '#3180F7';
-const GREEN = '#21C463';
-const ORANGE = '#FF9F1C';
-const RED = '#F04452';
-const GRAY = '#8B95A1';
 
 const toNumber = (value: unknown) => {
   const parsed = Number(value || 0);
@@ -359,347 +339,270 @@ async function fetchFallbackStats(): Promise<Stats> {
   };
 }
 
-function AdminSection({
-  eyebrow,
-  title,
-  aside,
-  children,
-}: {
-  eyebrow?: string;
-  title: string;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
+/* ─────────────────────────────────────────────────────────────
+ * 어드민 홈 2.0 — 퀵매칭·앱과 같은 토스 톤(261004 사장 '어드민도 디자인·UI·인터랙션 격변').
+ *  인사 → 핵심 숫자 4칸(숫자가 차오르고 14일 추이선이 그려진다) → 할 일 · 14일 막대(지표 바꿔 보기, 막대가 자라 오른다)
+ *  → 전환 퍼널(단계 사이 전환율) · 사회자 TOP · 랜딩 유입. 카드는 차례로 올라온다(adm-rise).
+ *  관리 메뉴 바둑판은 왼쪽 메뉴와 겹쳐 뺐다.
+ * ──────────────────────────────────────────────────────────── */
+
+const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+
+/** 숫자가 0 에서 목표까지 차오른다(0.9초). 값이 바뀌면 지금 값에서 이어서 */
+function useCountUp(target: number, ms = 900) {
+  const [v, setV] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = from.current;
+    if (start === target) return;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { from.current = target; setV(target); return; }
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / ms);
+      const cur = start + (target - start) * ease(k);
+      from.current = cur;
+      setV(cur);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return v;
+}
+
+function CountUp({ value, money = false, suffix = '' }: { value: number; money?: boolean; suffix?: string }) {
+  const v = useCountUp(value);
+  const n = Math.round(v).toLocaleString('ko-KR');
   return (
-    <section className="space-y-3">
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          {eyebrow && <p className="text-[12px] font-normal text-[#B0B8C1]">{eyebrow}</p>}
-          <h2 className={eyebrow ? 'mt-1 text-[18px] font-bold text-[#191F28]' : 'text-[18px] font-bold text-[#191F28]'}>
-            <AdminTerm term={title}>{title}</AdminTerm>
-          </h2>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </section>
+    <>
+      {money ? `₩${n}` : n}
+      {suffix && <small>{suffix}</small>}
+    </>
   );
 }
 
-function MetricBand({
-  items,
-  minWidth,
-}: {
-  items: Array<{ label: string; value: string; sub?: string; tone?: 'blue' | 'green' | 'red' | 'gray' }>;
-  minWidth?: number;
-}) {
-  const toneMap = {
-    blue: 'text-[#3180F7]',
-    green: 'text-[#21C463]',
-    red: 'text-[#F04452]',
-    gray: 'text-[#6B7684]',
-  };
-
-  return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: minWidth ? `repeat(auto-fit, minmax(${Math.min(180, Math.max(128, minWidth / Math.max(items.length, 1)))}px, 1fr))` : 'repeat(auto-fit, minmax(138px, 1fr))' }}
-    >
-      {items.map((item) => (
-        <div key={item.label} className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-          <p className="text-[12px] font-semibold text-[#8B95A1]">
-            <AdminTerm term={item.label}>{item.label}</AdminTerm>
-          </p>
-          <p className={`mt-2 text-[18px] font-bold leading-6 ${item.tone ? toneMap[item.tone] : 'text-[#191F28]'}`}>
-            {item.value}
-          </p>
-          {item.sub && <p className="mt-1 text-[12px] font-normal leading-4 text-[#8B95A1]">{item.sub}</p>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Sparkline({
-  points,
-  dataKey,
-  color = BLUE,
-}: {
-  points: DailyPoint[];
-  dataKey: DailyMetricKey;
-  color?: string;
-}) {
-  const values = points.map((point) => toNumber(point[dataKey]));
+/** 14일 추이선 — 면 + 선, 선은 그려지듯 나타난다 */
+function Spark({ values, color }: { values: number[]; color: string }) {
+  const W = 120;
+  const H = 40;
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
-  const range = max - min || 1;
-  const width = 240;
-  const height = 74;
-  const coordinates = values.map((value, index) => {
-    const x = values.length <= 1 ? 0 : (index / (values.length - 1)) * width;
-    const y = height - ((value - min) / range) * (height - 10) - 5;
-    return `${x},${y}`;
-  }).join(' ');
-
+  const span = max - min || 1;
+  const pts = values.map((v, i) => [values.length <= 1 ? W : (i / (values.length - 1)) * W, H - 3 - ((v - min) / span) * (H - 8)] as const);
+  const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const id = `sp${color.replace('#', '')}`;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-[74px] w-full overflow-visible" aria-hidden>
-      <line x1="0" y1={height - 5} x2={width} y2={height - 5} stroke="#E5E8EB" strokeWidth="1" />
-      <polyline
-        points={coordinates}
-        fill="none"
-        stroke={color}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="3"
-      />
-      {values.length > 0 && (
-        <circle
-          cx={values.length <= 1 ? 0 : width}
-          cy={height - ((values[values.length - 1] - min) / range) * (height - 10) - 5}
-          r="4"
-          fill={color}
-        />
-      )}
+    <svg viewBox={`0 0 ${W} ${H}`} className="adm-spark" aria-hidden preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity=".22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {pts.length > 1 && <polygon points={`0,${H} ${line} ${W},${H}`} fill={`url(#${id})`} className="adm-spark-area" />}
+      {pts.length > 1 && <polyline points={line} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="adm-spark-line" />}
     </svg>
   );
 }
 
-function BarStrip({
-  points,
-  dataKey,
-  color = BLUE,
-  formatter = formatNumber,
-}: {
-  points: DailyPoint[];
-  dataKey: DailyMetricKey;
-  color?: string;
-  formatter?: (value: unknown) => string;
-}) {
-  const values = points.map((point) => toNumber(point[dataKey]));
-  const max = Math.max(...values, 1);
-
-  return (
-    <div className="flex h-[86px] items-end gap-1.5 border-b border-[#E5E8EB] px-1 pb-1">
-      {points.map((point, index) => {
-        const value = toNumber(point[dataKey]);
-        return (
-          <div key={`${point.date}-${index}`} className="group flex flex-1 flex-col items-center gap-1">
-            <div
-              className="w-full rounded-t-md transition-all duration-300 group-hover:opacity-80"
-              style={{
-                height: `${Math.max(5, (value / max) * 72)}px`,
-                backgroundColor: color,
-                opacity: 0.9,
-              }}
-              title={`${point.date} ${formatter(value)}`}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ChartPanel({
-  title,
-  value,
-  points,
-  dataKey,
-  color = BLUE,
-  formatter = formatNumber,
-  chart = 'line',
-}: {
-  title: string;
-  value: string;
-  points: DailyPoint[];
-  dataKey: DailyMetricKey;
-  color?: string;
-  formatter?: (value: unknown) => string;
-  chart?: 'line' | 'bar';
-}) {
-  return (
-    <div className="admin-metric-card rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-[#4E5968]">
-          <AdminTerm term={title}>{title}</AdminTerm>
-        </span>
-        <span className="text-[13px] font-semibold text-[#191F28]">{value}</span>
-      </div>
-      {chart === 'line' ? (
-        <Sparkline points={points} dataKey={dataKey} color={color} />
-      ) : (
-        <BarStrip points={points} dataKey={dataKey} color={color} formatter={formatter} />
-      )}
-      <div className="mt-2 flex justify-between text-[12px] font-normal text-[#B0B8C1]">
-        <span>{points[0]?.date || '-'}</span>
-        <span>{points[points.length - 1]?.date || '-'}</span>
-      </div>
-    </div>
-  );
-}
-
-function ProgressList({
-  items,
-  suffix = '',
-}: {
-  items: Array<{ label: string; value: number; detail?: string; color?: string }>;
+function Kpi({ label, value, money, suffix, sub, series, color, href }: {
+  label: string;
+  value: number;
+  money?: boolean;
   suffix?: string;
+  sub: ReactNode;
+  series?: number[];
+  color: string;
+  href?: string;
 }) {
-  return (
-    <div className="space-y-2">
-      {items.map((item) => {
-        const width = Math.min(100, Math.max(0, item.value));
-        return (
-          <div key={item.label} className="rounded-lg bg-[#F7F8FA] p-3">
-            <div className="mb-1.5 flex items-center justify-between gap-3">
-              <span className="text-[13px] font-semibold text-[#333D4B]">
-                <AdminTerm term={item.label}>{item.label}</AdminTerm>
-              </span>
-              <span className="text-[13px] font-semibold text-[#191F28]">
-                {suffix ? `${item.value.toFixed(1)}${suffix}` : formatNumber(item.value)}
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-[#F2F4F6]">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${width}%`, backgroundColor: item.color || BLUE }}
-              />
-            </div>
-            {item.detail && <p className="mt-1 text-[12px] font-normal text-[#8B95A1]">{item.detail}</p>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function FunnelList({
-  items,
-}: {
-  items: Array<{ label: string; value: number; color?: string }>;
-}) {
-  const max = Math.max(...items.map((item) => item.value), 1);
-
-  return (
-    <div className="space-y-2">
-      {items.map((item, index) => (
-        <div key={item.label} className="grid grid-cols-[86px_1fr_72px] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 sm:grid-cols-[112px_1fr_88px]">
-          <span className="text-[12px] font-semibold text-[#4E5968]">
-            <AdminTerm term={item.label}>{item.label}</AdminTerm>
-          </span>
-          <div className="h-8 overflow-hidden rounded-lg bg-[#F7F8FA]">
-            <div
-              className="flex h-full items-center rounded-lg px-3 text-[12px] font-semibold text-white transition-all duration-500"
-              style={{
-                width: `${Math.max(7, (item.value / max) * 100)}%`,
-                backgroundColor: item.color || BLUE,
-                transitionDelay: `${index * 35}ms`,
-              }}
-            />
-          </div>
-          <span className="text-right text-[13px] font-semibold text-[#191F28]">{formatNumber(item.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BreakdownList({
-  items,
-}: {
-  items: Array<{ label: string; value: number; color?: string }>;
-}) {
-  const max = Math.max(...items.map((item) => item.value), 1);
-  return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <div key={item.label} className="grid grid-cols-[76px_1fr_64px] items-center gap-3 rounded-lg bg-[#F7F8FA] p-3 sm:grid-cols-[96px_1fr_72px]">
-          <span className="text-[12px] font-semibold text-[#4E5968]">
-            <AdminTerm term={item.label}>{item.label}</AdminTerm>
-          </span>
-          <div className="h-2 overflow-hidden rounded-full bg-[#F2F4F6]">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${Math.max(3, (item.value / max) * 100)}%`, backgroundColor: item.color || BLUE }}
-            />
-          </div>
-          <span className="text-right text-[13px] font-semibold text-[#191F28]">{formatNumber(item.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TopList({
-  title,
-  items,
-  valueLabel,
-  formatter = formatNumber,
-}: {
-  title: string;
-  items: TopListItem[];
-  valueLabel: string;
-  formatter?: (value: unknown) => string;
-}) {
-  return (
-    <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[16px] font-bold text-[#191F28]">
-          <AdminTerm term={title}>{title}</AdminTerm>
-        </h3>
-        <span className="text-[12px] font-normal text-[#8B95A1]">
-          <AdminTerm term={valueLabel}>{valueLabel}</AdminTerm>
-        </span>
+  const body = (
+    <>
+      <p className="adm-stat-label">{label}</p>
+      <p className="adm-stat-value"><CountUp value={value} money={money} suffix={suffix} /></p>
+      <div className="adm-kpi-foot">
+        <p className="adm-stat-sub">{sub}</p>
+        {series && series.length > 1 && <Spark values={series} color={color} />}
       </div>
-      <div className="space-y-2">
-        {(items.length ? items : [{ id: 'empty', name: '-', value: 0 }]).map((item, index) => (
-          <div key={item.id} className="flex min-h-[48px] items-center justify-between gap-3 rounded-lg bg-[#F7F8FA] px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[12px] font-bold text-[#3180F7]">{index + 1}</span>
-              <span className="truncate text-[13px] font-semibold text-[#333D4B]">{item.name}</span>
+    </>
+  );
+  return href ? <Link href={href} className="adm-stat adm-kpi adm-card-link">{body}</Link> : <div className="adm-stat adm-kpi">{body}</div>;
+}
+
+const METRICS: Array<{ key: DailyMetricKey; label: string; money?: boolean; unit: string; color: string }> = [
+  { key: 'revenue', label: '매출', money: true, unit: '', color: '#3182F6' },
+  { key: 'users', label: '가입', unit: '명', color: '#03B26C' },
+  { key: 'matchRequests', label: '견적 요청', unit: '건', color: '#F46A00' },
+  { key: 'payments', label: '결제', unit: '건', color: '#7B4DFF' },
+];
+
+/** 14일 막대 — 지표를 바꾸면 막대가 다시 자라 오른다. 막대에 올리면 그날 값 */
+function TrendChart({ points }: { points: DailyPoint[] }) {
+  const [metric, setMetric] = useState<DailyMetricKey>('revenue');
+  const m = METRICS.find((x) => x.key === metric) || METRICS[0];
+  const values = points.map((p) => toNumber(p[metric]));
+  const max = Math.max(...values, 1);
+  const total = values.reduce((a, b) => a + b, 0);
+  const fmt = (v: number) => (m.money ? formatMoney(v) : `${formatNumber(v)}${m.unit}`);
+  const [hover, setHover] = useState<number | null>(null);
+  return (
+    <div className="adm-card">
+      <div className="adm-card-head">
+        <div>
+          <h2 className="adm-card-title">최근 14일 {m.label}</h2>
+          <p className="adm-card-sub">합계 <b className="text-[#191F28]">{fmt(total)}</b></p>
+        </div>
+        <div className="adm-seg" role="tablist" aria-label="지표">
+          {METRICS.map((x) => (
+            <button key={x.key} type="button" role="tab" aria-selected={x.key === metric} onClick={() => setMetric(x.key)} className={x.key === metric ? 'on' : ''}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="adm-bars" key={metric} onMouseLeave={() => setHover(null)}>
+        {points.map((p, i) => {
+          const v = values[i];
+          const h = Math.max(3, (v / max) * 100);
+          const on = hover === i;
+          return (
+            <div key={`${p.date}-${i}`} className={`adm-bar ${on ? 'on' : ''}`} onMouseEnter={() => setHover(i)}>
+              {on && <span className={`adm-bar-tip ${i < 2 ? 'l' : i > points.length - 3 ? 'r' : ''}`} style={{ bottom: `calc(${h}% + 8px)` }}>{p.date} · {fmt(v)}</span>}
+              <span className="adm-bar-fill" style={{ height: `${h}%`, background: m.color, animationDelay: `${i * 0.035}s` }} />
             </div>
-            <span className="shrink-0 text-right text-[13px] font-bold text-[#191F28]">
-              {formatter(item.value)}
-              {item.count != null && item.count > 0 && (
-                <span className="ml-1 text-[12px] font-normal text-[#8B95A1]">({formatNumber(item.count)}건)</span>
-              )}
+          );
+        })}
+      </div>
+      <div className="adm-bars-axis">
+        <span>{points[0]?.date || ''}</span>
+        <span>{points[points.length - 1]?.date || ''}</span>
+      </div>
+    </div>
+  );
+}
+
+/** 할 일 — 지금 손댈 것만, 누르면 그 화면으로 */
+function TodoCard({ items }: { items: Array<{ label: string; value: string; sub?: string; href: string; tone: 'orange' | 'blue' | 'red' | 'gray'; urgent?: boolean }> }) {
+  return (
+    <div className="adm-card">
+      <div className="adm-card-head">
+        <h2 className="adm-card-title">할 일</h2>
+      </div>
+      <div className="adm-todo">
+        {items.map((it) => (
+          <Link key={it.label} href={it.href} className="adm-todo-row">
+            <span className={`adm-todo-dot ${it.tone} ${it.urgent ? 'pulse' : ''}`} />
+            <span className="min-w-0 flex-1">
+              <span className="adm-todo-label">{it.label}</span>
+              {it.sub && <span className="adm-todo-sub">{it.sub}</span>}
             </span>
-          </div>
+            <span className={`adm-todo-value ${it.urgent ? it.tone : ''}`}>{it.value}</span>
+            <ChevronRight size={16} className="shrink-0 opacity-40" />
+          </Link>
         ))}
       </div>
     </div>
   );
 }
 
-// 랜딩 유입 요약 배너 — 자체 데이터 로드(어드민 홈 상단 노출)
-function LandingTrafficBanner() {
+/** 전환 퍼널 — 단계마다 막대(첫 단계 대비) + 앞 단계 대비 전환율 */
+function Funnel({ steps }: { steps: Array<{ label: string; value: number }> }) {
+  const top = Math.max(steps[0]?.value || 0, 1);
+  return (
+    <div className="adm-card">
+      <div className="adm-card-head">
+        <div>
+          <h2 className="adm-card-title">전환 퍼널</h2>
+          <p className="adm-card-sub">프로필 조회부터 결제까지, 앞 단계 대비 몇 %가 넘어왔는지</p>
+        </div>
+      </div>
+      <div className="adm-funnel">
+        {steps.map((s, i) => {
+          const prev = i > 0 ? steps[i - 1].value : 0;
+          const rate = i > 0 && prev > 0 ? (s.value / prev) * 100 : null;
+          return (
+            <div key={s.label} className="adm-funnel-row">
+              <span className="adm-funnel-label"><AdminTerm term={s.label}>{s.label}</AdminTerm></span>
+              <span className="adm-funnel-track">
+                <span className="adm-funnel-fill" style={{ width: `${Math.max(2, (s.value / top) * 100)}%`, animationDelay: `${0.1 + i * 0.06}s` }} />
+              </span>
+              <span className="adm-funnel-n">{formatNumber(s.value)}</span>
+              {/* 한 요청이 여러 사회자에게 전달돼 100% 를 넘으면 배수로(전달 ×5.1) */}
+              <span className="adm-funnel-rate">{rate == null ? '' : rate > 100 ? `×${(rate / 100).toFixed(1)}` : `${rate.toFixed(1)}%`}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 사회자 TOP — 조회 / 매출 바꿔 보기 */
+function TopPros({ viewed, revenue }: { viewed: TopListItem[]; revenue: TopListItem[] }) {
+  const [tab, setTab] = useState<'viewed' | 'revenue'>('revenue');
+  const items = (tab === 'viewed' ? viewed : revenue).slice(0, 5);
+  const max = Math.max(...items.map((x) => toNumber(x.value)), 1);
+  return (
+    <div className="adm-card">
+      <div className="adm-card-head">
+        <h2 className="adm-card-title">사회자 TOP 5</h2>
+        <div className="adm-seg" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'revenue'} className={tab === 'revenue' ? 'on' : ''} onClick={() => setTab('revenue')}>매출</button>
+          <button type="button" role="tab" aria-selected={tab === 'viewed'} className={tab === 'viewed' ? 'on' : ''} onClick={() => setTab('viewed')}>조회</button>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <p className="adm-empty">아직 데이터가 없어요</p>
+      ) : (
+        <div className="adm-top" key={tab}>
+          {items.map((it, i) => (
+            <div key={it.id} className="adm-top-row" style={{ animationDelay: `${i * 0.05}s` }}>
+              <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
+              <span className="min-w-0 flex-1">
+                <span className="adm-top-name">{it.name}</span>
+                <span className="adm-top-bar"><span style={{ width: `${(toNumber(it.value) / max) * 100}%` }} /></span>
+              </span>
+              <span className="adm-top-val">
+                {tab === 'revenue' ? formatMoney(it.value) : `${formatNumber(it.value)}회`}
+                {tab === 'revenue' && it.count ? <small>{formatNumber(it.count)}건</small> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 랜딩 유입 요약 — 자체 로드 */
+function LandingCard() {
   const [d, setD] = useState<{ today?: { visits: number; conversions: number }; totalVisits?: number; totalConversions?: number } | null>(null);
   useEffect(() => {
     const from = new Date(Date.now() - 7 * 86400000).toISOString();
     adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}`, undefined, { cache: false })
       .then(setD).catch(() => setD(null));
   }, []);
-  const n = (v?: number) => (v ?? 0).toLocaleString('ko-KR');
+  const rows = [
+    { label: '오늘 방문', value: d?.today?.visits ?? 0, unit: '회' },
+    { label: '오늘 견적', value: d?.today?.conversions ?? 0, unit: '건' },
+    { label: '7일 방문', value: d?.totalVisits ?? 0, unit: '회' },
+    { label: '7일 견적', value: d?.totalConversions ?? 0, unit: '건' },
+  ];
   return (
-    <Link href="/admin/landing-analytics" className="block rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] transition hover:border-[#3182F6]/40">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={16} className="text-[#3182F6]" />
-          <span className="text-[14px] font-bold text-[#191F28]">랜딩 유입 분석</span>
-          <span className="text-[11px] text-[#B0B8C1]">wedding-mc · corporate-mc</span>
+    <Link href="/admin/landing-analytics" className="adm-card adm-card-link">
+      <div className="adm-card-head">
+        <div>
+          <h2 className="adm-card-title">랜딩 유입</h2>
+          <p className="adm-card-sub">wedding-mc · corporate-mc</p>
         </div>
-        <ChevronRight size={16} className="text-[#B0B8C1]" />
+        <ChevronRight size={18} className="opacity-40" />
       </div>
-      <div className="mt-3 grid grid-cols-4 gap-2">
-        {[
-          { label: '오늘 방문', value: n(d?.today?.visits), tone: 'text-[#3182F6]' },
-          { label: '오늘 견적', value: n(d?.today?.conversions), tone: 'text-emerald-600' },
-          { label: '7일 방문', value: n(d?.totalVisits), tone: 'text-[#191F28]' },
-          { label: '7일 견적', value: n(d?.totalConversions), tone: 'text-[#191F28]' },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg bg-[#F7F8FA] px-3 py-2 text-center">
-            <p className="text-[11px] text-[#8B95A1]">{s.label}</p>
-            <p className={`mt-0.5 text-[20px] font-black leading-none ${s.tone}`}>{d ? s.value : '…'}</p>
+      <div className="adm-mini-grid">
+        {rows.map((r) => (
+          <div key={r.label} className="adm-mini">
+            <p>{r.label}</p>
+            <b>{d ? <CountUp value={r.value} suffix={r.unit} /> : '…'}</b>
           </div>
         ))}
       </div>
@@ -708,12 +611,9 @@ function LandingTrafficBanner() {
 }
 
 export default function AdminDashboardPage() {
+  const authUser = useAuthStore((s) => s.user);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [transferOpen, setTransferOpen] = useState(false);
-  const [transferSource, setTransferSource] = useState('');
-  const [transferTarget, setTransferTarget] = useState('');
-  const [transferring, setTransferring] = useState(false);
 
   const fetchStats = async (force = false) => {
     setLoading(true);
@@ -727,7 +627,7 @@ export default function AdminDashboardPage() {
       try {
         const fallbackStats = await fetchFallbackStats();
         setStats(fallbackStats);
-        if (force) toast.success('대체 통계로 새로고침했습니다.');
+        if (force) toast.success('대체 통계로 새로고침했어요');
       } catch (fallbackError: any) {
         const msg = fallbackError?.response?.data?.message || fallbackError?.message || e?.response?.data?.message || e?.message || '알 수 없는 오류';
         const status = fallbackError?.response?.status || e?.response?.status;
@@ -740,360 +640,83 @@ export default function AdminDashboardPage() {
 
   useEffect(() => { fetchStats(); }, []);
 
-  const handleCleanup = async () => {
-    if (!confirm('이미지 0장인 approved 프로필을 전부 draft 로 강등하시겠습니까? (공개 목록에서 사라짐)')) return;
-    try {
-      const data = await adminFetch('POST', '/api/v1/admin/cleanup-empty-profiles');
-      toast.success(`${data.archivedCount}개 빈 프로필이 draft 로 강등됨`);
-      if (data.archivedCount > 0) {
-        console.log('archived:', data.archived);
-      }
-    } catch (e: any) {
-      toast.error(`정리 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    }
-  };
+  const series = stats?.dailySeries?.length ? stats.dailySeries : createEmptyDailySeries();
+  const pick = (k: DailyMetricKey) => series.map((p) => toNumber(p[k]));
+  const today = new Date();
+  const dateLine = `${today.getMonth() + 1}월 ${today.getDate()}일 ${['일', '월', '화', '수', '목', '금', '토'][today.getDay()]}요일`;
 
-  const handleTransfer = async () => {
-    if (!transferSource || !transferTarget) { toast.error('이메일을 모두 입력하세요'); return; }
-    if (!confirm(`${transferSource} 의 모든 프로필/이미지/서비스를 ${transferTarget} 계정으로 이관합니다.\n\n이 작업은 되돌릴 수 없습니다. 계속할까요?`)) return;
-    setTransferring(true);
-    try {
-      const data = await adminFetch('POST', '/api/v1/admin/transfer-pro-profile', {
-        sourceEmail: transferSource,
-        targetEmail: transferTarget,
-      });
-      toast.success(`이관 완료: ${data.transferredProfileId}`);
-      setTransferOpen(false);
-      fetchStats(true);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || '알 수 없는 오류';
-      toast.error(`이관 실패: ${msg}`, { duration: 6000 });
-    } finally {
-      setTransferring(false);
-    }
-  };
-
-  const dailySeries = stats?.dailySeries || [];
-  const allUsers = stats ? toNumber(stats.allUsers ?? stats.totalUsers) : 0;
-  const profileViews = toNumber(stats?.profiles?.totalViews ?? stats?.funnel?.profileViews);
-
-  const navItems = [
-    { href: '/admin/pros', icon: UserCheck, label: '사회자 관리', desc: '승인 · 반려 · 프로필', count: stats?.pendingPros ? `대기 ${formatNumber(stats.pendingPros)}` : undefined, countTone: 'warn' as const },
-    { href: '/admin/users', icon: Users, label: '유저 관리', desc: '회원 목록 · 권한', count: stats ? `${formatNumber(allUsers)}명` : undefined },
-    { href: '/admin/bookings', icon: Calendar, label: '요청 관리', desc: '요청 현황', count: stats?.matchRequests?.total != null ? `${formatNumber(stats.matchRequests.total)}건` : undefined },
-    { href: '/admin/payments', icon: CreditCard, label: '결제 관리', desc: '결제 내역 · 매출', count: stats?.revenue?.thisMonth != null ? formatMoney(stats.revenue.thisMonth) : undefined },
-    { href: '/admin/settlements', icon: Wallet, label: '정산 관리', desc: '사회자 정산 처리', count: stats?.settlements?.pending != null ? `대기 ${formatNumber(stats.settlements.pending)}` : undefined },
-    { href: '/admin/reviews', icon: Star, label: '리뷰 관리', desc: '리뷰 목록 · 삭제', count: stats?.totalReviews != null ? `${formatNumber(stats.totalReviews)}건` : undefined },
-    { href: '/admin/businesses', icon: Building2, label: 'Biz 고객사', desc: '비즈니스 계정', count: stats?.profiles?.businessTotal != null ? `${formatNumber(stats.profiles.businessTotal)}개` : undefined },
-    { href: '/admin/landing-analytics', icon: TrendingUp, label: '랜딩 유입 분석', desc: 'UTM 소스별 방문·전환' },
-    { href: '/admin/pro-ranking', icon: Trophy, label: '사회자 랭킹', desc: '드래그로 목록 순서 조정' },
-  ];
-
-  const summaryItems = stats
-    ? [
-        { label: '오늘 매출', value: formatMoney(stats.revenue?.today), sub: '결제완료', tone: 'blue' as const },
-        { label: '7일 매출', value: formatMoney(stats.revenue?.last7d), sub: '최근 7일', tone: 'blue' as const },
-        { label: '30일 매출', value: formatMoney(stats.revenue?.last30d), sub: '최근 30일', tone: 'blue' as const },
-        { label: '이번달 매출', value: formatMoney(stats.revenue?.thisMonth ?? stats.thisMonthRevenue), sub: '월 누적', tone: 'blue' as const },
-        { label: '누적 매출', value: formatMoney(stats.revenue?.total ?? stats.totalRevenue), sub: '전체 기간', tone: 'gray' as const },
-      ]
-    : [];
-
-  const userItems = stats
-    ? [
-        { label: '전체 계정', value: `${formatNumber(allUsers)}명`, sub: '모든 역할' },
-        { label: '일반 유저', value: `${formatNumber(stats.userRoles?.general ?? stats.totalUsers)}명`, sub: '고객 계정' },
-        { label: '신규 오늘', value: `${formatNumber(stats.newUsersToday)}명`, sub: 'KST 기준', tone: 'blue' as const },
-        { label: '신규 7일', value: `${formatNumber(stats.newUsers7d)}명`, sub: '최근 유입', tone: 'blue' as const },
-        { label: '신규 30일', value: `${formatNumber(stats.newUsers30d)}명`, sub: '월간 유입', tone: 'blue' as const },
-        { label: '활성 계정', value: `${formatNumber(stats.activeUsers)}명`, sub: 'isActive', tone: 'green' as const },
-        { label: '비활성 계정', value: `${formatNumber(stats.inactiveUsers)}명`, sub: '휴면/비활성' },
-        { label: '차단 계정', value: `${formatNumber(stats.bannedUsers)}명`, sub: 'isBanned', tone: 'red' as const },
-      ]
-    : [];
-
-  const roleItems = useMemo(() => {
+  const todo = useMemo(() => {
     if (!stats) return [];
+    const pendingPros = toNumber(stats.pendingPros);
+    const pendingSet = toNumber(stats.settlements?.pending);
+    const payCheck = toNumber(stats.payments?.pending) + toNumber(stats.payments?.failed);
+    const openReq = toNumber(stats.matchRequests?.open);
     return [
-      { label: '고객', value: toNumber(stats.userRoles?.general), color: BLUE },
-      { label: '프로', value: toNumber(stats.userRoles?.pro), color: GREEN },
-      { label: '업체', value: toNumber(stats.userRoles?.business), color: ORANGE },
-      { label: '관리자', value: toNumber(stats.userRoles?.admin), color: GRAY },
+      { label: '사회자 승인 대기', value: `${formatNumber(pendingPros)}명`, sub: '프로필 검토 후 승인·반려', href: '/admin/pros', tone: 'orange' as const, urgent: pendingPros > 0 },
+      { label: '정산 대기', value: `${formatNumber(pendingSet)}건`, sub: formatMoney(stats.settlements?.pendingAmount), href: '/admin/settlements', tone: 'orange' as const, urgent: pendingSet > 0 },
+      { label: '결제 확인', value: `${formatNumber(payCheck)}건`, sub: '결제 대기 · 실패', href: '/admin/payments', tone: 'red' as const, urgent: false },
+      { label: '진행 중인 견적 요청', value: `${formatNumber(openReq)}건`, sub: '사회자 답장을 기다리는 요청', href: '/admin/chat-connections', tone: 'blue' as const, urgent: false },
     ];
   }, [stats]);
 
-  const ctrItems = useMemo(() => {
+  const funnel = useMemo(() => {
     if (!stats) return [];
     return [
-      {
-        label: '채팅 진입 CTR',
-        value: toNumber(stats.rates?.chatCtr),
-        detail: `${formatNumber(stats.engagement?.chatRooms)} / ${formatNumber(profileViews)} 프로필 조회`,
-        color: GREEN,
-      },
-      {
-        label: '요청 응답률',
-        value: toNumber(stats.rates?.deliveryReplyRate),
-        detail: `${formatNumber(stats.funnel?.repliedDeliveries)} / ${formatNumber(stats.funnel?.deliveries)} 전달`,
-        color: BLUE,
-      },
-      {
-        label: '견적 결제전환',
-        value: toNumber(stats.rates?.quotationPaidRate),
-        detail: `${formatNumber(stats.funnel?.paidQuotations)} / ${formatNumber(stats.funnel?.quotations)} 견적`,
-        color: GREEN,
-      },
-      {
-        label: '결제 성공률',
-        value: toNumber(stats.rates?.paymentSuccessRate),
-        detail: `${formatNumber(stats.funnel?.completedPayments)} / ${formatNumber(stats.funnel?.payments)} 결제`,
-        color: BLUE,
-      },
-      {
-        label: '푸시 발송률',
-        value: toNumber(stats.rates?.pushSendRate),
-        detail: `${formatNumber(stats.engagement?.sentPushNotifications)} / ${formatNumber(stats.engagement?.notifications)} 알림`,
-        color: RED,
-      },
-    ];
-  }, [stats, profileViews]);
-
-  const funnelItems = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { label: '프로필 조회', value: toNumber(stats.funnel?.profileViews), color: BLUE },
-      { label: '요청 생성', value: toNumber(stats.funnel?.matchRequests), color: GREEN },
-      { label: '전달', value: toNumber(stats.funnel?.deliveries), color: GREEN },
-      { label: '응답', value: toNumber(stats.funnel?.repliedDeliveries), color: ORANGE },
-      { label: '채팅방', value: toNumber(stats.funnel?.chatRooms), color: BLUE },
-      { label: '견적', value: toNumber(stats.funnel?.quotations), color: GREEN },
-      { label: '결제완료', value: toNumber(stats.funnel?.completedPayments), color: RED },
-    ];
-  }, [stats]);
-
-  const operationItems = stats
-    ? [
-        { label: '프로 조회수', value: `${formatNumber(stats.profiles?.proViews)}회`, sub: '사회자 프로필' },
-        { label: '업체 조회수', value: `${formatNumber(stats.profiles?.businessViews)}회`, sub: '웨딩파트너' },
-        { label: '평균 평점', value: toNumber(stats.profiles?.avgRating).toFixed(2), sub: '승인 프로 기준', tone: 'blue' as const },
-        { label: '평균 응답률', value: formatRate(stats.profiles?.avgResponseRate), sub: '프로 응답 지표', tone: 'green' as const },
-        { label: '채팅방', value: `${formatNumber(stats.engagement?.chatRooms)}개`, sub: `7일 ${formatNumber(stats.engagement?.chatRooms7d)}` },
-        { label: '메시지', value: `${formatNumber(stats.engagement?.messages)}개`, sub: `7일 ${formatNumber(stats.engagement?.messages7d)}` },
-        { label: '리뷰 노출', value: `${formatNumber(stats.visibleReviews)}건`, sub: `전체 ${formatNumber(stats.totalReviews)}` },
-      ]
-    : [];
-
-  const commerceItems = stats
-    ? [
-        { label: '견적 전체', value: `${formatNumber(stats.quotations?.total)}건`, sub: `대기 ${formatNumber(stats.quotations?.pending)}` },
-        { label: '견적 수락', value: `${formatNumber(stats.quotations?.accepted)}건`, sub: `결제 ${formatNumber(stats.quotations?.paid)}`, tone: 'green' as const },
-        { label: '결제 전체', value: `${formatNumber(stats.payments?.total)}건`, sub: `성공 ${formatNumber(stats.payments?.completed)}` },
-        { label: '환불/실패', value: `${formatNumber(toNumber(stats.payments?.refunded) + toNumber(stats.payments?.failed))}건`, sub: `환불액 ${formatMoney(stats.payments?.refundedAmount)}`, tone: 'red' as const },
-        { label: '정산 대기', value: `${formatNumber(stats.settlements?.pending)}건`, sub: formatMoney(stats.settlements?.pendingAmount), tone: 'blue' as const },
-        { label: '정산 완료', value: `${formatNumber(stats.settlements?.settled)}건`, sub: formatMoney(stats.settlements?.settledAmount), tone: 'green' as const },
-      ]
-    : [];
-
-  const notificationItems = stats
-    ? [
-        { label: '알림 전체', value: `${formatNumber(stats.engagement?.notifications)}건`, sub: 'Notification' },
-        { label: '읽지 않음', value: `${formatNumber(stats.engagement?.unreadNotifications)}건`, sub: '미확인', tone: 'red' as const },
-        { label: '푸시 발송', value: `${formatNumber(stats.engagement?.sentPushNotifications)}건`, sub: 'sentPush', tone: 'blue' as const },
-        { label: '푸시 토큰', value: `${formatNumber(stats.engagement?.activePushTokens)}개`, sub: `구독 ${formatNumber(stats.engagement?.pushSubscriptions)}`, tone: 'green' as const },
-      ]
-    : [];
-
-  const proStatusItems = useMemo(() => {
-    if (!stats) return [];
-    // 활동중 = 승인 + 최근 7일 접속, 비활동중 = 승인이나 7일+ 미접속
-    return [
-      { label: '활동중', value: toNumber(stats.profiles?.proStatus?.active), color: BLUE },
-      { label: '비활동중', value: toNumber(stats.profiles?.proStatus?.inactive), color: GRAY },
-    ];
-  }, [stats]);
-
-  const businessStatusItems = useMemo(() => {
-    if (!stats) return [];
-    // 웨딩파트너 업종별 카운트(웨딩홀/스튜디오/헤어샵 …)
-    const types: Array<{ type: string; count: number }> = Array.isArray(stats.profiles?.businessTypes)
-      ? stats.profiles.businessTypes
-      : [];
-    if (types.length === 0) return [{ label: '등록 없음', value: 0, color: GRAY }];
-    const palette = [BLUE, GREEN, ORANGE, RED, GRAY];
-    return types.map((t, i) => ({ label: t.type, value: toNumber(t.count), color: palette[i % palette.length] }));
-  }, [stats]);
-
-  const matchStatusItems = useMemo(() => {
-    if (!stats) return [];
-    const labels: Record<string, string> = {
-      open: '진행',
-      matched: '매칭',
-      cancelled: '취소',
-      expired: '만료',
-    };
-    return Object.entries(labels).map(([key, label]) => ({
-      label,
-      value: toNumber(stats.matchRequests?.[key]),
-      color: key === 'matched' ? GREEN : key === 'open' ? BLUE : RED,
-    }));
-  }, [stats]);
-
-  const quotationStatusItems = useMemo(() => {
-    if (!stats) return [];
-    const labels: Record<string, string> = {
-      pending: '대기',
-      accepted: '수락',
-      paid: '결제',
-      cancelled: '취소',
-      refunded: '환불',
-      expired: '만료',
-    };
-    return Object.entries(labels).map(([key, label]) => ({
-      label,
-      value: toNumber(stats.quotations?.[key]),
-      color: key === 'paid' || key === 'accepted' ? GREEN : key === 'pending' ? BLUE : RED,
-    }));
-  }, [stats]);
-
-  const paymentStatusItems = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { label: '완료', value: toNumber(stats.payments?.completed), color: BLUE },
-      { label: '대기', value: toNumber(stats.payments?.pending), color: ORANGE },
-      { label: '에스크로', value: toNumber(stats.payments?.escrowed), color: GREEN },
-      { label: '정산', value: toNumber(stats.payments?.settled), color: GRAY },
-      { label: '환불', value: toNumber(stats.payments?.refunded), color: RED },
-      { label: '실패', value: toNumber(stats.payments?.failed), color: RED },
-    ];
-  }, [stats]);
-
-  const settlementStatusItems = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { label: '대기', value: toNumber(stats.settlements?.pending), color: BLUE },
-      { label: '완료', value: toNumber(stats.settlements?.settled), color: GREEN },
-      { label: '취소', value: toNumber(stats.settlements?.cancelled), color: RED },
+      { label: '프로필 조회', value: toNumber(stats.funnel?.profileViews) },
+      { label: '요청 생성', value: toNumber(stats.funnel?.matchRequests) },
+      { label: '전달', value: toNumber(stats.funnel?.deliveries) },
+      { label: '응답', value: toNumber(stats.funnel?.repliedDeliveries) },
+      { label: '채팅방', value: toNumber(stats.funnel?.chatRooms) },
+      { label: '견적', value: toNumber(stats.funnel?.quotations) },
+      { label: '결제완료', value: toNumber(stats.funnel?.completedPayments) },
     ];
   }, [stats]);
 
   return (
-    <div className="mx-auto max-w-[1180px] space-y-6 pb-10">
-      {loading ? (
-        <div className="grid animate-pulse gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-              <div className="h-3 w-20 rounded bg-gray-100" />
-              <div className="mt-4 h-5 w-28 rounded bg-gray-100" />
-              <div className="mt-2 h-3 w-16 rounded bg-gray-100" />
-            </div>
-          ))}
+    <div className="adm-home">
+      {/* 인사 */}
+      <div className="adm-hello">
+        <div>
+          <p className="adm-hello-date">{dateLine}</p>
+          <h1 className="adm-hello-title">안녕하세요, {authUser?.name || '관리자'}님</h1>
+          <p className="adm-hello-sub">오늘의 프리티풀 운영 현황이에요</p>
+        </div>
+        <button type="button" onClick={() => fetchStats(true)} disabled={loading} className="adm-btn" aria-label="새로고침">
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          새로고침
+        </button>
+      </div>
+
+      {loading && !stats ? (
+        <div className="adm-grid grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="adm-skel h-[150px] rounded-[20px]" />)}
         </div>
       ) : stats && (
-        <div className="space-y-6">
-          <AdminSection
-            title="관리 메뉴"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">{navItems.length}개 센터</span>}
-          >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const countClass = item.countTone === 'warn'
-                  ? 'bg-[#FFF3F3] text-[#F04452]'
-                  : 'bg-[#F3F8FF] text-[#3180F7]';
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="admin-icon-button group flex min-h-[74px] items-center gap-3 rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)] hover:border-[#D6E7FF] hover:bg-[#FBFDFF]"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3F8FF] text-[#3180F7]">
-                      <Icon size={18} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-bold text-[#191F28]">{item.label}</span>
-                      <span className="mt-0.5 block truncate text-[12px] font-normal text-[#8B95A1]">{item.desc}</span>
-                    </span>
-                    {item.count && (
-                      <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ${countClass}`}>
-                        {item.count}
-                      </span>
-                    )}
-                    <ChevronRight size={16} className="shrink-0 text-[#B0B8C1] transition-colors group-hover:text-[#3180F7]" />
-                  </Link>
-                );
-              })}
-            </div>
-          </AdminSection>
+        <div className="adm-stack adm-rise">
+          {stats.degraded && (
+            <p className="adm-note">통계 서버 응답이 없어 목록 데이터로 대신 계산했어요(일부 숫자는 0 으로 보일 수 있어요)</p>
+          )}
+          <div className="adm-grid adm-rise grid-cols-2 xl:grid-cols-4">
+            <Kpi label="오늘 매출" value={toNumber(stats.revenue?.today)} money sub={<>7일 {formatMoney(stats.revenue?.last7d)}</>} series={pick('revenue')} color="#3182F6" href="/admin/payments" />
+            <Kpi label="오늘 신규 가입" value={toNumber(stats.newUsersToday)} suffix="명" sub={<>7일 {formatNumber(stats.newUsers7d)}명</>} series={pick('users')} color="#03B26C" href="/admin/users" />
+            <Kpi label="이번 달 매출" value={toNumber(stats.revenue?.thisMonth ?? stats.thisMonthRevenue)} money sub={<>누적 {formatMoney(stats.revenue?.total ?? stats.totalRevenue)}</>} series={pick('payments')} color="#7B4DFF" />
+            <Kpi label="정산 대기" value={toNumber(stats.settlements?.pending)} suffix="건" sub={<>보낼 금액 {formatMoney(stats.settlements?.pendingAmount)}</>} color="#F46A00" href="/admin/settlements" />
+          </div>
 
-          <AdminSection
-            eyebrow="전환 센터"
-            title="CTR · 전환율"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">프로필 조회 이후 행동 기준</span>}
-          >
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="핵심 비율">핵심 비율</AdminTerm></h3>
-                </div>
-                <ProgressList items={ctrItems} suffix="%" />
-              </div>
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="전환 퍼널">전환 퍼널</AdminTerm></h3>
-                </div>
-                <FunnelList items={funnelItems} />
-              </div>
-            </div>
-          </AdminSection>
+          <div className="adm-grid adm-home-row">
+            <TodoCard items={todo} />
+            <TrendChart points={series} />
+          </div>
 
-          <AdminSection
-            eyebrow="프로 센터"
-            title="승인 상태 · 랭킹"
-            aside={<span className="text-[12px] font-normal text-[#8B95A1]">조회수 · 매출 TOP</span>}
-          >
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              <TopList
-                title="조회수 TOP"
-                items={stats.topLists?.viewedPros || []}
-                valueLabel="조회"
-              />
-              <TopList
-                title="매출 TOP"
-                items={stats.topLists?.revenuePros || []}
-                valueLabel="매출"
-                formatter={formatMoney}
-              />
+          <div className="adm-grid adm-home-row2">
+            <Funnel steps={funnel} />
+            <div className="adm-stack">
+              <TopPros viewed={stats.topLists?.viewedPros || []} revenue={stats.topLists?.revenuePros || []} />
+              <LandingCard />
             </div>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]"><AdminTerm term="사회자 상태">사회자 상태</AdminTerm></h3>
-                </div>
-                <BreakdownList items={proStatusItems} />
-              </div>
-              <div className="rounded-lg border border-[#E5E8EB] bg-white p-4 shadow-[0_8px_22px_rgba(25,31,40,0.04)]">
-                <div className="mb-3 flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-[#3180F7]" />
-                  <h3 className="text-[16px] font-bold text-[#191F28]">웨딩파트너 업종</h3>
-                </div>
-                {/* 막대 대신 수치만(공간 절약) */}
-                <div className="flex flex-wrap gap-x-5 gap-y-2.5">
-                  {businessStatusItems.map((item) => (
-                    <div key={item.label} className="flex items-baseline gap-1.5">
-                      <span className="text-[13px] text-[#6B7684]">{item.label}</span>
-                      <span className="text-[16px] font-bold text-[#191F28] tabular-nums">{formatNumber(item.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </AdminSection>
+          </div>
         </div>
       )}
-
     </div>
   );
 }

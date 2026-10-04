@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Check, X, Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
+import { RefreshCw, Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -31,6 +30,8 @@ interface SettlementLogItem {
     /** 결제 시 입력받은 연락처 우선, 없으면 계정 번호 폴백(서버에서 계산) */
     customerPhone?: string | null;
     quotations: { title: string; eventDate: string | null }[];
+    /** 어떤 행사였는지 — 견적 일시·장소 우선, 없으면 매칭 요청에서(서버 계산, 261004) */
+    event?: { title: string | null; kind: string | null; date: string | null; time: string | null; location: string | null };
   };
   settledBy: { id: string; name: string } | null;
 }
@@ -46,11 +47,33 @@ const STATUS_LABELS: Record<string, string> = {
   settled: '정산 완료',
   cancelled: '취소',
 };
+/** 상태 뱃지 색(adm-badge) */
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-amber-50 text-amber-700',
-  settled: 'bg-green-50 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-500',
+  pending: 'orange',
+  settled: 'green',
+  cancelled: '',
 };
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+/** 행사 일시 — '10.14 (수) 13:30' (연도가 올해가 아니면 앞에 붙인다) */
+function formatEventWhen(date?: string | null, time?: string | null): string {
+  if (!date) return time || '';
+  const [y, m, d] = date.split('-').map(Number);
+  const wd = WEEK[new Date(y, m - 1, d).getDay()];
+  const head = y !== new Date().getFullYear() ? `${y}.` : '';
+  return `${head}${m}.${d} (${wd})${time ? ` ${time}` : ''}`;
+}
+/** 행사 정보 — 새 서버는 event 를 주고, 옛 서버면 견적 제목·날짜로 */
+function eventOf(it: SettlementLogItem) {
+  const q = it.payment?.quotations?.[0];
+  const e = it.payment?.event;
+  return {
+    title: e?.title || q?.title || '',
+    kind: e?.kind || '',
+    date: e?.date || (q?.eventDate ? String(q.eventDate).slice(0, 10) : null),
+    time: e?.time || null,
+    location: e?.location || '',
+  };
+}
 
 /** 저장은 숫자만(01012345678) — 보기 좋게 하이픈을 넣어 표시 */
 function formatPhone(raw?: string | null): string {
@@ -159,8 +182,11 @@ export default function AdminSettlementsPage() {
         { header: '프로이메일', value: (row) => row.proProfile?.user?.email || '' },
         { header: '고객', value: (row) => row.payment?.user?.name || '' },
         { header: '고객연락처', value: (row) => formatPhone(row.payment?.customerPhone || row.payment?.user?.phone) },
-        { header: '행사', value: (row) => row.payment?.quotations?.[0]?.title || '' },
-        { header: '행사일', value: (row) => formatExportDate(row.payment?.quotations?.[0]?.eventDate) },
+        { header: '행사', value: (row) => eventOf(row).title },
+        { header: '행사 종류', value: (row) => eventOf(row).kind },
+        { header: '행사일', value: (row) => formatExportDate(eventOf(row).date) },
+        { header: '행사 시간', value: (row) => eventOf(row).time || '' },
+        { header: '행사 장소', value: (row) => eventOf(row).location },
         { header: '금액', value: (row) => row.amount },
         { header: '플랫폼수수료', value: (row) => row.platformFee },
         { header: '정산액', value: (row) => row.netAmount },
@@ -179,135 +205,124 @@ export default function AdminSettlementsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/admin" className="p-1 hover:bg-gray-100 rounded-lg"><ArrowLeft size={20} /></Link>
-          <h1 className="text-lg font-bold text-gray-900">정산 관리</h1>
-          <div className="ml-auto flex items-center gap-2">
-            <AdminExportButton loading={exporting} onClick={handleExport} />
-            <button onClick={() => fetchList(1, filter, dateRange)} className="p-2 hover:bg-gray-100 rounded-lg">
-              <RefreshCw size={16} className="text-gray-500" />
-            </button>
-          </div>
+    <div className="adm-stack">
+      {/* 요약 — 제목은 레이아웃 머리(정산 내역) */}
+      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
+        <div className="adm-stat">
+          <p className="adm-stat-label"><AdminTerm term="정산 대기 건수">정산 대기</AdminTerm></p>
+          <p className="adm-stat-value" style={{ color: '#F46A00' }}>{summary.pendingCount.toLocaleString()}<small>건</small></p>
+        </div>
+        <div className="adm-stat">
+          <p className="adm-stat-label"><AdminTerm term="정산 대기 금액">보낼 금액</AdminTerm></p>
+          <p className="adm-stat-value adm-money">₩{summary.pendingAmount.toLocaleString()}</p>
+        </div>
+        <div className="adm-stat">
+          <p className="adm-stat-label"><AdminTerm term="정산 완료 건수">정산 완료</AdminTerm></p>
+          <p className="adm-stat-value" style={{ color: '#03B26C' }}>{summary.settledCount.toLocaleString()}<small>건</small></p>
+        </div>
+        <div className="adm-stat">
+          <p className="adm-stat-label"><AdminTerm term="정산 완료 금액">보낸 금액</AdminTerm></p>
+          <p className="adm-stat-value adm-money">₩{summary.settledAmount.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
-        {/* 요약 */}
-        <div className="grid grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 대기 건수">정산 대기 건수</AdminTerm></p>
-            <p className="text-2xl font-bold text-amber-600">{summary.pendingCount}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 대기 금액">정산 대기 금액</AdminTerm></p>
-            <p className="text-2xl font-bold text-amber-600">₩{summary.pendingAmount.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 완료 건수">정산 완료 건수</AdminTerm></p>
-            <p className="text-2xl font-bold text-green-600">{summary.settledCount}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-400 mb-1"><AdminTerm term="정산 완료 금액">정산 완료 금액</AdminTerm></p>
-            <p className="text-2xl font-bold text-green-600">₩{summary.settledAmount.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* 필터 */}
-        <div className="flex gap-2">
+      <div className="adm-toolbar">
+        <div className="adm-chips">
           {(['pending', 'all', 'settled'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border ${
-                filter === f ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
-              }`}
-            >
+            <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
               {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
             </button>
           ))}
         </div>
+        <span className="grow" />
+        <span className="adm-count">총 <b>{meta.total.toLocaleString()}</b>건</span>
+        <AdminExportButton loading={exporting} onClick={handleExport} />
+        <button type="button" onClick={() => fetchList(1, filter, dateRange)} className="adm-btn icon" aria-label="새로고침">
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
 
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchList(1, filter, range);
-          }}
-        />
+      <AdminDateFilter
+        value={dateRange}
+        onApply={(range) => {
+          setDateRange(range);
+          setPage(1);
+          fetchList(1, filter, range);
+        }}
+      />
 
-        {lastError && <AdminErrorPanel error={lastError} />}
+      {lastError && <AdminErrorPanel error={lastError} />}
 
-        {/* 목록 */}
-        <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs">
+      {/* 목록 — 누가(사회자 → 고객) · 어떤 행사를 언제 어디서 · 얼마 */}
+      <div className="adm-card flush">
+        <div className="overflow-x-auto">
+          <table className="adm-table">
+            <thead>
               <tr>
-                <th className="text-left px-4 py-3">프로</th>
-                <th className="text-left px-4 py-3">고객</th>
-                <th className="text-left px-4 py-3">고객연락처</th>
-                <th className="text-left px-4 py-3">행사</th>
-                <th className="text-left px-4 py-3">행사일</th>
-                <th className="text-right px-4 py-3">금액</th>
-                <th className="text-right px-4 py-3"><AdminTerm term="정산액">정산액</AdminTerm></th>
-                <th className="text-center px-4 py-3"><AdminTerm term="상태">상태</AdminTerm></th>
-                <th className="text-center px-4 py-3">작업</th>
+                <th>사회자 · 고객</th>
+                <th>행사</th>
+                <th className="r">결제 금액</th>
+                <th className="r"><AdminTerm term="정산액">정산액</AdminTerm></th>
+                <th className="c"><AdminTerm term="상태">상태</AdminTerm></th>
+                <th className="c" aria-label="처리" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">불러오는 중…</td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}><td colSpan={6}><div className="adm-skel h-[44px]" /></td></tr>
+                ))
               ) : items.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">정산 내역이 없습니다</td></tr>
+                <tr><td colSpan={6} className="adm-empty">정산 내역이 없어요</td></tr>
               ) : items.map((it) => {
-                const quote = it.payment.quotations[0];
+                const ev = eventOf(it);
+                const phone = it.payment.customerPhone || it.payment.user?.phone;
+                const when = formatEventWhen(ev.date, ev.time);
                 return (
-                  <tr key={it.id} className="border-t border-gray-100 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{it.proProfile?.user?.name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{it.payment.user?.name || '—'}</td>
-                    {/* 연락처는 접지 않고 항상 보여준다 — 결제 시 필수로 받으므로 대부분 값이 있다 */}
-                    <td className="px-4 py-3">
-                      {(it.payment.customerPhone || it.payment.user?.phone) ? (
-                        <a
-                          href={`tel:${it.payment.customerPhone || it.payment.user?.phone}`}
-                          className="font-semibold text-[#3182F6] tabular-nums hover:underline"
-                        >
-                          {formatPhone(it.payment.customerPhone || it.payment.user?.phone)}
-                        </a>
-                      ) : (
-                        <span className="text-gray-300">—</span>
+                  <tr key={it.id}>
+                    <td>
+                      <span className="adm-cell-main">{it.proProfile?.user?.name || '—'}</span>
+                      <span className="adm-cell-sub">
+                        고객 {it.payment.user?.name || '—'}
+                        {phone && (
+                          <>
+                            {' · '}
+                            <a href={`tel:${phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">{formatPhone(phone)}</a>
+                          </>
+                        )}
+                      </span>
+                    </td>
+                    <td className="adm-ev">
+                      <span className="adm-ev-head">
+                        {ev.kind && <span className="adm-badge blue">{ev.kind}</span>}
+                        <span className="adm-ev-title">{ev.title || '행사 정보 없음'}</span>
+                      </span>
+                      {(when || ev.location) && (
+                        <span className="adm-ev-meta">
+                          {when && <span className="adm-ev-when">{when}</span>}
+                          {ev.location && <span className="adm-ev-where">{ev.location}</span>}
+                        </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 truncate max-w-[180px]">{quote?.title || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(quote?.eventDate || null)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">₩{it.amount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">₩{it.netAmount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[it.status]}`}>
-                        {STATUS_LABELS[it.status]}
-                      </span>
-                      {it.settledAt && <p className="text-[10px] text-gray-400 mt-1">{formatDate(it.settledAt)}</p>}
+                    <td className="r">
+                      <span className="adm-money">₩{it.amount.toLocaleString()}</span>
+                      <span className="adm-cell-sub">수수료 ₩{(it.platformFee || 0).toLocaleString()}</span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="r"><b className="adm-money text-[16px] text-[#191F28]">₩{it.netAmount.toLocaleString()}</b></td>
+                    <td className="c">
+                      <span className={`adm-badge ${STATUS_COLORS[it.status] || ''}`}>{STATUS_LABELS[it.status]}</span>
+                      {it.settledAt && <span className="adm-cell-sub">{formatDate(it.settledAt)}</span>}
+                    </td>
+                    <td className="c">
                       {it.status === 'pending' ? (
-                        <button
-                          onClick={() => handleSettle(it.id)}
-                          disabled={processingId === it.id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#3180F7] text-white text-xs font-bold hover:bg-[#2563EB] disabled:opacity-50"
-                        >
-                          {processingId === it.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                          정산
+                        <button type="button" onClick={() => handleSettle(it.id)} disabled={processingId === it.id} className="adm-btn primary sm">
+                          {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                          정산하기
                         </button>
                       ) : (
-                        <button
-                          onClick={() => handleUnsettle(it.id)}
-                          disabled={processingId === it.id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
-                        >
-                          {processingId === it.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                          취소
+                        <button type="button" onClick={() => handleUnsettle(it.id)} disabled={processingId === it.id} className="adm-btn sm">
+                          {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                          되돌리기
                         </button>
                       )}
                     </td>
@@ -317,6 +332,7 @@ export default function AdminSettlementsPage() {
             </tbody>
           </table>
         </div>
+      </div>
 
         <AdminInfiniteScroll
           hasMore={meta.hasMore || items.length < meta.total}
@@ -329,7 +345,6 @@ export default function AdminSettlementsPage() {
             fetchList(page + 1, filter, dateRange, true);
           }}
         />
-      </div>
     </div>
   );
 }

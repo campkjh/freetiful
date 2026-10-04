@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, TrendingUp } from '@/app/(admin)/admin/_components/admin-icons';
+import { RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import { adminFetch } from '../_components/adminFetch';
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }
@@ -422,12 +422,12 @@ export default function LandingAnalyticsPage() {
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-[22px] font-bold text-gray-900"><TrendingUp className="h-6 w-6 text-[#3182F6]" /> 랜딩 유입 분석</h1>
-          <p className="mt-1 text-[13px] text-gray-500">wedding-mc · corporate-mc 유입 소스(UTM/리퍼러)별 방문·전환 지표</p>
-        </div>
-        <button onClick={() => load(range)} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50">
+      {/* 도구막대 — 제목은 레이아웃 머리(랜딩 유입 분석) */}
+      <div className="adm-toolbar mb-4">
+        <span className="adm-badge blue">wedding-mc · corporate-mc</span>
+        <span className="text-[14px] text-[#8B95A1]">유입 소스(UTM·리퍼러)별 방문·견적 전환</span>
+        <span className="grow" />
+        <button type="button" onClick={() => load(range)} className="adm-btn icon" aria-label="새로고침">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
@@ -445,7 +445,7 @@ export default function LandingAnalyticsPage() {
         const kstToday = KST_TODAY();
         const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
         return (
-          <div className="mb-8 rounded-[38px] bg-white p-6 md:p-8">
+          <div className="mb-8 rounded-[20px] bg-white p-6 md:p-8">
             {/* 헤더: 연·월 + 이동 */}
             <div className="flex items-center gap-3">
               <h3 className="text-[32px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>

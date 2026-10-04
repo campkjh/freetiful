@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
+import { RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -20,11 +19,14 @@ interface PaymentItem {
   createdAt: string;
 }
 
+/** 상태 뱃지 색(adm-badge) */
 const statusColors: Record<string, string> = {
-  completed: 'bg-green-50 text-green-600',
-  pending: 'bg-yellow-50 text-yellow-600',
-  failed: 'bg-red-50 text-red-600',
-  refunded: 'bg-gray-100 text-gray-500',
+  completed: 'green',
+  pending: 'orange',
+  failed: 'red',
+  refunded: '',
+  escrowed: 'blue',
+  settled: 'blue',
 };
 
 const statusLabels: Record<string, string> = {
@@ -108,42 +110,36 @@ export default function AdminPaymentsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 px-1">
-        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">매출 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">결제 관리</h1>
+      {/* 도구막대 — 제목은 레이아웃 머리(결제 조회) */}
+      <div className="adm-toolbar">
+        <div className="adm-chips">
+          {['전체', 'completed', 'pending', 'failed', 'refunded'].map((st) => (
+            <button
+              key={st}
+              type="button"
+              onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
+              className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
+            >
+              {st === '전체' ? '전체' : statusLabels[st] || st}
+            </button>
+          ))}
         </div>
-        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">
-          총 {total.toLocaleString()}건 · ₩{visibleAmount.toLocaleString()}
-        </span>
+        <span className="grow" />
+        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건 · <b>₩{visibleAmount.toLocaleString()}</b></span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
+          type="button"
           onClick={() => fetchPayments(1, filterStatus, dateRange)}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="adm-btn icon"
           title="새로고침"
+          aria-label="새로고침"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
         <AdminErrorPanel error={lastError} label="결제" />
-        <div className="admin-toolbar p-4">
-          <div className="flex gap-2 flex-wrap">
-            {['전체', 'completed', 'pending', 'failed', 'refunded'].map((st) => (
-              <button
-                key={st}
-                onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
-                className={`admin-chip px-3.5 text-sm ${filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}
-              >
-                {st === '전체' ? '전체' : statusLabels[st] || st}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <AdminDateFilter
           value={dateRange}
@@ -159,19 +155,18 @@ export default function AdminPaymentsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="결제ID">ID</AdminTerm></th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">유저</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">금액</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="상태">상태</AdminTerm></th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">날짜</th>
+                  <th className="text-left px-4 py-3">고객 → 사회자</th>
+                  <th className="text-right px-4 py-3">금액</th>
+                  <th className="text-center px-4 py-3"><AdminTerm term="상태">상태</AdminTerm></th>
+                  <th className="text-center px-4 py-3">결제일</th>
+                  <th className="text-right px-4 py-3"><AdminTerm term="결제ID">결제 ID</AdminTerm></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td colSpan={6} className="px-4 py-3">
+                      <td colSpan={5} className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="skeleton h-3 w-24" />
                           <div className="skeleton h-3 w-32" />
@@ -182,21 +177,23 @@ export default function AdminPaymentsPage() {
                     </tr>
                   ))
                 ) : payments.length === 0 ? (
-                  <tr><td colSpan={6} className="admin-empty-state text-center py-14 text-sm font-semibold">결제 내역이 없습니다</td></tr>
+                  <tr><td colSpan={5} className="adm-empty">결제 내역이 없어요</td></tr>
                 ) : payments.map((payment) => (
                   <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-xs text-gray-400 font-mono">{payment.id.slice(0, 8)}...</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{payment.userName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{payment.proName || '-'}</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">₩{Number(payment.amount).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className="adm-cell-main">{payment.userName || '-'}</span>
+                      <span className="adm-cell-sub">→ {payment.proName || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right"><b className="adm-money text-[16px] text-[#191F28]">₩{Number(payment.amount).toLocaleString()}</b></td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[payment.status] || 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`adm-badge ${statusColors[payment.status] || ''}`}>
                         {statusLabels[payment.status] || payment.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400">
+                    <td className="px-4 py-3 text-center whitespace-nowrap text-[13px] text-[#8B95A1]">
                       {new Date(payment.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' })}
                     </td>
+                    <td className="px-4 py-3 text-right font-mono text-[12px] text-[#B0B8C1]">{payment.id.slice(0, 8)}</td>
                   </tr>
                 ))}
               </tbody>

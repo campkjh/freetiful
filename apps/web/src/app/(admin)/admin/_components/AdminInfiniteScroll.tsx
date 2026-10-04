@@ -62,7 +62,7 @@ export function AdminInfiniteScroll({
   if (total <= 0) return <div ref={targetRef} className="h-1" />;
 
   return (
-    <div ref={targetRef} className="border-t border-[#F2F4F6] px-4 py-4">
+    <div ref={targetRef} className="px-4 py-5">
       <div className="flex items-center justify-center gap-2 text-[12px] font-semibold text-[#8B95A1]">
         {hasMore ? (
           loading ? (

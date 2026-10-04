@@ -121,7 +121,7 @@ export function AdminExportButton({ loading, onClick, label = '엑셀 다운로�
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="admin-icon-button inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3.5 text-[12px] font-bold text-[#3180F7] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F3F8FF] disabled:opacity-50"
+      className="adm-btn"
       title={label}
     >
       {loading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { GripVertical, ChevronUp, ChevronDown, Save, RefreshCw, Star, Trophy } from '@/app/(admin)/admin/_components/admin-icons';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { GripVertical, ChevronUp, ChevronDown, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../_components/adminFetch';
 
@@ -37,8 +37,30 @@ export default function ProRankingPage() {
   };
   useEffect(() => { load(); }, []);
 
+  /* 순서 바뀔 때 카드가 새 자리로 스르르(FLIP) — 바꾸기 전 위치를 재 두고, 그린 뒤 차이만큼 되돌렸다가 0 으로 */
+  const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const before = useRef<Map<string, number> | null>(null);
+  useLayoutEffect(() => {
+    const prev = before.current;
+    if (!prev) return;
+    before.current = null;
+    rowRefs.current.forEach((el, id) => {
+      const top = prev.get(id);
+      if (top == null) return;
+      const dy = top - el.getBoundingClientRect().top;
+      if (!dy) return;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${dy}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform .38s cubic-bezier(.22,.61,.36,1)';
+        el.style.transform = '';
+      });
+    });
+  }, [list]);
+
   const move = (from: number, to: number) => {
     if (to < 0 || to >= list.length || from === to) return;
+    before.current = new Map(Array.from(rowRefs.current, ([id, el]) => [id, el.getBoundingClientRect().top]));
     setList((prev) => {
       const next = [...prev];
       const [item] = next.splice(from, 1);
@@ -62,54 +84,54 @@ export default function ProRankingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[720px] px-4 py-6 md:px-6">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-[22px] font-bold text-gray-900"><Trophy className="h-6 w-6 text-[#3182F6]" /> 사회자 랭킹</h1>
-          <p className="mt-1 text-[13px] text-gray-500">드래그(≡) 또는 ▲▼로 순서를 바꾸고 저장하세요. 사회자 목록(추천/평점 정렬)에 이 순서가 반영됩니다.</p>
+    <div className="mx-auto max-w-[760px]">
+      {/* 저장 막대 — 위에 붙어 따라온다. 제목은 레이아웃 머리(회원 관리 · 사회자 랭킹 탭) */}
+      <div className="adm-rank-bar">
+        <div className="min-w-0">
+          <p className="adm-rank-bar-title">
+            {loading ? '불러오는 중' : `${list.length}명`}
+            {dirty && <span className="adm-badge orange ml-2">바뀜 · 아직 저장 안 함</span>}
+          </p>
+          <p className="adm-rank-bar-sub">≡ 를 끌거나 ▲▼ 로 순서를 바꾸고 저장하세요. 사회자 목록(추천·평점 정렬)에 이 순서가 반영돼요.</p>
         </div>
-        <button onClick={load} disabled={loading} className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50">
+        <button type="button" onClick={load} disabled={loading} className="adm-btn icon" aria-label="새로고침">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
-      </div>
-
-      <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white/90 px-4 py-2.5 backdrop-blur">
-        <span className="text-[13px] text-gray-500">{loading ? '…' : `${list.length}명`}{dirty && <span className="ml-2 font-bold text-amber-600">· 변경됨(미저장)</span>}</span>
-        <button onClick={save} disabled={!dirty || saving}
-          className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold transition ${dirty && !saving ? 'bg-[#3182F6] text-white hover:brightness-95' : 'bg-gray-100 text-gray-400'}`}>
-          <Save className="h-4 w-4" /> {saving ? '저장 중…' : '순서 저장'}
+        <button type="button" onClick={save} disabled={!dirty || saving} className="adm-btn primary">
+          {saving ? '저장 중…' : '순서 저장'}
         </button>
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-[14px] text-gray-400">불러오는 중…</div>
+        <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="adm-skel h-[68px]" />)}</div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="adm-rise space-y-2">
           {list.map((p, i) => (
             <li
               key={p.proProfileId}
+              ref={(el) => { if (el) rowRefs.current.set(p.proProfileId, el); else rowRefs.current.delete(p.proProfileId); }}
               draggable
               onDragStart={() => { dragIdx.current = i; }}
               onDragOver={(e) => { e.preventDefault(); setOverIdx(i); }}
               onDragEnd={() => { if (dragIdx.current != null && overIdx != null) move(dragIdx.current, overIdx); dragIdx.current = null; setOverIdx(null); }}
               onDrop={(e) => { e.preventDefault(); if (dragIdx.current != null) move(dragIdx.current, i); dragIdx.current = null; setOverIdx(null); }}
-              className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 transition ${overIdx === i ? 'border-[#3182F6] ring-2 ring-[#3182F6]/20' : 'border-gray-100'}`}
+              className={`adm-rank-row ${overIdx === i ? 'over' : ''}`}
             >
-              <GripVertical className="h-5 w-5 shrink-0 cursor-grab text-gray-300 active:cursor-grabbing" />
-              <span className="w-7 shrink-0 text-center text-[15px] font-black tabular-nums text-[#3182F6]">{i + 1}</span>
+              <GripVertical className="h-5 w-5 shrink-0 cursor-grab opacity-40 active:cursor-grabbing" />
+              <span className={`adm-rank-n ${i < 3 ? 'top' : ''}`}>{i + 1}</span>
               {p.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                <img src={p.image} alt="" className="adm-ava" />
               ) : (
-                <div className="h-9 w-9 shrink-0 rounded-lg bg-gray-100" />
+                <div className="adm-ava" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-bold text-gray-900">{p.name}{p.isFeatured && <span className="ml-1.5 rounded bg-[#EAF1FB] px-1.5 py-0.5 text-[10px] font-bold text-[#3182F6]">추천</span>}</p>
-                <p className="flex items-center gap-1 text-[12px] text-gray-400"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {p.rating.toFixed(1)} · 리뷰 {p.reviewCount}</p>
+                <p className="adm-cell-main">{p.name}{p.isFeatured && <span className="adm-badge blue ml-2 align-middle">추천</span>}</p>
+                <p className="adm-cell-sub">★ {p.rating.toFixed(1)} · 리뷰 {p.reviewCount}</p>
               </div>
-              <div className="flex shrink-0 flex-col">
-                <button onClick={() => move(i, i - 1)} disabled={i === 0} className="text-gray-300 hover:text-[#3182F6] disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
-                <button onClick={() => move(i, i + 1)} disabled={i === list.length - 1} className="text-gray-300 hover:text-[#3182F6] disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
+              <div className="flex shrink-0 gap-1">
+                <button type="button" onClick={() => move(i, i - 1)} disabled={i === 0} className="adm-btn icon sm" aria-label={`${p.name} 위로`}><ChevronUp className="h-4 w-4" /></button>
+                <button type="button" onClick={() => move(i, i + 1)} disabled={i === list.length - 1} className="adm-btn icon sm" aria-label={`${p.name} 아래로`}><ChevronDown className="h-4 w-4" /></button>
               </div>
             </li>
           ))}

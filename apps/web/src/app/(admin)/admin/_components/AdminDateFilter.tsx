@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarDays, RotateCcw } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminTerm } from './AdminHelpTooltip';
 
 export type AdminDateRange = {
@@ -55,6 +54,16 @@ function normalizeRange(range: AdminDateRange) {
   return range;
 }
 
+type PresetType = 'all' | 'yesterday' | 'lastWeek' | 'lastMonth' | 'thisMonth';
+const PRESETS: Array<[PresetType, string]> = [
+  ['all', '전체'],
+  ['yesterday', '어제'],
+  ['lastWeek', '최근 7일'],
+  ['lastMonth', '지난달'],
+  ['thisMonth', '이번 달'],
+];
+
+/** 기간 필터 — 어드민 2.0(261004): 흰 띠 한 줄. 바로가기 칩(고른 칩 = 연한 파랑) + 직접 고르는 날짜 두 칸 + 적용 */
 export function AdminDateFilter({ value, onApply, label = '조회기간' }: Props) {
   const [draft, setDraft] = useState<AdminDateRange>(value);
 
@@ -62,76 +71,58 @@ export function AdminDateFilter({ value, onApply, label = '조회기간' }: Prop
     setDraft(value);
   }, [value.startDate, value.endDate]);
 
-  const applyPreset = (type: 'yesterday' | 'lastWeek' | 'lastMonth' | 'thisMonth') => {
-    const next = presetRange(type);
-    setDraft(next);
-    onApply(next);
-  };
+  const rangeOf = (type: PresetType): AdminDateRange => (type === 'all' ? { startDate: '', endDate: '' } : presetRange(type));
+  const active = PRESETS.find(([type]) => {
+    const r = rangeOf(type);
+    return r.startDate === value.startDate && r.endDate === value.endDate;
+  })?.[0];
 
-  const reset = () => {
-    const next = { startDate: '', endDate: '' };
+  const applyPreset = (type: PresetType) => {
+    const next = rangeOf(type);
     setDraft(next);
     onApply(next);
   };
+  const dirty = draft.startDate !== value.startDate || draft.endDate !== value.endDate;
 
   return (
-    <div className="admin-date-filter flex flex-col gap-3 border-y border-[#E5E8EB] bg-white px-4 py-3 lg:flex-row lg:items-center">
-      <div className="flex min-w-[180px] items-center gap-2 text-[12px] font-semibold text-[#4E5968]">
-        <CalendarDays className="h-4 w-4 text-[#8B95A1]" />
+    <div className="adm-datebar">
+      <span className="adm-datebar-label">
         <AdminTerm term={label}>{label}</AdminTerm>
+      </span>
+      <div className="adm-chips">
+        {PRESETS.map(([type, text]) => (
+          <button key={type} type="button" onClick={() => applyPreset(type)} className={`adm-chip ${active === type ? 'on' : ''}`}>
+            {text}
+          </button>
+        ))}
       </div>
-      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="adm-daterange">
         <input
           type="date"
           value={draft.startDate}
           onChange={(e) => setDraft((prev) => ({ ...prev, startDate: e.target.value }))}
-          className="h-10 min-w-[150px] rounded-lg border border-[#E5E8EB] bg-[#F7F8FA] px-3 text-[12px] font-semibold text-[#333D4B] outline-none"
+          className="adm-input sm"
+          aria-label="시작일"
         />
-        <span className="hidden text-[12px] font-semibold text-[#B0B8C1] sm:block">→</span>
+        <span aria-hidden>~</span>
         <input
           type="date"
           value={draft.endDate}
           onChange={(e) => setDraft((prev) => ({ ...prev, endDate: e.target.value }))}
-          className="h-10 min-w-[150px] rounded-lg border border-[#E5E8EB] bg-[#F7F8FA] px-3 text-[12px] font-semibold text-[#333D4B] outline-none"
+          className="adm-input sm"
+          aria-label="종료일"
         />
-        <div className="flex flex-wrap gap-2 sm:ml-2">
-          {[
-            ['yesterday', '어제'],
-            ['lastWeek', '지난주'],
-            ['lastMonth', '지난달'],
-            ['thisMonth', '이번 달'],
-          ].map(([type, text]) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => applyPreset(type as 'yesterday' | 'lastWeek' | 'lastMonth' | 'thisMonth')}
-              className="admin-chip h-9 px-3 text-[#6B7684] hover:bg-[#F3F8FF] hover:text-[#3180F7]"
-            >
-              {text}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-2 lg:justify-end">
         <button
           type="button"
+          disabled={!dirty}
           onClick={() => {
             const next = normalizeRange(draft);
             setDraft(next);
             onApply(next);
           }}
-          className="h-10 rounded-lg bg-[#3180F7] px-4 text-[12px] font-semibold text-white hover:bg-[#1B64DA]"
+          className="adm-btn weak sm"
         >
           적용
-        </button>
-        <button
-          type="button"
-          onClick={reset}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-lg bg-[#F7F8FA] text-[#8B95A1] hover:bg-[#F2F4F6] hover:text-[#3180F7]"
-          aria-label="날짜 필터 초기화"
-          title="초기화"
-        >
-          <RotateCcw className="h-4 w-4" />
         </button>
       </div>
     </div>

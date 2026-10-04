@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Check, X, Edit3, AlertCircle, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, AlertCircle, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -25,13 +25,16 @@ interface ProItem {
   isProfileHidden: boolean;
 }
 
+/** 사회자 프로필 상태 → 이름 · 뱃지 색(adm-badge) */
 const statusLabel: Record<string, { text: string; className: string }> = {
-  approved: { text: '승인', className: 'bg-green-50 text-green-600' },
-  pending: { text: '대기', className: 'bg-yellow-50 text-yellow-600' },
-  rejected: { text: '반려', className: 'bg-red-50 text-red-600' },
-  draft: { text: '임시저장', className: 'bg-gray-50 text-gray-500' },
-  suspended: { text: '중지', className: 'bg-slate-100 text-slate-600' },
+  approved: { text: '승인', className: 'green' },
+  pending: { text: '승인 대기', className: 'orange' },
+  rejected: { text: '반려', className: 'red' },
+  draft: { text: '작성 중', className: '' },
+  suspended: { text: '정지', className: '' },
 };
+/** 상태 칩(회원 관리 · 사회자 탭) */
+const STATUS_FILTERS: Array<[string, string]> = [['전체', '전체'], ['approved', '승인'], ['pending', '승인 대기'], ['draft', '작성 중'], ['rejected', '반려'], ['suspended', '정지']];
 
 
 export default function AdminProsPage() {
@@ -157,25 +160,47 @@ export default function AdminProsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 mb-6">
-        <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">사회자 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">사회자 관리</h1>
+      {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 사회자 탭) */}
+      <div className="adm-toolbar">
+        <label className="adm-search grow">
+          <Search size={17} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
+            placeholder="사회자 이름 검색 (Enter)"
+            className="adm-input"
+          />
+        </label>
+        <div className="adm-chips">
+          {STATUS_FILTERS.map(([st, label]) => (
+            <button
+              key={st}
+              type="button"
+              onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
+              className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}명</span>
+        <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
         <button
+          type="button"
           onClick={() => fetchPros(1, search, filterStatus, dateRange)}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="adm-btn icon"
           title="새로고침"
+          aria-label="새로고침"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
       {lastError && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+        <div className="mb-4 rounded-[16px] bg-[#FFF5F5] p-5 text-sm">
           <div className="flex items-start gap-3">
             <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
             <div className="flex-1 space-y-1">
@@ -200,36 +225,6 @@ export default function AdminProsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="admin-toolbar p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
-              placeholder="사회자 이름 검색 (Enter)"
-              className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {['전체', 'draft', 'pending', 'approved', 'rejected', 'suspended'].map((st) => (
-              <button
-                key={st}
-                onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
-                className={`admin-chip px-3.5 text-sm ${
-                  filterStatus === st ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
-                }`}
-              >
-                {st === '전체' ? '전체' : st === 'draft' ? '임시저장' : st === 'pending' ? '승인대기' : st === 'approved' ? '사회자' : st === 'rejected' ? '반려' : '중지'}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <AdminDateFilter
         value={dateRange}
         onApply={(range) => {
@@ -245,22 +240,21 @@ export default function AdminProsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">사회자</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">이메일</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">상태</AdminTerm></th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">평점</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">리뷰</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="로고">로고</AdminTerm></th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="추천">추천</AdminTerm></th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase"><AdminTerm term="프로필상태">숨김</AdminTerm></th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">액션</th>
+                <th className="text-left px-4 py-3">사회자</th>
+                <th className="text-center px-4 py-3"><AdminTerm term="프로필상태">상태</AdminTerm></th>
+                <th className="text-center px-4 py-3">평점</th>
+                <th className="text-center px-4 py-3">리뷰</th>
+                <th className="text-center px-4 py-3"><AdminTerm term="로고">로고</AdminTerm></th>
+                <th className="text-center px-4 py-3"><AdminTerm term="추천">추천</AdminTerm></th>
+                <th className="text-center px-4 py-3"><AdminTerm term="프로필상태">숨김</AdminTerm></th>
+                <th className="text-center px-4 py-3" aria-label="관리" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={9} className="px-4 py-3">
+                    <td colSpan={8} className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="skeleton h-10 w-10 rounded-full" />
                         <div className="flex-1 space-y-2">
@@ -273,23 +267,25 @@ export default function AdminProsPage() {
                   </tr>
                 ))
               ) : pros.length === 0 ? (
-                <tr><td colSpan={9} className="admin-empty-state text-center py-14 text-sm font-semibold">검색 결과가 없습니다</td></tr>
+                <tr><td colSpan={8} className="adm-empty">검색 결과가 없어요</td></tr>
               ) : pros.map((pro) => (
                 <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <ProAvatar src={pro.image} name={pro.name} />
-                      <Link href={`/pros/${pro.id}`} target="_blank" className="text-sm font-semibold text-gray-900 hover:text-blue-500">{pro.name}</Link>
+                      <span className="min-w-0">
+                        <Link href={`/pros/${pro.id}`} target="_blank" className="adm-cell-main hover:text-[#3182F6]">{pro.name}</Link>
+                        <span className="adm-cell-sub">{pro.email}</span>
+                      </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{pro.email}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusLabel[pro.status]?.className || 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`adm-badge ${statusLabel[pro.status]?.className || ''}`}>
                       {statusLabel[pro.status]?.text || pro.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">{pro.avgRating?.toFixed(1) || '-'}</td>
-                  <td className="px-4 py-3 text-center text-sm text-gray-600">{pro.reviewCount}</td>
+                  <td className="px-4 py-3 text-center font-semibold tabular-nums text-[#191F28]">★ {pro.avgRating?.toFixed(1) || '-'}</td>
+                  <td className="px-4 py-3 text-center tabular-nums">{pro.reviewCount}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <AdminSwitch
@@ -319,26 +315,17 @@ export default function AdminProsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1 flex-wrap">
-                      <Link
-                        href={`/admin/pros/${pro.id}/edit`}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
-                      >
-                        <Edit3 size={12} /> 수정
+                      <Link href={`/admin/pros/${pro.id}/edit`} className="adm-btn weak sm">
+                        수정
                       </Link>
                       {pro.status !== 'approved' && (
-                        <button
-                          onClick={() => handleApprove(pro.id)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors"
-                        >
-                          <Check size={12} /> 승인
+                        <button type="button" onClick={() => handleApprove(pro.id)} className="adm-btn sm adm-btn-ok">
+                          승인
                         </button>
                       )}
                       {pro.status !== 'rejected' && (
-                        <button
-                          onClick={() => handleReject(pro.id)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
-                        >
-                          <X size={12} /> 반려
+                        <button type="button" onClick={() => handleReject(pro.id)} className="adm-btn sm danger">
+                          반려
                         </button>
                       )}
                     </div>
@@ -370,7 +357,7 @@ function ProAvatar({ src, name }: { src?: string | null; name: string }) {
   const [err, setErr] = useState(false);
   if (!src || err) {
     return (
-      <div className="w-10 h-10 rounded-full bg-[#B6CEE2] flex items-center justify-center shrink-0" aria-label={`${name} 기본 프로필`}>
+      <div className="adm-ava bg-[#E3ECF5]" aria-label={`${name} 기본 프로필`}>
         <svg viewBox="0 0 24 24" fill="#E8F1F9" className="w-6 h-6">
           <circle cx="12" cy="9" r="3.5" />
           <path d="M4.5 20.5C4.5 16 7.5 14 12 14C16.5 14 19.5 16 19.5 20.5 L4.5 20.5 Z" />
@@ -383,7 +370,7 @@ function ProAvatar({ src, name }: { src?: string | null; name: string }) {
       src={src}
       alt={name}
       onError={() => setErr(true)}
-      className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
+      className="adm-ava"
     />
   );
 }

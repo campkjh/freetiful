@@ -135,7 +135,32 @@ export class SettlementService {
               createdAt: true,
               // 결제 당시 입력받은 연락처 — 계정 번호보다 우선한다
               customerPhone: true,
-              quotations: { select: { title: true, eventDate: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+              // 어떤 행사였는지(261004 사장 '정산내역에 사회자가 어디서 어떤 고객과 행사를 했는지') —
+              // 견적에 적힌 일시·장소가 먼저, 비어 있으면 그 채팅방의 매칭 요청(퀵매칭·견적 요청)에서 채운다
+              quotations: {
+                select: {
+                  title: true,
+                  eventDate: true,
+                  eventTime: true,
+                  eventLocation: true,
+                  chatRoom: {
+                    select: {
+                      matchRequest: {
+                        select: {
+                          eventDate: true,
+                          eventTime: true,
+                          eventLocation: true,
+                          rawUserInput: true,
+                          eventCategory: { select: { name: true } },
+                          category: { select: { name: true } },
+                        },
+                      },
+                    },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
             },
           },
           settledBy: { select: { id: true, name: true } },
@@ -164,15 +189,31 @@ export class SettlementService {
         })
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
+    // @db.Time 은 1970-01-01T HH:MM(UTC) 로 온다 → 'HH:MM'
+    const hhmm = (t?: Date | null) => (t ? `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}` : null);
+    const ymd = (d?: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
     const data = rawData.map((r) => {
       const user = userMap.get(r.payment.userId) || null;
+      const q = r.payment.quotations?.[0];
+      const mr = q?.chatRoom?.matchRequest;
+      const raw = (mr?.rawUserInput && typeof mr.rawUserInput === 'object' ? mr.rawUserInput : {}) as Record<string, any>;
+      const rawPlace = [raw.region, raw.venue].filter((v) => typeof v === 'string' && v.trim()).join(' ').trim();
       return {
         ...r,
         payment: {
           ...r.payment,
+          // 화면 호환 — 옛 화면은 quotations[0].title·eventDate 를 읽는다(chatRoom 묶음은 event 로 풀어 주고 뺀다)
+          quotations: (r.payment.quotations || []).map(({ chatRoom: _chatRoom, ...rest }) => rest),
           user,
           // 표시용 최종 연락처 — 결제 시 입력값 우선, 없으면(연락처 도입 이전 결제분) 계정 번호로 폴백
           customerPhone: r.payment.customerPhone || user?.phone || null,
+          event: {
+            title: q?.title || null,
+            kind: mr?.eventCategory?.name || mr?.category?.name || null,
+            date: ymd(q?.eventDate || mr?.eventDate),
+            time: hhmm(q?.eventTime || mr?.eventTime),
+            location: q?.eventLocation || mr?.eventLocation || rawPlace || null,
+          },
         },
       };
     });

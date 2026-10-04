@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
-import { ArrowLeft, Search, RefreshCw, MessageSquare, Clock, X, Zap } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, RefreshCw, MessageSquare, Clock, X } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -197,20 +196,39 @@ export default function ChatConnectionsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 px-1">
-        <Link href="/admin" className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6]">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <p className="text-[12px] font-bold text-[#3182F6]">매칭 운영</p>
-          <h1 className="mt-1 text-[24px] font-black text-[#191F28] tracking-tight">채팅 매칭</h1>
+      {/* 도구막대 — 제목은 레이아웃 머리(채팅 매칭) */}
+      <div className="adm-toolbar">
+        <label className="adm-search grow">
+          <Search size={17} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
+            placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
+            className="adm-input"
+          />
+        </label>
+        <div className="adm-chips">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
+              className={`adm-chip ${status === t.id ? 'on' : ''}`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
-        <span className="ml-auto rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">총 {total.toLocaleString()}건</span>
+        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
         <button
+          type="button"
           onClick={() => { fetchData(1, search, status, dateRange); fetchRespStats(); }}
           disabled={loading}
-          className="admin-icon-button flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)] hover:bg-[#F2F4F6] disabled:opacity-50"
+          className="adm-btn icon"
           title="새로고침"
+          aria-label="새로고침"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -219,25 +237,26 @@ export default function ChatConnectionsPage() {
       <AdminErrorPanel error={lastError} label="채팅 매칭" />
 
       {/* 매칭률 카드 */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
         {statCards.map((c) => (
-          <div key={c.label} className="admin-card-soft p-4">
-            <p className="text-[12px] font-bold text-[#6B7684]">{c.label}</p>
-            <p className={`mt-1.5 text-[26px] font-black tracking-tight ${c.tone}`}>{c.value}</p>
-            <p className="mt-0.5 text-[11px] font-medium text-[#8B95A1]">{c.sub}</p>
+          <div key={c.label} className="adm-stat">
+            <p className="adm-stat-label">{c.label}</p>
+            <p className={`adm-stat-value ${c.tone}`}>{c.value}</p>
+            <p className="adm-stat-sub">{c.sub}</p>
           </div>
         ))}
         {!stats && Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="admin-card-soft h-[104px] animate-pulse bg-[#F2F4F6]" />
+          <div key={i} className="adm-skel h-[118px] rounded-[20px]" />
         ))}
       </div>
 
       {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자 */}
-      <div className="admin-card-soft p-5">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Zap size={16} className="text-[#3182F6]" />
-          <h2 className="text-[15px] font-black text-[#191F28]">사회자별 응답 현황</h2>
-          <span className="text-[11px] font-medium text-[#8B95A1]">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</span>
+      <div className="adm-card">
+        <div className="adm-card-head">
+          <div>
+            <h2 className="adm-card-title">사회자별 응답 현황</h2>
+            <p className="adm-card-sub">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</p>
+          </div>
         </div>
         {respStats == null ? (
           <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
@@ -254,7 +273,7 @@ export default function ChatConnectionsPage() {
           const good = respStats.filter(isGood).sort(byMedian);
           const attention = respStats.filter((r) => !isGood(r)).sort(byMedian);
           const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
-            <div className="flex flex-col rounded-lg bg-white px-2.5 py-2 ring-1 ring-black/[0.05]">
+            <div className="flex flex-col rounded-[12px] bg-white px-3 py-2.5">
               <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
               <span className="mt-0.5 text-[11px] font-bold" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
                 {r.repliedCount === 0
@@ -271,18 +290,18 @@ export default function ChatConnectionsPage() {
           return (
             <div className="space-y-3">
               {/* 잘하고 있음 */}
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <div className="rounded-[16px] bg-[#E5F8EF] p-3.5">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[13px] font-black text-emerald-700">✅ 잘하고 있음</span>
+                  <span className="text-[14px] font-bold text-emerald-700">잘하고 있음</span>
                   <span className="text-[12px] font-bold text-emerald-600">{good.length}명</span>
                   <span className="text-[11px] font-medium text-emerald-500/70">통상 답장 5분 이내</span>
                 </div>
                 <div className="text-emerald-700"><Grid items={good} tone="good" empty="아직 없음" /></div>
               </div>
               {/* 단도리 */}
-              <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+              <div className="rounded-[16px] bg-[#FFEEEF] p-3.5">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[13px] font-black text-red-700">⚠️ 단도리 필요</span>
+                  <span className="text-[14px] font-bold text-red-700">단도리 필요</span>
                   <span className="text-[12px] font-bold text-red-600">{attention.length}명</span>
                   <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과·답장없음</span>
                 </div>
@@ -293,46 +312,18 @@ export default function ChatConnectionsPage() {
         })()}
       </div>
 
-      {/* 검색 + 상태 필터 */}
-      <div className="admin-toolbar p-4">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
-              placeholder="유저 이름·연락처 또는 사회자 이름 (Enter)"
-              className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-            />
-          </div>
-          <div className="flex gap-2">
-            {STATUS_TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
-                className={`admin-chip px-3.5 text-sm ${status === t.id ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]' : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <AdminDateFilter
         value={dateRange}
         onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
       />
 
       {/* 연결 목록 (행 클릭 → 대화 내역) */}
-      <div className="admin-card-soft overflow-hidden p-0">
+      <div className="adm-card flush">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1150px] text-left text-[13px]">
+          <table className="w-full min-w-[1150px] text-left">
             <thead>
-              <tr className="border-b border-[#EEF1F4] bg-[#FAFBFC] text-[11px] font-bold uppercase tracking-wide text-[#8B95A1]">
-                <th className="px-4 py-3">유저</th>
+              <tr>
+                <th className="px-4 py-3">고객</th>
                 <th className="px-4 py-3">사회자</th>
                 <th className="px-4 py-3">문의유형</th>
                 <th className="px-4 py-3">행사 정보</th>
@@ -345,14 +336,14 @@ export default function ChatConnectionsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} onClick={() => openHistory(r)} className="cursor-pointer border-b border-[#F2F4F6] hover:bg-[#F4F8FF]">
+                <tr key={r.id} onClick={() => openHistory(r)} className="cursor-pointer">
                   <td className="px-4 py-3">
-                    <span className="font-bold text-[#191F28]">{r.userName}</span>
-                    {r.userContact && <p className="text-[11px] text-[#8B95A1]">{r.userContact}</p>}
+                    <span className="adm-cell-main">{r.userName}</span>
+                    {r.userContact && <span className="adm-cell-sub">{r.userContact}</span>}
                   </td>
-                  <td className="px-4 py-3 font-bold text-[#191F28]">{r.proName}</td>
+                  <td className="px-4 py-3"><span className="adm-cell-main">{r.proName}</span></td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${r.matchType === 'multi' ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#FFF1E9] text-[#F97316]'}`}>
+                    <span className={`adm-badge ${r.matchType === 'multi' ? 'blue' : 'orange'}`}>
                       {r.matchType === 'multi' ? '모두에게' : '1:1문의'}
                     </span>
                   </td>
@@ -385,16 +376,16 @@ export default function ChatConnectionsPage() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {r.paid
-                      ? <span className="rounded-md bg-[#E7F7EE] px-2 py-0.5 text-[11px] font-bold text-[#16A34A]">완료</span>
+                      ? <span className="adm-badge green">완료</span>
                       : <span className="text-[#C4CCD4]">-</span>}
                   </td>
                 </tr>
               ))}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-16 text-center text-[14px] text-[#8B95A1]">연결된 채팅이 없습니다</td></tr>
+                <tr><td colSpan={9} className="adm-empty">연결된 채팅이 없어요</td></tr>
               )}
               {loading && (
-                <tr><td colSpan={8} className="px-4 py-16 text-center text-[14px] text-[#8B95A1]">불러오는 중…</td></tr>
+                <tr><td colSpan={9} className="px-4 py-4"><div className="adm-skel h-[44px]" /></td></tr>
               )}
             </tbody>
           </table>
@@ -406,7 +397,7 @@ export default function ChatConnectionsPage() {
           <button
             onClick={() => fetchData(page + 1, search, status, dateRange, true)}
             disabled={loadingMore}
-            className="admin-chip bg-white px-6 text-sm font-bold text-[#4E5968] shadow-[0_6px_16px_rgba(2,32,71,0.06)] hover:bg-[#F2F4F6] disabled:opacity-50"
+            className="adm-btn bg-white px-6"
           >
             {loadingMore ? '불러오는 중…' : `더 보기 (${rows.length}/${total.toLocaleString()})`}
           </button>
@@ -415,20 +406,20 @@ export default function ChatConnectionsPage() {
 
       {/* 대화 내역 — 전체 팝업 (document.body 로 포털: 어드민 레이아웃 밖에서 화면 전체 오버레이) */}
       {historyRow && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setHistoryRow(null)}>
+        <div className="adm-pop-dim fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/45 sm:items-center sm:p-6" onClick={() => setHistoryRow(null)}>
           <div
-            className="flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[90vh] sm:max-w-[860px] sm:rounded-3xl"
+            className="adm-pop flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[88vh] sm:max-w-[860px] sm:rounded-[28px]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
             <div className="flex items-start gap-3 border-b border-[#EEF1F4] px-5 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
               <MessageSquare size={20} className="mt-0.5 shrink-0 text-[#3182F6]" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[17px] font-black text-[#191F28]">
+                <p className="truncate text-[18px] font-bold text-[#191F28]">
                   {historyRow.userName} <span className="text-[#B0B8C1]">↔</span> {historyRow.proName}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-[#8B95A1]">
-                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${historyRow.matchType === 'multi' ? 'bg-[#EBF2FF] text-[#3182F6]' : 'bg-[#FFF1E9] text-[#F97316]'}`}>
+                  <span className={`adm-badge ${historyRow.matchType === 'multi' ? 'blue' : 'orange'}`}>
                     {historyRow.matchType === 'multi' ? '모두에게' : '1:1문의'}
                   </span>
                   {(historyRow.eventDate || historyRow.eventLabel) && (

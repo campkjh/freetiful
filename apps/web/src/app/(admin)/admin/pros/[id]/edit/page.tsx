@@ -403,7 +403,7 @@ export default function AdminProEditPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen -m-4 md:-mx-0 md:-my-6 md:mx-auto md:max-w-2xl md:my-4 md:rounded-2xl md:border md:border-gray-200" style={{ letterSpacing: '-0.02em' }}>
+    <div className="bg-white min-h-screen -m-4 md:-mx-0 md:-my-6 md:mx-auto md:max-w-2xl md:my-4 md:rounded-[20px]" style={{ letterSpacing: '-0.02em' }}>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
       <input ref={videoFileInputRef} type="file" accept="video/*" onChange={handleVideoFileChange} className="hidden" />
 

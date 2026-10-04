@@ -79,105 +79,105 @@ export default function AdminLoginPage() {
     }
   };
 
+  // 어드민 2.0(261004) — 회색 바탕 + 가운데 흰 카드, 입력칸 56 · 버튼 56/r17/17(앱 공통), 카드와 줄들이 차례로 올라온다
+  const field = 'h-14 w-full rounded-[14px] border-[1.5px] border-transparent bg-[#F2F4F6] px-4 text-[16px] text-[#191F28] outline-none transition-colors placeholder:text-[#B0B8C1] focus:border-[#3182F6] focus:bg-white';
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-12 bg-white">
-      <div className="w-full max-w-sm mx-auto">
-        <div className="mb-10 flex flex-col items-center text-center">
+    <div className="flex min-h-screen flex-col justify-center bg-[#F2F4F6] px-5 py-12">
+      <div className="adm-login mx-auto w-full max-w-[420px] rounded-[24px] bg-white px-6 pb-7 pt-9 sm:px-9">
+        <div className="adm-login-rise mb-8 flex items-center gap-2">
           <Image
             src="/images/logo-freetiful-wordmark.svg"
             alt="Freetiful"
-            width={154}
-            height={45}
+            width={120}
+            height={35}
             priority
-            className="h-[38px] w-auto"
+            className="h-[28px] w-auto"
           />
-          <p className="mt-2 text-[12px] font-bold text-[#8B95A1]">Admin Console</p>
+          <span className="rounded-full bg-[#E8F3FF] px-2.5 py-1 text-[12px] font-bold text-[#3182F6]">관리자</span>
         </div>
 
-        <h2 className="text-[14px] font-semibold text-[#191F28] mb-6">로그인</h2>
+        <h1 className="adm-login-rise text-[24px] font-bold tracking-[-0.6px] text-[#191F28]" style={{ animationDelay: '.05s' }}>관리자 로그인</h1>
+        <p className="adm-login-rise mt-1.5 text-[15px] text-[#6B7684]" style={{ animationDelay: '.1s' }}>운영 계정으로 들어가요</p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="adm-login-rise mt-7 space-y-3" style={{ animationDelay: '.15s' }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
             <input
               {...register('email')}
               type="email"
-              placeholder="이메일을 입력해주세요"
+              placeholder="이메일"
               autoComplete="email"
-              className="w-full h-12 px-4 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+              aria-label="이메일"
+              className={field}
             />
-            {errors.email && <p className="text-red-500 text-xs mt-1.5">{errors.email.message}</p>}
+            {errors.email && <p className="mt-1.5 px-1 text-[13px] text-[#F04452]">{errors.email.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
             <div className="relative">
               <input
                 {...register('password')}
                 type={showPassword ? 'text' : 'password'}
-                placeholder="비밀번호를 입력해주세요"
+                placeholder="비밀번호"
                 autoComplete="current-password"
-                className="w-full h-12 px-4 pr-12 bg-[#F9F9F9] border-0 rounded-lg text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3180F7]"
+                aria-label="비밀번호"
+                className={`${field} pr-12`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#B0B8C1] hover:text-[#6B7684]"
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
-            {errors.password && <p className="text-red-500 text-xs mt-1.5">{errors.password.message}</p>}
+            {errors.password && <p className="mt-1.5 px-1 text-[13px] text-[#F04452]">{errors.password.message}</p>}
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-[50px] bg-[#3180F7] hover:bg-[#1B64DA] disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors mt-6"
+            className="mt-3 h-14 w-full rounded-[17px] bg-[#3182F6] text-[17px] font-semibold text-white transition active:scale-[.98] enabled:hover:bg-[#2272EB] disabled:opacity-50"
           >
-            {loading ? '로그인 중...' : '로그인'}
+            {loading ? '로그인 중…' : '로그인'}
           </button>
         </form>
 
-        <div className="my-7 flex items-center gap-3">
-          <span className="h-px flex-1 bg-[#F2F4F6]" />
-          <span className="text-[11px] font-bold text-[#B0B8C1]">또는</span>
-          <span className="h-px flex-1 bg-[#F2F4F6]" />
-        </div>
-
-        <div className="rounded-2xl bg-[#F7F8FA] p-4">
-          <p className="text-[13px] font-bold text-[#191F28]">관리자 키로 로그인</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#8B95A1]">
-            이메일 계정이 아직 운영 DB에 생성되지 않았거나 비밀번호가 맞지 않을 때 사용합니다.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <input
-              value={adminKey}
-              onChange={(e) => setAdminKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') loginWithAdminKey();
-              }}
-              type="password"
-              placeholder="ADMIN_SECRET_KEY"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-lg bg-white px-3 text-sm font-semibold text-[#191F28] outline-none ring-1 ring-[#E5E8EB] focus:ring-2 focus:ring-[#3180F7]"
-            />
-            <button
-              type="button"
-              onClick={loginWithAdminKey}
-              disabled={keyLoading}
-              className="h-11 rounded-lg bg-[#3180F7] px-4 text-[13px] font-bold text-white disabled:bg-gray-300"
-            >
-              {keyLoading ? '확인 중' : '입장'}
-            </button>
+        <details className="adm-login-rise group mt-6 rounded-[16px] bg-[#F7F8FA]" style={{ animationDelay: '.2s' }}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3.5 text-[14px] font-semibold text-[#4E5968] [&::-webkit-details-marker]:hidden">
+            관리자 키로 들어가기
+            <span className="ml-auto text-[#B0B8C1] transition-transform group-open:rotate-180" aria-hidden>⌄</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <p className="text-[13px] leading-relaxed text-[#8B95A1]">
+              운영 DB에 이메일 계정이 아직 없거나 비밀번호가 맞지 않을 때 써요.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={adminKey}
+                onChange={(e) => setAdminKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') loginWithAdminKey();
+                }}
+                type="password"
+                placeholder="ADMIN_SECRET_KEY"
+                autoComplete="off"
+                aria-label="관리자 키"
+                className="h-12 min-w-0 flex-1 rounded-[12px] border-[1.5px] border-transparent bg-white px-3 text-[15px] text-[#191F28] outline-none focus:border-[#3182F6]"
+              />
+              <button
+                type="button"
+                onClick={loginWithAdminKey}
+                disabled={keyLoading}
+                className="h-12 rounded-[12px] bg-[#E8F3FF] px-4 text-[15px] font-semibold text-[#3182F6] disabled:opacity-50"
+              >
+                {keyLoading ? '확인 중' : '입장'}
+              </button>
+            </div>
           </div>
-        </div>
-
-        <p className="mt-8 text-center text-xs text-gray-400">
-          이 페이지는 관리자 전용입니다
-        </p>
+        </details>
       </div>
+      <p className="mt-6 text-center text-[13px] text-[#B0B8C1]">이 페이지는 관리자 전용이에요</p>
     </div>
   );
 }

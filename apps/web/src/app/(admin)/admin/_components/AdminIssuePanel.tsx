@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  BellRing,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   CreditCard,
   Inbox,
@@ -17,7 +14,6 @@ import {
   XCircle,
 } from '@/app/(admin)/admin/_components/admin-icons';
 
-const COLLAPSE_KEY = 'admin_issue_panel_collapsed';
 import { adminFetch } from './adminFetch';
 
 type IssueTone = 'blue' | 'green' | 'amber' | 'red' | 'gray';
@@ -131,7 +127,10 @@ function issueIcon(type: IssueItem['type']) {
   return UserCheck;
 }
 
-export function AdminIssuePanel() {
+/** 운영 이슈 — 어드민 2.0(261004): 오른쪽에 늘 붙어 본문을 좁히던 패널 → 머리의 종 버튼으로 여는 서랍.
+ *  열려 있지 않아도 15초마다 받아 와서 종에 '할 일'(정산 대기 + 승인 대기) 수를 띄운다(onCount).
+ *  Biz 문의는 메뉴에서 빠져(사장) 여기서도 뺐다. */
+export function AdminIssuePanel({ open, onClose, onCount }: { open: boolean; onClose: () => void; onCount?: (n: number) => void }) {
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [stats, setStats] = useState<PanelStats>({ ...EMPTY_PANEL_STATS });
   const [loading, setLoading] = useState(true);
@@ -143,19 +142,6 @@ export function AdminIssuePanel() {
   const statsRef = useRef<PanelStats>({ ...EMPTY_PANEL_STATS });
   const requestSeqRef = useRef(0);
 
-  // 접기/펼치기 — localStorage 로 상태 기억(다음 접속에도 유지)
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch {}
-  }, []);
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }, []);
-
   const loadIssues = useCallback(async (silent = false) => {
     const requestSeq = ++requestSeqRef.current;
     if (!silent) {
@@ -166,7 +152,6 @@ export function AdminIssuePanel() {
     try {
       const [
         statsRes,
-        inquiryRes,
         paymentRes,
         pendingPaymentRes,
         failedPaymentRes,
@@ -174,7 +159,6 @@ export function AdminIssuePanel() {
         proRes,
       ] = await Promise.allSettled([
         adminFetch('GET', '/api/v1/admin/stats', undefined, { cache: false }),
-        adminFetch('GET', '/api/v1/admin/business-inquiries?page=1&limit=5&status=new', undefined, { cache: false }),
         adminFetch('GET', '/api/v1/admin/payments?page=1&limit=5&status=completed', undefined, { cache: false }),
         adminFetch('GET', '/api/v1/admin/payments?page=1&limit=3&status=pending', undefined, { cache: false }),
         adminFetch('GET', '/api/v1/admin/payments?page=1&limit=3&status=failed', undefined, { cache: false }),
@@ -187,7 +171,7 @@ export function AdminIssuePanel() {
       const nextIssues: IssueItem[] = [];
       const nextStats: PanelStats = { ...statsRef.current };
       const successfulIssueTypes = new Set<IssueItem['type']>();
-      const responses = [statsRes, inquiryRes, paymentRes, pendingPaymentRes, failedPaymentRes, settlementRes, proRes];
+      const responses = [statsRes, paymentRes, pendingPaymentRes, failedPaymentRes, settlementRes, proRes];
 
       if (statsRes.status === 'fulfilled') {
         const completedPayments = statsRes.value?.payments?.completed;
@@ -198,24 +182,6 @@ export function AdminIssuePanel() {
         if (hasNumberValue(pendingPayments)) nextStats.pendingPayments = toNumber(pendingPayments);
         if (hasNumberValue(failedPayments)) nextStats.failedPayments = toNumber(failedPayments);
         if (hasNumberValue(pendingPros)) nextStats.pendingPros = toNumber(pendingPros);
-      }
-
-      if (inquiryRes.status === 'fulfilled') {
-        successfulIssueTypes.add('inquiry');
-        const rows = Array.isArray(inquiryRes.value?.data) ? inquiryRes.value.data : [];
-        nextStats.newInquiries = toNumber(inquiryRes.value?.total ?? rows.length);
-        rows.forEach((row: any) => {
-          nextIssues.push({
-            id: `inquiry-${row.id}`,
-            type: 'inquiry',
-            title: row.company || row.name || '신규 문의',
-            description: row.message || row.type || 'Biz 문의가 접수되었습니다',
-            meta: `${row.name || '담당자'} · ${relativeTime(row.createdAt)}`,
-            href: '/admin/inquiries',
-            createdAt: row.createdAt,
-            tone: 'blue',
-          });
-        });
       }
 
       if (paymentRes.status === 'fulfilled') {
@@ -363,187 +329,101 @@ export function AdminIssuePanel() {
   }, [freshCount]);
 
   const summary = useMemo(() => [
-    { label: '신규 문의', value: stats.newInquiries, tone: 'blue' as IssueTone },
-    { label: '결제 완료', value: stats.completedPayments, tone: 'green' as IssueTone },
-    { label: '정산 대기', value: stats.pendingSettlements, tone: 'amber' as IssueTone },
-    { label: '승인 대기', value: stats.pendingPros, tone: 'blue' as IssueTone },
+    { label: '정산 대기', value: stats.pendingSettlements, tone: 'amber' as IssueTone, href: '/admin/settlements' },
+    { label: '승인 대기', value: stats.pendingPros, tone: 'blue' as IssueTone, href: '/admin/pros' },
+    { label: '결제 확인', value: stats.pendingPayments + stats.failedPayments, tone: 'red' as IssueTone, href: '/admin/payments' },
+    { label: '결제 완료', value: stats.completedPayments, tone: 'green' as IssueTone, href: '/admin/payments' },
   ], [stats]);
 
+  // 종 버튼 숫자 = 지금 손댈 일
+  useEffect(() => { onCount?.(stats.pendingSettlements + stats.pendingPros); }, [stats.pendingSettlements, stats.pendingPros, onCount]);
+  // Esc 로 닫기
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   return (
-    <aside className={`admin-issue-panel hidden shrink-0 border-l border-[#F2F4F6] bg-white xl:flex ${collapsed ? 'w-[52px]' : 'w-[328px] 2xl:w-[360px]'}`}>
-      {collapsed ? (
-        <div className="flex w-full flex-col items-center gap-3 py-4">
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7]"
-            aria-label="운영 이슈 패널 펼치기"
-            title="펼치기"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div className="mt-1 rotate-180 text-[12px] font-bold text-[#8B95A1]" style={{ writingMode: 'vertical-rl' }}>운영 이슈 패널</div>
-          {issues.length > 0 && (
-            <span className="mt-1 rounded-full bg-[#F3F8FF] px-1.5 py-0.5 text-[11px] font-bold text-[#3180F7]">{issues.length}</span>
-          )}
-        </div>
-      ) : (
-      <div className="flex min-h-0 w-full flex-col">
-        <div className="border-b border-[#F2F4F6] px-5 py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3180F7] opacity-40" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#3180F7]" />
-                </span>
-                <p className="text-[12px] font-bold text-[#3180F7]">실시간 이슈</p>
-              </div>
-              <h2 className="mt-2 text-[16px] font-bold text-[#191F28]">운영 이슈 패널</h2>
-              <p className="mt-1 text-[12px] font-normal text-[#8B95A1]">
-                {lastUpdated ? `${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 갱신` : '데이터 동기화 중'}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => loadIssues()}
-                disabled={loading}
-                className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7] disabled:opacity-50"
-                aria-label="이슈 새로고침"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                className="admin-icon-button flex h-9 w-9 items-center justify-center rounded-full bg-[#F7F8FA] text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#3180F7]"
-                aria-label="운영 이슈 패널 접기"
-                title="접기"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+    <div className={`adm-issue ${open ? 'open' : ''}`} aria-hidden={!open}>
+      <div className="adm-issue-dim" onClick={onClose} />
+      <aside className="adm-issue-panel" role="dialog" aria-modal="true" aria-label="운영 이슈">
+        <div className="adm-issue-head">
+          <div className="min-w-0">
+            <p className="adm-issue-live">
+              <span className="adm-issue-dot" />
+              실시간 이슈
+            </p>
+            <h2 className="adm-issue-title">운영 이슈</h2>
+            <p className="adm-issue-time">
+              {lastUpdated ? `${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 갱신 · 15초마다` : '불러오는 중'}
+            </p>
           </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {summary.map((item) => (
-              <Link
-                key={item.label}
-                href={item.label === '신규 문의' ? '/admin/inquiries' : item.label === '결제 완료' ? '/admin/payments' : item.label === '정산 대기' ? '/admin/settlements' : '/admin/pros'}
-                className="rounded-xl border border-[#F2F4F6] bg-white px-3 py-2.5 transition-colors hover:border-[#D6E8FF] hover:bg-[#F7FBFF]"
-              >
-                <p className="text-[11px] font-semibold text-[#8B95A1]">{item.label}</p>
-                <p className={`mt-1 text-[16px] font-bold ${toneTextClass[item.tone]}`}>
-                  {item.value.toLocaleString('ko-KR')}
-                </p>
-              </Link>
-            ))}
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => loadIssues()} disabled={loading} className="adm-btn icon sm" aria-label="이슈 새로고침">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button type="button" onClick={onClose} className="adm-btn icon sm" aria-label="닫기">
+              <XCircle className="h-4 w-4" />
+            </button>
           </div>
-
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-[#F7F8FA] px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              <BellRing className="h-4 w-4 text-[#3180F7]" />
-              <span className="text-[12px] font-bold text-[#333D4B]">현재 확인 대상</span>
-            </div>
-            <span className="text-[12px] font-bold text-[#3180F7]">
-              표시 {issues.length.toLocaleString('ko-KR')}건
-            </span>
-          </div>
-
-          {freshCount > 0 && (
-            <div className="mt-3 rounded-xl bg-[#F3F8FF] px-3 py-2 text-[12px] font-bold text-[#3180F7]">
-              새 이슈 {freshCount.toLocaleString('ko-KR')}건이 반영되었습니다
-            </div>
-          )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="adm-issue-sum">
+          {summary.map((item) => (
+            <Link key={item.label} href={item.href} onClick={onClose} className="adm-issue-tile">
+              <p>{item.label}</p>
+              <b className={toneTextClass[item.tone]}>{item.value.toLocaleString('ko-KR')}</b>
+            </Link>
+          ))}
+        </div>
+
+        {freshCount > 0 && <div className="adm-issue-fresh">새 이슈 {freshCount.toLocaleString('ko-KR')}건이 들어왔어요</div>}
+
+        <div className="adm-issue-list">
           {error ? (
-            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-4">
-              <div className="flex items-center gap-2 text-[13px] font-bold text-red-600">
+            <div className="rounded-[16px] bg-[#FFF5F5] px-4 py-4">
+              <div className="flex items-center gap-2 text-[14px] font-bold text-red-600">
                 <ShieldAlert className="h-4 w-4" />
-                이슈 로드 실패
+                이슈를 불러오지 못했어요
               </div>
-              <p className="mt-2 text-[12px] leading-5 text-red-500">{error}</p>
+              <p className="mt-2 text-[13px] leading-5 text-red-500">{error}</p>
             </div>
           ) : loading && issues.length === 0 ? (
-            <div className="space-y-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="rounded-2xl border border-[#F2F4F6] p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="skeleton h-9 w-9 shrink-0 rounded-xl" />
-                    <div className="min-w-0 flex-1">
-                      <div className="skeleton mb-2 h-3.5 w-28 rounded" />
-                      <div className="skeleton mb-2 h-3 w-full rounded" />
-                      <div className="skeleton h-2.5 w-16 rounded" />
-                    </div>
-                  </div>
-                </div>
+            <div className="space-y-2.5">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="adm-skel h-[76px]" />
               ))}
             </div>
           ) : issues.length === 0 ? (
-            <div className="rounded-2xl border border-[#F2F4F6] bg-white px-4 py-8 text-center">
+            <div className="adm-empty">
               <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
-              <p className="mt-3 text-[13px] font-bold text-[#333D4B]">확인할 이슈가 없습니다</p>
-              <p className="mt-1 text-[12px] leading-5 text-[#8B95A1]">신규 문의, 결제, 정산 대기가 생기면 여기에 표시됩니다.</p>
+              <p className="mt-3 text-[15px] font-bold text-[#333D4B]">확인할 이슈가 없어요</p>
+              <p className="mt-1 text-[13px] text-[#8B95A1]">결제·정산 대기·승인 대기가 생기면 여기에 떠요</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="adm-rise space-y-2">
               {issues.map((issue) => {
                 const Icon = issueIcon(issue.type);
                 const tone = toneClass[issue.tone];
                 return (
-                  <Link
-                    key={issue.id}
-                    href={issue.href}
-                    className="group block rounded-2xl border border-[#F2F4F6] bg-white p-4 transition-all hover:border-[#D6E8FF] hover:bg-[#F7FBFF]"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone.icon}`}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
-                          <p className="truncate text-[13px] font-bold text-[#191F28]">{issue.title}</p>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-[12px] font-normal leading-5 text-[#6B7684]">
-                          {issue.description}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${tone.badge}`}>
-                            {issue.type === 'inquiry'
-                              ? '문의'
-                              : issue.type === 'payment'
-                                ? '결제'
-                                : issue.type === 'settlement'
-                                  ? '정산'
-                                  : issue.type === 'pro'
-                                    ? '사회자'
-                                    : '결제 확인'}
-                          </span>
-                          <span className="truncate text-[11px] font-medium text-[#B0B8C1]">{issue.meta}</span>
-                        </div>
-                      </div>
-                    </div>
+                  <Link key={issue.id} href={issue.href} onClick={onClose} className="adm-issue-item">
+                    <span className={`adm-issue-ic ${tone.icon}`}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="adm-issue-item-title">{issue.title}</span>
+                      <span className="adm-issue-item-desc">{issue.description}</span>
+                    </span>
+                    <span className="adm-issue-item-meta">{issue.meta}</span>
                   </Link>
                 );
               })}
             </div>
           )}
         </div>
-
-        <div className="border-t border-[#F2F4F6] px-5 py-4">
-          <Link
-            href="/admin/inquiries"
-            className="admin-icon-button flex h-10 items-center justify-center rounded-xl bg-[#3180F7] text-[13px] font-bold text-white hover:bg-[#1B64DA]"
-          >
-            문의 센터로 이동
-          </Link>
-        </div>
-      </div>
-      )}
-    </aside>
+      </aside>
+    </div>
   );
 }
