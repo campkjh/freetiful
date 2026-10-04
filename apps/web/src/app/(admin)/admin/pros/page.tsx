@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, AlertCircle, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, AlertCircle } from '@/app/(admin)/admin/_components/admin-icons';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -11,6 +11,7 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface ProItem {
   id: string;
@@ -158,6 +159,9 @@ export default function AdminProsPage() {
 
   const hasMore = pros.length < total;
 
+  // 머리 오른쪽 새로고침(종 옆) — 지금 검색·상태·기간 그대로
+  useAdminRefresh(() => fetchPros(1, search, filterStatus, dateRange));
+
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 사회자 탭) */}
@@ -187,16 +191,6 @@ export default function AdminProsPage() {
         </div>
         <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
-        <button
-          type="button"
-          onClick={() => fetchPros(1, search, filterStatus, dateRange)}
-          disabled={loading}
-          className="adm-btn icon"
-          title="새로고침"
-          aria-label="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
       </div>
 
       {lastError && (

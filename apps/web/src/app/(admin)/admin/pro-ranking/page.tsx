@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { GripVertical, ChevronUp, ChevronDown, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
+import { GripVertical, ChevronUp, ChevronDown } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface Pro {
   proProfileId: string;
@@ -83,6 +84,9 @@ export default function ProRankingPage() {
     }
   };
 
+  // 머리 오른쪽 새로고침(종 옆) — 저장 안 한 순서가 있으면 묻고
+  useAdminRefresh(() => { if (!dirty || window.confirm('저장하지 않은 순서가 있어요. 새로 불러올까요?')) load(); });
+
   return (
     <div className="mx-auto max-w-[760px]">
       {/* 저장 막대 — 위에 붙어 따라온다. 제목은 레이아웃 머리(회원 관리 · 사회자 랭킹 탭) */}
@@ -94,9 +98,6 @@ export default function ProRankingPage() {
           </p>
           <p className="adm-rank-bar-sub">≡ 를 끌거나 ▲▼ 로 순서를 바꾸고 저장하세요. 사회자 목록(추천·평점 정렬)에 이 순서가 반영돼요.</p>
         </div>
-        <button type="button" onClick={load} disabled={loading} className="adm-btn icon" aria-label="새로고침">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
         <button type="button" onClick={save} disabled={!dirty || saving} className="adm-btn primary">
           {saving ? '저장 중…' : '순서 저장'}
         </button>

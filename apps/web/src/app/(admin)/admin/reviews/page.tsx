@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trash2, RefreshCw, Star, Plus } from '@/app/(admin)/admin/_components/admin-icons';
+import { Trash2, Star, Plus } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -10,6 +10,7 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface ReviewItem {
   id: string;
@@ -219,6 +220,9 @@ export default function AdminReviewsPage() {
 
   const hasMore = reviews.length < total;
 
+  // 머리 오른쪽 새로고침(종 옆)
+  useAdminRefresh(() => fetchReviews(1, dateRange));
+
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(리뷰 관리) */}
@@ -229,16 +233,6 @@ export default function AdminReviewsPage() {
         <span className="grow" />
         <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
-        <button
-          type="button"
-          onClick={() => fetchReviews(1, dateRange)}
-          disabled={loading}
-          className="adm-btn icon"
-          title="새로고침"
-          aria-label="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
       </div>
 
         <AdminErrorPanel error={lastError} label="리뷰" />

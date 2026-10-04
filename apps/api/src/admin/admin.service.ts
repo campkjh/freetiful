@@ -2885,6 +2885,64 @@ export class AdminService {
   // 판정: "견적 도착 → 답장까지 걸리는 시간"의 중앙값(median). 평균은 몇 건의 늦은 답장에
   //   부풀려져 왜곡되므로(예: 이승진 평균 2.6h인데 median 49초) 통상 응답속도인 median 을 쓴다.
   //   median 이 5분 이내면 good(잘하고 있음), 그 외(느림·답장없음) = attention(단도리).
+  // ─── 홈 '지출 · 수입' 줄(261004 사장 — 토스 지출/수입 화면 그대로) ───
+  //  수입 = 결제 완료 금액(createdAt, stats.revenue 와 같은 기준)
+  //  지출 = 사회자 정산 지급(settledAt 기준 netAmount) + 환불(refundedAt 기준 refundAmount)
+  //  지난달 1일 ~ 오늘(KST) 날마다 합계만 내려 주고, 누적·지난달 비교·주간 띠·달력은 화면이 계산한다.
+  async getMoneySummary() {
+    const KST = 9 * 3600000;
+    const nowKst = new Date(Date.now() + KST);
+    const y = nowKst.getUTCFullYear();
+    const m = nowKst.getUTCMonth();
+    const kstMidnight = (yy: number, mm: number, dd = 1) => new Date(Date.UTC(yy, mm, dd) - KST);
+    const from = kstMidnight(y, m - 1);
+    const to = new Date(Date.now() + 60_000);
+    const safeRows = async (label: string, q: Promise<any[]>) => {
+      try { return await q; } catch (e: any) { this.logger?.warn?.(`[money-summary] ${label} 실패: ${e?.message || e}`); return [] as any[]; }
+    };
+    const [incomeRows, settledRows, refundRows] = await Promise.all([
+      safeRows('income', this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COALESCE(SUM(amount), 0)::bigint AS value
+        FROM payments
+        WHERE status = 'completed' AND "createdAt" >= ${from} AND "createdAt" <= ${to}
+        GROUP BY 1
+      `),
+      safeRows('settled', this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("settledAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COALESCE(SUM("netAmount"), 0)::bigint AS value
+        FROM settlement_logs
+        WHERE status = 'settled' AND "settledAt" >= ${from} AND "settledAt" <= ${to}
+        GROUP BY 1
+      `),
+      safeRows('refund', this.prisma.$queryRaw<any[]>`
+        SELECT to_char(("refundedAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date, COALESCE(SUM("refundAmount"), 0)::bigint AS value
+        FROM payments
+        WHERE "refundedAt" IS NOT NULL AND "refundedAt" >= ${from} AND "refundedAt" <= ${to}
+        GROUP BY 1
+      `),
+    ]);
+    const toMap = (rows: any[]) => new Map(rows.map((r) => [String(r.date), Number(r.value) || 0]));
+    const inc = toMap(incomeRows);
+    const set = toMap(settledRows);
+    const ref = toMap(refundRows);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const today = `${y}-${pad(m + 1)}-${pad(nowKst.getUTCDate())}`;
+    const daily: Array<{ date: string; income: number; expense: number; settled: number; refunded: number }> = [];
+    for (let t = Date.UTC(y, m - 1, 1); ; t += 86400000) {
+      const d = new Date(t);
+      const key = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+      if (key > today) break;
+      const settled = set.get(key) || 0;
+      const refunded = ref.get(key) || 0;
+      daily.push({ date: key, income: inc.get(key) || 0, expense: settled + refunded, settled, refunded });
+    }
+    return {
+      today,
+      thisMonth: `${y}-${pad(m + 1)}`,
+      lastMonth: (() => { const d = new Date(Date.UTC(y, m - 1, 1)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`; })(),
+      daily,
+    };
+  }
+
   async getChatResponseStats(_limit = 60) {
     const rows = await this.prisma.$queryRawUnsafe<any[]>(`
       SELECT pp.id AS pro_id, u.name AS pro_name,

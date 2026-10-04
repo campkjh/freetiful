@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Trash2, RefreshCw, AlertTriangle, Archive } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, Trash2, AlertTriangle, Archive } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -10,6 +10,7 @@ import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface UserItem {
   id: string;
@@ -292,6 +293,9 @@ export default function AdminUsersPage() {
 
   const hasMore = users.length < total;
 
+  // 머리 오른쪽 새로고침(종 옆) — 지금 검색·권한·기간 그대로
+  useAdminRefresh(() => fetchUsers(1, search, filterRole, dateRange));
+
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다 */}
@@ -321,16 +325,6 @@ export default function AdminUsersPage() {
         </div>
         <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
-        <button
-          type="button"
-          onClick={() => fetchUsers(1, search, filterRole, dateRange)}
-          disabled={loading}
-          className="adm-btn icon"
-          title="새로고침"
-          aria-label="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
       </div>
 
         <AdminErrorPanel error={lastError} label="유저 목록" />

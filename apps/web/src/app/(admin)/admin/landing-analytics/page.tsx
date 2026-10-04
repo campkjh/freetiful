@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }
 interface PageStat { page: string; visits: number; conversions: number; rate: number; bySource: Bucket[]; byMedium: Bucket[]; byCampaign: Bucket[]; }
@@ -420,6 +420,9 @@ export default function LandingAnalyticsPage() {
     ? { title: `${pickedLabel} 견적 신청`, value: pickedAgg?.conversions ?? 0, rows: pickedAgg?.byConvSource ?? [], empty: '신청 없음' }
     : { title: '오늘 견적 신청', value: todayAgg.conversions, rows: todayAgg.byConvSource, empty: '오늘 신청 없음' };
 
+  // 머리 오른쪽 새로고침(종 옆)
+  useAdminRefresh(() => load(range));
+
   return (
     <div className="w-full">
       {/* 도구막대 — 제목은 레이아웃 머리(랜딩 유입 분석) */}
@@ -427,9 +430,6 @@ export default function LandingAnalyticsPage() {
         <span className="adm-badge blue">wedding-mc · corporate-mc</span>
         <span className="text-[14px] text-[#8B95A1]">유입 소스(UTM·리퍼러)별 방문·견적 전환</span>
         <span className="grow" />
-        <button type="button" onClick={() => load(range)} className="adm-btn icon" aria-label="새로고침">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
       {/* 상단: (선택일/오늘) 방문 + 어디서 왔는지 리스트 + 이번 달 방문 */}

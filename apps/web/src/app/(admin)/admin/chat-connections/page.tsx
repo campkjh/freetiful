@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, RefreshCw, MessageSquare, Clock, X } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, Clock } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { adminFetch } from '../_components/adminFetch';
+import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface ConnRow {
   id: string;
@@ -111,12 +113,38 @@ const GRADE_LEGEND = [
   { label: '단도리', sub: '2시간↑', hex: '#B91C1C' },
 ];
 
+/* 대화 내역 = 앱 채팅방(chat/[id]) 그대로(261004 사장 '채팅창 UI 앱 채팅이랑 완전 동일하게') —
+ *  사회자 말 = 오른쪽 파랑(#3180F7, 사회자 입장에서 보는 방), 고객 말 = 왼쪽 회색(#F2F3F5) + 묶음 첫 줄에 프사,
+ *  같은 사람이 3분 안에 이어 보내면 한 묶음(꼬리는 묶음 마지막에만), 시간은 같은 분의 마지막 줄에만, 하루 바뀌면 날짜 줄 */
+const kstDayKey = (d: string) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+const bubbleTime = (d: string) => new Date(d).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Seoul' });
+const minuteKey = (d: string) => `${kstDayKey(d)} ${bubbleTime(d)}`;
+const dateDivider = (d: string) => { const [y, m, dd] = kstDayKey(d).split('-'); return `${Number(y)}년 ${Number(m)}월 ${Number(dd)}일`; };
+
 const MSG_TYPE_LABEL: Record<string, string> = { image: '[사진]', video: '[동영상]', file: '[파일]', audio: '[음성]', location: '[위치]', voice: '[음성]' };
 
 export default function ChatConnectionsPage() {
   const [rows, setRows] = useState<ConnRow[]>([]);
   const [stats, setStats] = useState<ConnStats | null>(null);
   const [respStats, setRespStats] = useState<RespStat[] | null>(null);
+  /** 응답 현황 — 평소엔 접어 두고 한 줄 요약만(261004 사장 '접어줘') */
+  const [respOpen, setRespOpen] = useState(false);
+  const respGroups = useMemo(() => {
+    if (!respStats) return null;
+    const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.medianSec != null && r.medianSec <= 300));
+    // 통상 답장시간(median) 빠른 순 → 빨리 답장하는 사회자가 위로. 답장이력 없으면 맨 뒤.
+    const byMedian = (a: RespStat, b: RespStat) => {
+      const ma = a.medianSec ?? Infinity, mb = b.medianSec ?? Infinity;
+      if (ma !== mb) return ma - mb;
+      return (b.repliedCount ?? 0) - (a.repliedCount ?? 0);
+    };
+    return {
+      good: respStats.filter(isGood).sort(byMedian),
+      attention: respStats.filter((r) => !isGood(r)).sort(byMedian),
+      // 요청은 받았는데 답장이 하나도 없는 사회자 = '갈리오<'(사장 표기)
+      galio: respStats.filter((r) => r.repliedCount === 0 && r.totalRooms > 0).length,
+    };
+  }, [respStats]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -194,6 +222,9 @@ export default function ChatConnectionsPage() {
     { label: '결제 전환율', value: `${stats.paidRate}%`, sub: `${stats.paid.toLocaleString()}건 결제 완료`, tone: 'text-[#16A34A]' },
   ] : [];
 
+  // 머리 오른쪽 새로고침(종 옆) — 목록 + 응답 현황
+  useAdminRefresh(() => { fetchData(1, search, status, dateRange); fetchRespStats(); });
+
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(채팅 매칭) */}
@@ -222,16 +253,6 @@ export default function ChatConnectionsPage() {
           ))}
         </div>
         <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-        <button
-          type="button"
-          onClick={() => { fetchData(1, search, status, dateRange); fetchRespStats(); }}
-          disabled={loading}
-          className="adm-btn icon"
-          title="새로고침"
-          aria-label="새로고침"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
       </div>
 
       <AdminErrorPanel error={lastError} label="채팅 매칭" />
@@ -250,66 +271,73 @@ export default function ChatConnectionsPage() {
         ))}
       </div>
 
-      {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자 */}
+      {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자. 접어 두고 머리를 누르면 펼친다 */}
       <div className="adm-card">
-        <div className="adm-card-head">
-          <div>
-            <h2 className="adm-card-title">사회자별 응답 현황</h2>
-            <p className="adm-card-sub">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</p>
+        <button type="button" className="adm-resp-head" onClick={() => setRespOpen((v) => !v)} aria-expanded={respOpen}>
+          <span className="min-w-0 flex-1">
+            <span className="adm-card-title block">사회자별 응답 현황</span>
+            <span className="adm-card-sub block">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</span>
+          </span>
+          {respGroups && (
+            <span className="adm-resp-sum">
+              <span className="adm-badge green">잘하고 있음 {respGroups.good.length}</span>
+              <span className="adm-badge red">단도리 필요 {respGroups.attention.length}</span>
+              {respGroups.galio > 0 && <span className="adm-badge">갈리오&lt; {respGroups.galio}</span>}
+            </span>
+          )}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`adm-resp-chev ${respOpen ? 'on' : ''}`}>
+            <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {respOpen && (
+          <div className="adm-resp-body">
+            {respGroups == null ? (
+              <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
+            ) : respGroups.good.length + respGroups.attention.length === 0 ? (
+              <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없어요</div>
+            ) : (() => {
+              const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
+                <div className="flex flex-col rounded-[12px] bg-white px-3 py-2.5">
+                  <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
+                  <span className="mt-0.5 text-[11px] font-bold" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
+                    {r.repliedCount === 0
+                      ? (r.totalRooms === 0
+                        ? <span className="font-medium text-[#B0B8C1]">요청 없음</span>
+                        : <span className="font-bold text-[#6B7684]">갈리오&lt;</span>)
+                      : <>보통 {fmtSec(r.medianSec)}<span className="font-medium opacity-60"> · {r.repliedCount}건</span></>}
+                  </span>
+                </div>
+              );
+              const Grid = ({ items, tone, empty }: { items: RespStat[]; tone: 'good' | 'attention'; empty: string }) => (
+                items.length === 0
+                  ? <p className="py-4 text-center text-[12px] opacity-60">{empty}</p>
+                  : <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">{items.map((r) => <Card key={r.proProfileId} r={r} tone={tone} />)}</div>
+              );
+              return (
+                <div className="space-y-3">
+                  {/* 잘하고 있음 */}
+                  <div className="rounded-[16px] bg-[#E5F8EF] p-3.5">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-[14px] font-bold text-emerald-700">잘하고 있음</span>
+                      <span className="text-[12px] font-bold text-emerald-600">{respGroups.good.length}명</span>
+                      <span className="text-[11px] font-medium text-emerald-500/70">통상 답장 5분 이내</span>
+                    </div>
+                    <div className="text-emerald-700"><Grid items={respGroups.good} tone="good" empty="아직 없음" /></div>
+                  </div>
+                  {/* 단도리 */}
+                  <div className="rounded-[16px] bg-[#FFEEEF] p-3.5">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-[14px] font-bold text-red-700">단도리 필요</span>
+                      <span className="text-[12px] font-bold text-red-600">{respGroups.attention.length}명</span>
+                      <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과 · 갈리오&lt;(답장 없음)</span>
+                    </div>
+                    <div className="text-red-700"><Grid items={respGroups.attention} tone="attention" empty="아직 없음" /></div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
-        </div>
-        {respStats == null ? (
-          <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
-        ) : respStats.length === 0 ? (
-          <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없습니다</div>
-        ) : (() => {
-          const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.medianSec != null && r.medianSec <= 300));
-          // 통상 답장시간(median) 빠른 순으로 정렬 → 빨리 답장하는 사회자가 위로. 답장이력 없으면 맨 뒤.
-          const byMedian = (a: RespStat, b: RespStat) => {
-            const ma = a.medianSec ?? Infinity, mb = b.medianSec ?? Infinity;
-            if (ma !== mb) return ma - mb;
-            return (b.repliedCount ?? 0) - (a.repliedCount ?? 0);
-          };
-          const good = respStats.filter(isGood).sort(byMedian);
-          const attention = respStats.filter((r) => !isGood(r)).sort(byMedian);
-          const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
-            <div className="flex flex-col rounded-[12px] bg-white px-3 py-2.5">
-              <span className="truncate text-[12.5px] font-bold text-[#191F28]" title={r.proName}>{r.proName}</span>
-              <span className="mt-0.5 text-[11px] font-bold" style={{ color: tone === 'good' ? '#0E9F6E' : '#E02424' }}>
-                {r.repliedCount === 0
-                  ? <span className="font-medium text-[#B0B8C1]">{r.totalRooms === 0 ? '요청 없음' : '답장 없음'}</span>
-                  : <>보통 {fmtSec(r.medianSec)}<span className="font-medium opacity-60"> · {r.repliedCount}건</span></>}
-              </span>
-            </div>
-          );
-          const Grid = ({ items, tone, empty }: { items: RespStat[]; tone: 'good' | 'attention'; empty: string }) => (
-            items.length === 0
-              ? <p className="py-4 text-center text-[12px] opacity-60">{empty}</p>
-              : <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">{items.map((r) => <Card key={r.proProfileId} r={r} tone={tone} />)}</div>
-          );
-          return (
-            <div className="space-y-3">
-              {/* 잘하고 있음 */}
-              <div className="rounded-[16px] bg-[#E5F8EF] p-3.5">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[14px] font-bold text-emerald-700">잘하고 있음</span>
-                  <span className="text-[12px] font-bold text-emerald-600">{good.length}명</span>
-                  <span className="text-[11px] font-medium text-emerald-500/70">통상 답장 5분 이내</span>
-                </div>
-                <div className="text-emerald-700"><Grid items={good} tone="good" empty="아직 없음" /></div>
-              </div>
-              {/* 단도리 */}
-              <div className="rounded-[16px] bg-[#FFEEEF] p-3.5">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[14px] font-bold text-red-700">단도리 필요</span>
-                  <span className="text-[12px] font-bold text-red-600">{attention.length}명</span>
-                  <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과·답장없음</span>
-                </div>
-                <div className="text-red-700"><Grid items={attention} tone="attention" empty="아직 없음" /></div>
-              </div>
-            </div>
-          );
-        })()}
+        )}
       </div>
 
       <AdminDateFilter
@@ -404,53 +432,127 @@ export default function ChatConnectionsPage() {
         </div>
       )}
 
-      {/* 대화 내역 — 전체 팝업 (document.body 로 포털: 어드민 레이아웃 밖에서 화면 전체 오버레이) */}
+      {/* 대화 내역 — 앱 채팅방과 같은 화면(document.body 포털: 어드민 레이아웃 밖에서 화면 전체 오버레이) */}
       {historyRow && typeof document !== 'undefined' && createPortal(
         <div className="adm-pop-dim fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/45 sm:items-center sm:p-6" onClick={() => setHistoryRow(null)}>
           <div
-            className="adm-pop flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[88vh] sm:max-w-[860px] sm:rounded-[28px]"
+            className="adm-pop flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[88vh] sm:max-w-[680px] sm:rounded-[28px]"
+            style={{ letterSpacing: '-0.02em' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 헤더 */}
-            <div className="flex items-start gap-3 border-b border-[#EEF1F4] px-5 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
-              <MessageSquare size={20} className="mt-0.5 shrink-0 text-[#3182F6]" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[18px] font-bold text-[#191F28]">
-                  {historyRow.userName} <span className="text-[#B0B8C1]">↔</span> {historyRow.proName}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-[#8B95A1]">
-                  <span className={`adm-badge ${historyRow.matchType === 'multi' ? 'blue' : 'orange'}`}>
-                    {historyRow.matchType === 'multi' ? '모두에게' : '1:1문의'}
-                  </span>
-                  {(historyRow.eventDate || historyRow.eventLabel) && (
-                    <span>{fmtEventDate(historyRow.eventDate, historyRow.eventTime)}{historyRow.eventLabel ? ` · ${historyRow.eventLabel}` : ''}</span>
-                  )}
-                  {historyRow.responseMs != null && <span>· 응답 {fmtDuration(historyRow.responseMs)}</span>}
-                  {historyRow.quotationAmount != null && <span>· 견적 {historyRow.quotationAmount.toLocaleString()}원</span>}
-                  <span>· 메시지 {historyRow.messageCount}개</span>
-                </div>
+            {/* 머리 — 앱 채팅방처럼: ‹ 닫기 · 가운데 이름 + 알약 / 부제(행사) · 오른쪽 빈칸 */}
+            <div className="relative flex h-14 shrink-0 items-center px-1" style={{ marginTop: 'env(safe-area-inset-top)' }}>
+              <button
+                type="button"
+                onClick={() => setHistoryRow(null)}
+                aria-label="닫기"
+                className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors hover:bg-[#F7F8FA] active:bg-[#F2F3F5]"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 5l-7 7 7 7" stroke="#191F28" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div className="absolute left-1/2 top-1/2 flex max-w-[66%] -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-tight">
+                <span className="flex min-w-0 max-w-full items-center gap-1.5">
+                  <span className="truncate text-[17px] font-bold text-[#191F28]">{historyRow.userName}</span>
+                  <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[12.5px] font-bold text-[#3182F6]">고객</span>
+                  <span className="shrink-0 text-[13px] text-[#B0B8C1]">↔</span>
+                  <span className="truncate text-[17px] font-bold text-[#191F28]">{historyRow.proName}</span>
+                </span>
+                <span className="mt-[3px] max-w-full truncate text-[12.5px] text-[#8B95A1]">
+                  {[
+                    historyRow.matchType === 'multi' ? '모두에게' : '1:1문의',
+                    fmtEventDate(historyRow.eventDate, historyRow.eventTime) || null,
+                    historyRow.eventLabel,
+                    historyRow.eventLocation,
+                  ].filter(Boolean).join(' · ')}
+                </span>
               </div>
-              <button onClick={() => setHistoryRow(null)} className="-mr-1 shrink-0 rounded-full p-2 text-[#8B95A1] transition hover:bg-[#F2F4F6]" aria-label="닫기"><X size={22} /></button>
+              <span className="ml-auto w-11 shrink-0" aria-hidden="true" />
+            </div>
+            {/* 요약 줄 — 응답 · 견적 · 메시지 수 */}
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-1.5 border-b border-[#F2F4F6] px-4 pb-3">
+              {historyRow.responseMs != null && <span className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12.5px] font-semibold text-[#4E5968]">응답 {fmtDuration(historyRow.responseMs)}</span>}
+              {historyRow.quotationAmount != null && <span className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12.5px] font-semibold text-[#4E5968]">견적 {historyRow.quotationAmount.toLocaleString()}원</span>}
+              <span className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12.5px] font-semibold text-[#4E5968]">메시지 {historyRow.messageCount}개</span>
             </div>
             {/* 대화 */}
-            <div className="flex-1 space-y-3 overflow-y-auto bg-[#F7F8FA] px-4 py-5 sm:px-6" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
+            <div className="flex-1 overflow-y-auto bg-white px-4 pb-6" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
               {historyLoading || historyMsgs == null ? (
-                <p className="py-20 text-center text-[14px] text-[#8B95A1]">불러오는 중…</p>
+                <p className="py-20 text-center text-[15px] text-[#8B95A1]">불러오는 중…</p>
               ) : historyMsgs.length === 0 ? (
-                <p className="py-20 text-center text-[14px] text-[#8B95A1]">대화 내역이 없습니다</p>
-              ) : historyMsgs.map((m) => (
-                <div key={m.id} className={`flex ${m.fromPro ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex max-w-[80%] flex-col ${m.fromPro ? 'items-end' : 'items-start'}`}>
-                    <span className="mb-1 px-1 text-[11px] font-bold text-[#8B95A1]">{m.fromPro ? historyRow.proName : historyRow.userName}</span>
-                    <div className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ${m.fromPro ? 'bg-[#3182F6] text-white' : 'bg-white text-[#191F28] shadow-sm'}`}>
-                      {m.type === 'text' || m.type === 'system'
-                        ? <span className="whitespace-pre-wrap break-words">{m.content}</span>
-                        : <span className="font-semibold opacity-90">{MSG_TYPE_LABEL[m.type] || `[${m.type}]`}{m.fileName ? ` ${m.fileName}` : ''}</span>}
-                    </div>
-                    <span className="mt-1 px-1 text-[10.5px] text-[#B0B8C1]">{fmtDate(m.createdAt)}</span>
-                  </div>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/default-profile.svg" alt="" className="mb-3 h-16 w-16 rounded-full object-cover" />
+                  <p className="text-[15px] font-bold text-[#191F28]">{historyRow.userName}</p>
+                  <p className="mt-1 text-[13px] text-[#B0B8C1]">아직 오간 대화가 없어요</p>
                 </div>
-              ))}
+              ) : historyMsgs.map((m, i) => {
+                const prev = i > 0 ? historyMsgs[i - 1] : null;
+                const next = historyMsgs[i + 1] || null;
+                const showDate = !prev || kstDayKey(prev.createdAt) !== kstDayKey(m.createdAt);
+                if (m.type === 'system') {
+                  return (
+                    <div key={m.id}>
+                      {showDate && <div className="py-4 text-center"><span className="text-[13px] text-[#8B95A1]">{dateDivider(m.createdAt)}</span></div>}
+                      <div className="my-2 flex justify-center">
+                        <span className="max-w-[86%] whitespace-pre-wrap break-words rounded-[14px] bg-[#F7F8FA] px-3.5 py-2 text-center text-[13px] leading-[1.5] text-[#6B7684]">{m.content}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                const mine = m.fromPro;
+                const same = (x: HistoryMsg | null) => !!x && x.type !== 'system' && x.fromPro === m.fromPro;
+                const nextDayChange = !!next && kstDayKey(next.createdAt) !== kstDayKey(m.createdAt);
+                const groupStart = showDate || !same(prev) || (!!prev && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() > 3 * 60 * 1000);
+                const groupEnd = !same(next) || nextDayChange || new Date(next!.createdAt).getTime() - new Date(m.createdAt).getTime() > 3 * 60 * 1000;
+                const showTime = !same(next) || minuteKey(next!.createdAt) !== minuteKey(m.createdAt);
+                const media = m.type === 'image' || m.type === 'video';
+                const tailed = groupEnd && !media;
+                const tailCorner = tailed ? ` ${mine ? TAIL_CORNER_CLASS.mine : TAIL_CORNER_CLASS.other}` : '';
+                return (
+                  <div key={m.id}>
+                    {showDate && <div className="py-4 text-center"><span className="text-[13px] text-[#8B95A1]">{dateDivider(m.createdAt)}</span></div>}
+                    <div className={`relative flex ${mine ? 'justify-end' : 'justify-start'} ${groupStart && i > 0 ? 'mt-3.5' : 'mt-1'}`}>
+                      {!mine && (groupStart ? (
+                        <span className="mr-2 h-10 w-10 shrink-0 self-start overflow-hidden rounded-full bg-[#F2F3F5]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/images/default-profile.svg" alt="" className="h-full w-full object-cover" />
+                        </span>
+                      ) : (
+                        <span className="mr-2 w-10 shrink-0" aria-hidden="true" />
+                      ))}
+                      <div className={`flex min-w-0 max-w-[78%] items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
+                        <div className="relative min-w-0">
+                          {/* 묶음 첫 줄 위에 보낸 사람 이름(관리자는 두 사람을 다 보므로) */}
+                          {groupStart && <p className={`mb-1 px-1 text-[12px] font-semibold text-[#8B95A1] ${mine ? 'text-right' : ''}`}>{mine ? historyRow.proName : historyRow.userName}</p>}
+                          {m.type === 'image' && m.content && /^(https?:)?\/\/|^\//.test(m.content) ? (
+                            /* 사진 — 앱처럼 말풍선 없이 둥근 사진(누르면 새 창으로 크게) */
+                            <a href={m.content} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-[16px] bg-[#F2F3F5]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={m.content} alt="보낸 사진" loading="lazy" className="block max-h-[280px] max-w-[240px] object-cover" />
+                            </a>
+                          ) : (
+                          <div
+                            className={`max-w-full whitespace-pre-wrap break-words rounded-[20px] text-[16px] leading-[1.4] [overflow-wrap:anywhere] ${
+                              mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#191F28]'
+                            }${tailCorner}`}
+                          >
+                            <div className="px-4 py-[10px]">
+                              {m.type === 'text'
+                                ? m.content
+                                : <span className="font-semibold opacity-90">{MSG_TYPE_LABEL[m.type] || `[${m.type}]`}{m.fileName ? ` ${m.fileName}` : ''}</span>}
+                            </div>
+                          </div>
+                          )}
+                          {tailed && !(m.type === 'image' && m.content) && <BubbleTail mine={mine} color={mine ? '#3180F7' : '#F2F3F5'} />}
+                        </div>
+                        {showTime && <span className="shrink-0 pb-[3px] text-[12px] tabular-nums text-[#8B95A1]">{bubbleTime(m.createdAt)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>,

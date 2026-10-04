@@ -1,20 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import {
-  CheckCircle2,
-  Clock3,
-  CreditCard,
-  Inbox,
-  RefreshCw,
-  ShieldAlert,
-  UserCheck,
-  Wallet,
-  XCircle,
-} from '@/app/(admin)/admin/_components/admin-icons';
-
+import { popItemDelay } from '@/lib/pop-menu';
 import { adminFetch } from './adminFetch';
+import { ADMIN_REFRESH_EVENT, LineRefreshIcon } from './adminRefresh';
+
+/* ════════════════════════════════════════════════════════════════
+ * 운영 이슈 서랍 — 프리티풀 홈 알림창(NotificationDrawer + NotificationsView) 그대로(261004 사장 '홈 알림창 UI 랑 완전 동일하게').
+ *  · 오른쪽 420 서랍 · 딤 25% · 300ms 미끄럼. 위 바 = ‹ 닫기 … 새로고침(홈의 톱니 자리, 라인 아이콘).
+ *  · 큰 제목 '운영 이슈 ⌄' → 종류 거르기(전체·결제·정산·사회자 승인) + 모두 확인. 메뉴는 공통 .pop-menu(작게→정비율, 촤라락).
+ *  · 새 이슈 = 연한 파랑 바탕(이 서랍을 마지막으로 닫은 뒤 생긴 것), 그 아래 '지난 이슈'. 한 줄 = 둥근 아이콘 칸 · 제목 · 본문 · 시간.
+ *  · 등장: 제목 아래→위, 줄은 오른쪽→왼쪽 차례로. 닫으면 지금 보이던 이슈는 '지난 이슈'로.
+ *  · 어드민 셸(.admin-shell)의 옛 글자 덮어쓰기에 안 걸리게 body 로 포털.
+ *  열려 있지 않아도 15초마다 받아 와서 새 이슈 수를 종(빨간 점)에 알린다(onUnseen). Biz 문의는 메뉴에서 빠져(사장) 뺐다.
+ * ════════════════════════════════════════════════════════════════ */
 
 type IssueTone = 'blue' | 'green' | 'amber' | 'red' | 'gray';
 
@@ -39,6 +40,8 @@ type PanelStats = {
 };
 
 const POLL_MS = 15_000;
+const SEEN_KEY = 'admin_issue_seen_v1';
+const UNREAD_BG = '#F2F6FC';
 
 const EMPTY_PANEL_STATS: PanelStats = {
   newInquiries: 0,
@@ -49,41 +52,33 @@ const EMPTY_PANEL_STATS: PanelStats = {
   pendingPros: 0,
 };
 
-const toneClass: Record<IssueTone, { badge: string; icon: string; dot: string }> = {
-  blue: {
-    badge: 'bg-[#F3F8FF] text-[#3180F7]',
-    icon: 'bg-[#F3F8FF] text-[#3180F7]',
-    dot: 'bg-[#3180F7]',
-  },
-  green: {
-    badge: 'bg-emerald-50 text-emerald-600',
-    icon: 'bg-emerald-50 text-emerald-600',
-    dot: 'bg-emerald-500',
-  },
-  amber: {
-    badge: 'bg-amber-50 text-amber-700',
-    icon: 'bg-amber-50 text-amber-700',
-    dot: 'bg-amber-500',
-  },
-  red: {
-    badge: 'bg-red-50 text-red-600',
-    icon: 'bg-red-50 text-red-600',
-    dot: 'bg-red-500',
-  },
-  gray: {
-    badge: 'bg-[#F2F4F6] text-[#6B7684]',
-    icon: 'bg-[#F2F4F6] text-[#6B7684]',
-    dot: 'bg-[#8B95A1]',
-  },
+// 토스 컬러 아이콘(public/icons/toss) — 홈 알림처럼 종류마다 색이 달라 한눈에 갈린다
+const TYPE_ICON: Record<IssueItem['type'], string> = {
+  payment: 'coin',
+  'payment-pending': 'clock',
+  'payment-failed': 'siren',
+  settlement: 'ledger',
+  pro: 'user',
+  inquiry: 'document',
 };
 
-const toneTextClass: Record<IssueTone, string> = {
-  blue: 'text-[#3180F7]',
-  green: 'text-emerald-600',
-  amber: 'text-amber-700',
-  red: 'text-red-600',
-  gray: 'text-[#6B7684]',
-};
+const FILTERS: { k: string; label: string; title: string; icon: string; types: IssueItem['type'][] | null }[] = [
+  { k: 'all', label: '전체', title: '운영 이슈', icon: 'list', types: null },
+  { k: 'pay', label: '결제', title: '결제 이슈', icon: 'coin', types: ['payment', 'payment-pending', 'payment-failed'] },
+  { k: 'settle', label: '정산', title: '정산 대기', icon: 'ledger', types: ['settlement'] },
+  { k: 'pro', label: '사회자 승인', title: '승인 대기', icon: 'user', types: ['pro'] },
+];
+
+const AI_CSS = `
+@keyframes aiFadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes aiSlideIn { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+.ai-a-title { animation: aiFadeUp .5s cubic-bezier(.22,.61,.36,1) both; }
+.ai-a-sub { animation: aiFadeUp .5s cubic-bezier(.22,.61,.36,1) .18s both; }
+.ai-a-item { animation: aiSlideIn .46s cubic-bezier(.22,.61,.36,1) backwards; }
+@keyframes aiSpin { to { transform: rotate(360deg); } }
+.adm-spin { animation: aiSpin .8s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) { .ai-a-title, .ai-a-sub, .ai-a-item { animation: none !important; } }
+`;
 
 function toNumber(value: unknown) {
   const parsed = Number(value || 0);
@@ -98,12 +93,12 @@ function formatMoney(value: unknown) {
   return `₩${toNumber(value).toLocaleString('ko-KR')}`;
 }
 
+/** 목록 데이터용(옛 메타 줄) */
 function relativeTime(value?: string) {
   if (!value) return '방금';
   const time = new Date(value).getTime();
   if (Number.isNaN(time)) return '방금';
-  const diff = Date.now() - time;
-  const min = Math.floor(diff / 60_000);
+  const min = Math.floor((Date.now() - time) / 60_000);
   if (min < 1) return '방금';
   if (min < 60) return `${min}분 전`;
   const hour = Math.floor(min / 60);
@@ -113,24 +108,41 @@ function relativeTime(value?: string) {
   return new Date(value).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
 }
 
+/** 홈 알림과 같은 시간 — 방금 전 · N분 전 · N시간 전 · M월 D일(올해가 아니면 YY년 M월 D일) */
+function relTime(iso?: string): string {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  if (!Number.isFinite(t)) return '';
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour}시간 전`;
+  const [y, m, d] = new Date(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).split('-').map(Number);
+  const thisYear = Number(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 4));
+  return y === thisYear ? `${m}월 ${d}일` : `${String(y).slice(-2)}년 ${m}월 ${d}일`;
+}
+
 function issueTimestamp(issue: IssueItem) {
   const time = issue.createdAt ? new Date(issue.createdAt).getTime() : 0;
   return Number.isNaN(time) ? 0 : time;
 }
 
-function issueIcon(type: IssueItem['type']) {
-  if (type === 'inquiry') return Inbox;
-  if (type === 'payment') return CreditCard;
-  if (type === 'payment-failed') return XCircle;
-  if (type === 'payment-pending') return Clock3;
-  if (type === 'settlement') return Wallet;
-  return UserCheck;
+function readSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+function writeSeen(set: Set<string>) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(set).slice(-400)));
+  } catch {}
 }
 
-/** 운영 이슈 — 어드민 2.0(261004): 오른쪽에 늘 붙어 본문을 좁히던 패널 → 머리의 종 버튼으로 여는 서랍.
- *  열려 있지 않아도 15초마다 받아 와서 종에 '할 일'(정산 대기 + 승인 대기) 수를 띄운다(onCount).
- *  Biz 문의는 메뉴에서 빠져(사장) 여기서도 뺐다. */
-export function AdminIssuePanel({ open, onClose, onCount }: { open: boolean; onClose: () => void; onCount?: (n: number) => void }) {
+export function AdminIssuePanel({ open, onClose, onUnseen }: { open: boolean; onClose: () => void; onUnseen?: (n: number) => void }) {
   const [issues, setIssues] = useState<IssueItem[]>([]);
   const [stats, setStats] = useState<PanelStats>({ ...EMPTY_PANEL_STATS });
   const [loading, setLoading] = useState(true);
@@ -328,102 +340,255 @@ export function AdminIssuePanel({ open, onClose, onCount }: { open: boolean; onC
     return () => window.clearTimeout(timer);
   }, [freshCount]);
 
-  const summary = useMemo(() => [
-    { label: '정산 대기', value: stats.pendingSettlements, tone: 'amber' as IssueTone, href: '/admin/settlements' },
-    { label: '승인 대기', value: stats.pendingPros, tone: 'blue' as IssueTone, href: '/admin/pros' },
-    { label: '결제 확인', value: stats.pendingPayments + stats.failedPayments, tone: 'red' as IssueTone, href: '/admin/payments' },
-    { label: '결제 완료', value: stats.completedPayments, tone: 'green' as IssueTone, href: '/admin/payments' },
-  ], [stats]);
 
-  // 종 버튼 숫자 = 지금 손댈 일
-  useEffect(() => { onCount?.(stats.pendingSettlements + stats.pendingPros); }, [stats.pendingSettlements, stats.pendingPros, onCount]);
-  // Esc 로 닫기
+  // 레이아웃 새로고침(종 옆) — 같이 다시 받는다(화면 새로고침을 가로채지 않게 preventDefault 는 안 한다)
+  useEffect(() => {
+    const on = () => { loadIssues(); };
+    window.addEventListener(ADMIN_REFRESH_EVENT, on);
+    return () => window.removeEventListener(ADMIN_REFRESH_EVENT, on);
+  }, [loadIssues]);
+
+  // 본 이슈 — 서랍을 닫을 때 그때 보이던 것을 '지난 이슈'로
+  const [seen, setSeen] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setSeen(readSeen()); }, []);
+  const markAllSeen = useCallback(() => {
+    setSeen((prev) => {
+      const next = new Set(prev);
+      issuesRef.current.forEach((it) => next.add(it.id));
+      writeSeen(next);
+      return next;
+    });
+  }, []);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) markAllSeen();
+    wasOpen.current = open;
+  }, [open, markAllSeen]);
+  const unseenCount = issues.filter((it) => !seen.has(it.id)).length;
+  useEffect(() => { onUnseen?.(unseenCount); }, [unseenCount, onUnseen]);
+
+  // 서랍 — 열 때마다 새로 그려 등장 애니가 다시 돌고, 닫힐 땐 밀려 나가는 동안(300ms) 내용을 둔다(홈 알림 서랍과 같게)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(open);
+  const [filter, setFilter] = useState('all');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      scrollRef.current?.scrollTo({ top: 0 });
+      return;
+    }
+    setMenuOpen(false);
+    const t = window.setTimeout(() => setMounted(false), 320);
+    return () => window.clearTimeout(t);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const onScroll = () => setScrolled(root.scrollTop > 4);
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
+  }, [mounted]);
 
-  return (
-    <div className={`adm-issue ${open ? 'open' : ''}`} aria-hidden={!open}>
-      <div className="adm-issue-dim" onClick={onClose} />
-      <aside className="adm-issue-panel" role="dialog" aria-modal="true" aria-label="운영 이슈">
-        <div className="adm-issue-head">
-          <div className="min-w-0">
-            <p className="adm-issue-live">
-              <span className="adm-issue-dot" />
-              실시간 이슈
-            </p>
-            <h2 className="adm-issue-title">운영 이슈</h2>
-            <p className="adm-issue-time">
-              {lastUpdated ? `${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 갱신 · 15초마다` : '불러오는 중'}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => loadIssues()} disabled={loading} className="adm-btn icon sm" aria-label="이슈 새로고침">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button type="button" onClick={onClose} className="adm-btn icon sm" aria-label="닫기">
-              <XCircle className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+  const current = FILTERS.find((f) => f.k === filter) || FILTERS[0];
+  const { fresh, past } = useMemo(() => {
+    const visible = issues.filter((it) => !current.types || current.types.includes(it.type));
+    return { fresh: visible.filter((it) => !seen.has(it.id)), past: visible.filter((it) => seen.has(it.id)) };
+  }, [issues, current, seen]);
 
-        <div className="adm-issue-sum">
-          {summary.map((item) => (
-            <Link key={item.label} href={item.href} onClick={onClose} className="adm-issue-tile">
-              <p>{item.label}</p>
-              <b className={toneTextClass[item.tone]}>{item.value.toLocaleString('ko-KR')}</b>
-            </Link>
-          ))}
-        </div>
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  useEffect(() => { setPortalEl(document.body); }, []);
 
-        {freshCount > 0 && <div className="adm-issue-fresh">새 이슈 {freshCount.toLocaleString('ko-KR')}건이 들어왔어요</div>}
+  let order = 0;
+  const renderIssue = (it: IssueItem, unseen: boolean) => {
+    const delay = `${0.3 + Math.min(order++, 12) * 0.06}s`;
+    return (
+      <Link
+        key={it.id}
+        href={it.href}
+        draggable={false}
+        onClick={onClose}
+        className="ai-a-item flex gap-3 px-5 py-3.5 transition-colors hover:brightness-[0.985] active:bg-black/[0.03]"
+        style={{ animationDelay: delay, backgroundColor: unseen ? UNREAD_BG : '#FFFFFF' }}
+      >
+        <span className={`mt-[2px] flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${unseen ? 'bg-white' : 'bg-[#F2F4F6]'}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 SVG, 컬러 그대로 */}
+          <img src={`/icons/toss/${TYPE_ICON[it.type] || 'alarm'}.svg`} alt="" draggable={false} className="h-6 w-6" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-semibold leading-[1.45] text-[#333D4B]">{it.title}</span>
+          {it.description && (
+            <span className={`mt-0.5 line-clamp-3 whitespace-pre-line text-[16px] leading-[1.5] ${unseen ? 'text-[#4E5968]' : 'text-[#6B7684]'}`}>
+              {it.description}
+            </span>
+          )}
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-2 pt-[3px]">
+          <span className="text-[13px] leading-none text-[#B0B8C1]">{relTime(it.createdAt)}</span>
+        </span>
+      </Link>
+    );
+  };
 
-        <div className="adm-issue-list">
-          {error ? (
-            <div className="rounded-[16px] bg-[#FFF5F5] px-4 py-4">
-              <div className="flex items-center gap-2 text-[14px] font-bold text-red-600">
-                <ShieldAlert className="h-4 w-4" />
-                이슈를 불러오지 못했어요
+  const empty = fresh.length === 0 && past.length === 0;
+
+  const drawer = (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: AI_CSS }} />
+      {/* 딤 — 화면이 비쳐 보일 정도로만 */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-[60] bg-black/25 transition-opacity duration-300 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        aria-hidden={!open}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="운영 이슈"
+        aria-hidden={!open}
+        className={`fixed right-0 top-0 z-[61] flex h-full w-[420px] max-w-[92vw] flex-col bg-white shadow-[-12px_0_40px_rgba(15,23,42,0.12)] ease-out ${
+          open
+            ? 'visible translate-x-0 [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s]'
+            : 'invisible translate-x-full [transition:transform_300ms_cubic-bezier(0,0,0.2,1),visibility_0s_linear_300ms]'
+        }`}
+      >
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {mounted && (
+            <div className="min-h-full bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
+              {/* 위 바 — ‹ 닫기 … 새로고침 */}
+              <header className="sticky top-0 z-30 bg-white">
+                <div className="flex h-[52px] items-center justify-between px-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="운영 이슈 닫기"
+                    className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-[#F7F8FA] active:bg-[#F2F4F6]"
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M15 5l-7 7 7 7" stroke="#191F28" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadIssues()}
+                    disabled={loading}
+                    aria-label="이슈 새로고침"
+                    title={lastUpdated ? `${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 갱신 · 15초마다 자동` : '새로고침'}
+                    className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-[#F7F8FA] active:bg-[#F2F4F6]"
+                  >
+                    <LineRefreshIcon spinning={loading} />
+                  </button>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-white to-white/0 transition-opacity duration-300 ${scrolled ? 'opacity-100' : 'opacity-0'}`}
+                />
+              </header>
+
+              {/* 큰 제목 '운영 이슈 ⌄' — 종류 거르기 · 모두 확인 */}
+              <div className="relative px-5 pb-3 pt-1">
+                <h2 className="ai-a-title">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    aria-expanded={menuOpen}
+                    className="flex items-center gap-1.5 rounded-[10px] text-[26px] font-bold tracking-[-0.02em] text-[#191F28] active:opacity-70"
+                  >
+                    {current.title}
+                    <svg
+                      width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                      className="mt-[3px] transition-transform duration-200"
+                      style={{ transform: menuOpen ? 'rotate(180deg)' : 'none' }}
+                    >
+                      <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </h2>
+
+                {menuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                    <div className="pop-menu absolute left-2 top-full z-50 w-max min-w-[184px] overflow-hidden py-2" style={{ transformOrigin: '32px 0', borderRadius: 24 }} role="menu">
+                      {FILTERS.map((f, i) => {
+                        const on = filter === f.k;
+                        return (
+                          <button
+                            key={f.k}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={on}
+                            onClick={() => { setFilter(f.k); setMenuOpen(false); }}
+                            className="pop-menu-item flex w-full items-center gap-3.5 py-[9px] pl-5 pr-7 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F9FAFB]"
+                            style={popItemDelay(i)}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={`/icons/toss/${f.icon}.svg`} alt="" className="h-6 w-6 shrink-0" />
+                            <span className={`text-[17px] leading-[24px] ${on ? 'font-semibold text-[#191F28]' : 'text-[#333D4B]'}`}>{f.label}</span>
+                          </button>
+                        );
+                      })}
+                      <div className="pop-menu-item mx-5 my-1.5 h-px bg-[#F2F4F6]" style={popItemDelay(FILTERS.length)} />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setMenuOpen(false); markAllSeen(); }}
+                        className="pop-menu-item flex w-full items-center gap-3.5 py-[9px] pl-5 pr-7 text-left transition-colors active:bg-[#F2F4F6] lg:hover:bg-[#F9FAFB]"
+                        style={popItemDelay(FILTERS.length + 1)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/icons/toss/check-circle.svg" alt="" className="h-6 w-6 shrink-0" />
+                        <span className="text-[17px] leading-[24px] text-[#333D4B]">모두 확인</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-              <p className="mt-2 text-[13px] leading-5 text-red-500">{error}</p>
-            </div>
-          ) : loading && issues.length === 0 ? (
-            <div className="space-y-2.5">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="adm-skel h-[76px]" />
-              ))}
-            </div>
-          ) : issues.length === 0 ? (
-            <div className="adm-empty">
-              <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
-              <p className="mt-3 text-[15px] font-bold text-[#333D4B]">확인할 이슈가 없어요</p>
-              <p className="mt-1 text-[13px] text-[#8B95A1]">결제·정산 대기·승인 대기가 생기면 여기에 떠요</p>
-            </div>
-          ) : (
-            <div className="adm-rise space-y-2">
-              {issues.map((issue) => {
-                const Icon = issueIcon(issue.type);
-                const tone = toneClass[issue.tone];
-                return (
-                  <Link key={issue.id} href={issue.href} onClick={onClose} className="adm-issue-item">
-                    <span className={`adm-issue-ic ${tone.icon}`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="adm-issue-item-title">{issue.title}</span>
-                      <span className="adm-issue-item-desc">{issue.description}</span>
-                    </span>
-                    <span className="adm-issue-item-meta">{issue.meta}</span>
-                  </Link>
-                );
-              })}
+
+              {error ? (
+                <p className="ai-a-sub px-5 pt-6 text-[15px] text-[#F04452]">이슈를 불러오지 못했어요 · {error}</p>
+              ) : loading && issues.length === 0 ? (
+                <div className="space-y-1 px-5 pt-2">
+                  {Array.from({ length: 4 }).map((_, i) => <div key={i} className="adm-skel h-[64px]" />)}
+                </div>
+              ) : empty ? (
+                <div className="ai-a-sub flex flex-col items-center px-5 pt-24 text-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#F2F4F6]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icons/toss/alarm.svg" alt="" className="h-9 w-9" />
+                  </span>
+                  <p className="mt-4 text-[17px] font-semibold text-[#333D4B]">{filter === 'all' ? '확인할 이슈가 없어요' : `${current.label} 이슈가 없어요`}</p>
+                  <p className="mt-1.5 text-[14px] text-[#8B95A1]">결제·정산 대기·승인 대기가 생기면 여기에서 알려 드릴게요</p>
+                </div>
+              ) : (
+                <>
+                  {/* 새 이슈 — 연한 파랑 바탕 */}
+                  {fresh.length > 0 && <div className="pt-1">{fresh.map((it) => renderIssue(it, true))}</div>}
+                  {past.length > 0 && (
+                    <>
+                      <h3
+                        className={`ai-a-item px-5 pb-1 text-[17px] font-bold text-[#191F28] ${fresh.length > 0 ? 'pt-8' : 'pt-3'}`}
+                        style={{ animationDelay: `${0.3 + Math.min(order++, 12) * 0.06}s` }}
+                      >
+                        지난 이슈
+                      </h3>
+                      <div>{past.map((it) => renderIssue(it, false))}</div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
       </aside>
-    </div>
+    </>
   );
+
+  return portalEl ? createPortal(drawer, portalEl) : null;
 }

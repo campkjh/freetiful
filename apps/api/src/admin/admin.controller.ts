@@ -499,6 +499,12 @@ export class AdminController {
     });
   }
 
+  // 홈 '지출 · 수입' 줄 — 지난달 1일~오늘 날마다 수입(결제 완료)·지출(정산 지급+환불)
+  @Get('money-summary')
+  async getMoneySummary() {
+    return this.adminService.getMoneySummary();
+  }
+
   // 사회자별 응답시간 분석 (상단 그래프)
   @Get('chat-response-stats')
   async getChatResponseStats(@Query('limit') limit?: string) {

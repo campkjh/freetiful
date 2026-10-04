@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronRight, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { AdminTerm } from './_components/AdminHelpTooltip';
 import { adminFetch } from './_components/adminFetch';
+import { LineChevron, useAdminRefresh } from './_components/adminRefresh';
 
 type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
 
@@ -498,7 +498,7 @@ function TodoCard({ items }: { items: Array<{ label: string; value: string; sub?
               {it.sub && <span className="adm-todo-sub">{it.sub}</span>}
             </span>
             <span className={`adm-todo-value ${it.urgent ? it.tone : ''}`}>{it.value}</span>
-            <ChevronRight size={16} className="shrink-0 opacity-40" />
+            <LineChevron />
           </Link>
         ))}
       </div>
@@ -538,11 +538,42 @@ function Funnel({ steps }: { steps: Array<{ label: string; value: number }> }) {
   );
 }
 
-/** 사회자 TOP — 조회 / 매출 바꿔 보기 */
-function TopPros({ viewed, revenue }: { viewed: TopListItem[]; revenue: TopListItem[] }) {
-  const [tab, setTab] = useState<'viewed' | 'revenue'>('revenue');
-  const items = (tab === 'viewed' ? viewed : revenue).slice(0, 5);
+/** 답장 시간 — 초 → '40초' · '3분' · '1시간 20분' */
+function fmtSec(sec: number | null | undefined): string | null {
+  if (sec == null || !Number.isFinite(sec)) return null;
+  if (sec < 60) return `${Math.max(1, Math.round(sec))}초`;
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m}분`;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return mm ? `${h}시간 ${mm}분` : `${h}시간`;
+}
+
+/** 사회자별 답장 속도(최근 7일, 견적 도착 → 답장 통상 시간 median) — 채팅 매칭 '응답 현황'과 같은 값 */
+type RespInfo = { name: string; medianSec: number | null; repliedCount: number; totalRooms: number };
+const GOOD_REPLY_SEC = 300;
+
+function ReplyChip({ r }: { r?: RespInfo }) {
+  if (!r) return null;
+  const t = fmtSec(r.medianSec);
+  if (!t) return <span className="adm-reply none">{r.totalRooms ? '답장 기록 없음' : '요청 없음'}</span>;
+  return <span className={`adm-reply ${(r.medianSec ?? 0) <= GOOD_REPLY_SEC ? 'good' : 'slow'}`}>답장 보통 {t}</span>;
+}
+
+/** 사회자 TOP 5 — 매출 / 조회 / 응답 빠른 순(261004 사장 '얼마 만에 응답하는지도') */
+function TopPros({ viewed, revenue, resp }: { viewed: TopListItem[]; revenue: TopListItem[]; resp: Map<string, RespInfo> | null }) {
+  const [tab, setTab] = useState<'revenue' | 'viewed' | 'reply'>('revenue');
+  const replyTop = useMemo(() => {
+    if (!resp) return [];
+    return Array.from(resp.entries())
+      .filter(([, r]) => r.medianSec != null && r.repliedCount > 0)
+      .sort((a, b) => (a[1].medianSec! - b[1].medianSec!) || (b[1].repliedCount - a[1].repliedCount))
+      .slice(0, 5)
+      .map(([id, r]) => ({ id, name: r.name, value: r.medianSec || 0, count: r.repliedCount }));
+  }, [resp]);
+  const items: TopListItem[] = (tab === 'viewed' ? viewed : tab === 'revenue' ? revenue : replyTop).slice(0, 5);
   const max = Math.max(...items.map((x) => toNumber(x.value)), 1);
+  const fastest = Math.max(1, Math.min(...replyTop.map((x) => x.value || 1)));
   return (
     <div className="adm-card">
       <div className="adm-card-head">
@@ -550,27 +581,37 @@ function TopPros({ viewed, revenue }: { viewed: TopListItem[]; revenue: TopListI
         <div className="adm-seg" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'revenue'} className={tab === 'revenue' ? 'on' : ''} onClick={() => setTab('revenue')}>매출</button>
           <button type="button" role="tab" aria-selected={tab === 'viewed'} className={tab === 'viewed' ? 'on' : ''} onClick={() => setTab('viewed')}>조회</button>
+          <button type="button" role="tab" aria-selected={tab === 'reply'} className={tab === 'reply' ? 'on' : ''} onClick={() => setTab('reply')}>응답</button>
         </div>
       </div>
       {items.length === 0 ? (
-        <p className="adm-empty">아직 데이터가 없어요</p>
+        <p className="adm-empty">{tab === 'reply' && !resp ? '응답 기록을 불러오는 중이에요' : '아직 데이터가 없어요'}</p>
       ) : (
         <div className="adm-top" key={tab}>
-          {items.map((it, i) => (
-            <div key={it.id} className="adm-top-row" style={{ animationDelay: `${i * 0.05}s` }}>
-              <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
-              <span className="min-w-0 flex-1">
-                <span className="adm-top-name">{it.name}</span>
-                <span className="adm-top-bar"><span style={{ width: `${(toNumber(it.value) / max) * 100}%` }} /></span>
-              </span>
-              <span className="adm-top-val">
-                {tab === 'revenue' ? formatMoney(it.value) : `${formatNumber(it.value)}회`}
-                {tab === 'revenue' && it.count ? <small>{formatNumber(it.count)}건</small> : null}
-              </span>
-            </div>
-          ))}
+          {items.map((it, i) => {
+            const r = resp?.get(it.id);
+            const w = tab === 'reply' ? (fastest / Math.max(1, toNumber(it.value))) * 100 : (toNumber(it.value) / max) * 100;
+            return (
+              <div key={it.id} className="adm-top-row" style={{ animationDelay: `${i * 0.05}s` }}>
+                <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="adm-top-name">
+                    {it.name}
+                    {tab !== 'reply' && <ReplyChip r={r} />}
+                  </span>
+                  <span className={`adm-top-bar ${tab === 'reply' ? 'green' : ''}`}><span style={{ width: `${Math.max(4, w)}%` }} /></span>
+                </span>
+                <span className="adm-top-val">
+                  {tab === 'revenue' ? formatMoney(it.value) : tab === 'viewed' ? `${formatNumber(it.value)}회` : `보통 ${fmtSec(toNumber(it.value))}`}
+                  {tab === 'revenue' && it.count ? <small>{formatNumber(it.count)}건</small> : null}
+                  {tab === 'reply' && it.count ? <small>답장 {formatNumber(it.count)}건</small> : null}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
+      <p className="adm-top-foot">답장 시간 = 최근 7일 견적 요청 도착 → 첫 답장까지 걸린 통상 시간</p>
     </div>
   );
 }
@@ -596,7 +637,7 @@ function LandingCard() {
           <h2 className="adm-card-title">랜딩 유입</h2>
           <p className="adm-card-sub">wedding-mc · corporate-mc</p>
         </div>
-        <ChevronRight size={18} className="opacity-40" />
+        <LineChevron size={20} />
       </div>
       <div className="adm-mini-grid">
         {rows.map((r) => (
@@ -607,6 +648,152 @@ function LandingCard() {
         ))}
       </div>
     </Link>
+  );
+}
+
+/* ── 지출 · 수입 줄 — 토스 지출/수입 화면 그대로, 박스 없이(261004 사장 '홈에 이거 넣어줘 UI 그대로 · 섹션 풀어서') ──
+ *  수입 = 결제 완료, 지출 = 사회자 정산 지급 + 환불(서버 money-summary, 지난달 1일 ~ 오늘 KST 날마다).
+ *  '지난달보다 N만원 더(덜) 버는 중' = 이번 달 오늘까지 수입 누적 − 지난달 같은 날까지 누적. 오른쪽 작은 선 = 지난달 누적(회색)
+ *  위에 이번 달 누적(색) + 오늘 점. 아래 = 이번 주 요일·날짜(오늘 칸 강조) + 날마다 순액(수입 − 지출), ⌄ 로 이번 달 달력. */
+type MoneyDay = { date: string; income: number; expense: number };
+type MoneySummary = { today: string; thisMonth: string; lastMonth: string; daily: MoneyDay[] };
+
+const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
+const won = (n: number) => `${Math.round(Math.abs(n)).toLocaleString('ko-KR')}`;
+const signed = (n: number) => (n > 0 ? `+${won(n)}` : n < 0 ? `-${won(n)}` : '0');
+const ymdUTC = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+function MoneySpark({ last, cur, color }: { last: number[]; cur: number[]; color: string }) {
+  const W = 150;
+  const H = 66;
+  const n = Math.max(last.length, cur.length, 2);
+  const max = Math.max(...last, ...cur, 1);
+  const x = (i: number) => 4 + (i / (n - 1)) * (W - 8);
+  const y = (v: number) => H - 6 - (v / max) * (H - 16);
+  const path = (arr: number[]) => arr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const lastPts = path(last);
+  const curPts = path(cur);
+  const ex = cur.length ? x(cur.length - 1) : 0;
+  const ey = cur.length ? y(cur[cur.length - 1]) : 0;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="adm-money-spark" aria-hidden>
+      <defs>
+        <linearGradient id="admMoneyArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#B0B8C1" stopOpacity=".22" />
+          <stop offset="100%" stopColor="#B0B8C1" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {last.length > 1 && <polygon points={`${x(0)},${H} ${lastPts} ${x(last.length - 1)},${H}`} fill="url(#admMoneyArea)" />}
+      {last.length > 1 && <polyline points={lastPts} fill="none" stroke="#D1D6DB" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />}
+      {cur.length > 1 && <polyline points={curPts} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="adm-spark-line" />}
+      {cur.length > 0 && (
+        <>
+          <circle cx={ex} cy={ey} r="12" fill={color} opacity=".18" className="adm-money-halo" />
+          <circle cx={ex} cy={ey} r="5" fill={color} />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function MoneyBlock({ data }: { data: MoneySummary }) {
+  const [open, setOpen] = useState(false);
+  const byDate = useMemo(() => new Map(data.daily.map((d) => [d.date, d])), [data]);
+  const [ty, tm, td] = data.today.split('-').map(Number);
+  const thisDays = data.daily.filter((d) => d.date.startsWith(data.thisMonth));
+  const lastDays = data.daily.filter((d) => d.date.startsWith(data.lastMonth));
+  const income = thisDays.reduce((a, d) => a + d.income, 0);
+  const expense = thisDays.reduce((a, d) => a + d.expense, 0);
+  const cum = (arr: MoneyDay[]) => { let c = 0; return arr.map((d) => (c += d.income)); };
+  const curCum = cum(thisDays);
+  const lastCum = cum(lastDays);
+  const sameDay = Math.min(td, lastCum.length) - 1;
+  const diff = (curCum[curCum.length - 1] || 0) - (sameDay >= 0 ? lastCum[sameDay] : 0);
+  const man = Math.round(Math.abs(diff) / 10000);
+  const up = diff >= 0;
+  const color = up ? '#3182F6' : '#F04452';
+
+  // 이번 주(일~토) — 오늘이 든 주
+  const todayUTC = Date.UTC(ty, tm - 1, td);
+  const weekStart = todayUTC - new Date(todayUTC).getUTCDay() * 86400000;
+  const week = Array.from({ length: 7 }, (_, i) => new Date(weekStart + i * 86400000));
+  // 이번 달 달력(⌄ 펼치면)
+  const firstDow = new Date(Date.UTC(ty, tm - 1, 1)).getUTCDay();
+  const daysIn = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+  const monthCells = Array.from({ length: Math.ceil((firstDow + daysIn) / 7) * 7 }, (_, k) => {
+    const day = k - firstDow + 1;
+    return day >= 1 && day <= daysIn ? new Date(Date.UTC(ty, tm - 1, day)) : null;
+  });
+
+  const Cell = ({ d, showLabel }: { d: Date | null; showLabel?: boolean }) => {
+    if (!d) return <span className="adm-money-cell" />;
+    const key = ymdUTC(d);
+    const row = byDate.get(key);
+    const isToday = key === data.today;
+    const future = key > data.today;
+    const net = row ? row.income - row.expense : 0;
+    return (
+      <span className={`adm-money-cell ${isToday ? 'today' : ''} ${future ? 'future' : ''}`}>
+        <span className="adm-money-day">
+          {showLabel && <span className="adm-money-wd">{WEEK_KO[d.getUTCDay()]}</span>}
+          <span className="adm-money-date">{d.getUTCDate()}</span>
+        </span>
+        <span className={`adm-money-net ${net > 0 ? 'plus' : ''}`}>{!future && row && net !== 0 ? signed(net) : ''}</span>
+      </span>
+    );
+  };
+
+  return (
+    <section className="adm-money" aria-label="이번 달 지출·수입">
+      <div className="adm-money-top">
+        <div className="adm-money-col" title="사회자 정산 지급 + 환불">
+          <p className="adm-money-label">지출</p>
+          <p className="adm-money-value">{expense ? '-' : ''}<CountUp value={expense} />원</p>
+        </div>
+        <div className="adm-money-col" title="결제 완료 금액">
+          <p className="adm-money-label">수입</p>
+          <p className="adm-money-value">{income ? '+' : ''}<CountUp value={income} />원</p>
+        </div>
+      </div>
+      <div className="adm-money-line" />
+      <div className="adm-money-mid">
+        <div className="min-w-0">
+          <p className="adm-money-say">
+            {man === 0 ? (
+              <>지난달과 비슷하게 버는 중</>
+            ) : (
+              <>지난달보다 <b style={{ color }}>{man.toLocaleString('ko-KR')}만원</b> {up ? '더' : '덜'} 버는 중</>
+            )}
+          </p>
+          <Link href="/admin/payments" className="adm-money-link">
+            결제·정산 내역 보기 <LineChevron size={18} color="#8B95A1" />
+          </Link>
+        </div>
+        <MoneySpark last={lastCum} cur={curCum} color={color} />
+      </div>
+
+      {!open ? (
+        <div className="adm-money-week" key="week">
+          {week.map((d) => <Cell key={ymdUTC(d)} d={d} showLabel />)}
+        </div>
+      ) : (
+        <div className="adm-money-month" key="month">
+          <div className="adm-money-week head">
+            {WEEK_KO.map((w) => <span key={w} className="adm-money-cell"><span className="adm-money-wd">{w}</span></span>)}
+          </div>
+          {Array.from({ length: monthCells.length / 7 }, (_, r) => (
+            <div key={r} className="adm-money-week row" style={{ animationDelay: `${r * 0.05}s` }}>
+              {monthCells.slice(r * 7, r * 7 + 7).map((d, i) => <Cell key={d ? ymdUTC(d) : `e${r}-${i}`} d={d} />)}
+            </div>
+          ))}
+        </div>
+      )}
+      <button type="button" className={`adm-money-more ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label={open ? '이번 주만 보기' : '이번 달 달력 보기'} aria-expanded={open}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" stroke="#6B7684" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </section>
   );
 }
 
@@ -638,7 +825,37 @@ export default function AdminDashboardPage() {
     }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  // 사회자별 답장 속도 — TOP 5 에 붙인다(채팅 매칭 응답 현황과 같은 API)
+  const [resp, setResp] = useState<Map<string, RespInfo> | null>(null);
+  const fetchResp = async () => {
+    try {
+      const d: any = await adminFetch('GET', '/api/v1/admin/chat-response-stats?limit=60', undefined, { cache: false });
+      const rows: any[] = Array.isArray(d?.data) ? d.data : [];
+      setResp(new Map(rows.map((r) => [String(r.proProfileId), {
+        name: r.proName || '-',
+        medianSec: r.medianSec ?? null,
+        repliedCount: Number(r.repliedCount ?? r.responded ?? 0),
+        totalRooms: Number(r.totalRooms ?? 0),
+      }])));
+    } catch {
+      setResp(new Map());
+    }
+  };
+
+  // 지출·수입 줄(서버 money-summary) — 실패(옛 서버 등)면 줄을 숨긴다
+  const [money, setMoney] = useState<MoneySummary | null | 'error'>(null);
+  const fetchMoney = async () => {
+    try {
+      const d: any = await adminFetch('GET', '/api/v1/admin/money-summary', undefined, { cache: false });
+      setMoney(Array.isArray(d?.daily) && d?.today ? d : 'error');
+    } catch {
+      setMoney('error');
+    }
+  };
+
+  useEffect(() => { fetchStats(); fetchResp(); fetchMoney(); }, []);
+  // 머리 오른쪽 새로고침(종 옆)
+  useAdminRefresh(() => { fetchStats(true); fetchResp(); fetchMoney(); });
 
   const series = stats?.dailySeries?.length ? stats.dailySeries : createEmptyDailySeries();
   const pick = (k: DailyMetricKey) => series.map((p) => toNumber(p[k]));
@@ -681,25 +898,27 @@ export default function AdminDashboardPage() {
           <h1 className="adm-hello-title">안녕하세요, {authUser?.name || '관리자'}님</h1>
           <p className="adm-hello-sub">오늘의 프리티풀 운영 현황이에요</p>
         </div>
-        <button type="button" onClick={() => fetchStats(true)} disabled={loading} className="adm-btn" aria-label="새로고침">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          새로고침
-        </button>
       </div>
+
+      {money === null ? (
+        <div className="adm-skel h-[300px] rounded-[20px]" />
+      ) : money !== 'error' ? (
+        <MoneyBlock data={money} />
+      ) : null}
 
       {loading && !stats ? (
         <div className="adm-grid grid-cols-2 xl:grid-cols-4">
           {[0, 1, 2, 3].map((i) => <div key={i} className="adm-skel h-[150px] rounded-[20px]" />)}
         </div>
       ) : stats && (
-        <div className="adm-stack adm-rise">
+        <>
           {stats.degraded && (
             <p className="adm-note">통계 서버 응답이 없어 목록 데이터로 대신 계산했어요(일부 숫자는 0 으로 보일 수 있어요)</p>
           )}
-          <div className="adm-grid adm-rise grid-cols-2 xl:grid-cols-4">
+          <div className="adm-grid grid-cols-2 xl:grid-cols-4">
             <Kpi label="오늘 매출" value={toNumber(stats.revenue?.today)} money sub={<>7일 {formatMoney(stats.revenue?.last7d)}</>} series={pick('revenue')} color="#3182F6" href="/admin/payments" />
             <Kpi label="오늘 신규 가입" value={toNumber(stats.newUsersToday)} suffix="명" sub={<>7일 {formatNumber(stats.newUsers7d)}명</>} series={pick('users')} color="#03B26C" href="/admin/users" />
-            <Kpi label="이번 달 매출" value={toNumber(stats.revenue?.thisMonth ?? stats.thisMonthRevenue)} money sub={<>누적 {formatMoney(stats.revenue?.total ?? stats.totalRevenue)}</>} series={pick('payments')} color="#7B4DFF" />
+            <Kpi label="누적 매출" value={toNumber(stats.revenue?.total ?? stats.totalRevenue)} money sub={<>결제 완료 {formatNumber(stats.payments?.completed)}건</>} series={pick('payments')} color="#7B4DFF" href="/admin/payments" />
             <Kpi label="정산 대기" value={toNumber(stats.settlements?.pending)} suffix="건" sub={<>보낼 금액 {formatMoney(stats.settlements?.pendingAmount)}</>} color="#F46A00" href="/admin/settlements" />
           </div>
 
@@ -711,11 +930,11 @@ export default function AdminDashboardPage() {
           <div className="adm-grid adm-home-row2">
             <Funnel steps={funnel} />
             <div className="adm-stack">
-              <TopPros viewed={stats.topLists?.viewedPros || []} revenue={stats.topLists?.revenuePros || []} />
+              <TopPros viewed={stats.topLists?.viewedPros || []} revenue={stats.topLists?.revenuePros || []} resp={resp} />
               <LandingCard />
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

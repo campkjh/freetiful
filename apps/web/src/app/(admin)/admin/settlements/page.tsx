@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
+import { Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -9,6 +9,7 @@ import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface SettlementLogItem {
   id: string;
@@ -204,6 +205,9 @@ export default function AdminSettlementsPage() {
     }
   }
 
+  // 머리 오른쪽 새로고침(종 옆)
+  useAdminRefresh(() => fetchList(1, filter, dateRange));
+
   return (
     <div className="adm-stack">
       {/* 요약 — 제목은 레이아웃 머리(정산 내역) */}
@@ -237,9 +241,6 @@ export default function AdminSettlementsPage() {
         <span className="grow" />
         <span className="adm-count">총 <b>{meta.total.toLocaleString()}</b>건</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
-        <button type="button" onClick={() => fetchList(1, filter, dateRange)} className="adm-btn icon" aria-label="새로고침">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
       </div>
 
       <AdminDateFilter

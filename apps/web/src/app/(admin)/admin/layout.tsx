@@ -5,8 +5,10 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
-import { adminFetch } from './_components/adminFetch';
+import { adminFetch, clearAdminFetchCache } from './_components/adminFetch';
+import { ADMIN_REFRESH_EVENT, LineRefreshIcon } from './_components/adminRefresh';
 
 const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
@@ -176,9 +178,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasAdminKey, setHasAdminKey] = useState(false);
   const [navBadge, setNavBadge] = useState<{ todayUsers: number; pendingPros: number }>({ todayUsers: 0, pendingPros: 0 });
-  // 운영 이슈 서랍(종 버튼) — 숫자 = 정산 대기 + 승인 대기
+  // 운영 이슈 서랍(종) — 빨간 점 = 서랍을 마지막으로 닫은 뒤 새로 생긴 이슈
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueCount, setIssueCount] = useState(0);
+  // 새로고침(종 옆) — 화면이 받으면(useAdminRefresh) 지금 거르기 그대로 다시 받고, 아무도 안 받으면 본문을 새로 띄운다
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [spinning, setSpinning] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -276,6 +281,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   const closeIssues = useCallback(() => setIssueOpen(false), []);
+  const doRefresh = useCallback(() => {
+    clearAdminFetchCache();
+    setSpinning(true);
+    window.setTimeout(() => setSpinning(false), 800);
+    const handled = !window.dispatchEvent(new Event(ADMIN_REFRESH_EVENT, { cancelable: true }));
+    if (!handled) setRefreshKey((k) => k + 1);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -297,11 +309,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const bell = (
-    <button type="button" onClick={() => setIssueOpen(true)} className="adm-bell" aria-label={`운영 이슈${issueCount ? ` ${issueCount}건` : ''}`}>
-      <NavIcon name="bell-ring" />
-      {issueCount > 0 && <span className="adm-bell-n">{issueCount > 99 ? '99+' : issueCount}</span>}
-    </button>
+  // 오른쪽 위 = 홈 헤더처럼 박스 없는 라인 아이콘 두 칸(새로고침 · 종) 나란히(261004 사장)
+  const utilIcons = (
+    <>
+      <button type="button" onClick={doRefresh} className="adm-ubtn" aria-label="새로고침" title="새로고침">
+        <LineRefreshIcon spinning={spinning} />
+      </button>
+      <button type="button" onClick={() => setIssueOpen(true)} className="adm-ubtn adm-ubtn-bell" aria-label={`운영 이슈${issueCount ? ` 새 이슈 ${issueCount}건` : ''}`} title="운영 이슈">
+        <HeaderBellIcon dot={issueCount > 0} size={44} />
+      </button>
+    </>
   );
 
   const brand = (
@@ -349,8 +366,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* 모바일 머리 — 로고 + 메뉴 */}
         <header className="adm-mtop">
           {brand}
-          <div className="flex items-center gap-1">
-            {bell}
+          <div className="flex items-center">
+            {utilIcons}
             <button type="button" onClick={() => setMobileOpen(true)} className="adm-mtop-btn" aria-label="관리자 메뉴 열기">
               <NavIcon name="menu" />
             </button>
@@ -360,7 +377,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex min-h-0 flex-1">
           <main ref={mainRef} className="admin-main adm-main">
             <div className={`adm-frame ${head.home ? 'home' : ''}`}>
-              <div className="adm-util">{bell}</div>
+              <div className="adm-util">{utilIcons}</div>
               {!head.home && (
                 <div className="adm-head">
                   {/* 제목은 바뀔 때만 다시 올라오고, 탭은 남아서 고른 바탕이 미끄러진다 */}
@@ -371,10 +388,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {head.tabs && <HeadTabs key={head.tabs[0].href} tabs={head.tabs} pathname={pathname} />}
                 </div>
               )}
-              <div className="admin-page-frame adm-content" key={pathname}>{children}</div>
+              <div className="admin-page-frame adm-content" key={`${pathname}#${refreshKey}`}>{children}</div>
             </div>
           </main>
-          <AdminIssuePanel open={issueOpen} onClose={closeIssues} onCount={setIssueCount} />
+          <AdminIssuePanel open={issueOpen} onClose={closeIssues} onUnseen={setIssueCount} />
         </div>
       </div>
 
