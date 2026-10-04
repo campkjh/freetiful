@@ -744,7 +744,7 @@ function MoneyBlock({ data }: { data: MoneySummary }) {
   };
 
   return (
-    <section className="adm-money" aria-label="이번 달 지출·수입">
+    <section className="adm-moneyblock" aria-label="이번 달 지출·수입">
       <div className="adm-money-top">
         <div className="adm-money-col" title="사회자 정산 지급 + 환불">
           <p className="adm-money-label">지출</p>

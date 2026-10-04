@@ -165,32 +165,43 @@ export default function AdminProsPage() {
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 사회자 탭) */}
-      <div className="adm-toolbar">
-        <label className="adm-search grow">
-          <Search size={17} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
-            placeholder="사회자 이름 검색 (Enter)"
-            className="adm-input"
-          />
-        </label>
-        <div className="adm-chips">
-          {STATUS_FILTERS.map(([st, label]) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
-              className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <label className="adm-search grow">
+            <Search size={17} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
+              placeholder="사회자 이름 검색 (Enter)"
+              className="adm-input"
+            />
+          </label>
+          <div className="adm-chips">
+            {STATUS_FILTERS.map(([st, label]) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
+                className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
+          <AdminExportButton loading={exporting} onClick={handleExport} />
         </div>
-        <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
-        <AdminExportButton loading={exporting} onClick={handleExport} />
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchPros(1, search, filterStatus, range);
+          }}
+        />
       </div>
 
       {lastError && (
@@ -218,15 +229,6 @@ export default function AdminProsPage() {
           </div>
         </div>
       )}
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchPros(1, search, filterStatus, range);
-        }}
-      />
 
       {/* Table */}
       <div className="admin-list-card">

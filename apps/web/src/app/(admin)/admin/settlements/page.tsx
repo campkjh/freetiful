@@ -10,6 +10,7 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminEventCell, AdminPartyCell, formatPhone, type AdminEvent } from '../_components/adminEvent';
 
 interface SettlementLogItem {
   id: string;
@@ -32,7 +33,7 @@ interface SettlementLogItem {
     customerPhone?: string | null;
     quotations: { title: string; eventDate: string | null }[];
     /** 어떤 행사였는지 — 견적 일시·장소 우선, 없으면 매칭 요청에서(서버 계산, 261004) */
-    event?: { title: string | null; kind: string | null; date: string | null; time: string | null; location: string | null };
+    event?: AdminEvent;
   };
   settledBy: { id: string; name: string } | null;
 }
@@ -54,35 +55,17 @@ const STATUS_COLORS: Record<string, string> = {
   settled: 'green',
   cancelled: '',
 };
-const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-/** 행사 일시 — '10.14 (수) 13:30' (연도가 올해가 아니면 앞에 붙인다) */
-function formatEventWhen(date?: string | null, time?: string | null): string {
-  if (!date) return time || '';
-  const [y, m, d] = date.split('-').map(Number);
-  const wd = WEEK[new Date(y, m - 1, d).getDay()];
-  const head = y !== new Date().getFullYear() ? `${y}.` : '';
-  return `${head}${m}.${d} (${wd})${time ? ` ${time}` : ''}`;
-}
 /** 행사 정보 — 새 서버는 event 를 주고, 옛 서버면 견적 제목·날짜로 */
-function eventOf(it: SettlementLogItem) {
+function eventOf(it: SettlementLogItem): AdminEvent {
   const q = it.payment?.quotations?.[0];
   const e = it.payment?.event;
   return {
-    title: e?.title || q?.title || '',
-    kind: e?.kind || '',
+    title: e?.title || q?.title || null,
+    kind: e?.kind || null,
     date: e?.date || (q?.eventDate ? String(q.eventDate).slice(0, 10) : null),
     time: e?.time || null,
-    location: e?.location || '',
+    location: e?.location || null,
   };
-}
-
-/** 저장은 숫자만(01012345678) — 보기 좋게 하이픈을 넣어 표시 */
-function formatPhone(raw?: string | null): string {
-  const d = String(raw ?? '').replace(/[^0-9]/g, '');
-  if (!d) return '';
-  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
-  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
-  return String(raw ?? '');
 }
 
 function formatDate(iso: string | null): string {
@@ -230,27 +213,29 @@ export default function AdminSettlementsPage() {
         </div>
       </div>
 
-      <div className="adm-toolbar">
-        <div className="adm-chips">
-          {(['pending', 'all', 'settled'] as const).map((f) => (
-            <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
-              {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
-            </button>
-          ))}
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <div className="adm-chips">
+            {(['pending', 'all', 'settled'] as const).map((f) => (
+              <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
+                {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
+              </button>
+            ))}
+          </div>
+          <span className="grow" />
+          <span className="adm-count">총 <b>{meta.total.toLocaleString()}</b>건</span>
+          <AdminExportButton loading={exporting} onClick={handleExport} />
         </div>
-        <span className="grow" />
-        <span className="adm-count">총 <b>{meta.total.toLocaleString()}</b>건</span>
-        <AdminExportButton loading={exporting} onClick={handleExport} />
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchList(1, filter, range);
+          }}
+        />
       </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchList(1, filter, range);
-        }}
-      />
 
       {lastError && <AdminErrorPanel error={lastError} />}
 
@@ -276,35 +261,12 @@ export default function AdminSettlementsPage() {
               ) : items.length === 0 ? (
                 <tr><td colSpan={6} className="adm-empty">정산 내역이 없어요</td></tr>
               ) : items.map((it) => {
-                const ev = eventOf(it);
-                const phone = it.payment.customerPhone || it.payment.user?.phone;
-                const when = formatEventWhen(ev.date, ev.time);
                 return (
                   <tr key={it.id}>
                     <td>
-                      <span className="adm-cell-main">{it.proProfile?.user?.name || '—'}</span>
-                      <span className="adm-cell-sub">
-                        고객 {it.payment.user?.name || '—'}
-                        {phone && (
-                          <>
-                            {' · '}
-                            <a href={`tel:${phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">{formatPhone(phone)}</a>
-                          </>
-                        )}
-                      </span>
+                      <AdminPartyCell pro={it.proProfile?.user?.name} customer={it.payment.user?.name} phone={it.payment.customerPhone || it.payment.user?.phone} />
                     </td>
-                    <td className="adm-ev">
-                      <span className="adm-ev-head">
-                        {ev.kind && <span className="adm-badge blue">{ev.kind}</span>}
-                        <span className="adm-ev-title">{ev.title || '행사 정보 없음'}</span>
-                      </span>
-                      {(when || ev.location) && (
-                        <span className="adm-ev-meta">
-                          {when && <span className="adm-ev-when">{when}</span>}
-                          {ev.location && <span className="adm-ev-where">{ev.location}</span>}
-                        </span>
-                      )}
-                    </td>
+                    <td className="adm-ev"><AdminEventCell ev={eventOf(it)} /></td>
                     <td className="r">
                       <span className="adm-money">₩{it.amount.toLocaleString()}</span>
                       <span className="adm-cell-sub">수수료 ₩{(it.platformFee || 0).toLocaleString()}</span>

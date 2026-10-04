@@ -9,19 +9,49 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import {
+  AdminEventCell,
+  AdminPartyCell,
+  daysBetween,
+  formatKstDateTime,
+  formatPhone,
+  formatYmd,
+  kstToday,
+  kstYmd,
+  type AdminEvent,
+} from '../_components/adminEvent';
+
+/** 환불 가능 기간 — 서버가 cancelPayment 와 같은 함수(refund-policy.ts)로 계산해 준다(완료 결제만) */
+type RefundVerdict =
+  | { ok: true; day: number; rate: 100 | 50; until: string }
+  | { ok: false; day: number; reason: 'event_within_7' | 'expired' };
 
 interface PaymentItem {
   id: string;
   amount: number;
   status: string;
-  userName: string;
-  proName: string;
+  method?: string | null;
+  userName: string | null;
+  proName: string | null;
+  /** 결제 시 입력받은 연락처 우선, 없으면 계정 번호 */
+  customerPhone?: string | null;
   createdAt: string;
+  /** 입금일(환불 규정 기준일) — 가상계좌는 입금 확인 시각 */
+  paidAt?: string;
+  /** 입금일로부터 며칠 지났나(0 = 오늘, KST) */
+  elapsedDays?: number;
+  event?: AdminEvent;
+  refund?: RefundVerdict | null;
+  refundAmount?: number | null;
+  refundReason?: string | null;
+  refundedAt?: string | null;
+  settlement?: { status: 'pending' | 'settled' | 'cancelled'; settledAt: string | null } | null;
 }
 
 /** 상태 뱃지 색(adm-badge) */
 const statusColors: Record<string, string> = {
   completed: 'green',
+  waiting_for_deposit: 'orange',
   pending: 'orange',
   failed: 'red',
   refunded: '',
@@ -31,10 +61,40 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   completed: '완료',
+  waiting_for_deposit: '입금 대기',
   pending: '대기',
   failed: '실패',
   refunded: '환불',
+  escrowed: '보관',
+  settled: '정산됨',
 };
+
+const SETTLE_LABELS: Record<string, string> = { pending: '정산 대기', settled: '정산 완료', cancelled: '정산 취소' };
+const BLOCK_LABELS: Record<string, string> = { expired: '입금 7일 지남', event_within_7: '행사가 입금 7일 이내' };
+
+const paidAtOf = (p: PaymentItem) => p.paidAt || p.createdAt;
+/** 입금일로부터 며칠 지났나 — 옛 서버면 결제 시각으로 계산 */
+const elapsedOf = (p: PaymentItem) => p.elapsedDays ?? daysBetween(kstYmd(paidAtOf(p)), kstToday());
+const elapsedLabel = (n: number) => (n <= 0 ? '오늘' : `${n}일 지남`);
+
+/** 환불 — 지금 고객이 취소하면 몇 %, 언제까지 / 이미 환불된 건 얼마·언제·왜 */
+function refundText(p: PaymentItem): { badge: string; tone: string; sub: string } | null {
+  if (p.status === 'refunded') {
+    const amt = p.refundAmount ?? p.amount;
+    const rate = p.amount ? Math.round((amt / p.amount) * 100) : 0;
+    const when = p.refundedAt ? ` · ${formatYmd(kstYmd(p.refundedAt))}` : '';
+    return { badge: '환불 완료', tone: '', sub: `₩${amt.toLocaleString()}${rate && rate !== 100 ? ` (${rate}%)` : ''}${when}` };
+  }
+  const r = p.refund;
+  if (!r) return null;
+  if ('reason' in r) return { badge: '환불 불가', tone: '', sub: BLOCK_LABELS[r.reason] || '' };
+  const left = daysBetween(kstToday(), r.until);
+  return {
+    badge: r.rate === 100 ? '전액 환불 가능' : '50% 환불 가능',
+    tone: r.rate === 100 ? 'green' : 'orange',
+    sub: left <= 0 ? '오늘까지' : `${formatYmd(r.until)}까지 · ${left}일 남음`,
+  };
+}
 
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
@@ -88,14 +148,26 @@ export default function AdminPaymentsPage() {
         },
       });
 
-      exportRowsToXls('admin-payments', '결제 관리', rows, [
+      exportRowsToXls('admin-payments', '결제 조회', rows, [
         { header: '순번', value: (_, index) => index + 1 },
         { header: '결제ID', value: (row) => row.id },
-        { header: '유저', value: (row) => row.userName || '' },
         { header: '사회자', value: (row) => row.proName || '' },
+        { header: '고객', value: (row) => row.userName || '' },
+        { header: '고객연락처', value: (row) => formatPhone(row.customerPhone) },
+        { header: '행사', value: (row) => row.event?.title || '' },
+        { header: '행사 종류', value: (row) => row.event?.kind || '' },
+        { header: '행사일', value: (row) => formatExportDate(row.event?.date) },
+        { header: '행사 시간', value: (row) => row.event?.time || '' },
+        { header: '행사 장소', value: (row) => row.event?.location || '' },
         { header: '금액', value: (row) => row.amount },
+        { header: '결제 수단', value: (row) => row.method || '' },
         { header: '상태', value: (row) => statusLabels[row.status] || row.status },
-        { header: '결제일', value: (row) => formatExportDate(row.createdAt, true) },
+        { header: '결제일', value: (row) => formatExportDate(paidAtOf(row), true) },
+        { header: '경과일', value: (row) => elapsedOf(row) },
+        { header: '환불', value: (row) => refundText(row)?.badge || '' },
+        { header: '환불 기한·내역', value: (row) => refundText(row)?.sub || '' },
+        { header: '환불 사유', value: (row) => row.refundReason || '' },
+        { header: '정산', value: (row) => (row.settlement ? SETTLE_LABELS[row.settlement.status] || row.settlement.status : '') },
       ]);
       toast.success(`${rows.length.toLocaleString()}건 엑셀 다운로드 완료`);
     } catch (e: any) {
@@ -114,26 +186,25 @@ export default function AdminPaymentsPage() {
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(결제 조회) */}
-      <div className="adm-toolbar">
-        <div className="adm-chips">
-          {['전체', 'completed', 'pending', 'failed', 'refunded'].map((st) => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
-              className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
-            >
-              {st === '전체' ? '전체' : statusLabels[st] || st}
-            </button>
-          ))}
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <div className="adm-chips">
+            {['전체', 'completed', 'waiting_for_deposit', 'pending', 'failed', 'refunded'].map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
+                className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
+              >
+                {st === '전체' ? '전체' : statusLabels[st] || st}
+              </button>
+            ))}
+          </div>
+          <span className="grow" />
+          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건 · <b>₩{visibleAmount.toLocaleString()}</b></span>
+          <AdminExportButton loading={exporting} onClick={handleExport} />
         </div>
-        <span className="grow" />
-        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건 · <b>₩{visibleAmount.toLocaleString()}</b></span>
-        <AdminExportButton loading={exporting} onClick={handleExport} />
-      </div>
-
-        <AdminErrorPanel error={lastError} label="결제" />
-
         <AdminDateFilter
           value={dateRange}
           onApply={(range) => {
@@ -142,68 +213,89 @@ export default function AdminPaymentsPage() {
             fetchPayments(1, filterStatus, range);
           }}
         />
+      </div>
 
-        <div className="admin-list-card">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3">고객 → 사회자</th>
-                  <th className="text-right px-4 py-3">금액</th>
-                  <th className="text-center px-4 py-3"><AdminTerm term="상태">상태</AdminTerm></th>
-                  <th className="text-center px-4 py-3">결제일</th>
-                  <th className="text-right px-4 py-3"><AdminTerm term="결제ID">결제 ID</AdminTerm></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={5} className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="skeleton h-3 w-24" />
-                          <div className="skeleton h-3 w-32" />
-                          <div className="skeleton h-3 w-32" />
-                          <div className="ml-auto skeleton h-8 w-24" />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : payments.length === 0 ? (
-                  <tr><td colSpan={5} className="adm-empty">결제 내역이 없어요</td></tr>
-                ) : payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="adm-cell-main">{payment.userName || '-'}</span>
-                      <span className="adm-cell-sub">→ {payment.proName || '-'}</span>
+      <AdminErrorPanel error={lastError} label="결제" />
+
+      {/* 목록 — 정산 내역과 같은 칸(누가 · 어떤 행사를 언제 어디서) + 결제 며칠째 · 지금 환불되나(261004 사장) */}
+      <div className="adm-card flush">
+        <div className="overflow-x-auto">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>사회자 · 고객</th>
+                <th>행사</th>
+                <th className="r">결제 금액</th>
+                <th>결제일</th>
+                <th>환불</th>
+                <th className="c"><AdminTerm term="상태">상태</AdminTerm></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}><td colSpan={6}><div className="adm-skel h-[44px]" /></td></tr>
+                ))
+              ) : payments.length === 0 ? (
+                <tr><td colSpan={6} className="adm-empty">결제 내역이 없어요</td></tr>
+              ) : payments.map((payment) => {
+                const refund = refundText(payment);
+                return (
+                  <tr key={payment.id}>
+                    <td>
+                      <AdminPartyCell pro={payment.proName} customer={payment.userName} phone={payment.customerPhone} />
                     </td>
-                    <td className="px-4 py-3 text-right"><b className="adm-money text-[16px] text-[#191F28]">₩{Number(payment.amount).toLocaleString()}</b></td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="adm-ev">
+                      {payment.event ? <AdminEventCell ev={payment.event} /> : <span className="text-[#D1D6DB]">—</span>}
+                    </td>
+                    <td className="r">
+                      <b className="adm-money text-[16px] text-[#191F28]">₩{Number(payment.amount).toLocaleString()}</b>
+                      {payment.method && <span className="adm-cell-sub">{payment.method}</span>}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      <span className="adm-cell-main adm-paid-at">{formatKstDateTime(paidAtOf(payment))}</span>
+                      <span className="adm-cell-sub">{elapsedLabel(elapsedOf(payment))}</span>
+                    </td>
+                    <td className="adm-refund" title={payment.refundReason ? `환불 사유: ${payment.refundReason}` : undefined}>
+                      {refund ? (
+                        <>
+                          <span className={`adm-badge ${refund.tone}`}>{refund.badge}</span>
+                          {refund.sub && <span className="adm-cell-sub">{refund.sub}</span>}
+                          {payment.status === 'refunded' && payment.refundReason && <span className="adm-cell-sub">{payment.refundReason}</span>}
+                        </>
+                      ) : (
+                        <span className="text-[#D1D6DB]">—</span>
+                      )}
+                    </td>
+                    <td className="c" title={`결제 ID ${payment.id}`}>
                       <span className={`adm-badge ${statusColors[payment.status] || ''}`}>
                         {statusLabels[payment.status] || payment.status}
                       </span>
+                      {payment.settlement && payment.status !== 'refunded' && (
+                        <span className="adm-cell-sub">{SETTLE_LABELS[payment.settlement.status] || payment.settlement.status}</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap text-[13px] text-[#8B95A1]">
-                      {new Date(payment.createdAt).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' })}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[12px] text-[#B0B8C1]">{payment.id.slice(0, 8)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <AdminInfiniteScroll
-            hasMore={hasMore}
-            loading={loadingMore}
-            loaded={payments.length}
-            total={total}
-            onLoadMore={() => {
-              if (!hasMore || loading || loadingMore) return;
-              fetchPayments(page + 1, filterStatus, dateRange, true);
-            }}
-          />
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+        <p className="adm-table-foot">
+          환불 = 플랫폼 환불 규정 제1조 · 입금일(당일 포함) 4일 이내 전액 · 5~7일 50% · 그 뒤엔 불가 · 행사일이 입금 7일 이내면 불가 · 사전미팅을 했으면 불가(시스템은 모름)
+        </p>
+      </div>
+
+      <AdminInfiniteScroll
+        hasMore={hasMore}
+        loading={loadingMore}
+        loaded={payments.length}
+        total={total}
+        onLoadMore={() => {
+          if (!hasMore || loading || loadingMore) return;
+          fetchPayments(page + 1, filterStatus, dateRange, true);
+        }}
+      />
     </div>
   );
 }

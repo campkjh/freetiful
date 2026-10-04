@@ -11,6 +11,7 @@ import { NotificationService } from '../notification/notification.service';
 import { ChatService } from '../chat/chat.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { MessageTypeEnum } from '../chat/dto/chat.dto';
+import { REFUND_BLOCK_MESSAGE, paymentPaidAt, refundVerdict } from './refund-policy';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -679,23 +680,16 @@ export class PaymentService {
     }
 
     // 환불 = 「플랫폼 환불 규정」 제1조(260928 기준 통일 — 예전엔 행사일 D-day 14/7/1일 기준이라 결제 몇 달 뒤에도 전액 환불됐다).
-    //  · 입금일(결제 완료일, 예약 당일 포함) 기준: 4일 이내 100% · 5~7일 이내 50% · 7일 경과 환불 불가
-    //  · 서비스 공급일(행사일)이 입금일로부터 7일 이내(예약 당일 포함)면 환불 불가 · 사전미팅 뒤 불가(시스템이 모름 → 고객센터)
-    //  · 입금일 = 결제 완료 시각. 가상계좌는 입금 확인 때 completed 로 바뀐 시각(updatedAt), 그 밖에는 결제를 만든 시각.
+    //  규칙 본문은 refund-policy.ts 한 곳(어드민 결제 조회의 '환불 가능 기간' 표시도 같은 함수를 쓴다).
     //  · 사회자 귀책 보상·고객 사정 위약금(규정 제2·3조)은 고객센터가 규정대로 처리한다.
     const quotation = (payment as any).quotations?.[0];
     const eventDate = quotation?.eventDate ? new Date(quotation.eventDate) : null;
     const amount = Number(payment.amount);
-    const paidAt = payment.method === '가상계좌' ? payment.updatedAt : payment.createdAt;
-    const kstDay = (d: Date) => Math.floor((d.getTime() + 9 * 60 * 60 * 1000) / (24 * 60 * 60 * 1000));
-    const dayOfPayment = kstDay(new Date()) - kstDay(paidAt) + 1; // 예약 당일 = 1일째
-    if (eventDate && kstDay(eventDate) - kstDay(paidAt) + 1 <= 7) {
-      throw new BadRequestException('행사일이 입금일로부터 7일 이내인 예약은 환불 규정에 따라 예약금 환불이 어려워요. 고객센터로 문의해 주세요.');
+    const verdict = refundVerdict(paymentPaidAt(payment), eventDate);
+    if (!verdict.ok) {
+      throw new BadRequestException(REFUND_BLOCK_MESSAGE[verdict.reason]);
     }
-    if (dayOfPayment > 7) {
-      throw new BadRequestException('입금일로부터 7일이 지나 환불 규정에 따라 예약금 환불이 어려워요. 고객센터로 문의해 주세요.');
-    }
-    const refundRate = dayOfPayment <= 4 ? 100 : 50;
+    const refundRate = verdict.rate;
     const refundAmount = refundRate === 100 ? amount : Math.round(amount * 0.5);
 
     // 토스 결제 취소 API (부분 환불 지원)

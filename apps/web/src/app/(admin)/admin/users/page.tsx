@@ -299,32 +299,43 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다 */}
-      <div className="adm-toolbar">
-        <label className="adm-search grow">
-          <Search size={17} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
-            placeholder="이름 또는 이메일 검색 (Enter)"
-            className="adm-input"
-          />
-        </label>
-        <div className="adm-chips">
-          {ROLE_FILTERS.map(([r, label]) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r, dateRange); }}
-              className={`adm-chip ${filterRole === r ? 'on' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <label className="adm-search grow">
+            <Search size={17} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
+              placeholder="이름 또는 이메일 검색 (Enter)"
+              className="adm-input"
+            />
+          </label>
+          <div className="adm-chips">
+            {ROLE_FILTERS.map(([r, label]) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r, dateRange); }}
+                className={`adm-chip ${filterRole === r ? 'on' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
+          <AdminExportButton loading={exporting} onClick={handleExport} />
         </div>
-        <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
-        <AdminExportButton loading={exporting} onClick={handleExport} />
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => {
+            setDateRange(range);
+            setPage(1);
+            fetchUsers(1, search, filterRole, range);
+          }}
+        />
       </div>
 
         <AdminErrorPanel error={lastError} label="유저 목록" />
@@ -420,15 +431,6 @@ export default function AdminUsersPage() {
             </div>
           )}
         </div>
-
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchUsers(1, search, filterRole, range);
-          }}
-        />
 
         {selectedMap.size > 0 && (
           <div className="adm-selbar">

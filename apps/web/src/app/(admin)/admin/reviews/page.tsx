@@ -226,16 +226,16 @@ export default function AdminReviewsPage() {
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(리뷰 관리) */}
-      <div className="adm-toolbar">
-        <button type="button" onClick={() => setFormOpen((v) => !v)} className={`adm-btn ${formOpen ? 'weak' : 'primary'}`} aria-expanded={formOpen}>
-          <Plus size={15} /> {formOpen ? '등록 칸 닫기' : '리뷰 직접 등록'}
-        </button>
-        <span className="grow" />
-        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-        <AdminExportButton loading={exporting} onClick={handleExport} />
-      </div>
-
-        <AdminErrorPanel error={lastError} label="리뷰" />
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <button type="button" onClick={() => setFormOpen((v) => !v)} className={`adm-btn ${formOpen ? 'weak' : 'primary'}`} aria-expanded={formOpen}>
+            <Plus size={15} /> {formOpen ? '등록 칸 닫기' : '리뷰 직접 등록'}
+          </button>
+          <span className="grow" />
+          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
+          <AdminExportButton loading={exporting} onClick={handleExport} />
+        </div>
         <AdminDateFilter
           value={dateRange}
           onApply={(range) => {
@@ -244,6 +244,9 @@ export default function AdminReviewsPage() {
             fetchReviews(1, range);
           }}
         />
+      </div>
+
+        <AdminErrorPanel error={lastError} label="리뷰" />
         {formOpen && (
         <div className="adm-card adm-form">
           <div className="adm-card-head">

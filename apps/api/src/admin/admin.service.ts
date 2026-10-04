@@ -15,6 +15,8 @@ import {
   withBusinessVisibilityMarker,
 } from '../business/business-tags';
 import { Decimal } from '@prisma/client/runtime/library';
+import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
+import { kstDay, paymentPaidAt, refundVerdict } from '../payment/refund-policy';
 import { randomUUID } from 'crypto';
 
 const REFERRAL_EVENT_CAMPAIGN_KEY = 'friend-invite-cash-2026';
@@ -2242,6 +2244,11 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          // 어떤 행사였는지 — 정산 내역과 같은 계산(261004 사장 '결제조회도 정산내역이랑 동일하게')
+          quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
+          settlementLog: { select: { status: true, settledAt: true } },
+        },
       }),
       this.prisma.payment.count({ where }),
     ]);
@@ -2250,22 +2257,42 @@ export class AdminService {
     const proIds = [...new Set(payments.map((p) => p.proProfileId))];
 
     const [users, proProfiles] = await Promise.all([
-      this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
+      this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, phone: true } }),
       this.prisma.proProfile.findMany({ where: { id: { in: proIds } }, include: { user: { select: { id: true, name: true } } } }),
     ]);
 
-    const userMap = new Map(users.map((u) => [u.id, u.name]));
+    const userMap = new Map(users.map((u) => [u.id, u]));
     const proMap = new Map(proProfiles.map((p) => [p.id, p.user?.name]));
+    const now = new Date();
 
     return {
-      data: payments.map((p) => ({
-        id: p.id,
-        amount: p.amount,
-        status: p.status,
-        userName: userMap.get(p.userId) || null,
-        proName: proMap.get(p.proProfileId) || null,
-        createdAt: p.createdAt,
-      })),
+      data: payments.map((p) => {
+        const q = p.quotations?.[0];
+        const user = userMap.get(p.userId);
+        const paidAt = paymentPaidAt(p);
+        return {
+          id: p.id,
+          amount: p.amount,
+          status: p.status,
+          method: p.method,
+          userName: user?.name || null,
+          proName: proMap.get(p.proProfileId) || null,
+          // 결제 시 입력받은 연락처 우선, 없으면 계정 번호(정산 내역과 같은 규칙)
+          customerPhone: p.customerPhone || user?.phone || null,
+          createdAt: p.createdAt,
+          // 입금일(환불 규정 기준일) — 가상계좌는 입금 확인 시각
+          paidAt,
+          // 입금일로부터 며칠 지났나(0 = 오늘)
+          elapsedDays: kstDay(now) - kstDay(paidAt),
+          event: paymentEventOf(q),
+          // 환불 가능 기간 — 고객이 지금 취소하면 cancelPayment 가 내릴 판정 그대로(같은 함수, 견적 행사일 기준)
+          refund: p.status === 'completed' ? refundVerdict(paidAt, q?.eventDate ?? null, now) : null,
+          refundAmount: p.refundAmount,
+          refundReason: p.refundReason,
+          refundedAt: p.refundedAt,
+          settlement: p.settlementLog ? { status: p.settlementLog.status, settledAt: p.settlementLog.settledAt } : null,
+        };
+      }),
       total,
       page,
       limit,

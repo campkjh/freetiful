@@ -1731,12 +1731,28 @@ a.adm-card:hover, button.adm-card:hover { transform: translateY(-2px); box-shado
 .adm-input:focus { background: #fff; border-color: var(--admin-blue); }
 .adm-input::placeholder { color: var(--admin-dis); }
 .adm-input.sm { width: auto; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 14px; }
+/* 검색·거르기 + 조회기간 = 한 흰 카드(위 줄 검색·칩·건수, 가는 선, 아래 줄 조회기간) — 261004 사장 '조회기간 섹션이랑 합쳐져야 해' */
+.adm-filter { display: flex; flex-direction: column; border-radius: 16px; background: #fff; }
+.adm-filter > .adm-toolbar { padding: 12px 14px; }
+.adm-filter > .adm-datebar { border-radius: 0 0 16px 16px; background: transparent; box-shadow: inset 0 1px 0 #F2F4F6; }
+.adm-filter .adm-search .adm-input { background: #F2F4F6; }
+.adm-filter .adm-search .adm-input:focus { background: #fff; }
+.adm-filter .adm-chip { background: #F2F4F6; }
+.adm-filter .adm-chip.on { background: var(--admin-blue-weak); }
+.admin-shell .adm-filter .adm-toolbar > .adm-btn:not(.primary):not(.weak) { background: #F2F4F6; }
+.admin-shell .adm-filter .adm-toolbar > .adm-btn:not(.primary):not(.weak):hover:not(:disabled) { background: #E8EBEE; }
 /* 기간 필터(AdminDateFilter) — 흰 띠 한 줄, 좁으면 줄바꿈 */
 .adm-datebar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 16px; background: #fff; }
 .adm-datebar-label { display: inline-flex; align-items: center; gap: 6px; padding-left: 4px; color: var(--admin-muted); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .adm-datebar .adm-chip { height: 34px; padding: 0 13px; background: #F2F4F6; }
 .adm-datebar .adm-chip.on { background: var(--admin-blue-weak); }
 .adm-daterange { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--admin-dis); }
+/* 폰 — 날짜 두 칸이 줄 너비를 나눠 갖고 '적용'이 카드 밖으로 밀려나지 않게 */
+@media (max-width: 640px) {
+  .adm-daterange { flex: 1 1 100%; margin-left: 0; min-width: 0; }
+  .adm-daterange .adm-input { flex: 1 1 0; min-width: 0; }
+  .adm-daterange .adm-btn { flex: none; }
+}
 .adm-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--admin-muted); }
 .adm-input.adm-textarea { height: auto; min-height: 96px; padding: 12px 14px; line-height: 1.55; resize: vertical; }
 select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238B95A1' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
@@ -1789,6 +1805,15 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 .adm-ev-where { display: inline-flex; align-items: center; gap: 4px; }
 .adm-ev-where::before { content: ''; flex: none; width: 13px; height: 13px; background: #B0B8C1; -webkit-mask: url(/admin-icons/pin.svg) center / contain no-repeat; mask: url(/admin-icons/pin.svg) center / contain no-repeat; }
 .adm-table .adm-cell-sub { margin-top: 3px; }
+.adm-ev-title.none { font-weight: 500; color: var(--admin-dis); }
+.adm-ev-dday { display: inline-flex; align-items: center; height: 18px; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.adm-ev-dday.today { background: var(--admin-blue); color: #fff; }
+.adm-ev-dday.past { background: #F2F4F6; color: var(--admin-ph); }
+/* 결제 조회 — 결제일 · 환불 칸, 표 아래 규정 한 줄 */
+.adm-paid-at { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.adm-refund { min-width: 150px; }
+.adm-refund .adm-cell-sub { max-width: 220px; }
+.adm-table-foot { margin: 0; padding: 14px 24px 18px; font-size: 12px; line-height: 1.6; color: var(--admin-dis); }
 /* 큰 팝업(대화 내역 등) — 아래에서 스르르 */
 .adm-pop-dim { animation: ftFade .2s ease; }
 .adm-pop { animation: ftUp .38s cubic-bezier(.16, 1, .3, 1); }
@@ -1796,9 +1821,6 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 /* 표 줄 누르면 열리는 줄 */
 .admin-shell tr.cursor-pointer:hover { background: #F4F8FF !important; }
 /* 채팅 매칭 — 사회자별 응답 현황(접었다 펴는 머리) */
-.adm-resp-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font-family: inherit; }
-.adm-resp-sum { display: none; flex: none; align-items: center; gap: 6px; }
-@media (min-width: 900px) { .adm-resp-sum { display: flex; } }
 .adm-resp-chev { flex: none; transition: transform .3s var(--adm-ease); }
 .adm-resp-chev.on { transform: rotate(180deg); }
 .adm-resp-body { margin-top: 18px; animation: admRise .35s var(--adm-ease) both; }
@@ -1903,7 +1925,8 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 @media (prefers-reduced-motion: reduce) { .adm-login, .adm-login-rise { animation: none; } }
 
 /* 홈 — 지출 · 수입 줄(토스 지출/수입 화면 그대로, 박스 없이) */
-.adm-money { position: relative; padding: 8px 2px 0; }
+/* 바깥 이름은 .adm-moneyblock — .adm-money(표·숫자 칸 금액 글자)와 겹쳐 정산 숫자 칸이 8px 내려앉던 것 */
+.adm-moneyblock { position: relative; padding: 8px 2px 0; }
 .adm-money-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .adm-money-label { margin: 0; font-size: 17px; font-weight: 500; color: var(--admin-muted); }
 .adm-money-value { margin: 6px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.6px; color: #333D4B; font-variant-numeric: tabular-nums; }

@@ -127,8 +127,8 @@ export default function ChatConnectionsPage() {
   const [rows, setRows] = useState<ConnRow[]>([]);
   const [stats, setStats] = useState<ConnStats | null>(null);
   const [respStats, setRespStats] = useState<RespStat[] | null>(null);
-  /** 응답 현황 — 평소엔 접어 두고 한 줄 요약만(261004 사장 '접어줘') */
-  const [respOpen, setRespOpen] = useState(false);
+  /** 응답 현황 — 전체는 펼쳐 두고 '갈리오<'(요청 받고 답장 0) 묶음만 접는다(261004 사장 '갈리오 부분만 접히게') */
+  const [galioOpen, setGalioOpen] = useState(false);
   const respGroups = useMemo(() => {
     if (!respStats) return null;
     const isGood = (r: RespStat) => (r.category ? r.category === 'good' : (r.medianSec != null && r.medianSec <= 300));
@@ -138,11 +138,12 @@ export default function ChatConnectionsPage() {
       if (ma !== mb) return ma - mb;
       return (b.repliedCount ?? 0) - (a.repliedCount ?? 0);
     };
+    // 요청은 받았는데 답장이 하나도 없는 사회자 = '갈리오<'(사장 표기) — 단도리 필요에서 따로 빼서 접는다
+    const isGalio = (r: RespStat) => r.repliedCount === 0 && r.totalRooms > 0;
     return {
       good: respStats.filter(isGood).sort(byMedian),
-      attention: respStats.filter((r) => !isGood(r)).sort(byMedian),
-      // 요청은 받았는데 답장이 하나도 없는 사회자 = '갈리오<'(사장 표기)
-      galio: respStats.filter((r) => r.repliedCount === 0 && r.totalRooms > 0).length,
+      attention: respStats.filter((r) => !isGood(r) && !isGalio(r)).sort(byMedian),
+      galio: respStats.filter(isGalio).sort((a, b) => b.totalRooms - a.totalRooms),
     };
   }, [respStats]);
   const [total, setTotal] = useState(0);
@@ -228,31 +229,38 @@ export default function ChatConnectionsPage() {
   return (
     <div className="space-y-5">
       {/* 도구막대 — 제목은 레이아웃 머리(채팅 매칭) */}
-      <div className="adm-toolbar">
-        <label className="adm-search grow">
-          <Search size={17} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
-            placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
-            className="adm-input"
-          />
-        </label>
-        <div className="adm-chips">
-          {STATUS_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
-              className={`adm-chip ${status === t.id ? 'on' : ''}`}
-            >
-              {t.label}
-            </button>
-          ))}
+      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
+      <div className="adm-filter">
+        <div className="adm-toolbar">
+          <label className="adm-search grow">
+            <Search size={17} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
+              placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
+              className="adm-input"
+            />
+          </label>
+          <div className="adm-chips">
+            {STATUS_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
+                className={`adm-chip ${status === t.id ? 'on' : ''}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
         </div>
-        <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
+        <AdminDateFilter
+          value={dateRange}
+          onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
+        />
       </div>
 
       <AdminErrorPanel error={lastError} label="채팅 매칭" />
@@ -273,27 +281,16 @@ export default function ChatConnectionsPage() {
 
       {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자. 접어 두고 머리를 누르면 펼친다 */}
       <div className="adm-card">
-        <button type="button" className="adm-resp-head" onClick={() => setRespOpen((v) => !v)} aria-expanded={respOpen}>
-          <span className="min-w-0 flex-1">
-            <span className="adm-card-title block">사회자별 응답 현황</span>
-            <span className="adm-card-sub block">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</span>
-          </span>
-          {respGroups && (
-            <span className="adm-resp-sum">
-              <span className="adm-badge green">잘하고 있음 {respGroups.good.length}</span>
-              <span className="adm-badge red">단도리 필요 {respGroups.attention.length}</span>
-              {respGroups.galio > 0 && <span className="adm-badge">갈리오&lt; {respGroups.galio}</span>}
-            </span>
-          )}
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`adm-resp-chev ${respOpen ? 'on' : ''}`}>
-            <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        {respOpen && (
-          <div className="adm-resp-body">
+        <div className="adm-card-head">
+          <div>
+            <h2 className="adm-card-title">사회자별 응답 현황</h2>
+            <p className="adm-card-sub">최근 1주일 · 견적 도착→답장 <b>통상 시간(median)</b> 5분 기준 · 승인된 전 사회자</p>
+          </div>
+        </div>
+        <div>
             {respGroups == null ? (
               <div className="py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
-            ) : respGroups.good.length + respGroups.attention.length === 0 ? (
+            ) : respGroups.good.length + respGroups.attention.length + respGroups.galio.length === 0 ? (
               <div className="py-8 text-center text-[13px] text-[#8B95A1]">승인된 사회자가 없어요</div>
             ) : (() => {
               const Card = ({ r, tone }: { r: RespStat; tone: 'good' | 'attention' }) => (
@@ -329,21 +326,33 @@ export default function ChatConnectionsPage() {
                     <div className="mb-2 flex items-center gap-2">
                       <span className="text-[14px] font-bold text-red-700">단도리 필요</span>
                       <span className="text-[12px] font-bold text-red-600">{respGroups.attention.length}명</span>
-                      <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과 · 갈리오&lt;(답장 없음)</span>
+                      <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과 · 요청 없음</span>
                     </div>
                     <div className="text-red-700"><Grid items={respGroups.attention} tone="attention" empty="아직 없음" /></div>
                   </div>
+                  {/* 갈리오< — 요청 받고 답장 0. 평소엔 접어 두고 머리를 누르면 펼친다 */}
+                  {respGroups.galio.length > 0 && (
+                    <div className="rounded-[16px] bg-[#F2F4F6] p-3.5">
+                      <button type="button" onClick={() => setGalioOpen((v) => !v)} aria-expanded={galioOpen} className="flex w-full items-center gap-2 text-left">
+                        <span className="text-[14px] font-bold text-[#4E5968]">갈리오&lt;</span>
+                        <span className="text-[12px] font-bold text-[#6B7684]">{respGroups.galio.length}명</span>
+                        <span className="text-[11px] font-medium text-[#8B95A1]">요청 받고 답장 0</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`adm-resp-chev ml-auto ${galioOpen ? 'on' : ''}`}>
+                          <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      {galioOpen && (
+                        <div className="adm-resp-body mt-2 text-[#4E5968]">
+                          <Grid items={respGroups.galio} tone="attention" empty="" />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })()}
-          </div>
-        )}
+        </div>
       </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
-      />
 
       {/* 연결 목록 (행 클릭 → 대화 내역) */}
       <div className="adm-card flush">
