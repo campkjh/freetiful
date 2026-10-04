@@ -11,11 +11,14 @@ import {
   UseInterceptors,
   UploadedFile,
   Logger,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminCommunityService } from './admin-community.service';
+import { AdminOperatorService } from './admin-operator.service';
+import { AdminAuditService, actorFrom } from './admin-audit.service';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @ApiTags('admin')
@@ -30,7 +33,82 @@ export class AdminController {
   constructor(
     private adminService: AdminService,
     private community: AdminCommunityService,
+    private operator: AdminOperatorService,
+    private audit: AdminAuditService,
   ) {}
+
+  // ─── 운영 콘텐츠(운영 프로필 · 운영 글 · 반응 수치 · 변경 이력, 261004) ─────────────
+  @Get('operator/env')
+  operatorEnv() {
+    return this.operator.env();
+  }
+
+  @Get('operator/profiles')
+  operatorProfiles() {
+    return this.operator.listProfiles();
+  }
+
+  @Post('operator/profiles')
+  operatorProfileCreate(@Req() req: any, @Body() body: any) {
+    return this.operator.createProfile(actorFrom(req), body);
+  }
+
+  @Patch('operator/profiles/:id')
+  operatorProfileUpdate(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.operator.updateProfile(actorFrom(req), id, body);
+  }
+
+  @Get('operator/posts')
+  operatorPosts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('profileId') profileId?: string,
+    @Query('q') q?: string,
+  ) {
+    return this.operator.listPosts({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, status, profileId, q });
+  }
+
+  @Get('operator/posts/:id')
+  operatorPost(@Param('id') id: string) {
+    return this.operator.getPost(id);
+  }
+
+  @Post('operator/posts')
+  operatorPostCreate(@Req() req: any, @Body() body: any) {
+    return this.operator.createPost(actorFrom(req), body);
+  }
+
+  @Patch('operator/posts/:id')
+  operatorPostUpdate(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.operator.updatePost(actorFrom(req), id, body);
+  }
+
+  @Delete('operator/posts/:id')
+  operatorPostDelete(@Req() req: any, @Param('id') id: string, @Query('reason') reason?: string) {
+    return this.operator.deletePost(actorFrom(req), id, reason);
+  }
+
+  @Get('operator/metrics')
+  operatorMetrics(@Query('page') page?: string, @Query('limit') limit?: string, @Query('kind') kind?: string, @Query('q') q?: string) {
+    return this.operator.metrics({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, kind, q });
+  }
+
+  @Patch('operator/metrics/:postId/views')
+  operatorCorrectViews(@Req() req: any, @Param('postId') postId: string, @Body() body: any) {
+    return this.operator.correctViews(actorFrom(req), postId, body);
+  }
+
+  @Get('audit-logs')
+  auditLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('group') group?: string,
+    @Query('targetId') targetId?: string,
+    @Query('q') q?: string,
+  ) {
+    return this.audit.list({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 30, group, targetId, q });
+  }
 
   // ─── 커뮤니티 관리(웨딩숲 글·댓글·신고, 261004) ───────────────────────────
   @Get('community/summary')
@@ -52,8 +130,9 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('kind') kind?: string,
   ) {
-    return this.community.listPosts({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, q, groupId, status, startDate, endDate });
+    return this.community.listPosts({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 20, q, groupId, status, startDate, endDate, kind });
   }
 
   @Get('community/posts/:id')
@@ -62,13 +141,13 @@ export class AdminController {
   }
 
   @Patch('community/posts/:id')
-  communityPostUpdate(@Param('id') id: string, @Body() body: { isActive?: boolean }) {
-    return this.community.setPostActive(id, body?.isActive !== false);
+  communityPostUpdate(@Req() req: any, @Param('id') id: string, @Body() body: { isActive?: boolean }) {
+    return this.community.setPostActive(actorFrom(req), id, body?.isActive !== false);
   }
 
   @Delete('community/posts/:id')
-  communityPostDelete(@Param('id') id: string) {
-    return this.community.deletePost(id);
+  communityPostDelete(@Req() req: any, @Param('id') id: string) {
+    return this.community.deletePost(actorFrom(req), id);
   }
 
   @Get('community/comments')
@@ -84,8 +163,8 @@ export class AdminController {
   }
 
   @Patch('community/comments/:id')
-  communityCommentUpdate(@Param('id') id: string, @Body() body: { isActive?: boolean }) {
-    return this.community.setCommentActive(id, body?.isActive !== false);
+  communityCommentUpdate(@Req() req: any, @Param('id') id: string, @Body() body: { isActive?: boolean }) {
+    return this.community.setCommentActive(actorFrom(req), id, body?.isActive !== false);
   }
 
   @Get('community/reports')
@@ -94,8 +173,8 @@ export class AdminController {
   }
 
   @Patch('community/reports/:id')
-  communityReportResolve(@Param('id') id: string, @Body() body: { action?: string }) {
-    return this.community.resolveReport(id, String(body?.action || ''));
+  communityReportResolve(@Req() req: any, @Param('id') id: string, @Body() body: { action?: string }) {
+    return this.community.resolveReport(actorFrom(req), id, String(body?.action || ''));
   }
 
   private getFallbackStats() {

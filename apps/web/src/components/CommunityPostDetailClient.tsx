@@ -136,6 +136,9 @@ interface CommunityPostDetail {
   pinnedCommentId?: string | null;
   // 토스형 작성자 정보
   authorRole?: string | null;
+  /** 운영 프로필(운영팀) 글 — 소개 한 줄(261004) */
+  authorIsOperator?: boolean;
+  authorBio?: string | null;
   authorBadges?: { key: string; label: string; tone: string }[];
   authorFollowerCount?: number;
   authorIsFollowing?: boolean;
@@ -809,6 +812,8 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                     <span aria-hidden="true">·</span>
                     <span>팔로워 {(post.authorFollowerCount || 0).toLocaleString("ko-KR")}</span>
                   </div>
+                  {/* 운영팀 글 — 운영 프로필 소개(회원 글처럼 보이지 않게, 261004) */}
+                  {post.authorIsOperator && post.authorBio && <p className="tdet-author-bio">{post.authorBio}</p>}
                 </div>
                 {!post.isMine && post.userId && (
                   <button

@@ -792,6 +792,7 @@
 .tdet-author { display: flex; align-items: flex-start; gap: 12px; }
 .tdet-ava-col { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; }
 .tdet-who { flex: 1; min-width: 0; padding-top: 1px; }
+.tdet-author-bio { margin: 6px 0 0; color: #6b7684; font-size: 13px; font-weight: 500; line-height: 1.5; word-break: keep-all; }
 .tdet-body { margin: 20px 0 0; font-size: 17px; line-height: 1.7; color: #191F28; letter-spacing: -0.2px; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
 .tdet-images { margin-top: 16px; display: grid; gap: 8px; }
 .tdet-image { position: relative; overflow: hidden; border-radius: 16px; background: #F2F4F6; }

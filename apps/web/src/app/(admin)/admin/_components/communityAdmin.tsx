@@ -15,6 +15,8 @@ import { formatKstDateTime } from './adminEvent';
 
 export interface CAuthor {
   id: string | null;
+  /** 운영 프로필(운영팀) 글·댓글 */
+  isOperator?: boolean;
   /** 웨딩숲에 보이는 이름(꾸밈말 동물 · 에디터 이름) */
   nickname: string;
   /** 실제 계정 이름(관리용) */
@@ -55,7 +57,7 @@ interface CPostDetail {
   reports: { id: string; targetType: string; commentId: string | null; reason: string; detail: string | null; status: string; createdAt: string; reporter: string }[];
 }
 
-const ROLE_LABEL: Record<string, string> = { general: '회원', pro: '사회자', business: '업체', admin: '운영자' };
+const ROLE_LABEL: Record<string, string> = { general: '회원', pro: '사회자', business: '업체', admin: '운영자', operator: '운영팀' };
 export const POST_TYPE_LABEL: Record<string, string> = { poll: '투표', quiz: '퀴즈' };
 
 /** '방금 · N분 전 · N시간 전 · N일 전' (7일 넘으면 날짜) */

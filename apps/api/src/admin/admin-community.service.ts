@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { communityNickname } from '../community/community-nickname';
+import { AdminActor, AdminAuditService } from './admin-audit.service';
 
 /**
  * 어드민 '커뮤니티 관리'(261004 사장 '커뮤니티 관리도 추가해줘') — 웨딩숲 글·댓글·신고.
@@ -11,11 +12,26 @@ import { communityNickname } from '../community/community-nickname';
 const KST_MS = 9 * 3600000;
 const DAY_MS = 86400000;
 
-type AuthorView = { id: string | null; nickname: string; realName: string | null; role: string | null; avatar: string | null };
+type AuthorView = { id: string | null; nickname: string; realName: string | null; role: string | null; avatar: string | null; isOperator: boolean };
 
 @Injectable()
 export class AdminCommunityService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AdminAuditService,
+  ) {}
+
+  private async run<T>(fn: (db: any) => Promise<T>): Promise<T> {
+    const p: any = this.prisma;
+    if (typeof p.$transaction === 'function') return p.$transaction((tx: any) => fn(tx), { timeout: 20000 });
+    return fn(p);
+  }
+
+  /** 운영 프로필 계정 id 들(운영 글 구분용) */
+  private async operatorUserIds() {
+    const rows = await this.prisma.communityOperatorProfile.findMany({ select: { userId: true } });
+    return rows.map((r) => r.userId);
+  }
 
   /** 'YYYY-MM-DD'(KST) 범위 → createdAt 조건 */
   private dateRange(startDate?: string, endDate?: string) {
@@ -34,22 +50,26 @@ export class AdminCommunityService {
   /** 작성자 표시 — 글·댓글에 박제된 이름(에디터 옛 이름)이 있으면 그것, 없으면 지금 웨딩숲 이름 */
   private async authors(rows: { userId: string | null; authorName?: string | null; authorAvatar?: string | null }[]) {
     const ids = Array.from(new Set(rows.map((r) => r.userId).filter((v): v is string => !!v)));
-    const [users, nicks] = await Promise.all([
+    const [users, nicks, ops] = await Promise.all([
       this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, role: true, profileImageUrl: true } }),
       this.prisma.communityNickname.findMany({ where: { userId: { in: ids } }, select: { userId: true, nickname: true, avatarUrl: true } }),
+      this.prisma.communityOperatorProfile.findMany({ where: { userId: { in: ids } }, select: { userId: true } }),
     ]);
     const userMap = new Map(users.map((u) => [u.id, u]));
     const nickMap = new Map(nicks.map((n) => [n.userId, n]));
+    const opSet = new Set(ops.map((o) => o.userId));
     return (r: { userId: string | null; authorName?: string | null; authorAvatar?: string | null }): AuthorView => {
       const u = r.userId ? userMap.get(r.userId) : undefined;
-      if (!u) return { id: r.userId, nickname: r.authorName || '(탈퇴한 사용자)', realName: null, role: null, avatar: r.authorAvatar || null };
+      if (!u) return { id: r.userId, nickname: r.authorName || '(탈퇴한 사용자)', realName: null, role: null, avatar: r.authorAvatar || null, isOperator: false };
+      const isOperator = opSet.has(u.id);
       const own = nickMap.get(u.id);
       return {
         id: u.id,
-        nickname: r.authorName || own?.nickname || communityNickname(u),
-        realName: u.name || null,
-        role: u.role || null,
-        avatar: r.authorAvatar || own?.avatarUrl || u.profileImageUrl || null,
+        nickname: r.authorName || (isOperator ? u.name : own?.nickname || communityNickname(u)),
+        realName: isOperator ? null : u.name || null,
+        role: isOperator ? 'operator' : u.role || null,
+        avatar: r.authorAvatar || (isOperator ? u.profileImageUrl : own?.avatarUrl || u.profileImageUrl) || null,
+        isOperator,
       };
     };
   }
@@ -84,7 +104,8 @@ export class AdminCommunityService {
     const [posts, postsToday, hiddenPosts, comments, commentsToday, reportsPending] = await Promise.all([
       this.prisma.communityPost.count({ where: { isActive: true } }),
       this.prisma.communityPost.count({ where: { isActive: true, createdAt: { gte: today } } }),
-      this.prisma.communityPost.count({ where: { isActive: false } }),
+      // 관리자가 숨긴 글만(운영 글의 임시저장·예약·비공개는 '운영 콘텐츠'에서 따로 센다)
+      this.prisma.communityPost.count({ where: { isActive: false, status: 'published' } }),
       this.prisma.communityComment.count({ where: { isActive: true } }),
       this.prisma.communityComment.count({ where: { isActive: true, createdAt: { gte: today } } }),
       this.prisma.communityReport.count({ where: { status: '접수' } }),
@@ -110,10 +131,16 @@ export class AdminCommunityService {
   }
 
   // ─── 글 ─────────────────────────────────────────────────────────────
-  async listPosts(params: { page?: number; limit?: number; q?: string; groupId?: string; status?: string; startDate?: string; endDate?: string }) {
+  async listPosts(params: { page?: number; limit?: number; q?: string; groupId?: string; status?: string; startDate?: string; endDate?: string; kind?: string }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(100, Math.max(1, params.limit || 20));
-    const where: any = {};
+    // 앱에 한 번이라도 올라간 글만(운영 글 임시저장·예약·비공개는 '운영 콘텐츠' 화면에서)
+    const where: any = { status: 'published' };
+    // 작성 주체: operator = 운영 프로필 글, member = 회원 글
+    if (params.kind === 'operator' || params.kind === 'member') {
+      const opIds = await this.operatorUserIds();
+      where.userId = params.kind === 'operator' ? { in: opIds } : { notIn: opIds };
+    }
     const q = (params.q || '').trim();
     if (q) where.OR = [{ title: { contains: q, mode: 'insensitive' } }, { content: { contains: q, mode: 'insensitive' } }];
     if (params.groupId) {
@@ -232,20 +259,30 @@ export class AdminCommunityService {
     };
   }
 
-  async setPostActive(id: string, isActive: boolean) {
-    const p = await this.prisma.communityPost.findUnique({ where: { id }, select: { id: true } });
+  async setPostActive(actor: AdminActor, id: string, isActive: boolean) {
+    const p = await this.prisma.communityPost.findUnique({ where: { id }, select: { id: true, title: true, isActive: true, status: true } });
     if (!p) throw new NotFoundException('글을 찾을 수 없어요.');
-    await this.prisma.communityPost.update({ where: { id }, data: { isActive } });
-    // 숨기면 그 글에 걸린 처리 대기 신고는 '처리'로
-    if (!isActive) await this.prisma.communityReport.updateMany({ where: { targetType: 'post', postId: id, status: '접수' }, data: { status: '처리' } });
+    if (p.status === 'draft' || p.status === 'scheduled') throw new BadRequestException('임시저장·예약 글은 \'운영 콘텐츠\'에서 게시해 주세요.');
+    if (p.isActive === isActive && (p.status === 'published' || !isActive)) return { success: true, isActive };
+    // 운영 글의 비공개(private)를 다시 켜면 게시로 — 앱 노출(isActive)과 상태(status)를 같이 맞춘다
+    const data: any = { isActive, ...(p.status === 'private' && isActive ? { status: 'published' } : {}) };
+    await this.run(async (db) => {
+      await db.communityPost.update({ where: { id }, data });
+      // 숨기면 그 글에 걸린 처리 대기 신고는 '처리'로
+      if (!isActive) await db.communityReport.updateMany({ where: { targetType: 'post', postId: id, status: '접수' }, data: { status: '처리' } });
+      await this.audit.log(actor, { action: 'community.post_visibility', targetType: 'community_post', targetId: id, before: { isActive: p.isActive, status: p.status, title: p.title }, after: { isActive, status: data.status || p.status } }, db);
+    });
     return { success: true, isActive };
   }
 
-  async deletePost(id: string) {
-    const p = await this.prisma.communityPost.findUnique({ where: { id }, select: { id: true } });
+  async deletePost(actor: AdminActor, id: string) {
+    const p = await this.prisma.communityPost.findUnique({ where: { id }, select: { id: true, title: true, content: true, userId: true, status: true, isActive: true, createdAt: true } });
     if (!p) throw new NotFoundException('글을 찾을 수 없어요.');
-    await this.prisma.communityPost.delete({ where: { id } });
-    await this.prisma.communityReport.updateMany({ where: { postId: id, status: '접수' }, data: { status: '처리' } });
+    await this.run(async (db) => {
+      await db.communityPost.delete({ where: { id } });
+      await db.communityReport.updateMany({ where: { postId: id, status: '접수' }, data: { status: '처리' } });
+      await this.audit.log(actor, { action: 'community.post_delete', targetType: 'community_post', targetId: id, before: { title: p.title, content: p.content, userId: p.userId, status: p.status, isActive: p.isActive, createdAt: p.createdAt } }, db);
+    });
     return { success: true };
   }
 
@@ -301,11 +338,15 @@ export class AdminCommunityService {
     };
   }
 
-  async setCommentActive(id: string, isActive: boolean) {
-    const c = await this.prisma.communityComment.findUnique({ where: { id }, select: { id: true } });
+  async setCommentActive(actor: AdminActor, id: string, isActive: boolean) {
+    const c = await this.prisma.communityComment.findUnique({ where: { id }, select: { id: true, isActive: true, content: true, postId: true } });
     if (!c) throw new NotFoundException('댓글을 찾을 수 없어요.');
-    await this.prisma.communityComment.update({ where: { id }, data: { isActive } });
-    if (!isActive) await this.prisma.communityReport.updateMany({ where: { targetType: 'comment', commentId: id, status: '접수' }, data: { status: '처리' } });
+    if (c.isActive === isActive) return { success: true, isActive };
+    await this.run(async (db) => {
+      await db.communityComment.update({ where: { id }, data: { isActive } });
+      if (!isActive) await db.communityReport.updateMany({ where: { targetType: 'comment', commentId: id, status: '접수' }, data: { status: '처리' } });
+      await this.audit.log(actor, { action: 'community.comment_visibility', targetType: 'community_comment', targetId: id, before: { isActive: c.isActive, content: c.content, postId: c.postId }, after: { isActive } }, db);
+    });
     return { success: true, isActive };
   }
 
@@ -360,20 +401,33 @@ export class AdminCommunityService {
   }
 
   /** hide = 대상 숨기고 그 대상의 처리 대기 신고 전부 '처리' · dismiss = 그 대상 신고 전부 '기각'(그대로 둠) */
-  async resolveReport(id: string, action: string) {
+  async resolveReport(actor: AdminActor, id: string, action: string) {
     const r = await this.prisma.communityReport.findUnique({ where: { id } });
     if (!r) throw new NotFoundException('신고를 찾을 수 없어요.');
     if (action !== 'hide' && action !== 'dismiss') throw new BadRequestException('처리 방법을 골라 주세요.');
     const targetId = r.targetType === 'comment' ? r.commentId : r.postId;
     // 대상 id 가 비어 있으면(옛 데이터) 이 신고 한 건만 — null 로 묶으면 엉뚱한 신고까지 닫힌다
     const sameTarget: any = !targetId ? { id: r.id } : r.targetType === 'comment' ? { targetType: 'comment', commentId: targetId } : { targetType: 'post', postId: targetId };
-    if (action === 'hide') {
-      if (r.targetType === 'comment' && r.commentId) await this.prisma.communityComment.updateMany({ where: { id: r.commentId }, data: { isActive: false } });
-      if (r.targetType !== 'comment' && r.postId) await this.prisma.communityPost.updateMany({ where: { id: r.postId }, data: { isActive: false } });
-    }
     const status = action === 'hide' ? '처리' : '기각';
-    await this.prisma.communityReport.updateMany({ where: { ...sameTarget, status: '접수' }, data: { status } });
-    await this.prisma.communityReport.update({ where: { id }, data: { status } });
+    await this.run(async (db) => {
+      if (action === 'hide') {
+        if (r.targetType === 'comment' && r.commentId) await db.communityComment.updateMany({ where: { id: r.commentId }, data: { isActive: false } });
+        if (r.targetType !== 'comment' && r.postId) await db.communityPost.updateMany({ where: { id: r.postId }, data: { isActive: false } });
+      }
+      const closed = await db.communityReport.updateMany({ where: { ...sameTarget, status: '접수' }, data: { status } });
+      await db.communityReport.update({ where: { id }, data: { status } });
+      await this.audit.log(
+        actor,
+        {
+          action: 'community.report_resolve',
+          targetType: r.targetType === 'comment' ? 'community_comment' : 'community_post',
+          targetId: targetId || null,
+          before: { reportId: r.id, reason: r.reason, status: r.status },
+          after: { status, hidTarget: action === 'hide', closedReports: closed.count },
+        },
+        db,
+      );
+    });
     return { success: true, status };
   }
 }

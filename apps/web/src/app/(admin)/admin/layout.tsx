@@ -63,6 +63,7 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
       { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph', desc: '광고·UTM 유입과 견적 전환을 봐요' },
       { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
       { href: '/admin/community', label: '커뮤니티 관리', icon: 'message-square-text', desc: '웨딩숲 글·댓글·신고를 살피고 숨겨요' },
+      { href: '/admin/operator', label: '운영 콘텐츠', icon: 'loudspeaker', desc: "운영팀 이름으로 웨딩숲 글을 쓰고 반응을 봐요 — 앱엔 늘 '운영팀' 표시가 붙어요" },
     ],
   },
 ];
@@ -93,6 +94,12 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
     { href: '/admin/community', label: '글' },
     { href: '/admin/community/comments', label: '댓글' },
     { href: '/admin/community/reports', label: '신고' },
+  ],
+  [
+    { href: '/admin/operator', label: '운영 글' },
+    { href: '/admin/operator/profiles', label: '운영 프로필' },
+    { href: '/admin/operator/metrics', label: '반응 수치' },
+    { href: '/admin/operator/history', label: '변경 이력' },
   ],
 ];
 

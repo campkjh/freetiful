@@ -1012,17 +1012,24 @@ model Report {
   @@map("reports")
 }
 
+/// 관리자 변경 이력 — adminId = 요청한 관리자 계정(JWT) id, 시스템 작업은 'system'·'system:schedule', x-admin-key 면 'admin-key'.
+/// 261004: 운영 프로필·운영 글·수치 보정·테스트 수치·커뮤니티 숨김/삭제/신고 처리도 여기에(사유 reason, 관리자 이메일 adminEmail 추가)
 model AdminAuditLog {
   id          String   @id @default(uuid())
   adminId     String
+  adminEmail  String?
   action      String
   targetType  String?
   targetId    String?
   beforeState Json?
   afterState  Json?
+  reason      String?
   ipAddress   String?
   createdAt   DateTime @default(now())
 
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([action])
   @@map("admin_audit_logs")
 }
 
@@ -1184,6 +1191,11 @@ model CommunityPost {
   type          String                  @default("normal") // normal | poll | quiz
   isBlinded     Boolean                 @default(false)
   isActive      Boolean                 @default(true)
+  /// 운영 글 상태(261004) — published | draft(임시저장) | scheduled(게시 예약) | private(비공개). 회원 글은 늘 published.
+  /// 앱 피드·상세는 지금처럼 isActive 로만 거른다 — isActive 는 published 일 때만 true 가 되게 맞춘다(관리자 숨김은 published+false).
+  status        String                  @default("published")
+  /// 게시 예약 시각(status=scheduled) — 1분마다 도는 예약 게시가 이 시각이 지나면 published 로 바꾼다
+  publishAt     DateTime?
   createdAt     DateTime                @default(now())
   updatedAt     DateTime                @updatedAt
   group         CommunityGroup          @relation(fields: [groupId], references: [id])
@@ -1200,6 +1212,7 @@ model CommunityPost {
   @@index([groupId])
   @@index([userId])
   @@index([createdAt])
+  @@index([status, publishAt])
   @@map("community_posts")
 }
 
@@ -1290,6 +1303,34 @@ model CommunityReport {
   @@unique([userId, targetType, postId, commentId], name: "report_once")
   @@index([status])
   @@map("community_reports")
+}
+
+/// 운영 프로필(261004) — 관리자가 만든 운영팀 이름. 글은 이 프로필 전용 계정(userId, 로그인 수단 없음)으로 올라간다.
+/// 앱에서는 이 계정의 글·댓글에 늘 '운영팀' 표시(일반 회원을 사칭하지 않게). 기존 운영진 에디터 4계정도 여기 들어 있다.
+model CommunityOperatorProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  nickname         String
+  avatarUrl        String?
+  bio              String?
+  isActive         Boolean  @default(true)
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("community_operator_profiles")
+}
+
+/// 테스트 좋아요·조회수(261004) — 개발·스테이징 서버에서만 쓰고 보인다(APP_ENV). 실제 수치(likes 행·community_post_views)와 따로 둔다.
+/// 운영 서버는 설정 API 가 404 로 막히고, 공개 수치·인기순·추천·통계는 이 표를 읽지 않는다.
+model CommunityTestMetric {
+  postId           String   @id
+  likes            Int      @default(0)
+  views            Int      @default(0)
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("community_test_metrics")
 }
 
 model CommunityBlock {

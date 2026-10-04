@@ -26,6 +26,8 @@ import {
   BadgeTone,
 } from './community.constants';
 import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
+import { OPERATOR_NAME_BLOCK, OPERATOR_ROLE_LABEL, looksLikeMemberNickname } from './community-operator';
+import { isTestMetricsEnabled } from '../common/app-env';
 
 /**
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
@@ -42,12 +44,8 @@ const EDITOR_PERSONA_IDS = [
   'b30daa89-aad7-488a-acdf-3e2ddc47e7fa', // 프리티풀 에디터 준
 ];
 const NICKNAME_BLOCK = /프리티풀|freetiful|운영|관리자|어드민|admin|에디터|공식|사회자|탈퇴한/i;
-/** 운영진 에디터 이름에 못 쓰는 말 — 회원·예비부부·사회자(판매자)처럼 보이면 안 된다(261001) */
-const EDITOR_NAME_BLOCK = /사회자|엠씨|\bmc\b|회원|고객|이용자|신부|신랑|예비|부부|커플|후기|탈퇴한/i;
-/** 회원 닉네임('꾸밈말 동물')과 같은 모양인지 — 에디터 이름이 실제 회원 이름과 겹치면 안 된다 */
-function looksLikeMemberNickname(name: string): boolean {
-  return [...AVATAR_ANIMALS, ...EXTRA_ANIMALS].some((animal) => name.endsWith(` ${animal}`) && MODIFIERS.includes(name.slice(0, -(animal.length + 1))));
-}
+/** 운영진 에디터 이름에 못 쓰는 말 · 회원 닉네임 모양 검사 — 운영 프로필과 같은 규칙(community-operator.ts, 261001→261004) */
+const EDITOR_NAME_BLOCK = OPERATOR_NAME_BLOCK;
 
 type Author = {
   nickname: string;
@@ -60,6 +58,10 @@ type Author = {
   followerCount: number;
   isFollowing: boolean; // 뷰어가 이 작성자를 팔로우 중
   badges: { key: BadgeKey; label: string; tone: BadgeTone }[]; // 우선순위순, [0]이 대표
+  /** 운영 프로필(운영팀) 계정 — 글·댓글에 늘 '운영팀' 표시(261004) */
+  isOperator: boolean;
+  /** 운영 프로필 소개(운영팀만) */
+  bio: string | null;
 };
 
 @Injectable()
@@ -263,6 +265,7 @@ export class CommunityService implements OnModuleInit {
       select: { id: true, name: true, profileImageUrl: true, role: true },
     });
     const customNick = await this.customNicknames(ids);
+    const operators = await this.operatorProfiles(ids);
 
     // 활동 점수(글×10 + 댓글×3 + 받은좋아요×2 + 보너스)
     const [postCounts, commentCounts, bonuses] = await Promise.all([
@@ -344,23 +347,56 @@ export class CommunityService implements OnModuleInit {
       if (commentN >= BADGE_THRESHOLDS.commentRich) keys.push('commentRich');
       if (postN >= BADGE_THRESHOLDS.heavyWriter) keys.push('heavyWriter');
       if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
+      const op = operators.get(u.id);
+      const isOperator = !!op || EDITOR_PERSONA_IDS.includes(u.id);
       map.set(u.id, {
-        // 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신), 사회자·업체·운영자·운영진 에디터는 이름 그대로 — community-nickname.ts
-        nickname: customNick.get(u.id)?.nickname || communityNickname(u),
+        // 운영 프로필은 그 계정 이름·사진(어드민 운영 프로필에서 정함), 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신),
+        // 사회자·업체·운영자는 이름 그대로 — community-nickname.ts
+        nickname: isOperator ? u.name || op?.nickname || '운영팀' : customNick.get(u.id)?.nickname || communityNickname(u),
         // 웨딩숲 전용 사진(지정 계정이 고른 동물 친구)이 있으면 그걸로
-        avatar: customNick.get(u.id)?.avatarUrl || u.profileImageUrl || null,
+        avatar: isOperator ? u.profileImageUrl || op?.avatarUrl || null : customNick.get(u.id)?.avatarUrl || u.profileImageUrl || null,
         isAdmin: u.role === 'admin',
         tier: tierForScore(score),
         isAnswerKing: answerKing.has(u.id),
         isPickKing: pickKing.has(u.id),
-        // 운영진 에디터는 이름과 상관없이 늘 '운영진' 표시(261001 — 이름에 '프리티풀'을 안 붙이는 대신)
-        roleLabel: EDITOR_PERSONA_IDS.includes(u.id) ? '운영진' : ROLE_LABELS[u.role as string] || null,
+        // 운영 프로필(옛 운영진 에디터 포함)은 이름과 상관없이 늘 '운영팀' 표시(261001 '운영진' → 261004 '운영팀') — 회원 글처럼 보이지 않게
+        roleLabel: isOperator ? OPERATOR_ROLE_LABEL : ROLE_LABELS[u.role as string] || null,
         followerCount: followerN,
         isFollowing: followingSet.has(u.id),
         badges: keys.map((k) => ({ key: k, ...BADGES[k] })),
+        isOperator,
+        bio: op?.bio || null,
       });
     }
     return map;
+  }
+
+  /** 운영 프로필 — 계정 id → 프로필(소개 등) */
+  private async operatorProfiles(userIds: string[]) {
+    const ids = Array.from(new Set(userIds.filter(Boolean)));
+    if (ids.length === 0) return new Map<string, { nickname: string; avatarUrl: string | null; bio: string | null }>();
+    const rows: { userId: string; nickname: string; avatarUrl: string | null; bio: string | null }[] = await this.prisma.communityOperatorProfile
+      .findMany({ where: { userId: { in: ids } }, select: { userId: true, nickname: true, avatarUrl: true, bio: true } })
+      .catch(() => []);
+    return new Map(rows.map((r) => [r.userId, { nickname: r.nickname, avatarUrl: r.avatarUrl, bio: r.bio }]));
+  }
+
+  /**
+   * 테스트 좋아요·조회수 덧씌우기(261004) — 개발·스테이징 서버(APP_ENV)에서만, 정렬·인기 계산이 다 끝난 '보여줄 목록'에만.
+   * 운영 서버에서는 표를 읽지도 않고 그대로 돌려준다(공개 수치·인기순·추천·통계에 안 섞임).
+   */
+  private async withTestMetrics<T extends { id: string; likeCount: number; viewCount: number }>(posts: T[]): Promise<T[]> {
+    if (!isTestMetricsEnabled() || posts.length === 0) return posts;
+    const rows: { postId: string; likes: number; views: number }[] = await this.prisma.communityTestMetric
+      .findMany({ where: { postId: { in: posts.map((p) => p.id) } }, select: { postId: true, likes: true, views: true } })
+      .catch(() => []);
+    if (rows.length === 0) return posts;
+    const m = new Map(rows.map((r) => [r.postId, r]));
+    return posts.map((p) => {
+      const t = m.get(p.id);
+      if (!t) return p;
+      return { ...p, likeCount: p.likeCount + t.likes, viewCount: p.viewCount + t.views, testMetrics: { likes: t.likes, views: t.views } };
+    });
   }
 
   private emptyAuthor(): Author {
@@ -375,6 +411,8 @@ export class CommunityService implements OnModuleInit {
       followerCount: 0,
       isFollowing: false,
       badges: [],
+      isOperator: false,
+      bio: null,
     };
   }
 
@@ -427,7 +465,7 @@ export class CommunityService implements OnModuleInit {
         ((p._count?.likes || 0) * 3 + (p._count?.comments || 0) * 2 + (p.view?.count || 0) * 0.2 + 1) /
         Math.pow((now - new Date(p.createdAt).getTime()) / 3_600_000 + 2, 1.3);
       posts.sort((a, b) => hot(b) - hot(a));
-      return { posts: await this.buildFeedPosts(posts.slice(0, 60), viewerId) };
+      return { posts: await this.withTestMetrics(await this.buildFeedPosts(posts.slice(0, 60), viewerId)) };
     }
 
     const mapped = await this.buildFeedPosts(posts, viewerId);
@@ -438,9 +476,9 @@ export class CommunityService implements OnModuleInit {
           b.likeCount * 3 + b.commentCount * 2 + b.viewCount -
           (a.likeCount * 3 + a.commentCount * 2 + a.viewCount),
       );
-      return { posts: mapped.slice(0, 5) };
+      return { posts: await this.withTestMetrics(mapped.slice(0, 5)) };
     }
-    return { posts: mapped };
+    return { posts: await this.withTestMetrics(mapped) };
   }
 
   private async buildFeedPosts(posts: any[], viewerId?: string) {
@@ -489,6 +527,8 @@ export class CommunityService implements OnModuleInit {
         authorIsAnswerKing: author.isAnswerKing,
         authorIsPickKing: author.isPickKing,
         authorRole: author.roleLabel,
+        authorIsOperator: author.isOperator,
+        authorBio: author.isOperator ? author.bio : null,
         authorBadges: author.badges,
         authorFollowerCount: author.followerCount,
         authorIsFollowing: author.isFollowing,
@@ -633,6 +673,20 @@ export class CommunityService implements OnModuleInit {
       this.prisma.communityPost.updateMany({ where: { userId: editorId, authorName: null }, data: { authorName: oldName, authorAvatar: oldAvatar } }),
       this.prisma.communityComment.updateMany({ where: { userId: editorId, authorName: null }, data: { authorName: oldName, authorAvatar: oldAvatar } }),
       this.prisma.user.update({ where: { id: editorId }, data: { name, ...(avatarUrl !== undefined ? { profileImageUrl: avatarUrl } : {}) } }),
+      // 운영 프로필 표(어드민 '운영 프로필' 목록)도 같이 — 261004
+      this.prisma.communityOperatorProfile.updateMany({ where: { userId: editorId }, data: { nickname: name, ...(avatarUrl !== undefined ? { avatarUrl } : {}) } }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          adminId: userId,
+          adminEmail: String(me?.email || '') || null,
+          action: 'operator_profile.update',
+          targetType: 'operator_profile',
+          targetId: editorId,
+          beforeState: { nickname: oldName, avatarUrl: oldAvatar },
+          afterState: { nickname: name, avatarUrl: avatarUrl !== undefined ? avatarUrl : oldAvatar, source: 'app' },
+          reason: '앱에서 운영진 에디터 이름·사진 변경',
+        },
+      }),
     ]);
     return this.getMyNickname(userId);
   }
@@ -936,7 +990,7 @@ export class CommunityService implements OnModuleInit {
       });
     }
 
-    const [built] = await this.buildFeedPosts([post], opts.viewerId);
+    const [built] = await this.withTestMetrics(await this.buildFeedPosts([post], opts.viewerId));
     // 상세 전용 추가 필드
     const reactionCounts = await this.prisma.communityPostLike.groupBy({
       by: ['type'],

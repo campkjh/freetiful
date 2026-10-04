@@ -46,13 +46,15 @@ export default function AdminCommunityPostsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
   const [groupId, setGroupId] = useState('');
+  /** 작성 주체 — 회원 글 / 운영 글(운영 프로필) */
+  const [kind, setKind] = useState('');
   const [groups, setGroups] = useState<CGroup[]>([]);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const LIMIT = 20;
 
-  const fetchRows = async (p = 1, opts = { q, status, groupId, range: dateRange }, append = false) => {
+  const fetchRows = async (p = 1, opts = { q, status, groupId, range: dateRange, kind }, append = false) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
     setLastError(null);
@@ -61,6 +63,7 @@ export default function AdminCommunityPostsPage() {
       if (opts.q.trim()) params.set('q', opts.q.trim());
       if (opts.status !== 'all') params.set('status', opts.status);
       if (opts.groupId) params.set('groupId', opts.groupId);
+      if (opts.kind) params.set('kind', opts.kind);
       if (opts.range.startDate) params.set('startDate', opts.range.startDate);
       if (opts.range.endDate) params.set('endDate', opts.range.endDate);
       const data = await adminFetch('GET', `/api/v1/admin/community/posts?${params.toString()}`, undefined, { cache: false });
@@ -116,21 +119,21 @@ export default function AdminCommunityPostsPage() {
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, groupId, range: dateRange }); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, groupId, range: dateRange, kind }); }}
               placeholder="제목·내용 검색 (Enter)"
               className="adm-input"
             />
           </label>
           <div className="adm-chips">
             {STATUS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
+              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange, kind }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
                 {label}
               </button>
             ))}
           </div>
           <select
             value={groupId}
-            onChange={(e) => { setGroupId(e.target.value); fetchRows(1, { q, status, groupId: e.target.value, range: dateRange }); }}
+            onChange={(e) => { setGroupId(e.target.value); fetchRows(1, { q, status, groupId: e.target.value, range: dateRange, kind }); }}
             className="adm-input sm adm-select-sm"
             aria-label="카테고리"
           >
@@ -142,9 +145,19 @@ export default function AdminCommunityPostsPage() {
               </optgroup>
             ))}
           </select>
+          <select
+            value={kind}
+            onChange={(e) => { setKind(e.target.value); fetchRows(1, { q, status, groupId, range: dateRange, kind: e.target.value }); }}
+            className="adm-input sm adm-select-sm"
+            aria-label="작성 주체"
+          >
+            <option value="">회원 글 + 운영 글</option>
+            <option value="member">회원 글만</option>
+            <option value="operator">운영 글만</option>
+          </select>
           <span className="adm-count">총 <b>{total.toLocaleString()}</b>개</span>
         </div>
-        <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, groupId, range }); }} />
+        <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, groupId, range, kind }); }} />
       </div>
 
       <AdminErrorPanel error={lastError} label="커뮤니티 글" />
@@ -174,6 +187,7 @@ export default function AdminCommunityPostsPage() {
                         <span className="adm-ev-head">
                           {r.group.name && <span className="adm-badge blue">{r.group.name}</span>}
                           {POST_TYPE_LABEL[r.type] && <span className="adm-badge">{POST_TYPE_LABEL[r.type]}</span>}
+                          {r.author.isOperator && <span className="adm-badge orange">운영 글</span>}
                           <span className="adm-ev-title">{r.title}</span>
                           {r.reportCount > 0 && <span className="adm-badge red">신고 {r.reportCount}</span>}
                         </span>
@@ -216,7 +230,7 @@ export default function AdminCommunityPostsPage() {
         total={total}
         onLoadMore={() => {
           if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { q, status, groupId, range: dateRange }, true);
+          fetchRows(page + 1, { q, status, groupId, range: dateRange, kind }, true);
         }}
       />
 
