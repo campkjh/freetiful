@@ -3,6 +3,9 @@
  *
  * FEATURED(지정 사회자): 퀵매칭 첫 화면(리롤 전)에 나오는 사회자. 이 사람들에게 간 퀵매칭 신청에만 고객 전화번호가 보인다
  *   (사회자 새요청 목록·채팅방 머리 칩). 리롤 뒤에 나온 사회자에게 간 신청은 번호 없이 프리티풀 채팅으로만 이어진다.
+ *   ⚠ 261005부터 명단의 단일 진실 = DB 표 quick_match_designated_pros(어드민 회원 관리 · 사회자 '퀵매칭' 스위치,
+ *   quick-match-roster.service.ts). 아래 FEATURED 는 그 표가 아직 없을 때(SQL 적용 전)만 쓰는 대체 명단이자 마이그레이션 초기값이다 —
+ *   명단을 바꾸려면 여기 말고 어드민에서.
  *   성별 묶음은 사장이 준 명단 그대로다(화면도 프로필 성별이 아니라 이 묶음으로 나눈다) — 남 5 · 여 7.
  *   이도윤은 처음 명단에 남성으로 왔다가 사장 정정(260927 '남자가 아니라 여자')으로 여성 묶음(프로필 성별도 '여성').
  *
@@ -29,8 +32,6 @@ export const QUICK_MATCH_FEATURED: { male: string[]; female: string[] } = {
     'ebd7e017-acdb-41ea-bb36-e069369d23e5', // 이도윤
   ],
 };
-
-export const QUICK_MATCH_FEATURED_IDS = new Set<string>([...QUICK_MATCH_FEATURED.male, ...QUICK_MATCH_FEATURED.female]);
 
 export const MATCH_EXCLUDED_PRO_IDS = new Set<string>([
   '3fb7b78c-026f-401f-a00c-f8d1719c92ed', // 서나웅(요청 문구 '서나영')

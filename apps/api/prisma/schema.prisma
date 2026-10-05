@@ -315,8 +315,26 @@ model ProProfile {
   reviews            Review[]
   chatRooms          ChatRoom[]
   settlementLogs     SettlementLog[]
+  /// 퀵매칭 지정 사회자면 한 줄(261005) — 컬럼이 아니라 따로 둔 표라 SQL 적용 전후 어느 쪽에 배포해도 pro_profiles 조회가 안 깨진다
+  quickMatchDesignation QuickMatchDesignatedPro?
 
   @@map("pro_profiles")
+}
+
+/// 퀵매칭 지정 사회자(261005, 예전엔 match/quick-match.config.ts 에 박혀 있던 명단) — 어드민 회원 관리 · 사회자 표의 '퀵매칭' 스위치.
+/// 퀵매칭 첫 화면(리롤 전)에 나오고, 이 사람들에게 간 퀵매칭 신청에만 고객 번호가 보인다.
+/// gender = 첫 화면 성별 묶음('male' | 'female') — 프로필 성별과 따로 둔다(사장 명단 기준, 이도윤 정정 같은 경우).
+model QuickMatchDesignatedPro {
+  proProfileId String   @id
+  gender       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  /// 마지막으로 바꾼 관리자 id(JWT 관리자) 또는 'admin-key'
+  updatedBy    String?
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  @@map("quick_match_designated_pros")
 }
 
 model ProCategory {

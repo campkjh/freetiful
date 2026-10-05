@@ -53,7 +53,7 @@ export class AdminAuditService {
     });
   }
 
-  /** 변경 이력 목록 — 최신순. group: operator(운영 프로필·글) · metric(수치) · test(테스트 수치) · community(숨김·신고) */
+  /** 변경 이력 목록 — 최신순. group: operator(운영 프로필·글) · metric(수치) · test(테스트 수치) · community(숨김·신고) · pro(사회자 설정 — 퀵매칭 노출) */
   async list(params: { page?: number; limit?: number; group?: string; targetId?: string; q?: string }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(100, Math.max(1, params.limit || 30));
@@ -63,6 +63,7 @@ export class AdminAuditService {
       metric: ['metric.'],
       test: ['test_metric.'],
       community: ['community.'],
+      pro: ['pro.'],
     };
     if (params.group && prefixes[params.group]) where.OR = prefixes[params.group].map((p) => ({ action: { startsWith: p } }));
     if (params.targetId) where.targetId = params.targetId;

@@ -16,13 +16,12 @@ import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { ChatService } from '../chat/chat.service';
 import {
   MATCH_EXCLUDED_PRO_IDS,
-  QUICK_MATCH_FEATURED,
-  QUICK_MATCH_FEATURED_IDS,
   QUICK_MATCH_SOURCE,
   customerContactMethod,
   rawForPro,
   sharedCustomerPhone,
 } from './quick-match.config';
+import { QuickMatchRosterService, type QuickMatchFeatured } from './quick-match-roster.service';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -80,6 +79,7 @@ export class MatchService {
     private chatService: ChatService,
     private jwt: JwtService,
     private config: ConfigService,
+    private quickRoster: QuickMatchRosterService,
   ) {}
 
   /**
@@ -140,9 +140,16 @@ export class MatchService {
     const customerName = requester?.name?.trim() || '고객';
     const testLead = this.isTestLead(userId, requester?.name, data.rawUserInput);
     // 퀵매칭 — 고른 사회자 중 지정 사회자에게만 고객 번호를 보인다(260927 사장). 서버가 명단으로 정하고, 폼이 보낸 값은 버린다.
+    // 명단 = 어드민 '퀵매칭' 스위치(DB, 261005) — 표가 없으면 config 옛 명단.
+    // 폼 값으로는 좁히기만 한다: 리롤 묶음(quickBatch 'reroll' = 화면이 '번호 안 감·채팅으로'라 안내한 신청)이면 아무에게도 번호를 주지 않는다
+    //   — 명단이 어드민에서 바뀌므로, 고객이 목록을 받은 뒤 새로 켠 사회자를 리롤 목록에서 고르면 번호가 가던 틈을 막는다.
+    // DB 일시 오류로 대신 쓴 명단(degraded)이면 번호 공개는 닫는다(첫 화면 후보는 그대로 돈다).
     const quickMatch = data.rawUserInput?.source === QUICK_MATCH_SOURCE;
-    const phoneSharedProProfileIds = quickMatch
-      ? Array.from(new Set(data.selectedProProfileIds || [])).filter((id) => QUICK_MATCH_FEATURED_IDS.has(id))
+    const rerollBatch = quickMatch && data.rawUserInput?.quickBatch === 'reroll';
+    const roster = quickMatch && !rerollBatch ? await this.quickRoster.roster() : null;
+    const featuredIds = roster && !roster.degraded ? roster.ids : null;
+    const phoneSharedProProfileIds = featuredIds
+      ? Array.from(new Set(data.selectedProProfileIds || [])).filter((id) => featuredIds.has(id))
       : [];
 
     // 폼에 적은 연락처를 계정에도 남긴다.
@@ -518,15 +525,25 @@ export class MatchService {
     );
   }
 
-  private quickPoolCache: { at: number; data: { featured: typeof QUICK_MATCH_FEATURED; excluded: string[]; order: string[] } } | null = null;
+  private quickPoolOrderCache: { at: number; order: string[] } | null = null;
 
   /**
    * 퀵매칭 후보 순서(260927 사장) — 첫 화면은 지정 사회자, 리롤하면 나머지를 '최근에 견적을 보낸 순'으로.
+   * featured = 지정 사회자(어드민 '퀵매칭' 스위치, 60초 기억 · 바꾸면 바로 반영) — 성별은 명단의 묶음 기준.
    * order = 승인·노출·활동 중인 사회자 전부(매칭 제외 명단 뺌), 마지막 견적 시각 최신순 → 견적 없으면 리뷰 많은 순. 5분 기억.
    * 성별·권역 거르기는 화면(사회자 목록 데이터)이 한다.
    */
-  async getQuickMatchPool() {
-    if (this.quickPoolCache && Date.now() - this.quickPoolCache.at < 5 * 60 * 1000) return this.quickPoolCache.data;
+  async getQuickMatchPool(): Promise<{ featured: QuickMatchFeatured; excluded: string[]; order: string[] }> {
+    const [roster, order] = await Promise.all([this.quickRoster.roster(), this.getQuickMatchOrder()]);
+    return {
+      featured: { male: [...roster.featured.male], female: [...roster.featured.female] },
+      excluded: [...MATCH_EXCLUDED_PRO_IDS],
+      order,
+    };
+  }
+
+  private async getQuickMatchOrder(): Promise<string[]> {
+    if (this.quickPoolOrderCache && Date.now() - this.quickPoolOrderCache.at < 5 * 60 * 1000) return this.quickPoolOrderCache.order;
     const rows = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT p.id
       FROM pro_profiles p
@@ -535,13 +552,9 @@ export class MatchService {
       WHERE p.status = 'approved' AND p."isProfileHidden" = false AND u."isActive" = true
       ORDER BY lq.last DESC NULLS LAST, p."reviewCount" DESC, p."createdAt" ASC
     `;
-    const data = {
-      featured: QUICK_MATCH_FEATURED,
-      excluded: [...MATCH_EXCLUDED_PRO_IDS],
-      order: rows.map((r) => r.id).filter((id) => !MATCH_EXCLUDED_PRO_IDS.has(id)),
-    };
-    this.quickPoolCache = { at: Date.now(), data };
-    return data;
+    const order = rows.map((r) => r.id).filter((id) => !MATCH_EXCLUDED_PRO_IDS.has(id));
+    this.quickPoolOrderCache = { at: Date.now(), order };
+    return order;
   }
 
   /** 사용자의 매칭 요청 목록 */

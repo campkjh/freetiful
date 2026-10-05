@@ -18,6 +18,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { kstDay, paymentPaidAt, refundVerdict } from '../payment/refund-policy';
 import { randomUUID } from 'crypto';
+import { QuickMatchRosterService, parseDesignated } from '../match/quick-match-roster.service';
+import type { Prisma } from '@prisma/client';
 
 const REFERRAL_EVENT_CAMPAIGN_KEY = 'friend-invite-cash-2026';
 const REFERRAL_EVENT_REQUIRED_REFERRALS = 4;
@@ -33,6 +35,7 @@ export class AdminService {
     private discoveryService: DiscoveryService,
     private imageService: ImageService,
     private videoCompress: VideoCompressService,
+    private quickRoster: QuickMatchRosterService,
   ) {}
 
   private async safeStatsQuery<T>(label: string, query: Promise<T>, fallback: T): Promise<T> {
@@ -553,11 +556,14 @@ export class AdminService {
   }
 
   // ─── Pro 목록 조회 (관리자용) ─────────────────────────────────────────────
-  async getPros(params: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string }) {
+  async getPros(params: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string; quickMatch?: boolean }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
     const visibleStatuses = ['draft', 'pending', 'approved', 'rejected', 'suspended'];
     const where: any = {};
+    // 퀵매칭 지정 명단(261005) — 줄마다 스위치 상태 + '퀵매칭 노출 N명' 거르기
+    const roster = await this.quickRoster.roster();
+    if (params.quickMatch) where.id = { in: [...roster.ids] };
     this.applyCreatedAtRange(where, params);
     if (params.status && visibleStatuses.includes(params.status)) {
       where.status = params.status;
@@ -601,12 +607,36 @@ export class AdminService {
         isFeatured: p.isFeatured,
         showPartnersLogo: p.showPartnersLogo,
         isProfileHidden: p.isProfileHidden,
+        gender: p.gender,
+        // 퀵매칭 첫 화면 노출(지정 사회자) 스위치 상태 + 첫 화면 성별 묶음(프로필 성별과 다를 수 있음)
+        quickMatchDesignated: roster.ids.has(p.id),
+        quickMatchGender: roster.byId.get(p.id) ?? null,
         createdAt: p.createdAt,
       })),
       total,
       page,
       limit,
+      quickMatchCount: roster.ids.size,
+      // false = 명단 표가 아직 없음(SQL 전) — 스위치는 config 명단을 보여 주기만 하고 바꿀 수 없다
+      quickMatchEditable: roster.source === 'db',
     };
+  }
+
+  /**
+   * 퀵매칭 노출 스위치(261005) — body { designated: boolean, gender?: 'male' | 'female' } → { id, quickMatchDesignated, … }.
+   * gender 는 켤 때 첫 화면 성별 묶음(안 주면 이미 있던 값 → 프로필 성별). audit 는 같은 트랜잭션에서 변경 이력
+   */
+  async setProQuickMatch(
+    proProfileId: string,
+    body: { designated?: unknown; on?: unknown; gender?: unknown },
+    opts: {
+      updatedBy?: string | null;
+      audit?: (db: Prisma.TransactionClient, before: { gender: string } | null, after: { gender: string } | null) => Promise<unknown>;
+    } = {},
+  ) {
+    const designated = parseDesignated(body);
+    if (designated === null) throw new BadRequestException('designated(true/false)가 필요해요.');
+    return this.quickRoster.set(proProfileId, { designated, gender: body?.gender }, opts);
   }
 
   // ─── Pro 상세 조회 ─────────────────────────────────────────────────────────

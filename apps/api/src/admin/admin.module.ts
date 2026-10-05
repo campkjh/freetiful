@@ -17,9 +17,10 @@ import { DiscoveryModule } from '../discovery/discovery.module';
 import { ImageModule } from '../image/image.module';
 import { UsersModule } from '../users/users.module';
 import { AdminGuard } from '../common/guards/admin.guard';
+import { QuickMatchRosterModule } from '../match/quick-match-roster.module';
 
 @Module({
-  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, JwtModule.register({}), ConfigModule],
+  imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, QuickMatchRosterModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController, AdminTestMetricsController],
   providers: [AdminService, AdminCommunityService, AdminAuditService, AdminOperatorService, AdminTestMetricsService, AdminFunnelService, AdminGuard, TestMetricsEnvGuard],
   exports: [AdminService],

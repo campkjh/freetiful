@@ -314,6 +314,7 @@ export class AdminController {
     @Query('search') search?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('quickMatch') quickMatch?: string,
   ) {
     return this.adminService.getPros({
       page: page ? Number(page) : 1,
@@ -322,6 +323,7 @@ export class AdminController {
       search,
       startDate,
       endDate,
+      quickMatch: quickMatch === '1' || quickMatch === 'true',
     });
   }
 
@@ -358,6 +360,27 @@ export class AdminController {
   @Patch('pros/:id/featured')
   async toggleFeatured(@Param('id') id: string) {
     return this.adminService.toggleFeatured(id);
+  }
+
+  // 퀵매칭 노출(지정 사회자) 스위치(261005) — body { designated: boolean, gender?: 'male' | 'female' } → { id, quickMatchDesignated, quickMatchGender, quickMatchCount, quickMatchEditable }
+  @Patch('pros/:id/quick-match')
+  async setQuickMatch(@Req() req: any, @Param('id') id: string, @Body() body: { designated?: unknown; on?: unknown; gender?: unknown }) {
+    const actor = actorFrom(req);
+    return this.adminService.setProQuickMatch(id, body ?? {}, {
+      updatedBy: actor.id,
+      audit: (db, before, after) =>
+        this.audit.log(
+          actor,
+          {
+            action: 'pro.quick_match',
+            targetType: 'pro_profile',
+            targetId: id,
+            before: { quickMatchDesignated: !!before, quickMatchGender: before?.gender ?? null },
+            after: { quickMatchDesignated: !!after, quickMatchGender: after?.gender ?? null },
+          },
+          db,
+        ),
+    });
   }
 
   @Get('stats')

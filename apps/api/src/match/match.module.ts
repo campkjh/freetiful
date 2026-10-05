@@ -6,12 +6,14 @@ import { MatchService } from './match.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ChatModule } from '../chat/chat.module';
+import { QuickMatchRosterModule } from './quick-match-roster.module';
 
 @Module({
   imports: [
     PrismaModule,
     NotificationModule,
     ChatModule,
+    QuickMatchRosterModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
