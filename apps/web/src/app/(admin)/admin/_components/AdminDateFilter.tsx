@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AdminTerm } from './AdminHelpTooltip';
+import { AdminDatePop } from './AdminDatePop';
 
 export type AdminDateRange = {
   startDate: string;
@@ -63,7 +64,7 @@ const PRESETS: Array<[PresetType, string]> = [
   ['thisMonth', '이번 달'],
 ];
 
-/** 기간 필터 — 어드민 2.0(261004): 흰 띠 한 줄. 바로가기 칩(고른 칩 = 연한 파랑) + 직접 고르는 날짜 두 칸 + 적용 */
+/** 기간 필터 — 어드민 2.0(261004): 흰 띠 한 줄. 바로가기 칩(고른 칩 = 연한 파랑) + 직접 고르는 날짜 두 칸(그 자리 달력, 261005) + 적용 */
 export function AdminDateFilter({ value, onApply, label = '조회기간' }: Props) {
   const [draft, setDraft] = useState<AdminDateRange>(value);
 
@@ -97,20 +98,23 @@ export function AdminDateFilter({ value, onApply, label = '조회기간' }: Prop
         ))}
       </div>
       <div className="adm-daterange">
-        <input
-          type="date"
+        {/* 날짜 칸 = 그 자리에 뜨는 달력(퀵매칭 예식일 달력 어법, 261005 사장) — 예전 브라우저 기본 '연도. 월. 일.' 칸 대신 */}
+        <AdminDatePop
           value={draft.startDate}
-          onChange={(e) => setDraft((prev) => ({ ...prev, startDate: e.target.value }))}
-          className="adm-input sm"
-          aria-label="시작일"
+          onChange={(v) => setDraft((prev) => ({ ...prev, startDate: v }))}
+          placeholder="시작일"
+          ariaLabel="시작일"
+          rangeStart={draft.startDate}
+          rangeEnd={draft.endDate}
         />
         <span aria-hidden>~</span>
-        <input
-          type="date"
+        <AdminDatePop
           value={draft.endDate}
-          onChange={(e) => setDraft((prev) => ({ ...prev, endDate: e.target.value }))}
-          className="adm-input sm"
-          aria-label="종료일"
+          onChange={(v) => setDraft((prev) => ({ ...prev, endDate: v }))}
+          placeholder="종료일"
+          ariaLabel="종료일"
+          rangeStart={draft.startDate}
+          rangeEnd={draft.endDate}
         />
         <button
           type="button"

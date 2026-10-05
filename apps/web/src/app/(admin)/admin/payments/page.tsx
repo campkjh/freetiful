@@ -11,6 +11,8 @@ import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminMoneyCalendar, type MoneySummary } from '../_components/AdminMoneyCalendar';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 import {
   AdminEventCell,
   AdminPartyCell,
@@ -71,6 +73,12 @@ const statusLabels: Record<string, string> = {
   settled: '정산됨',
 };
 
+/** 상태 거르기 — 라디오 버튼(261005 사장 '탭 말고 라디오 버튼으로') */
+const STATUS_OPTIONS = [
+  { value: '전체', label: '전체' },
+  ...['completed', 'waiting_for_deposit', 'pending', 'failed', 'refunded'].map((st) => ({ value: st, label: statusLabels[st] || st })),
+];
+
 const SETTLE_LABELS: Record<string, string> = { pending: '정산 대기', settled: '정산 완료', cancelled: '정산 취소' };
 const BLOCK_LABELS: Record<string, string> = { expired: '입금 7일 지남', event_within_7: '행사가 입금 7일 이내' };
 
@@ -108,6 +116,8 @@ export default function AdminPaymentsPage() {
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
+  /** 위 달력(홈과 같은 날마다 결제 완료 — 서버 money-summary). 못 받으면 달력만 안 보인다 */
+  const [money, setMoney] = useState<MoneySummary | null | 'error'>(null);
   const LIMIT = 20;
 
   const fetchPayments = async (p = page, st = filterStatus, range = dateRange, append = false) => {
@@ -134,7 +144,27 @@ export default function AdminPaymentsPage() {
     }
   };
 
-  useEffect(() => { fetchPayments(); }, []);
+  const fetchMoney = async () => {
+    try {
+      const d: any = await adminFetch('GET', '/api/v1/admin/money-summary', undefined, { cache: false });
+      setMoney(Array.isArray(d?.daily) && d?.today ? d : 'error');
+    } catch {
+      setMoney('error');
+    }
+  };
+
+  useEffect(() => { fetchPayments(); fetchMoney(); }, []);
+
+  // 달력 날짜 누름 = 그날 결제만(조회기간 그날~그날). 고른 날을 다시 누르면 전체로
+  const pickedDay = dateRange.startDate && dateRange.startDate === dateRange.endDate ? dateRange.startDate : null;
+  const pickDay = (day: string) => {
+    const next = pickedDay === day ? { startDate: '', endDate: '' } : { startDate: day, endDate: day };
+    setDateRange(next);
+    setPage(1);
+    fetchPayments(1, filterStatus, next);
+  };
+  const monthIncome = money && money !== 'error' ? money.daily.filter((d) => d.date.startsWith(money.thisMonth)).reduce((a, d) => a + d.income, 0) : 0;
+  const monthNo = money && money !== 'error' ? Number(money.thisMonth.split('-')[1]) : null;
 
   const handleExport = async () => {
     setExporting(true);
@@ -183,10 +213,30 @@ export default function AdminPaymentsPage() {
   const visibleAmount = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
   // 머리 오른쪽 새로고침(종 옆)
-  useAdminRefresh(() => fetchPayments(1, filterStatus, dateRange));
+  useAdminRefresh(() => { fetchPayments(1, filterStatus, dateRange); fetchMoney(); });
 
   return (
     <div className="space-y-5">
+      {/* 위 달력 — 홈처럼 이번 주(⌄ 이번 달) 날마다 결제 완료 금액. 날짜를 누르면 아래 표가 그날 결제만(261005 사장 '결제 조회도 상단에 달력') */}
+      {money === null ? (
+        <div className="adm-paycal-skel" aria-hidden="true" />
+      ) : money !== 'error' ? (
+        <section className="adm-moneyblock adm-paycal" aria-label="날마다 결제 완료">
+          <div className="adm-paycal-head">
+            <div className="min-w-0">
+              <p className="adm-money-label">{monthNo}월 결제 완료</p>
+              <p className="adm-money-value"><RollingNumber value={monthIncome} />원</p>
+            </div>
+            <p className={`adm-paycal-hint ${pickedDay ? 'on' : ''}`}>
+              {pickedDay
+                ? <>{Number(pickedDay.slice(5, 7))}월 {Number(pickedDay.slice(8, 10))}일 결제만 보는 중 · 다시 누르면 전체</>
+                : '날짜를 누르면 그날 결제만 봐요'}
+            </p>
+          </div>
+          <AdminMoneyCalendar data={money} selected={pickedDay} onPick={pickDay} />
+        </section>
+      ) : null}
+
       <AdminErrorPanel error={lastError} label="결제" />
 
       {/* 거르기·조회기간 + 결제 표 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘').
@@ -194,18 +244,12 @@ export default function AdminPaymentsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <div className="adm-chips">
-              {['전체', 'completed', 'waiting_for_deposit', 'pending', 'failed', 'refunded'].map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
-                  className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
-                >
-                  {st === '전체' ? '전체' : statusLabels[st] || st}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={filterStatus}
+              options={STATUS_OPTIONS}
+              ariaLabel="결제 상태"
+              onChange={(st) => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
+            />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>건 · <b>₩<RollingNumber value={visibleAmount} /></b></span>
             <AdminExportButton loading={exporting} onClick={handleExport} />

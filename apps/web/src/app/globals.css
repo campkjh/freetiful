@@ -2251,6 +2251,78 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 /* 채팅 매칭 — 홈 '새로운 퀵매칭'에서 들어오면 그 요청의 대화만(✕ 로 풀기) */
 .adm-mr-pill { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 32px; padding: 0 10px 0 12px; border: 0; border-radius: 10px; background: var(--admin-blue-weak); color: var(--admin-blue); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color .15s ease; }
 .adm-mr-pill:hover { background: #D9EAFF; }
+
+/* 라디오 버튼 묶음(261005 사장 '전체·입금·환불은 탭 말고 라디오') — 동그라미 → 고르면 파란 테두리 + 가운데 점이 톡 */
+.adm-radios { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; min-width: 0; }
+.adm-radio { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 2px; border: 0; background: none; color: var(--admin-sub); font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .15s ease; -webkit-tap-highlight-color: transparent; }
+.adm-radio-dot { position: relative; flex: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px #D1D6DB; transition: box-shadow .2s ease; }
+.adm-radio-dot::after { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--admin-blue); transform: scale(0); transition: transform .3s var(--adm-spring); }
+.adm-radio:hover .adm-radio-dot { box-shadow: inset 0 0 0 2px #B0B8C1; }
+.adm-radio[aria-checked="true"] { color: var(--admin-ink); }
+.adm-radio[aria-checked="true"] .adm-radio-dot { box-shadow: inset 0 0 0 2px var(--admin-blue); }
+.adm-radio[aria-checked="true"] .adm-radio-dot::after { transform: scale(1); }
+.adm-radio:focus-visible { outline: none; }
+.adm-radio:focus-visible .adm-radio-dot { box-shadow: inset 0 0 0 2px var(--admin-blue), 0 0 0 4px rgba(49, 130, 246, .2); }
+@media (prefers-reduced-motion: reduce) { .adm-radio-dot, .adm-radio-dot::after { transition: none; } }
+
+/* 엑셀 다운로드 — 초록 버튼 + 엑셀 아이콘(261005 사장). 거르기 줄의 흰·회색 버튼 규칙보다 앞서게 :not() 까지 같이 쓴다 */
+.admin-shell .adm-btn.adm-xls:not(.primary):not(.weak),
+.admin-shell .adm-filter .adm-toolbar > .adm-btn.adm-xls:not(.primary):not(.weak) { background: #E3F6EC; color: #11804F; }
+.admin-shell .adm-btn.adm-xls:not(.primary):not(.weak):hover:not(:disabled),
+.admin-shell .adm-filter .adm-toolbar > .adm-btn.adm-xls:not(.primary):not(.weak):hover:not(:disabled) { background: #D0F0DF; color: #0B6E42; }
+
+/* 날짜 칸 + 그 자리 달력(261005 사장 '퀵매칭 피커처럼 — 모달 말고 그 위치에 뜨는 팝업, PC 견적서 창처럼') */
+.adm-datefield { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 148px; cursor: pointer; text-align: left; }
+.adm-datefield-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adm-datefield.empty .adm-datefield-text { color: var(--admin-dis); }
+.adm-datefield-ic { flex: none; color: #8B95A1; transition: color .15s ease; }
+.adm-datefield:hover { background: #E8EBEE; }
+.adm-datefield.on { background: #fff; border-color: var(--admin-blue); }
+.adm-datefield.on .adm-datefield-ic { color: var(--admin-blue); }
+.adm-datepop { position: fixed; z-index: 1200; padding: 18px 16px 12px; border-radius: 24px; background: #fff; box-shadow: 0 16px 48px rgba(15, 23, 42, .18), 0 0 0 1px rgba(2, 32, 71, .04); opacity: 0; transform: translate3d(0, -6px, 0) scale(.97); transform-origin: top left; transition: opacity .17s ease, transform .2s var(--adm-ease); pointer-events: none; }
+.adm-datepop.up { transform: translate3d(0, 6px, 0) scale(.97); transform-origin: bottom left; }
+.adm-datepop.on { opacity: 1; transform: none; pointer-events: auto; transition: opacity .2s ease, transform .32s var(--adm-spring); }
+.adm-datepop-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 6px; }
+.adm-datepop-head b { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; color: #191F28; }
+.adm-datepop-nav { display: flex; gap: 2px; margin-right: -4px; }
+.adm-datepop-nav button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 11px; background: none; color: #4E5968; cursor: pointer; transition: background-color .15s ease; }
+.adm-datepop-nav button:hover { background: #F2F4F6; }
+.adm-datepop-week { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 10px; color: #8B95A1; font-size: 12.5px; font-weight: 500; text-align: center; }
+.adm-datepop-grid { margin-top: 2px; }
+.adm-datepop-row { display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; align-items: center; height: 42px; animation: admDpRise .38s cubic-bezier(.22, .61, .36, 1) both; }
+@keyframes admDpRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.adm-datepop-day { position: relative; width: 40px; height: 38px; padding: 0; border: 0; border-radius: 13px; background: transparent; color: #333D4B; font-family: inherit; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color .18s ease, color .18s ease, transform .12s var(--adm-ease); -webkit-tap-highlight-color: transparent; }
+.adm-datepop-day:hover { background: #F2F4F6; }
+.adm-datepop-day:active { transform: scale(.93); }
+.adm-datepop-day.today { color: #191F28; font-weight: 700; }
+.adm-datepop-day.today::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--admin-blue); }
+.adm-datepop-day.in { background: #F4F8FF; color: #2B6FD6; }
+.adm-datepop-day.edge { box-shadow: inset 0 0 0 1.5px #B9D5FC; color: #2B6FD6; }
+.adm-datepop-day.on { background: var(--admin-blue-weak); color: var(--admin-blue); font-weight: 700; }
+.adm-datepop-day.on::after { background: var(--admin-blue); }
+.adm-datepop-foot { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; padding-top: 8px; box-shadow: inset 0 1px 0 #F2F4F6; }
+.adm-datepop-foot button { height: 32px; padding: 0 12px; border: 0; border-radius: 10px; background: none; color: var(--admin-blue); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color .15s ease; }
+.adm-datepop-foot button:hover { background: var(--admin-blue-weak); }
+.adm-datepop-foot button.sub { color: var(--admin-muted); }
+.adm-datepop-foot button.sub:hover { background: #F2F4F6; }
+@media (prefers-reduced-motion: reduce) { .adm-datepop, .adm-datepop.on { transition: opacity .15s ease; transform: none; } .adm-datepop-row { animation: none; } }
+
+/* 결제 조회 위 달력(261005 사장 '홈처럼') — 박스 없이, 날짜 칸을 누르면 그날 결제만(고른 날 = 연한 파랑) */
+.adm-paycal { padding-top: 4px; }
+.adm-paycal-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.adm-paycal-head .adm-money-value { margin-top: 4px; }
+.adm-paycal-hint { margin: 0 0 4px; color: var(--admin-ph); font-size: 13.5px; text-align: right; transition: color .2s ease; }
+.adm-paycal-hint.on { color: var(--admin-blue); font-weight: 600; }
+.adm-paycal-skel { height: 236px; border-radius: 20px; background: linear-gradient(90deg, #E9ECEF 25%, #E1E5E9 37%, #E9ECEF 63%); background-size: 400% 100%; animation: admShimmer 1.4s ease infinite; }
+.adm-money-cell.btn { border: 0; background: none; font-family: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.adm-money-cell.btn:disabled { cursor: default; }
+.adm-money-cell.btn:not(:disabled):hover .adm-money-day { background: rgba(255, 255, 255, .7); }
+.adm-money-cell.btn.today:not(:disabled):hover .adm-money-day { background: #fff; }
+.adm-money-cell.pick .adm-money-day, .adm-money-cell.btn.pick:not(:disabled):hover .adm-money-day { background: var(--admin-blue-weak); }
+.adm-money-cell.pick .adm-money-date, .adm-money-cell.pick .adm-money-wd { color: var(--admin-blue) !important; font-weight: 700; }
+.adm-money-cell.btn:focus-visible { outline: none; }
+.adm-money-cell.btn:focus-visible .adm-money-day { box-shadow: 0 0 0 2px var(--admin-blue); }
+@media (max-width: 640px) { .adm-paycal-head { flex-direction: column; align-items: flex-start; } .adm-paycal-hint { text-align: left; } }
 .adm-top-val { flex: none; text-align: right; font-size: 14px; font-weight: 700; color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .adm-top-val small { display: block; font-size: 12px; font-weight: 500; color: var(--admin-ph); }
 .adm-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
