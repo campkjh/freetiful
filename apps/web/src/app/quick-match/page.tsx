@@ -3,9 +3,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
-import { captureUtm } from '@/lib/landing-track';
+import { captureUtm, trackLandingVisit } from '@/lib/landing-track';
 import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -980,9 +981,14 @@ export default function QuickMatchPage() {
   /** 예식 일시 시트(달력 + 시간 칩) */
   const [dtOpen, setDtOpen] = useState(false);
   const router = useRouter();
+  // 신청 완료 뒤 갈 곳 — 일반 회원은 매칭 탭(내 신청이 보이는 곳), 그 밖(사회자·업체·비로그인)은 홈(261005 사장)
+  const authUser = useAuthStore((st) => st.user);
+  const doneDest = authUser?.role === 'general' ? '/inquiries' : '/main';
+  const leaveDone = useCallback(() => router.replace(doneDest), [router, doneDest]);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
-  useEffect(() => { captureUtm(); }, []);
+  // 유입 값 보존 + 방문 1건(기기 세션당 1번) — 어드민 홈 '전환 퍼널' 2단계(261005)
+  useEffect(() => { captureUtm(); trackLandingVisit('quick-match'); }, []);
   // 날짜·시간을 아직 안 골랐으면 단계에 들어오자마자 시트를 띄운다(제목이 먼저 보이게 한 박자 뒤) — 따로 누를 필요 없이
   useEffect(() => {
     if (step !== 'date' || (date && time)) return;
@@ -1114,6 +1120,7 @@ export default function QuickMatchPage() {
     try {
       await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } });
       if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
+      window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
     setSubmitting(false);
@@ -1343,16 +1350,21 @@ export default function QuickMatchPage() {
       )}
 
       {step === 'done' && (
-        <div className="qm-page center" key="done">
-          <span className="qm-done-ic"><Ic name="check" size={40} color="#fff" /></span>
-          <h2 className="qm-h2 center">매칭 신청이<br />완료되었어요</h2>
-          <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>
-          <div className="qm-summary">
-            <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
-            <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
-            <div><span>분위기</span><b>{[...moods].join(', ') || '-'}</b></div>
-            <div><span>연락방식</span><b>{contact}</b></div>
+        <div className="qm-page" key="done">
+          {/* 완료 뒤엔 신청 단계로 되돌아가지 않는다 — 뒤로·아래 버튼 모두 매칭 탭(일반 회원) 또는 홈으로(261005) */}
+          <Header onBack={leaveDone} />
+          <div className="qm-done-body">
+            <span className="qm-done-ic"><Ic name="check" size={40} color="#fff" /></span>
+            <h2 className="qm-h2 center">매칭 신청이<br />완료되었어요</h2>
+            <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>
+            <div className="qm-summary">
+              <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
+              <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
+              <div><span>분위기</span><b>{[...moods].join(', ') || '-'}</b></div>
+              <div><span>연락방식</span><b>{contact}</b></div>
+            </div>
           </div>
+          <Cta onClick={leaveDone}>{doneDest === '/inquiries' ? '매칭 현황 보기' : '홈으로'}</Cta>
         </div>
       )}
     </div>
@@ -1405,6 +1417,7 @@ const CSS = `
 .qm-root b,.qm-root strong{font-weight:600;}
 .qm-page{display:flex;flex-direction:column;min-height:100dvh;}
 .qm-page.center{align-items:center;justify-content:center;text-align:center;padding:0 32px;animation:qm-pagefade .32s ease both;}
+.qm-done-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 32px 24px;animation:qm-pagefade .32s ease both;}
 @keyframes qm-fadeup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes qm-slidein{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
 @keyframes qm-pagefade{from{opacity:0}to{opacity:1}}

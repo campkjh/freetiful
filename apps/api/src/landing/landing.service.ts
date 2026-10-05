@@ -15,13 +15,18 @@ export interface VisitInput {
 
 const clip = (v?: string, n = 300) => (v ? String(v).slice(0, n) : null);
 
+/** 방문을 기록하는 페이지 — 랜딩 2개(유입 분석) + 홈·퀵매칭(전환 퍼널) */
+const TRACKED_PAGES = ['wedding-mc', 'corporate-mc', 'home', 'quick-match'] as const;
+const LANDING_PAGES = ['wedding-mc', 'corporate-mc'];
+
 @Injectable()
 export class LandingService {
   constructor(private prisma: PrismaService) {}
 
   /** 방문 기록(세션·페이지당 1행, 중복은 upsert 로 무해하게 갱신). */
   async recordVisit(input: VisitInput) {
-    const page = input.page === 'corporate-mc' ? 'corporate-mc' : 'wedding-mc';
+    // 홈·퀵매칭 방문도 같은 표에(261005 — 홈 '전환 퍼널' 첫 두 단계). 모르는 값은 예전처럼 wedding-mc
+    const page = (TRACKED_PAGES as readonly string[]).includes(input.page) ? input.page : 'wedding-mc';
     const sessionKey = clip(input.sessionKey, 80) || 'anon';
     const data = {
       utmSource: clip(input.utm_source, 120),
@@ -52,7 +57,8 @@ export class LandingService {
 
   /** 어드민 집계 — 페이지별 방문/전환 + 소스/매체/캠페인 상위 분해. */
   async analytics(fromISO?: string, toISO?: string) {
-    const where: any = {};
+    // 랜딩 유입 분석은 두 랜딩만 — 홈·퀵매칭 방문(전환 퍼널용)이 합계에 섞이지 않게
+    const where: any = { page: { in: LANDING_PAGES } };
     if (fromISO || toISO) {
       where.createdAt = {};
       if (fromISO) where.createdAt.gte = new Date(fromISO);
@@ -167,6 +173,7 @@ export class LandingService {
   // 최근 방문 리스트(어떤 유입으로 들어왔는지) — 어드민 하단 표.
   async recentVisits(limit = 100) {
     const rows = await this.prisma.landingVisit.findMany({
+      where: { page: { in: LANDING_PAGES } },
       orderBy: { createdAt: 'desc' },
       take: Math.max(1, Math.min(300, limit)),
       select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, convertedAt: true, createdAt: true },

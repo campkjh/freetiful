@@ -20,6 +20,7 @@ import { AdminService } from './admin.service';
 import { AdminCommunityService } from './admin-community.service';
 import { AdminOperatorService } from './admin-operator.service';
 import { AdminAuditService, actorFrom } from './admin-audit.service';
+import { AdminFunnelService } from './admin-funnel.service';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @ApiTags('admin')
@@ -36,7 +37,14 @@ export class AdminController {
     private community: AdminCommunityService,
     private operator: AdminOperatorService,
     private audit: AdminAuditService,
+    private funnelService: AdminFunnelService,
   ) {}
+
+  // 홈 전환 퍼널 — 홈 방문 → 퀵매칭 → 견적 요청 → 대화 → 견적 → 결제(261005)
+  @Get('funnel')
+  funnel(@Query('days') days?: string) {
+    return this.funnelService.funnel(days ? Number(days) : 30);
+  }
 
   // ─── 운영 콘텐츠(운영 프로필 · 운영 글 · 반응 수치 · 변경 이력, 261004) ─────────────
   @Get('operator/env')

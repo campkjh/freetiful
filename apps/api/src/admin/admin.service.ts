@@ -1078,19 +1078,21 @@ export class AdminService {
       safe('sentPushNotifications', this.prisma.notification.count({ where: { sentPush: true } }), 0),
       safe('activePushTokens', this.prisma.pushToken.count({ where: { isActive: true } }), 0),
       safe('pushSubscriptions', this.prisma.pushSubscription.count(), 0),
+      // 홈 '사회자 TOP' — 기본 5명, 펼치면 20명까지(261005 사장 '펼치기 버튼')
       safe('topViewedPros', this.prisma.proProfile.findMany({
         where: { status: 'approved' },
         include: { user: { select: { name: true } } },
         orderBy: { profileViews: 'desc' },
-        take: 5,
+        take: 20,
       }), emptyRows),
       safe('topRevenueGroups', this.prisma.payment.groupBy({
         by: ['proProfileId'],
-        where: { status: 'completed' },
+        // 관리자 리뷰 직접 등록이 만든 0원 더미 결제는 건수에서 뺀다(결제완료 지표와 같은 기준)
+        where: { status: 'completed', method: { not: 'admin_review' } },
         _sum: { amount: true },
         _count: true,
         orderBy: { _sum: { amount: 'desc' } },
-        take: 5,
+        take: 20,
       }), emptyRows),
     ]);
 

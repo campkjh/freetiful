@@ -5,6 +5,7 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AdminCommunityService } from './admin-community.service';
 import { AdminAuditService } from './admin-audit.service';
+import { AdminFunnelService } from './admin-funnel.service';
 import { AdminOperatorService } from './admin-operator.service';
 import { AdminTestMetricsService } from './admin-test-metrics.service';
 import { AdminTestMetricsController } from './admin-test-metrics.controller';
@@ -20,7 +21,7 @@ import { AdminGuard } from '../common/guards/admin.guard';
 @Module({
   imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController, AdminTestMetricsController],
-  providers: [AdminService, AdminCommunityService, AdminAuditService, AdminOperatorService, AdminTestMetricsService, AdminGuard, TestMetricsEnvGuard],
+  providers: [AdminService, AdminCommunityService, AdminAuditService, AdminOperatorService, AdminTestMetricsService, AdminFunnelService, AdminGuard, TestMetricsEnvGuard],
   exports: [AdminService],
 })
 export class AdminModule {}

@@ -2070,6 +2070,36 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-reply.none { background: #F2F4F6; color: var(--admin-ph); }
 .adm-top-bar.green > span { background: linear-gradient(90deg, #A7E8C9, #03B26C); }
 .adm-top-foot { margin: 16px 0 0; font-size: 12px; color: var(--admin-dis); }
+.adm-top-more { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; height: 40px; margin-top: 10px; border: 0; border-radius: 12px; background: #F7F8FA; color: var(--admin-muted); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.adm-top-more:hover { background: #F2F4F6; color: var(--admin-ink); }
+.adm-top-more svg { transition: transform .25s var(--adm-ease); }
+.adm-top-more.on svg { transform: rotate(180deg); }
+/* 전환 퍼널(261005) — 위에서부터 차례로: 단계 줄 → 넘어온 비율·빠진 사람 → 다음 단계 */
+.adm-jf { display: flex; flex-direction: column; }
+.adm-jf-row { display: grid; grid-template-columns: minmax(150px, 190px) 1fr 82px; align-items: center; gap: 14px; animation: admRise .45s var(--adm-ease) both; }
+.adm-jf-label { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.adm-jf-label b { display: block; overflow: hidden; color: var(--admin-ink); font-size: 14.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.adm-jf-label small { display: block; overflow: hidden; margin-top: 1px; color: var(--admin-ph); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-jf-no { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 12px; font-weight: 700; }
+.adm-jf-no.end { background: var(--admin-blue); color: #fff; }
+.adm-jf-track { display: flex; justify-content: center; height: 34px; }
+.adm-jf-bar { display: block; height: 100%; border-radius: 10px; background: #3182F6; transform-origin: center; animation: admGrowX .6s var(--adm-ease) both; }
+.adm-jf-bar.s0 { background: #C9DDFC; } .adm-jf-bar.s1 { background: #A5C8FA; } .adm-jf-bar.s2 { background: #7DB0F8; }
+.adm-jf-bar.s3 { background: #5598F7; } .adm-jf-bar.s4 { background: #3D8AF7; } .adm-jf-bar.s5 { background: #1B64DA; }
+.adm-jf-n { text-align: right; color: var(--admin-ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.adm-jf-n small { margin-left: 2px; color: var(--admin-muted); font-size: 12px; font-weight: 600; }
+.adm-jf-drop { display: flex; align-items: center; gap: 8px; height: 30px; padding-left: 11px; animation: admRise .4s var(--adm-ease) both; }
+.adm-jf-drop-arrow { width: 2px; height: 18px; border-radius: 2px; background: #E5E8EB; }
+.adm-jf-drop-text { color: var(--admin-muted); font-size: 12.5px; }
+.adm-jf-drop-text b { color: var(--admin-blue); font-weight: 700; }
+.adm-jf-drop-text.muted { color: var(--admin-dis); }
+.adm-jf-lost { color: var(--admin-red); opacity: .85; }
+.adm-jf-sum { margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: #F7F8FA; color: var(--admin-sub); font-size: 13.5px; line-height: 1.55; animation: admRise .45s var(--adm-ease) both; }
+.adm-jf-sum b { color: var(--admin-blue); font-weight: 700; }
+.adm-jf-sum span { color: var(--admin-ph); }
+.adm-jf-note { margin: 10px 0 0; color: var(--admin-orange); font-size: 12.5px; }
+@media (max-width: 640px) { .adm-jf-row { grid-template-columns: minmax(120px, 1fr) 1fr 64px; gap: 10px; } }
+@media (prefers-reduced-motion: reduce) { .adm-jf-row, .adm-jf-drop, .adm-jf-bar, .adm-jf-sum { animation: none; } }
 .adm-top-val { flex: none; text-align: right; font-size: 14px; font-weight: 700; color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .adm-top-val small { display: block; font-size: 12px; font-weight: 500; color: var(--admin-ph); }
 .adm-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -2094,6 +2124,20 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 /* 바깥 이름은 .adm-moneyblock — .adm-money(표·숫자 칸 금액 글자)와 겹쳐 정산 숫자 칸이 8px 내려앉던 것 */
 .adm-moneyblock { position: relative; padding: 8px 2px 0; }
 .adm-money-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* 수입 + 오늘 매출·신규 가입·한 달 누적 매출·정산 대기 나란히(261005) */
+.adm-money-top.kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 12px; }
+.adm-money-top.kpis .adm-money-col { display: block; min-width: 0; margin: -10px; padding: 10px; border-radius: 16px; color: inherit; text-decoration: none; transition: background-color .15s ease; }
+.adm-money-top.kpis .adm-money-col:hover { background: rgba(0, 0, 0, .035); }
+.adm-money-top.kpis .adm-money-label { font-size: 15px; }
+.adm-money-top.kpis .adm-money-value { overflow: hidden; font-size: 24px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-money-sub { margin: 4px 0 0; overflow: hidden; color: var(--admin-ph); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-money-wait { color: var(--admin-dis); }
+@media (max-width: 1180px) { .adm-money-top.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; } }
+@media (max-width: 640px) {
+  .adm-money-top.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adm-money-top.kpis > :first-child { grid-column: 1 / -1; }
+  .adm-money-top.kpis .adm-money-value { font-size: 21px; }
+}
 .adm-money-label { margin: 0; font-size: 17px; font-weight: 500; color: var(--admin-muted); }
 .adm-money-value { margin: 6px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -0.6px; color: #333D4B; font-variant-numeric: tabular-nums; }
 .adm-money-line { height: 1px; margin: 26px 0 0; background: #E5E8EB; }

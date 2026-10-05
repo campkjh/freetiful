@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useLayoutEffect, type CSSProperties, type RefObject, type TouchEvent as ReactTouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { captureUtm, trackLandingVisit } from '@/lib/landing-track';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight, X } from 'lucide-react';
@@ -2190,6 +2191,8 @@ export default function HomePage() {
   const [simpleRequestType, setSimpleRequestType] = useState<'wedding' | 'event'>('wedding');
   const skipHomeAnim = useHomeAnimationSkip();
   useEffect(() => () => resetHomeAnimationDecision(), []);
+  // 홈 방문 1건(기기 세션당 1번, 익명) — 어드민 홈 '전환 퍼널' 1단계(261005)
+  useEffect(() => { captureUtm(); trackLandingVisit('home'); }, []);
 
   // 홈 진입 팝업 — 가입 5천원 한 장(예전엔 어드민 배너 placement=popup). '다시 보지 않기'는 팝업 id 별로 기억.
   // 예전 iOS 앱(네이티브 홈이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다: 네이티브 홈에 가려 안 보이고
