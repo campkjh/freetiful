@@ -29,7 +29,23 @@ export class SettlementController {
     });
   }
 
+  @Get('pro/settlements/:id/bill')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '프로 본인 — 정산 명세서(빌지)' })
+  getMyBill(@Req() req: any, @Param('id') id: string) {
+    return this.svc.getBill(id, { userId: req.user.id });
+  }
+
   // ─── Admin ─────────────────────────────────────────────────
+
+  @Get('admin/settlements/:id/bill')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '관리자 — 정산 명세서(빌지)' })
+  adminBill(@Param('id') id: string) {
+    return this.svc.getBill(id, { admin: true });
+  }
 
   @Get('admin/settlements')
   @UseGuards(JwtAuthGuard, AdminGuard)

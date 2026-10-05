@@ -2323,6 +2323,15 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-money-cell.btn:focus-visible { outline: none; }
 .adm-money-cell.btn:focus-visible .adm-money-day { box-shadow: 0 0 0 2px var(--admin-blue); }
 @media (max-width: 640px) { .adm-paycal-head { flex-direction: column; align-items: flex-start; } .adm-paycal-hint { text-align: left; } }
+
+/* 정산 명세서(빌지) 창 — 회색 바탕 위 영수증 + 카카오톡 공유·이미지 저장(261005 사장) */
+.adm-bill-modal { width: min(440px, 100%); padding: 22px 20px 20px; }
+.adm-bill-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 0 4px; }
+.adm-bill-sub { margin: 4px 0 0; color: var(--admin-ph); font-size: 13.5px; }
+.adm-bill-x { display: grid; place-items: center; width: 36px; height: 36px; margin: -4px -6px 0 0; padding: 0; border: 0; border-radius: 12px; background: none; color: #8B95A1; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.adm-bill-x:hover { background: #F2F4F6; color: var(--admin-ink); }
+.adm-bill-stage { margin-top: 16px; padding: 20px 16px 22px; border-radius: 20px; background: #F2F4F6; }
+.adm-bill-actions { margin-top: 16px; }
 .adm-top-val { flex: none; text-align: right; font-size: 14px; font-weight: 700; color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .adm-top-val small { display: block; font-size: 12px; font-weight: 500; color: var(--admin-ph); }
 .adm-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }

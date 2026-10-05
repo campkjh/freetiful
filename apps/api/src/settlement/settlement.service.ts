@@ -3,6 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { SettlementStatus } from '@prisma/client';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
+import { paymentPaidAt } from '../payment/refund-policy';
+
+/** 이름 가운데 가리기 — '김하늘' → '김*늘' · '김솔' → '김*' (빌지는 이미지로 카톡 공유되므로 고객 이름을 다 싣지 않는다) */
+export function maskName(raw?: string | null): string {
+  const name = String(raw ?? '').trim();
+  if (!name) return '고객';
+  const chars = Array.from(name);
+  if (chars.length <= 1) return chars[0] + '*';
+  if (chars.length === 2) return `${chars[0]}*`;
+  return `${chars[0]}${'*'.repeat(Math.min(3, chars.length - 2))}${chars[chars.length - 1]}`;
+}
 
 @Injectable()
 export class SettlementService {
@@ -227,18 +238,63 @@ export class SettlementService {
       return upd;
     });
 
-    // 전문가에게 알림
+    // 전문가에게 알림 — 누르면 정산 명세서(빌지, 이미지로 카톡 공유 가능 — 261005 사장)
     if (log.proProfile?.userId) {
       this.notification.createNotification(
         log.proProfile.userId,
         'payment' as any,
         '정산이 완료되었습니다 💰',
-        `${log.netAmount.toLocaleString()}원이 정산 처리되었습니다.`,
-        { settlementLogId: id, paymentId: log.paymentId },
+        `${log.netAmount.toLocaleString()}원이 정산 처리되었습니다. 눌러서 정산 명세서를 확인해 보세요.`,
+        { settlementLogId: id, paymentId: log.paymentId, link: `/my/settlement/${id}` },
       ).catch(() => {});
     }
 
     return updated;
+  }
+
+  /**
+   * 정산 명세서(빌지) — 사회자 본인(userId) 또는 관리자(admin). 정산하기 뒤 관리자 화면·사회자 푸시에서 열고 이미지로 카톡 공유한다(261005).
+   *  고객 이름은 가운데를 가리고(maskName) 연락처는 싣지 않는다. 관리자 메모(note)는 관리자에게만.
+   *  남의 정산 id 를 넣으면 '없음'으로 답한다(있는지 여부도 알려 주지 않게).
+   */
+  async getBill(id: string, viewer: { userId?: string; admin?: boolean }) {
+    const log = await this.prisma.settlementLog.findUnique({
+      where: { id },
+      include: {
+        proProfile: { select: { userId: true, user: { select: { name: true } } } },
+        payment: {
+          select: {
+            userId: true,
+            amount: true,
+            method: true,
+            createdAt: true,
+            updatedAt: true,
+            quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
+          },
+        },
+      },
+    });
+    if (!log || (!viewer.admin && (!viewer.userId || log.proProfile?.userId !== viewer.userId))) {
+      throw new NotFoundException('정산 내역을 찾을 수 없습니다');
+    }
+    const customer = await this.prisma.user.findUnique({ where: { id: log.payment.userId }, select: { name: true } });
+    return {
+      id: log.id,
+      /** 명세서 번호 — 정산 id 앞 10자리 */
+      no: log.id.replace(/-/g, '').slice(0, 10).toUpperCase(),
+      status: log.status,
+      proName: log.proProfile?.user?.name || '사회자',
+      customerName: maskName(customer?.name),
+      event: paymentEventOf(log.payment.quotations?.[0]),
+      amount: log.amount,
+      platformFee: log.platformFee,
+      netAmount: log.netAmount,
+      method: log.payment.method || null,
+      paidAt: paymentPaidAt(log.payment),
+      settledAt: log.settledAt,
+      createdAt: log.createdAt,
+      ...(viewer.admin ? { note: log.note || null } : {}),
+    };
   }
 
   /** 관리자가 정산을 취소 (실수 복구) */

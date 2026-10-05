@@ -14,6 +14,7 @@ import { AdminEventCell, AdminPartyCell, formatPhone, type AdminEvent } from '..
 import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminBillModal } from '../_components/AdminBillModal';
 
 interface SettlementLogItem {
   id: string;
@@ -85,6 +86,8 @@ export default function AdminSettlementsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  /** 정산 명세서(빌지) 창 — 정산하기 뒤 바로(fresh), 줄의 '빌지'로 다시 */
+  const [bill, setBill] = useState<{ id: string; fresh: boolean } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
   const [page, setPage] = useState(1);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
@@ -124,6 +127,8 @@ export default function AdminSettlementsPage() {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});
       toast.success('정산 완료로 처리되었습니다');
       fetchList(1, filter, dateRange);
+      // 바로 빌지를 띄운다 — 사회자에게 카톡으로 이미지 보내기(261005 사장)
+      setBill({ id, fresh: true });
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`정산 처리 실패: ${err.message}`, { duration: 6000 });
@@ -280,17 +285,22 @@ export default function AdminSettlementsPage() {
                       {it.settledAt && <span className="adm-cell-sub">{formatDate(it.settledAt)}</span>}
                     </td>
                     <td className="c">
-                      {it.status === 'pending' ? (
-                        <button type="button" onClick={() => handleSettle(it.id)} disabled={processingId === it.id} className="adm-btn primary sm">
-                          {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
-                          정산하기
+                      <span className="inline-flex gap-1.5">
+                        <button type="button" onClick={() => setBill({ id: it.id, fresh: false })} className="adm-btn sm" title="정산 명세서(빌지) · 카카오톡 이미지 공유">
+                          빌지
                         </button>
-                      ) : (
-                        <button type="button" onClick={() => handleUnsettle(it.id)} disabled={processingId === it.id} className="adm-btn sm">
-                          {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
-                          되돌리기
-                        </button>
-                      )}
+                        {it.status === 'pending' ? (
+                          <button type="button" onClick={() => handleSettle(it.id)} disabled={processingId === it.id} className="adm-btn primary sm">
+                            {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                            정산하기
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => handleUnsettle(it.id)} disabled={processingId === it.id} className="adm-btn sm">
+                            {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                            되돌리기
+                          </button>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -311,6 +321,7 @@ export default function AdminSettlementsPage() {
           }}
         />
       </AdminListCard>
+      <AdminBillModal id={bill?.id || null} fresh={bill?.fresh} onClose={() => setBill(null)} />
     </div>
   );
 }
