@@ -10,6 +10,7 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
+import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
 
 interface ReportRow {
   id: string;
@@ -106,13 +107,12 @@ export default function AdminCommunityReportsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <div className="adm-chips">
-              {STATUS.map(([k, label]) => (
-                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, k); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={status}
+              options={STATUS.map(([k, label]) => ({ value: k, label }))}
+              ariaLabel="신고 상태"
+              onChange={(k) => { setStatus(k); fetchRows(1, k); }}
+            />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
           </div>

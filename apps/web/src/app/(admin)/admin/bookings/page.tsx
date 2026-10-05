@@ -9,6 +9,7 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface BookingItem {
   id: string;
@@ -267,24 +268,13 @@ export default function AdminBookingsPage() {
 
       <AdminListCard
         filter={<>
-          <div className="flex flex-wrap gap-2 p-3">
-            {FILTERS.map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => {
-                  setFilter(value);
-                  setPage(1);
-                  fetchData(1, value, dateRange);
-                }}
-                className={`admin-chip px-3.5 text-[12px] ${
-                  filter === value
-                    ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
-                    : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="adm-toolbar">
+            <AdminRadioGroup
+              value={filter}
+              options={FILTERS.map(([value, label]) => ({ value, label }))}
+              ariaLabel="예약 상태"
+              onChange={(value) => { setFilter(value); setPage(1); fetchData(1, value, dateRange); }}
+            />
           </div>
           <AdminDateFilter
             value={dateRange}

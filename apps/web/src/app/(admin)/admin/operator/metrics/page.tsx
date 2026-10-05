@@ -13,6 +13,7 @@ import { adminConfirm } from '../../_components/adminDialog';
 import { AdminCollapse } from '../../_components/AdminCollapse';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
+import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
 
 interface MetricRow {
   id: string;
@@ -151,13 +152,12 @@ export default function AdminOperatorMetricsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <div className="adm-chips">
-              {(['operator', 'all'] as const).map((k) => (
-                <button key={k} type="button" className={`adm-chip ${kind === k ? 'on' : ''}`} onClick={() => { setKind(k); fetchRows(1, { kind: k, q }); }}>
-                  {k === 'operator' ? '운영 글' : '게시된 전체 글'}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={kind}
+              options={[{ value: 'operator', label: '운영 글' }, { value: 'all', label: '게시된 전체 글' }]}
+              ariaLabel="글 범위"
+              onChange={(k) => { setKind(k); fetchRows(1, { kind: k, q }); }}
+            />
             <label className="adm-search grow">
               <Search size={17} />
               <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { kind, q }); }} placeholder="제목·본문 검색 (Enter)" className="adm-input" />

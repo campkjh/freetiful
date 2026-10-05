@@ -27,6 +27,7 @@ import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface BusinessInquiryItem {
   id: string;
@@ -263,26 +264,12 @@ export default function AdminInquiriesPage() {
                   className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
                 />
               </div>
-              <div className="flex flex-wrap gap-2">
-                {STATUS_OPTIONS.map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setStatus(value);
-                      setPage(1);
-                      fetchList(1, value, search, dateRange);
-                    }}
-                    className={`admin-chip px-3.5 text-[12px] ${
-                      status === value
-                        ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
-                        : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <AdminRadioGroup
+                value={status}
+                options={STATUS_OPTIONS.map(([value, label]) => ({ value, label }))}
+                ariaLabel="문의 상태"
+                onChange={(value) => { setStatus(value); setPage(1); fetchList(1, value, search, dateRange); }}
+              />
             </div>
           </div>
           <AdminDateFilter

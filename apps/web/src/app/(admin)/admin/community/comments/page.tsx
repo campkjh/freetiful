@@ -13,6 +13,7 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
+import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
 
 interface CommentRow {
   id: string;
@@ -116,13 +117,12 @@ export default function AdminCommunityCommentsPage() {
                 className="adm-input"
               />
             </label>
-            <div className="adm-chips">
-              {STATUS.map(([k, label]) => (
-                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, range: dateRange }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={status}
+              options={STATUS.map(([k, label]) => ({ value: k, label }))}
+              ariaLabel="댓글 상태"
+              onChange={(k) => { setStatus(k); fetchRows(1, { q, status: k, range: dateRange }); }}
+            />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
           </div>
           <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, range }); }} />

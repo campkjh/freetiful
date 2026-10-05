@@ -13,6 +13,7 @@ import { OpAvatar, STATUS_LABEL, STATUS_TONE, type OperatorProfile, type PostSta
 import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface OpPostRow {
   id: string;
@@ -164,13 +165,12 @@ export default function AdminOperatorPostsPage() {
             </select>
           </div>
           <div className="adm-toolbar adm-toolbar-sub">
-            <div className="adm-chips">
-              {STATUS_CHIPS.map(([k, label]) => (
-                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { status: k, profileId, q }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                  {label} <span className="adm-chip-num"><RollingNumber value={k === 'all' ? allCount : counts[k] || 0} /></span>
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={status}
+              options={STATUS_CHIPS.map(([k, label]) => ({ value: k, label, count: <RollingNumber value={k === 'all' ? allCount : counts[k] || 0} /> }))}
+              ariaLabel="글 상태"
+              onChange={(k) => { setStatus(k); fetchRows(1, { status: k, profileId, q }); }}
+            />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
           </div>

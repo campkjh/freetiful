@@ -16,6 +16,7 @@ import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface ProItem {
   id: string;
@@ -301,17 +302,13 @@ export default function AdminProsPage() {
                 className="adm-input"
               />
             </label>
-            <div className="adm-chips">
-              {STATUS_FILTERS.map(([st, label]) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
-                  className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="adm-radio-row">
+              <AdminRadioGroup
+                value={filterStatus}
+                options={STATUS_FILTERS.map(([value, label]) => ({ value, label }))}
+                ariaLabel="사회자 상태"
+                onChange={(st) => { setFilterStatus(st); setPage(1); fetchPros(1, search, st, dateRange); }}
+              />
               {/* 퀵매칭 노출 = 지정 사회자만 보기 + 지금 몇 명(다른 거르기와 함께 걸린다) */}
               <button
                 type="button"

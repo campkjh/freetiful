@@ -12,6 +12,7 @@ import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminCollapse } from '../_components/AdminCollapse';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface ConnRow {
   id: string;
@@ -355,18 +356,12 @@ export default function ChatConnectionsPage() {
                 className="adm-input"
               />
             </label>
-            <div className="adm-chips">
-              {STATUS_TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
-                  className={`adm-chip ${status === t.id ? 'on' : ''}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={status}
+              options={STATUS_TABS.map((t) => ({ value: t.id, label: t.label }))}
+              ariaLabel="대화 상태"
+              onChange={(st) => { setStatus(st); setPage(1); fetchData(1, search, st, dateRange); }}
+            />
             {matchRequestId && (
               <button type="button" className="adm-mr-pill" onClick={clearMatchRequest} aria-label="퀵매칭 한 건만 보기 풀기">
                 퀵매칭 한 건만 보는 중

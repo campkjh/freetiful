@@ -10,6 +10,7 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { ACTION_LABEL, FIELD_LABEL, STATUS_LABEL } from '../../_components/operatorAdmin';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
+import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
 
 interface AuditRow {
   id: string;
@@ -126,13 +127,12 @@ export default function AdminOperatorHistoryPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <div className="adm-chips">
-              {GROUPS.map(([k, label]) => (
-                <button key={k || 'all'} type="button" className={`adm-chip ${group === k ? 'on' : ''}`} onClick={() => { setGroup(k); fetchRows(1, { group: k, q }); }}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={group}
+              options={GROUPS.map(([k, label]) => ({ value: k, label }))}
+              ariaLabel="변경 종류"
+              onChange={(k) => { setGroup(k); fetchRows(1, { group: k, q }); }}
+            />
             <label className="adm-search grow">
               <Search size={17} />
               <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { group, q }); }} placeholder="사유·대상 ID·관리자 이메일 (Enter)" className="adm-input" />

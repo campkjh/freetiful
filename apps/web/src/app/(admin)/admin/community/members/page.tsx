@@ -10,6 +10,7 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { CommunityStats, NICK_SOURCE_LABEL, ago, useNicknameChanged, useNicknameEditor } from '../../_components/communityAdmin';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
+import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
 
 interface MemberRow {
   userId: string;
@@ -108,13 +109,12 @@ export default function AdminCommunityMembersPage() {
             <span className="adm-count">웨딩숲에 글·댓글을 쓴 <b><RollingNumber value={all} /></b>명</span>
           </div>
           <div className="adm-toolbar adm-toolbar-sub">
-            <div className="adm-chips">
-              {SOURCES.map(([k, label]) => (
-                <button key={k || 'all'} type="button" className={`adm-chip ${source === k ? 'on' : ''}`} onClick={() => { setSource(k); fetchRows(1, { q, source: k }); }}>
-                  {label} <span className="adm-chip-num"><RollingNumber value={k ? counts[k] || 0 : all} /></span>
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={source}
+              options={SOURCES.map(([k, label]) => ({ value: k, label, count: <RollingNumber value={k ? counts[k] || 0 : all} /> }))}
+              ariaLabel="닉네임 종류"
+              onChange={(k) => { setSource(k); fetchRows(1, { q, source: k }); }}
+            />
           </div>
         </>}
       >

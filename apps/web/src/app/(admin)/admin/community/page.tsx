@@ -13,6 +13,7 @@ import { formatKstDateTime } from '../_components/adminEvent';
 import { AuthorCell, CommunityStats, POST_TYPE_LABEL, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor, type CGroup } from '../_components/communityAdmin';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface PostRow {
   id: string;
@@ -131,13 +132,12 @@ export default function AdminCommunityPostsPage() {
                 className="adm-input"
               />
             </label>
-            <div className="adm-chips">
-              {STATUS.map(([k, label]) => (
-                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange, kind }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={status}
+              options={STATUS.map(([k, label]) => ({ value: k, label }))}
+              ariaLabel="글 상태"
+              onChange={(k) => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange, kind }); }}
+            />
             <select
               value={groupId}
               onChange={(e) => { setGroupId(e.target.value); fetchRows(1, { q, status, groupId: e.target.value, range: dateRange, kind }); }}

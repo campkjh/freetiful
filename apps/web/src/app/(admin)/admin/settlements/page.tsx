@@ -15,6 +15,7 @@ import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminBillModal } from '../_components/AdminBillModal';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface SettlementLogItem {
   id: string;
@@ -228,13 +229,12 @@ export default function AdminSettlementsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <div className="adm-chips">
-              {(['pending', 'all', 'settled'] as const).map((f) => (
-                <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
-                  {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
-                </button>
-              ))}
-            </div>
+            <AdminRadioGroup
+              value={filter}
+              options={[{ value: 'pending', label: '정산 대기' }, { value: 'all', label: '전체' }, { value: 'settled', label: '정산 완료' }]}
+              ariaLabel="정산 상태"
+              onChange={(f) => setFilter(f)}
+            />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={meta.total} /></b>건</span>
             <AdminExportButton loading={exporting} onClick={handleExport} />
