@@ -2082,8 +2082,8 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-jf-label small { display: block; overflow: hidden; margin-top: 1px; color: var(--admin-ph); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .adm-jf-no { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 12px; font-weight: 700; }
 .adm-jf-no.end { background: var(--admin-blue); color: #fff; }
-.adm-jf-track { display: flex; justify-content: center; height: 34px; }
-.adm-jf-bar { display: block; height: 100%; border-radius: 10px; background: #3182F6; transform-origin: center; animation: admGrowX .6s var(--adm-ease) both; }
+.adm-jf-track { display: flex; justify-content: flex-start; height: 34px; }
+.adm-jf-bar { display: block; height: 100%; border-radius: 10px; background: #3182F6; transform-origin: left; animation: admGrowX .6s var(--adm-ease) both; }
 .adm-jf-bar.s0 { background: #C9DDFC; } .adm-jf-bar.s1 { background: #A5C8FA; } .adm-jf-bar.s2 { background: #7DB0F8; }
 .adm-jf-bar.s3 { background: #5598F7; } .adm-jf-bar.s4 { background: #3D8AF7; } .adm-jf-bar.s5 { background: #1B64DA; }
 .adm-jf-n { text-align: right; color: var(--admin-ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
