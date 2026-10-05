@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
 import { AdminInfiniteScroll, appendUniqueById } from '../../_components/AdminInfiniteScroll';
 import { adminFetch } from '../../_components/adminFetch';
@@ -11,6 +10,7 @@ import { ACTION_LABEL, FIELD_LABEL, STATUS_LABEL } from '../../_components/opera
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
+import { AdminSearchField } from '../../_components/AdminSearchField';
 
 interface AuditRow {
   id: string;
@@ -133,10 +133,7 @@ export default function AdminOperatorHistoryPage() {
               ariaLabel="변경 종류"
               onChange={(k) => { setGroup(k); fetchRows(1, { group: k, q }); }}
             />
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { group, q }); }} placeholder="사유·대상 ID·관리자 이메일 (Enter)" className="adm-input" />
-            </label>
+            <AdminSearchField className="grow" value={q} onChange={setQ} onSubmit={(q) => { fetchRows(1, { group, q }); }} placeholder="사유·대상 ID·관리자 이메일" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
           </div>
         </>}

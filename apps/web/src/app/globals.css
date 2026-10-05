@@ -1889,6 +1889,16 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 .adm-search > img, .adm-search > svg { position: absolute; left: 14px; z-index: 1; pointer-events: none; opacity: .55; }
 .adm-search .adm-input { padding-left: 40px; background: #fff; }
 .adm-search .adm-input:focus { border-color: var(--admin-blue); }
+/* 검색칸(261006 사장 시안 Typing States 4장) — 회색 바탕 44·r12·테두리 없음(눌러도 파란 커서만) · 돋보기 20 검정 58% · 글자 17 · 입력 뒤 지우기 동그라미 */
+.adm-sf { position: relative; display: flex; align-items: center; min-width: 220px; height: 44px; padding: 0 11px 0 10px; border-radius: 12px; background: #F2F4F6; cursor: text; }
+.adm-sf-ic { flex: none; color: rgba(0, 19, 43, .58); }
+.admin-shell .adm-sf input { flex: 1; min-width: 0; height: 100%; margin: 0 0 0 9px; padding: 0 4px 0 0; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent; color: #191F28; font-family: inherit; font-size: 17px; font-weight: 500; letter-spacing: 0; caret-color: #3182F6; -webkit-appearance: none; appearance: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); }
+.admin-shell .adm-sf input::placeholder { color: rgba(3, 24, 50, .46); opacity: 1; }
+.adm-sf input::-webkit-search-cancel-button, .adm-sf input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.adm-sf-clear { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; background: none; color: rgba(0, 25, 54, .31); cursor: pointer; animation: ftFade .15s ease both; transition: color .15s ease; }
+.adm-sf-clear:hover { color: rgba(0, 25, 54, .45); }
+.adm-filter .adm-sf, .adm-toolbar .adm-sf { min-width: 240px; }
+@media (max-width: 640px) { .adm-sf { min-width: 0; } }
 .adm-count { padding: 0 6px; color: var(--admin-muted); font-size: 14px; white-space: nowrap; }
 .adm-count b { color: var(--admin-ink); font-weight: 700; }
 /* 접히는 카드(진단 같은 보조 도구) */

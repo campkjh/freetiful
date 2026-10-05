@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, AlertCircle } from '@/app/(admin)/admin/_components/admin-icons';
+import { AlertCircle } from '@/app/(admin)/admin/_components/admin-icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { adminConfirm } from '../_components/adminDialog';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface ProItem {
   id: string;
@@ -291,17 +292,7 @@ export default function AdminProsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchPros(1, search, filterStatus, dateRange); } }}
-                placeholder="사회자 이름 검색 (Enter)"
-                className="adm-input"
-              />
-            </label>
+            <AdminSearchField className="grow" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchPros(1, search, filterStatus, dateRange); }} placeholder="사회자 이름 검색" />
             <div className="adm-radio-row">
               <AdminRadioGroup
                 value={filterStatus}

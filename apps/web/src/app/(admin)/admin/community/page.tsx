@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Search } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
@@ -14,6 +13,7 @@ import { AuthorCell, CommunityStats, POST_TYPE_LABEL, PostDrawer, ago, notifyCom
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface PostRow {
   id: string;
@@ -121,17 +121,7 @@ export default function AdminCommunityPostsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, groupId, range: dateRange, kind }); }}
-                placeholder="제목·내용 검색 (Enter)"
-                className="adm-input"
-              />
-            </label>
+            <AdminSearchField className="grow" value={q} onChange={setQ} onSubmit={(q) => { fetchRows(1, { q, status, groupId, range: dateRange, kind }); }} placeholder="제목·내용 검색" />
             <AdminRadioGroup
               value={status}
               options={STATUS.map(([k, label]) => ({ value: k, label }))}

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
 import { adminConfirm } from '../../../_components/adminDialog';
 import { AdminCollapse, AdminCollapseKeep } from '../../../_components/AdminCollapse';
+import { AdminSearchField } from '../../../_components/AdminSearchField';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -936,15 +937,7 @@ export default function AdminProEditPage() {
               <h2 className="text-[18px] font-bold text-gray-900">YouTube 영상 검색</h2>
             </div>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={ytChannelQuery}
-                onChange={(e) => setYtChannelQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchYtChannels()}
-                placeholder="채널명을 검색하세요"
-                className="flex-1 h-11 bg-gray-50 border border-gray-200 rounded-xl px-4 outline-none text-[16px] text-gray-900"
-                autoFocus
-              />
+              <AdminSearchField className="flex-1" value={ytChannelQuery} onChange={setYtChannelQuery} onSubmit={(v) => { if (v.trim()) searchYtChannels(); }} placeholder="채널명을 검색하세요" autoFocus />
               <button onClick={searchYtChannels} className="h-11 px-4 bg-[#3180F7] text-white rounded-xl text-[14px] font-bold shrink-0">
                 검색
               </button>

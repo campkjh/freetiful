@@ -7,6 +7,7 @@ import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_compon
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 interface Faq {
   id: string;
@@ -226,33 +227,19 @@ export default function AdminFaqsPage() {
         </div>
       </div>
 
-      {/* 카테고리 필터 */}
-      <div className="flex flex-wrap gap-2 px-1">
-        <button
-          onClick={() => setActiveCategory(null)}
-          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-            !activeCategory ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]'
-          }`}
-        >
-          전체 ({items.length})
-        </button>
-        {allCategories.map((cat) => {
-          const count = items.filter((it) => it.category === cat).length;
-          if (count === 0) return null;
-          return (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-              className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-                activeCategory === cat
-                  ? 'bg-[#191F28] text-white'
-                  : 'bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]'
-              }`}
-            >
-              {cat} ({count})
-            </button>
-          );
-        })}
+      {/* 카테고리 거르기 — 라디오(261006 사장 '시간 칩만 빼고 전부 라디오') */}
+      <div className="px-1">
+        <AdminRadioGroup
+          value={activeCategory || ''}
+          options={[
+            { value: '', label: '전체', count: items.length },
+            ...allCategories
+              .map((cat) => ({ value: cat, label: cat, count: items.filter((it) => it.category === cat).length }))
+              .filter((o) => o.count > 0),
+          ]}
+          ariaLabel="FAQ 카테고리"
+          onChange={(v) => setActiveCategory(v || null)}
+        />
       </div>
 
       {/* 목록 */}

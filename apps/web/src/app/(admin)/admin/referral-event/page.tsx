@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminListCard } from '../_components/AdminListCard';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminSearchField } from '../_components/AdminSearchField';
+import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 
 type ReferralRow = {
   id: string;
@@ -54,13 +56,14 @@ export default function AdminReferralEventPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
 
-  const fetchRows = async () => {
+  /** q·st 를 주면 그 값으로(검색칸 지우기·라디오 바꾸기 — 상태가 아직 안 바뀌었을 수 있다) */
+  const fetchRows = async (q: string = search, st: (typeof CLAIM_STATUSES)[number] = status) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set('limit', '100');
-      if (search.trim()) params.set('search', search.trim());
-      if (status !== '전체') params.set('status', status);
+      if (q.trim()) params.set('search', q.trim());
+      if (st !== '전체') params.set('status', st);
       const data = await adminFetch('GET', `/api/v1/admin/referral-event?${params.toString()}`, undefined, { cache: false });
       const nextRows = Array.isArray(data?.data) ? data.data : [];
       setRows(nextRows);
@@ -153,30 +156,15 @@ export default function AdminReferralEventPage() {
       <AdminListCard
         filter={
           <div className="adm-toolbar flex flex-col gap-3 md:flex-row md:items-center">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') fetchRows();
-              }}
-              placeholder="이름, 이메일, 추천코드 검색"
-              className="h-11 flex-1 rounded-2xl border border-[#E5E8EB] px-4 text-[14px] outline-none placeholder:text-[#8B95A1]"
+            <AdminSearchField className="flex-1" value={search} onChange={setSearch} onSubmit={(q) => fetchRows(q)} placeholder="이름 · 이메일 · 추천코드 검색" />
+            <AdminRadioGroup
+              value={status}
+              options={CLAIM_STATUSES.map((item) => ({ value: item, label: item === '전체' ? '전체' : statusLabel(item) }))}
+              ariaLabel="신청 상태"
+              onChange={(st) => { setStatus(st); fetchRows(search, st); }}
             />
-            <div className="flex flex-wrap gap-2">
-              {CLAIM_STATUSES.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setStatus(item)}
-                  className={`rounded-2xl px-4 py-2 text-[13px] font-semibold ${
-                    status === item ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#6B7684]'
-                  }`}
-                >
-                  {item === '전체' ? '전체' : statusLabel(item)}
-                </button>
-              ))}
-            </div>
             <button
-              onClick={fetchRows}
+              onClick={() => fetchRows()}
               className="h-11 rounded-2xl bg-[#3180F7] px-5 text-[14px] font-bold text-white"
             >
               조회

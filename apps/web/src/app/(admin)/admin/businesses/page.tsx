@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Building2, RefreshCw, Search } from '@/app/(admin)/admin/_components/admin-icons';
+import { Building2, RefreshCw } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
@@ -11,6 +11,7 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { adminFetch } from '../_components/adminFetch';
 import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface BusinessUserItem {
   id: string;
@@ -149,22 +150,8 @@ export default function AdminBusinessesPage() {
 
       <AdminListCard
         filter={<>
-          <div className="p-4">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setPage(1);
-                    fetchData(1, search, dateRange);
-                  }
-                }}
-                placeholder="비즈 계정명 또는 이메일 검색 (Enter)"
-                className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-              />
-            </div>
+          <div className="adm-toolbar">
+            <AdminSearchField className="grow" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchData(1, search, dateRange); }} placeholder="비즈 계정명 또는 이메일 검색" />
           </div>
           <AdminDateFilter
             value={dateRange}

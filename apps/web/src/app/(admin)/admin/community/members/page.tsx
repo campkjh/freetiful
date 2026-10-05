@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
 import { AdminInfiniteScroll } from '../../_components/AdminInfiniteScroll';
 import { adminFetch } from '../../_components/adminFetch';
@@ -11,6 +10,7 @@ import { CommunityStats, NICK_SOURCE_LABEL, ago, useNicknameChanged, useNickname
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
+import { AdminSearchField } from '../../_components/AdminSearchField';
 
 interface MemberRow {
   userId: string;
@@ -96,16 +96,7 @@ export default function AdminCommunityMembersPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, source }); }}
-                placeholder="닉네임·실제 이름 검색 (Enter)"
-                className="adm-input"
-              />
-            </label>
+            <AdminSearchField className="grow" value={q} onChange={setQ} onSubmit={(q) => { fetchRows(1, { q, source }); }} placeholder="닉네임·실제 이름 검색" />
             <span className="adm-count">웨딩숲에 글·댓글을 쓴 <b><RollingNumber value={all} /></b>명</span>
           </div>
           <div className="adm-toolbar adm-toolbar-sub">

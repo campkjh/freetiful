@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
+import { Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -14,6 +14,7 @@ import { useAdminRefresh } from '../_components/adminRefresh';
 import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface UserItem {
   id: string;
@@ -303,17 +304,7 @@ export default function AdminUsersPage() {
         <AdminListCard
           filter={<>
             <div className="adm-toolbar">
-              <label className="adm-search grow">
-                <Search size={17} />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
-                  placeholder="이름 또는 이메일 검색 (Enter)"
-                  className="adm-input"
-                />
-              </label>
+              <AdminSearchField className="grow" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchUsers(1, search, filterRole, dateRange); }} placeholder="이름 또는 이메일 검색" />
               <span className="adm-count">총 <b><RollingNumber value={total} /></b>명</span>
               <AdminExportButton loading={exporting} onClick={handleExport} />
             </div>

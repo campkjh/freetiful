@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Search } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
 import { AdminInfiniteScroll, appendUniqueById } from '../../_components/AdminInfiniteScroll';
 import { adminFetch } from '../../_components/adminFetch';
@@ -14,6 +13,7 @@ import { AdminCollapse } from '../../_components/AdminCollapse';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminRadioGroup } from '../../_components/AdminRadioGroup';
+import { AdminSearchField } from '../../_components/AdminSearchField';
 
 interface MetricRow {
   id: string;
@@ -158,10 +158,7 @@ export default function AdminOperatorMetricsPage() {
               ariaLabel="글 범위"
               onChange={(k) => { setKind(k); fetchRows(1, { kind: k, q }); }}
             />
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { kind, q }); }} placeholder="제목·본문 검색 (Enter)" className="adm-input" />
-            </label>
+            <AdminSearchField className="grow" value={q} onChange={setQ} onSubmit={(q) => { fetchRows(1, { kind, q }); }} placeholder="제목·본문 검색" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
           </div>
         </>}

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Search,
   Plus,
   Edit3,
   Trash2,
@@ -22,6 +21,7 @@ import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
   approved: { text: '승인', className: 'bg-green-50 text-green-600' },
@@ -192,23 +192,8 @@ export default function AdminPartnersPage() {
       {/* 검색·조회기간 + 표 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘') */}
       <AdminListCard
         filter={<>
-          <div className="p-4">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setPage(1);
-                    fetchList(1, search, dateRange);
-                  }
-                }}
-                placeholder="업체명 / 카테고리 / 주소 검색 (Enter)"
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-            </div>
+          <div className="adm-toolbar">
+            <AdminSearchField className="grow" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchList(1, search, dateRange); }} placeholder="업체명 · 카테고리 · 주소 검색" />
           </div>
           <AdminDateFilter
             value={dateRange}

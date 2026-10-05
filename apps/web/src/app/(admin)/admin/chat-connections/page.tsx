@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Clock } from '@/app/(admin)/admin/_components/admin-icons';
+import { Clock } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -13,6 +13,7 @@ import { AdminCollapse } from '../_components/AdminCollapse';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface ConnRow {
   id: string;
@@ -345,17 +346,7 @@ export default function ChatConnectionsPage() {
       <AdminListCard
         filter={<>
           <div className="adm-toolbar">
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
-                placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
-                className="adm-input"
-              />
-            </label>
+            <AdminSearchField className="grow" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchData(1, search, status, dateRange); }} placeholder="고객 이름·연락처 또는 사회자 이름" />
             <AdminRadioGroup
               value={status}
               options={STATUS_TABS.map((t) => ({ value: t.id, label: t.label }))}

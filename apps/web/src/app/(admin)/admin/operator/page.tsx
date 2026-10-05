@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Search } from '@/app/(admin)/admin/_components/admin-icons';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
@@ -14,6 +13,7 @@ import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface OpPostRow {
   id: string;
@@ -143,17 +143,7 @@ export default function AdminOperatorPostsPage() {
         filter={<>
           <div className="adm-toolbar">
             <Link href="/admin/operator/posts/new" className="adm-btn primary">+ 운영 글 쓰기</Link>
-            <label className="adm-search grow">
-              <Search size={17} />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { status, profileId, q }); }}
-                placeholder="제목·본문 검색 (Enter)"
-                className="adm-input"
-              />
-            </label>
+            <AdminSearchField className="grow" value={q} onChange={setQ} onSubmit={(q) => { fetchRows(1, { status, profileId, q }); }} placeholder="제목·본문 검색" />
             <select
               value={profileId}
               onChange={(e) => { setProfileId(e.target.value); fetchRows(1, { status, profileId: e.target.value, q }); }}

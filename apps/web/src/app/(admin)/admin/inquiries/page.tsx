@@ -9,7 +9,6 @@ import {
   Phone,
   RefreshCw,
   Save,
-  Search,
   Trash2,
 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
@@ -28,6 +27,7 @@ import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
 
 interface BusinessInquiryItem {
   id: string;
@@ -249,21 +249,7 @@ export default function AdminInquiriesPage() {
         filter={<>
           <div className="p-4">
             <div className="flex flex-col gap-3 lg:flex-row">
-              <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setPage(1);
-                      fetchList(1, status, search, dateRange);
-                    }
-                  }}
-                  placeholder="회사명, 담당자, 연락처, 이메일, 문의 내용 검색 (Enter)"
-                  className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-                />
-              </div>
+              <AdminSearchField className="flex-1" value={search} onChange={setSearch} onSubmit={(search) => { setPage(1); fetchList(1, status, search, dateRange); }} placeholder="회사명 · 담당자 · 연락처 · 이메일 · 문의 내용 검색" />
               <AdminRadioGroup
                 value={status}
                 options={STATUS_OPTIONS.map(([value, label]) => ({ value, label }))}
