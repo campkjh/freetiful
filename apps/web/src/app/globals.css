@@ -1900,8 +1900,9 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 .adm-op-env.test .adm-op-env-dot { background: var(--admin-orange); box-shadow: 0 0 0 4px var(--admin-orange-weak); }
 .adm-op-env-title { margin: 0; color: var(--admin-ink); font-size: 15px; font-weight: 700; }
 .adm-op-env-sub { margin: 2px 0 0; color: var(--admin-muted); font-size: 13px; line-height: 1.55; }
-.adm-op-panel-row td { background: #FAFBFC; }
-.adm-op-panel { padding: 4px 0; }
+/* 표 안 패널 줄 — 칸 여백은 0, 여백·아래 선은 접히는 안쪽에(접힌 줄은 높이 0) */
+.admin-shell .adm-table td.adm-op-panel-cell { padding: 0 !important; border-bottom: 0; background: #FAFBFC; }
+.adm-op-panel { padding: 16px 24px 18px; box-shadow: inset 0 -1px 0 var(--admin-divider); }
 .adm-op-panel-title { margin: 0 0 4px; color: var(--admin-ink); font-size: 14px; font-weight: 700; }
 .adm-op-panel.test .adm-op-panel-title { color: var(--admin-orange); }
 .adm-op-panel-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 10px; }
@@ -2111,9 +2112,11 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-vbar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
 .adm-vbar-plot { position: relative; flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding-top: 22px; }
 .adm-vbar-col { position: relative; display: flex; flex-direction: column; align-items: center; width: min(38.5px, 76%); transform-origin: bottom; animation: admGrow .6s var(--adm-ease) both; }
-.adm-vbar-fill { display: block; width: 100%; flex: 1; min-height: 4px; border-radius: 7px; background: #F2F4F6; transition: background-color .2s ease; }
-.adm-vbar.on .adm-vbar-fill { background: radial-gradient(130% 110% at 0% 100%, #64A8FF 0%, #3182F6 66%); }
-.adm-vbar-val { position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); color: #8B95A1; font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ftFade .3s ease both; transition: color .2s ease; }
+.adm-vbar-fill { position: relative; display: block; width: 100%; flex: 1; min-height: 4px; border-radius: 7px; background: #F2F4F6; }
+/* 고른 막대 — 그라데이션 층을 투명도로 서서히(background 그라데이션은 전환이 안 돼 '뚝' 바뀌던 것) */
+.adm-vbar-fill::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(130% 110% at 0% 100%, #64A8FF 0%, #3182F6 66%); opacity: 0; transition: opacity .32s ease; }
+.adm-vbar.on .adm-vbar-fill::after { opacity: 1; }
+.adm-vbar-val { position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); color: #8B95A1; font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ftFade .3s ease both; transition: color .32s ease; }
 .adm-vbar.on .adm-vbar-val { color: #1B64DA; }
 .adm-vbar-label { flex: none; margin-top: 9px; color: #6B7684; font-size: 12px; font-weight: 500; line-height: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .adm-vbar-val { font-size: 10px; } .adm-vbar-label { font-size: 10px; } .adm-vbar:nth-child(odd):not(.on) .adm-vbar-label { visibility: hidden; } }

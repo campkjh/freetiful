@@ -10,6 +10,7 @@ import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { ENV_LABEL, REACTION_LABEL, STATUS_LABEL, useOperatorEnv, type RealStats } from '../../_components/operatorAdmin';
 import { adminConfirm } from '../../_components/adminDialog';
+import { AdminCollapse } from '../../_components/AdminCollapse';
 
 interface MetricRow {
   id: string;
@@ -219,32 +220,13 @@ export default function AdminOperatorMetricsPage() {
                     </td>
                   </tr>
                 );
-                if (open?.id !== r.id) return [main];
-                const panel =
-                  open.kind === 'fix' ? (
-                    <tr key={`${r.id}-fix`} className="adm-op-panel-row">
-                      <td colSpan={cols}>
-                        <div className="adm-op-panel">
-                          <p className="adm-op-panel-title">조회수 보정 — 지금 {r.stats.views.toLocaleString()}</p>
-                          <p className="adm-op-hint">중복·봇 집계처럼 잘못 더해진 조회를 빼는 용도예요. 늘리는 보정은 안 돼요(근거가 되는 조회 기록이 없어서). 변경 전후·사유가 변경 이력에 남아요.</p>
-                          <div className="adm-op-panel-fields">
-                            <label>
-                              <span className="adm-label">바꿀 조회수</span>
-                              <input type="number" min={0} max={Math.max(0, r.stats.views - 1)} value={fix.value} onChange={(e) => setFix({ ...fix, value: e.target.value })} className="adm-input" />
-                            </label>
-                            <label className="flex-1">
-                              <span className="adm-label">사유(필수, 5자 이상)</span>
-                              <input value={fix.reason} maxLength={200} onChange={(e) => setFix({ ...fix, reason: e.target.value })} placeholder="예: 10/3 새로고침 중복 집계 12건 정정" className="adm-input" />
-                            </label>
-                            <button type="button" className="adm-btn primary" disabled={busy} onClick={() => submitFix(r)}>보정</button>
-                            <button type="button" className="adm-btn" onClick={() => setOpen(null)}>닫기</button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr key={`${r.id}-test`} className="adm-op-panel-row">
-                      <td colSpan={cols}>
+                // 패널 줄은 늘 둔다 — 여닫을 때 높이가 부드럽게 늘고 줄도록(접히는 동안엔 마지막 내용이 남는다)
+                const isOpen = open?.id === r.id;
+                const panel = (
+                  <tr key={`${r.id}-panel`} className="adm-op-panel-row">
+                    <td colSpan={cols} className="adm-op-panel-cell">
+                      <AdminCollapse open={isOpen}>
+                        {open?.kind === 'test' ? (
                         <div className="adm-op-panel test">
                           <p className="adm-op-panel-title">테스트 수치 — {ENV_LABEL[env?.appEnv || ''] || ''} 서버 전용</p>
                           <p className="adm-op-hint">실제 수치(좋아요 {r.stats.likes} · 조회 {r.stats.views})는 그대로 두고, 이 서버의 앱 화면 숫자에만 더해져요. 인기순 정렬·추천·통계엔 안 들어가요.</p>
@@ -262,9 +244,28 @@ export default function AdminOperatorMetricsPage() {
                             <button type="button" className="adm-btn" onClick={() => setOpen(null)}>닫기</button>
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
+                        ) : (
+                        <div className="adm-op-panel">
+                          <p className="adm-op-panel-title">조회수 보정 — 지금 {r.stats.views.toLocaleString()}</p>
+                          <p className="adm-op-hint">중복·봇 집계처럼 잘못 더해진 조회를 빼는 용도예요. 늘리는 보정은 안 돼요(근거가 되는 조회 기록이 없어서). 변경 전후·사유가 변경 이력에 남아요.</p>
+                          <div className="adm-op-panel-fields">
+                            <label>
+                              <span className="adm-label">바꿀 조회수</span>
+                              <input type="number" min={0} max={Math.max(0, r.stats.views - 1)} value={fix.value} onChange={(e) => setFix({ ...fix, value: e.target.value })} className="adm-input" />
+                            </label>
+                            <label className="flex-1">
+                              <span className="adm-label">사유(필수, 5자 이상)</span>
+                              <input value={fix.reason} maxLength={200} onChange={(e) => setFix({ ...fix, reason: e.target.value })} placeholder="예: 10/3 새로고침 중복 집계 12건 정정" className="adm-input" />
+                            </label>
+                            <button type="button" className="adm-btn primary" disabled={busy} onClick={() => submitFix(r)}>보정</button>
+                            <button type="button" className="adm-btn" onClick={() => setOpen(null)}>닫기</button>
+                          </div>
+                        </div>
+                        )}
+                      </AdminCollapse>
+                    </td>
+                  </tr>
+                );
                 return [main, panel];
               })}
             </tbody>
