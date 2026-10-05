@@ -12,8 +12,17 @@ interface DailyRow { date: string; visits: number; conversions: number; }
 interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: number; daily: DailyRow[]; today: { date: string; visits: number; conversions: number }; }
 interface VisitRow { page: string; source: string | null; medium: string | null; campaign: string | null; referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string; }
 
-const PAGE_LABEL: Record<string, string> = { 'wedding-mc': '결혼식 사회자 (wedding-mc)', 'corporate-mc': '전문행사 사회자 (corporate-mc)' };
-const PAGE_SHORT: Record<string, string> = { 'wedding-mc': '결혼식', 'corporate-mc': '전문행사' };
+const PAGE_LABEL: Record<string, string> = { 'quick-match': '퀵매칭 (quick-match)', 'wedding-mc': '결혼식 사회자 (wedding-mc)', 'corporate-mc': '전문행사 사회자 (corporate-mc)' };
+const PAGE_SHORT: Record<string, string> = { 'quick-match': '퀵매칭', 'wedding-mc': '웨딩MC', 'corporate-mc': '비즈MC' };
+/** 페이지별 유입 분석(261005 사장 '랜딩 유입 분석 → 페이지별, 퀵매칭 · 웨딩MC · 비즈MC') — 제목 자리 큰 글씨 탭: 고른 것 검정 · 나머지 회색 */
+const PAGE_TABS = [
+  { key: 'quick-match', label: '퀵매칭', desc: '퀵매칭 페이지 유입(UTM·리퍼러)과 견적 요청 전환' },
+  { key: 'wedding-mc', label: '웨딩MC', desc: '결혼식 사회자 랜딩(wedding-mc) 유입과 상담 신청 전환' },
+  { key: 'corporate-mc', label: '비즈MC', desc: '전문행사 사회자 랜딩(corporate-mc) 유입과 상담 신청 전환' },
+] as const;
+type PageKey = (typeof PAGE_TABS)[number]['key'];
+/** 어드민 API 주소에 고른 페이지를 붙인다 */
+const withPage = (url: string, page: PageKey) => `${url}${url.includes('?') ? '&' : '?'}page=${page}`;
 const RANGES = [
   { key: '7', label: '7일' },
   { key: '30', label: '30일' },
@@ -208,6 +217,20 @@ function SourceCard({ title, value, unit, tone = 'text-gray-900', rows, empty = 
 }
 
 export default function LandingAnalyticsPage() {
+  // 고른 페이지 — 주소 ?p= 로 남겨 새로고침·공유해도 그대로
+  const [sel, setSel] = useState<PageKey>('quick-match');
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get('p');
+    if (PAGE_TABS.some((t) => t.key === p)) setSel(p as PageKey);
+  }, []);
+  const pickPage = (k: PageKey) => {
+    setSel(k);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('p', k);
+      window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
+    } catch { /* 주소만 못 바꿔도 화면은 바뀐다 */ }
+  };
   const [data, setData] = useState<Analytics | null>(null);
   const [visits, setVisits] = useState<VisitRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -243,8 +266,8 @@ export default function LandingAnalyticsPage() {
         qs = `?from=${encodeURIComponent(fromISO)}`;
       }
       const [d, v] = await Promise.all([
-        adminFetch('GET', `/api/v1/admin/landing-analytics${qs}`, undefined, { cache: false }),
-        adminFetch('GET', `/api/v1/admin/landing-analytics/recent?limit=150`, undefined, { cache: false }).catch(() => null),
+        adminFetch('GET', withPage(`/api/v1/admin/landing-analytics${qs}`, sel), undefined, { cache: false }),
+        adminFetch('GET', withPage(`/api/v1/admin/landing-analytics/recent?limit=150`, sel), undefined, { cache: false }).catch(() => null),
       ]);
       setData(d);
       setVisits(v && Array.isArray(v.data) ? v.data : []);
@@ -255,7 +278,7 @@ export default function LandingAnalyticsPage() {
     }
   };
 
-  useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
+  useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo, sel]);
 
   // 달력용 데이터 — 메인 필터와 무관하게 표시월(monthOffset) 그리드 범위 전체
   useEffect(() => {
@@ -268,8 +291,8 @@ export default function LandingAnalyticsPage() {
         const pFrom = new Date(`${pr.first}T00:00:00+09:00`).toISOString();
         const pTo = new Date(`${pr.last}T23:59:59.999+09:00`).toISOString();
         const [d, dp] = await Promise.all([
-          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, undefined, { cache: false }),
-          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(pFrom)}&to=${encodeURIComponent(pTo)}`, undefined, { cache: false }).catch(() => null),
+          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, sel), undefined, { cache: false }),
+          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(pFrom)}&to=${encodeURIComponent(pTo)}`, sel), undefined, { cache: false }).catch(() => null),
         ]);
         setMonthData(d ?? null);
         setPrevMonth({ visits: dp?.totalVisits ?? 0, conversions: dp?.totalConversions ?? 0 });
@@ -278,7 +301,7 @@ export default function LandingAnalyticsPage() {
         const cur = monthFirstLast(monthOffset);
         const ym = cur.first.slice(0, 7);
         const [dm, spend] = await Promise.all([
-          adminFetch('GET', `/api/v1/admin/landing-analytics?from=${encodeURIComponent(new Date(`${cur.first}T00:00:00+09:00`).toISOString())}&to=${encodeURIComponent(new Date(`${cur.last}T23:59:59.999+09:00`).toISOString())}`, undefined, { cache: false }).catch(() => null),
+          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(new Date(`${cur.first}T00:00:00+09:00`).toISOString())}&to=${encodeURIComponent(new Date(`${cur.last}T23:59:59.999+09:00`).toISOString())}`, sel), undefined, { cache: false }).catch(() => null),
           adminFetch('GET', `/api/v1/admin/landing-analytics/ad-spend?month=${ym}`, undefined, { cache: false }).catch(() => null),
         ]);
         setMonthExact(dm ?? null);
@@ -287,7 +310,7 @@ export default function LandingAnalyticsPage() {
         setAdSpend(map);
       } catch {}
     })();
-  }, [monthOffset]);
+  }, [monthOffset, sel]);
 
   const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
@@ -429,11 +452,16 @@ export default function LandingAnalyticsPage() {
 
   return (
     <div className="w-full">
-      {/* 도구막대 — 제목은 레이아웃 머리(랜딩 유입 분석) */}
-      <div className="adm-toolbar mb-4">
-        <span className="adm-badge blue">wedding-mc · corporate-mc</span>
-        <span className="text-[14px] text-[#8B95A1]">유입 소스(UTM·리퍼러)별 방문·견적 전환</span>
-        <span className="grow" />
+      {/* 머리 = 제목 자리 큰 글씨 탭(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC — 누르면 검정, 나머지 회색'). 레이아웃 머리는 이 화면에서 숨긴다 */}
+      <div className="adm-head">
+        <div className="adm-title-tabs" role="tablist" aria-label="페이지">
+          {PAGE_TABS.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={sel === t.key} className={`adm-title-tab ${sel === t.key ? 'on' : ''}`} onClick={() => pickPage(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <p className="adm-desc" key={sel}>{PAGE_TABS.find((t) => t.key === sel)?.desc}</p>
       </div>
 
       {/* 상단: (선택일/오늘) 방문 + 어디서 왔는지 리스트 + 이번 달 방문 */}

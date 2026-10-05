@@ -20,6 +20,9 @@ const clip = (v?: string, n = 300) => (v ? String(v).slice(0, n) : null);
 /** 방문을 기록하는 페이지 — 랜딩 2개(유입 분석) + 홈·퀵매칭(전환 퍼널) */
 const TRACKED_PAGES = ['wedding-mc', 'corporate-mc', 'home', 'quick-match'] as const;
 const LANDING_PAGES = ['wedding-mc', 'corporate-mc'];
+/** 페이지별 유입 분석(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC 나눠서') — page 를 주면 그 페이지만, 안 주면 예전처럼 랜딩 2개 */
+const ANALYTICS_PAGES = ['quick-match', 'wedding-mc', 'corporate-mc'];
+const pagesFor = (page?: string) => (page && ANALYTICS_PAGES.includes(page) ? [page] : LANDING_PAGES);
 
 @Injectable()
 export class LandingService {
@@ -50,7 +53,8 @@ export class LandingService {
 
   /** 폼 제출 성공 → 해당 세션 방문을 전환으로 표시. */
   async markConverted(page: string, sessionKey: string) {
-    const p = page === 'corporate-mc' ? 'corporate-mc' : 'wedding-mc';
+    // 퀵매칭 = 견적 요청을 보내면 전환(261005 — 페이지별 유입 분석에 퀵매칭 칸)
+    const p = page === 'corporate-mc' || page === 'quick-match' ? page : 'wedding-mc';
     await this.prisma.landingVisit.updateMany({
       where: { page: p, sessionKey: clip(sessionKey, 80) || 'anon', converted: false },
       data: { converted: true, convertedAt: new Date() },
@@ -59,9 +63,10 @@ export class LandingService {
   }
 
   /** 어드민 집계 — 페이지별 방문/전환 + 소스/매체/캠페인 상위 분해. */
-  async analytics(fromISO?: string, toISO?: string) {
-    // 랜딩 유입 분석은 두 랜딩만 — 홈·퀵매칭 방문(전환 퍼널용)이 합계에 섞이지 않게
-    const where: any = { page: { in: LANDING_PAGES } };
+  async analytics(fromISO?: string, toISO?: string, page?: string) {
+    // page 없으면 두 랜딩만 — 홈 방문(전환 퍼널용)은 어느 쪽에도 섞이지 않는다
+    const pages = pagesFor(page);
+    const where: any = { page: { in: pages } };
     if (fromISO || toISO) {
       where.createdAt = {};
       if (fromISO) where.createdAt.gte = new Date(fromISO);
@@ -72,7 +77,6 @@ export class LandingService {
       select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, createdAt: true },
     });
 
-    const pages = ['wedding-mc', 'corporate-mc'] as const;
     const norm = (v?: string | null) => (v && v.trim() ? v.trim() : null);
     // referrer 호스트로 소스 추정(utm 없을 때)
     const inferSource = (r?: string | null): string => {
@@ -174,9 +178,9 @@ export class LandingService {
   }
 
   // 최근 방문 리스트(어떤 유입으로 들어왔는지) — 어드민 하단 표.
-  async recentVisits(limit = 100) {
+  async recentVisits(limit = 100, page?: string) {
     const rows = await this.prisma.landingVisit.findMany({
-      where: { page: { in: LANDING_PAGES } },
+      where: { page: { in: pagesFor(page) } },
       orderBy: { createdAt: 'desc' },
       take: Math.max(1, Math.min(300, limit)),
       select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, convertedAt: true, createdAt: true },

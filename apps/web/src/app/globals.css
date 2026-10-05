@@ -1637,6 +1637,13 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-head { margin-bottom: 24px; }
 .admin-shell .adm-title { margin: 0; font-size: 26px !important; font-weight: 700 !important; line-height: 1.35 !important; letter-spacing: -0.6px; color: var(--admin-ink) !important; animation: admRise .5s var(--adm-ease) both; }
 .adm-desc { margin: 6px 0 0; font-size: 15px; color: var(--admin-muted); animation: admRise .5s var(--adm-ease) .05s both; }
+/* 페이지별 유입 분석 — 제목 자리 큰 글씨 탭(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC, 누르면 검정 · 나머지 회색') */
+.adm-title-tabs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; animation: admRise .5s var(--adm-ease) both; }
+.admin-shell .adm-title-tab { padding: 0; border: 0; background: none; font-family: inherit; font-size: 26px !important; font-weight: 700 !important; line-height: 1.35 !important; letter-spacing: -0.6px; color: #C4CAD1; cursor: pointer; transition: color .22s ease; -webkit-tap-highlight-color: transparent; }
+.admin-shell .adm-title-tab:hover { color: #8B95A1; }
+.admin-shell .adm-title-tab.on { color: var(--admin-ink); cursor: default; }
+.admin-shell .adm-title-tab:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 6px; }
+@media (max-width: 640px) { .admin-shell .adm-title-tab { font-size: 23px !important; } .adm-title-tabs { gap: 2px 14px; } }
 .adm-tabs { position: relative; display: inline-flex; gap: 2px; margin-top: 20px; padding: 4px; border-radius: 14px; background: #fff; animation: admRise .5s var(--adm-ease) .1s both; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .adm-tabs::-webkit-scrollbar { display: none; }
 .adm-tab { position: relative; z-index: 1; display: flex; align-items: center; height: 38px; padding: 0 18px; border-radius: 10px; color: var(--admin-muted); font-size: 15px; font-weight: 600; white-space: nowrap; text-decoration: none; }

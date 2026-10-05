@@ -60,7 +60,7 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
   {
     label: '분석 · 콘텐츠',
     items: [
-      { href: '/admin/landing-analytics', label: '랜딩 유입 분석', icon: 'graph', desc: '광고·UTM 유입과 견적 전환을 봐요' },
+      { href: '/admin/landing-analytics', label: '페이지별 유입 분석', icon: 'graph', desc: '퀵매칭·웨딩MC·비즈MC 페이지별 광고·UTM 유입과 견적 전환을 봐요' },
       { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
       { href: '/admin/community', label: '커뮤니티 관리', icon: 'message-square-text', desc: '웨딩숲 글·댓글·신고·닉네임을 살피고 고쳐요' },
       { href: '/admin/operator', label: '운영 콘텐츠', icon: 'loudspeaker', desc: "운영팀 이름으로 웨딩숲 글을 쓰고 반응을 봐요 — 앱엔 늘 '운영팀' 표시가 붙어요" },
@@ -69,6 +69,9 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
 ];
 
 /** 메뉴에서 뺀 화면 — 주소로 들어오면 머리 제목만 붙여 준다 */
+/** 머리(제목·설명)를 화면이 직접 그리는 곳 */
+const OWN_HEAD = ['/admin/landing-analytics'];
+
 const HIDDEN_TITLES: Record<string, string> = {
   '/admin/partners': '업체 관리',
   '/admin/businesses': 'Biz 고객사',
@@ -305,6 +308,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       desc: item?.desc || '',
       tabs,
       home: pathname === '/admin',
+      /** 화면이 제목을 직접 그린다(페이지별 유입 분석 = 제목 자리 큰 글씨 탭 퀵매칭·웨딩MC·비즈MC, 261005) */
+      own: OWN_HEAD.includes(pathname),
     };
   }, [pathname]);
 
@@ -405,7 +410,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex min-h-0 flex-1">
           <main ref={mainRef} className="admin-main adm-main" onScroll={syncScrolled}>
             <div className={`adm-frame ${head.home ? 'home' : ''}`}>
-              {!head.home && (
+              {!head.home && !head.own && (
                 <div className="adm-head">
                   {/* 제목은 바뀔 때만 다시 올라오고, 탭은 남아서 고른 바탕이 미끄러진다 */}
                   <div key={head.title}>

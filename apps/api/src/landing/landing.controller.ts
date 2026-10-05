@@ -27,14 +27,15 @@ export class LandingController {
 export class AdminLandingController {
   constructor(private landing: LandingService) {}
 
+  /** ?page=quick-match|wedding-mc|corporate-mc — 페이지별 유입 분석(261005). 없으면 랜딩 2개 합 */
   @Get()
-  analytics(@Query('from') from?: string, @Query('to') to?: string) {
-    return this.landing.analytics(from, to);
+  analytics(@Query('from') from?: string, @Query('to') to?: string, @Query('page') page?: string) {
+    return this.landing.analytics(from, to, page);
   }
 
   @Get('recent')
-  recent(@Query('limit') limit?: string) {
-    return this.landing.recentVisits(limit ? Number(limit) : 100);
+  recent(@Query('limit') limit?: string, @Query('page') page?: string) {
+    return this.landing.recentVisits(limit ? Number(limit) : 100, page);
   }
 
   /** 광고 집행비 조회 — ?month=2026-07 */
