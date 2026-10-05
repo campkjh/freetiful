@@ -52,6 +52,12 @@ export class AdminController {
     return this.funnelService.visitsToday();
   }
 
+  // 홈 '새 퀵매칭' — /quick-match 견적 요청 최근 순(261005)
+  @Get('quick-matches')
+  quickMatches(@Query('limit') limit?: string) {
+    return this.funnelService.quickMatches(limit ? Number(limit) : 20);
+  }
+
   // ─── 운영 콘텐츠(운영 프로필 · 운영 글 · 반응 수치 · 변경 이력, 261004) ─────────────
   @Get('operator/env')
   operatorEnv() {
@@ -701,12 +707,14 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('matchRequestId') matchRequestId?: string,
   ) {
     return this.adminService.getChatConnections({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       search,
       status,
+      matchRequestId,
       startDate,
       endDate,
     });

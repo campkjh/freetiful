@@ -2768,7 +2768,7 @@ export class AdminService {
 
   // 채팅 매칭 현황 — 어떤 사회자(pro)와 어떤 유저(user)가 연결되어 채팅했는지 + 매칭률
   async getChatConnections(params: {
-    page?: number; limit?: number; search?: string; status?: string; startDate?: string; endDate?: string;
+    page?: number; limit?: number; search?: string; status?: string; startDate?: string; endDate?: string; matchRequestId?: string;
   }) {
     const page = params.page || 1;
     const limit = params.limit || 20;
@@ -2782,6 +2782,8 @@ export class AdminService {
         { proProfile: { user: { name: { contains: params.search, mode: 'insensitive' } } } },
       ];
     }
+    // 한 견적 요청의 대화만(홈 '새로운 퀵매칭'에서 누르면 — 261005)
+    if (params.matchRequestId && /^[0-9a-f-]{36}$/i.test(params.matchRequestId)) where.matchRequestId = params.matchRequestId;
     // 필터: chatted=대화 오감 / quoted=견적발송 / paid=결제완료
     if (params.status === 'chatted') where.lastMessageAt = { not: null };
     else if (params.status === 'quoted') where.quotations = { some: {} };

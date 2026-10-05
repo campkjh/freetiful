@@ -154,6 +154,8 @@ export default function ChatConnectionsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('전체');
   const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
+  /** 한 견적 요청의 대화만(홈 '새로운 퀵매칭'에서 누르면 ?mr=요청ID — 261005). 알약의 ✕ 로 푼다 */
+  const [matchRequestId, setMatchRequestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
@@ -163,7 +165,7 @@ export default function ChatConnectionsPage() {
   const [historyMsgs, setHistoryMsgs] = useState<HistoryMsg[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const fetchData = useCallback(async (p = 1, s = search, st = status, range = dateRange, append = false) => {
+  const fetchData = useCallback(async (p = 1, s = search, st = status, range = dateRange, append = false, mr = matchRequestId) => {
     if (append) setLoadingMore(true); else setLoading(true);
     setLastError(null);
     try {
@@ -172,6 +174,7 @@ export default function ChatConnectionsPage() {
       if (st !== '전체') params.status = st;
       if (range.startDate) params.startDate = range.startDate;
       if (range.endDate) params.endDate = range.endDate;
+      if (mr) params.matchRequestId = mr;
       const data = await adminFetch('GET', `/api/v1/admin/chat-connections?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
       const nextRows: ConnRow[] = Array.isArray(data?.data) ? data.data : [];
       setRows((prev) => (append ? [...prev, ...nextRows] : nextRows));
@@ -185,7 +188,7 @@ export default function ChatConnectionsPage() {
     } finally {
       if (append) setLoadingMore(false); else setLoading(false);
     }
-  }, [search, status, dateRange]);
+  }, [search, status, dateRange, matchRequestId]);
 
   const fetchRespStats = useCallback(async () => {
     try {
@@ -217,7 +220,20 @@ export default function ChatConnectionsPage() {
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
   }, [historyRow]);
 
-  useEffect(() => { fetchData(1, '', '전체', { startDate: '', endDate: '' }); fetchRespStats(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    const mr = new URLSearchParams(window.location.search).get('mr');
+    const picked = mr && /^[0-9a-f-]{36}$/i.test(mr) ? mr : null;
+    setMatchRequestId(picked);
+    fetchData(1, '', '전체', { startDate: '', endDate: '' }, false, picked);
+    fetchRespStats();
+    /* eslint-disable-next-line */
+  }, []);
+  const clearMatchRequest = () => {
+    setMatchRequestId(null);
+    try { window.history.replaceState(null, '', window.location.pathname); } catch { /* 주소만 못 바꿔도 목록은 푼다 */ }
+    setPage(1);
+    fetchData(1, search, status, dateRange, false, null);
+  };
 
   // 숫자 칸 = 홈과 같은 다이얼(RollingNumber) — 비율은 서버 값 그대로(소수 있으면 한 자리)
   const pct = (v: number) => <><RollingNumber value={v} decimals={Number.isInteger(v) ? 0 : 1} />%</>;
@@ -235,7 +251,21 @@ export default function ChatConnectionsPage() {
     <div className="space-y-5">
       <AdminErrorPanel error={lastError} label="채팅 매칭" />
 
-      {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자. 접어 두고 머리를 누르면 펼친다 */}
+      {/* 매칭률 카드 — 맨 위(261005 사장 '수치가 맨 위로 · 응답 현황은 수치 밑으로'). 조회기간을 바꾸면 이 숫자도 바뀐다 */}
+      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
+        {statCards.map((c) => (
+          <div key={c.label} className="adm-stat">
+            <p className="adm-stat-label">{c.label}</p>
+            <p className={`adm-stat-value ${c.tone}`}>{c.value}</p>
+            <p className="adm-stat-sub">{c.sub}</p>
+          </div>
+        ))}
+        {!stats && Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="adm-skel h-[118px] rounded-[20px]" />
+        ))}
+      </div>
+
+      {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자. 전체는 펼쳐 두고 '갈리오<' 묶음만 접는다 */}
       <div className="adm-card">
         <div className="adm-card-head">
           <div>
@@ -310,21 +340,6 @@ export default function ChatConnectionsPage() {
         </div>
       </div>
 
-      {/* 매칭률 카드 — 조회기간에 따라 바뀌는 숫자라 거르기(목록 카드 맨 위) 바로 위에 붙여 둔다.
-          응답 현황(조회기간과 무관한 최근 1주)은 그 위로(261005 — 필터가 숫자에서 멀리 떨어져 바꾸면 화면 밖 숫자가 말없이 바뀌던 것) */}
-      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
-        {statCards.map((c) => (
-          <div key={c.label} className="adm-stat">
-            <p className="adm-stat-label">{c.label}</p>
-            <p className={`adm-stat-value ${c.tone}`}>{c.value}</p>
-            <p className="adm-stat-sub">{c.sub}</p>
-          </div>
-        ))}
-        {!stats && Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="adm-skel h-[118px] rounded-[20px]" />
-        ))}
-      </div>
-
       {/* 검색·거르기·조회기간 + 연결 목록 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘') · 행 클릭 → 대화 내역 */}
       <AdminListCard
         filter={<>
@@ -352,6 +367,12 @@ export default function ChatConnectionsPage() {
                 </button>
               ))}
             </div>
+            {matchRequestId && (
+              <button type="button" className="adm-mr-pill" onClick={clearMatchRequest} aria-label="퀵매칭 한 건만 보기 풀기">
+                퀵매칭 한 건만 보는 중
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+              </button>
+            )}
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
           </div>
           <AdminDateFilter

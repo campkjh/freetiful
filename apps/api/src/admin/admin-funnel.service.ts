@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { QUICK_MATCH_SOURCE } from '../match/quick-match.config';
 
 /**
  * 홈 '전환 퍼널'(261005 사장) — 홈 방문 → 퀵매칭 페이지 → 견적 요청 → 사회자와 대화 → 견적 받음 → 결제 완료.
@@ -101,6 +102,78 @@ export class AdminFunnelService {
       yesterday: sum((r) => r.bucket === 'yesterday'),
       last7d: sum(() => true),
       since: since[0]?.first || null,
+    };
+  }
+
+  /**
+   * 홈 '새 퀵매칭'(261005 사장 '사회자 TOP 5 옆에 퀵매칭 리스트') — /quick-match 로 들어온 견적 요청, 최근 순.
+   *  고객·행사(날짜·시간·지역·장소·부) · 사회자 몇 명에게 갔고 몇 명이 답장했는지 · 견적·결제까지 갔는지.
+   *  테스트 의뢰(사회자 발송 생략)는 빼지 않고 test 로 표시만 한다(오늘·7일 숫자에선 뺀다).
+   */
+  async quickMatches(rawLimit?: number) {
+    const limit = Math.min(30, Math.max(1, Math.floor(Number(rawLimit)) || 20));
+    const KST = 9 * 3600000;
+    const DAY = 86400000;
+    const todayStart = new Date(Math.floor((Date.now() + KST) / DAY) * DAY - KST);
+    const d7Start = new Date(todayStart.getTime() - 6 * DAY);
+    const where = { rawUserInput: { path: ['source'], equals: QUICK_MATCH_SOURCE } };
+    const [rows, counts] = await Promise.all([
+      this.prisma.matchRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          status: true,
+          eventDate: true,
+          eventTime: true,
+          eventLocation: true,
+          rawUserInput: true,
+          user: { select: { id: true, name: true, phone: true } },
+          deliveries: { select: { status: true, repliedAt: true } },
+          chatRooms: { select: { quotations: { select: { status: true } } } },
+        },
+      }),
+      this.prisma.$queryRaw<{ today: number; week: number }[]>`
+        SELECT count(*) FILTER (WHERE "createdAt" >= ${todayStart})::int AS today, count(*)::int AS week
+        FROM match_requests
+        WHERE "createdAt" >= ${d7Start} AND "rawUserInput"->>'source' = ${QUICK_MATCH_SOURCE}
+          AND COALESCE("rawUserInput"->>'suppressedAsTestLead', 'false') <> 'true'`,
+    ]);
+    const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    return {
+      today: counts[0]?.today || 0,
+      last7d: counts[0]?.week || 0,
+      data: rows.map((r) => {
+        const raw: Record<string, unknown> = r.rawUserInput && typeof r.rawUserInput === 'object' && !Array.isArray(r.rawUserInput) ? (r.rawUserInput as Record<string, unknown>) : {};
+        const quotes = r.chatRooms.flatMap((c) => c.quotations);
+        return {
+          id: r.id,
+          createdAt: r.createdAt,
+          status: r.status,
+          test: raw.suppressedAsTestLead === true,
+          customer: { id: r.user?.id || null, name: r.user?.name || '고객', phone: r.user?.phone || str(raw.phone) },
+          event: {
+            date: r.eventDate ? r.eventDate.toISOString().slice(0, 10) : str(raw.eventDate),
+            time: r.eventTime ? r.eventTime.toISOString().slice(11, 16) : str(raw.eventTime),
+            region: str(raw.region),
+            venue: str(raw.venue),
+            location: r.eventLocation || null,
+            part: str(raw.part),
+          },
+          contactMethod: str(raw.contactMethod),
+          /** featured = 첫 화면 지정 사회자(번호 공유) · reroll = 다시 고른 사회자(채팅만) */
+          batch: str(raw.quickBatch),
+          pros: {
+            sent: r.deliveries.length,
+            replied: r.deliveries.filter((d) => d.status === 'replied' || d.repliedAt).length,
+            declined: r.deliveries.filter((d) => d.status === 'declined').length,
+          },
+          quotes: quotes.filter((q) => q.status !== 'cancelled' && q.status !== 'expired').length,
+          paid: quotes.some((q) => q.status === 'paid') || r.status === 'matched',
+        };
+      }),
     };
   }
 }

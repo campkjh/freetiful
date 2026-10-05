@@ -449,14 +449,17 @@ type FunnelData = { days: number; from: string; steps: FunnelStep[]; paidOutside
 /** 단계 이름 — 시안 '여섯 글자 이내' */
 const STEP_SHORT: Record<string, string> = { home: '홈 방문', quickMatch: '퀵매칭', request: '견적 요청', talk: '사회자 대화', quote: '견적 받음', paid: '결제 완료' };
 
-/** 단계 그림(261005 사장 제공 6장, 3:2 → public/admin/funnel/*.webp 960×640) + 막 색 = 그림 아래쪽(4:3 으로 자른 아래 절반) 평균 색 */
-const FUNNEL_ART: Record<string, { src: string; tint: string }> = {
-  home: { src: '/admin/funnel/01-home.webp', tint: '#E6DEFA' },
-  quickMatch: { src: '/admin/funnel/02-quick-match.webp', tint: '#EAF0E0' },
-  request: { src: '/admin/funnel/03-request.webp', tint: '#DFECFB' },
-  talk: { src: '/admin/funnel/04-talk.webp', tint: '#F6E7EB' },
-  quote: { src: '/admin/funnel/05-quote.webp', tint: '#DEECE6' },
-  paid: { src: '/admin/funnel/06-paid.webp', tint: '#D7DDF7' },
+/** 단계 그림(261005 사장 제공 6장, 3:2 → public/admin/funnel/*.webp 960×640) + 막 색 = 그림 아래쪽(4:3 으로 자른 아래 절반) 평균 색.
+ *  key·sub·ink = 그림의 키 컬러(가장 많이 보이는 뚜렷한 색 — lib/image-tone 과 같은 셈: 홈 보라 260° · 퀵매칭 연두 84° · 요청 파랑 213° ·
+ *  대화 분홍 339° · 견적 초록 157° · 결제 남색 229°)로 칠한 글자 — 홈 사회자 카드처럼(261005 사장 '퍼센트랑 텍스트를 이미지의 키컬러로').
+ *  key = 비율(흰 반투명 알약 위 4.5:1 이상) · sub = 단계 이름·단위(막 위 7:1) · ink = 사람 수. */
+const FUNNEL_ART: Record<string, { src: string; tint: string; key: string; sub: string; ink: string }> = {
+  home: { src: '/admin/funnel/01-home.webp', tint: '#E6DEFA', key: '#6530CF', sub: '#503E74', ink: '#2A1C45' },
+  quickMatch: { src: '/admin/funnel/02-quick-match.webp', tint: '#EAF0E0', key: '#587B24', sub: '#44532D', ink: '#35451C' },
+  request: { src: '/admin/funnel/03-request.webp', tint: '#DFECFB', key: '#2E70C2', sub: '#374D67', ink: '#1C2E45' },
+  talk: { src: '/admin/funnel/04-talk.webp', tint: '#F6E7EB', key: '#CF3068', sub: '#713D4F', ink: '#451C2A' },
+  quote: { src: '/admin/funnel/05-quote.webp', tint: '#DEECE6', key: '#257E5C', sub: '#2D5344', ink: '#1C4535' },
+  paid: { src: '/admin/funnel/06-paid.webp', tint: '#D7DDF7', key: '#304DCF', sub: '#39426A', ink: '#1C2445' },
 };
 const FUNNEL_TINT_FALLBACK = '#E8F3FF';
 
@@ -472,21 +475,17 @@ function fmtRate(rate: number): string {
 }
 
 /** 전환 퍼널 카드(261005 사장 '각 단계마다 이 이미지 — 프리티풀 공지사항 카드처럼, 하단에 그라데이션 블러').
- *  공지 뉴스룸 카드 어법: 4:3 · 그림 가득(cover) · 아래 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막 · 어두운 글자.
- *  카드 = 단계 이름 · 앞 단계 대비 % · 사람 수(다이얼 숫자). 왼쪽 위 번호 = 단계 차례.
- *  처음엔 1단계부터 차례로 고른 표시가 넘어가며(순차) 마지막 단계에 멈춘다(예전 스테퍼 그대로). 카드를 누르면 그 단계 상세.
+ *  공지 뉴스룸 카드 어법: 4:3 · 그림 가득(cover) · 아래 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막.
+ *  카드 = 단계 이름 · 앞 단계 대비 % · 사람 수(다이얼 숫자). 글자·비율은 그 그림의 키 컬러(FUNNEL_ART key·sub·ink).
+ *  고르기는 없다(같은 날 사장 '123456 선택하는 거 없애고 · 아래 상세 칸 빼고') — 여섯 칸을 그대로 보여 준다.
  *  배치 = 카드 칸 폭(컨테이너 쿼리) — 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄.
  *  애니메이션은 '보일 때' 시작한다 — 퍼널은 늘 첫 화면 아래라 마운트 때 돌리면 내려왔을 땐 다 끝나 있었다.
  *   · 카드 등장 = 그 카드가 조금이라도 보이면(같이 들어온 카드끼리만 차례 지연)
  *   · 다이얼 숫자 = 그 카드가 거의 다(80%) 보이면 0 에서 굴러감(그 전엔 숫자 칸을 비워 둠 — 줄 모드에서 옆 카드가 살짝 보일 때도)
- *   · 1→6 순차 진행 = 1단계 카드 숫자가 굴러가기 시작할 때부터
- *   · 줄 모드(옆으로 넘기기)면 고른 카드가 띠 밖일 때 띠를 그 카드로 넘긴다(상세는 6단계인데 보이는 건 1·2번이던 것). */
+ *  visitsPartial = 방문 기록이 기간 중간부터(261005~) — 방문(세션) → 견적 요청(사람) 비율은 뜻이 없어 '기록 중'. */
 const FC_ROLL_RATIO = 0.8;
-function FunnelCards({ steps }: { steps: FunnelStep[] }) {
-  const n = steps.length;
+function FunnelCards({ steps, visitsPartial }: { steps: FunnelStep[]; visitsPartial: boolean }) {
   const reduce = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
-  const [active, setActive] = useState(() => (reduce ? Math.max(0, n - 1) : 0));
-  const touched = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
   // 카드별 — reveal[i] = 등장 지연(초, null = 아직 안 보임) · rolled[i] = 숫자까지 보여 다이얼을 굴렸다. 동작 줄이기면 처음부터 다 보임.
   const [reveal, setReveal] = useState<(number | null)[]>(() => steps.map(() => (reduce ? 0 : null)));
@@ -529,65 +528,29 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
     Array.from(grid.children).forEach((c) => io.observe(c));
     return () => io.disconnect();
   }, [reduce, steps]);
-  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤). 1단계 숫자가 보이고 나서 시작. 동작 줄이기면 바로 마지막.
-  const started = !!rolled[0];
-  useEffect(() => {
-    touched.current = false;
-    setActive(reduce ? Math.max(0, n - 1) : 0);
-  }, [n, steps, reduce]);
-  useEffect(() => {
-    if (reduce || !started) return;
-    let i = 0;
-    const t = window.setInterval(() => {
-      if (touched.current) { window.clearInterval(t); return; }
-      i += 1;
-      if (i >= n) { window.clearInterval(t); return; }
-      setActive(i);
-    }, 420);
-    return () => window.clearInterval(t);
-  }, [n, steps, reduce, started]);
-  // 줄 모드 — 고른 카드가 띠 밖(일부라도)이면 띠만 옆으로 넘긴다(scrollIntoView 는 .adm-main 까지 세로로 움직여서 안 씀).
-  //  순차 진행·동작 줄이기 첫 선택은 active 가 바뀔 때, 반쯤 보이는 카드를 누르면(이미 고른 카드여도) 누를 때.
-  const showInStrip = useCallback((i: number) => {
-    const grid = gridRef.current;
-    // 그리드 모드(overflow visible)는 고리(::after)가 4px 삐져나와 scrollWidth 가 커 보이므로 overflow 로 가른다
-    if (!grid || getComputedStyle(grid).overflowX === 'visible' || grid.scrollWidth <= grid.clientWidth + 1) return;
-    const card = grid.children[i] as HTMLElement | undefined;
-    if (!card) return;
-    const g = grid.getBoundingClientRect();
-    const c = card.getBoundingClientRect();
-    if (c.left >= g.left - 1 && c.right <= g.right + 1) return;
-    const pad = parseFloat(getComputedStyle(grid).scrollPaddingLeft) || 0;
-    grid.scrollTo({ left: grid.scrollLeft + c.left - g.left - pad, behavior: reduce ? 'auto' : 'smooth' });
-  }, [reduce]);
-  useEffect(() => { showInStrip(active); }, [active, showInStrip]);
-  const pick = (i: number) => { touched.current = true; setActive(i); showInStrip(i); };
-  const cur = steps[active];
-  const prev = active > 0 ? steps[active - 1] : null;
-  const rate = prev && prev.value > 0 ? (cur.value / prev.value) * 100 : null;
-  const lost = prev ? Math.max(0, prev.value - cur.value) : 0;
-  const first = steps[0]?.value || 0;
-  if (!cur) return null;
+  if (!steps.length) return null;
   return (
     <div className="adm-fc-wrap">
-      <div ref={gridRef} className="adm-fc-grid" onPointerDown={() => { touched.current = true; }}>
+      <div ref={gridRef} className="adm-fc-grid">
         {steps.map((s, i) => {
           const art = FUNNEL_ART[s.key];
           const tint = art?.tint || FUNNEL_TINT_FALLBACK;
           const p = i > 0 ? steps[i - 1] : null;
-          const r = p && p.value > 0 ? (s.value / p.value) * 100 : null;
-          const rateText = !p ? null : p.value === 0 && p.basis === 'session' ? '기록 중' : r == null ? null : fmtRate(r);
+          const visitGap = !!p && p.basis === 'session' && s.basis === 'user' && visitsPartial;
+          const r = p && p.value > 0 && !visitGap ? (s.value / p.value) * 100 : null;
+          const rateText = !p ? null : visitGap || (p.value === 0 && p.basis === 'session') ? '기록 중' : r == null ? null : fmtRate(r);
           const name = STEP_SHORT[s.key] || s.label;
+          const style: Record<string, string> = {};
+          if (art) { style['--fc-key'] = art.key; style['--fc-sub'] = art.sub; style['--fc-ink'] = art.ink; }
+          if (reveal[i] != null) style.animationDelay = `${reveal[i]}s`;
           return (
-            <button
+            <div
               key={s.key}
-              type="button"
-              className={`adm-fc ${i === active ? 'on' : ''}`}
+              className="adm-fc"
               data-i={i}
               data-shown={reveal[i] != null ? '' : undefined}
-              style={reveal[i] != null ? { animationDelay: `${reveal[i]}s` } : undefined}
-              onClick={() => pick(i)}
-              aria-pressed={i === active}
+              style={style}
+              role="group"
               aria-label={`${i + 1}단계 ${s.label} ${formatNumber(s.value)}${s.unit}${rateText && r != null ? ` · 앞 단계의 ${rateText}` : ''}`}
             >
               <span className="adm-fc-box" style={{ backgroundColor: tint }}>
@@ -601,7 +564,6 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
                   aria-hidden="true"
                   style={{ background: `linear-gradient(to bottom, ${tintAlpha(tint, 0)} 0%, ${tintAlpha(tint, 0.5)} 48%, ${tintAlpha(tint, 0.72)} 100%)` }}
                 />
-                <span className="adm-fc-no" aria-hidden="true">{i + 1}</span>
                 <span className="adm-fc-text" aria-hidden="true">
                   <span className="adm-fc-meta">
                     <span className="adm-fc-name">{name}</span>
@@ -614,35 +576,15 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
                   </span>
                 </span>
               </span>
-            </button>
+            </div>
           );
         })}
-      </div>
-      <div className="adm-step-detail" key={active}>
-        <p className="adm-step-detail-head"><span>{active + 1}단계</span>{cur.label}</p>
-        <p className="adm-step-detail-value"><b>{formatNumber(cur.value)}</b>{cur.unit}<small>{cur.sub}</small></p>
-        <p className="adm-step-detail-sub">
-          {prev ? (
-            prev.value === 0 && prev.basis === 'session' ? (
-              <>앞 단계 방문 기록이 쌓이는 중이에요</>
-            ) : rate == null ? (
-              <>앞 단계 기록이 없어요</>
-            ) : (
-              <>
-                {STEP_SHORT[prev.key] || prev.label} {formatNumber(prev.value)}{prev.unit} 중 <b>{fmtRate(rate)}</b>가 넘어왔어요
-                {prev.basis === cur.basis && lost > 0 && <span className="adm-jf-lost"> · {formatNumber(lost)}명 빠짐</span>}
-              </>
-            )
-          ) : (
-            <>퍼널의 첫 단계예요</>
-          )}
-          {active > 0 && first > 0 && cur.basis === steps[0].basis && <> · 처음 대비 {((cur.value / first) * 100).toFixed(1)}%</>}
-        </p>
       </div>
     </div>
   );
 }
 
+/** 전환 퍼널 — 박스 없이 풀어서 한 줄 전체(261005 사장 '섹션 풀어 주고'). 아래 요약·방문 기록 안내 칸은 뺐다(같은 날 '캡처한 부분 없애 주고'). */
 function JourneyFunnel() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<FunnelData | null>(null);
@@ -657,20 +599,18 @@ function JourneyFunnel() {
   useAdminRefresh(() => load(days));
 
   const steps = data?.steps || [];
-  const req = steps.find((s) => s.key === 'request')?.value || 0;
-  const paid = steps.find((s) => s.key === 'paid')?.value || 0;
-  // 방문 기록은 261005 부터 — 기간 시작보다 늦게 시작했으면 앞 두 단계가 덜 찼다고 알린다
+  // 방문 기록은 261005 부터 — 기간 시작보다 늦게 시작했으면 방문 → 견적 요청 비율은 '기록 중'
   const since = data?.trackingSince?.home || data?.trackingSince?.quickMatch || null;
-  const partialVisits = !since || (data && new Date(since) > new Date(data.from));
+  const visitsPartial = !!data && (!since || new Date(since) > new Date(data.from));
 
   return (
-    <div className="adm-card">
-      <div className="adm-card-head">
-        <div>
-          <h2 className="adm-card-title">전환 퍼널</h2>
-          <p className="adm-card-sub">단계마다 몇 명이 남고 몇 명이 빠지는지 — 최근 {days}일</p>
+    <section className="adm-jf2" aria-label="전환 퍼널">
+      <div className="adm-jf2-head">
+        <div className="min-w-0">
+          <h2 className="adm-jf2-title">전환 퍼널</h2>
+          <p className="adm-jf2-sub">단계마다 몇 명이 남고 몇 명이 빠지는지 — 최근 {days}일</p>
         </div>
-        <div className="adm-seg" role="tablist" aria-label="기간">
+        <div className="adm-seg on-bg" role="tablist" aria-label="기간">
           {[7, 30, 90].map((d) => (
             <button key={d} type="button" role="tab" aria-selected={days === d} className={days === d ? 'on' : ''} onClick={() => setDays(d)}>{d}일</button>
           ))}
@@ -679,20 +619,11 @@ function JourneyFunnel() {
       {error ? (
         <p className="adm-empty">퍼널을 불러오지 못했어요</p>
       ) : !data ? (
-        <div className="space-y-3"><div className="adm-skel h-[28px]" /><div className="adm-skel h-[44px]" /><div className="adm-skel h-[80px]" /></div>
+        <div className="adm-fc-wrap"><div className="adm-fc-grid">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="adm-fc-skel" />)}</div></div>
       ) : (
-        <div key={days}>
-          <FunnelCards steps={steps} />
-          <div className="adm-jf-sum">
-            견적 요청한 {formatNumber(req)}명 중 <b>{req ? ((paid / req) * 100).toFixed(1) : '0'}%</b>가 결제까지 왔어요
-            {data.paidOutsideFunnel > 0 && <span> · 견적 요청 없이 바로 결제한 {formatNumber(data.paidOutsideFunnel)}명은 빠져 있어요</span>}
-          </div>
-          {partialVisits && (
-            <p className="adm-jf-note">홈·퀵매칭 방문은 {since ? `${new Date(since).getMonth() + 1}월 ${new Date(since).getDate()}일` : '오늘'}부터 기록돼요 — 그 전 기간은 방문 단계가 비어 있어요.</p>
-          )}
-        </div>
+        <FunnelCards key={days} steps={steps} visitsPartial={visitsPartial} />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -782,6 +713,125 @@ function TopPros({ viewed, revenue, resp }: { viewed: TopListItem[]; revenue: To
   );
 }
 
+
+/** 새로운 퀵매칭(261005 사장 '사회자 TOP 5 옆에 퀵매칭 리스트') — /quick-match 로 들어온 견적 요청, 최근 순.
+ *  고객 · 행사(날짜·시간·장소·부) · 사회자 답장 몇 명 · 견적·결제. 누르면 채팅 매칭에서 그 요청의 대화만. */
+type QuickMatchItem = {
+  id: string;
+  createdAt: string;
+  status: string;
+  test: boolean;
+  customer: { id: string | null; name: string; phone: string | null };
+  event: { date: string | null; time: string | null; region: string | null; venue: string | null; location: string | null; part: string | null };
+  contactMethod: string | null;
+  batch: string | null;
+  pros: { sent: number; replied: number; declined: number };
+  quotes: number;
+  paid: boolean;
+};
+type QuickMatchData = { today: number; last7d: number; data: QuickMatchItem[] };
+
+/** '방금' · '12분 전' · '3시간 전' · '2일 전' · 일주일 넘으면 '9.21' */
+function agoText(iso: string) {
+  const t = new Date(iso).getTime();
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return '방금';
+  if (m < 60) return `${m}분 전`;
+  if (m < 60 * 24) return `${Math.floor(m / 60)}시간 전`;
+  if (m < 60 * 24 * 7) return `${Math.floor(m / (60 * 24))}일 전`;
+  const d = new Date(t);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+/** 행사 한 줄 — '4월 25일(일) 12:10 · 충청권 라포르테 · 1부'(올해가 아니면 '27년 ') */
+function qmEventLine(e: QuickMatchItem['event']) {
+  const parts: string[] = [];
+  const m = e.date ? /^(\d{4})-(\d{2})-(\d{2})/.exec(e.date) : null;
+  if (m) {
+    const y = Number(m[1]);
+    const day = WEEK_KO[new Date(Date.UTC(y, Number(m[2]) - 1, Number(m[3]))).getUTCDay()];
+    const yy = y !== new Date().getFullYear() ? `${String(y).slice(2)}년 ` : '';
+    parts.push(`${yy}${Number(m[2])}월 ${Number(m[3])}일(${day})${e.time ? ` ${e.time.slice(0, 5)}` : ''}`);
+  } else if (e.time) parts.push(e.time.slice(0, 5));
+  const place = e.location || [e.region, e.venue].filter(Boolean).join(' ');
+  if (place) parts.push(place);
+  if (e.part) parts.push(e.part.replace(/\s*\(.*?\)\s*/g, '').trim());
+  return parts.join(' · ') || '행사 정보 없음';
+}
+
+/** 상태 칩 — 결제 > 견적 > 답장 > 답장 대기 */
+function QuickMatchChip({ r }: { r: QuickMatchItem }) {
+  if (r.test) return <span className="adm-reply none">테스트</span>;
+  if (r.paid) return <span className="adm-reply paid">결제 완료</span>;
+  if (r.quotes > 0) return <span className="adm-reply blue">견적 {formatNumber(r.quotes)}건</span>;
+  if (!r.pros.sent) return <span className="adm-reply none">보낸 사회자 없음</span>;
+  if (r.pros.replied > 0) return <span className="adm-reply good">답장 {r.pros.replied}/{r.pros.sent}</span>;
+  return <span className="adm-reply slow">답장 대기 0/{r.pros.sent}</span>;
+}
+
+function QuickMatchList() {
+  const [data, setData] = useState<QuickMatchData | null>(null);
+  const [error, setError] = useState(false);
+  /** 펼치기 — 기본 5건, 펼치면 20건까지(사회자 TOP 과 같은 모양) */
+  const [open, setOpen] = useState(false);
+  const load = useCallback(() => {
+    setError(false);
+    adminFetch('GET', '/api/v1/admin/quick-matches?limit=20', undefined, { cache: false })
+      .then((r: QuickMatchData) => setData(r))
+      .catch(() => setError(true));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  useAdminRefresh(load);
+
+  const all = data?.data || [];
+  const row = (r: QuickMatchItem, i: number) => {
+    const fresh = Date.now() - new Date(r.createdAt).getTime() < 86400000;
+    return (
+      <Link key={r.id} href={`/admin/chat-connections?mr=${r.id}`} className="adm-top-row adm-qm-row" style={{ animationDelay: `${(i < 5 ? i : i - 5) * 0.04}s` }}>
+        <span className="min-w-0 flex-1">
+          <span className="adm-top-name">
+            {fresh && <span className="adm-qm-new" aria-label="새 요청" />}
+            <span className="adm-qm-name">{r.customer.name}</span>
+            <QuickMatchChip r={r} />
+          </span>
+          <span className="adm-qm-sub">{qmEventLine(r.event)}</span>
+        </span>
+        <span className="adm-top-val">
+          {agoText(r.createdAt)}
+          {r.contactMethod && <small>{r.contactMethod}</small>}
+        </span>
+      </Link>
+    );
+  };
+  return (
+    <div className="adm-card">
+      <div className="adm-card-head">
+        <h2 className="adm-card-title">새로운 퀵매칭</h2>
+        {data && <span className="adm-qm-count">오늘 <b>{formatNumber(data.today)}</b> · 7일 <b>{formatNumber(data.last7d)}</b></span>}
+      </div>
+      {error ? (
+        <p className="adm-empty">퀵매칭을 불러오지 못했어요</p>
+      ) : !data ? (
+        <div className="space-y-3">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="adm-skel h-[42px]" />)}</div>
+      ) : all.length === 0 ? (
+        <p className="adm-empty">아직 퀵매칭 요청이 없어요</p>
+      ) : (
+        <div className="adm-top">
+          {all.slice(0, 5).map((r, i) => row(r, i))}
+          <AdminCollapse open={open} className="adm-top-rest-wrap">
+            <div className="adm-top-rest">{all.slice(5).map((r, j) => row(r, j + 5))}</div>
+          </AdminCollapse>
+        </div>
+      )}
+      {all.length > 5 && (
+        <button type="button" className={`adm-top-more ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? '접기' : `펼치기 · ${all.length}건까지`}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      )}
+    </div>
+  );
+}
 
 /* ── 지출 · 수입 줄 — 토스 지출/수입 화면 그대로, 박스 없이(261004 사장 '홈에 이거 넣어줘 UI 그대로 · 섹션 풀어서') ──
  *  수입 = 결제 완료, 지출 = 사회자 정산 지급 + 환불(서버 money-summary, 지난달 1일 ~ 오늘 KST 날마다).
@@ -1107,9 +1157,13 @@ export default function AdminDashboardPage() {
             <TrendChart points={series} />
           </div>
 
+          {/* 전환 퍼널 — 박스 없이 한 줄 전체(261005) */}
+          <JourneyFunnel />
+
+          {/* 사회자 TOP 옆에 새로운 퀵매칭(261005 사장) */}
           <div className="adm-grid adm-home-row2">
-            <JourneyFunnel />
             <TopPros viewed={stats.topLists?.viewedPros || []} revenue={stats.topLists?.revenuePros || []} resp={resp} />
+            <QuickMatchList />
           </div>
         </>
       )}

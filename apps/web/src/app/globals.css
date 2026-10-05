@@ -2172,21 +2172,18 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 /* 전환 퍼널 카드(261005 사장 '각 단계마다 이 이미지 — 프리티풀 공지사항 카드처럼, 하단에 그라데이션 블러') = 공지 뉴스룸 카드 어법
    · 4:3 · 그림 가득(cover) · 아래 50% 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막(그림 아래쪽 평균 색 알파) · 어두운 글자
      (그림 아래가 아주 밝아 흰 글자는 대비가 모자란다). 막을 공지(66%)보다 낮추고 마스크를 늦게 짙게 해 아래쪽 그림(말풍선·동전·받은편지함)이 덜 가린다.
-   · 배치 = 카드 칸 폭(컨테이너 쿼리): 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄. 왼쪽 위 번호 = 단계 차례, 고른 단계 = 파란 고리.
+   · 배치 = 카드 칸 폭(컨테이너 쿼리): 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄.
+   · 고르기 없음(261005 사장 '123456 선택하는 거 없애고') — 번호·파란 고리·누름 없이 여섯 칸 그대로. 박스 없이 바탕 위(섹션 풀기).
+   · 글자·비율 = 그 그림의 키 컬러(--fc-sub 이름·단위 · --fc-ink 사람 수 · --fc-key 비율, page.tsx FUNNEL_ART) — 홈 사회자 카드처럼.
    · 사파리: backdrop 은 -webkit- 접두사 함께, 둥근 모서리 밖 번짐은 translateZ(0). */
 .adm-fc-wrap { container-type: inline-size; }
 .adm-fc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 @keyframes admFcIn { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.98); } to { opacity: 1; transform: none; } }
-.adm-fc { position: relative; display: block; width: 100%; padding: 0; border: 0; border-radius: 22px; background: none; color: inherit; font-family: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.adm-fc { position: relative; display: block; width: 100%; min-width: 0; border-radius: 22px; color: inherit; text-align: left; }
 /* 등장 = 카드가 보이기 시작할 때(page.tsx FunnelCards 가 IntersectionObserver 로 data-shown 을 단다) — 그 전엔 숨겨 둔다 */
 .adm-fc:not([data-shown]) { opacity: 0; }
 .adm-fc[data-shown] { animation: admFcIn .55s var(--adm-ease) both; }
-.adm-fc::after { content: ''; position: absolute; inset: -4px; border-radius: 26px; box-shadow: 0 0 0 2px #3182F6; opacity: 0; transform: scale(.985); transition: opacity .28s ease, transform .42s var(--adm-spring); pointer-events: none; }
-.adm-fc.on::after { opacity: 1; transform: none; }
-.adm-fc:focus-visible { outline: none; }
-.adm-fc:focus-visible::after { opacity: 1; transform: none; box-shadow: 0 0 0 2px #3182F6, 0 0 0 6px rgba(49, 130, 246, .22); }
-.adm-fc:active .adm-fc-box { transform: translateZ(0) scale(.985); }
-.adm-fc-box { position: relative; display: block; overflow: hidden; aspect-ratio: 4 / 3; border-radius: 22px; transform: translateZ(0); transition: transform .18s var(--adm-ease); }
+.adm-fc-box { position: relative; display: block; overflow: hidden; aspect-ratio: 4 / 3; border-radius: 22px; transform: translateZ(0); }
 .adm-fc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; transition: transform .7s var(--adm-ease); -webkit-user-drag: none; user-select: none; }
 @media (hover: hover) { .adm-fc:hover .adm-fc-img { transform: scale(1.04); } }
 .adm-fc-blur, .adm-fc-veil { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; pointer-events: none; }
@@ -2194,33 +2191,30 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
   -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .45) 36%, #000 72%); mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .45) 36%, #000 72%);
 }
-.admin-shell .adm-fc-no { position: absolute; top: 10px; left: 10px; display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: rgba(255, 255, 255, .74); color: #4E5968; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; transition: background-color .25s ease, color .25s ease; }
-.admin-shell .adm-fc.on .adm-fc-no { background: #3182F6; color: #fff; }
 .adm-fc-text { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 1px; padding: 0 14px 12px; }
-/* 사파리(WebKit): 옆으로 넘기는 줄(스크롤 칸) 안에서 .adm-fc-blur(backdrop-filter)가 합성 층이 되면, 합성 안 된 글자·번호를
-   그 아래 층에 칠해 블러 밑에 깔린다(숫자 다이얼만 will-change 로 또렷했다). 글자·번호도 자기 층으로 올린다 — z-index 만으론 안 고쳐짐(iOS 26.5 실측). */
-.adm-fc-text, .admin-shell .adm-fc-no { z-index: 2; transform: translateZ(0); }
+/* 사파리(WebKit): 옆으로 넘기는 줄(스크롤 칸) 안에서 .adm-fc-blur(backdrop-filter)가 합성 층이 되면, 합성 안 된 글자를
+   그 아래 층에 칠해 블러 밑에 깔린다(숫자 다이얼만 will-change 로 또렷했다). 글자도 자기 층으로 올린다 — z-index 만으론 안 고쳐짐(iOS 26.5 실측). */
+.adm-fc-text { z-index: 2; transform: translateZ(0); }
+.adm-fc-skel { aspect-ratio: 4 / 3; border-radius: 22px; background: linear-gradient(90deg, #E9ECEF 25%, #E1E5E9 37%, #E9ECEF 63%); background-size: 400% 100%; animation: admShimmer 1.4s ease infinite; }
 .adm-fc-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.admin-shell .adm-fc-name { min-width: 0; overflow: hidden; color: #333D4B; font-size: 13px; font-weight: 600; line-height: 18px; letter-spacing: -0.3px; text-overflow: ellipsis; white-space: nowrap; }
-.admin-shell .adm-fc-rate { flex: none; margin-left: auto; padding: 1px 7px; border-radius: 7px; background: rgba(255, 255, 255, .92); color: #1B64DA; font-size: 11.5px; font-weight: 700; line-height: 16px; font-variant-numeric: tabular-nums; }
-.admin-shell .adm-fc-value { display: flex; align-items: baseline; color: #191F28; font-size: 21px; font-weight: 700; line-height: 1.25; letter-spacing: -0.5px; }
-.admin-shell .adm-fc-value small { margin-left: 1px; color: #333D4B; font-size: .62em; font-weight: 600; }
+.admin-shell .adm-fc-name { min-width: 0; overflow: hidden; color: var(--fc-sub, #333D4B); font-size: 13px; font-weight: 600; line-height: 18px; letter-spacing: -0.3px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell .adm-fc-rate { flex: none; margin-left: auto; padding: 1px 7px; border-radius: 7px; background: rgba(255, 255, 255, .6); color: var(--fc-key, #1B64DA); font-size: 11.5px; font-weight: 700; line-height: 16px; font-variant-numeric: tabular-nums; }
+.admin-shell .adm-fc-value { display: flex; align-items: baseline; color: var(--fc-ink, #191F28); font-size: 21px; font-weight: 700; line-height: 1.25; letter-spacing: -0.5px; }
+.admin-shell .adm-fc-value small { margin-left: 1px; color: var(--fc-sub, #333D4B); font-size: .62em; font-weight: 600; }
 @container (min-width: 760px) {
   .adm-fc-grid { gap: 16px; }
-  .adm-fc, .adm-fc-box { border-radius: 28px; }
-  .adm-fc::after { border-radius: 32px; }
-  .admin-shell .adm-fc-no { top: 16px; left: 16px; min-width: 26px; height: 26px; border-radius: 13px; font-size: 13px; }
+  .adm-fc, .adm-fc-box, .adm-fc-skel { border-radius: 28px; }
   .adm-fc-text { gap: 2px; padding: 0 22px 19px; }
   .admin-shell .adm-fc-name { font-size: 15px; line-height: 21px; }
   .admin-shell .adm-fc-rate { padding: 2px 8px; border-radius: 8px; font-size: 12.5px; line-height: 17px; }
   .admin-shell .adm-fc-value { font-size: 28px; letter-spacing: -0.7px; }
 }
 @container (max-width: 559px) { .adm-fc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
-/* 폰 폭 — 옆으로 넘기는 줄(카드 칸 가장자리까지 번져 넘어가고, 다음 카드가 살짝 보인다) */
+/* 폰 폭 — 옆으로 넘기는 줄(화면 가장자리까지 번져 넘어가고, 다음 카드가 살짝 보인다 — 틀 여백 16 + 퍼널 칸 2) */
 @container (max-width: 419px) {
-  .adm-fc-grid { display: flex; gap: 10px; margin: -4px -24px 0; padding: 4px 24px 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 24px; scrollbar-width: none; }
+  .adm-fc-grid { display: flex; gap: 10px; margin: -4px -18px 0; padding: 4px 18px 6px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 18px; scrollbar-width: none; }
   .adm-fc-grid::-webkit-scrollbar { display: none; }
-  .adm-fc { flex: 0 0 68%; scroll-snap-align: start; }
+  .adm-fc, .adm-fc-skel { flex: 0 0 68%; scroll-snap-align: start; }
 }
 /* 줄 모드를 마우스로 볼 때(좁은 데스크톱 창) — 스와이프가 없으니 얇은 스크롤바로 옆 카드가 있다는 걸 알린다 */
 @container (max-width: 419px) {
@@ -2232,45 +2226,31 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 }
 @media (prefers-reduced-motion: reduce) {
   .adm-fc, .adm-fc[data-shown], .adm-fc:not([data-shown]) { animation: none; opacity: 1; }
-  .adm-fc::after, .adm-fc-img, .adm-fc-box, .admin-shell .adm-fc-no { transition: none; }
+  .adm-fc-img { transition: none; }
+  .adm-fc-skel { animation: none; }
   .adm-fc:hover .adm-fc-img { transform: none; }
 }
-.adm-step-detail { margin-top: 14px; padding: 16px 18px; border-radius: 16px; background: #F7F8FA; animation: admRise .35s var(--adm-ease) both; }
-.adm-step-detail-head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--admin-sub); font-size: 14px; font-weight: 700; }
-.adm-step-detail-head span { padding: 2px 8px; border-radius: 8px; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 12px; }
-.adm-step-detail-value { display: flex; align-items: baseline; gap: 4px; margin: 8px 0 0; color: var(--admin-muted); font-size: 15px; font-weight: 600; }
-.adm-step-detail-value b { color: var(--admin-ink); font-size: 28px; font-weight: 700; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; }
-.adm-step-detail-value small { margin-left: 8px; color: var(--admin-ph); font-size: 13px; font-weight: 500; }
-.adm-step-detail-sub { margin: 6px 0 0; color: var(--admin-muted); font-size: 13.5px; line-height: 1.55; }
-.adm-step-detail-sub b { color: var(--admin-blue); font-weight: 700; }
-@media (prefers-reduced-motion: reduce) { .adm-step-detail { animation: none; } }
+/* 전환 퍼널 머리 — 박스 없이(261005 사장 '섹션 풀어 주고'): 제목 · 기간 고르기(바탕이 회색이라 고르기 바닥을 한 톤 짙게) */
+.adm-jf2 { padding: 4px 2px 0; }
+.adm-jf2-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.adm-jf2-title { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; color: #333D4B; }
+.adm-jf2-sub { margin: 4px 0 0; font-size: 14px; color: var(--admin-muted); }
+.adm-seg.on-bg { background: #E5E8EB; }
+@media (max-width: 640px) { .adm-jf2-head { flex-direction: column; align-items: flex-start; } }
 
-/* 전환 퍼널(261005) — 위에서부터 차례로: 단계 줄 → 넘어온 비율·빠진 사람 → 다음 단계 */
-.adm-jf { display: flex; flex-direction: column; }
-.adm-jf-row { display: grid; grid-template-columns: minmax(150px, 190px) 1fr 82px; align-items: center; gap: 14px; animation: admRise .45s var(--adm-ease) both; }
-.adm-jf-label { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.adm-jf-label b { display: block; overflow: hidden; color: var(--admin-ink); font-size: 14.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.adm-jf-label small { display: block; overflow: hidden; margin-top: 1px; color: var(--admin-ph); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.adm-jf-no { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 12px; font-weight: 700; }
-.adm-jf-no.end { background: var(--admin-blue); color: #fff; }
-.adm-jf-track { display: flex; justify-content: flex-start; height: 34px; }
-.adm-jf-bar { display: block; height: 100%; border-radius: 10px; background: #3182F6; transform-origin: left; animation: admGrowX .6s var(--adm-ease) both; }
-.adm-jf-bar.s0 { background: #C9DDFC; } .adm-jf-bar.s1 { background: #A5C8FA; } .adm-jf-bar.s2 { background: #7DB0F8; }
-.adm-jf-bar.s3 { background: #5598F7; } .adm-jf-bar.s4 { background: #3D8AF7; } .adm-jf-bar.s5 { background: #1B64DA; }
-.adm-jf-n { text-align: right; color: var(--admin-ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.adm-jf-n small { margin-left: 2px; color: var(--admin-muted); font-size: 12px; font-weight: 600; }
-.adm-jf-drop { display: flex; align-items: center; gap: 8px; height: 30px; padding-left: 11px; animation: admRise .4s var(--adm-ease) both; }
-.adm-jf-drop-arrow { width: 2px; height: 18px; border-radius: 2px; background: #E5E8EB; }
-.adm-jf-drop-text { color: var(--admin-muted); font-size: 12.5px; }
-.adm-jf-drop-text b { color: var(--admin-blue); font-weight: 700; }
-.adm-jf-drop-text.muted { color: var(--admin-dis); }
-.adm-jf-lost { color: var(--admin-red); opacity: .85; }
-.adm-jf-sum { margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: #F7F8FA; color: var(--admin-sub); font-size: 13.5px; line-height: 1.55; animation: admRise .45s var(--adm-ease) both; }
-.adm-jf-sum b { color: var(--admin-blue); font-weight: 700; }
-.adm-jf-sum span { color: var(--admin-ph); }
-.adm-jf-note { margin: 10px 0 0; color: var(--admin-orange); font-size: 12.5px; }
-@media (max-width: 640px) { .adm-jf-row { grid-template-columns: minmax(120px, 1fr) 1fr 64px; gap: 10px; } }
-@media (prefers-reduced-motion: reduce) { .adm-jf-row, .adm-jf-drop, .adm-jf-bar, .adm-jf-sum { animation: none; } }
+/* 새로운 퀵매칭(261005) — 사회자 TOP 줄 모양 그대로, 줄 전체가 링크(채팅 매칭에서 그 요청의 대화만) */
+.adm-qm-row { color: inherit; text-decoration: none; }
+.adm-qm-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s ease; }
+.adm-qm-row:hover .adm-qm-name { color: var(--admin-blue); }
+.adm-qm-new { flex: none; width: 6px; height: 6px; margin-right: -3px; border-radius: 50%; background: var(--admin-blue); }
+.adm-qm-sub { display: block; margin-top: 2px; overflow: hidden; color: var(--admin-ph); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-reply.blue { background: var(--admin-blue-weak); color: var(--admin-blue); }
+.adm-reply.paid { background: var(--admin-blue); color: #fff; }
+.adm-qm-count { flex: none; color: var(--admin-ph); font-size: 13px; font-weight: 500; }
+.adm-qm-count b { color: var(--admin-sub); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* 채팅 매칭 — 홈 '새로운 퀵매칭'에서 들어오면 그 요청의 대화만(✕ 로 풀기) */
+.adm-mr-pill { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 32px; padding: 0 10px 0 12px; border: 0; border-radius: 10px; background: var(--admin-blue-weak); color: var(--admin-blue); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color .15s ease; }
+.adm-mr-pill:hover { background: #D9EAFF; }
 .adm-top-val { flex: none; text-align: right; font-size: 14px; font-weight: 700; color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .adm-top-val small { display: block; font-size: 12px; font-weight: 500; color: var(--admin-ph); }
 .adm-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -2280,10 +2260,12 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-mini b { display: block; margin-top: 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: var(--admin-ink); font-variant-numeric: tabular-nums; }
 .adm-mini b small, .adm-stat-value small { margin-left: 2px; font-size: .64em; font-weight: 600; color: var(--admin-sub); }
 .adm-home-row, .adm-home-row2 { grid-template-columns: minmax(0, 1fr); }
-/* 전환 퍼널(그림 카드 3×2)은 한 줄을 다 쓰고 사회자 TOP 은 그 아래(261005 — 반 칸이면 카드가 200px 남짓이라 공지 카드 느낌이 안 났다) */
+/* 전환 퍼널(그림 카드 3×2)은 한 줄을 다 쓰고(261005 — 반 칸이면 카드가 200px 남짓이라 공지 카드 느낌이 안 났다),
+   그 아래 줄 = 사회자 TOP | 새로운 퀵매칭(같은 날 사장 '사회자 TOP 5 옆에 퀵매칭 리스트') */
 .adm-home-row2 { align-items: start; }
 @media (min-width: 1100px) {
   .adm-home-row { grid-template-columns: 380px minmax(0, 1fr); }
+  .adm-home-row2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
 }
 
 /* 관리자 로그인(어드민 셸 밖) — 카드가 올라오고 줄들이 차례로 */
