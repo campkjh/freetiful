@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
-import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminCollapse } from '../_components/AdminCollapse';
 import { AdminDatePop } from '../_components/AdminDatePop';
@@ -55,11 +55,9 @@ const kstStartISO = (ymd: string) => new Date(`${ymd}T00:00:00+09:00`).toISOStri
 const kstEndISO = (ymd: string) => new Date(`${ymd}T23:59:59.999+09:00`).toISOString();
 const addDaysYmd = (ymd: string, n: number) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const md = (ymd: string) => `${Number(ymd.slice(5, 7))}월 ${Number(ymd.slice(8, 10))}일`;
-/** 방문 기록 시각(KST) — '10.6 04:53' */
-const kstShort = (iso: string) => {
-  const d = new Date(new Date(iso).getTime() + 9 * 3600000);
-  return `${d.getUTCMonth() + 1}.${d.getUTCDate()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
-};
+/** KST 날짜 'YYYY-MM-DD' · 시각 'HH:mm' */
+const kstYmdOf = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600000).toISOString().slice(0, 10);
+const kstHm = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600000).toISOString().slice(11, 16);
 
 // 표시 월(offset 0=이번달, -1=저번달…)의 달력: 앞뒤 달 칸 포함한 주 단위
 interface CalCell { key: string; day: number; weekday: number; inMonth: boolean; }
@@ -186,6 +184,66 @@ const Chev = ({ dir }: { dir: 'l' | 'r' }) => (
   </svg>
 );
 
+/** 방문 기록 — 오른쪽 칸(261006 사장 '방문 기록은 우측에'). 날마다 묶어 최근 순: 소스 아이콘 · 매체/캠페인(없으면 리퍼러) · 시각 · 신청 */
+function VisitFeed({ visits, conv, sel }: { visits: VisitRow[] | null; conv: string; sel: PageKey }) {
+  const today = KST_TODAY();
+  const yest = addDaysYmd(today, -1);
+  const groups = useMemo(() => {
+    const m = new Map<string, VisitRow[]>();
+    for (const v of visits ?? []) {
+      const d = kstYmdOf(v.createdAt);
+      const arr = m.get(d);
+      if (arr) arr.push(v);
+      else m.set(d, [v]);
+    }
+    return Array.from(m.entries());
+  }, [visits]);
+  const short = conv.replace(/^견적\s*/, '');
+  return (
+    <div className="adm-card adm-la-log">
+      <div className="adm-card-head">
+        <h2 className="adm-card-title">방문 기록</h2>
+        <span className="adm-qm-count">최근 <b>{num(visits?.length || 0)}</b>건</span>
+      </div>
+      <div className="adm-la-logscroll">
+        {visits == null ? (
+          <div className="space-y-3 pt-2">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="adm-skel h-[44px]" />)}</div>
+        ) : visits.length === 0 ? (
+          <p className="adm-la-empty">방문 기록이 아직 없어요</p>
+        ) : groups.map(([d, rows]) => (
+          <div key={d} className="adm-la-logday">
+            <p className="adm-la-logday-head">
+              {d === today ? '오늘' : d === yest ? '어제' : md(d)}
+              <span>{num(rows.length)}건{rows.some((r) => r.converted) ? ` · ${short} ${rows.filter((r) => r.converted).length}` : ''}</span>
+            </p>
+            {rows.map((v, i) => {
+              const k = v.source || v.referrerHost || '';
+              const sub = [v.medium, v.campaign].filter(Boolean).join(' · ') || v.referrerHost || '유입 정보 없음';
+              return (
+                <div key={`${v.createdAt}-${i}`} className="adm-la-logrow" title={v.referrer || undefined}>
+                  <SrcIcon k={k || '직접/기타'} size={26} />
+                  <span className="min-w-0 flex-1">
+                    <span className="adm-la-logname">{k ? srcLabel(k) : '직접/기타'}</span>
+                    <span className="adm-la-logsub">{sub}</span>
+                  </span>
+                  <span className="adm-la-logright">
+                    <span className="adm-la-logtime">{kstHm(v.createdAt)}</span>
+                    {v.converted && <span className="adm-badge green">{short}</span>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <p className="adm-la-logfoot">
+        방문 = 기기(세션)·페이지당 1번 · {conv} = 폼 제출 성공 · UTM 이 없으면 리퍼러로 소스를 추정, 둘 다 없으면 직접/기타
+        <br />링크 예시 freetiful.com/{sel}?utm_source=instagram&amp;utm_medium=bio
+      </p>
+    </div>
+  );
+}
+
 /** 숫자 줄 한 칸 — 홈 상단 숫자와 같은 어법(이름 · 다이얼 숫자 · 회색 한 줄). 화면 안에서 만들면 그릴 때마다 다시 붙어 다이얼이 매번 굴러서 밖에 둔다 */
 function Kpi({ label, value, unit, sub, tone }: { label: string; value: number | null; unit?: string; sub: React.ReactNode; tone?: string }) {
   return (
@@ -226,7 +284,6 @@ export default function LandingAnalyticsPage() {
   const [customTo, setCustomTo] = useState<string>('');
   const customActive = !!(customFrom || customTo);
   const [dim, setDim] = useState<DimKey>('source');
-  const [logOpen, setLogOpen] = useState(false);
   // ── 오늘 · 어제 ──
   const [todayData, setTodayData] = useState<Analytics | null>(null);
   const [yesterday, setYesterday] = useState<Totals | null>(null);
@@ -449,6 +506,9 @@ export default function LandingAnalyticsPage() {
         <p className="adm-desc" key={sel}>{tab.desc}</p>
       </div>
 
+      {/* 가운데 = 숫자·달력·카드 차례로(스택), 오른쪽 = 방문 기록(261006 사장 '방문 기록은 우측에') */}
+      <div className="adm-la-layout">
+      <div className="adm-la-main">
       {/* 숫자 줄 — 홈 상단과 같은 박스 없는 다이얼 6칸 */}
       <section className="adm-la-top" aria-label="오늘과 이번 달 숫자">
         <div className="adm-la-kpis" key={`${sel}-${monthOffset}`}>
@@ -662,64 +722,12 @@ export default function LandingAnalyticsPage() {
         )}
       </div>
 
-      {/* 방문 기록 — 최근 순, 어떤 경로로 들어왔는지 */}
-      <AdminListCard
-        filter={
-          <div className="adm-toolbar">
-            <h2 className="adm-card-title">방문 기록</h2>
-            <span className="grow" />
-            <span className="adm-count">최근 <b>{num((visits ?? []).length)}</b>건</span>
-          </div>
-        }
-      >
-        <AdminTableScroll>
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>시간</th>
-                <th>유입 소스</th>
-                <th>매체 · 캠페인</th>
-                <th>리퍼러</th>
-                <th className="c">{conv}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visits == null ? (
-                Array.from({ length: 5 }).map((_, i) => <tr key={i}><td colSpan={5}><div className="adm-skel h-[36px]" /></td></tr>)
-              ) : visits.length === 0 ? (
-                <tr><td colSpan={5} className="adm-empty">방문 기록이 아직 없어요</td></tr>
-              ) : (logOpen ? visits : visits.slice(0, 20)).map((v, i) => {
-                const k = v.source || v.referrerHost || '';
-                return (
-                  <tr key={`${v.createdAt}-${i}`}>
-                    <td className="whitespace-nowrap adm-la-num">{kstShort(v.createdAt)}</td>
-                    <td>
-                      {k ? (
-                        <span className="adm-la-src"><SrcIcon k={k} size={18} /><span className="adm-la-src-name">{srcLabel(k)}</span></span>
-                      ) : <span className="adm-la-dim">직접/기타</span>}
-                    </td>
-                    <td>{[v.medium, v.campaign].filter(Boolean).join(' · ') || <span className="adm-la-dim">—</span>}</td>
-                    <td className="max-w-[220px] truncate" title={v.referrer || ''}>{v.referrerHost || <span className="adm-la-dim">—</span>}</td>
-                    <td className="c">{v.converted ? <span className="adm-badge green">{conv.replace(/^견적\s*/, '')}</span> : <span className="adm-la-dim">—</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </AdminTableScroll>
-        {visits && visits.length > 20 && (
-          <div className="adm-la-logmore">
-            <button type="button" className={`adm-top-more ${logOpen ? 'on' : ''}`} onClick={() => setLogOpen((v) => !v)} aria-expanded={logOpen}>
-              {logOpen ? '접기' : `더 보기 · ${num(visits.length)}건까지`}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-          </div>
-        )}
-        <p className="adm-table-foot">
-          방문 = 기기(세션)·페이지당 1번 · {conv} = 폼 제출 성공 · UTM 이 없으면 리퍼러(인스타·스레드·네이버 등)로 소스를 추정하고, 둘 다 없으면 직접/기타
-          · 링크 예시 freetiful.com/{sel}?utm_source=instagram&amp;utm_medium=bio&amp;utm_campaign=fall
-        </p>
-      </AdminListCard>
+      </div>
+
+      <aside className="adm-la-side" aria-label="방문 기록">
+        <VisitFeed visits={visits} conv={conv} sel={sel} />
+      </aside>
+      </div>
     </div>
   );
 }

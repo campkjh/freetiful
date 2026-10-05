@@ -1654,8 +1654,9 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-la-kpi-label { margin: 0; overflow: hidden; color: var(--admin-muted); font-size: 15px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .adm-la-kpi-value { display: flex; align-items: center; margin: 6px 0 0; overflow: hidden; color: #333D4B; font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -0.6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .adm-la-kpi-sub { margin: 4px 0 0; overflow: hidden; color: var(--admin-ph); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 1240px) { .adm-la-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .adm-la-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-la-kpi-value { font-size: 21px; } }
+/* 가운데 칸 폭에 맞춰(오른쪽 방문 기록 칸이 붙으면 좁아진다) — 컨테이너 쿼리 */
+@container (max-width: 1000px) { .adm-la-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 560px) { .adm-la-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-la-kpi-value { font-size: 21px; } }
 .adm-la-mid { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 26px 0 14px; }
 .adm-la-mid-sub { margin: 6px 0 0; color: var(--admin-muted); font-size: 14px; }
 .adm-la-monthnav { display: flex; flex: none; align-items: center; gap: 4px; }
@@ -1693,7 +1694,7 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 }
 /* 유입 경로 두 칸 · 순위 줄(사회자 TOP 줄 어법 + 비율 막대) */
 .adm-la-row2 { grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 1100px) { .adm-la-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 720px) { .adm-la-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .adm-la-src { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .adm-la-src-name { min-width: 0; overflow: hidden; color: var(--admin-ink); font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .adm-table .adm-la-src-name { font-size: 14px; }
@@ -1719,8 +1720,27 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-la-range { display: inline-flex; align-items: center; gap: 6px; color: var(--admin-dis); }
 .adm-la-range .adm-datefield { min-width: 140px; }
 @media (max-width: 640px) { .adm-la-range { flex: 1 1 100%; } .adm-la-range .adm-datefield { flex: 1 1 0; min-width: 0; } }
-.adm-la-logmore { padding: 0 24px; }
-.adm-la-logmore .adm-top-more { margin-top: 4px; }
+/* 두 칸 — 가운데(스택) | 오른쪽 방문 기록(261006 사장). 넓은 화면에서만 옆에, 좁으면 맨 아래 */
+.adm-la-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
+.adm-la-main { display: flex; flex-direction: column; gap: 22px; min-width: 0; container-type: inline-size; }
+@media (min-width: 1280px) {
+  .adm-la-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .adm-la-side { position: sticky; top: 76px; }
+}
+.admin-shell .adm-card.adm-la-log { display: flex; flex-direction: column; padding: 22px 0 0; }
+.adm-la-log .adm-card-head { margin-bottom: 6px; padding: 0 22px; }
+.adm-la-logscroll { max-height: calc(100vh - 230px); overflow-y: auto; overscroll-behavior: contain; padding: 0 22px 10px; scrollbar-width: thin; scrollbar-color: rgba(0, 29, 58, .16) transparent; }
+@media (max-width: 1279px) { .adm-la-logscroll { max-height: 560px; } }
+.adm-la-logday + .adm-la-logday { margin-top: 10px; }
+.adm-la-logday-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 0 6px; background: #fff; color: var(--admin-sub); font-size: 13px; font-weight: 700; }
+.adm-la-logday-head span { margin-left: 6px; color: var(--admin-ph); font-weight: 500; }
+.adm-la-logrow { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 0; }
+.adm-la-logrow + .adm-la-logrow { box-shadow: inset 0 1px 0 var(--admin-divider); }
+.adm-la-logname { display: block; overflow: hidden; color: var(--admin-ink); font-size: 14px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.adm-la-logsub { display: block; overflow: hidden; margin-top: 1px; color: var(--admin-ph); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-la-logright { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 3px; }
+.adm-la-logtime { color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.adm-la-logfoot { margin: 0; padding: 12px 22px 16px; border-top: 1px solid var(--admin-divider); color: var(--admin-dis); font-size: 11.5px; line-height: 1.6; word-break: break-all; }
 .adm-tabs { position: relative; display: inline-flex; gap: 2px; margin-top: 20px; padding: 4px; border-radius: 14px; background: #fff; animation: admRise .5s var(--adm-ease) .1s both; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .adm-tabs::-webkit-scrollbar { display: none; }
 .adm-tab { position: relative; z-index: 1; display: flex; align-items: center; height: 38px; padding: 0 18px; border-radius: 10px; color: var(--admin-muted); font-size: 15px; font-weight: 600; white-space: nowrap; text-decoration: none; }
