@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { QuickMatchRosterService } from '../match/quick-match-roster.service';
 import { AutoReplyAiService } from './auto-reply-ai.service';
 import {
   AI_BLOCKING_RISKS,
@@ -87,6 +88,35 @@ type AutoReplyRow = {
   displayOrder: number;
 };
 
+/**
+ * 플랫폼 기본 답(261005 사장 결정 '퀵매칭 지정 사회자만 먼저') — 지정 사회자는 직접 써 둔 답이 없어도 AI 가 이 중에서 고른다.
+ *  · 금액·날짜·계약을 약속하지 않는 말만(발송 전 검사 validateOutgoing 도 그대로 거친다). 사회자 자기 답이 늘 앞(우선).
+ *  · followUp = 사회자가 이어서 답해야 하는 주제 → 보내면서 사회자에게 '직접 답변 필요' 알림도 간다(받아 두기).
+ *  · 위험 문구(날짜·금액 제시·흥정·계약…)가 있는 말엔 쓰지 않는다 — 그건 지금처럼 받아 두기 한 줄 + 알림.
+ *  · DB 에 저장하지 않는다(사회자 설정 화면·saveMine 과 무관). 키는 stableKeyOf(question) — 방마다 같은 답 1번.
+ */
+const DEFAULT_ROW_PREFIX = 'default:';
+/** match = AI 가 안 될 때(키 없음·실패·시간 초과)만 쓰는 낱말 — keywords 칸에 넣으면 위험 문구 받아 두기보다 앞서 나가므로 따로 둔다. 위에서부터 먼저 */
+const PLATFORM_DEFAULT_REPLIES: Array<{ question: string; answer: string; followUp: boolean; match: RegExp }> = [
+  { question: '견적·가격·비용이 얼마인지 묻는 말(숫자 없이)', answer: '행사 정보 확인하고 견적서로 정확하게 안내드릴게요. 원하시는 진행 순서나 분위기가 있으면 같이 말씀해 주세요!', followUp: true, match: /견적|가격|비용|금액|얼마/ },
+  { question: '사전 미팅·통화로 미리 맞춰 볼 수 있는지 묻는 말', answer: '미리 맞춰 보면 훨씬 편하게 진행할 수 있어요. 편하신 방법(전화·화상·대면)을 말씀해 주시면 확인해서 안내드릴게요.', followUp: true, match: /미팅|만나|만날|상담|통화/ },
+  { question: '연락처·전화번호·카톡을 묻는 말', answer: '프리티풀 채팅으로 편하게 말씀 주세요. 확인하는 대로 바로 답장드릴게요!', followUp: false, match: /전화|연락처|번호|카톡|카카오/ },
+  { question: '경력·진행 영상·후기를 보고 싶다는 말', answer: '제 프로필에 경력과 진행 모습을 정리해 두었어요. 보시고 궁금한 점 있으면 편하게 물어봐 주세요!', followUp: false, match: /영상|경력|후기|포트폴리오|사진/ },
+  { question: '진행 스타일·분위기·멘트·순서를 묻는 말', answer: '원하시는 분위기에 맞춰 준비해요. 꼭 넣고 싶은 순서나 피하고 싶은 멘트가 있으면 편하게 말씀해 주세요.', followUp: false, match: /스타일|분위기|멘트|순서|대본|컨셉|콘셉트/ },
+  { question: '그날 일정이 되는지(가능 여부) 묻는 말', answer: '요청 주신 날짜와 시간 확인하고 있어요. 일정 확인되는 대로 바로 안내드릴게요!', followUp: true, match: /일정|날짜|그날|되시나|가능(하|한|할|여부)/ },
+];
+const DEFAULT_ROWS: AutoReplyRow[] = PLATFORM_DEFAULT_REPLIES.map((d, i) => ({
+  id: `${DEFAULT_ROW_PREFIX}${i}`,
+  kind: 'qa',
+  question: d.question,
+  answer: d.answer,
+  keywords: null,
+  amount: null,
+  displayOrder: 1000 + i,
+}));
+const isDefaultRow = (row: { id: string }) => row.id.startsWith(DEFAULT_ROW_PREFIX);
+const followUpOf = (row: { id: string }) => isDefaultRow(row) && PLATFORM_DEFAULT_REPLIES[Number(row.id.slice(DEFAULT_ROW_PREFIX.length))]?.followUp === true;
+
 export interface DecidedReply {
   /** 안정 키 — 'quote' | 'qa:<8hex>'. row.id(uuid)를 쓰면 저장할 때마다 바뀐다 */
   key: string;
@@ -103,7 +133,16 @@ export interface DecidedReply {
 @Injectable()
 export class AutoReplyService {
   private readonly logger = new Logger(AutoReplyService.name);
-  constructor(private prisma: PrismaService, private ai: AutoReplyAiService) {}
+  constructor(private prisma: PrismaService, private ai: AutoReplyAiService, private roster: QuickMatchRosterService) {}
+
+  /** 퀵매칭 지정 사회자인가 — AI 기본 켜기·플랫폼 기본 답이 이 사람들에게만(261005 사장 '지정 사회자만 먼저'). 못 읽으면 아님 */
+  private async isDesignated(proProfileId: string) {
+    try {
+      return (await this.roster.roster()).ids.has(proProfileId);
+    } catch {
+      return false;
+    }
+  }
 
   private async proProfileIdOf(userId: string) {
     const pro = await this.prisma.proProfile.findFirst({
@@ -264,12 +303,18 @@ export class AutoReplyService {
     return { question: row.question ?? '', answer: row.answer };
   }
 
-  /** 자동응답 후보 행 — 켜져 있는 견적/QA */
-  private async candidateRows(proProfileId: string) {
+  /** 자동응답 후보 행 — 켜져 있는 견적/QA(사회자가 써 둔 것) */
+  private async ownRows(proProfileId: string): Promise<AutoReplyRow[]> {
     return this.prisma.proAutoReply.findMany({
       where: { proProfileId, isEnabled: true, kind: { in: ['qa', 'quote'] } },
       orderBy: { displayOrder: 'asc' },
     });
+  }
+
+  /** AI·자동응답이 고를 후보 — 사회자 답 + (퀵매칭 지정 사회자면) 플랫폼 기본 답을 뒤에 */
+  private async candidateRows(proProfileId: string): Promise<AutoReplyRow[]> {
+    const [own, designated] = await Promise.all([this.ownRows(proProfileId), this.isDesignated(proProfileId)]);
+    return designated ? [...own, ...DEFAULT_ROWS] : own;
   }
 
   /**
@@ -318,7 +363,7 @@ export class AutoReplyService {
   async matchFor(proProfileId: string, text: string, customerName?: string | null) {
     const body = (text || '').trim();
     if (body.length < 2 || body.length > 300) return null;
-    const rows = await this.candidateRows(proProfileId);
+    const rows = await this.ownRows(proProfileId);
     if (rows.length === 0) return null;
 
     const pick = (row: AutoReplyRow, why: string) => ({
@@ -405,7 +450,8 @@ export class AutoReplyService {
         answer,
         amount: row.amount ?? null,
         risks,
-        needsHuman: opts.needsHuman === true,
+        // 플랫폼 기본 답 중 '이어서 답해야 하는' 주제면 보내면서 사회자에게도 알린다(받아 두기)
+        needsHuman: opts.needsHuman === true || followUpOf(row),
         unknownParts: opts.unknownParts || [],
       };
     };
@@ -468,11 +514,19 @@ export class AutoReplyService {
       }
     }
 
-    // ── 4. 폴백 — 오늘과 동일한 동작 ──
-    const h = this.matchByHeuristic(rows, body);
+    // ── 4. 폴백 — 오늘과 동일한 동작(사회자 답만) ──
+    const h = this.matchByHeuristic(rows.filter((r) => !isDefaultRow(r)), body);
     if (h) {
       const decided = finish(h.row, h.why);
       if (decided) return decided;
+    }
+    // ── 5. 퀵매칭 지정 사회자 — 플랫폼 기본 답을 낱말로(위험 문구가 있는 말엔 안 씀 — 아래 받아 두기로) ──
+    if (!aiBlocked) {
+      for (const row of rows.filter(isDefaultRow)) {
+        if (!PLATFORM_DEFAULT_REPLIES[Number(row.id.slice(DEFAULT_ROW_PREFIX.length))]?.match.test(body)) continue;
+        const decided = finish(row, 'default');
+        if (decided) return decided;
+      }
     }
     // ── 6. 위험 문구라 AI 를 못 쓴 말(일정·금액·흥정·계약·결제) — 사회자가 직접 답해야 한다.
     //       자동응답을 켜 둔 사회자면(여기까지 왔으면 항목이 있다) 약속 없는 한 줄로 받아 두고(방마다 1번) 사회자에게 알린다.
@@ -569,8 +623,9 @@ export class AutoReplyService {
       .map((s) => s.slice(6) as PersonaGuard);
 
     return {
-      // ★ 행이 없으면 꺼짐. (row ? row.isEnabled : true) 로 쓰면 안 켠 사회자가 조용히 켜진다
-      aiEnabled: Boolean(aiRow?.isEnabled),
+      // ★ 행이 없으면 꺼짐 — 예외: 퀵매칭 지정 사회자는 행이 없으면 켜짐(261005 사장 결정 '지정 사회자만 먼저').
+      //   (row ? row.isEnabled : true) 를 모두에게 쓰면 안 켠 사회자가 조용히 켜진다. 사회자가 직접 끄면 행(isEnabled false)이 생겨 꺼진 채 유지.
+      aiEnabled: aiRow ? aiRow.isEnabled : await this.isDesignated(proProfileId),
       aiAdaptEnabled: (aiRow?.keywords || '').includes('adapt:on'),
       personaText: pRow?.answer && pRow.answer !== '-' ? pRow.answer : '',
       tone: (meta.get('tone') as Persona['tone']) || DEFAULT_PERSONA.tone,

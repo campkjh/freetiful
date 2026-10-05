@@ -75,20 +75,25 @@ export class AutoReplyAiService {
   } = {}): Promise<any | null> {
     if (!this.client) return null;
     const timeoutMs = opts.timeoutMs ?? 2500;
-    // 과부하일 때만 한 홉. 사다리를 길게 두면 채팅에서 체감 지연이 폭발한다.
-    const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+    // 한 홉만(사다리가 길면 채팅 체감 지연이 폭발한다).
+    // ⚠ 261005: gemini-2.5-flash-lite 가 이 키에서 404('no longer available') → 예전엔 404 면 다음 모델로 안 넘어가 AI 경로가 통째로 죽어 있었다
+    //   (켠 사회자도 규칙 폴백만). 2.5-flash 먼저(생각 끔 · 약 1.2초), 안 되면 flash-lite-latest(이 모델은 thinkingBudget 0 을 거절해 생각 설정을 뺀다).
+    const models: Array<{ name: string; noThinking: boolean }> = [
+      { name: 'gemini-2.5-flash', noThinking: true },
+      { name: 'gemini-flash-lite-latest', noThinking: false },
+    ];
 
     for (let i = 0; i < models.length; i++) {
       try {
         const model = this.client.getGenerativeModel({
-          model: models[i],
+          model: models[i].name,
           ...(opts.systemInstruction ? { systemInstruction: opts.systemInstruction } : {}),
           generationConfig: {
             temperature: opts.temperature ?? 0.25,
             topP: 0.8,
             maxOutputTokens: opts.maxOutputTokens ?? 520,
             responseMimeType: 'application/json',
-            thinkingConfig: { thinkingBudget: 0 },
+            ...(models[i].noThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
           } as any,
         });
         const result: any = await Promise.race([
@@ -100,9 +105,9 @@ export class AutoReplyAiService {
         return JSON.parse(text);
       } catch (e: any) {
         const msg = String(e?.message || e);
-        this.logger.warn(`[${models[i]}] ${msg.slice(0, 120)}`);
-        // 과부하가 아니면 다음 모델로 넘어가 봐야 똑같이 실패한다
-        if (!/503|429|504|UNAVAILABLE|overloaded|high demand/i.test(msg)) return null;
+        this.logger.warn(`[${models[i].name}] ${msg.slice(0, 160)}`);
+        // 과부하 · 모델 없음/설정 거절이면 다음 모델로. 시간 초과·그 밖은 다음 모델도 늦거나 똑같이 실패한다
+        if (!/503|429|504|UNAVAILABLE|overloaded|high demand|404|NOT_FOUND|no longer available|400|INVALID_ARGUMENT/i.test(msg)) return null;
       }
     }
     return null;
