@@ -754,7 +754,15 @@ function MoneyBlock({ data, kpis }: { data: MoneySummary; kpis: TopKpi[] }) {
           {showLabel && <span className="adm-money-wd">{WEEK_KO[d.getUTCDay()]}</span>}
           <span className="adm-money-date">{d.getUTCDate()}</span>
         </span>
-        <span className={`adm-money-net ${inc > 0 ? 'plus' : ''}`}>{!future && inc > 0 ? signed(inc) : ''}</span>
+        <span className={`adm-money-net ${inc > 0 ? 'plus' : ''}`}>
+          {!future && inc > 0 && (
+            <>
+              <span className="adm-money-net-long">{signed(inc)}</span>
+              {/* 폰 — 칸이 좁아 만원 단위로(+166만) */}
+              <span className="adm-money-net-short">{inc >= 10000 ? `+${Math.round(inc / 10000).toLocaleString('ko-KR')}만` : signed(inc)}</span>
+            </>
+          )}
+        </span>
       </span>
     );
   };

@@ -2130,6 +2130,8 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-money-top.kpis .adm-money-col:hover { background: rgba(0, 0, 0, .035); }
 .adm-money-top.kpis .adm-money-label { font-size: 15px; }
 .adm-money-top.kpis .adm-money-value { overflow: hidden; font-size: 24px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-money-net-short { display: none; }
+@media (max-width: 640px) { .adm-money-net-long { display: none; } .adm-money-net-short { display: inline; } }
 .adm-money-sub { margin: 4px 0 0; overflow: hidden; color: var(--admin-ph); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .adm-money-wait { color: var(--admin-dis); }
 @media (max-width: 1180px) { .adm-money-top.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; } }
