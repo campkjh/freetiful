@@ -475,17 +475,68 @@ function fmtRate(rate: number): string {
  *  공지 뉴스룸 카드 어법: 4:3 · 그림 가득(cover) · 아래 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막 · 어두운 글자.
  *  카드 = 단계 이름 · 앞 단계 대비 % · 사람 수(다이얼 숫자). 왼쪽 위 번호 = 단계 차례.
  *  처음엔 1단계부터 차례로 고른 표시가 넘어가며(순차) 마지막 단계에 멈춘다(예전 스테퍼 그대로). 카드를 누르면 그 단계 상세.
- *  배치 = 카드 칸 폭(컨테이너 쿼리) — 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄. */
+ *  배치 = 카드 칸 폭(컨테이너 쿼리) — 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄.
+ *  애니메이션은 '보일 때' 시작한다 — 퍼널은 늘 첫 화면 아래라 마운트 때 돌리면 내려왔을 땐 다 끝나 있었다.
+ *   · 카드 등장 = 그 카드가 조금이라도 보이면(같이 들어온 카드끼리만 차례 지연)
+ *   · 다이얼 숫자 = 그 카드가 거의 다(80%) 보이면 0 에서 굴러감(그 전엔 숫자 칸을 비워 둠 — 줄 모드에서 옆 카드가 살짝 보일 때도)
+ *   · 1→6 순차 진행 = 1단계 카드 숫자가 굴러가기 시작할 때부터
+ *   · 줄 모드(옆으로 넘기기)면 고른 카드가 띠 밖일 때 띠를 그 카드로 넘긴다(상세는 6단계인데 보이는 건 1·2번이던 것). */
+const FC_ROLL_RATIO = 0.8;
 function FunnelCards({ steps }: { steps: FunnelStep[] }) {
   const n = steps.length;
-  const [active, setActive] = useState(0);
+  const reduce = useMemo(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
+  const [active, setActive] = useState(() => (reduce ? Math.max(0, n - 1) : 0));
   const touched = useRef(false);
-  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤). 동작 줄이기면 바로 마지막.
+  const gridRef = useRef<HTMLDivElement>(null);
+  // 카드별 — reveal[i] = 등장 지연(초, null = 아직 안 보임) · rolled[i] = 숫자까지 보여 다이얼을 굴렸다. 동작 줄이기면 처음부터 다 보임.
+  const [reveal, setReveal] = useState<(number | null)[]>(() => steps.map(() => (reduce ? 0 : null)));
+  const [rolled, setRolled] = useState<boolean[]>(() => steps.map(() => reduce));
+  useEffect(() => {
+    if (reduce) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setReveal(steps.map(() => 0));
+      setRolled(steps.map(() => true));
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      const shown: number[] = [];
+      const full: number[] = [];
+      entries.forEach((e) => {
+        const i = Number((e.target as HTMLElement).dataset.i);
+        if (!e.isIntersecting || !Number.isInteger(i)) return;
+        shown.push(i);
+        if (e.intersectionRatio >= FC_ROLL_RATIO - 0.01) full.push(i);
+      });
+      if (shown.length) {
+        setReveal((prev) => {
+          let k = 0;
+          const next = prev.slice();
+          shown.sort((a, b) => a - b).forEach((i) => { if (next[i] == null) next[i] = 0.04 + 0.06 * k++; });
+          return k ? next : prev;
+        });
+      }
+      if (full.length) {
+        setRolled((prev) => {
+          if (full.every((i) => prev[i])) return prev;
+          const next = prev.slice();
+          full.forEach((i) => { next[i] = true; });
+          return next;
+        });
+      }
+    }, { root: grid.closest('.adm-main'), threshold: [0, FC_ROLL_RATIO] });
+    Array.from(grid.children).forEach((c) => io.observe(c));
+    return () => io.disconnect();
+  }, [reduce, steps]);
+  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤). 1단계 숫자가 보이고 나서 시작. 동작 줄이기면 바로 마지막.
+  const started = !!rolled[0];
   useEffect(() => {
     touched.current = false;
-    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { setActive(Math.max(0, n - 1)); return; }
-    setActive(0);
+    setActive(reduce ? Math.max(0, n - 1) : 0);
+  }, [n, steps, reduce]);
+  useEffect(() => {
+    if (reduce || !started) return;
     let i = 0;
     const t = window.setInterval(() => {
       if (touched.current) { window.clearInterval(t); return; }
@@ -494,8 +545,23 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
       setActive(i);
     }, 420);
     return () => window.clearInterval(t);
-  }, [n, steps]);
-  const pick = (i: number) => { touched.current = true; setActive(i); };
+  }, [n, steps, reduce, started]);
+  // 줄 모드 — 고른 카드가 띠 밖(일부라도)이면 띠만 옆으로 넘긴다(scrollIntoView 는 .adm-main 까지 세로로 움직여서 안 씀).
+  //  순차 진행·동작 줄이기 첫 선택은 active 가 바뀔 때, 반쯤 보이는 카드를 누르면(이미 고른 카드여도) 누를 때.
+  const showInStrip = useCallback((i: number) => {
+    const grid = gridRef.current;
+    // 그리드 모드(overflow visible)는 고리(::after)가 4px 삐져나와 scrollWidth 가 커 보이므로 overflow 로 가른다
+    if (!grid || getComputedStyle(grid).overflowX === 'visible' || grid.scrollWidth <= grid.clientWidth + 1) return;
+    const card = grid.children[i] as HTMLElement | undefined;
+    if (!card) return;
+    const g = grid.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    if (c.left >= g.left - 1 && c.right <= g.right + 1) return;
+    const pad = parseFloat(getComputedStyle(grid).scrollPaddingLeft) || 0;
+    grid.scrollTo({ left: grid.scrollLeft + c.left - g.left - pad, behavior: reduce ? 'auto' : 'smooth' });
+  }, [reduce]);
+  useEffect(() => { showInStrip(active); }, [active, showInStrip]);
+  const pick = (i: number) => { touched.current = true; setActive(i); showInStrip(i); };
   const cur = steps[active];
   const prev = active > 0 ? steps[active - 1] : null;
   const rate = prev && prev.value > 0 ? (cur.value / prev.value) * 100 : null;
@@ -504,7 +570,7 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
   if (!cur) return null;
   return (
     <div className="adm-fc-wrap">
-      <div className="adm-fc-grid" onPointerDown={() => { touched.current = true; }}>
+      <div ref={gridRef} className="adm-fc-grid" onPointerDown={() => { touched.current = true; }}>
         {steps.map((s, i) => {
           const art = FUNNEL_ART[s.key];
           const tint = art?.tint || FUNNEL_TINT_FALLBACK;
@@ -517,7 +583,9 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
               key={s.key}
               type="button"
               className={`adm-fc ${i === active ? 'on' : ''}`}
-              style={{ animationDelay: `${0.08 + i * 0.06}s` }}
+              data-i={i}
+              data-shown={reveal[i] != null ? '' : undefined}
+              style={reveal[i] != null ? { animationDelay: `${reveal[i]}s` } : undefined}
               onClick={() => pick(i)}
               aria-pressed={i === active}
               aria-label={`${i + 1}단계 ${s.label} ${formatNumber(s.value)}${s.unit}${rateText && r != null ? ` · 앞 단계의 ${rateText}` : ''}`}
@@ -525,7 +593,7 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
               <span className="adm-fc-box" style={{ backgroundColor: tint }}>
                 {art && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img className="adm-fc-img" src={art.src} alt="" draggable={false} loading="lazy" decoding="async" />
+                  <img className="adm-fc-img" src={art.src} alt="" draggable={false} decoding="async" />
                 )}
                 <span className="adm-fc-blur" aria-hidden="true" />
                 <span
@@ -539,7 +607,11 @@ function FunnelCards({ steps }: { steps: FunnelStep[] }) {
                     <span className="adm-fc-name">{name}</span>
                     {rateText && <span className="adm-fc-rate" title={r != null ? `앞 단계(${STEP_SHORT[p!.key] || p!.label})의 ${rateText}` : undefined}>{rateText}</span>}
                   </span>
-                  <span className="adm-fc-value"><RollingNumber value={s.value} /><small>{s.unit}</small></span>
+                  {/* 숫자는 카드가 거의 다 보일 때 0 에서 굴러온다(그 전엔 칸만 차지 — 줄 높이 그대로) */}
+                  <span className="adm-fc-value" style={rolled[i] ? undefined : { visibility: 'hidden' }}>
+                    {rolled[i] ? <RollingNumber value={s.value} /> : <span className="adm-roll">{formatNumber(s.value)}</span>}
+                    <small>{s.unit}</small>
+                  </span>
                 </span>
               </span>
             </button>

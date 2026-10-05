@@ -341,7 +341,8 @@ export function AdminIssuePanel({ open, onClose, onUnseen }: { open: boolean; on
   }, [freshCount]);
 
 
-  // 레이아웃 새로고침(종 옆) — 같이 다시 받는다(화면 새로고침을 가로채지 않게 preventDefault 는 안 한다)
+  // 'admin:refresh' 이벤트가 오면 같이 다시 받는다(화면 새로고침을 가로채지 않게 preventDefault 는 안 한다).
+  // 지금은 쏘는 곳이 없다 — 머리 새로고침 버튼(종 옆)은 261005 사장 요청으로 뺐다. 서랍은 15초마다 스스로 받는다.
   useEffect(() => {
     const on = () => { loadIssues(); };
     window.addEventListener(ADMIN_REFRESH_EVENT, on);
