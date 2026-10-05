@@ -449,24 +449,42 @@ type FunnelData = { days: number; from: string; steps: FunnelStep[]; paidOutside
 /** 단계 이름 — 시안 '여섯 글자 이내' */
 const STEP_SHORT: Record<string, string> = { home: '홈 방문', quickMatch: '퀵매칭', request: '견적 요청', talk: '사회자 대화', quote: '견적 받음', paid: '결제 완료' };
 
-/** 시안 Kind=Icon(번호 원) · 좁으면 Kind=Compact(점) 스테퍼 — 고른 단계까지 트랙이 채워지고 아래에 그 단계 숫자.
- *  처음엔 1단계부터 차례로 넘어가며(순차) 마지막 단계에 멈춘다. 단계를 누르면 그 단계로. */
-function FunnelStepper({ steps }: { steps: FunnelStep[] }) {
+/** 단계 그림(261005 사장 제공 6장, 3:2 → public/admin/funnel/*.webp 960×640) + 막 색 = 그림 아래쪽(4:3 으로 자른 아래 절반) 평균 색 */
+const FUNNEL_ART: Record<string, { src: string; tint: string }> = {
+  home: { src: '/admin/funnel/01-home.webp', tint: '#E6DEFA' },
+  quickMatch: { src: '/admin/funnel/02-quick-match.webp', tint: '#EAF0E0' },
+  request: { src: '/admin/funnel/03-request.webp', tint: '#DFECFB' },
+  talk: { src: '/admin/funnel/04-talk.webp', tint: '#F6E7EB' },
+  quote: { src: '/admin/funnel/05-quote.webp', tint: '#DEECE6' },
+  paid: { src: '/admin/funnel/06-paid.webp', tint: '#D7DDF7' },
+};
+const FUNNEL_TINT_FALLBACK = '#E8F3FF';
+
+/** '#RRGGBB' → rgba(…, a) */
+function tintAlpha(hex: string, a: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/** 앞 단계 대비 — '×1.2' · '21%' · '4.5%' */
+function fmtRate(rate: number): string {
+  return rate > 100 ? `×${(rate / 100).toFixed(1)}` : `${rate.toFixed(rate < 10 ? 1 : 0)}%`;
+}
+
+/** 전환 퍼널 카드(261005 사장 '각 단계마다 이 이미지 — 프리티풀 공지사항 카드처럼, 하단에 그라데이션 블러').
+ *  공지 뉴스룸 카드 어법: 4:3 · 그림 가득(cover) · 아래 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막 · 어두운 글자.
+ *  카드 = 단계 이름 · 앞 단계 대비 % · 사람 수(다이얼 숫자). 왼쪽 위 번호 = 단계 차례.
+ *  처음엔 1단계부터 차례로 고른 표시가 넘어가며(순차) 마지막 단계에 멈춘다(예전 스테퍼 그대로). 카드를 누르면 그 단계 상세.
+ *  배치 = 카드 칸 폭(컨테이너 쿼리) — 넓으면 3×2, 좁으면 2열, 폰 폭이면 옆으로 넘기는 줄. */
+function FunnelCards({ steps }: { steps: FunnelStep[] }) {
   const n = steps.length;
   const [active, setActive] = useState(0);
-  const [compact, setCompact] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
   const touched = useRef(false);
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => setCompact(e.contentRect.width < 500));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤)
+  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤). 동작 줄이기면 바로 마지막.
   useEffect(() => {
     touched.current = false;
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { setActive(Math.max(0, n - 1)); return; }
     setActive(0);
     let i = 0;
     const t = window.setInterval(() => {
@@ -478,41 +496,52 @@ function FunnelStepper({ steps }: { steps: FunnelStep[] }) {
     return () => window.clearInterval(t);
   }, [n, steps]);
   const pick = (i: number) => { touched.current = true; setActive(i); };
-  const r = compact ? 4 : 14;
-  const at = (i: number) => (n > 1 ? `calc(${r}px + (100% - ${r * 2}px) * ${i / (n - 1)})` : `${r}px`);
   const cur = steps[active];
   const prev = active > 0 ? steps[active - 1] : null;
   const rate = prev && prev.value > 0 ? (cur.value / prev.value) * 100 : null;
   const lost = prev ? Math.max(0, prev.value - cur.value) : 0;
   const first = steps[0]?.value || 0;
+  if (!cur) return null;
   return (
-    <div ref={boxRef} className={`adm-step ${compact ? 'compact' : 'icon'}`}>
-      <div className="adm-step-bar">
-        <div className="adm-step-track">
-          <span className="adm-step-fill" style={{ width: `calc(${at(active)} + ${r}px)` }} />
-        </div>
-        {steps.map((s, i) => (
-          <button
-            key={s.key}
-            type="button"
-            className={`adm-step-node ${i === active ? 'on' : ''}`}
-            style={{ left: at(i) }}
-            onClick={() => pick(i)}
-            aria-label={`${i + 1}단계 ${s.label} ${formatNumber(s.value)}${s.unit}`}
-            aria-pressed={i === active}
-          >
-            {!compact && <span>{i + 1}</span>}
-          </button>
-        ))}
-      </div>
-      <div className="adm-step-labels">
+    <div className="adm-fc-wrap">
+      <div className="adm-fc-grid" onPointerDown={() => { touched.current = true; }}>
         {steps.map((s, i) => {
-          if (compact && i !== active) return null;
-          const edge = i === 0 ? 'first' : i === n - 1 ? 'last' : '';
+          const art = FUNNEL_ART[s.key];
+          const tint = art?.tint || FUNNEL_TINT_FALLBACK;
+          const p = i > 0 ? steps[i - 1] : null;
+          const r = p && p.value > 0 ? (s.value / p.value) * 100 : null;
+          const rateText = !p ? null : p.value === 0 && p.basis === 'session' ? '기록 중' : r == null ? null : fmtRate(r);
+          const name = STEP_SHORT[s.key] || s.label;
           return (
-            <button key={s.key} type="button" className={`adm-step-label ${edge} ${i === active ? 'on' : ''}`} style={edge ? undefined : { left: at(i) }} onClick={() => pick(i)}>
-              <b>{STEP_SHORT[s.key] || s.label}</b>
-              <small>{formatNumber(s.value)}{s.unit}</small>
+            <button
+              key={s.key}
+              type="button"
+              className={`adm-fc ${i === active ? 'on' : ''}`}
+              style={{ animationDelay: `${0.08 + i * 0.06}s` }}
+              onClick={() => pick(i)}
+              aria-pressed={i === active}
+              aria-label={`${i + 1}단계 ${s.label} ${formatNumber(s.value)}${s.unit}${rateText && r != null ? ` · 앞 단계의 ${rateText}` : ''}`}
+            >
+              <span className="adm-fc-box" style={{ backgroundColor: tint }}>
+                {art && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="adm-fc-img" src={art.src} alt="" draggable={false} loading="lazy" decoding="async" />
+                )}
+                <span className="adm-fc-blur" aria-hidden="true" />
+                <span
+                  className="adm-fc-veil"
+                  aria-hidden="true"
+                  style={{ background: `linear-gradient(to bottom, ${tintAlpha(tint, 0)} 0%, ${tintAlpha(tint, 0.5)} 48%, ${tintAlpha(tint, 0.72)} 100%)` }}
+                />
+                <span className="adm-fc-no" aria-hidden="true">{i + 1}</span>
+                <span className="adm-fc-text" aria-hidden="true">
+                  <span className="adm-fc-meta">
+                    <span className="adm-fc-name">{name}</span>
+                    {rateText && <span className="adm-fc-rate" title={r != null ? `앞 단계(${STEP_SHORT[p!.key] || p!.label})의 ${rateText}` : undefined}>{rateText}</span>}
+                  </span>
+                  <span className="adm-fc-value"><RollingNumber value={s.value} /><small>{s.unit}</small></span>
+                </span>
+              </span>
             </button>
           );
         })}
@@ -528,7 +557,7 @@ function FunnelStepper({ steps }: { steps: FunnelStep[] }) {
               <>앞 단계 기록이 없어요</>
             ) : (
               <>
-                {STEP_SHORT[prev.key] || prev.label} {formatNumber(prev.value)}{prev.unit} 중 <b>{rate > 100 ? `×${(rate / 100).toFixed(1)}` : `${rate.toFixed(rate < 10 ? 1 : 0)}%`}</b>가 넘어왔어요
+                {STEP_SHORT[prev.key] || prev.label} {formatNumber(prev.value)}{prev.unit} 중 <b>{fmtRate(rate)}</b>가 넘어왔어요
                 {prev.basis === cur.basis && lost > 0 && <span className="adm-jf-lost"> · {formatNumber(lost)}명 빠짐</span>}
               </>
             )
@@ -556,7 +585,6 @@ function JourneyFunnel() {
   useAdminRefresh(() => load(days));
 
   const steps = data?.steps || [];
-  const top = Math.max(1, ...steps.map((s) => s.value));
   const req = steps.find((s) => s.key === 'request')?.value || 0;
   const paid = steps.find((s) => s.key === 'paid')?.value || 0;
   // 방문 기록은 261005 부터 — 기간 시작보다 늦게 시작했으면 앞 두 단계가 덜 찼다고 알린다
@@ -582,7 +610,7 @@ function JourneyFunnel() {
         <div className="space-y-3"><div className="adm-skel h-[28px]" /><div className="adm-skel h-[44px]" /><div className="adm-skel h-[80px]" /></div>
       ) : (
         <div key={days}>
-          <FunnelStepper steps={steps} />
+          <FunnelCards steps={steps} />
           <div className="adm-jf-sum">
             견적 요청한 {formatNumber(req)}명 중 <b>{req ? ((paid / req) * 100).toFixed(1) : '0'}%</b>가 결제까지 왔어요
             {data.paidOutsideFunnel > 0 && <span> · 견적 요청 없이 바로 결제한 {formatNumber(data.paidOutsideFunnel)}명은 빠져 있어요</span>}
@@ -927,7 +955,7 @@ export default function AdminDashboardPage() {
     }
   };
   useEffect(() => { fetchStats(); fetchResp(); fetchMoney(); fetchVisits(); }, []);
-  // 머리 오른쪽 새로고침(종 옆)
+  // 'admin:refresh' 이벤트(지금은 쏘는 곳 없음 — 머리 새로고침 버튼은 261005 에 뺐다)
   useAdminRefresh(() => { fetchStats(true); fetchResp(); fetchMoney(); fetchVisits(); });
 
   const series = stats?.dailySeries?.length ? stats.dailySeries : createEmptyDailySeries();

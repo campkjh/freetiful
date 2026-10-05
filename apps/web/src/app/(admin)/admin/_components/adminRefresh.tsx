@@ -3,9 +3,9 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * 머리 오른쪽 새로고침(레이아웃 — 종 옆, 261004 사장 '새로고침이랑 알림 나란히, 박스 없이 홈 라인 아이콘').
- * 레이아웃이 이 이벤트를 쏘면 화면이 지금 거르기·검색 그대로 다시 받는다(useAdminRefresh).
- * 받은 화면은 preventDefault 로 '내가 했다'고 알리고, 아무도 안 받으면 레이아웃이 본문을 새로 띄운다.
+ * 'admin:refresh' 이벤트가 오면 화면이 지금 거르기·검색 그대로 다시 받는다(useAdminRefresh).
+ * 머리 오른쪽 새로고침 버튼(261004)은 261005 사장 요청으로 뺐다 — 지금은 이 이벤트를 쏘는 곳이 없어
+ * 훅은 그냥 기다리기만 한다(해 없음). 다시 쏘는 곳을 만들면 받은 화면은 preventDefault 로 '내가 했다'고 알린다.
  */
 export const ADMIN_REFRESH_EVENT = 'admin:refresh';
 

@@ -8,8 +8,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 import { AdminDialogHost } from './_components/adminDialog';
-import { adminFetch, clearAdminFetchCache } from './_components/adminFetch';
-import { ADMIN_REFRESH_EVENT, LineRefreshIcon } from './_components/adminRefresh';
+import { adminFetch } from './_components/adminFetch';
 
 const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
@@ -196,9 +195,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 운영 이슈 서랍(종) — 빨간 점 = 서랍을 마지막으로 닫은 뒤 새로 생긴 이슈
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueCount, setIssueCount] = useState(0);
-  // 새로고침(종 옆) — 화면이 받으면(useAdminRefresh) 지금 거르기 그대로 다시 받고, 아무도 안 받으면 본문을 새로 띄운다
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [spinning, setSpinning] = useState(false);
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -256,12 +252,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setChecked(true);
   }, [hydrated, authUser, router, isLoginPage, hasAdminKey]);
 
-  // 메뉴를 옮기면 서랍 닫고 본문은 맨 위부터(본문이 자체 스크롤이라 브라우저가 안 올려 준다)
+  // 본문을 내리면 머리가 '떠 있는 머리'가 된다(261005 사장 '헤더에서 내리면 그라데이션으로 자연스럽게 고급스럽게').
+  //  · data-scrolled = 조금이라도 내렸다 → 머리 아래 가장자리에 바탕색 → 투명 그라데이션이 서서히 깔린다(맨 위에선 없음)
+  //  · data-titled  = 큰 제목이 머리 밑으로 들어갔다 → 머리 왼쪽에 작은 제목이 올라온다(데스크톱)
+  //  스크롤마다 다시 그리지 않게 상태 대신 .adm-body 속성만 바꾼다(바뀔 때만).
   const mainRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const syncScrolled = useCallback(() => {
+    const main = mainRef.current;
+    const body = bodyRef.current;
+    if (!main || !body) return;
+    const scrolled = main.scrollTop > 1;
+    const big = main.querySelector<HTMLElement>('.adm-title, .adm-hello-title');
+    const titled = scrolled && (!big || big.getBoundingClientRect().bottom <= main.getBoundingClientRect().top + 6);
+    if (body.hasAttribute('data-scrolled') !== scrolled) body.toggleAttribute('data-scrolled', scrolled);
+    if (body.hasAttribute('data-titled') !== titled) body.toggleAttribute('data-titled', titled);
+  }, []);
+
+  // 메뉴를 옮기면 서랍 닫고 본문은 맨 위부터(본문이 자체 스크롤이라 브라우저가 안 올려 준다)
   useEffect(() => {
     setMobileOpen(false);
     if (mainRef.current) mainRef.current.scrollTop = 0;
-  }, [pathname]);
+    syncScrolled();
+  }, [pathname, syncScrolled]);
 
   // 사이드바 뱃지 — 오늘 신규 유저 수 / 승인 대기 사회자 수
   useEffect(() => {
@@ -296,13 +309,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [pathname]);
 
   const closeIssues = useCallback(() => setIssueOpen(false), []);
-  const doRefresh = useCallback(() => {
-    clearAdminFetchCache();
-    setSpinning(true);
-    window.setTimeout(() => setSpinning(false), 800);
-    const handled = !window.dispatchEvent(new Event(ADMIN_REFRESH_EVENT, { cancelable: true }));
-    if (!handled) setRefreshKey((k) => k + 1);
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -324,12 +330,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // 오른쪽 위 = 홈 헤더처럼 박스 없는 라인 아이콘 두 칸(새로고침 · 종) 나란히(261004 사장)
+  // 오른쪽 위 = 홈 헤더처럼 박스 없는 라인 아이콘(종). 새로고침 버튼은 뺐다(261005 사장 '새로고침 버튼 없애줘라') —
+  // 화면들의 useAdminRefresh 는 남아도 이벤트가 안 와서 그냥 기다리기만 한다(사이드바 뱃지 60초 갱신은 따로 돈다).
   const utilIcons = (
     <>
-      <button type="button" onClick={doRefresh} className="adm-ubtn" aria-label="새로고침" title="새로고침">
-        <LineRefreshIcon spinning={spinning} />
-      </button>
       <button type="button" onClick={() => setIssueOpen(true)} className="adm-ubtn adm-ubtn-bell" aria-label={`운영 이슈${issueCount ? ` 새 이슈 ${issueCount}건` : ''}`} title="운영 이슈">
         <HeaderBellIcon dot={issueCount > 0} size={44} />
       </button>
@@ -377,8 +381,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="adm-side-scroll">{sidebarBody()}</div>
       </aside>
 
-      <div className="adm-body">
-        {/* 모바일 머리 — 로고 + 메뉴 */}
+      <div ref={bodyRef} className="adm-body">
+        {/* 모바일 머리 — 로고 + 메뉴(바탕색 = 본문 바탕, 261005 사장 '모바일은 헤더를 백그라운드 색상으로') */}
         <header className="adm-mtop">
           {brand}
           <div className="flex items-center">
@@ -389,10 +393,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
+        {/* 데스크톱 머리 — 본문 위 한 줄(스크롤 밖이라 늘 그 자리). 맨 위에선 바탕과 같은 색이라 안 보이고,
+            내리면 아래 가장자리 그라데이션 + 작은 제목이 서서히 올라와 '떠 있는 머리'가 된다 */}
+        <header className="adm-dtop">
+          <div className="adm-dtop-in">
+            <p className="adm-dtop-title" aria-hidden="true">{head.title}</p>
+            <div className="adm-dtop-act">{utilIcons}</div>
+          </div>
+        </header>
+
         <div className="flex min-h-0 flex-1">
-          <main ref={mainRef} className="admin-main adm-main">
+          <main ref={mainRef} className="admin-main adm-main" onScroll={syncScrolled}>
             <div className={`adm-frame ${head.home ? 'home' : ''}`}>
-              <div className="adm-util">{utilIcons}</div>
               {!head.home && (
                 <div className="adm-head">
                   {/* 제목은 바뀔 때만 다시 올라오고, 탭은 남아서 고른 바탕이 미끄러진다 */}
@@ -403,7 +415,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   {head.tabs && <HeadTabs key={head.tabs[0].href} tabs={head.tabs} pathname={pathname} />}
                 </div>
               )}
-              <div className="admin-page-frame adm-content" key={`${pathname}#${refreshKey}`}>{children}</div>
+              <div className="admin-page-frame adm-content" key={pathname}>{children}</div>
             </div>
           </main>
           <AdminIssuePanel open={issueOpen} onClose={closeIssues} onUnseen={setIssueCount} />
