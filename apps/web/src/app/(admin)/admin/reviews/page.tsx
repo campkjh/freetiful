@@ -8,6 +8,8 @@ import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFi
 import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate } from '../_components/AdminExportButton';
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
@@ -232,180 +234,179 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-5">
-      {/* 도구막대 — 제목은 레이아웃 머리(리뷰 관리) */}
-      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <button type="button" onClick={() => setFormOpen((v) => !v)} className={`adm-btn ${formOpen ? 'weak' : 'primary'}`} aria-expanded={formOpen}>
-            <Plus size={15} /> {formOpen ? '등록 칸 닫기' : '리뷰 직접 등록'}
-          </button>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-          <AdminExportButton loading={exporting} onClick={handleExport} />
-        </div>
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchReviews(1, range);
-          }}
-        />
-      </div>
-
         <AdminErrorPanel error={lastError} label="리뷰" />
-        <AdminCollapse open={formOpen}>
-        <div className="adm-card">
-          <div className="adm-card-head">
-            <div>
-              <h2 className="adm-card-title">사회자 리뷰 직접 등록</h2>
-              <p className="adm-card-sub">관리자가 받은 후기를 대신 올려요. 노출을 끄면 목록에만 남아요</p>
+        <AdminListCard
+          filter={<>
+            <div className="adm-toolbar">
+              <button type="button" onClick={() => setFormOpen((v) => !v)} className={`adm-btn ${formOpen ? 'weak' : 'primary'}`} aria-expanded={formOpen}>
+                <Plus size={15} /> {formOpen ? '등록 칸 닫기' : '리뷰 직접 등록'}
+              </button>
+              <span className="grow" />
+              <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
+              <AdminExportButton loading={exporting} onClick={handleExport} />
             </div>
-            <button type="button" onClick={handleCreate} disabled={creating} className="adm-btn primary">
-              {creating ? '등록 중' : '등록하기'}
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-            <div>
-              <label className="adm-label">사회자</label>
-              <select
-                value={draft.proProfileId}
-                onChange={(e) => setDraft({ ...draft, proProfileId: e.target.value })}
-                className="adm-input"
-              >
-                <option value="">사회자 선택</option>
-                {pros.map((pro) => (
-                  <option key={pro.id} value={pro.id}>{pro.name}{pro.email ? ` · ${pro.email}` : ''}</option>
-                ))}
-              </select>
+            <AdminDateFilter
+              value={dateRange}
+              onApply={(range) => {
+                setDateRange(range);
+                setPage(1);
+                fetchReviews(1, range);
+              }}
+            />
+          </>}
+        >
+          {/* 리뷰 직접 등록 칸 — 거르기 줄의 버튼으로 표 바로 위에서 펼친다 */}
+          <AdminCollapse open={formOpen}>
+          <div className="adm-card adm-listcard-panel">
+            <div className="adm-card-head">
+              <div>
+                <h2 className="adm-card-title">사회자 리뷰 직접 등록</h2>
+                <p className="adm-card-sub">관리자가 받은 후기를 대신 올려요. 노출을 끄면 목록에만 남아요</p>
+              </div>
+              <button type="button" onClick={handleCreate} disabled={creating} className="adm-btn primary">
+                {creating ? '등록 중' : '등록하기'}
+              </button>
             </div>
-            <div>
-              <label className="adm-label">작성자명</label>
-              <input
-                value={draft.reviewerName}
-                onChange={(e) => setDraft({ ...draft, reviewerName: e.target.value })}
-                placeholder="예: 김민지"
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">작성자 이메일</label>
-              <input
-                value={draft.reviewerEmail}
-                onChange={(e) => setDraft({ ...draft, reviewerEmail: e.target.value })}
-                placeholder="선택 입력"
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">
-                <AdminTerm term="리뷰 작성일">리뷰 작성일</AdminTerm>
-              </label>
-              <input
-                type="datetime-local"
-                value={draft.reviewCreatedAt}
-                onChange={(e) => setDraft({ ...draft, reviewCreatedAt: e.target.value })}
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">행사명</label>
-              <input
-                value={draft.eventTitle}
-                onChange={(e) => setDraft({ ...draft, eventTitle: e.target.value })}
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">행사일</label>
-              <input
-                type="date"
-                value={draft.eventDate}
-                onChange={(e) => setDraft({ ...draft, eventDate: e.target.value })}
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">행사시간</label>
-              <input
-                type="time"
-                value={draft.eventTime}
-                onChange={(e) => setDraft({ ...draft, eventTime: e.target.value })}
-                className="adm-input"
-              />
-            </div>
-            <div>
-              <label className="adm-label">행사장소</label>
-              <input
-                value={draft.eventLocation}
-                onChange={(e) => setDraft({ ...draft, eventLocation: e.target.value })}
-                placeholder="예: 더채플앳청담"
-                className="adm-input"
-              />
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="adm-label">평점</label>
-              <div className="adm-stars" role="radiogroup" aria-label="평점">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    role="radio"
-                    aria-checked={draft.rating === n}
-                    aria-label={`${n}점`}
-                    onClick={() => setDraft({ ...draft, rating: n })}
-                    className={`adm-star ${n <= draft.rating ? 'on' : ''}`}
-                  >
-                    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 2.8l2.75 5.57 6.15.9-4.45 4.34 1.05 6.12L12 16.84l-5.5 2.89 1.05-6.12L3.1 9.27l6.15-.9L12 2.8z" />
-                    </svg>
-                  </button>
-                ))}
-                <span className="adm-stars-num">{draft.rating}.0</span>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+              <div>
+                <label className="adm-label">사회자</label>
+                <select
+                  value={draft.proProfileId}
+                  onChange={(e) => setDraft({ ...draft, proProfileId: e.target.value })}
+                  className="adm-input"
+                >
+                  <option value="">사회자 선택</option>
+                  {pros.map((pro) => (
+                    <option key={pro.id} value={pro.id}>{pro.name}{pro.email ? ` · ${pro.email}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="adm-label">작성자명</label>
+                <input
+                  value={draft.reviewerName}
+                  onChange={(e) => setDraft({ ...draft, reviewerName: e.target.value })}
+                  placeholder="예: 김민지"
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">작성자 이메일</label>
+                <input
+                  value={draft.reviewerEmail}
+                  onChange={(e) => setDraft({ ...draft, reviewerEmail: e.target.value })}
+                  placeholder="선택 입력"
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">
+                  <AdminTerm term="리뷰 작성일">리뷰 작성일</AdminTerm>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={draft.reviewCreatedAt}
+                  onChange={(e) => setDraft({ ...draft, reviewCreatedAt: e.target.value })}
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">행사명</label>
+                <input
+                  value={draft.eventTitle}
+                  onChange={(e) => setDraft({ ...draft, eventTitle: e.target.value })}
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">행사일</label>
+                <input
+                  type="date"
+                  value={draft.eventDate}
+                  onChange={(e) => setDraft({ ...draft, eventDate: e.target.value })}
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">행사시간</label>
+                <input
+                  type="time"
+                  value={draft.eventTime}
+                  onChange={(e) => setDraft({ ...draft, eventTime: e.target.value })}
+                  className="adm-input"
+                />
+              </div>
+              <div>
+                <label className="adm-label">행사장소</label>
+                <input
+                  value={draft.eventLocation}
+                  onChange={(e) => setDraft({ ...draft, eventLocation: e.target.value })}
+                  placeholder="예: 더채플앳청담"
+                  className="adm-input"
+                />
               </div>
             </div>
-            <div>
-              <label className="adm-label">금액</label>
-              <input
-                type="number"
-                min={0}
-                value={draft.amount}
-                onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })}
-                className="adm-input"
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="adm-label">평점</label>
+                <div className="adm-stars" role="radiogroup" aria-label="평점">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.rating === n}
+                      aria-label={`${n}점`}
+                      onClick={() => setDraft({ ...draft, rating: n })}
+                      className={`adm-star ${n <= draft.rating ? 'on' : ''}`}
+                    >
+                      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2.8l2.75 5.57 6.15.9-4.45 4.34 1.05 6.12L12 16.84l-5.5 2.89 1.05-6.12L3.1 9.27l6.15-.9L12 2.8z" />
+                      </svg>
+                    </button>
+                  ))}
+                  <span className="adm-stars-num">{draft.rating}.0</span>
+                </div>
+              </div>
+              <div>
+                <label className="adm-label">금액</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.amount}
+                  onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })}
+                  className="adm-input"
+                />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <textarea
+                value={draft.comment}
+                onChange={(e) => setDraft({ ...draft, comment: e.target.value })}
+                placeholder="리뷰 내용을 입력하세요"
+                rows={3}
+                className="adm-input adm-textarea"
               />
+              <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
+                <AdminSwitch
+                  checked={draft.isAnonymous}
+                  onChange={(checked) => setDraft({ ...draft, isAnonymous: checked })}
+                  label={<AdminTerm term="익명">익명</AdminTerm>}
+                  ariaLabel="익명"
+                />
+              </div>
+              <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
+                <AdminSwitch
+                  checked={draft.isVisible}
+                  onChange={(checked) => setDraft({ ...draft, isVisible: checked })}
+                  label={<AdminTerm term="노출">노출</AdminTerm>}
+                  ariaLabel="노출"
+                />
+              </div>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto]">
-            <textarea
-              value={draft.comment}
-              onChange={(e) => setDraft({ ...draft, comment: e.target.value })}
-              placeholder="리뷰 내용을 입력하세요"
-              rows={3}
-              className="adm-input adm-textarea"
-            />
-            <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
-              <AdminSwitch
-                checked={draft.isAnonymous}
-                onChange={(checked) => setDraft({ ...draft, isAnonymous: checked })}
-                label={<AdminTerm term="익명">익명</AdminTerm>}
-                ariaLabel="익명"
-              />
-            </div>
-            <div className="flex items-center rounded-[12px] bg-[#F2F4F6] px-4 py-3">
-              <AdminSwitch
-                checked={draft.isVisible}
-                onChange={(checked) => setDraft({ ...draft, isVisible: checked })}
-                label={<AdminTerm term="노출">노출</AdminTerm>}
-                ariaLabel="노출"
-              />
-            </div>
-          </div>
-        </div>
-        </AdminCollapse>
-        <div className="admin-list-card">
-          <div className="overflow-x-auto">
+          </AdminCollapse>
+          <AdminTableScroll>
             <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
@@ -495,7 +496,7 @@ export default function AdminReviewsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </AdminTableScroll>
 
           <AdminInfiniteScroll
             hasMore={hasMore}
@@ -507,7 +508,7 @@ export default function AdminReviewsPage() {
               fetchReviews(page + 1, dateRange, true);
             }}
           />
-        </div>
+        </AdminListCard>
     </div>
   );
 }

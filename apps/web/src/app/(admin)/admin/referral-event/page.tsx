@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { adminFetch } from '../_components/adminFetch';
 import toast from 'react-hot-toast';
+import { RollingNumber } from '../_components/AdminNumber';
+import { AdminListCard } from '../_components/AdminListCard';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 type ReferralRow = {
   id: string;
@@ -77,6 +80,8 @@ export default function AdminReferralEventPage() {
   useEffect(() => {
     fetchRows();
   }, []);
+  // 머리 오른쪽 새로고침 — 지금 검색·상태 그대로(본문을 새로 띄우지 않아 숫자 다이얼이 같은 값이면 다시 돌지 않는다)
+  useAdminRefresh(() => { fetchRows(); });
 
   const totalApplicants = useMemo(
     () => rows.filter((row) => !!row.claim).length,
@@ -130,52 +135,55 @@ export default function AdminReferralEventPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-3xl bg-white p-5">
           <p className="text-[13px] font-medium text-[#8B95A1]">참여자 수</p>
-          <p className="mt-2 text-[28px] font-extrabold text-[#191F28]">{rows.length.toLocaleString()}</p>
+          <p className="mt-2 text-[28px] font-extrabold text-[#191F28]"><RollingNumber value={rows.length} /></p>
         </div>
         <div className="rounded-3xl bg-white p-5">
           <p className="text-[13px] font-medium text-[#8B95A1]">지급 신청 수</p>
-          <p className="mt-2 text-[28px] font-extrabold text-[#191F28]">{totalApplicants.toLocaleString()}</p>
+          <p className="mt-2 text-[28px] font-extrabold text-[#191F28]"><RollingNumber value={totalApplicants} /></p>
         </div>
         <div className="rounded-3xl bg-white p-5">
           <p className="text-[13px] font-medium text-[#8B95A1]">지급 가능 수</p>
           <p className="mt-2 text-[28px] font-extrabold text-[#191F28]">
-            {rows.filter((row) => row.claimEligible).length.toLocaleString()}
+            <RollingNumber value={rows.filter((row) => row.claimEligible).length} />
           </p>
         </div>
       </div>
 
-      <div className="admin-toolbar flex flex-col gap-3 rounded-3xl bg-white p-4 md:flex-row md:items-center">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') fetchRows();
-          }}
-          placeholder="이름, 이메일, 추천코드 검색"
-          className="h-11 flex-1 rounded-2xl border border-[#E5E8EB] px-4 text-[14px] outline-none placeholder:text-[#8B95A1]"
-        />
-        <div className="flex flex-wrap gap-2">
-          {CLAIM_STATUSES.map((item) => (
+      {/* 검색·상태 + 참여자 목록 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘') */}
+      <AdminListCard
+        filter={
+          <div className="adm-toolbar flex flex-col gap-3 md:flex-row md:items-center">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') fetchRows();
+              }}
+              placeholder="이름, 이메일, 추천코드 검색"
+              className="h-11 flex-1 rounded-2xl border border-[#E5E8EB] px-4 text-[14px] outline-none placeholder:text-[#8B95A1]"
+            />
+            <div className="flex flex-wrap gap-2">
+              {CLAIM_STATUSES.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setStatus(item)}
+                  className={`rounded-2xl px-4 py-2 text-[13px] font-semibold ${
+                    status === item ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#6B7684]'
+                  }`}
+                >
+                  {item === '전체' ? '전체' : statusLabel(item)}
+                </button>
+              ))}
+            </div>
             <button
-              key={item}
-              onClick={() => setStatus(item)}
-              className={`rounded-2xl px-4 py-2 text-[13px] font-semibold ${
-                status === item ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#6B7684]'
-              }`}
+              onClick={fetchRows}
+              className="h-11 rounded-2xl bg-[#3180F7] px-5 text-[14px] font-bold text-white"
             >
-              {item === '전체' ? '전체' : statusLabel(item)}
+              조회
             </button>
-          ))}
-        </div>
-        <button
-          onClick={fetchRows}
-          className="h-11 rounded-2xl bg-[#3180F7] px-5 text-[14px] font-bold text-white"
-        >
-          조회
-        </button>
-      </div>
-
-      <div className="admin-list-card overflow-hidden rounded-3xl bg-white">
+          </div>
+        }
+      >
         {loading ? (
           <div className="px-5 py-16 text-center text-[14px] text-[#8B95A1]">이벤트 참여자를 불러오는 중...</div>
         ) : rows.length === 0 ? (
@@ -277,7 +285,7 @@ export default function AdminReferralEventPage() {
             ))}
           </div>
         )}
-      </div>
+      </AdminListCard>
     </div>
   );
 }

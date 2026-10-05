@@ -24,6 +24,9 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 interface BusinessInquiryItem {
   id: string;
@@ -138,6 +141,8 @@ export default function AdminInquiriesPage() {
   };
 
   useEffect(() => { fetchList(1, status, search, dateRange); }, []);
+  // 머리 오른쪽 새로고침 — 지금 거르기 그대로(본문을 새로 띄우지 않아 건수 다이얼이 같은 값이면 다시 돌지 않는다)
+  useAdminRefresh(() => fetchList(1, status, search, dateRange));
 
   const updateLocal = (id: string, patch: Partial<BusinessInquiryItem>) => {
     setItems((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
@@ -224,7 +229,7 @@ export default function AdminInquiriesPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-[#6B7684] shadow-[0_6px_16px_rgba(2,32,71,0.04)]">
-            총 {total.toLocaleString()}건
+            총 <RollingNumber value={total} />건
           </span>
           <AdminExportButton loading={exporting} onClick={handleExport} />
           <button
@@ -239,57 +244,58 @@ export default function AdminInquiriesPage() {
         </div>
       </div>
 
-      <div className="admin-toolbar p-4">
-        <div className="flex flex-col gap-3 lg:flex-row">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setPage(1);
-                  fetchList(1, status, search, dateRange);
-                }
-              }}
-              placeholder="회사명, 담당자, 연락처, 이메일, 문의 내용 검색 (Enter)"
-              className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
-            />
+      <AdminListCard
+        filter={<>
+          <div className="p-4">
+            <div className="flex flex-col gap-3 lg:flex-row">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setPage(1);
+                      fetchList(1, status, search, dateRange);
+                    }
+                  }}
+                  placeholder="회사명, 담당자, 연락처, 이메일, 문의 내용 검색 (Enter)"
+                  className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {STATUS_OPTIONS.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setStatus(value);
+                      setPage(1);
+                      fetchList(1, value, search, dateRange);
+                    }}
+                    className={`admin-chip px-3.5 text-[12px] ${
+                      status === value
+                        ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
+                        : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_OPTIONS.map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => {
-                  setStatus(value);
-                  setPage(1);
-                  fetchList(1, value, search, dateRange);
-                }}
-                className={`admin-chip px-3.5 text-[12px] ${
-                  status === value
-                    ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
-                    : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchList(1, status, search, range);
-        }}
-      />
-
-      <div className="admin-list-card overflow-hidden">
-        <div className="overflow-x-auto">
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
+              setPage(1);
+              fetchList(1, status, search, range);
+            }}
+          />
+        </>}
+      >
+        <AdminTableScroll>
           <table className="w-full min-w-[1120px] text-[13px]">
             <thead className="border-b border-[#F2F4F6] bg-[#FBFCFD]">
               <tr>
@@ -411,7 +417,7 @@ export default function AdminInquiriesPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </AdminTableScroll>
 
         <AdminInfiniteScroll
           hasMore={hasMore}
@@ -423,7 +429,7 @@ export default function AdminInquiriesPage() {
             fetchList(page + 1, status, search, dateRange, true);
           }}
         />
-      </div>
+      </AdminListCard>
     </div>
   );
 }

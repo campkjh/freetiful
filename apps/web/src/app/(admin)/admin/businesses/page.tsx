@@ -10,6 +10,7 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 
 interface BusinessUserItem {
   id: string;
@@ -146,34 +147,36 @@ export default function AdminBusinessesPage() {
         </div>
       </div>
 
-      <div className="admin-toolbar p-4">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                setPage(1);
-                fetchData(1, search, dateRange);
-              }
+      <AdminListCard
+        filter={<>
+          <div className="p-4">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setPage(1);
+                    fetchData(1, search, dateRange);
+                  }
+                }}
+                placeholder="비즈 계정명 또는 이메일 검색 (Enter)"
+                className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
+              />
+            </div>
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
+              setPage(1);
+              fetchData(1, search, range);
             }}
-            placeholder="비즈 계정명 또는 이메일 검색 (Enter)"
-            className="h-11 w-full rounded-2xl border border-[#E5E8EB] bg-[#F7F8FA] pl-9 pr-4 text-sm font-semibold text-[#191F28] placeholder:text-[#B0B8C1] focus:outline-none"
           />
-        </div>
-      </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchData(1, search, range);
-        }}
-      />
-
-      <div className="admin-list-card overflow-x-auto">
+        </>}
+      >
+        <AdminTableScroll>
         <table className="w-full text-[13px]">
           <thead className="border-b border-[#F2F4F6] bg-[#FBFCFD]">
             <tr>
@@ -251,6 +254,7 @@ export default function AdminBusinessesPage() {
             )}
           </tbody>
         </table>
+        </AdminTableScroll>
         <AdminInfiniteScroll
           hasMore={hasMore}
           loading={loadingMore}
@@ -262,7 +266,7 @@ export default function AdminBusinessesPage() {
           }}
           itemLabel="개"
         />
-      </div>
+      </AdminListCard>
     </div>
   );
 }

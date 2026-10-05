@@ -11,6 +11,8 @@ import { useAdminRefresh } from '../_components/adminRefresh';
 import { formatKstDateTime } from '../_components/adminEvent';
 import { OpAvatar, STATUS_LABEL, STATUS_TONE, type OperatorProfile, type PostStatus, type RealStats } from '../_components/operatorAdmin';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface OpPostRow {
   id: string;
@@ -114,67 +116,67 @@ export default function AdminOperatorPostsPage() {
       <div className="adm-grid grid-cols-2 lg:grid-cols-4">
         <div className="adm-stat">
           <p className="adm-stat-label">게시된 운영 글</p>
-          <p className="adm-stat-value">{(counts.published || 0).toLocaleString()}<small>개</small></p>
+          <p className="adm-stat-value"><RollingNumber value={counts.published || 0} /><small>개</small></p>
           <p className="adm-stat-sub">앱에 보이는 중 · 늘 &apos;운영팀&apos; 표시</p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label">예약</p>
-          <p className="adm-stat-value" style={counts.scheduled ? { color: 'var(--admin-blue)' } : undefined}>{(counts.scheduled || 0).toLocaleString()}<small>개</small></p>
+          <p className="adm-stat-value" style={counts.scheduled ? { color: 'var(--admin-blue)' } : undefined}><RollingNumber value={counts.scheduled || 0} /><small>개</small></p>
           <p className="adm-stat-sub">정한 시각에 1분 안으로 자동 게시</p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label">임시저장</p>
-          <p className="adm-stat-value">{(counts.draft || 0).toLocaleString()}<small>개</small></p>
+          <p className="adm-stat-value"><RollingNumber value={counts.draft || 0} /><small>개</small></p>
           <p className="adm-stat-sub">앱에 안 보여요</p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label">운영 프로필</p>
-          <p className="adm-stat-value">{profiles.filter((p) => p.isActive).length.toLocaleString()}<small>개</small></p>
+          <p className="adm-stat-value"><RollingNumber value={profiles.filter((p) => p.isActive).length} /><small>개</small></p>
           <p className="adm-stat-sub"><Link href="/admin/operator/profiles" className="adm-inline-link">프로필 관리 ›</Link></p>
-        </div>
-      </div>
-
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <Link href="/admin/operator/posts/new" className="adm-btn primary">+ 운영 글 쓰기</Link>
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { status, profileId, q }); }}
-              placeholder="제목·본문 검색 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <select
-            value={profileId}
-            onChange={(e) => { setProfileId(e.target.value); fetchRows(1, { status, profileId: e.target.value, q }); }}
-            className="adm-input sm adm-select-sm"
-            aria-label="운영 프로필"
-          >
-            <option value="">모든 운영 프로필</option>
-            {profiles.map((p) => <option key={p.id} value={p.id}>{p.nickname}{p.isActive ? '' : ' (쉬는 중)'}</option>)}
-          </select>
-        </div>
-        <div className="adm-toolbar adm-toolbar-sub">
-          <div className="adm-chips">
-            {STATUS_CHIPS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { status: k, profileId, q }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                {label} <span className="adm-chip-num">{(k === 'all' ? allCount : counts[k] || 0).toLocaleString()}</span>
-              </button>
-            ))}
-          </div>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>개</span>
         </div>
       </div>
 
       <AdminErrorPanel error={lastError} label="운영 글" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <Link href="/admin/operator/posts/new" className="adm-btn primary">+ 운영 글 쓰기</Link>
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { status, profileId, q }); }}
+                placeholder="제목·본문 검색 (Enter)"
+                className="adm-input"
+              />
+            </label>
+            <select
+              value={profileId}
+              onChange={(e) => { setProfileId(e.target.value); fetchRows(1, { status, profileId: e.target.value, q }); }}
+              className="adm-input sm adm-select-sm"
+              aria-label="운영 프로필"
+            >
+              <option value="">모든 운영 프로필</option>
+              {profiles.map((p) => <option key={p.id} value={p.id}>{p.nickname}{p.isActive ? '' : ' (쉬는 중)'}</option>)}
+            </select>
+          </div>
+          <div className="adm-toolbar adm-toolbar-sub">
+            <div className="adm-chips">
+              {STATUS_CHIPS.map(([k, label]) => (
+                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { status: k, profileId, q }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
+                  {label} <span className="adm-chip-num"><RollingNumber value={k === 'all' ? allCount : counts[k] || 0} /></span>
+                </button>
+              ))}
+            </div>
+            <span className="grow" />
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
+          </div>
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -254,19 +256,19 @@ export default function AdminOperatorPostsPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { status, profileId, q }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { status, profileId, q }, true);
+          }}
+        />
+      </AdminListCard>
     </div>
   );
 }

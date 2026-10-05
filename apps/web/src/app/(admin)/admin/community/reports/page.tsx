@@ -8,6 +8,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 interface ReportRow {
   id: string;
@@ -99,24 +101,24 @@ export default function AdminCommunityReportsPage() {
     <div className="space-y-5">
       <CommunityStats />
 
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <div className="adm-chips">
-            {STATUS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, k); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-        </div>
-      </div>
-
       <AdminErrorPanel error={lastError} label="커뮤니티 신고" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <div className="adm-chips">
+              {STATUS.map(([k, label]) => (
+                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, k); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="grow" />
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
+          </div>
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -178,19 +180,19 @@ export default function AdminCommunityReportsPage() {
               })}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, status, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, status, true);
+          }}
+        />
+      </AdminListCard>
 
       {nick.modal}
       {openId && <PostDrawer id={openId} onClose={() => setOpenId(null)} onPostChange={() => fetchRows(1)} />}

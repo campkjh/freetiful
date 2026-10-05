@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { adminFetch } from './_components/adminFetch';
 import { LineChevron, useAdminRefresh } from './_components/adminRefresh';
 import { AdminCollapse } from './_components/AdminCollapse';
+import { RollingNumber } from './_components/AdminNumber';
 
 type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
 
@@ -727,38 +728,7 @@ function MoneySpark({ last, cur, color }: { last: number[]; cur: number[]; color
   );
 }
 
-/** 다이얼 숫자 — 자리마다 0~9 띠가 위로 굴러가 제 숫자에 멈춘다(오른쪽 자리부터 조금씩 늦게, 감속 곡선).
- *  띠는 0~9 를 두 번 이어 붙여 두 번째 바퀴에 멈추게 해 '도는' 느낌을 낸다. 값이 바뀌면(새로고침) 그 자리로 다시 굴러간다. */
-function RollingNumber({ value }: { value: number }) {
-  const text = Math.round(Math.abs(value)).toLocaleString('ko-KR');
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  const chars = text.split('');
-  const digitsTotal = chars.filter((c) => /\d/.test(c)).length;
-  let seen = 0;
-  return (
-    <span className="adm-roll" aria-label={text}>
-      {chars.map((ch, i) => {
-        // 자리 키는 오른쪽 기준 — 자릿수가 바뀌어도 같은 자리는 같은 칸
-        const fromRight = chars.length - i;
-        if (!/\d/.test(ch)) return <span key={`s${fromRight}`} className="adm-roll-sep" aria-hidden="true">{ch}</span>;
-        const order = digitsTotal - (seen += 1); // 0 = 일의 자리
-        const d = Number(ch);
-        return (
-          <span key={`d${fromRight}`} className="adm-roll-col" aria-hidden="true">
-            <span className="adm-roll-strip" style={{ transform: `translateY(${ready ? -((10 + d) / 20) * 100 : 0}%)`, transitionDelay: `${order * 55}ms` }}>
-              {ROLL_STRIP.map((n, k) => <span key={k}>{n}</span>)}
-            </span>
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-const ROLL_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+/* 다이얼 숫자(RollingNumber)는 _components/AdminNumber.tsx 로 옮겼다 — 다른 화면 숫자 칸도 같은 것을 쓴다(261005) */
 
 /** 수입 옆 숫자 칸 — 오늘 매출·신규 가입·한 달 누적 매출·정산 대기(261005 사장 '수입이랑 나란히, 달력 아래 말고') */
 type TopKpi = { label: string; value: number | null; unit: string; sub: ReactNode; href: string; tone?: string };

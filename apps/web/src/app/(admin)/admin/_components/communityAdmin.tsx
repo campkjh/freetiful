@@ -8,6 +8,7 @@ import { useAdminRefresh } from './adminRefresh';
 import { AdminSwitch } from './AdminSwitch';
 import { formatKstDateTime } from './adminEvent';
 import { adminConfirm } from './adminDialog';
+import { RollingNumber } from './AdminNumber';
 
 /* ────────────────────────────────────────────────────────────
  * 커뮤니티 관리(웨딩숲) 공용 — 요약 숫자 · 작성자 칸 · 글 상세 서랍(261004 사장 '커뮤니티 관리도 추가해줘')
@@ -265,26 +266,28 @@ export function CommunityStats() {
     return () => window.removeEventListener('admin:community-changed', load);
   }, [load]);
   const n = (v?: number) => (s ? (v || 0).toLocaleString() : '—');
+  /** 큰 숫자 = 홈과 같은 다이얼(RollingNumber) — 받기 전엔 '—'. 새로고침해도 같은 값이면 다시 돌지 않는다 */
+  const big = (v?: number) => (s ? <RollingNumber value={v || 0} /> : '—');
   return (
     <div className="adm-grid grid-cols-2 lg:grid-cols-4">
       <div className="adm-stat">
         <p className="adm-stat-label">보이는 글</p>
-        <p className="adm-stat-value">{n(s?.posts)}<small>개</small></p>
+        <p className="adm-stat-value">{big(s?.posts)}<small>개</small></p>
         <p className="adm-stat-sub">숨긴 글 {n(s?.hiddenPosts)}개</p>
       </div>
       <div className="adm-stat">
         <p className="adm-stat-label">오늘 새 글</p>
-        <p className="adm-stat-value">{n(s?.postsToday)}<small>개</small></p>
+        <p className="adm-stat-value">{big(s?.postsToday)}<small>개</small></p>
         <p className="adm-stat-sub">오늘 댓글 {n(s?.commentsToday)}개</p>
       </div>
       <div className="adm-stat">
         <p className="adm-stat-label">댓글</p>
-        <p className="adm-stat-value">{n(s?.comments)}<small>개</small></p>
+        <p className="adm-stat-value">{big(s?.comments)}<small>개</small></p>
         <p className="adm-stat-sub">보이는 댓글</p>
       </div>
       <div className="adm-stat">
         <p className="adm-stat-label">처리 대기 신고</p>
-        <p className="adm-stat-value" style={s?.reportsPending ? { color: 'var(--admin-red)' } : undefined}>{n(s?.reportsPending)}<small>건</small></p>
+        <p className="adm-stat-value" style={s?.reportsPending ? { color: 'var(--admin-red)' } : undefined}>{big(s?.reportsPending)}<small>건</small></p>
         <p className="adm-stat-sub">신고 탭에서 숨기거나 그대로 둬요</p>
       </div>
     </div>

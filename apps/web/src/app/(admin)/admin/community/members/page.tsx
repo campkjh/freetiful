@@ -8,6 +8,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { CommunityStats, NICK_SOURCE_LABEL, ago, useNicknameChanged, useNicknameEditor } from '../../_components/communityAdmin';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 interface MemberRow {
   userId: string;
@@ -84,39 +86,39 @@ export default function AdminCommunityMembersPage() {
     <div className="space-y-5">
       <CommunityStats />
 
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, source }); }}
-              placeholder="닉네임·실제 이름 검색 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <span className="adm-count">웨딩숲에 글·댓글을 쓴 <b>{all.toLocaleString()}</b>명</span>
-        </div>
-        <div className="adm-toolbar adm-toolbar-sub">
-          <div className="adm-chips">
-            {SOURCES.map(([k, label]) => (
-              <button key={k || 'all'} type="button" className={`adm-chip ${source === k ? 'on' : ''}`} onClick={() => { setSource(k); fetchRows(1, { q, source: k }); }}>
-                {label} <span className="adm-chip-num">{(k ? counts[k] || 0 : all).toLocaleString()}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <p className="adm-note adm-op-rule">
         회원은 원래 &apos;꾸밈말 동물&apos; 닉네임이 자동으로 붙고, 허용된 계정만 직접 정할 수 있어요. 부적절한 닉네임은 <b>✎ 바꾸기</b>로 고치면 예전 글·댓글까지 새 이름으로 보여요. 바꾼 기록은 변경 이력에 남아요.
       </p>
 
       <AdminErrorPanel error={lastError} label="닉네임" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, source }); }}
+                placeholder="닉네임·실제 이름 검색 (Enter)"
+                className="adm-input"
+              />
+            </label>
+            <span className="adm-count">웨딩숲에 글·댓글을 쓴 <b><RollingNumber value={all} /></b>명</span>
+          </div>
+          <div className="adm-toolbar adm-toolbar-sub">
+            <div className="adm-chips">
+              {SOURCES.map(([k, label]) => (
+                <button key={k || 'all'} type="button" className={`adm-chip ${source === k ? 'on' : ''}`} onClick={() => { setSource(k); fetchRows(1, { q, source: k }); }}>
+                  {label} <span className="adm-chip-num"><RollingNumber value={k ? counts[k] || 0 : all} /></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -165,19 +167,19 @@ export default function AdminCommunityMembersPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { q, source }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { q, source }, true);
+          }}
+        />
+      </AdminListCard>
 
       {nick.modal}
     </div>

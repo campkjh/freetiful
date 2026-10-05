@@ -11,6 +11,8 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { OpAvatar, uploadAdminImage, type OperatorProfile } from '../../_components/operatorAdmin';
 import { adminConfirm } from '../../_components/adminDialog';
 import { AdminCollapse } from '../../_components/AdminCollapse';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 type Draft = { nickname: string; avatarUrl: string | null; bio: string };
 const EMPTY: Draft = { nickname: '', avatarUrl: null, bio: '' };
@@ -125,37 +127,37 @@ export default function AdminOperatorProfilesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <button type="button" className={`adm-btn ${createOpen ? 'weak' : 'primary'}`} onClick={() => setCreateOpen((v) => !v)}>
-            {createOpen ? '만들기 닫기' : '+ 운영 프로필 만들기'}
-          </button>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{rows.length}</b>개 · 사용 중 <b>{rows.filter((r) => r.isActive).length}</b></span>
-        </div>
-      </div>
-
       <p className="adm-note adm-op-rule">
         운영 프로필은 회원 계정을 빌리지 않는 운영팀 전용 이름이에요. 앱에서는 이 이름의 글·댓글에 늘 <b>&apos;운영팀&apos;</b> 표시가 붙고, 회원이 실제로 좋아요·댓글을 남길 수 있어요.
       </p>
 
-      <AdminCollapse open={createOpen}>
-        <div className="adm-card">
-          <div className="adm-card-head">
-            <div>
-              <h2 className="adm-card-title">새 운영 프로필</h2>
-              <p className="adm-card-sub">만든 기록(관리자·시각·값)은 변경 이력에 남아요</p>
-            </div>
-            <button type="button" className="adm-btn primary" disabled={busy} onClick={create}>{busy ? '만드는 중' : '만들기'}</button>
-          </div>
-          <ProfileFields draft={draft} setDraft={setDraft} />
-        </div>
-      </AdminCollapse>
-
       <AdminErrorPanel error={lastError} label="운영 프로필" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <button type="button" className={`adm-btn ${createOpen ? 'weak' : 'primary'}`} onClick={() => setCreateOpen((v) => !v)}>
+              {createOpen ? '만들기 닫기' : '+ 운영 프로필 만들기'}
+            </button>
+            <span className="grow" />
+            <span className="adm-count">총 <b><RollingNumber value={rows.length} /></b>개 · 사용 중 <b><RollingNumber value={rows.filter((r) => r.isActive).length} /></b></span>
+          </div>
+        </>}
+      >
+        {/* 새 운영 프로필 칸 — 거르기 줄의 '+ 만들기' 버튼 바로 아래(표 위)에서 펼친다(리뷰 직접 등록과 같은 모양) */}
+        <AdminCollapse open={createOpen}>
+          <div className="adm-card adm-listcard-panel">
+            <div className="adm-card-head">
+              <div>
+                <h2 className="adm-card-title">새 운영 프로필</h2>
+                <p className="adm-card-sub">만든 기록(관리자·시각·값)은 변경 이력에 남아요</p>
+              </div>
+              <button type="button" className="adm-btn primary" disabled={busy} onClick={create}>{busy ? '만드는 중' : '만들기'}</button>
+            </div>
+            <ProfileFields draft={draft} setDraft={setDraft} />
+          </div>
+        </AdminCollapse>
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -214,8 +216,8 @@ export default function AdminOperatorProfilesPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
+      </AdminListCard>
     </div>
   );
 }

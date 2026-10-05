@@ -1694,6 +1694,8 @@ a.adm-card:hover, button.adm-card:hover { transform: translateY(-2px); box-shado
 .adm-stat { min-width: 0; }
 .adm-stat-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) { .adm-stat-value { font-size: 22px; letter-spacing: -0.5px; } }
+/* 좁은 폰(≤420) — 다이얼 숫자(inline-block)는 말줄임이 안 붙고 자릿수 중간에서 잘리므로 글자를 폭에 맞춰 줄인다(₩1,234,567,890 이 360 폭 2칸에 들어감) */
+@media (max-width: 420px) { .adm-stat-value { font-size: clamp(16px, 5.2vw, 22px); } }
 .adm-stat-value small { margin-left: 2px; font-size: 18px; font-weight: 600; color: var(--admin-sub); }
 .adm-stat-sub { margin: 6px 0 0; font-size: 13px; color: var(--admin-ph); }
 .adm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 16px; border: 0; border-radius: 12px; background: #F2F4F6; color: var(--admin-sub); font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; text-decoration: none; transition: transform .12s var(--adm-ease), background-color .15s ease, color .15s ease, opacity .15s ease; }
@@ -2027,6 +2029,34 @@ tr:hover .adm-author-edit, .adm-pd .adm-author-edit, .adm-author-edit:focus-visi
 .admin-shell .adm-table tbody tr:last-child td { border-bottom: 0; }
 .admin-shell .adm-table .r { text-align: right; }
 .admin-shell .adm-table .c { text-align: center; }
+/* 목록 카드(AdminListCard) — 거르기 패널 + 표 = 흰 카드 하나(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘').
+   거르기 줄은 카드 맨 위에 납작하게, 아래 가는 선으로 표와 가른다 */
+.adm-listcard { background: #fff; border-radius: 20px; overflow: hidden; }
+.adm-listcard > .adm-filter { border-radius: 0; background: transparent; box-shadow: inset 0 -1px 0 var(--admin-divider); }
+.adm-listcard > .adm-filter > .adm-datebar { border-radius: 0; }
+/* 표 가로 스크롤(AdminTableScroll) — 남은 쪽 가장자리에 옅은 그림자, 첫·끝 칸은 카드 안쪽 24px.
+   (가로 스크롤이 '짤리는 느낌'이던 원인 = 표 머리 '?' 도움말의 투명한 240px 말풍선이 스크롤 칸을 표보다 넓혔던 것 → 말풍선은 포털로 뺐다) */
+.adm-tscroll { position: relative; }
+.adm-tscroll-in { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.adm-tscroll::before, .adm-tscroll::after { content: ''; position: absolute; top: 0; bottom: 0; z-index: 3; width: 28px; pointer-events: none; opacity: 0; transition: opacity .2s ease; }
+.adm-tscroll::before { left: 0; background: linear-gradient(90deg, rgba(0, 29, 58, .09), rgba(0, 29, 58, 0)); }
+.adm-tscroll::after { right: 0; background: linear-gradient(270deg, rgba(0, 29, 58, .09), rgba(0, 29, 58, 0)); }
+.adm-tscroll.is-l::before, .adm-tscroll.is-r::after { opacity: 1; }
+.admin-shell .adm-tscroll.edge > .adm-tscroll-in > table > * > tr > :first-child { padding-left: 24px !important; }
+.admin-shell .adm-tscroll.edge > .adm-tscroll-in > table > * > tr > :last-child { padding-right: 24px !important; }
+/* 목록 카드 안에서 펼치는 입력 칸(리뷰 직접 등록 등) — 카드 속 카드 대신 납작하게 + 아래 가는 선 */
+.adm-listcard .adm-listcard-panel { border-radius: 0; box-shadow: inset 0 -1px 0 var(--admin-divider); }
+@media (prefers-reduced-motion: reduce) { .adm-tscroll::before, .adm-tscroll::after { transition: none; } }
+/* 사람 칸(프로필 + 이름/이메일) 폭 고정 — 긴 이메일이 칸을 늘리지 않게 말줄임(261005 사장 '사회자 가로가 너무 넓어') */
+.adm-person { display: flex; align-items: center; gap: 12px; width: 180px; }
+.adm-person-text { flex: 1; min-width: 0; }
+@media (max-width: 640px) { .adm-person { width: 164px; } }
+/* 퀵매칭 스위치 아래 — 켜 두었지만 첫 화면에 안 나오는 이유(숨김·미승인) */
+.admin-shell .adm-qm-off { font-size: 11px; font-weight: 600; line-height: 1.2; color: var(--admin-ph); white-space: nowrap; }
+/* 퀵매칭 노출 칩 — 상태 칩들과 살짝 띄우고 앞에 점 */
+.adm-chip-qm { margin-left: 4px; }
+.adm-chip-qm-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
+.adm-chip-qm.on .adm-chip-qm-dot { opacity: 1; }
 
 /* ── 홈 대시보드(어드민 2.0) ── */
 @keyframes admDraw { to { stroke-dashoffset: 0; } }
@@ -2225,11 +2255,16 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-money-sub { margin: 4px 0 0; overflow: hidden; color: var(--admin-ph); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .adm-money-wait { color: var(--admin-dis); }
 /* 다이얼 숫자 — 칸마다 0~9 띠가 위로 굴러 멈춘다(위아래 가장자리는 살짝 흐리게) */
-.adm-roll { display: inline-flex; align-items: flex-start; font-variant-numeric: tabular-nums; vertical-align: top; }
-.adm-roll-col { position: relative; display: inline-block; height: 1.25em; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); }
+/* 261005 — 다른 화면 숫자 칸·건수 글줄에도 쓰도록(AdminNumber): 바깥은 inline-block + 자기 줄 높이 1.25 라
+   어느 글줄에 넣어도 숫자 바닥선이 옆 글자(단위·'총')와 같다. 띠 글자 줄 높이도 1.25 로 — 예전엔 .admin-shell span(1.45)에 덮여 숫자가 단위보다 2px 낮았다 */
+.adm-roll { display: inline-block; white-space: nowrap; font-variant-numeric: tabular-nums; vertical-align: baseline; }
+.admin-shell .adm-roll, .admin-shell .adm-roll-strip > span, .admin-shell .adm-roll-sep { line-height: 1.25; }
+.adm-roll-col { position: relative; display: inline-block; vertical-align: top; height: 1.25em; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); }
 .adm-roll-strip { display: flex; flex-direction: column; transition: transform 1.25s cubic-bezier(.16, 1, .3, 1); will-change: transform; }
 .adm-roll-strip > span { display: block; height: 1.25em; line-height: 1.25em; text-align: center; }
-.adm-roll-sep { display: inline-block; height: 1.25em; line-height: 1.25em; }
+.adm-roll-sep { display: inline-block; vertical-align: top; height: 1.25em; line-height: 1.25em; }
+/* 드래그 복사 = 숨은 실제 값(sr-only)만 — 띠의 0~9 글자가 딸려 오지 않게 */
+.adm-roll-col, .adm-roll-sep { -webkit-user-select: none; user-select: none; }
 @media (prefers-reduced-motion: reduce) { .adm-roll-strip { transition: none; } }
 @media (max-width: 1240px) { .adm-money-top.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; } }
 @media (max-width: 640px) {

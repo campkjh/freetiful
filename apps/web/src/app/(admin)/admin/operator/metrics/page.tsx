@@ -11,6 +11,8 @@ import { formatKstDateTime } from '../../_components/adminEvent';
 import { ENV_LABEL, REACTION_LABEL, STATUS_LABEL, useOperatorEnv, type RealStats } from '../../_components/operatorAdmin';
 import { adminConfirm } from '../../_components/adminDialog';
 import { AdminCollapse } from '../../_components/AdminCollapse';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 interface MetricRow {
   id: string;
@@ -144,27 +146,27 @@ export default function AdminOperatorMetricsPage() {
         {testOn && <button type="button" className="adm-btn sm" onClick={resetAll}>테스트 수치 전체 초기화</button>}
       </div>
 
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <div className="adm-chips">
-            {(['operator', 'all'] as const).map((k) => (
-              <button key={k} type="button" className={`adm-chip ${kind === k ? 'on' : ''}`} onClick={() => { setKind(k); fetchRows(1, { kind: k, q }); }}>
-                {k === 'operator' ? '운영 글' : '게시된 전체 글'}
-              </button>
-            ))}
-          </div>
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { kind, q }); }} placeholder="제목·본문 검색 (Enter)" className="adm-input" />
-          </label>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>개</span>
-        </div>
-      </div>
-
       <AdminErrorPanel error={lastError} label="반응 수치" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <div className="adm-chips">
+              {(['operator', 'all'] as const).map((k) => (
+                <button key={k} type="button" className={`adm-chip ${kind === k ? 'on' : ''}`} onClick={() => { setKind(k); fetchRows(1, { kind: k, q }); }}>
+                  {k === 'operator' ? '운영 글' : '게시된 전체 글'}
+                </button>
+              ))}
+            </div>
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { kind, q }); }} placeholder="제목·본문 검색 (Enter)" className="adm-input" />
+            </label>
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
+          </div>
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -270,19 +272,19 @@ export default function AdminOperatorMetricsPage() {
               })}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { kind, q }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { kind, q }, true);
+          }}
+        />
+      </AdminListCard>
     </div>
   );
 }

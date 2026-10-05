@@ -9,6 +9,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { AdminSwitch } from '../../_components/AdminSwitch';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
 import { adminConfirm } from '../../_components/adminDialog';
+import { RollingNumber } from '../../_components/AdminNumber';
+import { useAdminRefresh } from '../../_components/adminRefresh';
 
 const ROLES = ['general', 'pro', 'business', 'admin'];
 const PAYMENT_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'escrowed', 'settled'];
@@ -101,6 +103,8 @@ export default function AdminUserDetailPage() {
   };
 
   useEffect(() => { load(); }, [userId]);
+  // 머리 오른쪽 새로고침 — 본문을 새로 띄우지 않고 다시 받기만(같은 값이면 숫자 다이얼이 다시 돌지 않게)
+  useAdminRefresh(() => { load(); });
 
   const save = async () => {
     setSaving(true);
@@ -137,7 +141,8 @@ export default function AdminUserDetailPage() {
     }
   };
 
-  if (loading) {
+  // 처음(또는 다른 유저로 바뀜)만 불러오는 화면 — 같은 유저 새로고침은 화면을 그대로 두고 값만 바꾼다
+  if (loading && payload?.user?.id !== userId) {
     return <div className="py-20 text-center text-sm text-gray-400">유저 데이터를 불러오는 중...</div>;
   }
 
@@ -162,7 +167,7 @@ export default function AdminUserDetailPage() {
         ].map(([label, value]) => (
           <div key={label} className="bg-white rounded-[20px] p-4">
             <p className="text-xs text-gray-400 font-bold">{label}</p>
-            <p className="mt-1 text-2xl font-extrabold text-gray-900">{Number(value || 0).toLocaleString()}</p>
+            <p className="mt-1 text-2xl font-extrabold text-gray-900"><RollingNumber value={Number(value || 0)} /></p>
           </div>
         ))}
       </div>

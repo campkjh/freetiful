@@ -12,6 +12,8 @@ import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminEventCell, AdminPartyCell, formatPhone, type AdminEvent } from '../_components/adminEvent';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface SettlementLogItem {
   id: string;
@@ -198,51 +200,51 @@ export default function AdminSettlementsPage() {
       <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
         <div className="adm-stat">
           <p className="adm-stat-label"><AdminTerm term="정산 대기 건수">정산 대기</AdminTerm></p>
-          <p className="adm-stat-value" style={{ color: '#F46A00' }}>{summary.pendingCount.toLocaleString()}<small>건</small></p>
+          <p className="adm-stat-value" style={{ color: '#F46A00' }}><RollingNumber value={summary.pendingCount} /><small>건</small></p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label"><AdminTerm term="정산 대기 금액">보낼 금액</AdminTerm></p>
-          <p className="adm-stat-value adm-money">₩{summary.pendingAmount.toLocaleString()}</p>
+          <p className="adm-stat-value adm-money">₩<RollingNumber value={summary.pendingAmount} /></p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label"><AdminTerm term="정산 완료 건수">정산 완료</AdminTerm></p>
-          <p className="adm-stat-value" style={{ color: '#03B26C' }}>{summary.settledCount.toLocaleString()}<small>건</small></p>
+          <p className="adm-stat-value" style={{ color: '#03B26C' }}><RollingNumber value={summary.settledCount} /><small>건</small></p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label"><AdminTerm term="정산 완료 금액">보낸 금액</AdminTerm></p>
-          <p className="adm-stat-value adm-money">₩{summary.settledAmount.toLocaleString()}</p>
+          <p className="adm-stat-value adm-money">₩<RollingNumber value={summary.settledAmount} /></p>
         </div>
-      </div>
-
-      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <div className="adm-chips">
-            {(['pending', 'all', 'settled'] as const).map((f) => (
-              <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
-                {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
-              </button>
-            ))}
-          </div>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{meta.total.toLocaleString()}</b>건</span>
-          <AdminExportButton loading={exporting} onClick={handleExport} />
-        </div>
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchList(1, filter, range);
-          }}
-        />
       </div>
 
       {lastError && <AdminErrorPanel error={lastError} />}
 
-      {/* 목록 — 누가(사회자 → 고객) · 어떤 행사를 언제 어디서 · 얼마 */}
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      {/* 거르기·조회기간 + 정산 표 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘').
+          목록 — 누가(사회자 → 고객) · 어떤 행사를 언제 어디서 · 얼마 */}
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <div className="adm-chips">
+              {(['pending', 'all', 'settled'] as const).map((f) => (
+                <button key={f} type="button" onClick={() => setFilter(f)} className={`adm-chip ${filter === f ? 'on' : ''}`}>
+                  {f === 'all' ? '전체' : f === 'pending' ? '정산 대기' : '정산 완료'}
+                </button>
+              ))}
+            </div>
+            <span className="grow" />
+            <span className="adm-count">총 <b><RollingNumber value={meta.total} /></b>건</span>
+            <AdminExportButton loading={exporting} onClick={handleExport} />
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
+              setPage(1);
+              fetchList(1, filter, range);
+            }}
+          />
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -295,8 +297,7 @@ export default function AdminSettlementsPage() {
               })}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
         <AdminInfiniteScroll
           hasMore={meta.hasMore || items.length < meta.total}
@@ -309,6 +310,7 @@ export default function AdminSettlementsPage() {
             fetchList(page + 1, filter, dateRange, true);
           }}
         />
+      </AdminListCard>
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 import {
   AdminEventCell,
   AdminPartyCell,
@@ -185,41 +187,40 @@ export default function AdminPaymentsPage() {
 
   return (
     <div className="space-y-5">
-      {/* 도구막대 — 제목은 레이아웃 머리(결제 조회) */}
-      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <div className="adm-chips">
-            {['전체', 'completed', 'waiting_for_deposit', 'pending', 'failed', 'refunded'].map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
-                className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
-              >
-                {st === '전체' ? '전체' : statusLabels[st] || st}
-              </button>
-            ))}
-          </div>
-          <span className="grow" />
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건 · <b>₩{visibleAmount.toLocaleString()}</b></span>
-          <AdminExportButton loading={exporting} onClick={handleExport} />
-        </div>
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchPayments(1, filterStatus, range);
-          }}
-        />
-      </div>
-
       <AdminErrorPanel error={lastError} label="결제" />
 
-      {/* 목록 — 정산 내역과 같은 칸(누가 · 어떤 행사를 언제 어디서) + 결제 며칠째 · 지금 환불되나(261004 사장) */}
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      {/* 거르기·조회기간 + 결제 표 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘').
+          목록 = 정산 내역과 같은 칸(누가 · 어떤 행사를 언제 어디서) + 결제 며칠째 · 지금 환불되나(261004 사장) */}
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <div className="adm-chips">
+              {['전체', 'completed', 'waiting_for_deposit', 'pending', 'failed', 'refunded'].map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
+                  className={`adm-chip ${filterStatus === st ? 'on' : ''}`}
+                >
+                  {st === '전체' ? '전체' : statusLabels[st] || st}
+                </button>
+              ))}
+            </div>
+            <span className="grow" />
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>건 · <b>₩<RollingNumber value={visibleAmount} /></b></span>
+            <AdminExportButton loading={exporting} onClick={handleExport} />
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
+              setPage(1);
+              fetchPayments(1, filterStatus, range);
+            }}
+          />
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -280,22 +281,22 @@ export default function AdminPaymentsPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </AdminTableScroll>
         <p className="adm-table-foot">
           환불 = 플랫폼 환불 규정 제1조 · 입금일(당일 포함) 4일 이내 전액 · 5~7일 50% · 그 뒤엔 불가 · 행사일이 입금 7일 이내면 불가 · 사전미팅을 했으면 불가(시스템은 모름)
         </p>
-      </div>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={payments.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchPayments(page + 1, filterStatus, dateRange, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={payments.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchPayments(page + 1, filterStatus, dateRange, true);
+          }}
+        />
+      </AdminListCard>
     </div>
   );
 }

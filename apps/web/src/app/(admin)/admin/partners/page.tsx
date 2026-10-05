@@ -19,6 +19,9 @@ import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
+import { useAdminRefresh } from '../_components/adminRefresh';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
   approved: { text: '승인', className: 'bg-green-50 text-green-600' },
@@ -83,6 +86,8 @@ export default function AdminPartnersPage() {
     fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 머리 오른쪽 새로고침 — 지금 검색·조회기간 그대로(본문을 새로 띄우지 않는다)
+  useAdminRefresh(() => fetchList(1, search, dateRange));
 
   const handleDelete = async (id: string, name: string) => {
     if (!(await adminConfirm(`"${name}" 업체를 삭제하시겠습니까?\n(이미지/카테고리 연결도 함께 삭제됩니다)`))) return;
@@ -160,7 +165,7 @@ export default function AdminPartnersPage() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-xl font-bold text-gray-900">웨딩 파트너 업체</h1>
-        <span className="ml-auto text-sm text-gray-400">총 {total}개</span>
+        <span className="ml-auto text-sm text-gray-400">총 <RollingNumber value={total} />개</span>
         <AdminExportButton loading={exporting} onClick={handleExport} />
         <Link
           href="/admin/partners/new"
@@ -184,38 +189,38 @@ export default function AdminPartnersPage() {
         </div>
       )}
 
-      {/* 검색 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                setPage(1);
-                fetchList(1, search, dateRange);
-              }
+      {/* 검색·조회기간 + 표 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘') */}
+      <AdminListCard
+        filter={<>
+          <div className="p-4">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setPage(1);
+                    fetchList(1, search, dateRange);
+                  }
+                }}
+                placeholder="업체명 / 카테고리 / 주소 검색 (Enter)"
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
+              setPage(1);
+              fetchList(1, search, range);
             }}
-            placeholder="업체명 / 카테고리 / 주소 검색 (Enter)"
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
-        </div>
-      </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchList(1, search, range);
-        }}
-      />
-
-      {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        </>}
+      >
+        <AdminTableScroll>
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
@@ -345,7 +350,7 @@ export default function AdminPartnersPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </AdminTableScroll>
 
         <AdminInfiniteScroll
           hasMore={hasMore}
@@ -358,7 +363,7 @@ export default function AdminPartnersPage() {
           }}
           itemLabel="개"
         />
-      </div>
+      </AdminListCard>
     </div>
   );
 }

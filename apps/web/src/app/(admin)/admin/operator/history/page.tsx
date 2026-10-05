@@ -8,6 +8,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { ACTION_LABEL, FIELD_LABEL, STATUS_LABEL } from '../../_components/operatorAdmin';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 interface AuditRow {
   id: string;
@@ -29,12 +31,14 @@ const GROUPS: [string, string][] = [
   ['metric', '조회수 보정'],
   ['test', '테스트 수치'],
   ['community', '커뮤니티 관리'],
+  ['pro', '사회자 설정'],
 ];
 
 /** 값 한 줄로 */
 function show(key: string, v: any): string {
   if (v === null || v === undefined || v === '') return '없음';
   if (key === 'status' && typeof v === 'string') return STATUS_LABEL[v] || v;
+  if (key === 'quickMatchGender' && typeof v === 'string') return v === 'male' ? '남' : v === 'female' ? '여' : v;
   if (key === 'isActive' || typeof v === 'boolean') return v ? '켜짐' : '꺼짐';
   if ((key === 'publishAt' || key === 'publishedAt' || key === 'createdAt') && typeof v === 'string') return formatKstDateTime(v);
   if (Array.isArray(v)) return key === 'imageUrls' ? `사진 ${v.length}장` : v.join(', ');
@@ -117,27 +121,27 @@ export default function AdminOperatorHistoryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <div className="adm-chips">
-            {GROUPS.map(([k, label]) => (
-              <button key={k || 'all'} type="button" className={`adm-chip ${group === k ? 'on' : ''}`} onClick={() => { setGroup(k); fetchRows(1, { group: k, q }); }}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { group, q }); }} placeholder="사유·대상 ID·관리자 이메일 (Enter)" className="adm-input" />
-          </label>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-        </div>
-      </div>
-
       <AdminErrorPanel error={lastError} label="변경 이력" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <div className="adm-chips">
+              {GROUPS.map(([k, label]) => (
+                <button key={k || 'all'} type="button" className={`adm-chip ${group === k ? 'on' : ''}`} onClick={() => { setGroup(k); fetchRows(1, { group: k, q }); }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { group, q }); }} placeholder="사유·대상 ID·관리자 이메일 (Enter)" className="adm-input" />
+            </label>
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
+          </div>
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -170,19 +174,19 @@ export default function AdminOperatorHistoryPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { group, q }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { group, q }, true);
+          }}
+        />
+      </AdminListCard>
     </div>
   );
 }

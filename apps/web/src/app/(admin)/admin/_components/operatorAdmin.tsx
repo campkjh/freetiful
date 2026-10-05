@@ -113,6 +113,7 @@ export const ACTION_LABEL: Record<string, string> = {
   'community.report_resolve': '커뮤니티 신고 처리',
   'community.nickname_change': '웨딩숲 닉네임 변경',
   'community.nickname_reset': '웨딩숲 닉네임 원래대로',
+  'pro.quick_match': '퀵매칭 노출 변경',
 };
 
 /** 변경 전후 값 보기용 — 키 이름 */
@@ -140,4 +141,6 @@ export const FIELD_LABEL: Record<string, string> = {
   userId: '계정',
   stats: '반응',
   custom: '직접 정한 닉네임',
+  quickMatchDesignated: '퀵매칭 노출',
+  quickMatchGender: '첫 화면 묶음',
 };

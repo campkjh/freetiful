@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }
 interface PageStat { page: string; visits: number; conversions: number; rate: number; bySource: Bucket[]; byMedium: Bucket[]; byCampaign: Bucket[]; }
@@ -116,6 +118,8 @@ const AD_CHANNELS: { key: string; label: string; sources: string[]; color: strin
   { key: 'tiktok', label: '틱톡',     sources: ['tiktok'], color: '#845EF7', icon: 'src-tiktok' },
 ];
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+/** 큰 금액 숫자 칸 — 홈과 같은 다이얼(261005) */
+const WonRoll = ({ n }: { n: number }) => <><RollingNumber value={Math.round(n)} />원</>;
 
 const DONUT_COLORS = ['#3182F6', '#00C2B3', '#FF7043', '#845EF7', '#FFB020', '#F45B8B', '#4E9BFF', '#22C55E', '#EC4899', '#14B8A6', '#F97316', '#A0AEC0'];
 
@@ -182,7 +186,7 @@ function SourceCard({ title, value, unit, tone = 'text-gray-900', rows, empty = 
   return (
     <div className="rounded-[38px] bg-white p-5">
       <p className="text-[15px] font-medium text-gray-500">{title}</p>
-      <p className={`mt-1.5 text-[32px] font-black leading-none ${tone}`}>{num(value)}<span className="ml-1 text-[16px] font-bold text-gray-400">{unit}</span></p>
+      <p className={`mt-1.5 text-[32px] font-black leading-none ${tone}`}><RollingNumber value={value} /><span className="ml-1 text-[16px] font-bold text-gray-400">{unit}</span></p>
       <div className="mt-4 space-y-2.5">
         {rows.length === 0 ? (
           <p className="text-[12px] text-gray-300">{empty}</p>
@@ -460,11 +464,11 @@ export default function LandingAnalyticsPage() {
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-gray-100">
               <div className="sm:pr-6">
                 <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 유입수</p>
-                <p className="mt-1.5 text-[28px] font-extrabold text-gray-900">{num(monthAgg.visits)}<span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
+                <p className="mt-1.5 text-[28px] font-extrabold text-gray-900"><RollingNumber value={monthAgg.visits} /><span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
               </div>
               <div className="sm:px-6">
                 <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 견적 신청수</p>
-                <p className="mt-1.5 text-[28px] font-extrabold text-emerald-600">{num(monthAgg.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
+                <p className="mt-1.5 text-[28px] font-extrabold text-emerald-600"><RollingNumber value={monthAgg.conversions} /><span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
               </div>
               <div className="sm:pl-6">
                 <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 브리핑</p>
@@ -557,19 +561,19 @@ export default function LandingAnalyticsPage() {
             <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
                 <p className="text-[13px] text-gray-500">하루 집행액</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.daily)}</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900"><WonRoll n={adRows.total.daily} /></p>
                 <p className="mt-1.5 text-[12px] text-gray-400">전 채널 합계</p>
               </div>
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
                 <p className="text-[13px] text-gray-500">{g.month + 1}월 누적</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900">{won(adRows.total.spend)}</p>
+                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900"><WonRoll n={adRows.total.spend} /></p>
                 <p className="mt-1.5 text-[12px] text-gray-400">{adRows.spendDays}일 집행 · 방문 {num(adRows.total.visits)}</p>
               </div>
               {/* 전환이 얼마나 일어났는지 */}
               <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
                 <p className="text-[13px] text-gray-500">전환 (견적 신청)</p>
                 <p className="mt-1 text-[24px] font-extrabold leading-none text-emerald-600">
-                  {num(adRows.total.conversions)}<span className="ml-1 text-[14px] font-bold text-gray-400">건</span>
+                  <RollingNumber value={adRows.total.conversions} /><span className="ml-1 text-[14px] font-bold text-gray-400">건</span>
                 </p>
                 <p className="mt-1.5 text-[12px] text-gray-400">
                   전환율 {adRows.total.visits > 0 ? pct(adRows.total.conversions / adRows.total.visits) : '—'}
@@ -580,7 +584,7 @@ export default function LandingAnalyticsPage() {
                 <p className="text-[13px] text-gray-500">전환 1건당 비용</p>
                 <p className="mt-1 text-[24px] font-extrabold leading-none text-[#3182F6]">
                   {adRows.total.conversions > 0 && adRows.total.spend > 0
-                    ? won(adRows.total.spend / adRows.total.conversions) : '—'}
+                    ? <WonRoll n={adRows.total.spend / adRows.total.conversions} /> : '—'}
                 </p>
                 <p className="mt-1.5 text-[12px] text-gray-400">
                   방문당 {adRows.total.visits > 0 && adRows.total.spend > 0 ? won(adRows.total.spend / adRows.total.visits) : '—'}
@@ -700,7 +704,7 @@ export default function LandingAnalyticsPage() {
       {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
       <div className="mb-8 rounded-[38px] bg-white p-5">
         <h3 className="mb-3 text-[14px] font-bold text-gray-800">방문 로그 <span className="font-medium text-gray-400">(최근순 · 어떤 경로로 유입됐는지)</span></h3>
-        <div className="overflow-x-auto">
+        <AdminTableScroll edge={false}>
           <table className="w-full min-w-[560px] text-[12.5px]">
             <thead>
               <tr className="border-b border-gray-100 text-[11px] text-gray-400">
@@ -728,7 +732,7 @@ export default function LandingAnalyticsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </AdminTableScroll>
       </div>
 
       {!loading && !data && <p className="text-center text-[14px] text-gray-400">데이터를 불러오지 못했습니다.</p>}

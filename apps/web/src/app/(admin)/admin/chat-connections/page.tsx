@@ -10,6 +10,8 @@ import { adminFetch } from '../_components/adminFetch';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminCollapse } from '../_components/AdminCollapse';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface ConnRow {
   id: string;
@@ -217,11 +219,13 @@ export default function ChatConnectionsPage() {
 
   useEffect(() => { fetchData(1, '', '전체', { startDate: '', endDate: '' }); fetchRespStats(); /* eslint-disable-next-line */ }, []);
 
+  // 숫자 칸 = 홈과 같은 다이얼(RollingNumber) — 비율은 서버 값 그대로(소수 있으면 한 자리)
+  const pct = (v: number) => <><RollingNumber value={v} decimals={Number.isInteger(v) ? 0 : 1} />%</>;
   const statCards = stats ? [
-    { label: '전체 연결', value: stats.totalConnections.toLocaleString(), sub: '사회자↔유저 채팅방', tone: 'text-[#191F28]' },
-    { label: '대화 성사율', value: `${stats.chatRate}%`, sub: `${stats.chatted.toLocaleString()}건 대화 오감`, tone: 'text-[#3182F6]' },
-    { label: '견적 전환율', value: `${stats.quoteRate}%`, sub: `${stats.quoted.toLocaleString()}건 견적 발송`, tone: 'text-[#8B5CF6]' },
-    { label: '결제 전환율', value: `${stats.paidRate}%`, sub: `${stats.paid.toLocaleString()}건 결제 완료`, tone: 'text-[#16A34A]' },
+    { label: '전체 연결', value: <RollingNumber value={stats.totalConnections} />, sub: '사회자↔유저 채팅방', tone: 'text-[#191F28]' },
+    { label: '대화 성사율', value: pct(stats.chatRate), sub: `${stats.chatted.toLocaleString()}건 대화 오감`, tone: 'text-[#3182F6]' },
+    { label: '견적 전환율', value: pct(stats.quoteRate), sub: `${stats.quoted.toLocaleString()}건 견적 발송`, tone: 'text-[#8B5CF6]' },
+    { label: '결제 전환율', value: pct(stats.paidRate), sub: `${stats.paid.toLocaleString()}건 결제 완료`, tone: 'text-[#16A34A]' },
   ] : [];
 
   // 머리 오른쪽 새로고침(종 옆) — 목록 + 응답 현황
@@ -229,56 +233,7 @@ export default function ChatConnectionsPage() {
 
   return (
     <div className="space-y-5">
-      {/* 도구막대 — 제목은 레이아웃 머리(채팅 매칭) */}
-      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
-              placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <div className="adm-chips">
-            {STATUS_TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
-                className={`adm-chip ${status === t.id ? 'on' : ''}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>건</span>
-        </div>
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
-        />
-      </div>
-
       <AdminErrorPanel error={lastError} label="채팅 매칭" />
-
-      {/* 매칭률 카드 */}
-      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
-        {statCards.map((c) => (
-          <div key={c.label} className="adm-stat">
-            <p className="adm-stat-label">{c.label}</p>
-            <p className={`adm-stat-value ${c.tone}`}>{c.value}</p>
-            <p className="adm-stat-sub">{c.sub}</p>
-          </div>
-        ))}
-        {!stats && Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="adm-skel h-[118px] rounded-[20px]" />
-        ))}
-      </div>
 
       {/* 사회자별 응답 현황 — 평균 5분 기준 2분류(잘하고 있음 / 단도리), 승인된 전 사회자. 접어 두고 머리를 누르면 펼친다 */}
       <div className="adm-card">
@@ -317,7 +272,7 @@ export default function ChatConnectionsPage() {
                   <div className="rounded-[16px] bg-[#E5F8EF] p-3.5">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="text-[14px] font-bold text-emerald-700">잘하고 있음</span>
-                      <span className="text-[12px] font-bold text-emerald-600">{respGroups.good.length}명</span>
+                      <span className="text-[12px] font-bold text-emerald-600"><RollingNumber value={respGroups.good.length} />명</span>
                       <span className="text-[11px] font-medium text-emerald-500/70">통상 답장 5분 이내</span>
                     </div>
                     <div className="text-emerald-700"><Grid items={respGroups.good} tone="good" empty="아직 없음" /></div>
@@ -326,7 +281,7 @@ export default function ChatConnectionsPage() {
                   <div className="rounded-[16px] bg-[#FFEEEF] p-3.5">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="text-[14px] font-bold text-red-700">단도리 필요</span>
-                      <span className="text-[12px] font-bold text-red-600">{respGroups.attention.length}명</span>
+                      <span className="text-[12px] font-bold text-red-600"><RollingNumber value={respGroups.attention.length} />명</span>
                       <span className="text-[11px] font-medium text-red-500/70">통상 답장 5분 초과 · 요청 없음</span>
                     </div>
                     <div className="text-red-700"><Grid items={respGroups.attention} tone="attention" empty="아직 없음" /></div>
@@ -336,7 +291,7 @@ export default function ChatConnectionsPage() {
                     <div className="rounded-[16px] bg-[#F2F4F6] p-3.5">
                       <button type="button" onClick={() => setGalioOpen((v) => !v)} aria-expanded={galioOpen} className="flex w-full items-center gap-2 text-left">
                         <span className="text-[14px] font-bold text-[#4E5968]">갈리오&lt;</span>
-                        <span className="text-[12px] font-bold text-[#6B7684]">{respGroups.galio.length}명</span>
+                        <span className="text-[12px] font-bold text-[#6B7684]"><RollingNumber value={respGroups.galio.length} />명</span>
                         <span className="text-[11px] font-medium text-[#8B95A1]">요청 받고 답장 0</span>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`adm-resp-chev ml-auto ${galioOpen ? 'on' : ''}`}>
                           <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -355,10 +310,58 @@ export default function ChatConnectionsPage() {
         </div>
       </div>
 
-      {/* 연결 목록 (행 클릭 → 대화 내역) */}
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1150px] text-left">
+      {/* 매칭률 카드 — 조회기간에 따라 바뀌는 숫자라 거르기(목록 카드 맨 위) 바로 위에 붙여 둔다.
+          응답 현황(조회기간과 무관한 최근 1주)은 그 위로(261005 — 필터가 숫자에서 멀리 떨어져 바꾸면 화면 밖 숫자가 말없이 바뀌던 것) */}
+      <div className="adm-grid adm-rise grid-cols-2 lg:grid-cols-4">
+        {statCards.map((c) => (
+          <div key={c.label} className="adm-stat">
+            <p className="adm-stat-label">{c.label}</p>
+            <p className={`adm-stat-value ${c.tone}`}>{c.value}</p>
+            <p className="adm-stat-sub">{c.sub}</p>
+          </div>
+        ))}
+        {!stats && Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="adm-skel h-[118px] rounded-[20px]" />
+        ))}
+      </div>
+
+      {/* 검색·거르기·조회기간 + 연결 목록 = 한 카드(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘') · 행 클릭 → 대화 내역 */}
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchData(1, search, status, dateRange); } }}
+                placeholder="고객 이름·연락처 또는 사회자 이름 (Enter)"
+                className="adm-input"
+              />
+            </label>
+            <div className="adm-chips">
+              {STATUS_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { setStatus(t.id); setPage(1); fetchData(1, search, t.id, dateRange); }}
+                  className={`adm-chip ${status === t.id ? 'on' : ''}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>건</span>
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => { setDateRange(range); setPage(1); fetchData(1, search, status, range); }}
+          />
+        </>}
+      >
+        <AdminTableScroll>
+          <table className="w-full min-w-[1000px] text-left">
             <thead>
               <tr>
                 <th className="px-4 py-3">고객</th>
@@ -427,8 +430,8 @@ export default function ChatConnectionsPage() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
+      </AdminListCard>
 
       {rows.length < total && (
         <div className="flex justify-center">

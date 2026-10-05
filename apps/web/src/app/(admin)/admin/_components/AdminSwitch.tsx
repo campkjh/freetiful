@@ -6,6 +6,8 @@ type AdminSwitchProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  /** 저장 중 — 눌러도 안 바뀌지만 포커스는 그대로(키보드로 누른 사람이 자리를 잃지 않게 native disabled 대신 aria-disabled) */
+  busy?: boolean;
   label?: ReactNode;
   ariaLabel?: string;
   className?: string;
@@ -16,6 +18,7 @@ export function AdminSwitch({
   checked,
   onChange,
   disabled = false,
+  busy = false,
   label,
   ariaLabel,
   className = '',
@@ -27,9 +30,11 @@ export function AdminSwitch({
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel || (typeof label === 'string' ? label : '토글')}
+      aria-disabled={busy || undefined}
+      aria-busy={busy || undefined}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`admin-ios-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:cursor-not-allowed disabled:opacity-45 ${className}`}
+      onClick={() => { if (!busy) onChange(!checked); }}
+      className={`admin-ios-switch relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-[3px] transition-[background-color,box-shadow,opacity] duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#3180F7]/15 disabled:cursor-not-allowed disabled:opacity-45 ${busy ? 'cursor-progress opacity-70' : ''} ${className}`}
       style={{
         backgroundColor: checked ? '#3180F7' : '#D1D6DB',
         boxShadow: checked

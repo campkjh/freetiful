@@ -1,6 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { HelpCircle } from '@/app/(admin)/admin/_components/admin-icons';
 
 export const ADMIN_TERM_TOOLTIPS: Record<string, string> = {
@@ -45,6 +46,7 @@ export const ADMIN_TERM_TOOLTIPS: Record<string, string> = {
   '프로필상태': '사회자 프로필이 작성중, 승인대기, 승인, 반려, 중지 중 어디에 있는지 나타냅니다.',
   추천: '홈 또는 목록에서 추천 사회자로 우선 노출하는 설정입니다.',
   '추천 노출': '켜면 관리자 지정 추천 영역에 사회자가 노출됩니다.',
+  '퀵매칭 노출': '켜면 퀵매칭 첫 화면(지정 사회자)에 나와요. 지정 사회자에게 간 퀵매칭 신청에만 고객 번호가 공개돼요.',
   로고: '파트너스 또는 제휴 로고 노출 여부입니다.',
   '파트너로고 노출': '켜면 사회자 프로필에 파트너 로고를 노출합니다.',
   노출: '켜면 사용자 화면에 보이고, 끄면 관리자에서만 관리됩니다.',
@@ -100,6 +102,12 @@ function findTooltip(term: string) {
   return ADMIN_TERM_TOOLTIPS[trimmed] || ADMIN_TERM_TOOLTIPS[trimmed.toLowerCase()] || null;
 }
 
+const TIP_W = 240;
+
+/** 도움말 '?' — 말풍선은 body 포털에 fixed 로 띄운다(261005 사장 '횡스크롤하면 표가 짤리는 느낌').
+ *  예전엔 표 머리 칸 안에 투명한 240px 말풍선을 absolute 로 늘 깔아 둬서, 안 보여도 표 가로 스크롤 칸(overflow-x)을
+ *  표보다 넓혔다 → 스크롤하면 표가 왼쪽으로 밀려나고 오른쪽에 빈 띠, 마지막 칸이 끝에 안 닿았다. 펼쳐도 스크롤 칸에 잘렸다.
+ *  이제 숨을 땐 DOM 에 없고, 보일 땐 화면 기준으로 떠서 어떤 스크롤 칸에도 안 걸린다. */
 export function AdminHelpTooltip({
   label,
   description,
@@ -109,19 +117,61 @@ export function AdminHelpTooltip({
   description: string;
   className?: string;
 }) {
+  const tipId = useId();
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const [shown, setShown] = useState(false);
+
+  const open = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - TIP_W / 2), Math.max(8, vw - TIP_W - 8));
+    // 아래 자리가 모자라면(화면 아래 120px 안) 위로 띄운다
+    if (window.innerHeight - r.bottom < 120 && r.top > 120) setPos({ left, bottom: window.innerHeight - r.top + 8 });
+    else setPos({ left, top: r.bottom + 8 });
+  }, []);
+  const close = useCallback(() => { setShown(false); setPos(null); }, []);
+
+  // 뜬 다음 프레임에 투명도 전환(스르르) · 스크롤·크기 바뀌면 닫는다(fixed 라 따라가지 않으니)
+  useEffect(() => {
+    if (!pos) return;
+    const raf = requestAnimationFrame(() => setShown(true));
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [pos, close]);
+
   return (
     <span
+      ref={anchorRef}
       tabIndex={0}
       aria-label={`${label} 도움말`}
-      className={`group/help relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center align-middle text-[#8B95A1] outline-none ${className}`}
+      aria-describedby={pos ? tipId : undefined}
+      onMouseEnter={open}
+      onMouseLeave={close}
+      onFocus={open}
+      onBlur={close}
+      onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
+      className={`relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center align-middle text-[#8B95A1] outline-none focus-visible:rounded-full focus-visible:ring-2 focus-visible:ring-[#3182F6]/40 ${className}`}
     >
       <HelpCircle size={14} strokeWidth={2.2} aria-hidden="true" />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute left-1/2 top-[calc(100%+8px)] z-50 w-[240px] -translate-x-1/2 rounded-xl bg-[#191F28] px-3 py-2 text-left text-[12px] font-normal leading-[1.55] tracking-normal text-white opacity-0 shadow-[0_12px_28px_rgba(15,23,42,0.22)] ring-1 ring-white/10 transition-all duration-150 group-hover/help:translate-y-0 group-hover/help:opacity-100 group-focus/help:translate-y-0 group-focus/help:opacity-100"
-      >
-        {description}
-      </span>
+      {pos && typeof document !== 'undefined' && createPortal(
+        <span
+          id={tipId}
+          role="tooltip"
+          style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: TIP_W, zIndex: 80 }}
+          className={`pointer-events-none rounded-xl bg-[#191F28] px-3 py-2 text-left text-[12px] font-normal leading-[1.55] tracking-normal text-white shadow-[0_12px_28px_rgba(15,23,42,0.22)] ring-1 ring-white/10 transition-[opacity,transform] duration-150 ${shown ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'}`}
+        >
+          {description}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }

@@ -12,6 +12,8 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { adminConfirm } from '../_components/adminDialog';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface UserItem {
   id: string;
@@ -296,10 +298,10 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        <div className="admin-list-card">
-          {/* 검색·조회기간 = 유저 표와 한 카드(2026-10-05 사장 '필터링 및 검색 섹션과 유저테이블 화면 합쳐줘').
-              제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다. 아래 줄로 표와 가른다 */}
-          <div className="adm-filter" style={{ borderRadius: 0, boxShadow: 'inset 0 -1px 0 #F2F4F6' }}>
+        {/* 검색·조회기간 = 유저 표와 한 카드(2026-10-05 사장 '필터링 및 검색 섹션과 유저테이블 화면 합쳐줘') — AdminListCard.
+            제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다 */}
+        <AdminListCard
+          filter={<>
             <div className="adm-toolbar">
               <label className="adm-search grow">
                 <Search size={17} />
@@ -312,7 +314,7 @@ export default function AdminUsersPage() {
                   className="adm-input"
                 />
               </label>
-              <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
+              <span className="adm-count">총 <b><RollingNumber value={total} /></b>명</span>
               <AdminExportButton loading={exporting} onClick={handleExport} />
             </div>
             <AdminDateFilter
@@ -323,8 +325,9 @@ export default function AdminUsersPage() {
                 fetchUsers(1, search, filterRole, range);
               }}
             />
-          </div>
-          <div className="overflow-x-auto">
+          </>}
+        >
+          <AdminTableScroll>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
@@ -454,7 +457,7 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </AdminTableScroll>
 
           <AdminInfiniteScroll
             hasMore={hasMore}
@@ -467,7 +470,7 @@ export default function AdminUsersPage() {
             }}
             itemLabel="명"
           />
-        </div>
+        </AdminListCard>
     </div>
   );
 }

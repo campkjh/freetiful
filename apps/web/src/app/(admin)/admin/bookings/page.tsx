@@ -8,6 +8,7 @@ import { AdminExportButton, exportRowsToXls, fetchAllAdminRows, formatExportDate
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 
 interface BookingItem {
   id: string;
@@ -264,36 +265,38 @@ export default function AdminBookingsPage() {
         </div>
       </div>
 
-      <div className="admin-toolbar flex flex-wrap gap-2 p-3">
-        {FILTERS.map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => {
-              setFilter(value);
+      <AdminListCard
+        filter={<>
+          <div className="flex flex-wrap gap-2 p-3">
+            {FILTERS.map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => {
+                  setFilter(value);
+                  setPage(1);
+                  fetchData(1, value, dateRange);
+                }}
+                className={`admin-chip px-3.5 text-[12px] ${
+                  filter === value
+                    ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
+                    : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <AdminDateFilter
+            value={dateRange}
+            onApply={(range) => {
+              setDateRange(range);
               setPage(1);
-              fetchData(1, value, dateRange);
+              fetchData(1, filter, range);
             }}
-            className={`admin-chip px-3.5 text-[12px] ${
-              filter === value
-                ? 'bg-[#191F28] text-white shadow-[0_8px_18px_rgba(25,31,40,0.14)]'
-                : 'bg-[#F2F4F6] text-[#6B7684] hover:bg-[#E5E8EB] hover:text-[#191F28]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <AdminDateFilter
-        value={dateRange}
-        onApply={(range) => {
-          setDateRange(range);
-          setPage(1);
-          fetchData(1, filter, range);
-        }}
-      />
-
-      <div className="admin-list-card overflow-x-auto">
+          />
+        </>}
+      >
+        <AdminTableScroll>
         <table className="w-full text-[13px]">
           <thead className="border-b border-[#F2F4F6] bg-[#FBFCFD]">
             <tr>
@@ -365,6 +368,7 @@ export default function AdminBookingsPage() {
             )}
           </tbody>
         </table>
+        </AdminTableScroll>
         <AdminInfiniteScroll
           hasMore={hasMore}
           loading={loadingMore}
@@ -375,7 +379,7 @@ export default function AdminBookingsPage() {
             fetchData(page + 1, filter, dateRange, true);
           }}
         />
-      </div>
+      </AdminListCard>
     </div>
   );
 }

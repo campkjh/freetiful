@@ -11,6 +11,8 @@ import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { formatKstDateTime } from '../_components/adminEvent';
 import { AuthorCell, CommunityStats, POST_TYPE_LABEL, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor, type CGroup } from '../_components/communityAdmin';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
+import { RollingNumber } from '../_components/AdminNumber';
 
 interface PostRow {
   id: string;
@@ -113,60 +115,59 @@ export default function AdminCommunityPostsPage() {
     <div className="space-y-5">
       <CommunityStats />
 
-      {/* 검색·거르기 + 조회기간 = 한 카드 */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, groupId, range: dateRange, kind }); }}
-              placeholder="제목·내용 검색 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <div className="adm-chips">
-            {STATUS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange, kind }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <select
-            value={groupId}
-            onChange={(e) => { setGroupId(e.target.value); fetchRows(1, { q, status, groupId: e.target.value, range: dateRange, kind }); }}
-            className="adm-input sm adm-select-sm"
-            aria-label="카테고리"
-          >
-            <option value="">모든 카테고리</option>
-            {groups.map((g) => (
-              <optgroup key={g.id} label={g.name}>
-                <option value={g.id}>{g.name} 전체</option>
-                {g.children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          <select
-            value={kind}
-            onChange={(e) => { setKind(e.target.value); fetchRows(1, { q, status, groupId, range: dateRange, kind: e.target.value }); }}
-            className="adm-input sm adm-select-sm"
-            aria-label="작성 주체"
-          >
-            <option value="">회원 글 + 운영 글</option>
-            <option value="member">회원 글만</option>
-            <option value="operator">운영 글만</option>
-          </select>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>개</span>
-        </div>
-        <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, groupId, range, kind }); }} />
-      </div>
-
       <AdminErrorPanel error={lastError} label="커뮤니티 글" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, groupId, range: dateRange, kind }); }}
+                placeholder="제목·내용 검색 (Enter)"
+                className="adm-input"
+              />
+            </label>
+            <div className="adm-chips">
+              {STATUS.map(([k, label]) => (
+                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, groupId, range: dateRange, kind }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={groupId}
+              onChange={(e) => { setGroupId(e.target.value); fetchRows(1, { q, status, groupId: e.target.value, range: dateRange, kind }); }}
+              className="adm-input sm adm-select-sm"
+              aria-label="카테고리"
+            >
+              <option value="">모든 카테고리</option>
+              {groups.map((g) => (
+                <optgroup key={g.id} label={g.name}>
+                  <option value={g.id}>{g.name} 전체</option>
+                  {g.children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+            <select
+              value={kind}
+              onChange={(e) => { setKind(e.target.value); fetchRows(1, { q, status, groupId, range: dateRange, kind: e.target.value }); }}
+              className="adm-input sm adm-select-sm"
+              aria-label="작성 주체"
+            >
+              <option value="">회원 글 + 운영 글</option>
+              <option value="member">회원 글만</option>
+              <option value="operator">운영 글만</option>
+            </select>
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
+          </div>
+          <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, groupId, range, kind }); }} />
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -223,19 +224,19 @@ export default function AdminCommunityPostsPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { q, status, groupId, range: dateRange, kind }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { q, status, groupId, range: dateRange, kind }, true);
+          }}
+        />
+      </AdminListCard>
 
       {nick.modal}
       {openId && (

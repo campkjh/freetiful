@@ -11,6 +11,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { AuthorCell, CommunityStats, PostDrawer, ago, notifyCommunityChanged, renameAuthorIn, useNicknameChanged, useNicknameEditor, type CAuthor } from '../../_components/communityAdmin';
+import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
+import { RollingNumber } from '../../_components/AdminNumber';
 
 interface CommentRow {
   id: string;
@@ -98,35 +100,35 @@ export default function AdminCommunityCommentsPage() {
     <div className="space-y-5">
       <CommunityStats />
 
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, range: dateRange }); }}
-              placeholder="댓글 내용 검색 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <div className="adm-chips">
-            {STATUS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, range: dateRange }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>개</span>
-        </div>
-        <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, range }); }} />
-      </div>
-
       <AdminErrorPanel error={lastError} label="커뮤니티 댓글" />
 
-      <div className="adm-card flush">
-        <div className="overflow-x-auto">
+      <AdminListCard
+        filter={<>
+          <div className="adm-toolbar">
+            <label className="adm-search grow">
+              <Search size={17} />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') fetchRows(1, { q, status, range: dateRange }); }}
+                placeholder="댓글 내용 검색 (Enter)"
+                className="adm-input"
+              />
+            </label>
+            <div className="adm-chips">
+              {STATUS.map(([k, label]) => (
+                <button key={k} type="button" onClick={() => { setStatus(k); fetchRows(1, { q, status: k, range: dateRange }); }} className={`adm-chip ${status === k ? 'on' : ''}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="adm-count">총 <b><RollingNumber value={total} /></b>개</span>
+          </div>
+          <AdminDateFilter value={dateRange} onApply={(range) => { setDateRange(range); fetchRows(1, { q, status, range }); }} />
+        </>}
+      >
+        <AdminTableScroll>
           <table className="adm-table">
             <thead>
               <tr>
@@ -170,19 +172,19 @@ export default function AdminCommunityCommentsPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </AdminTableScroll>
 
-      <AdminInfiniteScroll
-        hasMore={hasMore}
-        loading={loadingMore}
-        loaded={rows.length}
-        total={total}
-        onLoadMore={() => {
-          if (!hasMore || loading || loadingMore) return;
-          fetchRows(page + 1, { q, status, range: dateRange }, true);
-        }}
-      />
+        <AdminInfiniteScroll
+          hasMore={hasMore}
+          loading={loadingMore}
+          loaded={rows.length}
+          total={total}
+          onLoadMore={() => {
+            if (!hasMore || loading || loadingMore) return;
+            fetchRows(page + 1, { q, status, range: dateRange }, true);
+          }}
+        />
+      </AdminListCard>
 
       {nick.modal}
       {openId && <PostDrawer id={openId} onClose={() => setOpenId(null)} onPostChange={() => fetchRows(1)} />}
