@@ -33,7 +33,8 @@ import { isTestMetricsEnabled } from '../common/app-env';
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
  * 닉네임은 계정당 하나 — 댓글마다 다른 이름을 쓰면 한 사람이 여러 회원처럼 보여서(사칭·가짜 반응) 그렇게 만들지 않았다.
  */
-const CUSTOM_NICKNAME_EMAILS = new Set(['cbkyeong@naver.com', 'seeipssister@naver.com', 'campkjh@nate.com', 'hjalover@hanmail.net']);
+// 261006 사장: 차보경(cbkyeong@naver.com)·황지애(hjalover@hanmail.net) 운영진 → 일반 회원(이미 정한 닉네임은 회원 모양이라 그대로, 바꾸기·에디터 이름 올리기만 막힘)
+const CUSTOM_NICKNAME_EMAILS = new Set(['seeipssister@naver.com', 'campkjh@nate.com']);
 /** 운영진·사회자처럼 보이는 이름은 막는다 */
 /** 운영진 에디터 계정 — 허용 계정(CUSTOM_NICKNAME_EMAILS)은 글·댓글을 이 이름으로 올릴 수 있다(260930 사장).
  *  이름에 '프리티풀'이 붙어 운영진 글로 보인다(회원인 척이 아님). 실제로 쓴 계정은 postedById 에 남긴다. */
