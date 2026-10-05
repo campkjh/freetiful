@@ -25,7 +25,7 @@ import {
   BadgeKey,
   BadgeTone,
 } from './community.constants';
-import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname } from './community-nickname';
+import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname, memberCommunityDisplay } from './community-nickname';
 import { MEMBER_NICKNAME_BLOCK, OPERATOR_NAME_BLOCK, OPERATOR_ROLE_LABEL, looksLikeMemberNickname, memberNicknameProblem } from './community-operator';
 import { isTestMetricsEnabled } from '../common/app-env';
 
@@ -350,12 +350,12 @@ export class CommunityService implements OnModuleInit {
       if (keys.length === 0 && postN <= BADGE_THRESHOLDS.newbieMaxPosts) keys.push('newbie');
       const op = operators.get(u.id);
       const isOperator = !!op || EDITOR_PERSONA_IDS.includes(u.id);
+      // 일반 회원 = 실제 사진(카톡 등)이 있으면 실명 + 그 사진(261006 사장, 예전 글 포함), 없으면 정한 닉네임 → '사랑받는 오리' 식 자동 닉네임
+      const member = memberCommunityDisplay(u, customNick.get(u.id));
       map.set(u.id, {
-        // 운영 프로필은 그 계정 이름·사진(어드민 운영 프로필에서 정함), 일반 회원은 '사랑받는 오리' 식 닉네임(실명 대신),
-        // 사회자·업체·운영자는 이름 그대로 — community-nickname.ts
-        nickname: isOperator ? u.name || op?.nickname || '운영팀' : customNick.get(u.id)?.nickname || communityNickname(u),
-        // 웨딩숲 전용 사진(지정 계정이 고른 동물 친구)이 있으면 그걸로
-        avatar: isOperator ? u.profileImageUrl || op?.avatarUrl || null : customNick.get(u.id)?.avatarUrl || u.profileImageUrl || null,
+        // 운영 프로필은 그 계정 이름·사진(어드민 운영 프로필에서 정함), 사회자·업체·운영자는 이름 그대로 — community-nickname.ts
+        nickname: isOperator ? u.name || op?.nickname || '운영팀' : member.nickname,
+        avatar: isOperator ? u.profileImageUrl || op?.avatarUrl || null : member.avatar,
         isAdmin: u.role === 'admin',
         tier: tierForScore(score),
         isAnswerKing: answerKing.has(u.id),
@@ -612,10 +612,13 @@ export class CommunityService implements OnModuleInit {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, profileImageUrl: true } });
     if (!user) throw new NotFoundException('회원을 찾을 수 없어요');
     const own = (await this.customNicknames([userId])).get(userId);
+    const shown = memberCommunityDisplay(user, own);
     return {
-      nickname: own?.nickname || communityNickname(user),
+      nickname: shown.nickname,
       custom: own?.nickname || null,
-      avatar: own?.avatarUrl || user.profileImageUrl || null,
+      avatar: shown.avatar,
+      /** 실제 사진(카톡 등)이라 실명 + 그 사진으로 보인다(261006) */
+      realName: shown.real,
       customAvatar: own?.avatarUrl || null,
       canSetNickname: CUSTOM_NICKNAME_EMAILS.has(String(user.email || '').trim().toLowerCase()),
       // 허용 계정만 — 글·댓글을 올릴 수 있는 운영진 에디터 이름들
@@ -764,7 +767,8 @@ export class CommunityService implements OnModuleInit {
       const u = userMap.get(r.userId);
       const arr = map.get(r.postId) || [];
       const own = u ? customNick.get(u.id) : undefined;
-      arr.push({ userId: r.userId, nickname: u ? own?.nickname || communityNickname(u) : '회원', avatar: own?.avatarUrl || u?.profileImageUrl || null });
+      const shown = u ? memberCommunityDisplay(u, own) : null;
+      arr.push({ userId: r.userId, nickname: shown ? shown.nickname : '회원', avatar: shown ? shown.avatar : null });
       map.set(r.postId, arr);
     }
     return map;

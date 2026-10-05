@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, communityNickname } from '../community/community-nickname';
+import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, communityNickname, memberCommunityDisplay } from '../community/community-nickname';
 import { memberNicknameProblem } from '../community/community-operator';
 import { AdminActor, AdminAuditService } from './admin-audit.service';
 
@@ -64,12 +64,14 @@ export class AdminCommunityService {
       if (!u) return { id: r.userId, nickname: r.authorName || '(탈퇴한 사용자)', realName: null, role: null, avatar: r.authorAvatar || null, isOperator: false };
       const isOperator = opSet.has(u.id);
       const own = nickMap.get(u.id);
+      // 앱과 같은 이름·사진 — 실제 사진(카톡 등)이 있는 회원은 실명(261006)
+      const member = memberCommunityDisplay(u, own);
       return {
         id: u.id,
-        nickname: r.authorName || (isOperator ? u.name : own?.nickname || communityNickname(u)),
+        nickname: r.authorName || (isOperator ? u.name : member.nickname),
         realName: isOperator ? null : u.name || null,
         role: isOperator ? 'operator' : u.role || null,
-        avatar: r.authorAvatar || (isOperator ? u.profileImageUrl : own?.avatarUrl || u.profileImageUrl) || null,
+        avatar: r.authorAvatar || (isOperator ? u.profileImageUrl : member.avatar) || null,
         isOperator,
       };
     };
@@ -470,18 +472,20 @@ export class AdminCommunityService {
       const own = nickMap.get(u.id);
       const auto = communityNickname(u);
       const lc = lastChange.get(u.id);
-      const source = own ? (lc && lc.nickname === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name';
+      const shown = memberCommunityDisplay(u, own);
+      // 실제 사진(카톡 등) 회원은 실명으로 보여 '실명'(261006)
+      const source = shown.real ? 'name' : own ? (lc && lc.nickname === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name';
       const p = postMap.get(u.id);
       const c = commentMap.get(u.id);
       const last = [p?._max.createdAt, c?._max.createdAt].filter(Boolean).sort((a: any, b: any) => +b - +a)[0] || null;
       return {
         userId: u.id,
-        nickname: own?.nickname || auto,
+        nickname: shown.nickname,
         autoNickname: auto,
         source,
         realName: u.name || null,
         role: u.role,
-        avatar: own?.avatarUrl || u.profileImageUrl || null,
+        avatar: shown.avatar,
         posts: p?._count._all || 0,
         comments: c?._count._all || 0,
         lastActiveAt: last,
@@ -512,12 +516,13 @@ export class AdminCommunityService {
     const op = await this.prisma.communityOperatorProfile.findUnique({ where: { userId }, select: { id: true } });
     if (op) throw new BadRequestException('운영 프로필 이름은 운영 콘텐츠 › 운영 프로필에서 바꿔 주세요.');
     const own = await this.prisma.communityNickname.findUnique({ where: { userId } });
-    return { u, own, current: own?.nickname || communityNickname(u) };
+    const shown = memberCommunityDisplay(u, own);
+    return { u, own, current: shown.nickname, real: shown.real };
   }
 
   /** 한 사람 — 지금 이름 · 원래(자동) 이름 · 출처(바꾸기 창용) */
   async getNickname(userId: string) {
-    const { u, own, current } = await this.nicknameTarget(userId);
+    const { u, own, current, real } = await this.nicknameTarget(userId);
     const last = own
       ? await this.prisma.adminAuditLog.findFirst({ where: { action: 'community.nickname_change', targetId: userId }, orderBy: { createdAt: 'desc' }, select: { afterState: true } })
       : null;
@@ -526,10 +531,10 @@ export class AdminCommunityService {
       userId,
       nickname: current,
       autoNickname: communityNickname(u),
-      source: own ? (lastNick === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name',
+      source: real ? 'name' : own ? (lastNick === own.nickname ? 'admin' : 'custom') : u.role === 'general' ? 'auto' : 'name',
       realName: u.name || null,
       role: u.role,
-      avatar: own?.avatarUrl || u.profileImageUrl || null,
+      avatar: real ? u.profileImageUrl || null : own?.avatarUrl || u.profileImageUrl || null,
     };
   }
 

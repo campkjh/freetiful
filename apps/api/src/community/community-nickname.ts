@@ -58,13 +58,40 @@ export type CommunityNicknameUser = {
   profileImageUrl?: string | null;
 };
 
-/** 웨딩숲에 보일 이름 — 일반 회원은 '꾸밈말 동물', 나머지는 원래 이름 */
+/**
+ * 실제 사진(카톡·네이버·직접 올린 사진 — 가입 때 무작위로 받은 동물 친구가 아님)인가.
+ * 있으면 웨딩숲에서 실명 + 그 사진으로 보인다(261006 사장 '카톡 프로필이 있으면 랜덤 프로필 말고 실제 이름', 예전 글 포함).
+ */
+export function hasRealProfilePhoto(url?: string | null): boolean {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  return !/\/images\/avatars\/animal-\d{2}\.webp|default-profile/i.test(u);
+}
+
+/** 웨딩숲에 보일 이름 — 일반 회원은 '꾸밈말 동물'(실제 사진이 있으면 실명), 나머지는 원래 이름 */
 export function communityNickname(user: CommunityNicknameUser): string {
   const name = (user.name || '').trim();
   if (!user.id || (user.role && user.role !== 'general') || STAFF_USER_IDS.has(user.id)) return name || '회원';
+  if (name && hasRealProfilePhoto(user.profileImageUrl)) return name;
   const avatar = /\/images\/avatars\/animal-(\d{2})\.webp/.exec(user.profileImageUrl || '');
   const avatarIndex = avatar ? Number(avatar[1]) - 1 : -1;
   const pool = [...AVATAR_ANIMALS, ...EXTRA_ANIMALS];
   const animal = avatarIndex >= 0 && avatarIndex < AVATAR_ANIMALS.length ? AVATAR_ANIMALS[avatarIndex] : pool[hash32(user.id, 1) % pool.length];
   return `${MODIFIERS[hash32(user.id, 0) % MODIFIERS.length]} ${animal}`;
+}
+
+/**
+ * 웨딩숲에 보일 회원 이름·사진 — 실제 사진(카톡 등)이 있는 일반 회원은 실명 + 그 사진(직접 정한·관리자가 바꾼 닉네임보다 앞),
+ * 아니면 정한 닉네임·사진 → 자동 '꾸밈말 동물'. 사회자·업체 등은 원래 이름.
+ */
+export function memberCommunityDisplay(
+  user: CommunityNicknameUser,
+  own?: { nickname?: string | null; avatarUrl?: string | null } | null,
+): { nickname: string; avatar: string | null; real: boolean } {
+  const name = (user.name || '').trim();
+  const general = !user.role || user.role === 'general';
+  if (general && name && user.id && !STAFF_USER_IDS.has(user.id) && hasRealProfilePhoto(user.profileImageUrl)) {
+    return { nickname: name, avatar: user.profileImageUrl || null, real: true };
+  }
+  return { nickname: own?.nickname || communityNickname(user), avatar: own?.avatarUrl || user.profileImageUrl || null, real: false };
 }
