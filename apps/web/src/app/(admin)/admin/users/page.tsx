@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Trash2, AlertTriangle, Archive } from '@/app/(admin)/admin/_components/admin-icons';
+import { Search, Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -12,7 +12,6 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { adminConfirm } from '../_components/adminDialog';
-import { AdminCollapse } from '../_components/AdminCollapse';
 
 interface UserItem {
   id: string;
@@ -52,7 +51,6 @@ function parseUsersPayload(data: any): { rows: UserItem[]; total: number } {
 }
 
 /** 권한 칩(회원 관리 · 유저 탭) */
-const ROLE_FILTERS: Array<[string, string]> = [['전체', '전체'], ['general', '고객'], ['pro', '사회자'], ['business', '비즈'], ['admin', '관리자']];
 const DEVICE_TONE: Record<string, string> = { ios: 'blue', android: 'green', web: '' };
 /** 사회자 프로필 상태 → [이름, 뱃지 색] */
 const PRO_STATUS: Record<string, [string, string]> = {
@@ -88,7 +86,8 @@ export default function AdminUsersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterRole, setFilterRole] = useState('전체');
+  /* 권한 탭(전체·고객·사회자·비즈·관리자)은 뺐다(2026-10-05 사장) — 늘 전체. 서버 거르기 인자는 그대로 둔다 */
+  const filterRole: string = '전체';
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
@@ -224,37 +223,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  // 중복 진단 섹션
-  const [diagOpen, setDiagOpen] = useState(false);
-  const [diagQuery, setDiagQuery] = useState('');
-  const [diagResult, setDiagResult] = useState<any[]>([]);
-  const [diagLoading, setDiagLoading] = useState(false);
-
-  const runDiag = async () => {
-    if (!diagQuery.trim()) { toast.error('이메일 또는 이름을 입력하세요'); return; }
-    setDiagLoading(true);
-    try {
-      const data = await adminFetch('GET', `/api/v1/admin/users/diagnose?email=${encodeURIComponent(diagQuery.trim())}`);
-      setDiagResult(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      toast.error(`진단 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    } finally {
-      setDiagLoading(false);
-    }
-  };
-
-  const handleArchive = async (userId: string, name: string) => {
-    if (!(await adminConfirm(`${name}님 계정을 보관처리하시겠습니까? email 이 archived-... 로 변경되고 isActive=false 됩니다. 연관 데이터는 유지됩니다.`))) return;
-    try {
-      await adminFetch('PATCH', `/api/v1/admin/users/${userId}/archive`);
-      toast.success('보관처리되었습니다');
-      runDiag();
-      fetchUsers(1, search, filterRole, dateRange);
-    } catch (e: any) {
-      toast.error(`보관처리 실패: ${e?.response?.data?.message || e?.message || ''}`);
-    }
-  };
-
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -300,139 +268,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-5">
-      {/* 도구막대 — 제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다 */}
-      {/* 검색·거르기 + 조회기간 = 한 덩어리(261004 사장 '조회기간 섹션이랑 합쳐져야 해') */}
-      <div className="adm-filter">
-        <div className="adm-toolbar">
-          <label className="adm-search grow">
-            <Search size={17} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
-              placeholder="이름 또는 이메일 검색 (Enter)"
-              className="adm-input"
-            />
-          </label>
-          <div className="adm-chips">
-            {ROLE_FILTERS.map(([r, label]) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => { setFilterRole(r); setPage(1); fetchUsers(1, search, r, dateRange); }}
-                className={`adm-chip ${filterRole === r ? 'on' : ''}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
-          <AdminExportButton loading={exporting} onClick={handleExport} />
-        </div>
-        <AdminDateFilter
-          value={dateRange}
-          onApply={(range) => {
-            setDateRange(range);
-            setPage(1);
-            fetchUsers(1, search, filterRole, range);
-          }}
-        />
-      </div>
-
         <AdminErrorPanel error={lastError} label="유저 목록" />
-
-        {/* 중복 진단 섹션 */}
-        <div className="adm-fold">
-          <button type="button" onClick={() => setDiagOpen((v) => !v)} className="adm-fold-head" aria-expanded={diagOpen}>
-            <span className="adm-fold-ic"><AlertTriangle size={16} /></span>
-            <span className="adm-fold-title">중복 계정 진단</span>
-            <span className="adm-fold-sub">같은 이메일·이름으로 계정이 여럿인지 찾아 보관 처리해요</span>
-            <span className={`adm-fold-chev ${diagOpen ? 'on' : ''}`} aria-hidden>⌄</span>
-          </button>
-          <AdminCollapse open={diagOpen}>
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={diagQuery}
-                  onChange={(e) => setDiagQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') runDiag(); }}
-                  placeholder="이메일 일부 또는 이름 (예: campkjh, 김정훈)"
-                  className="flex-1 h-10 border border-amber-300 rounded-lg px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-200"
-                />
-                <button onClick={runDiag} disabled={diagLoading} className="px-4 h-10 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50">
-                  {diagLoading ? '검색 중' : '진단'}
-                </button>
-              </div>
-              {diagResult.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-amber-700">{diagResult.length}개 계정 발견. 데이터가 많은 쪽을 남기고 빈 쪽을 "보관처리" 하세요.</p>
-                  {diagResult.map((u) => (
-                    <div key={u.id} className="bg-white rounded-lg border border-amber-200 p-3 text-xs">
-                      <div className="flex items-start gap-3">
-                        <img
-                          src={u.profileImageUrl || '/images/default-profile.png'}
-                          alt={u.name}
-                          className="w-10 h-10 rounded-full object-cover bg-gray-100 shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-profile.png'; }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold text-gray-900">{u.name}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${u.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>{u.isActive ? 'active' : 'inactive'}</span>
-                            <span className="text-gray-400">· {u.role}</span>
-                          </div>
-                          <p className="text-gray-600 break-all">📧 {u.email || '(이메일 없음)'}</p>
-                          <p className="text-gray-600">📱 {u.phone || '(전화 없음)'}</p>
-                          <p className="text-gray-500 mt-1">
-                            가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')} ·
-                            Auth: {u.authProviders?.map((a: any) => a.provider).join(', ') || 'none'}
-                          </p>
-                          {u.proProfile ? (
-                            <div className="mt-2 p-2 bg-blue-50 rounded">
-                              <p className="font-bold text-blue-700">프로프로필 [{u.proProfile.status}]</p>
-                              <p className="text-blue-600">
-                                사진 {u.proProfile._count.images} · 서비스 {u.proProfile._count.services} ·
-                                리뷰 {u.proProfile._count.reviews} · 견적 {u.proProfile._count.quotations} ·
-                                점수 {u.proProfileScore}
-                              </p>
-                              <p className="text-blue-600 truncate">{u.proProfile.shortIntro || '(소개 없음)'}</p>
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-gray-400">프로프로필 없음</p>
-                          )}
-                          <p className="text-gray-500 mt-1">
-                            채팅방 {u._count.chatRooms} · 보낸메시지 {u._count.sentMessages} · 작성리뷰 {u._count.reviews}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          {u.proProfile && (
-                            <a
-                              href={`/admin/pros/${u.proProfile.id}/edit`}
-                              className="px-2 py-1 rounded bg-blue-50 text-blue-600 text-[11px] font-medium hover:bg-blue-100"
-                            >
-                              수정
-                            </a>
-                          )}
-                          <button
-                            onClick={() => handleArchive(u.id, u.name)}
-                            className="flex items-center gap-1 px-2 py-1 rounded bg-gray-100 text-gray-700 text-[11px] font-medium hover:bg-gray-200"
-                          >
-                            <Archive size={11} /> 보관
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!diagLoading && diagResult.length === 0 && diagQuery && (
-                <p className="text-xs text-amber-700">검색 결과 없음. 이메일 일부만 입력해보세요 (예: campkjh)</p>
-              )}
-            </div>
-          </AdminCollapse>
-        </div>
 
         {selectedMap.size > 0 && (
           <div className="adm-selbar">
@@ -461,6 +297,33 @@ export default function AdminUsersPage() {
         )}
 
         <div className="admin-list-card">
+          {/* 검색·조회기간 = 유저 표와 한 카드(2026-10-05 사장 '필터링 및 검색 섹션과 유저테이블 화면 합쳐줘').
+              제목은 레이아웃 머리(회원 관리 · 유저 탭)가 그린다. 아래 줄로 표와 가른다 */}
+          <div className="adm-filter" style={{ borderRadius: 0, boxShadow: 'inset 0 -1px 0 #F2F4F6' }}>
+            <div className="adm-toolbar">
+              <label className="adm-search grow">
+                <Search size={17} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setPage(1); fetchUsers(1, search, filterRole, dateRange); } }}
+                  placeholder="이름 또는 이메일 검색 (Enter)"
+                  className="adm-input"
+                />
+              </label>
+              <span className="adm-count">총 <b>{total.toLocaleString()}</b>명</span>
+              <AdminExportButton loading={exporting} onClick={handleExport} />
+            </div>
+            <AdminDateFilter
+              value={dateRange}
+              onApply={(range) => {
+                setDateRange(range);
+                setPage(1);
+                fetchUsers(1, search, filterRole, range);
+              }}
+            />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
