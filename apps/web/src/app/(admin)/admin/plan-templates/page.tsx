@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls } from '../_components/AdminExportButton';
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface PlanTemplate {
   id: string;
@@ -71,7 +72,7 @@ export default function AdminPlanTemplatesPage() {
   };
 
   const removeItem = async (item: PlanTemplate) => {
-    if (!confirm(`"${item.label}" 플랜을 삭제하시겠습니까? 이미 등록된 프로들의 서비스는 유지됩니다.`)) return;
+    if (!(await adminConfirm(`"${item.label}" 플랜을 삭제하시겠습니까? 이미 등록된 프로들의 서비스는 유지됩니다.`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/plan-templates/${item.id}`);
       toast.success('삭제됨');

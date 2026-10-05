@@ -9,6 +9,7 @@ import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFi
 import { adminFetch } from '../_components/adminFetch';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { AdminCollapse } from '../_components/AdminCollapse';
 
 interface ConnRow {
   id: string;
@@ -341,11 +342,11 @@ export default function ChatConnectionsPage() {
                           <path d="M6 9l6 6 6-6" stroke="#8B95A1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
-                      {galioOpen && (
-                        <div className="adm-resp-body mt-2 text-[#4E5968]">
+                      <AdminCollapse open={galioOpen}>
+                        <div className="pt-2 text-[#4E5968]">
                           <Grid items={respGroups.galio} tone="attention" empty="" />
                         </div>
-                      )}
+                      </AdminCollapse>
                     </div>
                   )}
                 </div>

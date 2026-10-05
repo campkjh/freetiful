@@ -9,6 +9,7 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { ENV_LABEL, REACTION_LABEL, STATUS_LABEL, useOperatorEnv, type RealStats } from '../../_components/operatorAdmin';
+import { adminConfirm } from '../../_components/adminDialog';
 
 interface MetricRow {
   id: string;
@@ -83,7 +84,7 @@ export default function AdminOperatorMetricsPage() {
     if (!Number.isInteger(value) || value < 0) { toast.error('0 이상 정수로 넣어 주세요'); return; }
     if (value >= r.stats.views) { toast.error('줄이는 보정만 할 수 있어요'); return; }
     if (fix.reason.trim().length < 5) { toast.error('사유를 5자 이상 적어 주세요'); return; }
-    if (!confirm(`조회수를 ${r.stats.views.toLocaleString()} → ${value.toLocaleString()} 로 보정할까요?\n변경 이력에 사유와 함께 남아요.`)) return;
+    if (!(await adminConfirm(`조회수를 ${r.stats.views.toLocaleString()} → ${value.toLocaleString()} 로 보정할까요?\n변경 이력에 사유와 함께 남아요.`))) return;
     setBusy(true);
     try {
       await adminFetch('PATCH', `/api/v1/admin/operator/metrics/${r.id}/views`, { value, reason: fix.reason.trim() });
@@ -113,7 +114,7 @@ export default function AdminOperatorMetricsPage() {
   };
 
   const resetAll = async () => {
-    if (!confirm('이 서버의 테스트 수치를 전부 지울까요?')) return;
+    if (!(await adminConfirm('이 서버의 테스트 수치를 전부 지울까요?'))) return;
     try {
       const r = await adminFetch('POST', '/api/v1/admin/test-metrics/reset-all');
       toast.success(`${r.deleted}개 글의 테스트 수치를 지웠어요`);

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface Faq {
   id: string;
@@ -85,7 +86,7 @@ export default function AdminFaqsPage() {
   };
 
   const deleteItem = async (item: Faq) => {
-    if (!confirm(`"${item.question}" FAQ를 삭제하시겠습니까?`)) return;
+    if (!(await adminConfirm(`"${item.question}" FAQ를 삭제하시겠습니까?`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/faqs/${item.id}`);
       toast.success('삭제됨');

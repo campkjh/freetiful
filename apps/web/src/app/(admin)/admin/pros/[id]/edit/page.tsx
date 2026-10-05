@@ -10,6 +10,8 @@ import { adminFetch, clearAdminFetchCache } from '../../../_components/adminFetc
 import { readImageAsCompressedDataUrl } from '@/lib/image-data-url';
 import { useAuthStore } from '@/lib/store/auth.store';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/admin/RichTextEditor';
+import { adminConfirm } from '../../../_components/adminDialog';
+import { AdminCollapse, AdminCollapseKeep } from '../../../_components/AdminCollapse';
 
 /* ─── Constants (pro-edit와 동일) ─── */
 const WEDDING_TAGS = ['결혼식', '돌잔치', '회갑/칠순', '상견례'];
@@ -56,15 +58,13 @@ function Section({
         {open ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
       </button>
       {keepMounted ? (
-        <div className="overflow-hidden" style={open ? undefined : { display: 'none' }}>
+        <AdminCollapseKeep open={open}>
           <div className="px-5 pb-5">{children}</div>
-        </div>
+        </AdminCollapseKeep>
       ) : (
-        open && (
-          <div className="overflow-hidden">
-            <div className="px-5 pb-5">{children}</div>
-          </div>
-        )
+        <AdminCollapse open={open}>
+          <div className="px-5 pb-5">{children}</div>
+        </AdminCollapse>
       )}
     </div>
   );
@@ -313,7 +313,7 @@ export default function AdminProEditPage() {
   };
 
   const runAdminAction = async (label: string, method: string, path: string, body?: any, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await adminConfirm(confirmText))) return;
     try {
       await adminFetch(method, path, body);
       toast.success(label);

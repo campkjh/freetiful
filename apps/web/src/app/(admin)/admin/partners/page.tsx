@@ -18,6 +18,7 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminPartnersApi, type AdminPartnerListItem } from '@/lib/api/admin-partners.api';
 import { deriveBusinessTagSuggestions, normalizeBusinessTags } from '@/lib/business-tags';
+import { adminConfirm } from '../_components/adminDialog';
 
 const statusLabel: Record<string, { text: string; className: string }> = {
   approved: { text: '승인', className: 'bg-green-50 text-green-600' },
@@ -84,7 +85,7 @@ export default function AdminPartnersPage() {
   }, []);
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`"${name}" 업체를 삭제하시겠습니까?\n(이미지/카테고리 연결도 함께 삭제됩니다)`)) return;
+    if (!(await adminConfirm(`"${name}" 업체를 삭제하시겠습니까?\n(이미지/카테고리 연결도 함께 삭제됩니다)`))) return;
     try {
       await adminPartnersApi.remove(id);
       toast.success('삭제되었습니다');

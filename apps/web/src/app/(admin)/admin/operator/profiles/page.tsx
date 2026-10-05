@@ -9,6 +9,8 @@ import { adminFetch } from '../../_components/adminFetch';
 import { useAdminRefresh } from '../../_components/adminRefresh';
 import { formatKstDateTime } from '../../_components/adminEvent';
 import { OpAvatar, uploadAdminImage, type OperatorProfile } from '../../_components/operatorAdmin';
+import { adminConfirm } from '../../_components/adminDialog';
+import { AdminCollapse } from '../../_components/AdminCollapse';
 
 type Draft = { nickname: string; avatarUrl: string | null; bio: string };
 const EMPTY: Draft = { nickname: '', avatarUrl: null, bio: '' };
@@ -111,7 +113,7 @@ export default function AdminOperatorProfilesPage() {
   };
 
   const toggleActive = async (row: OperatorProfile, isActive: boolean) => {
-    if (!isActive && !confirm(`'${row.nickname}' 프로필을 쉬게 할까요?\n새 글을 쓸 수 없게 될 뿐, 이미 올린 글은 그대로 보여요.`)) return;
+    if (!isActive && !(await adminConfirm(`'${row.nickname}' 프로필을 쉬게 할까요?\n새 글을 쓸 수 없게 될 뿐, 이미 올린 글은 그대로 보여요.`))) return;
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, isActive } : r)));
     try {
       await adminFetch('PATCH', `/api/v1/admin/operator/profiles/${row.id}`, { isActive });
@@ -137,8 +139,8 @@ export default function AdminOperatorProfilesPage() {
         운영 프로필은 회원 계정을 빌리지 않는 운영팀 전용 이름이에요. 앱에서는 이 이름의 글·댓글에 늘 <b>&apos;운영팀&apos;</b> 표시가 붙고, 회원이 실제로 좋아요·댓글을 남길 수 있어요.
       </p>
 
-      {createOpen && (
-        <div className="adm-card adm-form">
+      <AdminCollapse open={createOpen}>
+        <div className="adm-card">
           <div className="adm-card-head">
             <div>
               <h2 className="adm-card-title">새 운영 프로필</h2>
@@ -148,7 +150,7 @@ export default function AdminOperatorProfilesPage() {
           </div>
           <ProfileFields draft={draft} setDraft={setDraft} />
         </div>
-      )}
+      </AdminCollapse>
 
       <AdminErrorPanel error={lastError} label="운영 프로필" />
 

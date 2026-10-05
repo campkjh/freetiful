@@ -76,4 +76,31 @@ export class AdminFunnelService {
       trackingSince: { home: s.get('home') || null, quickMatch: s.get('quick-match') || null },
     };
   }
+
+  /** 홈 '오늘 방문'(261005 사장 '오늘 홈페이지·앱 방문수') — 홈 화면을 연 기기(세션) 수, KST 오늘·어제·7일, 웹/앱 나눠서 */
+  async visitsToday() {
+    const KST = 9 * 3600000;
+    const DAY = 86400000;
+    const todayStart = new Date(Math.floor((Date.now() + KST) / DAY) * DAY - KST);
+    const yStart = new Date(todayStart.getTime() - DAY);
+    const d7Start = new Date(todayStart.getTime() - 6 * DAY);
+    const [rows, since] = await Promise.all([
+      this.prisma.$queryRaw<{ bucket: string; platform: string | null; n: number }[]>`
+        SELECT CASE WHEN "createdAt" >= ${todayStart} THEN 'today' WHEN "createdAt" >= ${yStart} THEN 'yesterday' ELSE 'older' END AS bucket,
+               platform, count(DISTINCT "sessionKey")::int AS n
+        FROM landing_visits WHERE page = 'home' AND "createdAt" >= ${d7Start}
+        GROUP BY 1, 2`,
+      this.prisma.$queryRaw<{ first: Date | null }[]>`SELECT min("createdAt") AS first FROM landing_visits WHERE page = 'home'`,
+    ]);
+    const sum = (pred: (r: { bucket: string; platform: string | null }) => boolean) => rows.filter(pred).reduce((a, r) => a + r.n, 0);
+    const isApp = (p: string | null) => p === 'ios-app' || p === 'android-app';
+    return {
+      today: sum((r) => r.bucket === 'today'),
+      todayWeb: sum((r) => r.bucket === 'today' && !isApp(r.platform)),
+      todayApp: sum((r) => r.bucket === 'today' && isApp(r.platform)),
+      yesterday: sum((r) => r.bucket === 'yesterday'),
+      last7d: sum(() => true),
+      since: since[0]?.first || null,
+    };
+  }
 }

@@ -5,6 +5,7 @@ import { GripVertical, ChevronUp, ChevronDown } from '@/app/(admin)/admin/_compo
 import toast from 'react-hot-toast';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface Pro {
   proProfileId: string;
@@ -85,7 +86,7 @@ export default function ProRankingPage() {
   };
 
   // 머리 오른쪽 새로고침(종 옆) — 저장 안 한 순서가 있으면 묻고
-  useAdminRefresh(() => { if (!dirty || window.confirm('저장하지 않은 순서가 있어요. 새로 불러올까요?')) load(); });
+  useAdminRefresh(async () => { if (!dirty || (await adminConfirm('저장하지 않은 순서가 있어요. 새로 불러올까요?'))) load(); });
 
   return (
     <div className="mx-auto max-w-[760px]">

@@ -11,6 +11,8 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { adminConfirm } from '../_components/adminDialog';
+import { AdminCollapse } from '../_components/AdminCollapse';
 
 interface UserItem {
   id: string;
@@ -124,7 +126,7 @@ export default function AdminUsersPage() {
     const message = role === 'pro'
       ? '이 유저를 사회자(pro)로 전환할까요? 프로필이 없으면 승인된 사회자 프로필이 자동 생성됩니다.'
       : `권한을 ${role}로 변경하시겠습니까?`;
-    if (!confirm(message)) return;
+    if (!(await adminConfirm(message))) return;
     try {
       const result = await adminFetch('PATCH', `/api/v1/admin/users/${id}/role`, { role });
       toast.success(role === 'pro' ? '사회자 계정으로 전환되었습니다' : '권한이 변경되었습니다');
@@ -137,7 +139,7 @@ export default function AdminUsersPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`${name}님을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+    if (!(await adminConfirm(`${name}님을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/users/${id}`);
       toast.success('삭제되었습니다');
@@ -187,9 +189,9 @@ export default function AdminUsersPage() {
       .join('\n');
     const more = targets.length > 15 ? `\n…외 ${targets.length - 15}명` : '';
     const warn = `다음 ${targets.length}명을 완전삭제합니다.\n이 작업은 되돌릴 수 없으며, 각 계정의 채팅·견적·리뷰·매칭 등 연관 데이터도 함께 영구 삭제됩니다.\n\n${preview}${more}\n\n정말 진행하시겠습니까?`;
-    if (!confirm(warn)) return;
+    if (!(await adminConfirm(warn))) return;
     const adminTargets = targets.filter((u) => u.role === 'admin');
-    if (adminTargets.length > 0 && !confirm(`선택에 관리자 계정 ${adminTargets.length}건이 포함되어 있습니다. 그래도 삭제할까요?`)) return;
+    if (adminTargets.length > 0 && !(await adminConfirm(`선택에 관리자 계정 ${adminTargets.length}건이 포함되어 있습니다. 그래도 삭제할까요?`))) return;
 
     setBulkDeleting(true);
     setBulkTotal(targets.length);
@@ -242,7 +244,7 @@ export default function AdminUsersPage() {
   };
 
   const handleArchive = async (userId: string, name: string) => {
-    if (!confirm(`${name}님 계정을 보관처리하시겠습니까? email 이 archived-... 로 변경되고 isActive=false 됩니다. 연관 데이터는 유지됩니다.`)) return;
+    if (!(await adminConfirm(`${name}님 계정을 보관처리하시겠습니까? email 이 archived-... 로 변경되고 isActive=false 됩니다. 연관 데이터는 유지됩니다.`))) return;
     try {
       await adminFetch('PATCH', `/api/v1/admin/users/${userId}/archive`);
       toast.success('보관처리되었습니다');
@@ -348,7 +350,7 @@ export default function AdminUsersPage() {
             <span className="adm-fold-sub">같은 이메일·이름으로 계정이 여럿인지 찾아 보관 처리해요</span>
             <span className={`adm-fold-chev ${diagOpen ? 'on' : ''}`} aria-hidden>⌄</span>
           </button>
-          {diagOpen && (
+          <AdminCollapse open={diagOpen}>
             <div className="mt-4 space-y-3">
               <div className="flex gap-2">
                 <input
@@ -429,7 +431,7 @@ export default function AdminUsersPage() {
                 <p className="text-xs text-amber-700">검색 결과 없음. 이메일 일부만 입력해보세요 (예: campkjh)</p>
               )}
             </div>
-          )}
+          </AdminCollapse>
         </div>
 
         {selectedMap.size > 0 && (

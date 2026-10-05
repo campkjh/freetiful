@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
+import { AdminDialogHost } from './_components/adminDialog';
 import { adminFetch, clearAdminFetchCache } from './_components/adminFetch';
 import { ADMIN_REFRESH_EVENT, LineRefreshIcon } from './_components/adminRefresh';
 
@@ -406,6 +407,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </main>
           <AdminIssuePanel open={issueOpen} onClose={closeIssues} onUnseen={setIssueCount} />
+          <AdminDialogHost />
         </div>
       </div>
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { Fragment, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { adminFetch } from './_components/adminFetch';
 import { LineChevron, useAdminRefresh } from './_components/adminRefresh';
+import { AdminCollapse } from './_components/AdminCollapse';
 
 type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
 
@@ -347,40 +348,7 @@ async function fetchFallbackStats(): Promise<Stats> {
 
 const ease = (t: number) => 1 - Math.pow(1 - t, 3);
 
-/** 숫자가 0 에서 목표까지 차오른다(0.9초). 값이 바뀌면 지금 값에서 이어서 */
-function useCountUp(target: number, ms = 900) {
-  const [v, setV] = useState(0);
-  const from = useRef(0);
-  useEffect(() => {
-    const start = from.current;
-    if (start === target) return;
-    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) { from.current = target; setV(target); return; }
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / ms);
-      const cur = start + (target - start) * ease(k);
-      from.current = cur;
-      setV(cur);
-      if (k < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, ms]);
-  return v;
-}
 
-function CountUp({ value, money = false, suffix = '' }: { value: number; money?: boolean; suffix?: string }) {
-  const v = useCountUp(value);
-  const n = Math.round(v).toLocaleString('ko-KR');
-  return (
-    <>
-      {money ? `₩${n}` : n}
-      {suffix && <small>{suffix}</small>}
-    </>
-  );
-}
 
 
 
@@ -391,7 +359,8 @@ const METRICS: Array<{ key: DailyMetricKey; label: string; money?: boolean; unit
   { key: 'payments', label: '결제', unit: '건', color: '#7B4DFF' },
 ];
 
-/** 14일 막대 — 지표를 바꾸면 막대가 다시 자라 오른다. 막대에 올리면 그날 값 */
+/** 14일 막대(261005 사장 시안) — 막대는 연회색(#F2F4F6), 고른 막대(기본 = 오늘, 올리면 그날)만 파란 방사 그라데이션.
+ *  막대 위 값(고른 막대 #1B64DA · 나머지 #8B95A1), 아래 날짜(#6B7684). 지표를 바꾸면 차례로 다시 자라 오른다. */
 function TrendChart({ points }: { points: DailyPoint[] }) {
   const [metric, setMetric] = useState<DailyMetricKey>('revenue');
   const m = METRICS.find((x) => x.key === metric) || METRICS[0];
@@ -399,13 +368,19 @@ function TrendChart({ points }: { points: DailyPoint[] }) {
   const max = Math.max(...values, 1);
   const total = values.reduce((a, b) => a + b, 0);
   const fmt = (v: number) => (m.money ? formatMoney(v) : `${formatNumber(v)}${m.unit}`);
+  // 막대 위 짧은 값 — 매출은 만원 단위
+  const short = (v: number) => (m.money ? (v >= 10000 ? `${formatNumber(Math.round(v / 10000))}만` : formatNumber(v)) : formatNumber(v));
   const [hover, setHover] = useState<number | null>(null);
+  const active = hover ?? points.length - 1;
   return (
     <div className="adm-card">
       <div className="adm-card-head">
         <div>
           <h2 className="adm-card-title">최근 14일 {m.label}</h2>
-          <p className="adm-card-sub">합계 <b className="text-[#191F28]">{fmt(total)}</b></p>
+          <p className="adm-card-sub">
+            합계 <b className="text-[#191F28]">{fmt(total)}</b>
+            {points[active] && <> · {points[active].date} <b className="text-[#1B64DA]">{fmt(values[active])}</b></>}
+          </p>
         </div>
         <div className="adm-seg" role="tablist" aria-label="지표">
           {METRICS.map((x) => (
@@ -415,22 +390,23 @@ function TrendChart({ points }: { points: DailyPoint[] }) {
           ))}
         </div>
       </div>
-      <div className="adm-bars" key={metric} onMouseLeave={() => setHover(null)}>
+      <div className="adm-vbars" key={metric} onMouseLeave={() => setHover(null)}>
         {points.map((p, i) => {
           const v = values[i];
-          const h = Math.max(3, (v / max) * 100);
-          const on = hover === i;
+          const h = Math.max(4, (v / max) * 100);
+          const on = i === active;
           return (
-            <div key={`${p.date}-${i}`} className={`adm-bar ${on ? 'on' : ''}`} onMouseEnter={() => setHover(i)}>
-              {on && <span className={`adm-bar-tip ${i < 2 ? 'l' : i > points.length - 3 ? 'r' : ''}`} style={{ bottom: `calc(${h}% + 8px)` }}>{p.date} · {fmt(v)}</span>}
-              <span className="adm-bar-fill" style={{ height: `${h}%`, background: m.color, animationDelay: `${i * 0.035}s` }} />
+            <div key={`${p.date}-${i}`} className={`adm-vbar ${on ? 'on' : ''}`} onMouseEnter={() => setHover(i)} title={`${p.date} · ${fmt(v)}`}>
+              <div className="adm-vbar-plot">
+                <span className="adm-vbar-col" style={{ height: `${h}%`, animationDelay: `${i * 0.035}s` }}>
+                  <span className="adm-vbar-val" style={{ animationDelay: `${0.25 + i * 0.035}s` }}>{short(v)}</span>
+                  <span className="adm-vbar-fill" />
+                </span>
+              </div>
+              <span className="adm-vbar-label">{p.date}</span>
             </div>
           );
         })}
-      </div>
-      <div className="adm-bars-axis">
-        <span>{points[0]?.date || ''}</span>
-        <span>{points[points.length - 1]?.date || ''}</span>
       </div>
     </div>
   );
@@ -444,17 +420,21 @@ function TodoCard({ items }: { items: Array<{ label: string; value: string; sub?
         <h2 className="adm-card-title">할 일</h2>
       </div>
       <div className="adm-todo">
-        {items.map((it) => (
+        {items.map((it) => {
+          // 0명·0건이면 회색 점(할 일이 없다는 뜻 — 261005 사장)
+          const none = /^0\D*$/.test(it.value.replace(/,/g, '').trim());
+          return (
           <Link key={it.label} href={it.href} className="adm-todo-row">
-            <span className={`adm-todo-dot ${it.tone} ${it.urgent ? 'pulse' : ''}`} />
+            <span className={`adm-todo-dot ${none ? 'gray' : it.tone} ${it.urgent && !none ? 'pulse' : ''}`} />
             <span className="min-w-0 flex-1">
               <span className="adm-todo-label">{it.label}</span>
               {it.sub && <span className="adm-todo-sub">{it.sub}</span>}
             </span>
-            <span className={`adm-todo-value ${it.urgent ? it.tone : ''}`}>{it.value}</span>
+            <span className={`adm-todo-value ${it.urgent && !none ? it.tone : ''}`}>{it.value}</span>
             <LineChevron />
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -464,6 +444,102 @@ function TodoCard({ items }: { items: Array<{ label: string; value: string; sub?
  *  단계마다 앞 단계에서 몇 %가 넘어오고 몇 명이 빠지는지 위에서부터 차례로. 견적 요청부터는 같은 사람들을 따라간다(서버 admin-funnel). */
 type FunnelStep = { key: string; label: string; unit: string; basis: 'session' | 'user'; value: number; sub: string };
 type FunnelData = { days: number; from: string; steps: FunnelStep[]; paidOutsideFunnel: number; trackingSince: { home: string | null; quickMatch: string | null } };
+
+/** 단계 이름 — 시안 '여섯 글자 이내' */
+const STEP_SHORT: Record<string, string> = { home: '홈 방문', quickMatch: '퀵매칭', request: '견적 요청', talk: '사회자 대화', quote: '견적 받음', paid: '결제 완료' };
+
+/** 시안 Kind=Icon(번호 원) · 좁으면 Kind=Compact(점) 스테퍼 — 고른 단계까지 트랙이 채워지고 아래에 그 단계 숫자.
+ *  처음엔 1단계부터 차례로 넘어가며(순차) 마지막 단계에 멈춘다. 단계를 누르면 그 단계로. */
+function FunnelStepper({ steps }: { steps: FunnelStep[] }) {
+  const n = steps.length;
+  const [active, setActive] = useState(0);
+  const [compact, setCompact] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const touched = useRef(false);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setCompact(e.contentRect.width < 500));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // 순차 진행 — 0 → 마지막(사람이 누르면 멈춤)
+  useEffect(() => {
+    touched.current = false;
+    setActive(0);
+    let i = 0;
+    const t = window.setInterval(() => {
+      if (touched.current) { window.clearInterval(t); return; }
+      i += 1;
+      if (i >= n) { window.clearInterval(t); return; }
+      setActive(i);
+    }, 420);
+    return () => window.clearInterval(t);
+  }, [n, steps]);
+  const pick = (i: number) => { touched.current = true; setActive(i); };
+  const r = compact ? 4 : 14;
+  const at = (i: number) => (n > 1 ? `calc(${r}px + (100% - ${r * 2}px) * ${i / (n - 1)})` : `${r}px`);
+  const cur = steps[active];
+  const prev = active > 0 ? steps[active - 1] : null;
+  const rate = prev && prev.value > 0 ? (cur.value / prev.value) * 100 : null;
+  const lost = prev ? Math.max(0, prev.value - cur.value) : 0;
+  const first = steps[0]?.value || 0;
+  return (
+    <div ref={boxRef} className={`adm-step ${compact ? 'compact' : 'icon'}`}>
+      <div className="adm-step-bar">
+        <div className="adm-step-track">
+          <span className="adm-step-fill" style={{ width: `calc(${at(active)} + ${r}px)` }} />
+        </div>
+        {steps.map((s, i) => (
+          <button
+            key={s.key}
+            type="button"
+            className={`adm-step-node ${i === active ? 'on' : ''}`}
+            style={{ left: at(i) }}
+            onClick={() => pick(i)}
+            aria-label={`${i + 1}단계 ${s.label} ${formatNumber(s.value)}${s.unit}`}
+            aria-pressed={i === active}
+          >
+            {!compact && <span>{i + 1}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="adm-step-labels">
+        {steps.map((s, i) => {
+          if (compact && i !== active) return null;
+          const edge = i === 0 ? 'first' : i === n - 1 ? 'last' : '';
+          return (
+            <button key={s.key} type="button" className={`adm-step-label ${edge} ${i === active ? 'on' : ''}`} style={edge ? undefined : { left: at(i) }} onClick={() => pick(i)}>
+              <b>{STEP_SHORT[s.key] || s.label}</b>
+              <small>{formatNumber(s.value)}{s.unit}</small>
+            </button>
+          );
+        })}
+      </div>
+      <div className="adm-step-detail" key={active}>
+        <p className="adm-step-detail-head"><span>{active + 1}단계</span>{cur.label}</p>
+        <p className="adm-step-detail-value"><b>{formatNumber(cur.value)}</b>{cur.unit}<small>{cur.sub}</small></p>
+        <p className="adm-step-detail-sub">
+          {prev ? (
+            prev.value === 0 && prev.basis === 'session' ? (
+              <>앞 단계 방문 기록이 쌓이는 중이에요</>
+            ) : rate == null ? (
+              <>앞 단계 기록이 없어요</>
+            ) : (
+              <>
+                {STEP_SHORT[prev.key] || prev.label} {formatNumber(prev.value)}{prev.unit} 중 <b>{rate > 100 ? `×${(rate / 100).toFixed(1)}` : `${rate.toFixed(rate < 10 ? 1 : 0)}%`}</b>가 넘어왔어요
+                {prev.basis === cur.basis && lost > 0 && <span className="adm-jf-lost"> · {formatNumber(lost)}명 빠짐</span>}
+              </>
+            )
+          ) : (
+            <>퍼널의 첫 단계예요</>
+          )}
+          {active > 0 && first > 0 && cur.basis === steps[0].basis && <> · 처음 대비 {((cur.value / first) * 100).toFixed(1)}%</>}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function JourneyFunnel() {
   const [days, setDays] = useState(30);
@@ -502,49 +578,11 @@ function JourneyFunnel() {
       {error ? (
         <p className="adm-empty">퍼널을 불러오지 못했어요</p>
       ) : !data ? (
-        <div className="space-y-2">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="adm-skel h-[44px]" />)}</div>
+        <div className="space-y-3"><div className="adm-skel h-[28px]" /><div className="adm-skel h-[44px]" /><div className="adm-skel h-[80px]" /></div>
       ) : (
-        <div className="adm-jf" key={days}>
-          {steps.map((s, i) => {
-            const prev = i > 0 ? steps[i - 1] : null;
-            const rate = prev && prev.value > 0 ? (s.value / prev.value) * 100 : null;
-            const lost = prev ? Math.max(0, prev.value - s.value) : 0;
-            // 퀵매칭(기기) → 견적 요청(회원)은 기준이 달라 '이탈 N명' 대신 비율만
-            const crossBasis = prev && prev.basis !== s.basis;
-            return (
-              <Fragment key={s.key}>
-                {prev && (
-                  <div className="adm-jf-drop" style={{ animationDelay: `${i * 0.12 - 0.06}s` }}>
-                    <span className="adm-jf-drop-arrow" aria-hidden="true" />
-                    {prev.value === 0 && prev.basis === 'session' ? (
-                      <span className="adm-jf-drop-text muted">방문 기록 쌓이는 중</span>
-                    ) : rate == null ? (
-                      <span className="adm-jf-drop-text muted">—</span>
-                    ) : (
-                      <span className="adm-jf-drop-text">
-                        다음 단계로 <b>{rate > 100 ? `×${(rate / 100).toFixed(1)}` : `${rate.toFixed(rate < 10 ? 1 : 0)}%`}</b>
-                        {!crossBasis && lost > 0 && <span className="adm-jf-lost"> · {formatNumber(lost)}명 빠짐</span>}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="adm-jf-row" style={{ animationDelay: `${i * 0.12}s` }}>
-                  <span className="adm-jf-label">
-                    <span className={`adm-jf-no ${s.key === 'paid' ? 'end' : ''}`}>{i + 1}</span>
-                    <span className="min-w-0">
-                      <b>{s.label}</b>
-                      <small>{s.sub}</small>
-                    </span>
-                  </span>
-                  <span className="adm-jf-track">
-                    <span className={`adm-jf-bar s${i}`} style={{ width: `${Math.max(s.value > 0 ? 6 : 0, (s.value / top) * 100)}%`, animationDelay: `${i * 0.12 + 0.1}s` }} />
-                  </span>
-                  <span className="adm-jf-n">{formatNumber(s.value)}<small>{s.unit}</small></span>
-                </div>
-              </Fragment>
-            );
-          })}
-          <div className="adm-jf-sum" style={{ animationDelay: `${steps.length * 0.12}s` }}>
+        <div key={days}>
+          <FunnelStepper steps={steps} />
+          <div className="adm-jf-sum">
             견적 요청한 {formatNumber(req)}명 중 <b>{req ? ((paid / req) * 100).toFixed(1) : '0'}%</b>가 결제까지 왔어요
             {data.paidOutsideFunnel > 0 && <span> · 견적 요청 없이 바로 결제한 {formatNumber(data.paidOutsideFunnel)}명은 빠져 있어요</span>}
           </div>
@@ -593,7 +631,25 @@ function TopPros({ viewed, revenue, resp }: { viewed: TopListItem[]; revenue: To
       .map(([id, r]) => ({ id, name: r.name, value: r.medianSec || 0, count: r.repliedCount }));
   }, [resp]);
   const all: TopListItem[] = (tab === 'viewed' ? viewed : tab === 'revenue' ? revenue : replyTop).slice(0, 20);
-  const items = open ? all : all.slice(0, 5);
+  const topRow = (it: TopListItem, i: number) => {
+    const r = resp?.get(it.id);
+    return (
+      <div key={it.id} className="adm-top-row" style={{ animationDelay: `${(i < 5 ? i : i - 5) * 0.04}s` }}>
+        <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
+        <span className="min-w-0 flex-1">
+          <span className="adm-top-name">
+            {it.name}
+            {tab !== 'reply' && <ReplyChip r={r} />}
+          </span>
+        </span>
+        <span className="adm-top-val">
+          {tab === 'revenue' ? formatMoney(it.value) : tab === 'viewed' ? `${formatNumber(it.value)}회` : `보통 ${fmtSec(toNumber(it.value))}`}
+          {tab === 'revenue' && it.count ? <small>{formatNumber(it.count)}건</small> : null}
+          {tab === 'reply' && it.count ? <small>답장 {formatNumber(it.count)}건</small> : null}
+        </span>
+      </div>
+    );
+  };
   return (
     <div className="adm-card">
       <div className="adm-card-head">
@@ -604,29 +660,15 @@ function TopPros({ viewed, revenue, resp }: { viewed: TopListItem[]; revenue: To
           <button type="button" role="tab" aria-selected={tab === 'reply'} className={tab === 'reply' ? 'on' : ''} onClick={() => setTab('reply')}>응답</button>
         </div>
       </div>
-      {items.length === 0 ? (
+      {all.length === 0 ? (
         <p className="adm-empty">{tab === 'reply' && !resp ? '응답 기록을 불러오는 중이에요' : '아직 데이터가 없어요'}</p>
       ) : (
         <div className="adm-top" key={tab}>
-          {items.map((it, i) => {
-            const r = resp?.get(it.id);
-            return (
-              <div key={it.id} className="adm-top-row" style={{ animationDelay: `${(i < 5 ? i : i - 5) * 0.04}s` }}>
-                <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="adm-top-name">
-                    {it.name}
-                    {tab !== 'reply' && <ReplyChip r={r} />}
-                  </span>
-                </span>
-                <span className="adm-top-val">
-                  {tab === 'revenue' ? formatMoney(it.value) : tab === 'viewed' ? `${formatNumber(it.value)}회` : `보통 ${fmtSec(toNumber(it.value))}`}
-                  {tab === 'revenue' && it.count ? <small>{formatNumber(it.count)}건</small> : null}
-                  {tab === 'reply' && it.count ? <small>답장 {formatNumber(it.count)}건</small> : null}
-                </span>
-              </div>
-            );
-          })}
+          {all.slice(0, 5).map((it, i) => topRow(it, i))}
+          {/* 6위부터 — 펼치기·접기 둘 다 부드럽게(높이 감속) */}
+          <AdminCollapse open={open} className="adm-top-rest-wrap">
+            <div className="adm-top-rest">{all.slice(5).map((it, j) => topRow(it, j + 5))}</div>
+          </AdminCollapse>
         </div>
       )}
       {all.length > 5 && (
@@ -685,6 +727,39 @@ function MoneySpark({ last, cur, color }: { last: number[]; cur: number[]; color
   );
 }
 
+/** 다이얼 숫자 — 자리마다 0~9 띠가 위로 굴러가 제 숫자에 멈춘다(오른쪽 자리부터 조금씩 늦게, 감속 곡선).
+ *  띠는 0~9 를 두 번 이어 붙여 두 번째 바퀴에 멈추게 해 '도는' 느낌을 낸다. 값이 바뀌면(새로고침) 그 자리로 다시 굴러간다. */
+function RollingNumber({ value }: { value: number }) {
+  const text = Math.round(Math.abs(value)).toLocaleString('ko-KR');
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const chars = text.split('');
+  const digitsTotal = chars.filter((c) => /\d/.test(c)).length;
+  let seen = 0;
+  return (
+    <span className="adm-roll" aria-label={text}>
+      {chars.map((ch, i) => {
+        // 자리 키는 오른쪽 기준 — 자릿수가 바뀌어도 같은 자리는 같은 칸
+        const fromRight = chars.length - i;
+        if (!/\d/.test(ch)) return <span key={`s${fromRight}`} className="adm-roll-sep" aria-hidden="true">{ch}</span>;
+        const order = digitsTotal - (seen += 1); // 0 = 일의 자리
+        const d = Number(ch);
+        return (
+          <span key={`d${fromRight}`} className="adm-roll-col" aria-hidden="true">
+            <span className="adm-roll-strip" style={{ transform: `translateY(${ready ? -((10 + d) / 20) * 100 : 0}%)`, transitionDelay: `${order * 55}ms` }}>
+              {ROLL_STRIP.map((n, k) => <span key={k}>{n}</span>)}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+const ROLL_STRIP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 /** 수입 옆 숫자 칸 — 오늘 매출·신규 가입·한 달 누적 매출·정산 대기(261005 사장 '수입이랑 나란히, 달력 아래 말고') */
 type TopKpi = { label: string; value: number | null; unit: string; sub: ReactNode; href: string; tone?: string };
 
@@ -694,7 +769,7 @@ function TopNumbers({ income, kpis }: { income?: number; kpis: TopKpi[] }) {
       {income !== undefined && (
         <Link href="/admin/payments" className="adm-money-col" title="이번 달 결제 완료 금액">
           <p className="adm-money-label">수입</p>
-          <p className="adm-money-value">{income ? '+' : ''}<CountUp value={income} />원</p>
+          <p className="adm-money-value">{income ? '+' : ''}<RollingNumber value={income} />원</p>
           <p className="adm-money-sub">이번 달 결제 완료</p>
         </Link>
       )}
@@ -702,7 +777,7 @@ function TopNumbers({ income, kpis }: { income?: number; kpis: TopKpi[] }) {
         <Link key={k.label} href={k.href} className="adm-money-col">
           <p className="adm-money-label">{k.label}</p>
           <p className="adm-money-value" style={k.tone ? { color: k.tone } : undefined}>
-            {k.value == null ? <span className="adm-money-wait">—</span> : <><CountUp value={k.value} />{k.unit}</>}
+            {k.value == null ? <span className="adm-money-wait">—</span> : <><RollingNumber value={k.value} />{k.unit}</>}
           </p>
           <p className="adm-money-sub">{k.sub}</p>
         </Link>
@@ -786,11 +861,16 @@ function MoneyBlock({ data, kpis }: { data: MoneySummary; kpis: TopKpi[] }) {
         <MoneySpark last={lastCum} cur={curCum} color={color} />
       </div>
 
-      {!open ? (
-        <div className="adm-money-week" key="week">
-          {week.map((d) => <Cell key={ymdUTC(d)} d={d} showLabel />)}
+      <AdminCollapse open={!open}>
+        <div className="adm-money-week rise" key="week">
+          {week.map((d, i) => (
+            <span key={ymdUTC(d)} className="adm-money-rise" style={{ animationDelay: `${0.12 + i * 0.07}s` }}>
+              <Cell d={d} showLabel />
+            </span>
+          ))}
         </div>
-      ) : (
+      </AdminCollapse>
+      <AdminCollapse open={open}>
         <div className="adm-money-month" key="month">
           <div className="adm-money-week head">
             {WEEK_KO.map((w) => <span key={w} className="adm-money-cell"><span className="adm-money-wd">{w}</span></span>)}
@@ -801,7 +881,7 @@ function MoneyBlock({ data, kpis }: { data: MoneySummary; kpis: TopKpi[] }) {
             </div>
           ))}
         </div>
-      )}
+      </AdminCollapse>
       <button type="button" className={`adm-money-more ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-label={open ? '이번 주만 보기' : '이번 달 달력 보기'} aria-expanded={open}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 9l6 6 6-6" stroke="#6B7684" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -867,9 +947,18 @@ export default function AdminDashboardPage() {
     }
   };
 
-  useEffect(() => { fetchStats(); fetchResp(); fetchMoney(); }, []);
+  // 오늘 방문(홈페이지·앱, 기기 세션) — 261005
+  const [visits, setVisits] = useState<{ today: number; todayWeb: number; todayApp: number; yesterday: number; last7d: number } | null>(null);
+  const fetchVisits = async () => {
+    try {
+      setVisits(await adminFetch('GET', '/api/v1/admin/visits', undefined, { cache: false }));
+    } catch {
+      setVisits(null);
+    }
+  };
+  useEffect(() => { fetchStats(); fetchResp(); fetchMoney(); fetchVisits(); }, []);
   // 머리 오른쪽 새로고침(종 옆)
-  useAdminRefresh(() => { fetchStats(true); fetchResp(); fetchMoney(); });
+  useAdminRefresh(() => { fetchStats(true); fetchResp(); fetchMoney(); fetchVisits(); });
 
   const series = stats?.dailySeries?.length ? stats.dailySeries : createEmptyDailySeries();
   const today = new Date();
@@ -878,6 +967,13 @@ export default function AdminDashboardPage() {
   // 수입 옆 숫자 4칸 — 통계가 오기 전엔 '—'
   const kpis: TopKpi[] = [
     { label: '오늘 매출', value: stats ? toNumber(stats.revenue?.today) : null, unit: '원', sub: stats ? <>7일 {formatNumber(stats.revenue?.last7d)}원</> : '불러오는 중', href: '/admin/payments' },
+    {
+      label: '오늘 방문',
+      value: visits ? visits.today : null,
+      unit: '명',
+      sub: visits ? <>웹 {formatNumber(visits.todayWeb)} · 앱 {formatNumber(visits.todayApp)} · 어제 {formatNumber(visits.yesterday)}</> : '불러오는 중',
+      href: '/admin/landing-analytics',
+    },
     { label: '오늘 신규 가입', value: stats ? toNumber(stats.newUsersToday) : null, unit: '명', sub: stats ? <>7일 {formatNumber(stats.newUsers7d)}명</> : '불러오는 중', href: '/admin/users' },
     { label: '한 달 누적 매출', value: stats ? toNumber(stats.revenue?.last30d) : null, unit: '원', sub: '최근 30일 결제 완료', href: '/admin/payments' },
     {

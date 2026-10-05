@@ -544,6 +544,8 @@ model LandingVisit {
   utmContent  String?
   referrer    String?
   landingPath String?
+  /// 방문한 곳 — web | ios-app | android-app(261005 홈 '오늘 방문' 웹·앱 나눠 보기). 옛 행은 null
+  platform    String?
   sessionKey  String
   converted   Boolean   @default(false)
   convertedAt DateTime?

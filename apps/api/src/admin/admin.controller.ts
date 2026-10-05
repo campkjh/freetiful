@@ -46,6 +46,12 @@ export class AdminController {
     return this.funnelService.funnel(days ? Number(days) : 30);
   }
 
+  // 홈 '오늘 방문'(홈페이지·앱) — 261005
+  @Get('visits')
+  visits() {
+    return this.funnelService.visitsToday();
+  }
+
   // ─── 운영 콘텐츠(운영 프로필 · 운영 글 · 반응 수치 · 변경 이력, 261004) ─────────────
   @Get('operator/env')
   operatorEnv() {

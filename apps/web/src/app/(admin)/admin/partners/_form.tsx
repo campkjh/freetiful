@@ -29,6 +29,7 @@ import {
   stripBusinessTagMarker,
   withBusinessTagMarker,
 } from '@/lib/business-tags';
+import { adminConfirm } from '../_components/adminDialog';
 
 type ImageItem = AdminPartnerDetail['images'][number];
 
@@ -222,7 +223,7 @@ export default function PartnerForm({ mode, partnerId }: Props) {
 
   const handleDeleteImage = async (imageId: string) => {
     if (!partnerId) return;
-    if (!confirm('이 이미지를 삭제하시겠습니까?')) return;
+    if (!(await adminConfirm('이 이미지를 삭제하시겠습니까?'))) return;
     try {
       await adminPartnersApi.deleteImage(partnerId, imageId);
       setImages((prev) => prev.filter((i) => i.id !== imageId));
@@ -606,7 +607,7 @@ export default function PartnerForm({ mode, partnerId }: Props) {
           <h2 className="text-[15px] font-bold text-gray-900 mb-3">위험 영역</h2>
           <button
             onClick={async () => {
-              if (!confirm(`"${businessName}" 업체를 삭제하시겠습니까?`)) return;
+              if (!(await adminConfirm(`"${businessName}" 업체를 삭제하시겠습니까?`))) return;
               try {
                 await adminPartnersApi.remove(partnerId);
                 toast.success('삭제되었습니다');

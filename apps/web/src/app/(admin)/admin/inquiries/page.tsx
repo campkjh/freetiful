@@ -23,6 +23,7 @@ import {
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface BusinessInquiryItem {
   id: string;
@@ -159,7 +160,7 @@ export default function AdminInquiriesPage() {
   };
 
   const deleteItem = async (item: BusinessInquiryItem) => {
-    if (!confirm(`${item.company || item.name} 문의를 삭제하시겠습니까?`)) return;
+    if (!(await adminConfirm(`${item.company || item.name} 문의를 삭제하시겠습니까?`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/business-inquiries/${item.id}`);
       setItems((prev) => prev.filter((row) => row.id !== item.id));

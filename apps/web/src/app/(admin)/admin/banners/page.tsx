@@ -7,6 +7,7 @@ import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_compon
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 // 파일 → 1600px 이하로 리사이즈 → webp data URL (품질 0.88)
 // 너무 큰 이미지는 거부 (원본 8MB 초과 시 에러)
@@ -149,7 +150,7 @@ export default function AdminBannersPage() {
   };
 
   const deleteItem = async (item: Banner) => {
-    if (!confirm(`"${item.title || item.imageUrl.slice(-30)}" 배너를 삭제하시겠습니까?`)) return;
+    if (!(await adminConfirm(`"${item.title || item.imageUrl.slice(-30)}" 배너를 삭제하시겠습니까?`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/banners/${item.id}`);
       toast.success('삭제됨');

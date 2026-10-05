@@ -48,6 +48,16 @@ function sessionKey(): string {
   return k;
 }
 
+/** 어디서 열었나 — 앱 껍데기(iOS WKWebView 메시지 다리 · 안드로이드 다리)면 앱, 아니면 웹(모바일 웹 포함) */
+function visitPlatform(): 'web' | 'ios-app' | 'android-app' {
+  try {
+    const w = window as any;
+    if (w.webkit?.messageHandlers) return 'ios-app';
+    if (w.FreetifulAndroid || w.Android) return 'android-app';
+  } catch {}
+  return 'web';
+}
+
 /** 랜딩 방문 1건 기록(세션·페이지당 1회). utm 캡처 후 호출. */
 export function trackLandingVisit(page: LandingPage) {
   const store = ss();
@@ -58,6 +68,7 @@ export function trackLandingVisit(page: LandingPage) {
     page,
     sessionKey: sessionKey(),
     landingPath: (() => { try { return window.location.pathname + window.location.search; } catch { return undefined; } })(),
+    platform: visitPlatform(),
     ...u,
   };
   fetch('/api/v1/landing/visit', {

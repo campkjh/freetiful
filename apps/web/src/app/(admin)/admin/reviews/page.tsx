@@ -11,6 +11,8 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
+import { adminConfirm } from '../_components/adminDialog';
+import { AdminCollapse } from '../_components/AdminCollapse';
 
 interface ReviewItem {
   id: string;
@@ -158,7 +160,7 @@ export default function AdminReviewsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 리뷰를 삭제하시겠습니까?')) return;
+    if (!(await adminConfirm('이 리뷰를 삭제하시겠습니까?'))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/reviews/${id}`);
       toast.success('삭제되었습니다');
@@ -252,8 +254,8 @@ export default function AdminReviewsPage() {
       </div>
 
         <AdminErrorPanel error={lastError} label="리뷰" />
-        {formOpen && (
-        <div className="adm-card adm-form">
+        <AdminCollapse open={formOpen}>
+        <div className="adm-card">
           <div className="adm-card-head">
             <div>
               <h2 className="adm-card-title">사회자 리뷰 직접 등록</h2>
@@ -401,7 +403,7 @@ export default function AdminReviewsPage() {
             </div>
           </div>
         </div>
-        )}
+        </AdminCollapse>
         <div className="admin-list-card">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px]">

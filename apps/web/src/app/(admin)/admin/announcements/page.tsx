@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_components/AdminExportButton';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface Announcement {
   id: string;
@@ -74,7 +75,7 @@ export default function AdminAnnouncementsPage() {
   };
 
   const deleteItem = async (item: Announcement) => {
-    if (!confirm(`"${item.title}" 공지사항을 삭제하시겠습니까?`)) return;
+    if (!(await adminConfirm(`"${item.title}" 공지사항을 삭제하시겠습니까?`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/announcements/${item.id}`);
       toast.success('삭제됨');

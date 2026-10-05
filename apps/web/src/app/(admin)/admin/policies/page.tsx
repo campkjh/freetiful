@@ -7,6 +7,7 @@ import { AdminExportButton, exportRowsToXls, formatExportDate } from '../_compon
 import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminSwitch } from '../_components/AdminSwitch';
 import { adminFetch } from '../_components/adminFetch';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface PolicyDocument {
   id: string;
@@ -139,7 +140,7 @@ export default function AdminPoliciesPage() {
 
   const remove = async () => {
     if (!draft.id || !selected) return;
-    if (!confirm(`"${selected.title}" 문서를 삭제하시겠습니까?`)) return;
+    if (!(await adminConfirm(`"${selected.title}" 문서를 삭제하시겠습니까?`))) return;
     setSaving(true);
     try {
       await adminFetch('DELETE', `/api/v1/admin/policies/${draft.id}`);

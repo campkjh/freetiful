@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { adminFetch } from '../../_components/adminFetch';
 import { AdminSwitch } from '../../_components/AdminSwitch';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../../_components/ErrorPanel';
+import { adminConfirm } from '../../_components/adminDialog';
 
 const ROLES = ['general', 'pro', 'business', 'admin'];
 const PAYMENT_STATUSES = ['pending', 'completed', 'failed', 'refunded', 'escrowed', 'settled'];
@@ -115,7 +116,7 @@ export default function AdminUserDetailPage() {
   };
 
   const run = async (label: string, method: string, path: string, body?: any, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !(await adminConfirm(confirmText))) return;
     try {
       await adminFetch(method, path, body);
       toast.success(label);
@@ -126,7 +127,7 @@ export default function AdminUserDetailPage() {
   };
 
   const hardDeleteUser = async () => {
-    if (!confirm(`${form.name} 계정을 완전히 삭제할까요? 연관 데이터가 있으면 실패할 수 있습니다.`)) return;
+    if (!(await adminConfirm(`${form.name} 계정을 완전히 삭제할까요? 연관 데이터가 있으면 실패할 수 있습니다.`))) return;
     try {
       await adminFetch('DELETE', `/api/v1/admin/users/${userId}`);
       toast.success('유저가 삭제되었습니다');

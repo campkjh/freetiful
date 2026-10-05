@@ -11,6 +11,8 @@ export interface VisitInput {
   utm_content?: string;
   referrer?: string;
   landingPath?: string;
+  /** web | ios-app | android-app (261005) */
+  platform?: string;
 }
 
 const clip = (v?: string, n = 300) => (v ? String(v).slice(0, n) : null);
@@ -36,6 +38,7 @@ export class LandingService {
       utmContent: clip(input.utm_content, 200),
       referrer: clip(input.referrer, 400),
       landingPath: clip(input.landingPath, 400),
+      platform: ['web', 'ios-app', 'android-app'].includes(String(input.platform)) ? String(input.platform) : null,
     };
     await this.prisma.landingVisit.upsert({
       where: { sessionKey_page: { sessionKey, page } },

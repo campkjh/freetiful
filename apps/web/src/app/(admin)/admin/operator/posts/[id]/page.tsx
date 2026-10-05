@@ -20,6 +20,7 @@ import {
   type PostStatus,
   type RealStats,
 } from '../../../_components/operatorAdmin';
+import { adminConfirm } from '../../../_components/adminDialog';
 
 interface LoadedPost {
   id: string;
@@ -148,7 +149,7 @@ export default function AdminOperatorPostEditPage({ params }: { params: { id: st
   const create = async () => {
     const problem = check();
     if (problem) { toast.error(problem); return; }
-    if (mode === 'publish' && !confirm(`'${profile?.nickname}' 이름으로 지금 게시할까요?\n앱 웨딩숲 피드에 바로 올라가고 '운영팀' 표시가 붙어요.`)) return;
+    if (mode === 'publish' && !(await adminConfirm(`'${profile?.nickname}' 이름으로 지금 게시할까요?\n앱 웨딩숲 피드에 바로 올라가고 '운영팀' 표시가 붙어요.`))) return;
     setBusy(true);
     try {
       const res = await adminFetch('POST', '/api/v1/admin/operator/posts', {
@@ -176,7 +177,7 @@ export default function AdminOperatorPostEditPage({ params }: { params: { id: st
       private: '비공개로 바꿀까요? 앱에서 바로 빠져요(좋아요·댓글은 그대로 남아요).',
       unschedule: '예약을 취소하고 임시저장으로 돌릴까요?',
     };
-    if (ask[action] && !confirm(ask[action])) return;
+    if (ask[action] && !(await adminConfirm(ask[action]))) return;
     setBusy(true);
     try {
       const body: any = { action, reason: reason.trim() || undefined };
@@ -202,7 +203,7 @@ export default function AdminOperatorPostEditPage({ params }: { params: { id: st
 
   const remove = async () => {
     if (!loaded) return;
-    if (!confirm('이 운영 글을 완전히 지울까요?\n댓글·좋아요까지 사라지고 되돌릴 수 없어요. 잠깐 내리려면 \'비공개\'를 쓰세요.')) return;
+    if (!(await adminConfirm('이 운영 글을 완전히 지울까요?\n댓글·좋아요까지 사라지고 되돌릴 수 없어요. 잠깐 내리려면 \'비공개\'를 쓰세요.'))) return;
     setBusy(true);
     try {
       await adminFetch('DELETE', `/api/v1/admin/operator/posts/${loaded.id}${reason.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : ''}`);

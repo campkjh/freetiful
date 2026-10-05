@@ -1915,6 +1915,33 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 .adm-op-diff-after { color: var(--admin-ink); font-weight: 600; word-break: break-all; }
 .adm-op-diff-ctx { color: var(--admin-muted); word-break: break-all; }
 
+/* 접혀도 남는 판(AdminCollapseKeep) — grid 행 0fr ↔ 1fr 로 펼치고 접기(261005) */
+.adm-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .45s cubic-bezier(.22, 1, .36, 1), opacity .25s ease; }
+.adm-collapse.on { grid-template-rows: 1fr; opacity: 1; }
+.adm-collapse-inner { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .adm-collapse { transition: none; } }
+
+/* 어드민 알림 창(261005 시안 Kind=Alert / Kind=Confirm 그대로) — body 포털이라 색은 값으로 */
+.adm-dlg-root { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 16px; font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+.adm-dlg-dim { position: absolute; inset: 0; padding: 0; border: 0; background: rgba(0, 0, 0, .2); opacity: 0; cursor: default; transition: opacity .16s ease; }
+.adm-dlg-root.on .adm-dlg-dim { opacity: 1; }
+.adm-dlg { position: relative; box-sizing: border-box; width: 311px; max-width: 100%; padding: 20px 24px 0; border-radius: 24px; background: #fff; opacity: 0; transform: scale(.94); transition: opacity .16s ease, transform .22s cubic-bezier(.3, 1.3, .5, 1); }
+.adm-dlg-root.on .adm-dlg { opacity: 1; transform: none; }
+.adm-dlg-title { margin: 0; color: rgba(0, 12, 30, .8); font-size: 20px; font-weight: 700; line-height: 28px; letter-spacing: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.adm-dlg-desc { margin: 8px 0 0; color: rgba(3, 18, 40, .7); font-size: 16px; font-weight: 400; line-height: 24px; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.adm-dlg-actions.alert { display: flex; justify-content: flex-end; margin: 7px -8px 0; padding-bottom: 9px; }
+.adm-dlg-text { height: 48px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; color: #2272EB; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; transition: background-color .12s ease; }
+.adm-dlg-text:hover { background: rgba(49, 130, 246, .06); }
+.adm-dlg-text:active { background: rgba(49, 130, 246, .12); }
+.adm-dlg-actions.confirm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 20px -8px 0; padding-bottom: 16px; }
+.adm-dlg-btn { height: 48px; padding: 0 12px; border: 0; border-radius: 14px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; transition: filter .12s ease, transform .12s ease; }
+.adm-dlg-btn.weak { background: rgba(7, 25, 76, .05); color: rgba(3, 18, 40, .7); }
+.adm-dlg-btn.primary { background: #3182F6; color: #fff; }
+.adm-dlg-btn:hover { filter: brightness(.97); }
+.adm-dlg-btn:active { transform: scale(.98); }
+.adm-dlg button:focus-visible { outline: 2px solid rgba(49, 130, 246, .5); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .adm-dlg, .adm-dlg-dim { transition: none; } }
+
 /* 웨딩숲 닉네임 바꾸기(261004) — 작성자 ✎ · 가운데 창(body 포털) */
 .adm-author-name-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .adm-author-edit { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--admin-dis); cursor: pointer; opacity: .55; transition: opacity .15s ease, background-color .15s ease, color .15s ease; }
@@ -2042,6 +2069,7 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-todo-dot.orange { background: var(--admin-orange); }
 .adm-todo-dot.blue { background: var(--admin-blue); }
 .adm-todo-dot.red { background: var(--admin-red); }
+.adm-todo-dot.gray { background: #D1D6DB; }
 .adm-todo-dot.pulse { animation: admPulseO 1.8s ease infinite; }
 @keyframes admPulseO { 0% { box-shadow: 0 0 0 0 rgba(244, 106, 0, .45); } 70% { box-shadow: 0 0 0 8px rgba(244, 106, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 106, 0, 0); } }
 .adm-todo-label { display: block; font-size: 15px; font-weight: 600; color: var(--admin-ink); }
@@ -2058,6 +2086,10 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-funnel-rate { text-align: right; font-size: 13px; font-weight: 600; color: var(--admin-blue); font-variant-numeric: tabular-nums; }
 .adm-top { display: flex; flex-direction: column; gap: 14px; }
 .adm-top-row { display: flex; align-items: center; gap: 12px; animation: admRise .4s var(--adm-ease) both; }
+/* 6위부터(펼침) — 간격을 안쪽 여백으로 넣어 접힐 때 끝에 '툭' 줄어드는 틈이 없게(높이 0 이면 여백도 0) */
+.adm-top-rest-wrap { margin-top: -14px; }
+.adm-top-rest { display: flex; flex-direction: column; gap: 14px; padding-top: 14px; }
+.adm-top-rest .adm-top-row { animation: none; }
 .adm-top-rank { flex: none; width: 22px; text-align: center; font-size: 15px; font-weight: 700; color: var(--admin-dis); font-variant-numeric: tabular-nums; }
 .adm-top-rank.hi { color: var(--admin-blue); }
 .adm-top-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: var(--admin-ink); }
@@ -2074,6 +2106,58 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-top-more:hover { background: #F2F4F6; color: var(--admin-ink); }
 .adm-top-more svg { transition: transform .25s var(--adm-ease); }
 .adm-top-more.on svg { transform: rotate(180deg); }
+/* 14일 막대(261005 시안) — 연회색 막대 · 고른 막대만 파란 방사 그라데이션 · 위 값 · 아래 날짜 */
+.adm-vbars { display: flex; align-items: stretch; gap: 0; height: 236px; }
+.adm-vbar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.adm-vbar-plot { position: relative; flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding-top: 22px; }
+.adm-vbar-col { position: relative; display: flex; flex-direction: column; align-items: center; width: min(38.5px, 76%); transform-origin: bottom; animation: admGrow .6s var(--adm-ease) both; }
+.adm-vbar-fill { display: block; width: 100%; flex: 1; min-height: 4px; border-radius: 7px; background: #F2F4F6; transition: background-color .2s ease; }
+.adm-vbar.on .adm-vbar-fill { background: radial-gradient(130% 110% at 0% 100%, #64A8FF 0%, #3182F6 66%); }
+.adm-vbar-val { position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); color: #8B95A1; font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; animation: ftFade .3s ease both; transition: color .2s ease; }
+.adm-vbar.on .adm-vbar-val { color: #1B64DA; }
+.adm-vbar-label { flex: none; margin-top: 9px; color: #6B7684; font-size: 12px; font-weight: 500; line-height: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .adm-vbar-val { font-size: 10px; } .adm-vbar-label { font-size: 10px; } .adm-vbar:nth-child(odd):not(.on) .adm-vbar-label { visibility: hidden; } }
+
+/* 전환 퍼널 스테퍼(261005 시안 Kind=Icon · 좁으면 Kind=Compact) */
+.adm-step { position: relative; }
+.adm-step-bar { position: relative; height: 28px; }
+.adm-step.compact .adm-step-bar { height: 16px; }
+.adm-step-track { position: absolute; left: 0; right: 0; top: 0; height: 28px; overflow: hidden; border-radius: 14px; background: #F2F4F6; }
+.adm-step-track::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(2, 32, 71, .05); pointer-events: none; }
+.adm-step-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 14px; background: linear-gradient(90deg, rgba(49, 130, 246, .15), rgba(49, 130, 246, .25)), #fff; box-shadow: 0 0 30px rgba(49, 130, 246, .3); transition: width .45s cubic-bezier(.22, .61, .36, 1); }
+.adm-step-node { position: absolute; top: 14px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #fff; color: rgba(0, 19, 43, .58); font-family: inherit; font-size: 12px; font-weight: 700; line-height: 1; transform: translate(-50%, -50%); cursor: pointer; transition: width .3s cubic-bezier(.22, .61, .36, 1), height .3s cubic-bezier(.22, .61, .36, 1), background-color .25s ease, color .25s ease; }
+.adm-step-node.on { width: 28px; height: 28px; background: rgba(26, 122, 249, .27); color: #fff; }
+.adm-step-node.on::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #3182F6; }
+.adm-step-node span { position: relative; }
+/* Compact — 트랙 8 · 점 */
+.adm-step.compact .adm-step-track { top: 4px; height: 8px; border-radius: 4px; }
+.adm-step.compact .adm-step-track::after { box-shadow: inset 0 0 0 .5px rgba(2, 32, 71, .05); }
+.adm-step.compact .adm-step-fill { border-radius: 4px; background: linear-gradient(90deg, rgba(49, 130, 246, .24), rgba(49, 130, 246, .29)), #F2F4F6; box-shadow: 0 0 50px rgba(49, 130, 246, .5); }
+.adm-step.compact .adm-step-node { top: 8px; width: 5px; height: 5px; }
+.adm-step.compact .adm-step-node::after { content: ''; position: absolute; inset: -10px; }
+.adm-step.compact .adm-step-node.on { width: 16px; height: 16px; background: rgba(26, 122, 249, .14); }
+.adm-step.compact .adm-step-node.on::before { inset: 4px; }
+/* 라벨 — 처음 왼쪽 · 끝 오른쪽 · 가운데는 점 중심 */
+.adm-step-labels { position: relative; height: 40px; margin-top: 7px; }
+.adm-step.compact .adm-step-labels { margin-top: 5px; }
+.adm-step-label { position: absolute; top: 0; display: flex; flex-direction: column; padding: 0 2px; border: 0; background: none; color: rgba(0, 19, 43, .58); font-family: inherit; text-align: center; white-space: nowrap; transform: translateX(-50%); cursor: pointer; }
+.adm-step-label.first { left: 0; align-items: flex-start; text-align: left; transform: none; }
+.adm-step-label.last { right: 0; align-items: flex-end; text-align: right; transform: none; }
+.adm-step-label b { font-size: 14px; font-weight: 700; line-height: 20px; transition: color .2s ease; }
+.adm-step-label small { margin-top: 1px; color: rgba(0, 19, 43, .45); font-size: 12px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; }
+.adm-step-label.on b { color: rgba(0, 12, 30, .8); }
+.adm-step-label.on small { color: #3182F6; }
+.adm-step.compact .adm-step-label:not(.first):not(.last) { transform: translateX(-50%); }
+.adm-step-detail { margin-top: 14px; padding: 16px 18px; border-radius: 16px; background: #F7F8FA; animation: admRise .35s var(--adm-ease) both; }
+.adm-step-detail-head { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--admin-sub); font-size: 14px; font-weight: 700; }
+.adm-step-detail-head span { padding: 2px 8px; border-radius: 8px; background: var(--admin-blue-weak); color: var(--admin-blue); font-size: 12px; }
+.adm-step-detail-value { display: flex; align-items: baseline; gap: 4px; margin: 8px 0 0; color: var(--admin-muted); font-size: 15px; font-weight: 600; }
+.adm-step-detail-value b { color: var(--admin-ink); font-size: 28px; font-weight: 700; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; }
+.adm-step-detail-value small { margin-left: 8px; color: var(--admin-ph); font-size: 13px; font-weight: 500; }
+.adm-step-detail-sub { margin: 6px 0 0; color: var(--admin-muted); font-size: 13.5px; line-height: 1.55; }
+.adm-step-detail-sub b { color: var(--admin-blue); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .adm-step-fill, .adm-step-node, .adm-step-detail { transition: none; animation: none; } }
+
 /* 전환 퍼널(261005) — 위에서부터 차례로: 단계 줄 → 넘어온 비율·빠진 사람 → 다음 단계 */
 .adm-jf { display: flex; flex-direction: column; }
 .adm-jf-row { display: grid; grid-template-columns: minmax(150px, 190px) 1fr 82px; align-items: center; gap: 14px; animation: admRise .45s var(--adm-ease) both; }
@@ -2125,16 +2209,26 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-moneyblock { position: relative; padding: 8px 2px 0; }
 .adm-money-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 /* 수입 + 오늘 매출·신규 가입·한 달 누적 매출·정산 대기 나란히(261005) */
-.adm-money-top.kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 12px; }
-.adm-money-top.kpis .adm-money-col { display: block; min-width: 0; margin: -10px; padding: 10px; border-radius: 16px; color: inherit; text-decoration: none; transition: background-color .15s ease; }
-.adm-money-top.kpis .adm-money-col:hover { background: rgba(0, 0, 0, .035); }
+.adm-money-top.kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px 16px; }
+.adm-money-top.kpis .adm-money-col { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.adm-money-top.kpis .adm-money-label { display: inline-flex; align-items: center; gap: 2px; transition: color .15s ease; }
+.adm-money-top.kpis .adm-money-label::after { content: ''; width: 14px; height: 14px; background: currentColor; opacity: 0; transform: translateX(-4px); transition: opacity .18s ease, transform .18s ease; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M9 5.5 15.5 12 9 18.5' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M9 5.5 15.5 12 9 18.5' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+.adm-money-top.kpis .adm-money-col:hover .adm-money-label { color: var(--admin-ink); }
+.adm-money-top.kpis .adm-money-col:hover .adm-money-label::after { opacity: .7; transform: none; }
 .adm-money-top.kpis .adm-money-label { font-size: 15px; }
-.adm-money-top.kpis .adm-money-value { overflow: hidden; font-size: 24px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-money-top.kpis .adm-money-value { display: flex; align-items: center; overflow: hidden; font-size: 24px; line-height: 1.25; white-space: nowrap; }
 .adm-money-net-short { display: none; }
 @media (max-width: 640px) { .adm-money-net-long { display: none; } .adm-money-net-short { display: inline; } }
 .adm-money-sub { margin: 4px 0 0; overflow: hidden; color: var(--admin-ph); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .adm-money-wait { color: var(--admin-dis); }
-@media (max-width: 1180px) { .adm-money-top.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; } }
+/* 다이얼 숫자 — 칸마다 0~9 띠가 위로 굴러 멈춘다(위아래 가장자리는 살짝 흐리게) */
+.adm-roll { display: inline-flex; align-items: flex-start; font-variant-numeric: tabular-nums; vertical-align: top; }
+.adm-roll-col { position: relative; display: inline-block; height: 1.25em; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent); }
+.adm-roll-strip { display: flex; flex-direction: column; transition: transform 1.25s cubic-bezier(.16, 1, .3, 1); will-change: transform; }
+.adm-roll-strip > span { display: block; height: 1.25em; line-height: 1.25em; text-align: center; }
+.adm-roll-sep { display: inline-block; height: 1.25em; line-height: 1.25em; }
+@media (prefers-reduced-motion: reduce) { .adm-roll-strip { transition: none; } }
+@media (max-width: 1240px) { .adm-money-top.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; } }
 @media (max-width: 640px) {
   .adm-money-top.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .adm-money-top.kpis > :first-child { grid-column: 1 / -1; }
@@ -2152,6 +2246,10 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-money-halo { transform-origin: center; transform-box: fill-box; animation: admHalo 2.2s ease-in-out infinite; }
 @keyframes admHalo { 0%, 100% { transform: scale(1); opacity: .18; } 50% { transform: scale(1.25); opacity: .1; } }
 .adm-money-week { display: grid; grid-template-columns: repeat(7, 1fr); }
+/* 주간 날짜 — 첫날부터 차례로 아래에서 위로 페이드업(261005 사장 '촤라락') */
+.adm-money-rise { display: block; min-width: 0; animation: admMoneyRise .55s cubic-bezier(.22, .61, .36, 1) both; }
+@keyframes admMoneyRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .adm-money-rise { animation: none; } }
 .adm-money-week.head { margin-bottom: 4px; }
 .adm-money-week.row { animation: admRise .35s var(--adm-ease) both; }
 .adm-money-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 6px 0; }

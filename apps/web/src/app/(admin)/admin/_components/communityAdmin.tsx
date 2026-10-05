@@ -7,6 +7,7 @@ import { adminFetch } from './adminFetch';
 import { useAdminRefresh } from './adminRefresh';
 import { AdminSwitch } from './AdminSwitch';
 import { formatKstDateTime } from './adminEvent';
+import { adminConfirm } from './adminDialog';
 
 /* ────────────────────────────────────────────────────────────
  * 커뮤니티 관리(웨딩숲) 공용 — 요약 숫자 · 작성자 칸 · 글 상세 서랍(261004 사장 '커뮤니티 관리도 추가해줘')
@@ -154,7 +155,7 @@ export function NicknameModal({ userId, onClose, onChanged }: { userId: string; 
 
   const reset = async () => {
     if (!info) return;
-    if (!confirm(`관리자·직접 정한 닉네임을 지우고 원래 이름('${info.autoNickname}')으로 돌릴까요?`)) return;
+    if (!(await adminConfirm(`관리자·직접 정한 닉네임을 지우고 원래 이름('${info.autoNickname}')으로 돌릴까요?`))) return;
     setBusy(true);
     try {
       const r = await adminFetch('DELETE', `/api/v1/admin/community/members/${userId}/nickname${reason.trim() ? `?reason=${encodeURIComponent(reason.trim())}` : ''}`);
@@ -366,7 +367,7 @@ export function PostDrawer({
 
   const remove = async () => {
     if (!post) return;
-    if (!confirm('이 글을 완전히 지울까요?\n댓글·좋아요·투표까지 모두 사라지고 되돌릴 수 없어요.\n잠깐 안 보이게만 하려면 \'노출\'을 끄세요.')) return;
+    if (!(await adminConfirm('이 글을 완전히 지울까요?\n댓글·좋아요·투표까지 모두 사라지고 되돌릴 수 없어요.\n잠깐 안 보이게만 하려면 \'노출\'을 끄세요.'))) return;
     setBusy(true);
     try {
       await adminFetch('DELETE', `/api/v1/admin/community/posts/${post.id}`);

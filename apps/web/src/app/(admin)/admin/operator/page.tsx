@@ -10,6 +10,7 @@ import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { formatKstDateTime } from '../_components/adminEvent';
 import { OpAvatar, STATUS_LABEL, STATUS_TONE, type OperatorProfile, type PostStatus, type RealStats } from '../_components/operatorAdmin';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface OpPostRow {
   id: string;
@@ -92,7 +93,7 @@ export default function AdminOperatorPostsPage() {
   /** 빠른 동작 — 게시/비공개/예약 취소 */
   const quick = async (row: OpPostRow, action: 'publish' | 'private' | 'unschedule') => {
     const msg = action === 'publish' ? (row.status === 'private' ? '다시 공개할까요?' : '지금 바로 게시할까요? 앱 피드에 바로 올라가요.') : action === 'private' ? '비공개로 바꿀까요? 앱에서 바로 빠져요.' : '예약을 취소하고 임시저장으로 돌릴까요?';
-    if (!confirm(msg)) return;
+    if (!(await adminConfirm(msg))) return;
     setBusyId(row.id);
     try {
       await adminFetch('PATCH', `/api/v1/admin/operator/posts/${row.id}`, { action });

@@ -11,6 +11,7 @@ import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfin
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminEventCell, AdminPartyCell, formatPhone, type AdminEvent } from '../_components/adminEvent';
+import { adminConfirm } from '../_components/adminDialog';
 
 interface SettlementLogItem {
   id: string;
@@ -115,7 +116,7 @@ export default function AdminSettlementsPage() {
   useEffect(() => { fetchList(1, filter, dateRange); setPage(1); }, [filter]);
 
   async function handleSettle(id: string) {
-    if (!confirm('정산 완료로 처리하시겠습니까? 사회자에게 알림이 발송됩니다.')) return;
+    if (!(await adminConfirm('정산 완료로 처리하시겠습니까? 사회자에게 알림이 발송됩니다.'))) return;
     setProcessingId(id);
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});
@@ -130,7 +131,7 @@ export default function AdminSettlementsPage() {
   }
 
   async function handleUnsettle(id: string) {
-    if (!confirm('정산을 취소(되돌리기) 하시겠습니까?')) return;
+    if (!(await adminConfirm('정산을 취소(되돌리기) 하시겠습니까?'))) return;
     setProcessingId(id);
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/unsettle`, {});
