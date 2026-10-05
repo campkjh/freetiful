@@ -1,51 +1,76 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
-import { AdminTableScroll } from '../_components/AdminListCard';
+import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
+import { AdminCollapse } from '../_components/AdminCollapse';
+import { AdminDatePop } from '../_components/AdminDatePop';
+
+/* ─────────────────────────────────────────────────────────────
+ * 페이지별 유입 분석(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC' → 261006 '톤앤매너에 맞춰서').
+ *  홈과 같은 어법: 박스 없는 숫자 줄(다이얼) → 한 줄 브리핑 + 홈식 달력(박스 없음) → 카드(.adm-card) → 목록 카드(표).
+ *  글자 굵기 700 까지, 모서리 r20, 색 = 파랑(방문)·초록(신청)·회색 단계. 데이터는 고른 페이지(?page=)만.
+ * ──────────────────────────────────────────────────────────── */
 
 interface Bucket { key: string; visits: number; conversions: number; rate: number; }
 interface PageStat { page: string; visits: number; conversions: number; rate: number; bySource: Bucket[]; byMedium: Bucket[]; byCampaign: Bucket[]; }
 interface DailyRow { date: string; visits: number; conversions: number; }
 interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: number; daily: DailyRow[]; today: { date: string; visits: number; conversions: number }; }
 interface VisitRow { page: string; source: string | null; medium: string | null; campaign: string | null; referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string; }
+type Totals = { visits: number; conversions: number };
 
-const PAGE_LABEL: Record<string, string> = { 'quick-match': '퀵매칭 (quick-match)', 'wedding-mc': '결혼식 사회자 (wedding-mc)', 'corporate-mc': '전문행사 사회자 (corporate-mc)' };
-const PAGE_SHORT: Record<string, string> = { 'quick-match': '퀵매칭', 'wedding-mc': '웨딩MC', 'corporate-mc': '비즈MC' };
-/** 페이지별 유입 분석(261005 사장 '랜딩 유입 분석 → 페이지별, 퀵매칭 · 웨딩MC · 비즈MC') — 제목 자리 큰 글씨 탭: 고른 것 검정 · 나머지 회색 */
+/** 제목 자리 큰 글씨 탭 — 고른 것 검정 · 나머지 회색. conv = 그 페이지의 '전환' 이름 */
 const PAGE_TABS = [
-  { key: 'quick-match', label: '퀵매칭', desc: '퀵매칭 페이지 유입(UTM·리퍼러)과 견적 요청 전환' },
-  { key: 'wedding-mc', label: '웨딩MC', desc: '결혼식 사회자 랜딩(wedding-mc) 유입과 상담 신청 전환' },
-  { key: 'corporate-mc', label: '비즈MC', desc: '전문행사 사회자 랜딩(corporate-mc) 유입과 상담 신청 전환' },
+  { key: 'quick-match', label: '퀵매칭', desc: '퀵매칭 페이지 유입(UTM·리퍼러)과 견적 요청 전환', conv: '견적 요청' },
+  { key: 'wedding-mc', label: '웨딩MC', desc: '결혼식 사회자 랜딩(wedding-mc) 유입과 견적 신청 전환', conv: '견적 신청' },
+  { key: 'corporate-mc', label: '비즈MC', desc: '전문행사 사회자 랜딩(corporate-mc) 유입과 견적 신청 전환', conv: '견적 신청' },
 ] as const;
 type PageKey = (typeof PAGE_TABS)[number]['key'];
 /** 어드민 API 주소에 고른 페이지를 붙인다 */
 const withPage = (url: string, page: PageKey) => `${url}${url.includes('?') ? '&' : '?'}page=${page}`;
+
 const RANGES = [
   { key: '7', label: '7일' },
   { key: '30', label: '30일' },
   { key: '90', label: '90일' },
   { key: 'all', label: '전체' },
 ] as const;
+const DIMS = [
+  { key: 'source', label: '유입 소스' },
+  { key: 'medium', label: '매체' },
+  { key: 'campaign', label: '캠페인' },
+] as const;
+type DimKey = (typeof DIMS)[number]['key'];
 
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
-const num = (n: number) => n.toLocaleString('ko-KR');
+const num = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
+const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
 const KST_TODAY = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-const kstDateOf = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600000).toISOString().slice(0, 10);
+const kstStartISO = (ymd: string) => new Date(`${ymd}T00:00:00+09:00`).toISOString();
+const kstEndISO = (ymd: string) => new Date(`${ymd}T23:59:59.999+09:00`).toISOString();
+const addDaysYmd = (ymd: string, n: number) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const md = (ymd: string) => `${Number(ymd.slice(5, 7))}월 ${Number(ymd.slice(8, 10))}일`;
+/** 방문 기록 시각(KST) — '10.6 04:53' */
+const kstShort = (iso: string) => {
+  const d = new Date(new Date(iso).getTime() + 9 * 3600000);
+  return `${d.getUTCMonth() + 1}.${d.getUTCDate()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+};
 
-// 표시 월(offset 0=이번달, -1=저번달…)의 달력 그리드: 앞뒤 달 spillover 포함 6주 셀
+// 표시 월(offset 0=이번달, -1=저번달…)의 달력: 앞뒤 달 칸 포함한 주 단위
 interface CalCell { key: string; day: number; weekday: number; inMonth: boolean; }
 function monthGrid(offset: number): { year: number; month: number; cells: CalCell[]; gridStart: string; gridEnd: string } {
   const kstNow = new Date(Date.now() + 9 * 3600000);
-  const first = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth() + offset, 1)); // 표시월 1일(UTC=KST일자표현)
+  const first = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth() + offset, 1));
   const year = first.getUTCFullYear();
   const month = first.getUTCMonth();
-  const firstWeekday = first.getUTCDay(); // 0=일
+  const firstWeekday = first.getUTCDay();
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const gridStart = first.getTime() - firstWeekday * 86400000; // 1일이 속한 주의 일요일
+  const gridStart = first.getTime() - firstWeekday * 86400000;
   const totalCells = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
   const cells: CalCell[] = [];
   for (let i = 0; i < totalCells; i++) {
@@ -63,22 +88,6 @@ function monthFirstLast(offset: number): { first: string; last: string } {
   return { first: first.toISOString().slice(0, 10), last: last.toISOString().slice(0, 10) };
 }
 
-// 방문 로그 1행 → 유입 소스 키(utm 우선, 없으면 리퍼러 호스트로 추정)
-function srcKeyOf(v: { source: string | null; referrerHost: string | null }): string {
-  if (v.source && v.source.trim()) return v.source.trim();
-  const h = (v.referrerHost || '').toLowerCase();
-  if (!h) return '직접/기타';
-  if (h.includes('instagram')) return 'instagram';
-  if (h.includes('threads')) return 'threads';
-  if (h.includes('facebook')) return 'facebook';
-  if (h.includes('naver')) return 'naver';
-  if (h.includes('youtube') || h.includes('youtu.be')) return 'youtube';
-  if (h.includes('tiktok')) return 'tiktok';
-  if (h.includes('kakao')) return 'kakao';
-  if (h.includes('google')) return 'google';
-  return h;
-}
-
 // 유입 소스 → 브랜드 아이콘(public/admin-icons/src-*.svg)
 const SOURCE_ICON: Record<string, string> = {
   instagram: 'src-instagram', insta: 'src-instagram', ig: 'src-instagram',
@@ -86,6 +95,7 @@ const SOURCE_ICON: Record<string, string> = {
   meta: 'src-meta',
   threads: 'src-threads', 'threads.net': 'src-threads',
   naver: 'src-naver', 'naver.com': 'src-naver', 'blog.naver.com': 'src-naver',
+  google: 'src-google', kakao: 'src-kakao', tiktok: 'src-tiktok',
 };
 function sourceIconFile(key?: string | null): string | null {
   if (!key) return null;
@@ -95,123 +105,96 @@ function sourceIconFile(key?: string | null): string | null {
   if (k.includes('facebook')) return 'src-facebook';
   if (k.includes('threads')) return 'src-threads';
   if (k.includes('naver')) return 'src-naver';
+  if (k.includes('google')) return 'src-google';
+  if (k.includes('kakao')) return 'src-kakao';
+  if (k.includes('tiktok')) return 'src-tiktok';
   if (k.includes('meta')) return 'src-meta';
   return null;
 }
-// 소스 키 → 사람이 읽는 라벨
+// 소스 키 → 사람이 읽는 이름
 const SOURCE_NAME: Record<string, string> = {
   instagram: '인스타그램', facebook: '페이스북', meta: '메타', threads: '스레드',
   naver: '네이버', youtube: '유튜브', tiktok: '틱톡', kakao: '카카오', google: '구글',
 };
 const srcLabel = (k: string) => SOURCE_NAME[k.toLowerCase()] || k;
-function SourceLabel({ value, className = '' }: { value: string; className?: string }) {
-  const file = sourceIconFile(value);
-  return (
-    <span className={`inline-flex min-w-0 items-center gap-1.5 ${className}`}>
-      {file && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/admin-icons/${file}.svg`} alt="" width={16} height={16} className="shrink-0 rounded-[3px]" />
-      )}
-      <span className="truncate">{value}</span>
-    </span>
-  );
+
+/** 소스 아이콘 — 브랜드 아이콘이 없으면 회색 동그라미 */
+function SrcIcon({ k, size = 20 }: { k: string; size?: number }) {
+  const file = sourceIconFile(k);
+  if (!file) return <span className="adm-la-srcdot" style={{ width: size, height: size }} aria-hidden="true" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`/admin-icons/${file}.svg`} alt="" width={size} height={size} className="adm-la-srcimg" />;
 }
 
-// 광고 채널 — 유입 소스(utm_source/리퍼러)를 광고비 집행 단위로 묶는다.
-// 메타는 인스타/페북/스레드가 한 계정에서 집행되므로 하나로 합산한다.
-const AD_CHANNELS: { key: string; label: string; sources: string[]; color: string; icon: string }[] = [
-  { key: 'meta',   label: '메타 (인스타·페북·스레드)', sources: ['meta', 'instagram', 'insta', 'ig', 'facebook', 'fb', 'threads'], color: '#3182F6', icon: 'src-meta' },
-  { key: 'naver',  label: '네이버',   sources: ['naver'],  color: '#22C55E', icon: 'src-naver' },
-  { key: 'google', label: '구글',     sources: ['google'], color: '#FF7043', icon: 'src-google' },
-  { key: 'kakao',  label: '카카오',   sources: ['kakao'],  color: '#FFB020', icon: 'src-kakao' },
-  { key: 'tiktok', label: '틱톡',     sources: ['tiktok'], color: '#845EF7', icon: 'src-tiktok' },
+// 광고 채널 — 유입 소스(utm_source/리퍼러)를 광고비 집행 단위로 묶는다(메타 = 인스타·페북·스레드 한 계정)
+const AD_CHANNELS: { key: string; label: string; sources: string[]; icon: string }[] = [
+  { key: 'meta', label: '메타', sources: ['meta', 'instagram', 'insta', 'ig', 'facebook', 'fb', 'threads'], icon: 'src-meta' },
+  { key: 'naver', label: '네이버', sources: ['naver'], icon: 'src-naver' },
+  { key: 'google', label: '구글', sources: ['google'], icon: 'src-google' },
+  { key: 'kakao', label: '카카오', sources: ['kakao'], icon: 'src-kakao' },
+  { key: 'tiktok', label: '틱톡', sources: ['tiktok'], icon: 'src-tiktok' },
 ];
-const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
-/** 큰 금액 숫자 칸 — 홈과 같은 다이얼(261005) */
-const WonRoll = ({ n }: { n: number }) => <><RollingNumber value={Math.round(n)} />원</>;
 
-const DONUT_COLORS = ['#3182F6', '#00C2B3', '#FF7043', '#845EF7', '#FFB020', '#F45B8B', '#4E9BFF', '#22C55E', '#EC4899', '#14B8A6', '#F97316', '#A0AEC0'];
-
-function Donut({ title, rows }: { title: string; rows: Bucket[] }) {
-  const shown = rows.slice(0, 12);
+/**
+ * 유입 순위 줄 — 사회자 TOP 줄 어법(순위 · 이름 · 비율 막대 · 오른쪽 숫자). 기본 6줄, 펼치면 전부.
+ *  icon = 소스 아이콘(매체·캠페인은 아이콘 없이)
+ */
+function RankRows({ rows, conv, empty, icon = true }: { rows: Bucket[]; conv: string; empty: string; icon?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const shown = rows.filter((r) => r.visits > 0 || r.conversions > 0);
   const total = shown.reduce((s, r) => s + r.visits, 0);
-  const R = 42;
-  const C = 2 * Math.PI * R;
-  let acc = 0;
-  const segs = shown.map((r, i) => {
-    const len = total > 0 ? (r.visits / total) * C : 0;
-    const seg = { color: DONUT_COLORS[i % DONUT_COLORS.length], len, offset: acc };
-    acc += len;
-    return seg;
-  });
-  return (
-    <div className="rounded-[38px] bg-white p-5">
-      <h4 className="mb-4 text-[14px] font-bold text-gray-800">{title}</h4>
-      {shown.length === 0 || total === 0 ? (
-        <p className="text-[13px] text-gray-400">데이터 없음</p>
-      ) : (
-        <div className="flex items-center gap-5">
-          {/* 도넛 */}
-          <div className="relative shrink-0" style={{ width: 116, height: 116 }}>
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r={R} fill="none" stroke="#F1F3F5" strokeWidth="15" />
-              {segs.map((s, i) => (
-                <circle key={i} cx="50" cy="50" r={R} fill="none" stroke={s.color} strokeWidth="15"
-                  strokeDasharray={`${s.len} ${C - s.len}`} strokeDashoffset={-s.offset} />
-              ))}
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[18px] font-extrabold leading-none tabular-nums text-gray-900">{num(total)}</span>
-              <span className="mt-0.5 text-[10px] text-gray-400">방문</span>
-            </div>
-          </div>
-          {/* 범례 (비율) */}
-          <div className="min-w-0 flex-1 space-y-1.5">
-            {shown.map((r, i) => {
-              const frac = total > 0 ? r.visits / total : 0;
-              return (
-                <div key={r.key} className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                    <SourceLabel value={r.key} className="truncate text-[12px] font-medium text-gray-700" />
-                  </span>
-                  <span className="shrink-0 text-[11px] tabular-nums text-gray-400">
-                    <b className="text-gray-800">{pct(frac)}</b> · {num(r.visits)}
-                    {r.conversions > 0 && <> · 전환 <b className="text-[#3182F6]">{num(r.conversions)}</b></>}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+  const max = Math.max(1, ...shown.map((r) => r.visits));
+  if (shown.length === 0) return <p className="adm-la-empty">{empty}</p>;
+  const row = (r: Bucket, i: number) => (
+    <div key={r.key} className="adm-top-row adm-la-rank" style={{ animationDelay: `${(i < 6 ? i : i - 6) * 0.04}s` }}>
+      <span className={`adm-top-rank ${i < 3 ? 'hi' : ''}`}>{i + 1}</span>
+      <span className="min-w-0 flex-1">
+        <span className="adm-la-src">
+          {icon && <SrcIcon k={r.key} />}
+          <span className="adm-la-src-name">{icon ? srcLabel(r.key) : r.key}</span>
+          <span className="adm-la-share">{total ? pct(r.visits / total) : ''}</span>
+        </span>
+        <span className="adm-top-bar"><span style={{ width: `${(r.visits / max) * 100}%` }} /></span>
+      </span>
+      <span className="adm-top-val">
+        {num(r.visits)}회
+        <small className={r.conversions ? 'on' : ''}>{r.conversions ? `${conv} ${num(r.conversions)}` : `${conv} 0`}</small>
+      </span>
     </div>
   );
+  return (
+    <>
+      <div className="adm-top">
+        {shown.slice(0, 6).map(row)}
+        <AdminCollapse open={open} className="adm-top-rest-wrap">
+          <div className="adm-top-rest">{shown.slice(6).map((r, j) => row(r, j + 6))}</div>
+        </AdminCollapse>
+      </div>
+      {shown.length > 6 && (
+        <button type="button" className={`adm-top-more ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? '접기' : `펼치기 · ${shown.length}곳`}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      )}
+    </>
+  );
 }
 
-// 목업 상단 카드 — 제목 + 큰 수치 + 유입처 리스트(아이콘·이름 … 수치)
-function SourceCard({ title, value, unit, tone = 'text-gray-900', rows, empty = '유입 기록 없음' }:
-  { title: string; value: number; unit: string; tone?: string; rows: { key: string; count: number }[]; empty?: string }) {
+const Chev = ({ dir }: { dir: 'l' | 'r' }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d={dir === 'l' ? 'M15 5.5 8.5 12l6.5 6.5' : 'M9 5.5 15.5 12 9 18.5'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** 숫자 줄 한 칸 — 홈 상단 숫자와 같은 어법(이름 · 다이얼 숫자 · 회색 한 줄). 화면 안에서 만들면 그릴 때마다 다시 붙어 다이얼이 매번 굴러서 밖에 둔다 */
+function Kpi({ label, value, unit, sub, tone }: { label: string; value: number | null; unit?: string; sub: React.ReactNode; tone?: string }) {
   return (
-    <div className="rounded-[38px] bg-white p-5">
-      <p className="text-[15px] font-medium text-gray-500">{title}</p>
-      <p className={`mt-1.5 text-[32px] font-black leading-none ${tone}`}><RollingNumber value={value} /><span className="ml-1 text-[16px] font-bold text-gray-400">{unit}</span></p>
-      <div className="mt-4 space-y-2.5">
-        {rows.length === 0 ? (
-          <p className="text-[12px] text-gray-300">{empty}</p>
-        ) : rows.slice(0, 6).map((r) => (
-          <div key={r.key} className="flex items-center justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-2">
-              {sourceIconFile(r.key)
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={`/admin-icons/${sourceIconFile(r.key)}.svg`} alt="" width={18} height={18} className="shrink-0 rounded-full" />
-                : <span className="h-[18px] w-[18px] shrink-0 rounded-full bg-gray-200" />}
-              <span className="truncate text-[13px] text-gray-600">{srcLabel(r.key)}</span>
-            </span>
-            <span className="shrink-0 text-[14px] font-bold tabular-nums text-gray-900">{num(r.count)}</span>
-          </div>
-        ))}
-      </div>
+    <div className="adm-la-kpi">
+      <p className="adm-la-kpi-label">{label}</p>
+      <p className="adm-la-kpi-value" style={tone ? { color: tone } : undefined}>
+        {value == null ? <span className="adm-money-wait">—</span> : <><RollingNumber value={Math.round(value)} />{unit}</>}
+      </p>
+      <p className="adm-la-kpi-sub">{sub}</p>
     </div>
   );
 }
@@ -231,6 +214,10 @@ export default function LandingAnalyticsPage() {
       window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
     } catch { /* 주소만 못 바꿔도 화면은 바뀐다 */ }
   };
+  const tab = PAGE_TABS.find((t) => t.key === sel) || PAGE_TABS[0];
+  const conv = tab.conv;
+
+  // ── 상세(기간 고르기) · 고른 날 ──
   const [data, setData] = useState<Analytics | null>(null);
   const [visits, setVisits] = useState<VisitRow[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,32 +225,34 @@ export default function LandingAnalyticsPage() {
   const [customFrom, setCustomFrom] = useState<string>('');
   const [customTo, setCustomTo] = useState<string>('');
   const customActive = !!(customFrom || customTo);
-  const [monthData, setMonthData] = useState<Analytics | null>(null);
-  const [monthOffset, setMonthOffset] = useState(0); // 0=이번달, -1=저번달…
-  const [prevMonth, setPrevMonth] = useState<{ visits: number; conversions: number }>({ visits: 0, conversions: 0 });
-  // 광고 집행비 — 표시월 기준 채널별 금액(어드민이 직접 입력)
-  const [adSpend, setAdSpend] = useState<Record<string, number>>({});
+  const [dim, setDim] = useState<DimKey>('source');
+  const [logOpen, setLogOpen] = useState(false);
+  // ── 오늘 · 어제 ──
+  const [todayData, setTodayData] = useState<Analytics | null>(null);
+  const [yesterday, setYesterday] = useState<Totals | null>(null);
+  // ── 표시월(달력·브리핑·광고 효율) ──
+  const [monthOffset, setMonthOffset] = useState(0); // 0=이번 달, -1=지난달…
+  const [monthData, setMonthData] = useState<Analytics | null>(null); // 달력 칸 범위(앞뒤 달 포함) 날마다
   const [monthExact, setMonthExact] = useState<Analytics | null>(null); // 표시월 1일~말일 정확 집계
+  const [prevSame, setPrevSame] = useState<Totals | null>(null); // 지난달 같은 기간
+  // 광고 집행비 — 표시월 기준 채널별 하루 집행액(어드민이 직접 입력)
+  const [adSpend, setAdSpend] = useState<Record<string, number>>({});
   const [spendEditing, setSpendEditing] = useState(false);
   const [spendDraft, setSpendDraft] = useState<Record<string, string>>({});
   const [spendSaving, setSpendSaving] = useState(false);
-  const [showPages, setShowPages] = useState(false); // 페이지별 도넛 섹션 — 기본 접힘
 
   const load = async (r: string, from = customFrom, to = customTo) => {
     setLoading(true);
     try {
       let qs = '';
       if (from || to) {
-        // 단일 날짜 선택 시 그날 하루만(to 미지정이면 from 하루). 둘 다면 범위. (KST 하루 경계)
-        const effFrom = from || to;
-        const effTo = to || from;
-        const parts: string[] = [];
-        if (effFrom) parts.push(`from=${encodeURIComponent(new Date(`${effFrom}T00:00:00+09:00`).toISOString())}`);
-        if (effTo) parts.push(`to=${encodeURIComponent(new Date(`${effTo}T23:59:59.999+09:00`).toISOString())}`);
-        qs = `?${parts.join('&')}`;
+        // 하루만 고르면 그날 하루(KST 경계), 둘 다면 기간
+        const a = from || to;
+        const b = to || from;
+        const [effFrom, effTo] = a <= b ? [a, b] : [b, a];
+        qs = `?from=${encodeURIComponent(kstStartISO(effFrom))}&to=${encodeURIComponent(kstEndISO(effTo))}`;
       } else if (r !== 'all') {
-        const fromISO = new Date(Date.now() - Number(r) * 86400000).toISOString();
-        qs = `?from=${encodeURIComponent(fromISO)}`;
+        qs = `?from=${encodeURIComponent(new Date(Date.now() - Number(r) * 86400000).toISOString())}`;
       }
       const [d, v] = await Promise.all([
         adminFetch('GET', withPage(`/api/v1/admin/landing-analytics${qs}`, sel), undefined, { cache: false }),
@@ -277,80 +266,69 @@ export default function LandingAnalyticsPage() {
       setLoading(false);
     }
   };
-
   useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo, sel]);
 
-  // 달력용 데이터 — 메인 필터와 무관하게 표시월(monthOffset) 그리드 범위 전체
-  useEffect(() => {
-    (async () => {
-      try {
-        const g = monthGrid(monthOffset);
-        const from = new Date(`${g.gridStart}T00:00:00+09:00`).toISOString();
-        const to = new Date(`${g.gridEnd}T23:59:59.999+09:00`).toISOString();
-        const pr = monthFirstLast(monthOffset - 1); // 저번달(브리핑용)
-        const pFrom = new Date(`${pr.first}T00:00:00+09:00`).toISOString();
-        const pTo = new Date(`${pr.last}T23:59:59.999+09:00`).toISOString();
-        const [d, dp] = await Promise.all([
-          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, sel), undefined, { cache: false }),
-          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(pFrom)}&to=${encodeURIComponent(pTo)}`, sel), undefined, { cache: false }).catch(() => null),
-        ]);
-        setMonthData(d ?? null);
-        setPrevMonth({ visits: dp?.totalVisits ?? 0, conversions: dp?.totalConversions ?? 0 });
-
-        // 광고효율용 — 표시월 '정확한 1일~말일' 소스별 집계 + 저장된 광고비
-        const cur = monthFirstLast(monthOffset);
-        const ym = cur.first.slice(0, 7);
-        const [dm, spend] = await Promise.all([
-          adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(new Date(`${cur.first}T00:00:00+09:00`).toISOString())}&to=${encodeURIComponent(new Date(`${cur.last}T23:59:59.999+09:00`).toISOString())}`, sel), undefined, { cache: false }).catch(() => null),
-          adminFetch('GET', `/api/v1/admin/landing-analytics/ad-spend?month=${ym}`, undefined, { cache: false }).catch(() => null),
-        ]);
-        setMonthExact(dm ?? null);
-        const map: Record<string, number> = {};
-        for (const it of (spend?.items ?? [])) map[it.channel] = Number(it.amount) || 0;
-        setAdSpend(map);
-      } catch {}
-    })();
-  }, [monthOffset, sel]);
-
-  const fmtDT = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-
-  // ── 오늘(KST) 방문/신청 + 유입처 — 방문 로그에서 직접 계산(필터·월 이동과 무관) ──
-  const groupBySrc = (rows: VisitRow[]) => {
-    const m = new Map<string, number>();
-    for (const v of rows) m.set(srcKeyOf(v), (m.get(srcKeyOf(v)) || 0) + 1);
-    return Array.from(m.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
-  };
-  const todayAgg = useMemo(() => {
+  const loadToday = useCallback(async () => {
     const t = KST_TODAY();
-    const rows = (visits ?? []).filter((v) => kstDateOf(v.createdAt) === t);
-    return {
-      visits: rows.length,
-      conversions: rows.filter((v) => v.converted).length,
-      bySource: groupBySrc(rows),
-      byConvSource: groupBySrc(rows.filter((v) => v.converted)),
-    };
-  }, [visits]);
+    const y = addDaysYmd(t, -1);
+    const [td, yd] = await Promise.all([
+      adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(kstStartISO(t))}`, sel), undefined, { cache: false }).catch(() => null),
+      adminFetch('GET', withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(kstStartISO(y))}&to=${encodeURIComponent(kstEndISO(y))}`, sel), undefined, { cache: false }).catch(() => null),
+    ]);
+    setTodayData(td ?? null);
+    setYesterday(yd ? { visits: yd.totalVisits || 0, conversions: yd.totalConversions || 0 } : null);
+  }, [sel]);
+  useEffect(() => { loadToday(); }, [loadToday]);
 
-  // ── 표시월 총 방문 + 유입처(달력 그리드 응답의 pages 합산) ──
+  const loadMonth = useCallback(async () => {
+    try {
+      const g = monthGrid(monthOffset);
+      const cur = monthFirstLast(monthOffset);
+      const today = KST_TODAY();
+      // 지난달 같은 기간 — 이번 달이면 1일~오늘과 같은 날까지(지난달이 짧으면 말일), 지난 달이면 한 달 전체
+      const pm = monthFirstLast(monthOffset - 1);
+      const span = monthOffset === 0 ? Number(today.slice(8, 10)) : 31;
+      const pmEnd = `${pm.first.slice(0, 8)}${pad2(Math.min(span, Number(pm.last.slice(8, 10))))}`;
+      const q = (from: string, to: string) => withPage(`/api/v1/admin/landing-analytics?from=${encodeURIComponent(kstStartISO(from))}&to=${encodeURIComponent(kstEndISO(to))}`, sel);
+      const [grid, exact, prev, spend] = await Promise.all([
+        adminFetch('GET', q(g.gridStart, g.gridEnd), undefined, { cache: false }).catch(() => null),
+        adminFetch('GET', q(cur.first, cur.last), undefined, { cache: false }).catch(() => null),
+        adminFetch('GET', q(pm.first, pmEnd), undefined, { cache: false }).catch(() => null),
+        adminFetch('GET', `/api/v1/admin/landing-analytics/ad-spend?month=${cur.first.slice(0, 7)}`, undefined, { cache: false }).catch(() => null),
+      ]);
+      setMonthData(grid ?? null);
+      setMonthExact(exact ?? null);
+      setPrevSame(prev ? { visits: prev.totalVisits || 0, conversions: prev.totalConversions || 0 } : null);
+      const map: Record<string, number> = {};
+      for (const it of (spend?.items ?? [])) map[it.channel] = Number(it.amount) || 0;
+      setAdSpend(map);
+    } catch { /* 칸만 비워 둔다 */ }
+  }, [monthOffset, sel]);
+  useEffect(() => { loadMonth(); }, [loadMonth]);
+
+  // 머리 오른쪽 새로고침(종 옆)
+  useAdminRefresh(() => { load(range); loadToday(); loadMonth(); });
+
+  // ── 달력에서 고른 날(하루) — 숫자 줄 앞 두 칸·유입 경로가 그날 기준 ──
+  const pickedDate = customFrom && customFrom === customTo ? customFrom : '';
+  const pickDay = (day: string) => {
+    if (pickedDate === day) { setCustomFrom(''); setCustomTo(''); return; }
+    setCustomFrom(day);
+    setCustomTo(day);
+  };
+  const clearCustom = () => { setCustomFrom(''); setCustomTo(''); };
+  const pageStat = data?.pages?.[0];
+  const dayAgg = pickedDate
+    ? { label: md(pickedDate), totals: loading ? null : { visits: data?.totalVisits || 0, conversions: data?.totalConversions || 0 }, rows: loading ? null : pageStat?.bySource || [] }
+    : { label: '오늘', totals: todayData ? { visits: todayData.totalVisits || 0, conversions: todayData.totalConversions || 0 } : null, rows: todayData ? todayData.pages?.[0]?.bySource || [] : null };
+
+  // ── 표시월 ──
   const g = monthGrid(monthOffset);
-  const monthAgg = useMemo(() => {
-    const dmap = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
-    let visitsSum = 0, convSum = 0;
-    for (const c of g.cells) if (c.inMonth) { const r = dmap.get(c.key); visitsSum += r?.visits || 0; convSum += r?.conversions || 0; }
-    const sm = new Map<string, number>();
-    for (const p of monthData?.pages ?? []) for (const b of p.bySource) sm.set(b.key, (sm.get(b.key) || 0) + b.visits);
-    const bySource = Array.from(sm.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
-    return { visits: visitsSum, conversions: convSum, bySource };
-  }, [monthData, monthOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+  const monthNo = g.month + 1;
+  const monthTotals: Totals | null = monthExact ? { visits: monthExact.totalVisits || 0, conversions: monthExact.totalConversions || 0 } : null;
+  const monthRows = monthExact?.pages?.[0]?.bySource || [];
 
-  /** 전 채널 하루 집행액 합계 — 달력 각 날짜의 '방문당 비용' 계산에 쓴다 */
-  const dailyBudget = useMemo(
-    () => AD_CHANNELS.reduce((s, c) => s + (adSpend[c.key] || 0), 0),
-    [adSpend],
-  );
-
-  // 집행 일수 — 광고비는 '하루 집행액'이라 월 누적은 일수를 곱한다.
-  // 이번 달은 아직 안 지난 날까지 곱하면 과대계상되므로 오늘까지만 센다.
+  // 집행 일수 — 광고비는 '하루 집행액'이라 월 누적은 일수를 곱한다. 이번 달은 오늘까지만(아직 안 온 날은 안 쓴 돈)
   const spendDays = useMemo(() => {
     const { first, last } = monthFirstLast(monthOffset);
     const today = KST_TODAY();
@@ -359,40 +337,51 @@ export default function LandingAnalyticsPage() {
     return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${first}T00:00:00Z`)) / 86400000) + 1;
   }, [monthOffset]);
 
-  // 광고효율 — 채널별 집행비 대비 유입/신청. 표시월 1일~말일 기준.
+  // 광고 효율 — 채널별 집행비 대비 방문·신청(표시월 1일~말일)
   const adRows = useMemo(() => {
-    // 소스별 방문/전환 합산(페이지 구분 없이)
-    const bySrc = new Map<string, { visits: number; conversions: number }>();
+    const bySrc = new Map<string, Totals>();
     for (const p of monthExact?.pages ?? []) {
       for (const b of p.bySource) {
         const k = String(b.key).toLowerCase().trim();
         const e = bySrc.get(k) || { visits: 0, conversions: 0 };
-        e.visits += b.visits; e.conversions += b.conversions;
+        e.visits += b.visits;
+        e.conversions += b.conversions;
         bySrc.set(k, e);
       }
     }
     const rows = AD_CHANNELS.map((c) => {
-      let visits = 0, conversions = 0;
+      let v = 0;
+      let cv = 0;
       for (const s of c.sources) {
         const e = bySrc.get(s);
-        if (e) { visits += e.visits; conversions += e.conversions; }
+        if (e) { v += e.visits; cv += e.conversions; }
       }
-      const daily = adSpend[c.key] || 0;      // 하루 집행액
-      const spend = daily * spendDays;        // 표시월 누적 집행액
+      const daily = adSpend[c.key] || 0;
+      const spend = daily * spendDays;
       return {
-        ...c, daily, spend, visits, conversions,
-        cpa: conversions > 0 && spend > 0 ? spend / conversions : null,  // 신청 1건당 비용
-        cpc: visits > 0 && spend > 0 ? spend / visits : null,            // 방문 1회당 비용
-        cvr: visits > 0 ? conversions / visits : 0,
+        ...c,
+        daily,
+        spend,
+        visits: v,
+        conversions: cv,
+        cpa: cv > 0 && spend > 0 ? spend / cv : null,
+        cpc: v > 0 && spend > 0 ? spend / v : null,
+        cvr: v > 0 ? cv / v : 0,
       };
     });
     const total = rows.reduce(
       (a, r) => ({ daily: a.daily + r.daily, spend: a.spend + r.spend, visits: a.visits + r.visits, conversions: a.conversions + r.conversions }),
       { daily: 0, spend: 0, visits: 0, conversions: 0 },
     );
-    return { rows, total, spendDays };
+    return { rows, total };
   }, [monthExact, adSpend, spendDays]);
 
+  const startSpendEdit = () => {
+    const d: Record<string, string> = {};
+    AD_CHANNELS.forEach((c) => { d[c.key] = adSpend[c.key] ? String(adSpend[c.key]) : ''; });
+    setSpendDraft(d);
+    setSpendEditing(true);
+  };
   const saveAdSpend = async () => {
     if (spendSaving) return;
     setSpendSaving(true);
@@ -404,54 +393,50 @@ export default function LandingAnalyticsPage() {
         if (raw === undefined) return;
         const amount = Math.max(0, Number(String(raw).replace(/[^0-9]/g, '')) || 0);
         if (amount === (adSpend[c.key] || 0)) return;
-        await adminFetch('POST', '/api/v1/admin/landing-analytics/ad-spend',
-          { month: ym, channel: c.key, amount }, { cache: false });
+        await adminFetch('POST', '/api/v1/admin/landing-analytics/ad-spend', { month: ym, channel: c.key, amount }, { cache: false });
         next[c.key] = amount;
       }));
       setAdSpend(next);
       setSpendEditing(false);
-    } catch {} finally { setSpendSaving(false); }
+    } catch { /* 저장 실패 — 입력칸을 그대로 둔다 */ } finally {
+      setSpendSaving(false);
+    }
   };
 
-  // 표시월 브리핑 — 저번달 방문수 대비 추세
+  // ── 한 줄 브리핑 — 지난달 '같은 기간'과 견준다(이번 달 며칠치를 지난달 한 달 전체와 견주면 늘 크게 줄어 보였다) ──
   const briefing = useMemo(() => {
-    const cur = monthAgg.visits, prev = prevMonth.visits;
-    if (cur === 0 && prev === 0) return { text: '아직 유입 데이터가 없어요', tone: 'text-gray-400', arrow: '' };
-    if (prev === 0) return { text: '저번달엔 유입이 없었는데, 이번 달에 시작됐어요', tone: 'text-[#3182F6]', arrow: '↑' };
+    if (!monthTotals || !prevSame) return null;
+    const cur = monthTotals.visits;
+    const prev = prevSame.visits;
+    if (cur === 0 && prev === 0) return <>아직 방문 기록이 없어요</>;
+    if (prev === 0) return <>지난달 같은 기간엔 방문 기록이 없었어요</>;
     const diff = cur - prev;
-    const pctv = Math.round((Math.abs(diff) / prev) * 100);
-    if (pctv < 5) return { text: '저번달과 비슷해요', tone: 'text-gray-500', arrow: '→' };
-    if (diff > 0) return { text: `저번달보다 ${pctv}% 상승세를 보이고 있어요`, tone: 'text-[#3182F6]', arrow: '↑' };
-    return { text: `저번달보다 ${pctv}% 하락세를 보이고 있어요`, tone: 'text-[#F04452]', arrow: '↓' };
-  }, [monthAgg.visits, prevMonth.visits]);
+    const p = Math.round((Math.abs(diff) / prev) * 100);
+    if (p < 5) return <>지난달 같은 기간과 비슷하게 들어오는 중</>;
+    return diff > 0
+      ? <>지난달 같은 기간보다 방문이 <b style={{ color: '#3182F6' }}>{p}%</b> 늘었어요</>
+      : <>지난달 같은 기간보다 방문이 <b style={{ color: '#F04452' }}>{p}%</b> 줄었어요</>;
+  }, [monthTotals, prevSame]);
+  const spanText = (() => {
+    const cur = monthFirstLast(monthOffset);
+    const today = KST_TODAY();
+    const end = monthOffset === 0 && cur.last > today ? today : cur.last;
+    return `${md(cur.first)} ~ ${md(end)} · 지난달 같은 기간 ${prevSame ? `${num(prevSame.visits)}회` : '—'}`;
+  })();
 
-  // ── 달력에서 하루 선택 시(customFrom===customTo) 상단 카드를 그 날짜 기준으로 ──
-  const pickedDate = customFrom && customFrom === customTo ? customFrom : '';
-  const pickedLabel = pickedDate ? `${Number(pickedDate.slice(5, 7))}월 ${Number(pickedDate.slice(8, 10))}일` : '';
-  const pickedAgg = useMemo(() => {
-    if (!pickedDate || !data) return null; // data는 선택 시 그날 하루로 필터돼 옴
-    const sm = new Map<string, { visits: number; conv: number }>();
-    for (const p of data.pages ?? []) for (const b of p.bySource) {
-      const e = sm.get(b.key) || { visits: 0, conv: 0 }; e.visits += b.visits; e.conv += b.conversions; sm.set(b.key, e);
-    }
-    const bySource = Array.from(sm.entries()).map(([key, v]) => ({ key, count: v.visits })).sort((a, b) => b.count - a.count);
-    const byConvSource = Array.from(sm.entries()).map(([key, v]) => ({ key, count: v.conv })).filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
-    return { visits: data.totalVisits, conversions: data.totalConversions, bySource, byConvSource };
-  }, [pickedDate, data]);
+  const calMap = useMemo(() => new Map((monthData?.daily ?? []).map((d) => [d.date, d])), [monthData]);
+  const todayYmd = KST_TODAY();
+  const dailyBudget = adRows.total.daily;
 
-  // 상단 카드 1·2(방문/신청) — 선택일이 있으면 그날, 없으면 오늘
-  const card1 = pickedDate
-    ? { title: `${pickedLabel} 방문`, value: pickedAgg?.visits ?? 0, rows: pickedAgg?.bySource ?? [], empty: '방문 없음' }
-    : { title: '오늘 방문', value: todayAgg.visits, rows: todayAgg.bySource, empty: '오늘 방문 없음' };
-  const card2 = pickedDate
-    ? { title: `${pickedLabel} 견적 신청`, value: pickedAgg?.conversions ?? 0, rows: pickedAgg?.byConvSource ?? [], empty: '신청 없음' }
-    : { title: '오늘 견적 신청', value: todayAgg.conversions, rows: todayAgg.byConvSource, empty: '오늘 신청 없음' };
+  const dimRows = (dim === 'source' ? pageStat?.bySource : dim === 'medium' ? pageStat?.byMedium : pageStat?.byCampaign) || [];
+  const periodText = customFrom && customTo && customFrom !== customTo
+    ? `${md(customFrom < customTo ? customFrom : customTo)} ~ ${md(customFrom < customTo ? customTo : customFrom)}`
+    : customActive ? md(customFrom || customTo) : range === 'all' ? '전체 기간' : `최근 ${range}일`;
 
-  // 머리 오른쪽 새로고침(종 옆)
-  useAdminRefresh(() => load(range));
+  const cvrOf = (t: Totals | null) => (t && t.visits > 0 ? pct(t.conversions / t.visits) : '—');
 
   return (
-    <div className="w-full">
+    <div className="w-full adm-la">
       {/* 머리 = 제목 자리 큰 글씨 탭(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC — 누르면 검정, 나머지 회색'). 레이아웃 머리는 이 화면에서 숨긴다 */}
       <div className="adm-head">
         <div className="adm-title-tabs" role="tablist" aria-label="페이지">
@@ -461,315 +446,280 @@ export default function LandingAnalyticsPage() {
             </button>
           ))}
         </div>
-        <p className="adm-desc" key={sel}>{PAGE_TABS.find((t) => t.key === sel)?.desc}</p>
+        <p className="adm-desc" key={sel}>{tab.desc}</p>
       </div>
 
-      {/* 상단: (선택일/오늘) 방문 + 어디서 왔는지 리스트 + 이번 달 방문 */}
-      <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <SourceCard title={card1.title} value={card1.value} unit="회" tone="text-gray-900" rows={card1.rows} empty={card1.empty} />
-        <SourceCard title={card2.title} value={card2.value} unit="명" tone="text-emerald-600" rows={card2.rows} empty={card2.empty} />
-        <SourceCard title={`${g.month + 1}월 방문`} value={monthAgg.visits} unit="회" tone="text-[#3182F6]" rows={monthAgg.bySource} empty="이번 달 방문 없음" />
-      </div>
+      {/* 숫자 줄 — 홈 상단과 같은 박스 없는 다이얼 6칸 */}
+      <section className="adm-la-top" aria-label="오늘과 이번 달 숫자">
+        <div className="adm-la-kpis" key={`${sel}-${monthOffset}`}>
+          <Kpi
+            label={`${dayAgg.label} 방문`}
+            value={dayAgg.totals?.visits ?? null}
+            unit="회"
+            sub={pickedDate ? '달력에서 다시 누르면 오늘로' : `어제 ${yesterday ? `${num(yesterday.visits)}회` : '—'}`}
+          />
+          <Kpi label={`${dayAgg.label} ${conv}`} value={dayAgg.totals?.conversions ?? null} unit="건" tone="#03A35F" sub={`전환율 ${cvrOf(dayAgg.totals)}`} />
+          <Kpi label={`${monthNo}월 방문`} value={monthTotals?.visits ?? null} unit="회" sub={`지난달 같은 기간 ${prevSame ? `${num(prevSame.visits)}회` : '—'}`} />
+          <Kpi label={`${monthNo}월 ${conv}`} value={monthTotals?.conversions ?? null} unit="건" tone="#03A35F" sub={`전환율 ${cvrOf(monthTotals)}`} />
+          <Kpi label={`${monthNo}월 광고비`} value={monthExact ? adRows.total.spend : null} unit="원" sub={adRows.total.daily ? `하루 ${won(adRows.total.daily)} × ${spendDays}일` : '광고비 입력 전'} />
+          <Kpi
+            label={`${conv} 1건당 광고비`}
+            value={monthExact ? (adRows.total.conversions > 0 && adRows.total.spend > 0 ? adRows.total.spend / adRows.total.conversions : null) : null}
+            unit="원"
+            tone="#3182F6"
+            sub={adRows.total.visits > 0 && adRows.total.spend > 0 ? `방문당 ${won(adRows.total.spend / adRows.total.visits)}` : '광고비·신청이 있어야 계산돼요'}
+          />
+        </div>
+        <div className="adm-money-line" />
 
-      {/* 월간 달력 — 토스 정산달력 스타일(테두리 없는 클린 그리드) */}
-      {(() => {
-        const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        const kstToday = KST_TODAY();
-        const map = new Map((monthData?.daily ?? []).map((d) => [d.date, d]));
-        return (
-          <div className="mb-8 rounded-[20px] bg-white p-6 md:p-8">
-            {/* 헤더: 연·월 + 이동 */}
-            <div className="flex items-center gap-3">
-              <h3 className="text-[32px] font-extrabold tracking-tight text-gray-900">{g.year}년 {g.month + 1}월</h3>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => setMonthOffset((v) => v - 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition hover:bg-gray-200 hover:text-gray-600" aria-label="저번 달">‹</button>
-                <button onClick={() => setMonthOffset((v) => Math.min(0, v + 1))} disabled={monthOffset >= 0}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-[15px] text-gray-400 transition enabled:hover:bg-gray-200 enabled:hover:text-gray-600 disabled:opacity-40" aria-label="다음 달">›</button>
-              </div>
-            </div>
-            {/* 월 요약: 유입수 · 견적 신청수 · 브리핑(저번달 대비) */}
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-gray-100">
-              <div className="sm:pr-6">
-                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 유입수</p>
-                <p className="mt-1.5 text-[28px] font-extrabold text-gray-900"><RollingNumber value={monthAgg.visits} /><span className="ml-1 text-[14px] font-bold text-gray-400">회</span></p>
-              </div>
-              <div className="sm:px-6">
-                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 견적 신청수</p>
-                <p className="mt-1.5 text-[28px] font-extrabold text-emerald-600"><RollingNumber value={monthAgg.conversions} /><span className="ml-1 text-[14px] font-bold text-gray-400">명</span></p>
-              </div>
-              <div className="sm:pl-6">
-                <p className="text-[15px] font-medium text-gray-500">{g.month + 1}월 브리핑</p>
-                <p className={`mt-1.5 text-[17px] font-bold leading-snug ${briefing.tone}`}>{briefing.arrow && <span className="mr-1">{briefing.arrow}</span>}{briefing.text}</p>
-              </div>
-            </div>
-            {/* 범례 */}
-            <div className="mt-6 flex items-center gap-5 border-t border-gray-100 pt-5 text-[13px] text-gray-500">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#3182F6]" /> 방문</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> 견적 신청</span>
-            </div>
-            {/* 요일 헤더 */}
-            <div className="mt-4 grid grid-cols-7">
-              {WD.map((w) => (
-                <div key={w} className="pb-1 text-[13px] font-medium text-gray-400">{w}</div>
-              ))}
-            </div>
-            {/* 날짜 그리드 (테두리 없음) */}
-            <div className="grid grid-cols-7">
-              {g.cells.map((c) => {
-                const row = map.get(c.key);
-                const vis = row?.visits || 0, conv = row?.conversions || 0;
-                const active = customFrom === c.key && (customTo === c.key || !customTo);
-                const isToday = c.key === kstToday;
-                const weekend = c.weekday === 0 || c.weekday === 6;
-                const dateColor = !c.inMonth ? (weekend ? 'text-red-200' : 'text-gray-300') : weekend ? 'text-[#F04452]' : 'text-gray-800';
+        {/* 한 줄 브리핑 + 달 넘기기 */}
+        <div className="adm-la-mid">
+          <div className="min-w-0">
+            <p className="adm-money-say">{briefing || <span className="adm-money-wait">불러오는 중</span>}</p>
+            <p className="adm-la-mid-sub">{spanText}</p>
+          </div>
+          <div className="adm-la-monthnav">
+            <b>{g.year}년 {monthNo}월</b>
+            <button type="button" className="adm-btn icon sm" onClick={() => setMonthOffset((v) => v - 1)} aria-label="지난달"><Chev dir="l" /></button>
+            <button type="button" className="adm-btn icon sm" onClick={() => setMonthOffset((v) => Math.min(0, v + 1))} disabled={monthOffset >= 0} aria-label="다음 달"><Chev dir="r" /></button>
+          </div>
+        </div>
+
+        {/* 달력 — 홈 달력 어법(박스 없음): 날짜 · 방문(파랑) · 신청(초록). 날짜를 누르면 위 앞 두 칸·아래 유입이 그날 기준 */}
+        <div className="adm-la-cal" key={`cal-${sel}-${monthOffset}`}>
+          <div className="adm-la-cal-head" aria-hidden="true">{WD.map((w) => <span key={w}>{w}</span>)}</div>
+          {Array.from({ length: g.cells.length / 7 }, (_, r) => (
+            <div key={r} className="adm-la-cal-row" style={{ animationDelay: `${r * 0.04}s` }}>
+              {g.cells.slice(r * 7, r * 7 + 7).map((c) => {
+                const rec = calMap.get(c.key);
+                const v = rec?.visits || 0;
+                const cv = rec?.conversions || 0;
+                const future = c.key > todayYmd;
+                const shownVals = c.inMonth && !future;
+                const tip = shownVals
+                  ? `${md(c.key)} · 방문 ${num(v)}회 · ${conv} ${num(cv)}건${dailyBudget > 0 && v > 0 ? ` · 방문당 ${won(dailyBudget / v)}` : ''}${dailyBudget > 0 && cv > 0 ? ` · ${conv}당 ${won(dailyBudget / cv)}` : ''}`
+                  : undefined;
                 return (
-                  <button key={c.key} onClick={() => { setCustomFrom(c.key); setCustomTo(c.key); }}
-                    className="flex min-h-[92px] flex-col items-start px-1 pb-3 pt-2.5 text-left">
-                    <span className="flex items-center gap-1">
-                      <span className={`inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full px-1 text-[15px] font-semibold tabular-nums transition ${active ? 'bg-[#3182F6] text-white' : `${dateColor} hover:bg-gray-100`}`}>{c.day}</span>
-                      {isToday && !active && <span className="rounded-full bg-red-50 px-1.5 py-[2px] text-[10px] font-bold leading-none text-[#F04452]">오늘</span>}
-                    </span>
-                    <span className="mt-2 pl-1 leading-tight">
-                      {c.inMonth ? (
-                        <>
-                          {/* 방문수 옆에 그날 방문 1회당 비용 — 하루 집행액 ÷ 그날 방문수 */}
-                          <span className={`block text-[13px] font-bold tabular-nums ${vis ? 'text-[#3182F6]' : 'text-gray-300'}`}>
-                            {num(vis)}
-                            {dailyBudget > 0 && vis > 0 && (
-                              <span className="ml-1 text-[11px] font-semibold text-gray-400">({won(dailyBudget / vis)})</span>
-                            )}
-                          </span>
-                          {/* 신청수 옆에 그날 신청 1건당 비용 — 하루 집행액 ÷ 그날 신청수 */}
-                          <span className={`block text-[13px] font-bold tabular-nums ${conv ? 'text-emerald-500' : 'text-gray-300'}`}>
-                            {num(conv)}
-                            {dailyBudget > 0 && conv > 0 && (
-                              <span className="ml-1 text-[11px] font-semibold text-emerald-600/60">({won(dailyBudget / conv)})</span>
-                            )}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="block text-[13px] font-bold tabular-nums text-gray-200">0</span>
-                      )}
-                    </span>
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`adm-la-cell ${c.inMonth ? '' : 'out'} ${future ? 'future' : ''} ${c.key === todayYmd ? 'today' : ''} ${pickedDate === c.key ? 'pick' : ''}`}
+                    disabled={!shownVals}
+                    onClick={() => pickDay(c.key)}
+                    aria-pressed={pickedDate === c.key}
+                    title={tip}
+                    aria-label={tip || `${md(c.key)}`}
+                  >
+                    <span className="adm-la-day">{c.day}</span>
+                    <span className="adm-la-v">{shownVals && v > 0 ? num(v) : ''}</span>
+                    <span className="adm-la-c">{shownVals && cv > 0 ? `${conv.replace(/^견적\s*/, '')} ${num(cv)}` : ''}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2 border-t border-gray-100 pt-4 text-[12px] text-gray-400">날짜를 누르면 위 방문·신청 카드와 아래 유입 소스가 그 날짜 기준으로 바뀌어요.</p>
-
-          {/* ── 광고효율 ── */}
-          <div className="mt-6 border-t border-gray-100 pt-6">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h3 className="text-[18px] font-extrabold tracking-tight text-gray-900">광고효율</h3>
-                <p className="mt-0.5 text-[13px] text-gray-400">
-                  하루 집행액 기준 · {g.year}. {g.month + 1}월 {adRows.spendDays}일 누적
-                </p>
-              </div>
-              {spendEditing ? (
-                <button onClick={saveAdSpend} disabled={spendSaving}
-                  className="rounded-full bg-[#3182F6] px-4 py-2 text-[13px] font-bold text-white transition disabled:opacity-60">
-                  {spendSaving ? '저장 중…' : '저장'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    const d: Record<string, string> = {};
-                    AD_CHANNELS.forEach((c) => { d[c.key] = String(adSpend[c.key] || ''); });
-                    setSpendDraft(d); setSpendEditing(true);
-                  }}
-                  className="rounded-full border border-gray-200 px-4 py-2 text-[13px] font-semibold text-gray-600 transition hover:bg-gray-50">
-                  광고비 입력
-                </button>
-              )}
-            </div>
-
-            {/* 합계 */}
-            <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">하루 집행액</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900"><WonRoll n={adRows.total.daily} /></p>
-                <p className="mt-1.5 text-[12px] text-gray-400">전 채널 합계</p>
-              </div>
-              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">{g.month + 1}월 누적</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-gray-900"><WonRoll n={adRows.total.spend} /></p>
-                <p className="mt-1.5 text-[12px] text-gray-400">{adRows.spendDays}일 집행 · 방문 {num(adRows.total.visits)}</p>
-              </div>
-              {/* 전환이 얼마나 일어났는지 */}
-              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">전환 (견적 신청)</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-emerald-600">
-                  <RollingNumber value={adRows.total.conversions} /><span className="ml-1 text-[14px] font-bold text-gray-400">건</span>
-                </p>
-                <p className="mt-1.5 text-[12px] text-gray-400">
-                  전환율 {adRows.total.visits > 0 ? pct(adRows.total.conversions / adRows.total.visits) : '—'}
-                </p>
-              </div>
-              {/* 전환 대비 얼마를 썼는지 */}
-              <div className="rounded-[22px] bg-[#F2F4F6] px-5 py-4">
-                <p className="text-[13px] text-gray-500">전환 1건당 비용</p>
-                <p className="mt-1 text-[24px] font-extrabold leading-none text-[#3182F6]">
-                  {adRows.total.conversions > 0 && adRows.total.spend > 0
-                    ? <WonRoll n={adRows.total.spend / adRows.total.conversions} /> : '—'}
-                </p>
-                <p className="mt-1.5 text-[12px] text-gray-400">
-                  방문당 {adRows.total.visits > 0 && adRows.total.spend > 0 ? won(adRows.total.spend / adRows.total.visits) : '—'}
-                </p>
-              </div>
-            </div>
-
-            {/* 채널별 */}
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {adRows.rows.map((r) => (
-                <div key={r.key} className="rounded-[20px] border border-gray-100 px-4 py-3.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/admin-icons/${r.icon}.svg`} alt="" width={20} height={20} className="shrink-0 rounded-full" />
-                      <span className="truncate text-[13.5px] font-bold text-gray-800">{r.label}</span>
-                    </span>
-                    {!spendEditing && (
-                      <span className="shrink-0 text-[13.5px] font-extrabold tabular-nums text-gray-900">
-                        {r.daily > 0 ? won(r.daily) : <span className="font-medium text-gray-300">미입력</span>}
-                      </span>
-                    )}
-                  </div>
-
-                  {spendEditing ? (
-                    <div className="mt-2.5 flex items-center gap-1.5">
-                      <input
-                        type="text" inputMode="numeric"
-                        value={spendDraft[r.key] ?? ''}
-                        onChange={(e) => setSpendDraft((p) => ({ ...p, [r.key]: e.target.value.replace(/[^0-9]/g, '') }))}
-                        placeholder="하루 집행액"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-right text-[14px] tabular-nums outline-none focus:border-[#3182F6]"
-                      />
-                      <span className="shrink-0 text-[13px] text-gray-400">원/일</span>
-                    </div>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] tabular-nums text-gray-500">
-                      <span>방문 <b className="text-gray-700">{num(r.visits)}</b></span>
-                      <span>신청 <b className="text-emerald-600">{num(r.conversions)}</b></span>
-                      <span>전환율 <b className="text-gray-700">{pct(r.cvr)}</b></span>
-                      <span className="w-full">
-                        건당 <b className={r.cpa != null ? 'text-gray-900' : 'text-gray-300'}>
-                          {r.cpa != null ? won(r.cpa) : '—'}
-                        </b>
-                        {r.cpc != null && <span className="ml-3">방문당 <b className="text-gray-700">{won(r.cpc)}</b></span>}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-4 text-[11.5px] leading-relaxed text-gray-400">
-              · 금액은 <b>하루 집행액</b>이에요. 월 누적은 하루 집행액 × 경과일수({adRows.spendDays}일)로 계산합니다.<br />
-              · 달력 각 날짜의 괄호 금액 — <b className="text-[#3182F6]">파랑</b>은 방문 1회당 비용,
-              <b className="text-emerald-600"> 초록</b>은 신청 1건당 비용(하루 집행액 ÷ 그날 수치)입니다.<br />
-              · <b>건당</b> = 누적 집행액 ÷ 견적 신청수(CPA). 메타는 인스타·페북·스레드를 합산합니다.
-            </p>
+          ))}
+          <div className="adm-la-legend">
+            <span className="v">방문</span>
+            <span className="c">{conv}</span>
+            <span className="hint">{pickedDate ? <>{md(pickedDate)} 보는 중 · <button type="button" onClick={clearCustom}>오늘로</button></> : '날짜를 누르면 그날 기준으로 바뀌어요 · 칸에 대면 광고비 대비 비용'}</span>
           </div>
-          </div>
-        );
-      })()}
+        </div>
+      </section>
 
-      {/* 페이지별 유입 상세 — 기본 접힘 */}
-      <div className="mb-8">
-        <button onClick={() => setShowPages((v) => !v)}
-          className="flex w-full items-center justify-between rounded-[38px] bg-white px-6 py-4 text-left transition hover:bg-gray-50">
-          <span className="flex items-center gap-2 text-[15px] font-bold text-gray-800">
-            페이지별 유입 상세 <span className="font-medium text-gray-400">유입 소스 · 매체 · 캠페인</span>
-          </span>
-          <span className={`text-[11px] text-gray-400 transition-transform ${showPages ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-
-        {showPages && (
-          <div className="mt-4">
-            {/* 기간 필터 (페이지별 유입 소스·매체·캠페인에 적용) */}
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <span className="mr-1 text-[13px] font-semibold text-gray-500">기간</span>
-              {RANGES.map((r) => (
-                <button key={r.key} onClick={() => { setCustomFrom(''); setCustomTo(''); setRange(r.key); }}
-                  className={`rounded-full px-4 py-2 text-[13px] font-semibold transition ${range === r.key && !customActive ? 'bg-[#3182F6] text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                  {r.label}
-                </button>
-              ))}
-              <div className={`ml-1 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] ${customActive ? 'border-[#3182F6] bg-[#EAF3FF]' : 'border-gray-200'}`}>
-                <input type="date" value={customFrom} max={customTo || undefined}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
-                <span className="text-gray-400">~</span>
-                <input type="date" value={customTo} min={customFrom || undefined}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  className="bg-transparent text-[13px] text-gray-700 outline-none [color-scheme:light]" />
-                {customActive && (
-                  <button onClick={() => { setCustomFrom(''); setCustomTo(''); }} className="ml-0.5 rounded-full px-1.5 text-[13px] font-bold text-gray-400 hover:text-gray-600" title="날짜 필터 해제">✕</button>
-                )}
-              </div>
+      {/* 유입 경로 — 오늘(또는 고른 날) | 이번 달 */}
+      <div className="adm-grid adm-la-row2">
+        <div className="adm-card">
+          <div className="adm-card-head">
+            <div className="min-w-0">
+              <h2 className="adm-card-title">{dayAgg.label} 유입 경로</h2>
+              <p className="adm-card-sub">{dayAgg.totals ? `방문 ${num(dayAgg.totals.visits)}회 · ${conv} ${num(dayAgg.totals.conversions)}건` : '불러오는 중'}</p>
             </div>
-
-            {/* 페이지별 도넛 */}
-            {(data?.pages ?? []).map((p) => (
-              <section key={p.page} className="mb-10">
-                <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <h2 className="text-[17px] font-bold text-gray-900">{PAGE_LABEL[p.page] || p.page}</h2>
-                  <span className="text-[13px] text-gray-500">방문 <b className="text-gray-800">{num(p.visits)}</b> · 전환 <b className="text-[#3182F6]">{num(p.conversions)}</b> · 전환율 <b className="text-emerald-600">{pct(p.rate)}</b></span>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Donut title="유입 소스" rows={p.bySource} />
-                  <Donut title="매체 (medium)" rows={p.byMedium} />
-                  <Donut title="캠페인 (campaign)" rows={p.byCampaign} />
-                </div>
-              </section>
-            ))}
           </div>
-        )}
+          {dayAgg.rows == null ? <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="adm-skel h-[40px]" />)}</div> : <RankRows key={`d-${sel}-${pickedDate}`} rows={dayAgg.rows} conv={conv} empty={`${dayAgg.label} 방문 기록이 없어요`} />}
+        </div>
+        <div className="adm-card">
+          <div className="adm-card-head">
+            <div className="min-w-0">
+              <h2 className="adm-card-title">{monthNo}월 유입 경로</h2>
+              <p className="adm-card-sub">{monthTotals ? `방문 ${num(monthTotals.visits)}회 · ${conv} ${num(monthTotals.conversions)}건` : '불러오는 중'}</p>
+            </div>
+          </div>
+          {!monthExact ? <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="adm-skel h-[40px]" />)}</div> : <RankRows key={`m-${sel}-${monthOffset}`} rows={monthRows} conv={conv} empty={`${monthNo}월 방문 기록이 없어요`} />}
+        </div>
       </div>
 
-      {/* 방문 로그 — 어떤 유입으로 들어왔는지 */}
-      <div className="mb-8 rounded-[38px] bg-white p-5">
-        <h3 className="mb-3 text-[14px] font-bold text-gray-800">방문 로그 <span className="font-medium text-gray-400">(최근순 · 어떤 경로로 유입됐는지)</span></h3>
-        <AdminTableScroll edge={false}>
-          <table className="w-full min-w-[560px] text-[12.5px]">
+      {/* 광고 효율 — 채널별 하루 집행액(직접 입력) 대비 방문·신청 */}
+      <div className="adm-card adm-la-ad">
+        <div className="adm-card-head">
+          <div className="min-w-0">
+            <h2 className="adm-card-title">광고 효율</h2>
+            <p className="adm-card-sub">하루 집행액 기준 · {monthNo}월 {spendDays}일치 누적 · 메타 = 인스타·페북·스레드</p>
+          </div>
+          {spendEditing ? (
+            <span className="inline-flex flex-none gap-1.5">
+              <button type="button" className="adm-btn sm" onClick={() => setSpendEditing(false)} disabled={spendSaving}>취소</button>
+              <button type="button" className="adm-btn primary sm" onClick={saveAdSpend} disabled={spendSaving}>{spendSaving ? '저장 중' : '저장'}</button>
+            </span>
+          ) : (
+            <button type="button" className="adm-btn weak sm flex-none" onClick={startSpendEdit}>광고비 입력</button>
+          )}
+        </div>
+        <div className="adm-mini-grid">
+          <div className="adm-mini"><p>하루 집행액</p><b><RollingNumber value={adRows.total.daily} /><small>원</small></b></div>
+          <div className="adm-mini"><p>{monthNo}월 누적</p><b><RollingNumber value={adRows.total.spend} /><small>원</small></b></div>
+          <div className="adm-mini"><p>광고 채널 {conv}</p><b><RollingNumber value={adRows.total.conversions} /><small>건 · {adRows.total.visits > 0 ? pct(adRows.total.conversions / adRows.total.visits) : '—'}</small></b></div>
+          <div className="adm-mini"><p>{conv} 1건당</p><b>{adRows.total.conversions > 0 && adRows.total.spend > 0 ? <><RollingNumber value={Math.round(adRows.total.spend / adRows.total.conversions)} /><small>원</small></> : '—'}</b></div>
+        </div>
+        <AdminTableScroll edge={false} className="mt-4">
+          <table className="adm-table adm-la-adtable">
             <thead>
-              <tr className="border-b border-gray-100 text-[11px] text-gray-400">
-                <th className="py-2 pr-2 text-left font-semibold">시간</th>
-                <th className="py-2 pr-2 text-left font-semibold">랜딩</th>
-                <th className="py-2 pr-2 text-left font-semibold">유입 소스</th>
-                <th className="py-2 pr-2 text-left font-semibold">매체/캠페인</th>
-                <th className="py-2 pr-2 text-left font-semibold">리퍼러</th>
-                <th className="py-2 pl-2 text-right font-semibold">견적</th>
+              <tr>
+                <th>채널</th>
+                <th className="r">하루 집행액</th>
+                <th className="r">방문</th>
+                <th className="r">{conv}</th>
+                <th className="r">전환율</th>
+                <th className="r">{conv}당</th>
+                <th className="r">방문당</th>
               </tr>
             </thead>
             <tbody>
-              {(visits ?? []).slice(0, 150).map((v, i) => (
-                <tr key={i} className="border-b border-gray-50">
-                  <td className="whitespace-nowrap py-2 pr-2 tabular-nums text-gray-500">{fmtDT(v.createdAt)}</td>
-                  <td className="py-2 pr-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600">{PAGE_SHORT[v.page] || v.page}</span></td>
-                  <td className="py-2 pr-2 font-semibold text-gray-800">{v.source ? <SourceLabel value={v.source} /> : v.referrerHost ? <SourceLabel value={v.referrerHost} /> : <span className="font-normal text-gray-400">직접/기타</span>}</td>
-                  <td className="py-2 pr-2 text-gray-500">{[v.medium, v.campaign].filter(Boolean).join(' · ') || '—'}</td>
-                  <td className="max-w-[180px] truncate py-2 pr-2 text-gray-400" title={v.referrer || ''}>{v.referrerHost || '—'}</td>
-                  <td className="py-2 pl-2 text-right">{v.converted ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">신청</span> : <span className="text-gray-300">–</span>}</td>
+              {adRows.rows.map((r) => (
+                <tr key={r.key}>
+                  <td>
+                    <span className="adm-la-src">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/admin-icons/${r.icon}.svg`} alt="" width={20} height={20} className="adm-la-srcimg" />
+                      <span className="adm-la-src-name">{r.label}</span>
+                    </span>
+                  </td>
+                  <td className="r">
+                    {spendEditing ? (
+                      <span className="adm-la-spend">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={spendDraft[r.key] ?? ''}
+                          onChange={(e) => setSpendDraft((p) => ({ ...p, [r.key]: e.target.value.replace(/[^0-9]/g, '') }))}
+                          placeholder="0"
+                          className="adm-input sm"
+                          aria-label={`${r.label} 하루 집행액`}
+                        />
+                        <small>원/일</small>
+                      </span>
+                    ) : r.daily > 0 ? <b className="adm-la-num">{won(r.daily)}</b> : <span className="adm-la-dim">미입력</span>}
+                  </td>
+                  <td className="r adm-la-num">{num(r.visits)}</td>
+                  <td className="r adm-la-num">{r.conversions ? <b className="adm-la-conv">{num(r.conversions)}</b> : '0'}</td>
+                  <td className="r adm-la-num">{pct(r.cvr)}</td>
+                  <td className="r adm-la-num">{r.cpa != null ? won(r.cpa) : <span className="adm-la-dim">—</span>}</td>
+                  <td className="r adm-la-num">{r.cpc != null ? won(r.cpc) : <span className="adm-la-dim">—</span>}</td>
                 </tr>
               ))}
-              {visits != null && visits.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-gray-400">방문 기록이 아직 없습니다</td></tr>
-              )}
             </tbody>
           </table>
         </AdminTableScroll>
+        <p className="adm-la-foot">월 누적 = 하루 집행액 × 집행 일수(이번 달은 오늘까지) · {conv}당 = 누적 집행액 ÷ {conv} 수(CPA) · 달력 칸에 마우스를 대면 그날 방문당·{conv}당 비용</p>
       </div>
 
-      {!loading && !data && <p className="text-center text-[14px] text-gray-400">데이터를 불러오지 못했습니다.</p>}
+      {/* 유입 상세 — 소스 · 매체 · 캠페인, 기간 고르기 */}
+      <div className="adm-card">
+        <div className="adm-card-head adm-la-detail-head">
+          <div className="min-w-0">
+            <h2 className="adm-card-title">유입 상세</h2>
+            <p className="adm-card-sub">{periodText} · 방문 {num(pageStat?.visits || 0)}회 · {conv} {num(pageStat?.conversions || 0)}건 · 전환율 {pct(pageStat?.rate || 0)}</p>
+          </div>
+          <div className="adm-la-ctl">
+            <div className="adm-seg" role="tablist" aria-label="나눠 보기">
+              {DIMS.map((d) => (
+                <button key={d.key} type="button" role="tab" aria-selected={dim === d.key} className={dim === d.key ? 'on' : ''} onClick={() => setDim(d.key)}>{d.label}</button>
+              ))}
+            </div>
+            <div className="adm-seg" role="tablist" aria-label="기간">
+              {RANGES.map((r) => (
+                <button key={r.key} type="button" role="tab" aria-selected={!customActive && range === r.key} className={!customActive && range === r.key ? 'on' : ''} onClick={() => { clearCustom(); setRange(r.key); }}>{r.label}</button>
+              ))}
+            </div>
+            {/* 직접 고르기 — 다른 목록과 같은 그 자리 달력(하루만 고르면 그날 하루) */}
+            <span className="adm-la-range">
+              <AdminDatePop value={customFrom} onChange={setCustomFrom} placeholder="시작일" ariaLabel="시작일" rangeStart={customFrom} rangeEnd={customTo} />
+              <span aria-hidden="true">~</span>
+              <AdminDatePop value={customTo} onChange={setCustomTo} placeholder="종료일" ariaLabel="종료일" rangeStart={customFrom} rangeEnd={customTo} />
+              {customActive && (
+                <button type="button" className="adm-btn icon sm" onClick={clearCustom} aria-label="날짜 고르기 풀기">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+                </button>
+              )}
+            </span>
+          </div>
+        </div>
+        {loading && !data ? (
+          <div className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="adm-skel h-[40px]" />)}</div>
+        ) : !data ? (
+          <p className="adm-la-empty">데이터를 불러오지 못했어요</p>
+        ) : (
+          <RankRows key={`${dim}-${sel}-${periodText}`} rows={dimRows} conv={conv} icon={dim === 'source'} empty="이 기간 유입 기록이 없어요" />
+        )}
+      </div>
 
-      <p className="mt-6 text-[12px] leading-relaxed text-gray-400">
-        · 방문은 세션·페이지당 1회 집계됩니다. 전환은 폼 제출(견적/상담 신청) 성공 시 기록됩니다.<br />
-        · UTM 파라미터가 없는 유입은 리퍼러(instagram/threads/naver 등)로 소스를 추정하며, 둘 다 없으면 <b>직접/기타</b>로 분류됩니다.<br />
-        · 링크 예시: <code className="rounded bg-gray-100 px-1">freetiful.com/wedding-mc?utm_source=instagram&utm_medium=bio&utm_campaign=summer</code>
-      </p>
+      {/* 방문 기록 — 최근 순, 어떤 경로로 들어왔는지 */}
+      <AdminListCard
+        filter={
+          <div className="adm-toolbar">
+            <h2 className="adm-card-title">방문 기록</h2>
+            <span className="grow" />
+            <span className="adm-count">최근 <b>{num((visits ?? []).length)}</b>건</span>
+          </div>
+        }
+      >
+        <AdminTableScroll>
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>시간</th>
+                <th>유입 소스</th>
+                <th>매체 · 캠페인</th>
+                <th>리퍼러</th>
+                <th className="c">{conv}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visits == null ? (
+                Array.from({ length: 5 }).map((_, i) => <tr key={i}><td colSpan={5}><div className="adm-skel h-[36px]" /></td></tr>)
+              ) : visits.length === 0 ? (
+                <tr><td colSpan={5} className="adm-empty">방문 기록이 아직 없어요</td></tr>
+              ) : (logOpen ? visits : visits.slice(0, 20)).map((v, i) => {
+                const k = v.source || v.referrerHost || '';
+                return (
+                  <tr key={`${v.createdAt}-${i}`}>
+                    <td className="whitespace-nowrap adm-la-num">{kstShort(v.createdAt)}</td>
+                    <td>
+                      {k ? (
+                        <span className="adm-la-src"><SrcIcon k={k} size={18} /><span className="adm-la-src-name">{srcLabel(k)}</span></span>
+                      ) : <span className="adm-la-dim">직접/기타</span>}
+                    </td>
+                    <td>{[v.medium, v.campaign].filter(Boolean).join(' · ') || <span className="adm-la-dim">—</span>}</td>
+                    <td className="max-w-[220px] truncate" title={v.referrer || ''}>{v.referrerHost || <span className="adm-la-dim">—</span>}</td>
+                    <td className="c">{v.converted ? <span className="adm-badge green">{conv.replace(/^견적\s*/, '')}</span> : <span className="adm-la-dim">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </AdminTableScroll>
+        {visits && visits.length > 20 && (
+          <div className="adm-la-logmore">
+            <button type="button" className={`adm-top-more ${logOpen ? 'on' : ''}`} onClick={() => setLogOpen((v) => !v)} aria-expanded={logOpen}>
+              {logOpen ? '접기' : `더 보기 · ${num(visits.length)}건까지`}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+        )}
+        <p className="adm-table-foot">
+          방문 = 기기(세션)·페이지당 1번 · {conv} = 폼 제출 성공 · UTM 이 없으면 리퍼러(인스타·스레드·네이버 등)로 소스를 추정하고, 둘 다 없으면 직접/기타
+          · 링크 예시 freetiful.com/{sel}?utm_source=instagram&amp;utm_medium=bio&amp;utm_campaign=fall
+        </p>
+      </AdminListCard>
     </div>
   );
 }
