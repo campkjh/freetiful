@@ -9,6 +9,7 @@ import {
   normalizeAuthReturnTo,
 } from '@/lib/auth/oauth';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { forgetSavedAccount, readAddingMarker } from '@/lib/store/accounts.store';
 import { syncPushRegistration } from '@/lib/utils/push';
 
 type NativeProvider = 'kakao' | 'naver' | 'google' | 'apple';
@@ -343,6 +344,7 @@ export function installNativeAuthBridge() {
       try {
         const { useAuthStore } = require('@/lib/store/auth.store');
         const token = useAuthStore.getState().refreshToken;
+        forgetSavedAccount(useAuthStore.getState().user?.id);
         useAuthStore.getState().logout();
         if (token) {
           import('@/lib/api/auth.api').then(({ authApi }) => authApi.logout(token).catch(() => {})).catch(() => {});
@@ -381,7 +383,8 @@ export async function loginFromNativeCallback(
   if (typeof window !== 'undefined') {
     try {
       const stored = useAuthStore.getState();
-      if (stored.accessToken && stored.user) {
+      // 계정 추가 중이면 저장된(지금) 계정으로 돌려보내지 않고 새 계정 로그인을 끝까지 한다
+      if (stored.accessToken && stored.user && !readAddingMarker()) {
         options?.onStatus?.('로그인 완료 중...');
         const target = normalizeAuthReturnTo(returnTo || consumeAuthReturnTo('/main'), '/main');
         window.location.replace(target);

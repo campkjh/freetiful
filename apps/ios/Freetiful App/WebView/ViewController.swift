@@ -364,6 +364,7 @@ class ViewController: UIViewController,
     func liquidGlassNavigationBar(_ navBar: LiquidGlassNavigationBar, didSelect item: LiquidNavItem) {
         if item.path == currentPath || (item.path == "/main" && currentPath == "/") {
             // 같은 탭을 다시 누르면 맨 위로(기록은 안 쌓는다)
+            // ⚠ 웹이 이 scrollTo 호출(top 0 · smooth)과 __freetifulNavigate 로 '마이 두 번 누름 = 계정 전환'을 센다(AccountSwitcher) — 바꾸면 웹도
             webView.evaluateJavaScript("window.scrollTo({ top: 0, behavior: 'smooth' });", completionHandler: nil)
             return
         }
@@ -693,8 +694,8 @@ class ViewController: UIViewController,
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         switch message.name {
-        case "showNativeLogin": presentNativeLoginSheet()
-        case "kakaoLogin":  startKakaoLogin()
+        case "showNativeLogin": presentNativeLoginSheet(forceAccountLogin: Self.wantsAccountLogin(message.body))
+        case "kakaoLogin":  startKakaoLogin(forceAccountLogin: Self.wantsAccountLogin(message.body))
         case "naverLogin":  startNaverLogin()
         case "googleLogin": startGoogleLogin()
         case "appleLogin":  startAppleLogin()
@@ -746,8 +747,13 @@ class ViewController: UIViewController,
     }
 
     // MARK: - Native Login Sheet
-    private func presentNativeLoginSheet() {
-        let host = UIHostingController(rootView: NativeLoginView())
+    /// 웹 '계정 추가'(마이 두 번 누름, 261006)는 { prompt: 'login' } 을 실어 보낸다 — 카카오계정 로그인 화면으로 다른 계정을 고르게
+    private static func wantsAccountLogin(_ body: Any) -> Bool {
+        (body as? [String: Any])?["prompt"] as? String == "login"
+    }
+
+    private func presentNativeLoginSheet(forceAccountLogin: Bool = false) {
+        let host = UIHostingController(rootView: NativeLoginView(forceAccountLogin: forceAccountLogin))
         host.modalPresentationStyle = .overFullScreen   // 앱 위 글래스 바텀시트
         host.view.backgroundColor = .clear
         DispatchQueue.main.async { [weak self] in
@@ -901,7 +907,7 @@ class ViewController: UIViewController,
     }
 
     // MARK: - Kakao Login
-    private func startKakaoLogin() {
+    private func startKakaoLogin(forceAccountLogin: Bool = false) {
         let handle: (OAuthToken?, Error?) -> Void = { [weak self] token, error in
             if let token = token {
                 self?.callAPI(endpoint: "/auth/login/kakao/native", body: ["accessToken": token.accessToken])
@@ -911,6 +917,10 @@ class ViewController: UIViewController,
         }
         let loginWithKakaoAccount = {
             UserApi.shared.loginWithKakaoAccount(completion: handle)
+        }
+        if forceAccountLogin {
+            UserApi.shared.loginWithKakaoAccount(prompts: [.Login], completion: handle)
+            return
         }
 
         if UserApi.isKakaoTalkLoginAvailable() {

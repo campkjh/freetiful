@@ -7,10 +7,11 @@ import Image from 'next/image';
 import Footer from '@/components/Footer';
 import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
+import { consumeAuthReturnTo, rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
+import AccountSwitcher, { SavedAccountsQuickList, cancelAddAccount, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
@@ -249,6 +250,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // 'add' = 마이 두 번 누름 → 계정 전환 → '계정 추가'(261006) — 지금 계정은 둔 채 다른 계정 로그인
+  const [loginMode, setLoginMode] = useState<'login' | 'add'>('login');
+  const loginModeRef = useRef(loginMode);
+  loginModeRef.current = showLoginModal ? loginMode : 'login';
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
@@ -273,9 +278,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         // 시트가 덮기 전 로그아웃 마이페이지가 깜빡이던 문제 — 선이동을 시트 표시 이후로 지연
         setTimeout(() => { try { router.replace('/main'); } catch {} }, 700);
       } else {
+        setLoginMode('login');
         setShowLoginModal(true);
       }
-    } else {
+    } else if (loginModeRef.current !== 'add') {
+      // 계정 추가 창은 로그인해 있는 채로 뜬다 — 프로필 동기화 등으로 다시 돌아도 닫지 않는다(닫기·성공 때만)
       setShowLoginModal(false);
     }
     // 최신 프로필 동기화는 첫 화면을 막지 않도록 idle 이후에만 수행한다.
@@ -353,7 +360,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 네이티브 헤더/버튼에서 SPA 라우팅 (홈 검색/알림 등)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    (window as any).__freetifulNavigate = (path: string, replace?: boolean) => { try { if (replace) router.replace(path); else router.push(path); } catch {} };
+    (window as any).__freetifulNavigate = (path: string, replace?: boolean) => {
+      // iOS 네이티브 탭바 → 마이 두 번 누름(계정 전환) 감지에 쓰인다 — AccountSwitcher
+      try { noteNativeNavigate(path); } catch {}
+      try { if (replace) router.replace(path); else router.push(path); } catch {}
+    };
     return () => { try { delete (window as any).__freetifulNavigate; } catch {} };
   }, [router]);
 
@@ -430,10 +441,22 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       if (/^\/community(\/|$)/.test(window.location.pathname)) return;
       rememberAuthReturnTo();
       if (requestNativeLoginSheet({ reason: 'manual' })) return;
+      setLoginMode('login');
+      setShowLoginModal(true);
+    };
+    // 계정 추가 — 앱은 네이티브 시트(prompt=login 은 다음 앱 빌드부터 카카오 계정 고르기), 웹은 로그인 창 '추가' 모드.
+    // 웨딩숲 로그인 시트와 겹치지 않게 신호를 따로 둔다.
+    const addHandler = () => {
+      if (requestNativeLoginSheet({ reason: 'add-account', prompt: 'login', returnTo: '/my' })) return;
+      setLoginMode('add');
       setShowLoginModal(true);
     };
     window.addEventListener('freetiful:show-login', handler);
-    return () => window.removeEventListener('freetiful:show-login', handler);
+    window.addEventListener('freetiful:add-account-login', addHandler);
+    return () => {
+      window.removeEventListener('freetiful:show-login', handler);
+      window.removeEventListener('freetiful:add-account-login', addHandler);
+    };
   }, []);
 
   // 로그인 시 채팅 관련 무거운 번들은 채팅 화면에서만 즉시 로드한다.
@@ -492,6 +515,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = '/main';
 
+  // 로그인 창 닫기 — 계정 추가 창이면 지금 계정 그대로(표식만 지움), 보통 로그인 창이면 홈으로
+  const closeLoginModal = () => {
+    setShowLoginModal(false);
+    if (loginMode === 'add') { cancelAddAccount(); return; }
+    router.push('/main');
+  };
+
   useEffect(() => {
     const sync = () => setNotifUnread(getCachedUnreadCount());
     sync();
@@ -544,6 +574,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                   <Link
                     key={href}
                     href={href}
+                    // 마이를 두 번 누르면 계정 전환(261006)
+                    onClick={(e) => { if (authUser && noteTabTap(href)) e.preventDefault(); }}
                     className={`relative flex items-center gap-1.5 rounded-[13px] px-4 py-1.5 text-[13px] transition-colors duration-200 ${
                       active ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#2B313D]'
                     }`}
@@ -705,6 +737,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     data-nav={label}
                     aria-current={active ? 'page' : undefined}
                     className="flex flex-1 flex-col items-center justify-center gap-[4px] text-[#4E5968]"
+                    // 마이를 두 번 누르면 계정 전환(261006 사장 '원라인 일반바 계정 연결처럼') — iOS 네이티브 탭바는 AccountSwitcher 가 따로 센다
+                    onClick={(e) => { if (authUser && noteTabTap(href)) e.preventDefault(); }}
                     onPointerDown={(e) => {
                       // 누르는 순간 아이콘이 옆으로 쫀득하게 늘어났다 출렁이며 제자리(사장 지시 260926) — 같은 탭을 다시 눌러도 처음부터
                       const icon = e.currentTarget.querySelector<HTMLElement>('[data-tab-icon]');
@@ -745,9 +779,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           `}</style>
         </nav>
       )}
+      {/* 계정 전환 시트 — 마이 두 번 누름 */}
+      <AccountSwitcher />
       {/* Login Modal — 공통 모달(웨딩숲 톤 · 버튼 56/17/17), 하단 안전영역은 ft-sheet 가 처리 */}
       {showLoginModal && (
-        <div className="ft-scrim" onClick={() => { setShowLoginModal(false); router.push('/main'); }}>
+        <div className="ft-scrim" onClick={closeLoginModal}>
           <div
             className="ft-sheet"
             role="dialog"
@@ -756,7 +792,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           >
             <div className="ft-grab" aria-hidden="true" />
             <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={137} height={40} priority className="mx-auto mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ height: 40, width: 'auto' }} />
-            <p className="ft-desc text-center animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 사회자</p>
+            <p className="ft-desc text-center animate-[loginItemUp_0.4s_ease_0.1s_both]">
+              {loginMode === 'add' ? '다른 계정으로 로그인하면\n이 기기에 함께 저장돼요' : '나의 특별한 행사를 완성하는 사회자'}
+            </p>
+            {/* 로그아웃 상태 — 이 기기에 저장된 계정이 있으면 한 번에 계속(계정 전환 목록과 같은 줄) */}
+            {loginMode === 'login' && !authUser && (
+              <div className="animate-[loginItemUp_0.4s_ease_0.12s_both]">
+                <SavedAccountsQuickList onDone={() => setShowLoginModal(false)} to={() => consumeAuthReturnTo('/main')} />
+              </div>
+            )}
             {/* 세로 줄 버튼은 flex:1 이면 56px 이 눌려 납작해짐 → flex-none */}
             <div className="ft-actions col [&>.ft-btn]:flex-none">
               {[
@@ -768,7 +812,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                   onClick={() => {
                     setShowLoginModal(false);
                     rememberAuthReturnTo();
-                    startOAuth(provider as 'kakao' | 'naver' | 'google');
+                    startOAuth(provider as 'kakao' | 'naver' | 'google', { addAccount: loginMode === 'add' });
                   }}
                   // 등장 애니는 backwards — 끝나면 빠져서 ft-btn 눌림(scale) 이 산다
                   className="ft-btn animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_backwards]"
@@ -784,7 +828,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               <GuestLoginForm onSuccess={() => { setShowLoginModal(false); router.refresh(); }} />
             </div>
 
-            <button onClick={() => { setShowLoginModal(false); router.push('/main'); }} className="ft-btn secondary mt-2 w-full animate-[loginItemUp_0.4s_ease_0.35s_backwards]">
+            <button onClick={closeLoginModal} className="ft-btn secondary mt-2 w-full animate-[loginItemUp_0.4s_ease_0.35s_backwards]">
               취소
             </button>
           </div>

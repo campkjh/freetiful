@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth.store';
 import { authApi } from '../api/auth.api';
 import { notifyIOSLogout, syncPushRegistration } from '../utils/push';
 import { consumeAuthReturnTo } from '../auth/oauth';
+import { forgetSavedAccount } from '../store/accounts.store';
 import type { LoginResponse } from '@prettyful/types';
 import toast from 'react-hot-toast';
 
@@ -107,6 +108,7 @@ export function useAuth() {
       // 낙관적 로그아웃 — 상태/화면 먼저 정리(즉시 반영), 서버 세션 해제는 백그라운드
       const tokenForRevoke = refreshToken;
       notifyIOSLogout();
+      forgetSavedAccount(user?.id); // 로그아웃한 계정은 계정 전환 목록에서도 뺀다(다른 저장 계정은 그대로)
       storeLogout();
       router.push('/main');
       if (tokenForRevoke) authApi.logout(tokenForRevoke).catch(() => {});

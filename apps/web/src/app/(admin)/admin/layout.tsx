@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { forgetSavedAccount } from '@/lib/store/accounts.store';
 import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 import { AdminDialogHost } from './_components/adminDialog';
@@ -319,6 +320,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       localStorage.removeItem('admin-key');
     } catch {}
+    forgetSavedAccount(useAuthStore.getState().user?.id); // 계정 전환 목록에서도 뺀다
     try {
       await logout?.();
     } catch {}

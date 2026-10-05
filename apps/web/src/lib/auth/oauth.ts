@@ -78,24 +78,30 @@ export function consumeNaverRedirectUri() {
   }
 }
 
-export function startOAuth(provider: Provider) {
+/** addAccount = 마이 두 번 누름 '계정 추가'(261006) — 지금 계정은 로그인된 채로 두고(취소하면 그대로),
+ *  카카오·네이버는 로그인 화면을 다시 띄워 다른 계정을 고를 수 있게 한다(카카오 prompt=login · 네이버 auth_type=reauthenticate).
+ *  새 계정은 콜백의 setAuth 가 들어오며 바뀐다(사용자가 바뀌면 사용자별 저장 키는 setAuth 가 지운다). */
+export function startOAuth(provider: Provider, options: { addAccount?: boolean } = {}) {
   if (typeof window === 'undefined') return;
+  const addAccount = Boolean(options.addAccount);
 
   rememberAuthReturnTo();
-  try {
-    useAuthStore.getState().logout();
-    clearUserScopedAuthStorage();
-    sessionStorage.setItem('freetiful-auth-switching', 'true');
-  } catch {}
+  if (!addAccount) {
+    try {
+      useAuthStore.getState().logout();
+      clearUserScopedAuthStorage();
+      sessionStorage.setItem('freetiful-auth-switching', 'true');
+    } catch {}
+  }
 
   const w = window as any;
   const ios = w?.webkit?.messageHandlers as Record<string, { postMessage: (msg: object) => void } | undefined> | undefined;
   const and = w?.Android as Record<string, (() => void) | undefined> | undefined;
 
   if (provider === 'kakao') {
-    if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage({}); return; }
+    if (ios?.kakaoLogin) { ios.kakaoLogin.postMessage(addAccount ? { prompt: 'login' } : {}); return; }
     if (and?.kakaoLogin) { and.kakaoLogin(); return; }
-    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_KEY}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('kakao'))}&response_type=code`;
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_KEY}&redirect_uri=${encodeURIComponent(getOAuthRedirectUri('kakao'))}&response_type=code${addAccount ? '&prompt=login' : ''}`;
     return;
   }
 
@@ -112,6 +118,7 @@ export function startOAuth(provider: Provider) {
       response_type: 'code',
       state,
     });
+    if (addAccount) params.set('auth_type', 'reauthenticate');
     window.location.href = `https://nid.naver.com/oauth2.0/authorize?${params.toString()}`;
     return;
   }

@@ -12,6 +12,12 @@ private let kAPIBase   = "https://freetiful.com/api/v1"
 
 struct NativeLoginView: View {
     @Environment(\.dismiss) var dismiss
+    /// 웹 '계정 추가'(마이 두 번 누름, 261006) — 카카오톡 앱 대신 카카오계정 로그인 화면(prompt=login)을 띄워 다른 계정을 고르게 한다
+    var forceAccountLogin = false
+
+    init(forceAccountLogin: Bool = false) {
+        self.forceAccountLogin = forceAccountLogin
+    }
     @State private var isLoading = false
     @State private var naverCoordinator: NaverNativeLoginCoordinator?
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
@@ -284,6 +290,10 @@ struct NativeLoginView: View {
         }
         let loginWithKakaoAccount = {
             UserApi.shared.loginWithKakaoAccount(completion: handle)
+        }
+        if forceAccountLogin {
+            UserApi.shared.loginWithKakaoAccount(prompts: [.Login], completion: handle)
+            return
         }
         if UserApi.isKakaoTalkLoginAvailable() {
             UserApi.shared.loginWithKakaoTalk { token, error in
