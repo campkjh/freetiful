@@ -2337,7 +2337,7 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-home-row2 { align-items: start; }
 @media (min-width: 1100px) {
   .adm-home-row { grid-template-columns: 380px minmax(0, 1fr); }
-  .adm-home-row2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .adm-home-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 두 칸 같은 너비(261005 사장) */
 }
 
 /* 관리자 로그인(어드민 셸 밖) — 카드가 올라오고 줄들이 차례로 */
