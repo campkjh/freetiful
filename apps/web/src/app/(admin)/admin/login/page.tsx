@@ -9,13 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { authApi } from '@/lib/api/auth.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import toast from 'react-hot-toast';
-
-const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
-
-function isAdminUser(user: { email?: string | null; role?: string | null }) {
-  const email = user.email?.toLowerCase();
-  return user.role === 'admin' || (!!email && ADMIN_EMAILS.includes(email));
-}
+import { isAdminUser } from '@/lib/admin-access';
 
 const schema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요'),

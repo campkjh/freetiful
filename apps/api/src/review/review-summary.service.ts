@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaService } from '../prisma/prisma.service';
+import { isCreditsError, noteGeminiError, noteGeminiOk } from '../ai/ai-health';
 
 /**
  * 사회자 리뷰 요약 — '이 사회자의 스타일을 소개합니다'(260926 사장, 목록 리뷰 시트 맨 위 카드).
  *  · 실제 리뷰 본문만 Gemini 에 넘겨 '~해요' 두 문장 + 특징 3개. 리뷰에 없는 사실(경력·가격·수상 등)은 못 쓰게 막는다.
- *  · 사회자마다 (리뷰 수 + 가장 최근 리뷰 시각) 서명으로 하루 기억 — 리뷰가 새로 달리면 다시 만든다. 같은 사회자 동시 요청은 한 번만.
+ *  · 사회자마다 (리뷰 수 + 가장 최근 리뷰 시각) 서명 — 리뷰가 새로 달리면 다시 만든다. 같은 사회자 동시 요청은 한 번만.
+ *  · AI 요약은 DB(pro_review_summaries)에 저장 — 재배포해도 다시 만들지 않는다(261006, 메모리만 쓰던 때 배포마다 Gemini 를 다시 불러 크레딧이 샜다).
  *  · AI 가 없거나 실패하면 리뷰에 실제로 나온 표현만 모아 한 문장(source 'rule'), 그것도 없으면 null(카드 안 띄움).
  */
 export type ReviewSummary = { summary: string; keywords: string[]; source: 'ai' | 'rule'; reviewCount: number };
@@ -59,16 +61,45 @@ export class ReviewSummaryService {
 
     const running = this.inflight.get(key);
     if (running) return running;
+    const shortLived = () => Date.now() - TTL + 10 * 60 * 1000; // 10분만 기억(곧 다시 AI 로)
     const job = (async () => {
+      // ① DB 에 저장된 AI 요약 — 리뷰가 그대로(sig 같음)면 Gemini 를 부르지 않는다(261006: 재배포마다 다시 만들던 것)
+      const saved = profile?.id
+        ? await this.prisma.proReviewSummary.findUnique({ where: { proProfileId: profile.id } }).catch(() => null)
+        : null;
+      const fromSaved = (row: NonNullable<typeof saved>): ReviewSummary => ({
+        summary: row.summary,
+        keywords: row.keywords || [],
+        source: 'ai',
+        reviewCount: row.reviewCount,
+      });
+      if (saved && saved.sig === sig) {
+        const value = fromSaved(saved);
+        this.cache.set(key, { at: Date.now(), sig, value });
+        return value;
+      }
+      // ② 리뷰가 바뀌었거나 처음 — AI 로 만들고 저장
       const ai = await this.withAi(texts).catch((error) => {
         this.logger.warn(`review summary AI failed: ${String((error as any)?.message || error).slice(0, 120)}`);
         return null;
       });
-      const value: ReviewSummary | null = ai
-        ? { ...ai, source: 'ai', reviewCount: texts.length }
-        : this.withRules(texts);
-      // AI 가 잠깐 실패한 규칙 결과는 10분만 기억(곧 다시 AI 로)
-      this.cache.set(key, { at: ai ? Date.now() : Date.now() - TTL + 10 * 60 * 1000, sig, value });
+      if (ai) {
+        const value: ReviewSummary = { ...ai, source: 'ai', reviewCount: texts.length };
+        if (profile?.id) {
+          await this.prisma.proReviewSummary
+            .upsert({
+              where: { proProfileId: profile.id },
+              create: { proProfileId: profile.id, sig, summary: ai.summary, keywords: ai.keywords, reviewCount: texts.length },
+              update: { sig, summary: ai.summary, keywords: ai.keywords, reviewCount: texts.length },
+            })
+            .catch((error) => this.logger.warn(`review summary save failed: ${String((error as any)?.message || error).slice(0, 120)}`));
+        }
+        this.cache.set(key, { at: Date.now(), sig, value });
+        return value;
+      }
+      // ③ AI 가 안 되면(크레딧 소진 등) — 예전에 저장한 요약(리뷰가 조금 늘었어도 그대로 쓸 만하다), 없으면 규칙 요약
+      const value: ReviewSummary | null = saved ? fromSaved(saved) : this.withRules(texts);
+      this.cache.set(key, { at: shortLived(), sig, value });
       return value;
     })().finally(() => this.inflight.delete(key));
     this.inflight.set(key, job);
@@ -116,10 +147,13 @@ export class ReviewSummaryService {
           model.generateContent(prompt),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), left)),
         ]);
+        noteGeminiOk('review-summary');
         const parsed = this.parse(String(result?.response?.text?.() || ''));
         if (parsed) return parsed;
       } catch (error: any) {
+        noteGeminiError('review-summary', error);
         this.logger.warn(`review summary model ${name} failed: ${String(error?.message || error).slice(0, 100)}`);
+        if (isCreditsError(error)) break; // 크레딧 소진 — 다른 모델도 같은 키
       }
     }
     return null;

@@ -2,24 +2,19 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { AutoReplyLearnService } from './auto-reply-learn.service';
-import { AutoReplyAiService } from './auto-reply-ai.service';
+import { checkGeminiHealth } from '../ai/ai-health';
 
 /** 어드민 — 사회자 말투·조건 학습(261006). 기본 대상 = 퀵매칭 지정 사회자 전원 */
 @ApiTags('admin-auto-reply')
 @UseGuards(AdminGuard)
 @Controller(['admin/auto-reply', 'api/v1/admin/auto-reply'])
 export class AutoReplyAdminController {
-  constructor(private learn: AutoReplyLearnService, private ai: AutoReplyAiService) {}
+  constructor(private learn: AutoReplyLearnService) {}
 
   @Get('health')
-  @ApiOperation({ summary: 'AI 상태 — 마지막 모델 오류(402 = AI Studio 크레딧 소진)' })
+  @ApiOperation({ summary: 'AI 상태(전체 Gemini) — status credits = AI Studio 크레딧 소진. 어드민 화면은 /admin/ai-health 를 쓴다' })
   health() {
-    const e = this.ai.lastError;
-    return {
-      enabled: this.ai.isEnabled(),
-      lastError: e ? { code: e.code, message: e.message, at: new Date(e.at).toISOString() } : null,
-      creditsDepleted: !!e && e.code === 402 && Date.now() - e.at < 6 * 3600000,
-    };
+    return checkGeminiHealth();
   }
 
   @Post('learn')

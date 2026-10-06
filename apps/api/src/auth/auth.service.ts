@@ -1,9 +1,11 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { createPublicKey, createVerify } from 'crypto';
 import { generalProfileImage, isPlaceholderProfileImage } from '../common/default-avatar';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -20,9 +22,17 @@ const REFRESH_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 export interface SocialUserInfo {
   providerUserId: string;
   providerEmail?: string;
+  /**
+   * false = 제공자가 이 이메일을 확인하지 않았다(카카오 is_email_verified/is_email_valid) — 같은 이메일 계정에 이어 붙이지 않는다.
+   * 남이 확인 안 된 이메일로 만든 카카오 계정이 그 이메일 주인 계정(어드민 포함)에 붙는 길을 막는다(261006).
+   */
+  emailVerified?: boolean;
   name?: string;
   profileImageUrl?: string;
 }
+
+/** Apple 로그인 토큰을 받는 앱(aud) — iOS 번들. 다른 앱(서비스 ID 등)을 쓰게 되면 APPLE_CLIENT_IDS(쉼표)로 더한다 */
+const APPLE_DEFAULT_AUDIENCES = ['freetiful-inc.Freetiful-App'];
 
 export interface LoginDeviceInfo {
   platform?: string;
@@ -33,6 +43,8 @@ export interface LoginDeviceInfo {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+  private appleKeys: { at: number; keys: any[] } | null = null;
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -325,8 +337,9 @@ export class AuthService {
   }
 
   private async socialLogin(provider: AuthProvider, info: SocialUserInfo, deviceInfo?: LoginDeviceInfo) {
-    // 이메일 정규화 (대소문자/공백 차이로 중복 유저가 생기는 문제 방지)
-    const normalizedEmail = info.providerEmail?.trim().toLowerCase() || undefined;
+    // 이메일 정규화 (대소문자/공백 차이로 중복 유저가 생기는 문제 방지).
+    // 제공자가 확인 안 한 이메일(emailVerified false)은 아예 쓰지 않는다 — 이어 붙이기·새 계정 이메일 모두(261006)
+    const normalizedEmail = info.emailVerified === false ? undefined : info.providerEmail?.trim().toLowerCase() || undefined;
 
     const authRecord = await this.prisma.authProviderRecord.findUnique({
       where: { provider_providerUserId: { provider, providerUserId: info.providerUserId } },
@@ -482,6 +495,8 @@ export class AuthService {
     return this.socialLogin(AuthProvider.kakao, {
       providerUserId: String(kakaoUser.id),
       providerEmail: kakaoUser.kakao_account?.email,
+      // 카카오는 확인 안 된 이메일도 돌려줄 수 있다 — 둘 다 true 일 때만 '확인된 이메일'
+      emailVerified: kakaoUser.kakao_account?.is_email_verified === true && kakaoUser.kakao_account?.is_email_valid !== false,
       name: kakaoUser.kakao_account?.profile?.nickname,
       profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
     }, deviceInfo);
@@ -494,6 +509,8 @@ export class AuthService {
     return this.socialLogin(AuthProvider.kakao, {
       providerUserId: String(kakaoUser.id),
       providerEmail: kakaoUser.kakao_account?.email,
+      // 카카오는 확인 안 된 이메일도 돌려줄 수 있다 — 둘 다 true 일 때만 '확인된 이메일'
+      emailVerified: kakaoUser.kakao_account?.is_email_verified === true && kakaoUser.kakao_account?.is_email_valid !== false,
       name: kakaoUser.kakao_account?.profile?.nickname,
       profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
     }, deviceInfo);
@@ -504,6 +521,7 @@ export class AuthService {
     return this.socialLogin(AuthProvider.google, {
       providerUserId: data.sub,
       providerEmail: data.email,
+      emailVerified: data.email_verified === true || data.email_verified === 'true',
       name: data.name,
       profileImageUrl: data.picture,
     }, deviceInfo);
@@ -541,14 +559,71 @@ export class AuthService {
     }, deviceInfo);
   }
 
-  // NOTE: In production, verify Apple's JWT signature using Apple's public keys.
   async appleLogin(identityToken: string, fullName?: string, deviceInfo?: LoginDeviceInfo) {
-    const payload = JSON.parse(Buffer.from(identityToken.split('.')[1], 'base64').toString());
+    const payload = await this.verifyAppleIdentityToken(identityToken);
     return this.socialLogin(AuthProvider.apple, {
       providerUserId: payload.sub,
       providerEmail: payload.email,
+      emailVerified: payload.email_verified === true || payload.email_verified === 'true',
       name: fullName,
     }, deviceInfo);
+  }
+
+  /**
+   * Apple identityToken 확인 — Apple 공개키(JWKS) 서명 · 발급자 · 받는 앱(aud) · 만료.
+   * ⚠ 예전엔 서명 확인 없이 내용만 풀어 써서, 남의 이메일을 넣은 가짜 토큰으로 그 이메일 계정에 이어 붙어 로그인할 수 있었다(261006 닫음).
+   */
+  private async verifyAppleIdentityToken(token: string): Promise<any> {
+    const fail = (why: string) => {
+      this.logger.warn(`Apple 토큰 거절: ${why}`);
+      return new UnauthorizedException('Apple 로그인 정보를 확인하지 못했어요');
+    };
+    const parts = String(token || '').split('.');
+    if (parts.length !== 3) throw fail('형식');
+    let header: any;
+    let payload: any;
+    try {
+      header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+      payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    } catch {
+      throw fail('해석');
+    }
+    if (header?.alg !== 'RS256' || !header?.kid) throw fail(`alg=${header?.alg}`);
+    let jwk = (await this.appleJwks()).find((k) => k.kid === header.kid);
+    if (!jwk) jwk = (await this.appleJwks(true)).find((k) => k.kid === header.kid); // Apple 이 키를 바꿨으면 새로 받아 한 번 더
+    if (!jwk) throw fail('키 없음');
+    let valid = false;
+    try {
+      const key = createPublicKey({ key: jwk, format: 'jwk' });
+      valid = createVerify('RSA-SHA256').update(`${parts[0]}.${parts[1]}`).verify(key, Buffer.from(parts[2], 'base64url'));
+    } catch {
+      valid = false;
+    }
+    if (!valid) throw fail('서명');
+    if (payload?.iss !== 'https://appleid.apple.com') throw fail('발급자');
+    if (!payload?.exp || Number(payload.exp) * 1000 < Date.now() - 60_000) throw fail('만료');
+    const allowed = [
+      ...APPLE_DEFAULT_AUDIENCES,
+      ...String(this.config.get<string>('APPLE_CLIENT_IDS') || '').split(',').map((s) => s.trim()).filter(Boolean),
+    ];
+    const aud = Array.isArray(payload?.aud) ? payload.aud : [payload?.aud];
+    if (!aud.some((a: unknown) => typeof a === 'string' && allowed.includes(a))) throw fail(`aud=${String(payload?.aud).slice(0, 60)}`);
+    if (!payload?.sub) throw fail('sub 없음');
+    return payload;
+  }
+
+  /** Apple 공개키 — 6시간 기억(키 교체 땐 위에서 한 번 새로 받는다) */
+  private async appleJwks(force = false): Promise<any[]> {
+    if (!force && this.appleKeys && Date.now() - this.appleKeys.at < 6 * 3600000) return this.appleKeys.keys;
+    try {
+      const { data } = await axios.get('https://appleid.apple.com/auth/keys', { timeout: 8000 });
+      const keys = Array.isArray(data?.keys) ? data.keys : [];
+      if (keys.length) this.appleKeys = { at: Date.now(), keys };
+      return keys.length ? keys : this.appleKeys?.keys || [];
+    } catch (e: any) {
+      this.logger.warn(`Apple 공개키 받기 실패: ${String(e?.message || e).slice(0, 120)}`);
+      return this.appleKeys?.keys || [];
+    }
   }
 
   async emailRegister(dto: { email: string; password: string; name: string; phone?: string }, deviceInfo?: LoginDeviceInfo) {

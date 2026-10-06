@@ -1824,6 +1824,23 @@ a.adm-card:hover, button.adm-card:hover { transform: translateY(-2px); box-shado
 .adm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 16px; border: 0; border-radius: 12px; background: #F2F4F6; color: var(--admin-sub); font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; text-decoration: none; transition: transform .12s var(--adm-ease), background-color .15s ease, color .15s ease, opacity .15s ease; }
 .adm-btn:hover:not(:disabled) { background: #E8EBEE; color: var(--admin-ink); }
 .adm-btn:active:not(:disabled) { transform: scale(.96); }
+/* AI(Gemini) 상태 경고 — 크레딧 소진·키 오류일 때 모든 어드민 화면 위(261006). 유저 화면엔 없다 */
+.admin-shell .adm-ai-alert { display: flex; align-items: center; gap: 14px; margin: 0 0 18px; padding: 16px 18px; border-radius: 20px; background: #FFF1F2; animation: admAiIn .4s var(--adm-ease) both; }
+.admin-shell .adm-ai-alert.error, .admin-shell .adm-ai-alert.nokey { background: #FFF6E5; }
+.admin-shell .adm-ai-alert-ic { display: flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #F04452; color: #fff; font-size: 17px; font-weight: 700; }
+.admin-shell .adm-ai-alert.error .adm-ai-alert-ic, .admin-shell .adm-ai-alert.nokey .adm-ai-alert-ic { background: #FF9500; }
+.admin-shell .adm-ai-alert-tx { flex: 1; min-width: 0; }
+.admin-shell .adm-ai-alert-tx b { display: block; font-size: 15.5px; font-weight: 700; color: #191F28; letter-spacing: -.3px; }
+.admin-shell .adm-ai-alert-tx p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: #4E5968; letter-spacing: -.2px; }
+.admin-shell .adm-ai-alert-act { display: flex; flex: none; gap: 8px; }
+.admin-shell .adm-ai-alert .adm-btn { background: #fff; }
+.admin-shell .adm-ai-alert .adm-btn.adm-ai-go { background: #F04452; color: #fff; }
+.admin-shell .adm-ai-alert .adm-btn.adm-ai-go:hover { background: #E42939; color: #fff; }
+@keyframes admAiIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 720px) {
+  .admin-shell .adm-ai-alert { flex-wrap: wrap; align-items: flex-start; }
+  .admin-shell .adm-ai-alert-act { width: 100%; padding-left: 46px; }
+}
 .adm-btn:disabled { opacity: .45; cursor: default; }
 .adm-btn.primary { background: var(--admin-blue); color: #fff; }
 .adm-btn.primary:hover:not(:disabled) { background: var(--admin-blue-press); color: #fff; }

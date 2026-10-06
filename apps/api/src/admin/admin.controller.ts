@@ -22,6 +22,7 @@ import { AdminOperatorService } from './admin-operator.service';
 import { AdminAuditService, actorFrom } from './admin-audit.service';
 import { AdminFunnelService } from './admin-funnel.service';
 import { AdminGuard } from '../common/guards/admin.guard';
+import { checkGeminiHealth } from '../ai/ai-health';
 
 @ApiTags('admin')
 @UseGuards(AdminGuard)
@@ -192,6 +193,13 @@ export class AdminController {
   @Get('community/members')
   communityMembers(@Query('page') page?: string, @Query('limit') limit?: string, @Query('q') q?: string, @Query('source') source?: string) {
     return this.community.listMembers({ page: page ? Number(page) : 1, limit: limit ? Number(limit) : 30, q, source });
+  }
+
+  /** AI(Gemini) 상태 — 크레딧 소진(402)이면 어드민 화면 위에 경고(261006 사장 '크레딧 떨어지면 어드민에서 확인, 유저는 못 보게').
+   *  10분마다 한 번 아주 짧은 확인 호출(출력 1토큰) — force=1 이면 바로 다시 확인 */
+  @Get('ai-health')
+  aiHealth(@Query('force') force?: string) {
+    return checkGeminiHealth(force === '1');
   }
 
   @Get('community/nickname-suggestions')

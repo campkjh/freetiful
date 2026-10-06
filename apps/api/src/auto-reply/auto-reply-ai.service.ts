@@ -14,6 +14,7 @@ import {
   LENGTH_LABELS,
   EMOJI_LABELS,
 } from './auto-reply-ai';
+import { isCreditsError, noteGeminiError, noteGeminiOk } from '../ai/ai-health';
 
 /**
  * 자동응답 AI 호출 담당.
@@ -43,9 +44,6 @@ export class AutoReplyAiService {
     this.client = key ? new GoogleGenerativeAI(key) : null;
     if (!this.client) this.logger.warn('GEMINI key 없음 — 자동응답 AI 경로 비활성');
   }
-
-  /** 마지막 모델 오류(어드민 상태 확인용) — 402 면 AI Studio 크레딧 충전이 필요하다 */
-  lastError: { at: number; code: number; message: string } | null = null;
 
   isEnabled() {
     return this.client !== null && (process.env.AI_AUTOREPLY_MODE || 'on') !== 'off';
@@ -103,15 +101,16 @@ export class AutoReplyAiService {
           model.generateContent(prompt),
           new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
         ]);
+        noteGeminiOk('auto-reply');
         const text = result?.response?.text?.();
         if (!text) return null;
         return JSON.parse(text);
       } catch (e: any) {
         const msg = String(e?.message || e);
         this.logger.warn(`[${models[i].name}] ${msg.slice(0, 160)}`);
-        this.lastError = { at: Date.now(), code: Number(msg.match(/\[(\d{3})/)?.[1]) || 0, message: msg.replace(/AIza[\w-]+/g, '[key]').slice(0, 200) };
+        noteGeminiError('auto-reply', e);
         // 402 = AI Studio 선불 크레딧 소진 — 모델을 바꿔도 같은 키라 똑같이 막힌다(261006 실측)
-        if (/\b402\b|Payment Required|prepayment credits/i.test(msg)) return null;
+        if (isCreditsError(e)) return null;
         // 과부하 · 모델 없음/설정 거절이면 다음 모델로. 시간 초과·그 밖은 다음 모델도 늦거나 똑같이 실패한다
         if (!/503|429|504|UNAVAILABLE|overloaded|high demand|404|NOT_FOUND|no longer available|400|INVALID_ARGUMENT/i.test(msg)) return null;
       }

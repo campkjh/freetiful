@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { isCreditsError, noteGeminiError, noteGeminiOk } from '../ai/ai-health';
 
 // 글쓰기 중 "AI 추천 태그" — 본문을 읽고 소분류 1개 + 그 대분류 태그 0~3개를 고른다.
 // 고르는 값은 반드시 기존 목록(카테고리·태그) 안에서만: 태그가 무한히 늘어나 필터 칩이 지저분해지지 않게.
@@ -145,13 +146,16 @@ export class CommunityAiService {
           model.generateContent(prompt),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), Math.min(6000, left))),
         ])) as any;
+        noteGeminiOk('community-nickname');
         const parsed = JSON.parse(String(res.response.text() || '{}'));
         const items = (Array.isArray(parsed?.items) ? parsed.items : [])
           .map((x: any) => ({ modifier: String(x?.modifier || '').trim(), animal: String(x?.animal || '').trim() }))
           .filter((x: { modifier: string; animal: string }) => x.modifier && animals.includes(x.animal));
         if (items.length) return items;
       } catch (e: any) {
+        noteGeminiError('community-nickname', e);
         this.logger.warn(`community nickname ${name} failed: ${String(e?.message || e).slice(0, 200)}`);
+        if (isCreditsError(e)) break;
       }
     }
     return [];
@@ -213,6 +217,7 @@ ${text}
           model.generateContent(prompt),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), Math.min(6000, left))),
         ])) as any;
+        noteGeminiOk('community-tags');
         const parsed = JSON.parse(String(res.response.text() || '{}'));
         const subSlug = lockedSubSlug || String(parsed?.sub || '');
         const major = this.majorOfSub(majors, subSlug);
@@ -225,7 +230,9 @@ ${text}
           .slice(0, 3) as string[];
         return { subSlug, tagNames, source: 'ai' };
       } catch (e: any) {
+        noteGeminiError('community-tags', e);
         this.logger.warn(`community suggest ${name} failed: ${String(e?.message || e).slice(0, 300)}`);
+        if (isCreditsError(e)) break;
       }
     }
     return null;

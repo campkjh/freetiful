@@ -6,17 +6,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { forgetSavedAccount } from '@/lib/store/accounts.store';
+import { isAdminUser } from '@/lib/admin-access';
 import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
 import { AdminDialogHost } from './_components/adminDialog';
 import { adminFetch } from './_components/adminFetch';
 
-const ADMIN_EMAILS = ['admin@freetiful.com', 'freetiful2025@naver.com', 'freetiful2025@admin.com'];
 
-function isAdminUser(user: { email?: string | null; role?: string | null } | null) {
-  const email = user?.email?.toLowerCase();
-  return !!user && (user.role === 'admin' || (!!email && ADMIN_EMAILS.includes(email)));
-}
 
 /* ─────────────────────────────────────────────────────────────
  * 어드민 2.0 껍데기 — 퀵매칭·앱과 같은 토스 톤(261004 사장 '어드민도 디자인·UI·인터랙션 격변').
@@ -299,6 +295,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { stop = true; clearInterval(t); };
   }, [checked, isLoginPage]);
 
+  // AI(Gemini) 상태 — 크레딧 소진이면 모든 어드민 화면 위에 경고(261006 사장 '크레딧 떨어지면 어드민에서 확인, 유저는 못 보게').
+  // 서버가 10분마다 한 번 아주 짧게 확인해 둔 결과를 읽는다. 다시 확인 = force(바로 확인 호출).
+  const [aiHealth, setAiHealth] = useState<{ status: string; code?: number } | null>(null);
+  const [aiChecking, setAiChecking] = useState(false);
+  const loadAiHealth = useCallback(async (force = false) => {
+    try {
+      const h: any = await adminFetch('GET', `/api/v1/admin/ai-health${force ? '?force=1' : ''}`, undefined, { cache: false });
+      setAiHealth({ status: String(h?.status || 'unknown'), code: Number(h?.probe?.code || h?.lastError?.code || 0) });
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (!checked || isLoginPage) return;
+    loadAiHealth();
+    const t = setInterval(() => loadAiHealth(), 10 * 60_000);
+    const onFocus = () => loadAiHealth();
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(t); window.removeEventListener('focus', onFocus); };
+  }, [checked, isLoginPage, loadAiHealth]);
+  const recheckAi = async () => {
+    setAiChecking(true);
+    await loadAiHealth(true);
+    setAiChecking(false);
+  };
+  const aiAlert = aiHealth && ['credits', 'error', 'nokey'].includes(aiHealth.status) ? aiHealth : null;
+
   // 페이지 머리 — 제목·설명·탭
   const head = useMemo(() => {
     const item = ALL_ITEMS.find((it) => matchItem(it, pathname));
@@ -412,6 +433,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex min-h-0 flex-1">
           <main ref={mainRef} className="admin-main adm-main" onScroll={syncScrolled}>
             <div className={`adm-frame ${head.home ? 'home' : ''}`}>
+              {aiAlert && (
+                <div className={`adm-ai-alert ${aiAlert.status}`} role="alert">
+                  <span className="adm-ai-alert-ic" aria-hidden="true">!</span>
+                  <div className="adm-ai-alert-tx">
+                    <b>{aiAlert.status === 'credits' ? 'AI 크레딧이 다 떨어졌어요' : aiAlert.status === 'nokey' ? 'AI 키가 없어요' : `AI 연결에 문제가 있어요${aiAlert.code ? ` (${aiAlert.code})` : ''}`}</b>
+                    <p>
+                      {aiAlert.status === 'credits'
+                        ? '자동답변 AI · 답장 추천 · 리뷰 요약 · 웨딩숲 AI 가 멈춰 규칙으로만 돌고 있어요. Google AI Studio 에서 충전하면 다시 켜져요.'
+                        : '자동답변 AI · 답장 추천 · 리뷰 요약 · 웨딩숲 AI 가 규칙으로만 돌고 있어요. 서버 Gemini 키 설정을 확인해 주세요.'}
+                    </p>
+                  </div>
+                  <div className="adm-ai-alert-act">
+                    {aiAlert.status === 'credits' && (
+                      <a className="adm-btn adm-ai-go" href="https://aistudio.google.com/" target="_blank" rel="noreferrer">충전하러 가기</a>
+                    )}
+                    <button type="button" className="adm-btn" onClick={recheckAi} disabled={aiChecking}>{aiChecking ? '확인 중…' : '다시 확인'}</button>
+                  </div>
+                </div>
+              )}
               {!head.home && !head.own && (
                 <div className="adm-head">
                   {/* 제목은 바뀔 때만 다시 올라오고, 탭은 남아서 고른 바탕이 미끄러진다 */}

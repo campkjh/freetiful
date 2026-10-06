@@ -10,6 +10,7 @@ import { usersApi } from '@/lib/api/users.api';
 import { prosApi } from '@/lib/api/pros.api';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import { isAdminUser } from '@/lib/admin-access';
 
 /* ════════════════════════════════════════════════════════════════
  * 마이페이지 — 원라인솔루션 '일반바' 마이 탭 구성 그대로 (2026-09-25 사장 지시).
@@ -292,6 +293,13 @@ export default function MyPage() {
   })();
 
   const sections: { title: string; rows: MyRow[] }[] = [
+    // 운영 — 어드민 출입 계정만(역할 admin·어드민 이메일·총괄운영자 id). 261006 사장 'campkjh@nate.com 마이페이지에 어드민 메뉴'
+    ...(isAdminUser(authUser)
+      ? [{
+          title: '운영',
+          rows: [{ k: 'admin', icon: 'setting', title: '관리자 페이지', desc: '회원 · 결제 · 정산 관리', onClick: () => router.push('/admin') }],
+        }]
+      : []),
     {
       title: '나의 활동',
       rows: [

@@ -21,6 +21,13 @@ export class AdminGuard implements CanActivate {
     'freetiful2025@naver.com',
     'freetiful2025@admin.com',
   ];
+  /**
+   * 역할은 그대로 두고 어드민만 여는 계정 — 이메일이 아니라 계정 id 로(261006 사장 'campkjh@nate.com 은 총괄운영자').
+   * 이메일로 열면 같은 이메일을 단 다른 소셜 계정이 이 계정에 이어 붙어 어드민까지 열릴 수 있다. 웹 lib/admin-access.ts 와 같은 목록.
+   */
+  private readonly ADMIN_USER_IDS = [
+    'a7c23078-a2cd-4643-87c0-c9292321bc3b', // campkjh@nate.com — 총괄운영자(사회자 계정 겸)
+  ];
 
   constructor(
     private jwtService: JwtService,
@@ -60,7 +67,7 @@ export class AdminGuard implements CanActivate {
     if (!user) throw new UnauthorizedException('유효하지 않은 토큰입니다');
 
     const email = user.email?.toLowerCase();
-    if (user.role === 'admin' || (email && this.ADMIN_EMAILS.includes(email))) {
+    if (user.role === 'admin' || (email && this.ADMIN_EMAILS.includes(email)) || this.ADMIN_USER_IDS.includes(user.id)) {
       req.user = user;
       return true;
     }

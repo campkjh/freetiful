@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaService } from '../prisma/prisma.service';
+import { isCreditsError, noteGeminiError, noteGeminiOk } from './ai-health';
 
 export interface GenerateProfileInput {
   name?: string;
@@ -114,6 +115,7 @@ ${raw}
           } as any,
         });
         const result = await model.generateContent(prompt);
+        noteGeminiOk('text-correct');
         const parsed = JSON.parse(result.response.text());
         const corrected = this.basicKoreanTextCleanup(String(parsed.text || ''));
         if (corrected) {
@@ -121,6 +123,7 @@ ${raw}
         }
       } catch (e: any) {
         lastError = e;
+        noteGeminiError('text-correct', e);
         const msg = String(e?.message || e);
         this.logger.warn(`Text correction failed with ${modelName}: ${msg.slice(0, 120)}`);
         if (!/503|429|504|UNAVAILABLE|overloaded|high demand|retry/i.test(msg)) break;
@@ -275,12 +278,14 @@ ${raw}
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const result = await model.generateContent([prompt, ...imageParts]);
+          noteGeminiOk('pro-page');
           const text = result.response.text();
           parsed = JSON.parse(text);
           this.logger.log(`Gemini generated with model=${modelName}, attempt=${attempt + 1}`);
           break outer;
         } catch (e: any) {
           lastError = e;
+          noteGeminiError('pro-page', e);
           const msg = String(e?.message || e);
           // 503/429/504 는 다음 시도로, 그 외(401/400 등)는 바로 폭파
           if (!/503|429|504|UNAVAILABLE|overloaded|high demand|retry/i.test(msg)) {
@@ -379,6 +384,7 @@ Strict: no text overlay, no logos, no watermarks. If reference photos are provid
         const parts: any[] = [{ text: prompt }, ...(input.referenceImages || [])];
         const t0 = Date.now();
         const result = await imageModel.generateContent(parts);
+        noteGeminiOk('hero-image');
         const elapsed = Date.now() - t0;
         const candidates = (result.response as any)?.candidates || [];
         debug.push(`${modelName}: ${elapsed}ms, candidates=${candidates.length}`);
@@ -401,9 +407,11 @@ Strict: no text overlay, no logos, no watermarks. If reference photos are provid
         debug.push(`${modelName}: no inlineData in response`);
         this.logger.warn(`${modelName} returned no image data`);
       } catch (e: any) {
+        noteGeminiError('hero-image', e);
         const msg = String(e?.message || e).slice(0, 200);
         debug.push(`${modelName} error: ${msg}`);
         this.logger.warn(`generateHeroImage ${modelName} failed: ${msg}`);
+        if (isCreditsError(e)) break;
       }
     }
     return { url: null, debug };

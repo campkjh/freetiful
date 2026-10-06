@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { isCreditsError, noteGeminiError, noteGeminiOk } from '../ai/ai-health';
 
 /**
  * 채팅 답장 추천(당근 '추천 답장' 어법, 2026-09-25 사장 지시).
@@ -167,11 +168,14 @@ export class ChatReplySuggestService {
           model.generateContent(prompt),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), left)),
         ]);
+        noteGeminiOk('reply-suggest');
         const text: string = result?.response?.text?.() || '';
         const parsed = this.parse(text);
         if (parsed.length) return parsed;
       } catch (e: any) {
+        noteGeminiError('reply-suggest', e);
         this.logger.warn(`reply suggest model ${name} failed: ${String(e?.message || e).slice(0, 100)}`);
+        if (isCreditsError(e)) break; // 크레딧 소진 — 다른 모델도 같은 키라 똑같이 막힌다
       }
     }
     return null;
@@ -228,10 +232,13 @@ export class ChatReplySuggestService {
           model.generateContent(prompt),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), left)),
         ]);
+        noteGeminiOk('decline-suggest');
         const parsed = this.parseDecline(result?.response?.text?.() || '');
         if (parsed.length) return parsed;
       } catch (e: any) {
+        noteGeminiError('decline-suggest', e);
         this.logger.warn(`decline suggest model ${name} failed: ${String(e?.message || e).slice(0, 100)}`);
+        if (isCreditsError(e)) break;
       }
     }
     return null;
