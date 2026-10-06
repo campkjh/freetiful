@@ -44,6 +44,9 @@ export class AutoReplyAiService {
     if (!this.client) this.logger.warn('GEMINI key 없음 — 자동응답 AI 경로 비활성');
   }
 
+  /** 마지막 모델 오류(어드민 상태 확인용) — 402 면 AI Studio 크레딧 충전이 필요하다 */
+  lastError: { at: number; code: number; message: string } | null = null;
+
   isEnabled() {
     return this.client !== null && (process.env.AI_AUTOREPLY_MODE || 'on') !== 'off';
   }
@@ -106,6 +109,9 @@ export class AutoReplyAiService {
       } catch (e: any) {
         const msg = String(e?.message || e);
         this.logger.warn(`[${models[i].name}] ${msg.slice(0, 160)}`);
+        this.lastError = { at: Date.now(), code: Number(msg.match(/\[(\d{3})/)?.[1]) || 0, message: msg.replace(/AIza[\w-]+/g, '[key]').slice(0, 200) };
+        // 402 = AI Studio 선불 크레딧 소진 — 모델을 바꿔도 같은 키라 똑같이 막힌다(261006 실측)
+        if (/\b402\b|Payment Required|prepayment credits/i.test(msg)) return null;
         // 과부하 · 모델 없음/설정 거절이면 다음 모델로. 시간 초과·그 밖은 다음 모델도 늦거나 똑같이 실패한다
         if (!/503|429|504|UNAVAILABLE|overloaded|high demand|404|NOT_FOUND|no longer available|400|INVALID_ARGUMENT/i.test(msg)) return null;
       }
@@ -165,6 +171,20 @@ export class AutoReplyAiService {
   /** 발송/미발송 문턱. 금전·일정 게이트에는 쓰지 않는다(모델 자기신고라 적대적 입력의 영향권) */
   passesConfidence(v: number) {
     return v >= this.minConfidence();
+  }
+
+  /**
+   * 사회자 말투·조건 학습(오프라인, AutoReplyLearnService) — 채팅 재료가 길어 넉넉히 기다린다.
+   * 결과는 코드 검사를 거쳐 저장되고, 실제 답장 때는 여전히 '고르기'만 한다.
+   */
+  async learnProfile(prompt: string, systemInstruction: string) {
+    if (!this.client) return null;
+    return this.generateJson(prompt, {
+      systemInstruction,
+      temperature: 0.4,
+      maxOutputTokens: 2600,
+      timeoutMs: 60000,
+    });
   }
 
   /** 설정 화면 '내 말투로 다듬기' — 사람이 읽고 저장하므로 런타임 위험 없음 */

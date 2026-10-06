@@ -175,7 +175,7 @@ export function screenRisks(text: string): RiskFlag[] {
 // 티키타카(260926 사장 "사회자 AI 답변이 어느 정도 티키타카") — 둘 다 새 사실·약속이 전혀 없는 문장만.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SmallTalkKind = 'thanks' | 'goodwill' | 'greet';
+export type SmallTalkKind = 'thanks' | 'goodwill' | 'greet' | 'ack' | 'pending' | 'praise';
 
 /** 메시지 전체가 감사·인사일 때만 — 뒤에 다른 말이 붙으면(예: '감사해요 그럼 30만원에') 잡지 않는다 */
 export function smallTalkOf(text: string): SmallTalkKind | null {
@@ -188,6 +188,13 @@ export function smallTalkOf(text: string): SmallTalkKind | null {
   // '안녕하세요! 잘 부탁드립니다' 처럼 인사+부탁이 붙은 말도 흔하다(운영 실데이터) — 부탁 쪽으로 받는다
   if (new RegExp(`^(${hi}[\\s,.!~]*)?(저도\\s*)?잘\\s*부탁(드립니다|드려요|해요|합니다)${tail}`, 'u').test(body)) return 'goodwill';
   if (new RegExp(`^${hi}([\\s,.!~]*${hi})?${tail}`, 'u').test(body)) return 'greet';
+  // 받았다·알았다·보고 연락 주겠다(답장 추천 칩에 흔한 말, 261006 사장 '칩 누르면 자동답변 안 함') — 수락·일정·금액 말이 붙으면 잡지 않는다
+  const yes = '(넵넵|네네|네|넵|넹)?[\\s,.!~]*';
+  if (new RegExp(`^${yes}((잘\\s*)?확인(했|하였)(습니다|어요)|알겠(습니다|어요)|확인\\s*감사(합니다|해요|드려요)|(검토|고민|생각)(해|하)?\\s*보고\\s*(다시\\s*)?연락\\s*드릴게요|궁금한\\s*(게|점)\\s*(생기면|있으면)\\s*(다시\\s*)?연락\\s*드릴게요)${tail}`, 'u').test(body)) return 'ack';
+  // 사회자에게 확인을 부탁 — '천천히 확인 부탁드려요'
+  if (new RegExp(`^${yes}(천천히\\s*)?확인\\s*(좀\\s*)?부탁(드립니다|드려요|해요|합니다)${tail}`, 'u').test(body)) return 'pending';
+  // 영상·진행·목소리 칭찬
+  if (new RegExp(`^(영상|진행|목소리|분위기|프로필)[가이도은는을를\\s]{0,4}(정말\\s*|너무\\s*|진짜\\s*)?(잘\\s*봤(습니다|어요)|좋네요|좋아요|좋았어요|멋지네요|멋져요|최고예요|최고네요)${tail}`, 'u').test(body)) return 'praise';
   return null;
 }
 
@@ -196,6 +203,9 @@ export function smallTalkText(kind: SmallTalkKind, callName: string, emoji: Pers
   const e = emoji === 'none' ? '' : ' 😊';
   if (kind === 'thanks') return `감사합니다${e} 더 궁금하신 점 있으시면 편하게 말씀 주세요!`;
   if (kind === 'goodwill') return `저야말로 잘 부탁드립니다${e}`;
+  if (kind === 'ack') return `네! 편하게 보시고 궁금한 점 있으시면 언제든 말씀 주세요${e}`;
+  if (kind === 'pending') return `네! 확인해서 바로 말씀드릴게요${e}`;
+  if (kind === 'praise') return `좋게 봐 주셔서 감사해요${e} 더 궁금하신 점 있으시면 편하게 말씀 주세요!`;
   return `안녕하세요 ${callName}!${e} 편하게 말씀 주세요.`;
 }
 
