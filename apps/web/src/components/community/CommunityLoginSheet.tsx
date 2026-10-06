@@ -3,12 +3,14 @@
 // /community 는 (main) 레이아웃 밖이라 'freetiful:show-login' 을 받아 줄 로그인 모달이 없다.
 // 팔로우·댓글·글쓰기에서 401 이 나면 이 시트가 뜬다(앱이면 네이티브 로그인 시트 우선).
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { rememberAuthReturnTo, startOAuth } from "@/lib/auth/oauth";
 import { requestNativeLoginSheet } from "@/lib/auth/native-login";
 import GuestLoginForm from "@/components/GuestLoginForm";
 
 export default function CommunityLoginSheet() {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const handler = () => {
@@ -79,6 +81,20 @@ export default function CommunityLoginSheet() {
             <path d="M12.16 9.57L5.56 0H0v18h5.84V8.43L12.44 18H18V0h-5.84v9.57z" fill="white" />
           </svg>
           네이버로 시작하기
+        </button>
+        {/* 이메일 로그인(261006) — 퀵매칭 같은 /email/login 화면으로 */}
+        <button
+          type="button"
+          className="ft-btn mb-2.5 w-full"
+          style={{ background: "#fff", color: "#191F28", boxShadow: "inset 0 0 0 1px #E5E8EB" }}
+          onClick={() => {
+            setOpen(false);
+            rememberAuthReturnTo();
+            router.push("/email/login");
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="3.5" stroke="#191F28" strokeWidth="2" /><path d="M3.8 7.2l8.2 5.8 8.2-5.8" stroke="#191F28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          이메일로 로그인
         </button>
         <div className="fcl-guest">
           {/* 로그인 직후 피드·상세가 내 정보로 다시 그려지도록 새로고침한다. */}

@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { generalProfileImage, isPlaceholderProfileImage } from '../common/default-avatar';
 import { JwtService } from '@nestjs/jwt';
@@ -44,24 +45,19 @@ export class AuthService {
   }
 
   /**
-   * deriveCredentials 합성 이메일 패턴 감지 후 매칭되는 native 카카오/네이버/구글/애플 유저 반환.
-   * 'kakao_X@kakao.freetiful.com' / 'naver_X@naver.freetiful.com' / 'google_X@google.freetiful.com' / 'apple_X@apple.freetiful.com'
+   * 소셜 합성 이메일 도메인(@kakao.freetiful.com · naver/google/apple) — 이메일 로그인·가입에서 막는다.
+   * ⚠ 예전(9f919620)엔 'kakao_X@kakao.freetiful.com' 꼴이면 비밀번호 확인 없이 그 소셜(native) 회원으로 로그인시켜 줬다 →
+   *   소셜 회원 번호만 알면 누구 계정이든 열리던 구멍(261006 닫음). 지금 앱(iOS·안드)은 소셜 토큰으로만 로그인한다.
+   *   가입도 막는 이유: 옛 계정 이어 붙이기(kakaoLegacyIdentifiers)가 'X@kakao.freetiful.com' 이메일을 찾아
+   *   그 카카오 회원의 첫 로그인을 미리 만든 계정에 붙여 버린다.
    */
-  private async findNativeUserBySyntheticEmail(email: string): Promise<User | null> {
-    const m = email.match(/^(kakao|naver|google|apple)_(.+)@\1\.freetiful\.com$/);
-    if (!m) return null;
-    const providerKey = m[1] as keyof typeof AuthProvider;
-    const providerUserId = m[2];
-    const provider = AuthProvider[providerKey];
-    if (!provider) return null;
-    const authRecord = await this.prisma.authProviderRecord.findUnique({
-      where: { provider_providerUserId: { provider, providerUserId } },
-      include: { user: true },
-    });
-    if (authRecord?.user && authRecord.user.isActive && !authRecord.user.isBanned) {
-      return authRecord.user;
-    }
-    return null;
+  private static isSyntheticProviderEmail(email: string) {
+    return /@(kakao|naver|google|apple)\.freetiful\.com$/i.test(email);
+  }
+
+  /** 이메일 정규화 — 대소문자·앞뒤 공백 차이로 같은 사람이 두 계정이 되거나 로그인이 안 되는 것 방지 */
+  private static normalizeEmail(email?: string | null) {
+    return String(email || '').trim().toLowerCase();
   }
 
   private normalizeDevicePlatform(value?: string, userAgent?: string) {
@@ -431,7 +427,17 @@ export class AuthService {
             where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
           });
         }
-        if (existing) {
+        // 이메일 가입(메일 인증 없음)만 있는 계정에는 소셜 로그인을 붙이지 않는다 — 남의 이메일로 먼저 가입해 두고
+        // 그 사람이 처음 소셜 로그인하길 기다렸다 계정을 가로채는 길을 막는다(261006). 그럴 땐 이메일 없이 새 계정.
+        const records = existing
+          ? await this.prisma.authProviderRecord.findMany({ where: { userId: existing.id }, select: { provider: true } })
+          : [];
+        // 로그인 수단이 아예 없는 계정(랜딩 비회원 등)은 예전처럼 붙인다 — 이메일 가입 하나뿐일 때만 막음
+        const emailOnly = records.length > 0 && records.every((r) => r.provider === AuthProvider.email);
+        if (existing && emailOnly) {
+          user = await this.createUser(provider, { ...info, providerEmail: normalizedEmail });
+          isNewUser = true;
+        } else if (existing) {
           await this.prisma.authProviderRecord.create({
             data: { userId: existing.id, provider, providerUserId: info.providerUserId, providerEmail: normalizedEmail },
           });
@@ -546,25 +552,25 @@ export class AuthService {
   }
 
   async emailRegister(dto: { email: string; password: string; name: string; phone?: string }, deviceInfo?: LoginDeviceInfo) {
-    // deriveCredentials 합성 이메일 패턴 (kakao/naver/google/apple) — 기존 native 유저가 있으면 그 유저로 로그인
-    // (새 synthetic 계정 생성을 막아 데이터 분리 방지)
-    const matchedNative = await this.findNativeUserBySyntheticEmail(dto.email);
-    if (matchedNative) {
-      return this.buildLoginResponse(
-        matchedNative,
-        await this.issueTokens(matchedNative.id, deviceInfo),
-        false,
-      );
+    const email = AuthService.normalizeEmail(dto.email);
+    const name = String(dto.name || '').trim();
+    if (AuthService.isSyntheticProviderEmail(email)) throw new BadRequestException('사용할 수 없는 이메일이에요');
+    // 소셜 옛 계정 이어 붙이기(kakaoLegacyIdentifiers)가 이름으로도 찾는다 — 숫자만·'kakao_' 꼴 이름은 받지 않는다
+    if (!name || name.length > 30 || /^(kakao|naver|google|apple)_/i.test(name) || /^\d+$/.test(name)) {
+      throw new BadRequestException('이름을 확인해 주세요');
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
+    });
     if (existing) throw new ConflictException('Email already registered');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = await this.createUser(
       AuthProvider.email,
-      { providerUserId: dto.email, name: dto.name },
-      { email: dto.email, phone: dto.phone, passwordHash },
+      { providerUserId: email, name },
+      { email, phone: dto.phone, passwordHash },
     );
     this.notificationService.createNotification(
       user.id, 'system' as any,
@@ -574,25 +580,40 @@ export class AuthService {
     return this.buildLoginResponse(user, await this.issueTokens(user.id, deviceInfo), true);
   }
 
-  async emailLogin(email: string, password: string, deviceInfo?: LoginDeviceInfo) {
-    // deriveCredentials 합성 이메일 — 모든 provider 의 기존 native 유저로 라우팅
-    const matchedNative = await this.findNativeUserBySyntheticEmail(email);
-    if (matchedNative) {
-      return this.buildLoginResponse(
-        matchedNative,
-        await this.issueTokens(matchedNative.id, deviceInfo),
-        false,
-      );
-    }
+  /** 이메일 로그인 실패 제한 — 이메일당 5번 틀리면 10분 잠금(비밀번호 대입 차단, 비회원 로그인과 같은 규칙) */
+  private emailLoginFails = new Map<string, { count: number; until: number }>();
+  private static readonly EMAIL_MAX_FAILS = 5;
+  private static readonly EMAIL_LOCK_MS = 10 * 60 * 1000;
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { authProviders: { where: { provider: AuthProvider.email } } },
-    });
-    if (!user?.authProviders[0]) throw new UnauthorizedException('Invalid credentials');
-    if (!await bcrypt.compare(password, user.authProviders[0].accessToken!)) {
-      throw new UnauthorizedException('Invalid credentials');
+  async emailLogin(emailInput: string, password: string, deviceInfo?: LoginDeviceInfo) {
+    const email = AuthService.normalizeEmail(emailInput);
+    // 사유를 가리지 않는 한 가지 문구(가입 여부 노출 방지)
+    const deny = () => new UnauthorizedException('Invalid credentials');
+    if (!email || !password || AuthService.isSyntheticProviderEmail(email)) throw deny();
+
+    const lock = this.emailLoginFails.get(email);
+    if (lock && lock.count >= AuthService.EMAIL_MAX_FAILS && Date.now() < lock.until) {
+      throw new UnauthorizedException('시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요');
     }
+    const fail = () => {
+      const cur = this.emailLoginFails.get(email);
+      const count = cur && Date.now() < cur.until ? cur.count + 1 : 1;
+      if (this.emailLoginFails.size > 5000) this.emailLoginFails.clear();
+      this.emailLoginFails.set(email, { count, until: Date.now() + AuthService.EMAIL_LOCK_MS });
+      return deny();
+    };
+
+    const include = { authProviders: { where: { provider: AuthProvider.email } } } as const;
+    let user = await this.prisma.user.findUnique({ where: { email }, include });
+    if (!user) {
+      // 예전 가입분은 대소문자가 섞여 저장돼 있을 수 있다
+      user = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, include });
+    }
+    const hash = user?.authProviders[0]?.accessToken;
+    if (!user || !hash || !user.isActive || user.isBanned) throw fail();
+    if (!await bcrypt.compare(password, hash)) throw fail();
+
+    this.emailLoginFails.delete(email);
     return this.buildLoginResponse(user, await this.issueTokens(user.id, deviceInfo), false);
   }
 

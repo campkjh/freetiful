@@ -11,7 +11,7 @@ import { consumeAuthReturnTo, rememberAuthReturnTo, startOAuth } from '@/lib/aut
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
-import AccountSwitcher, { SavedAccountsQuickList, cancelAddAccount, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
+import AccountSwitcher, { SavedAccountsQuickList, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
@@ -250,10 +250,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  // 'add' = 마이 두 번 누름 → 계정 전환 → '계정 추가'(261006) — 지금 계정은 둔 채 다른 계정 로그인
-  const [loginMode, setLoginMode] = useState<'login' | 'add'>('login');
-  const loginModeRef = useRef(loginMode);
-  loginModeRef.current = showLoginModal ? loginMode : 'login';
   const lastScrollY = useRef(0);
   const authUser = useAuthStore((s) => s.user);
   const authHydrated = useAuthStore((s) => s.hasHydrated);
@@ -278,11 +274,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         // 시트가 덮기 전 로그아웃 마이페이지가 깜빡이던 문제 — 선이동을 시트 표시 이후로 지연
         setTimeout(() => { try { router.replace('/main'); } catch {} }, 700);
       } else {
-        setLoginMode('login');
         setShowLoginModal(true);
       }
-    } else if (loginModeRef.current !== 'add') {
-      // 계정 추가 창은 로그인해 있는 채로 뜬다 — 프로필 동기화 등으로 다시 돌아도 닫지 않는다(닫기·성공 때만)
+    } else {
       setShowLoginModal(false);
     }
     // 최신 프로필 동기화는 첫 화면을 막지 않도록 idle 이후에만 수행한다.
@@ -441,22 +435,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       if (/^\/community(\/|$)/.test(window.location.pathname)) return;
       rememberAuthReturnTo();
       if (requestNativeLoginSheet({ reason: 'manual' })) return;
-      setLoginMode('login');
-      setShowLoginModal(true);
-    };
-    // 계정 추가 — 앱은 네이티브 시트(prompt=login 은 다음 앱 빌드부터 카카오 계정 고르기), 웹은 로그인 창 '추가' 모드.
-    // 웨딩숲 로그인 시트와 겹치지 않게 신호를 따로 둔다.
-    const addHandler = () => {
-      if (requestNativeLoginSheet({ reason: 'add-account', prompt: 'login', returnTo: '/my' })) return;
-      setLoginMode('add');
       setShowLoginModal(true);
     };
     window.addEventListener('freetiful:show-login', handler);
-    window.addEventListener('freetiful:add-account-login', addHandler);
-    return () => {
-      window.removeEventListener('freetiful:show-login', handler);
-      window.removeEventListener('freetiful:add-account-login', addHandler);
-    };
+    return () => window.removeEventListener('freetiful:show-login', handler);
   }, []);
 
   // 로그인 시 채팅 관련 무거운 번들은 채팅 화면에서만 즉시 로드한다.
@@ -515,10 +497,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const NAV_ITEMS = isPro ? PRO_NAV_ITEMS : USER_NAV_ITEMS;
   const homeHref = '/main';
 
-  // 로그인 창 닫기 — 계정 추가 창이면 지금 계정 그대로(표식만 지움), 보통 로그인 창이면 홈으로
   const closeLoginModal = () => {
     setShowLoginModal(false);
-    if (loginMode === 'add') { cancelAddAccount(); return; }
     router.push('/main');
   };
 
@@ -792,11 +772,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           >
             <div className="ft-grab" aria-hidden="true" />
             <Image src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" width={137} height={40} priority className="mx-auto mb-1.5 animate-[loginItemUp_0.4s_ease_0.05s_both]" style={{ height: 40, width: 'auto' }} />
-            <p className="ft-desc text-center animate-[loginItemUp_0.4s_ease_0.1s_both]">
-              {loginMode === 'add' ? '다른 계정으로 로그인하면\n이 기기에 함께 저장돼요' : '나의 특별한 행사를 완성하는 사회자'}
-            </p>
+            <p className="ft-desc text-center animate-[loginItemUp_0.4s_ease_0.1s_both]">나의 특별한 행사를 완성하는 사회자</p>
             {/* 로그아웃 상태 — 이 기기에 저장된 계정이 있으면 한 번에 계속(계정 전환 목록과 같은 줄) */}
-            {loginMode === 'login' && !authUser && (
+            {!authUser && (
               <div className="animate-[loginItemUp_0.4s_ease_0.12s_both]">
                 <SavedAccountsQuickList onDone={() => setShowLoginModal(false)} to={() => consumeAuthReturnTo('/main')} />
               </div>
@@ -812,7 +790,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                   onClick={() => {
                     setShowLoginModal(false);
                     rememberAuthReturnTo();
-                    startOAuth(provider as 'kakao' | 'naver' | 'google', { addAccount: loginMode === 'add' });
+                    startOAuth(provider as 'kakao' | 'naver' | 'google');
                   }}
                   // 등장 애니는 backwards — 끝나면 빠져서 ft-btn 눌림(scale) 이 산다
                   className="ft-btn animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_backwards]"
@@ -822,6 +800,19 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                   {label}
                 </button>
               ))}
+              {/* 이메일 로그인(261006 사장 '웹도 iOS 도 이메일 로그인') — 퀵매칭 같은 /email/login 화면으로 */}
+              <button
+                onClick={() => {
+                  setShowLoginModal(false);
+                  rememberAuthReturnTo();
+                  router.push('/email/login');
+                }}
+                className="ft-btn animate-[loginItemUp_0.4s_cubic-bezier(0.16,1,0.3,1)_backwards]"
+                style={{ background: '#fff', color: '#191F28', boxShadow: 'inset 0 0 0 1px #E5E8EB', animationDelay: '0.24s' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="3.5" stroke="#191F28" strokeWidth="2" /><path d="M3.8 7.2l8.2 5.8 8.2-5.8" stroke="#191F28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                이메일로 로그인
+              </button>
             </div>
             {/* 비회원 로그인 — 랜딩에서 견적만 신청한 고객(소셜 계정 없음)용 */}
             <div className="mt-3 animate-[loginItemUp_0.4s_ease_0.28s_both]">

@@ -12,12 +12,6 @@ private let kAPIBase   = "https://freetiful.com/api/v1"
 
 struct NativeLoginView: View {
     @Environment(\.dismiss) var dismiss
-    /// 웹 '계정 추가'(마이 두 번 누름, 261006) — 카카오톡 앱 대신 카카오계정 로그인 화면(prompt=login)을 띄워 다른 계정을 고르게 한다
-    var forceAccountLogin = false
-
-    init(forceAccountLogin: Bool = false) {
-        self.forceAccountLogin = forceAccountLogin
-    }
     @State private var isLoading = false
     @State private var naverCoordinator: NaverNativeLoginCoordinator?
     @State private var appleCoordinator: AppleNativeLoginCoordinator?
@@ -33,6 +27,8 @@ struct NativeLoginView: View {
     @State private var guestPhone = ""
     @State private var guestName = ""
     @State private var guestError = ""
+    /// '이메일로 로그인'으로 웹 화면에 넘기는 중 — 닫힐 때 홈(/main)으로 보내지 않는다
+    @State private var openingWeb = false
 
     // 화면 곡률에 맞춘 카드 r (첫진입 오픈 모달과 동일 방식: 화면 r − 여백10)
     private var cardRadius: CGFloat {
@@ -70,6 +66,7 @@ struct NativeLoginView: View {
                                      bg: .white, fg: Color(red: 0.3, green: 0.3, blue: 0.3), bordered: true, action: handleGoogleLogin)
                         socialButton(icon: "login-apple", title: "Apple로 시작하기",
                                      bg: .black, fg: .white, action: handleAppleLogin)
+                        emailButton
 
                         Button("비회원 로그인 (견적 신청하신 분)") {
                             guestError = ""
@@ -139,7 +136,7 @@ struct NativeLoginView: View {
         }
         // OAuth 앱 전환 중 시트가 잠깐 사라질 수 있어 로딩 중에는 홈 이동을 막는다.
         .onDisappear {
-            if !didLoginSuccessfully && !isLoading {
+            if !didLoginSuccessfully && !isLoading && !openingWeb {
                 goHome()
             }
         }
@@ -152,6 +149,32 @@ struct NativeLoginView: View {
             dimOpacity = 0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { goHome() }
+    }
+
+    /// 이메일 로그인(261006 사장 '웹도 iOS 도 이메일 로그인') — 웹의 /email/login(퀵매칭 어법, 가입도 거기서)으로 넘긴다
+    private var emailButton: some View {
+        Button(action: openEmailLogin) {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope").font(.system(size: 17, weight: .semibold))
+                Text("이메일로 로그인").fontWeight(.bold)
+            }
+            .frame(maxWidth: .infinity).frame(height: 50)
+            .background(Color.white)
+            .foregroundColor(Color(red: 0.098, green: 0.122, blue: 0.157))
+            .cornerRadius(14)
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.gray.opacity(0.25), lineWidth: 1))
+        }
+    }
+
+    private func openEmailLogin() {
+        openingWeb = true
+        withAnimation(.easeIn(duration: 0.22)) {
+            sheetOffset = 900
+            dimOpacity = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.23) {
+            NotificationCenter.default.post(name: .openWebPathRequested, object: nil, userInfo: ["path": "/email/login"])
+        }
     }
 
     // 소셜 로그인 버튼 (제공 아이콘 + 브랜드 컬러)
@@ -290,10 +313,6 @@ struct NativeLoginView: View {
         }
         let loginWithKakaoAccount = {
             UserApi.shared.loginWithKakaoAccount(completion: handle)
-        }
-        if forceAccountLogin {
-            UserApi.shared.loginWithKakaoAccount(prompts: [.Login], completion: handle)
-            return
         }
         if UserApi.isKakaoTalkLoginAvailable() {
             UserApi.shared.loginWithKakaoTalk { token, error in

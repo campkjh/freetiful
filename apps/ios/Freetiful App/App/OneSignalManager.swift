@@ -132,4 +132,7 @@ extension Notification.Name {
     /// 네이티브 소셜 로그인 성공 시 게시 — ViewController가 JWT를 localStorage에 주입 + /main 이동
     /// userInfo: ["accessToken": String, "refreshToken": String, "userJSON": String]
     static let loginCompleted = Notification.Name("loginCompleted")
+    /// 네이티브 로그인 시트에서 웹 화면으로 넘길 때(이메일 로그인 = /email/login) — ViewController 가 시트를 닫고 그 경로로 이동
+    /// userInfo: ["path": String]
+    static let openWebPathRequested = Notification.Name("openWebPathRequested")
 }

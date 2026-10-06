@@ -694,8 +694,8 @@ class ViewController: UIViewController,
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         switch message.name {
-        case "showNativeLogin": presentNativeLoginSheet(forceAccountLogin: Self.wantsAccountLogin(message.body))
-        case "kakaoLogin":  startKakaoLogin(forceAccountLogin: Self.wantsAccountLogin(message.body))
+        case "showNativeLogin": presentNativeLoginSheet()
+        case "kakaoLogin":  startKakaoLogin()
         case "naverLogin":  startNaverLogin()
         case "googleLogin": startGoogleLogin()
         case "appleLogin":  startAppleLogin()
@@ -747,13 +747,8 @@ class ViewController: UIViewController,
     }
 
     // MARK: - Native Login Sheet
-    /// 웹 '계정 추가'(마이 두 번 누름, 261006)는 { prompt: 'login' } 을 실어 보낸다 — 카카오계정 로그인 화면으로 다른 계정을 고르게
-    private static func wantsAccountLogin(_ body: Any) -> Bool {
-        (body as? [String: Any])?["prompt"] as? String == "login"
-    }
-
-    private func presentNativeLoginSheet(forceAccountLogin: Bool = false) {
-        let host = UIHostingController(rootView: NativeLoginView(forceAccountLogin: forceAccountLogin))
+    private func presentNativeLoginSheet() {
+        let host = UIHostingController(rootView: NativeLoginView())
         host.modalPresentationStyle = .overFullScreen   // 앱 위 글래스 바텀시트
         host.view.backgroundColor = .clear
         DispatchQueue.main.async { [weak self] in
@@ -776,6 +771,20 @@ class ViewController: UIViewController,
                 presented.dismiss(animated: true) { self.webView.load(URLRequest(url: url)) }
             } else {
                 self.webView.load(URLRequest(url: url))
+            }
+        }
+
+        /// 시트에서 '이메일로 로그인' — 시트를 닫고 웹의 이메일 화면(퀵매칭 어법 /email/login)으로. 돌아올 곳은 웹이 기억해 둔 returnTo.
+        NotificationCenter.default.addObserver(
+            forName: .openWebPathRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self, let path = note.userInfo?["path"] as? String, path.hasPrefix("/") else { return }
+            if let presented = self.presentedViewController {
+                presented.dismiss(animated: false) { self.navigateWeb(to: path) }
+            } else {
+                self.navigateWeb(to: path)
             }
         }
 
@@ -907,7 +916,7 @@ class ViewController: UIViewController,
     }
 
     // MARK: - Kakao Login
-    private func startKakaoLogin(forceAccountLogin: Bool = false) {
+    private func startKakaoLogin() {
         let handle: (OAuthToken?, Error?) -> Void = { [weak self] token, error in
             if let token = token {
                 self?.callAPI(endpoint: "/auth/login/kakao/native", body: ["accessToken": token.accessToken])
@@ -917,10 +926,6 @@ class ViewController: UIViewController,
         }
         let loginWithKakaoAccount = {
             UserApi.shared.loginWithKakaoAccount(completion: handle)
-        }
-        if forceAccountLogin {
-            UserApi.shared.loginWithKakaoAccount(prompts: [.Login], completion: handle)
-            return
         }
 
         if UserApi.isKakaoTalkLoginAvailable() {

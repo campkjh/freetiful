@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, MotionConfig, motion, type Transition, type Variants } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import {
   MAX_SAVED_ACCOUNTS,
   accountSubLabel,
-  clearAddingMarker,
   markAddingAccount,
   rememberCurrentAccount,
   removeSavedAccount,
@@ -18,14 +17,14 @@ import {
   type SavedAccount,
   type SwitchResult,
 } from '@/lib/store/accounts.store';
-import { rememberAuthReturnTo } from '@/lib/auth/oauth';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 
 /* ─────────────────────────────────────────────────────────────
  * 계정 전환 시트 — 마이 탭을 두 번 누르면(261006 사장 '원라인 일반바 계정 연결처럼 왔다 갔다').
  *  · 이 기기에 저장된 계정 줄(지금 계정 = 파란 체크) → 누르면 그 계정으로 바뀌고 /my 가 새로 열린다.
- *  · '계정 추가' = 지금 계정은 둔 채 로그인 창(앱=네이티브 시트, 웹=로그인 창 '추가' 모드) → 새 계정이 들어오면 둘 다 남는다.
+ *  · '계정 추가' = 이메일 가입만(261006 사장) — 퀵매칭 같은 /email/signup 화면으로 넘어가 새 계정을 만든다.
+ *    지금 계정은 로그인된 채로 두고(취소하면 그대로) 새 계정이 들어오면 둘 다 목록에 남는다.
  *  · 줄 오른쪽 × → '빼기'(한 번 더 눌러야 빠진다) — 그 계정의 서버 세션도 끊는다. 지금 계정은 마이 > 로그아웃으로.
  *  · 두 번 누름 감지: 웹 하단 탭·PC 머리줄은 클릭(noteTabTap), iOS 네이티브 탭바는
  *    다른 탭→마이 = __freetifulNavigate('/my'), 마이에서 다시 누름 = scrollTo({top:0, behavior:'smooth'}) 로 들어온다
@@ -230,6 +229,7 @@ export function SavedAccountsQuickList({ onDone, to }: { onDone?: () => void; to
 
 export default function AccountSwitcher() {
   const pathname = usePathname();
+  const router = useRouter();
   const authUser = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const refreshToken = useAuthStore((s) => s.refreshToken);
@@ -313,10 +313,9 @@ export default function AccountSwitcher() {
     if (full) { toast(`계정은 ${MAX_SAVED_ACCOUNTS}개까지 저장돼요. 하나를 빼고 추가해 주세요`); return; }
     rememberCurrentAccount();
     markAddingAccount();
-    rememberAuthReturnTo('/my');
     setOpen(false);
-    // 시트가 내려간 뒤 로그인 창 — (main) 레이아웃이 앱이면 네이티브 시트, 웹이면 로그인 창 '추가' 모드로 띄운다
-    window.setTimeout(() => window.dispatchEvent(new Event('freetiful:add-account-login')), 220);
+    // 시트가 내려간 뒤 이메일 가입 화면(퀵매칭 어법) — 소셜 로그인은 계정 추가에 안 쓴다(카카오톡 계정 하나뿐이라 새 계정이 안 생김)
+    window.setTimeout(() => router.push('/email/signup'), 200);
   };
 
   const remove = (account: SavedAccount) => {
@@ -404,9 +403,4 @@ export default function AccountSwitcher() {
       </AnimatePresence>
     </MotionConfig>
   );
-}
-
-/** 웹 로그인 창 '추가' 모드를 닫을 때 — 표식만 지운다(지금 계정은 그대로) */
-export function cancelAddAccount() {
-  clearAddingMarker();
 }
