@@ -8,8 +8,9 @@ import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
 /*
  * PC 머리줄 '프리티풀 비즈' 버튼 + 첫 진입 말풍선(261007 사장 'PC 상단 헤더 홈 옆에 프리티풀 비즈 버튼 따로,
  * 첫 진입 때 모바일 퀵매칭 말풍선처럼 — 애니메이션·디자인 완전 그대로, 아이콘이랑 색상만 바꿔서').
- *  · 말풍선 = 홈 퀵매칭 말풍선(globals .qm-bubble*, 바탕 유리 TossBubble)과 같은 칸·같은 움직임. 색만 .qm-bubble.biz 로 덧칠
- *    (캐러멜 가죽 톤 제목 그라데이션 · 따뜻한 흰 유리 · 갈색 기 그림자), 아이콘 = 사장이 준 가죽 서류가방.
+ *  · 말풍선 = 홈 퀵매칭 말풍선(globals .qm-bubble*, 바탕 유리 TossBubble)과 같은 칸·같은 움직임. 색만 .qm-bubble.biz 로 덧칠.
+ *  · 아이콘 = 사장이 준 파란 폴더(261007 '하단 메뉴(카테고리 비즈 = 가죽 가방)는 그대로, 헤더 아이콘이랑 말풍선만 이걸로') —
+ *    흰 바탕을 걷어낸 투명 PNG(폴더 안 흰 종이는 그대로). 버튼·말풍선 색도 폴더 하늘색 결로(처음 가방 때는 캐러멜).
  *  · 꼬리 끝 = 버튼 아래 5 · 버튼 가운데(모바일과 같은 간격). 첫 진입(페이지를 새로 열 때), 첫 화면 창들이 닫힌 뒤 — 머리줄은 화면을 옮겨도 그대로라
  *    한 번 뜬 뒤 다른 화면으로 가면 접는다. × = 30분 숨김(모바일과 같은 규칙), 말풍선·버튼을 누르면 /biz 로 가며 같이 숨김.
  *  · 머리줄 자체가 PC 전용(lg)이라 모바일엔 없다 — 넓은 화면일 때만 띄운다.
@@ -20,7 +21,7 @@ const BIZ_BUBBLE_GAP = 5;
 /** 말풍선 왼쪽에서 꼬리 끝까지 — 버튼 가운데에 꼬리가 오도록 말풍선을 이만큼 왼쪽으로 */
 const BIZ_BUBBLE_TAIL_X = 64;
 const BIZ_BUBBLE_WIDTH = 352;
-const BIZ_ICON = '/images/category-icons/biz.png';
+const BIZ_ICON = '/images/icons/biz-folder.png';
 
 export default function BizHeaderButton() {
   const router = useRouter();
@@ -98,8 +99,8 @@ export default function BizHeaderButton() {
         ref={btnRef}
         href="/biz"
         onClick={() => { if (phase === 'in') fold(true); }}
-        className={`flex h-[38px] items-center gap-1.5 whitespace-nowrap rounded-[14px] pl-2.5 pr-3.5 text-[13px] font-bold tracking-[-0.2px] text-[#7A4A1F] transition-colors duration-200 ${
-          active ? 'bg-[#F0DFCB]' : 'bg-[#F8EEE3] hover:bg-[#F3E4D3]'
+        className={`flex h-[38px] items-center gap-1.5 whitespace-nowrap rounded-[14px] pl-2.5 pr-3.5 text-[13px] font-bold tracking-[-0.2px] text-[#1B6FD1] transition-colors duration-200 ${
+          active ? 'bg-[#D3E8FD]' : 'bg-[#EAF4FE] hover:bg-[#DDEEFD]'
         }`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 아이콘 */}
@@ -121,7 +122,7 @@ export default function BizHeaderButton() {
           <QuickMatchBubbleGlass tailX={BIZ_BUBBLE_TAIL_X} />
           <div className="qm-bubble-body">
             <span className="qm-bubble-ic" aria-hidden="true">
-              {/* eslint-disable-next-line @next/next/no-img-element -- 사장이 준 가죽 서류가방 */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- 사장이 준 파란 폴더 */}
               <img src={BIZ_ICON} alt="" width={28} height={28} />
             </span>
             <p className="qm-bubble-title">기업 행사는 프리티풀 비즈로.</p>
