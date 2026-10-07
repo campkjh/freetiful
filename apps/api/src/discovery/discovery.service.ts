@@ -228,6 +228,7 @@ export class DiscoveryService implements OnModuleInit {
           youtubeUrl: true,
           isNationwide: true,
           tags: true,
+          rankOrder: true,
           user: { select: { id: true, name: true, profileImageUrl: true } },
           // isPrimary=true 가 있으면 그것을, 없으면 displayOrder=0 을 [0] 번째로 배치
           images: {
@@ -276,6 +277,8 @@ export class DiscoveryService implements OnModuleInit {
         regions: p.regions.map((r) => r.region.name),
         languages: p.languages.map((l) => l.languageCode),
         tags: p.tags || [],
+        // 어드민 사회자 랭킹 — 홈 BEST 가 이 순서를 그대로 쓴다(261007, 클라이언트가 다시 정렬해도 잃지 않게). null = 안 매김
+        rankOrder: p.rankOrder ?? null,
       })),
       total,
       page,
