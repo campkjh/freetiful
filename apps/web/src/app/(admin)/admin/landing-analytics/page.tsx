@@ -7,6 +7,7 @@ import { AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminCollapse } from '../_components/AdminCollapse';
 import { AdminDatePop } from '../_components/AdminDatePop';
+import PageInsights from './PageInsights';
 
 /* ─────────────────────────────────────────────────────────────
  * 페이지별 유입 분석(261005 사장 '퀵매칭 · 웨딩MC · 비즈MC' → 261006 '톤앤매너에 맞춰서').
@@ -21,8 +22,10 @@ interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: 
 interface VisitRow { page: string; source: string | null; medium: string | null; campaign: string | null; referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string; }
 type Totals = { visits: number; conversions: number };
 
-/** 제목 자리 큰 글씨 탭 — 고른 것 검정 · 나머지 회색. conv = 그 페이지의 '전환' 이름 */
+/** 제목 자리 큰 글씨 탭 — 고른 것 검정 · 나머지 회색. conv = 그 페이지의 '전환' 이름.
+ *  맨 앞 '페이지별 인사이트'(261007 사장 '퀵매칭이 첫 번째인데 그게 아니라 페이지별 인사이트') = 전 화면 방문자·체류시간(PageInsights) */
 const PAGE_TABS = [
+  { key: 'pages', label: '페이지별 인사이트', desc: '모든 화면의 방문자 · 체류시간 — 많이 찾는 순서대로 메인 · 서브 · 마이너', conv: '' },
   { key: 'quick-match', label: '퀵매칭', desc: '퀵매칭 페이지 유입(UTM·리퍼러)과 견적 요청 전환', conv: '견적 요청' },
   { key: 'wedding-mc', label: '웨딩MC', desc: '결혼식 사회자 랜딩(wedding-mc) 유입과 견적 신청 전환', conv: '견적 신청' },
   { key: 'corporate-mc', label: '비즈MC', desc: '전문행사 사회자 랜딩(corporate-mc) 유입과 견적 신청 전환', conv: '견적 신청' },
@@ -259,7 +262,7 @@ function Kpi({ label, value, unit, sub, tone }: { label: string; value: number |
 
 export default function LandingAnalyticsPage() {
   // 고른 페이지 — 주소 ?p= 로 남겨 새로고침·공유해도 그대로
-  const [sel, setSel] = useState<PageKey>('quick-match');
+  const [sel, setSel] = useState<PageKey>('pages');
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('p');
     if (PAGE_TABS.some((t) => t.key === p)) setSel(p as PageKey);
@@ -299,6 +302,7 @@ export default function LandingAnalyticsPage() {
   const [spendSaving, setSpendSaving] = useState(false);
 
   const load = async (r: string, from = customFrom, to = customTo) => {
+    if (sel === 'pages') return;
     setLoading(true);
     try {
       let qs = '';
@@ -326,6 +330,7 @@ export default function LandingAnalyticsPage() {
   useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo, sel]);
 
   const loadToday = useCallback(async () => {
+    if (sel === 'pages') return;
     const t = KST_TODAY();
     const y = addDaysYmd(t, -1);
     const [td, yd] = await Promise.all([
@@ -338,6 +343,7 @@ export default function LandingAnalyticsPage() {
   useEffect(() => { loadToday(); }, [loadToday]);
 
   const loadMonth = useCallback(async () => {
+    if (sel === 'pages') return;
     try {
       const g = monthGrid(monthOffset);
       const cur = monthFirstLast(monthOffset);
@@ -506,7 +512,8 @@ export default function LandingAnalyticsPage() {
         <p className="adm-desc" key={sel}>{tab.desc}</p>
       </div>
 
-      {/* 가운데 = 숫자·달력·카드 차례로(스택), 오른쪽 = 방문 기록(261006 사장 '방문 기록은 우측에') */}
+      {sel === 'pages' ? <PageInsights /> : (
+      /* 가운데 = 숫자·달력·카드 차례로(스택), 오른쪽 = 방문 기록(261006 사장 '방문 기록은 우측에') */
       <div className="adm-la-layout">
       <div className="adm-la-main">
       {/* 숫자 줄 — 홈 상단과 같은 박스 없는 다이얼 6칸 */}
@@ -728,6 +735,7 @@ export default function LandingAnalyticsPage() {
         <VisitFeed visits={visits} conv={conv} sel={sel} />
       </aside>
       </div>
+      )}
     </div>
   );
 }

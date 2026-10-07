@@ -1646,7 +1646,7 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 @media (max-width: 640px) { .admin-shell .adm-title-tab { font-size: 23px !important; } .adm-title-tabs { gap: 2px 14px; } }
 
 /* 페이지별 유입 분석 본문(261006 사장 '톤앤매너에 맞춰서') — 홈 어법: 박스 없는 숫자 줄 · 한 줄 브리핑 · 홈식 달력 · .adm-card · 목록 카드 */
-.adm-la { display: flex; flex-direction: column; gap: 22px; }
+.adm-la { display: flex; flex-direction: column; gap: 22px; container-type: inline-size; }
 .adm-la > .adm-head { margin-bottom: 0; }
 .adm-la-top { padding: 4px 2px 0; }
 .adm-la-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 16px; }
@@ -1741,6 +1741,69 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-la-logright { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 3px; }
 .adm-la-logtime { color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .adm-la-logfoot { margin: 0; padding: 12px 22px 16px; border-top: 1px solid var(--admin-divider); color: var(--admin-dis); font-size: 11.5px; line-height: 1.6; word-break: break-all; }
+
+/* 페이지별 인사이트(261007 사장 '방문자 수·잔류시간 · 한글 이름 아래 URL · 오른쪽 그 페이지 그림 · 메인/서브/마이너') — 유입 분석 화면 첫 탭.
+   숫자 줄(.adm-la-kpi)·흐름 막대(.adm-vbar)는 그대로 쓰고 순위 줄만 새로: 순위 · [등급 이름 / 설명 / 주소 / 비중 막대] · 숫자 4칸 · 폰 화면 그림(위쪽 3:4) */
+.adm-pi-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adm-pi-ctl-right { margin-left: auto; }
+.adm-pi-flow-sum { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: -6px 0 4px; color: var(--admin-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.adm-pi-flow-sum b { color: #1B64DA; font-weight: 700; }
+.adm-pi-flow-sum span { color: var(--admin-ph); }
+.adm-pi-vbars .adm-vbar-col { width: min(30px, 72%); }
+.adm-pi-trend { font-style: normal; font-weight: 700; }
+.adm-pi-trend.up { color: #3182F6; }
+.adm-pi-trend.down { color: #F04452; }
+.adm-pi-trend.flat { color: var(--admin-ph); }
+.adm-pi-list { display: flex; flex-direction: column; }
+.adm-pi-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1.3fr) 84px; grid-template-areas: "rank info stats thumb"; align-items: center; gap: 18px; padding: 16px 0; border-top: 1px solid #F2F4F6; animation: admRise .4s var(--adm-ease) both; }
+.adm-pi-list > .adm-pi-row:first-child { border-top: 0; padding-top: 2px; }
+.adm-pi-rest > .adm-pi-row:first-child { border-top: 1px solid #F2F4F6; padding-top: 16px; }
+.adm-pi-rank { grid-area: rank; align-self: start; padding-top: 1px; text-align: center; color: var(--admin-dis); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.adm-pi-rank.hi { color: var(--admin-blue); }
+.adm-pi-info { grid-area: info; min-width: 0; }
+.adm-pi-name { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 0; }
+.adm-pi-name b { overflow: hidden; color: var(--admin-ink); font-size: 16px; font-weight: 700; letter-spacing: -0.3px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-pi-tier { flex: none; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 12px; font-weight: 700; }
+.adm-pi-tier.main { background: var(--admin-blue-weak); color: var(--admin-blue); }
+.adm-pi-tier.sub { background: var(--admin-green-weak); color: var(--admin-green); }
+.adm-pi-tier.minor { background: #F2F4F6; color: var(--admin-muted); }
+.adm-pi-tier.none { background: #F9FAFB; color: var(--admin-dis); }
+.adm-pi-desc { margin: 5px 0 0; overflow: hidden; color: var(--admin-muted); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.adm-pi-url { display: inline-block; max-width: 100%; margin-top: 3px; overflow: hidden; color: var(--admin-blue); font-size: 13px; font-weight: 500; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+.adm-pi-url:hover { text-decoration: underline; text-underline-offset: 3px; }
+.adm-pi-url.plain { color: var(--admin-ph); }
+.adm-pi-url.plain:hover { text-decoration: none; }
+.adm-pi-bar { max-width: 240px; margin-top: 10px; }
+.adm-pi-stats { grid-area: stats; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.adm-pi-stat { min-width: 0; }
+.adm-pi-stat p { margin: 0; color: var(--admin-ph); font-size: 12.5px; font-weight: 500; white-space: nowrap; }
+.adm-pi-stat b { display: block; margin-top: 3px; overflow: hidden; color: var(--admin-ink); font-size: 17px; font-weight: 700; letter-spacing: -0.3px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adm-pi-stat b small { margin-left: 1px; color: var(--admin-muted); font-size: 13px; font-weight: 600; }
+.adm-pi-statsub { display: flex; gap: 6px; margin-top: 2px; overflow: hidden; color: var(--admin-ph); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adm-pi-thumb { grid-area: thumb; position: relative; width: 84px; height: 112px; padding: 0; overflow: hidden; border: 1px solid #EEF0F3; border-radius: 12px; background: #F7F8FA; cursor: zoom-in; transition: transform .2s var(--adm-ease), box-shadow .2s ease; }
+.adm-pi-thumb:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 27, 55, .1); }
+.adm-pi-thumb:disabled { cursor: default; }
+.adm-pi-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.adm-pi-thumb-none { display: grid; place-items: center; width: 100%; height: 100%; color: #C4CAD1; }
+.adm-pi-row.none .adm-pi-name b { color: var(--admin-muted); }
+.adm-pi-row.none .adm-pi-stat b { color: var(--admin-dis); }
+.adm-pi-row.none .adm-pi-thumb { opacity: .7; }
+/* 좁으면(폰·좁은 창) 숫자 4칸을 이름 아래로, 더 좁으면 2칸씩 */
+@container (max-width: 860px) {
+  .adm-pi-row { grid-template-columns: 24px minmax(0, 1fr) 72px; grid-template-areas: "rank info thumb" "rank stats stats"; gap: 12px 14px; }
+  .adm-pi-thumb { width: 72px; height: 96px; }
+}
+@container (max-width: 480px) {
+  .adm-pi-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+  /* 기간 단추 줄 오른쪽에 엑셀, 날짜 고르기는 다음 줄 전체 */
+  .adm-pi-ctl > .adm-la-range { order: 2; width: 100%; }
+}
+/* 그림 크게 보기 — body 포털(목록 카드 overflow 밖), 누르면 닫힘 */
+.adm-pi-zoom { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 24px; background: rgba(0, 12, 30, .55); cursor: zoom-out; animation: ftFade .18s ease; }
+.adm-pi-zoom figure { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0; cursor: default; animation: admPiPop .32s var(--adm-ease) both; }
+.adm-pi-zoom img { display: block; width: min(360px, calc(100vw - 48px)); max-height: calc(100vh - 110px); object-fit: cover; object-position: top; border-radius: 22px; background: #fff; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); }
+.adm-pi-zoom figcaption { color: #fff; font-size: 15px; font-weight: 700; }
+@keyframes admPiPop { from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.96); } to { opacity: 1; transform: none; } }
 .adm-tabs { position: relative; display: inline-flex; gap: 2px; margin-top: 20px; padding: 4px; border-radius: 14px; background: #fff; animation: admRise .5s var(--adm-ease) .1s both; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .adm-tabs::-webkit-scrollbar { display: none; }
 .adm-tab { position: relative; z-index: 1; display: flex; align-items: center; height: 38px; padding: 0 18px; border-radius: 10px; color: var(--admin-muted); font-size: 15px; font-weight: 600; white-space: nowrap; text-decoration: none; }

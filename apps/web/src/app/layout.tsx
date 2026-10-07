@@ -3,6 +3,7 @@ import Providers from './providers';
 import AppToaster from '@/components/AppToaster';
 import NaturalReveal from '@/components/NaturalReveal';
 import UpdateNotifier from '@/components/UpdateNotifier';
+import PageViewTracker from '@/components/PageViewTracker';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -117,6 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <AppToaster />
           <UpdateNotifier />
+          <PageViewTracker />
         </Providers>
       </body>
     </html>

@@ -37,7 +37,8 @@ export function readUtm() {
   };
 }
 
-function sessionKey(): string {
+/** 탭 세션 키(sessionStorage) — 랜딩 기록·페이지별 인사이트 공용 */
+export function landingSessionKey(): string {
   const store = ss();
   if (!store) return Math.random().toString(36).slice(2);
   let k = store.getItem('landing_sk');
@@ -49,7 +50,7 @@ function sessionKey(): string {
 }
 
 /** 어디서 열었나 — 앱 껍데기(iOS WKWebView 메시지 다리 · 안드로이드 다리)면 앱, 아니면 웹(모바일 웹 포함) */
-function visitPlatform(): 'web' | 'ios-app' | 'android-app' {
+export function visitPlatform(): 'web' | 'ios-app' | 'android-app' {
   try {
     const w = window as any;
     if (w.webkit?.messageHandlers) return 'ios-app';
@@ -66,7 +67,7 @@ export function trackLandingVisit(page: LandingPage) {
   const u = readUtm();
   const body = {
     page,
-    sessionKey: sessionKey(),
+    sessionKey: landingSessionKey(),
     landingPath: (() => { try { return window.location.pathname + window.location.search; } catch { return undefined; } })(),
     platform: visitPlatform(),
     ...u,
@@ -84,7 +85,7 @@ export function trackLandingConversion(page: LandingPage) {
   fetch('/api/v1/landing/convert', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ page, sessionKey: sessionKey() }),
+    body: JSON.stringify({ page, sessionKey: landingSessionKey() }),
     keepalive: true,
   }).catch(() => {});
 }

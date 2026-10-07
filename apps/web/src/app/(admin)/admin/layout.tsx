@@ -57,7 +57,7 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
   {
     label: '분석 · 콘텐츠',
     items: [
-      { href: '/admin/landing-analytics', label: '페이지별 유입 분석', icon: 'graph', desc: '퀵매칭·웨딩MC·비즈MC 페이지별 광고·UTM 유입과 견적 전환을 봐요' },
+      { href: '/admin/landing-analytics', label: '페이지별 유입 분석', icon: 'graph', desc: '모든 화면의 방문자·체류시간 인사이트와 퀵매칭·웨딩MC·비즈MC 광고·UTM 유입·견적 전환을 봐요' },
       { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
       { href: '/admin/community', label: '커뮤니티 관리', icon: 'message-square-text', desc: '웨딩숲 글·댓글·신고·닉네임을 살피고 고쳐요' },
       { href: '/admin/operator', label: '운영 콘텐츠', icon: 'loudspeaker', desc: "운영팀 이름으로 웨딩숲 글을 쓰고 반응을 봐요 — 앱엔 늘 '운영팀' 표시가 붙어요" },
