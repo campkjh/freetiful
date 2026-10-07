@@ -918,7 +918,9 @@ const VDGD = '/images/wedding-partners/wedding-hall';
 const APP_STORE_URL = 'https://apps.apple.com/nz/app/%ED%94%84%EB%A6%AC%ED%8B%B0%ED%92%80-%EA%B2%B0%ED%98%BC%EC%8B%9D%EC%82%AC%ED%9A%8C%EC%9E%90-%EC%A7%84%ED%96%89%EC%9E%90-%ED%96%89%EC%82%AC-%EC%A0%84%EB%AC%B8%EA%B0%80-%EC%84%AD%EC%99%B8/id6745000474';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.freetiful.freetiful&hl=ko';
 // pcCta = PC 배너 위 단추(260929 사장) — signup: 가입 5천원 '바로가기' · stores: 1등 배너 앱 다운로드(App Store · Google Play)
-const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip; pcCta?: 'signup' | 'stores' }[] = [
+//   · go: 웹 글자 제목 바로 아래 '바로가기'(261007 사장, 프리티풀 비즈) → href
+// pcOnly = PC 4:3 배너에만(모바일 8:3 넘김엔 없다 — image 도 없다)
+const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip; pcCta?: 'signup' | 'stores' | 'go'; pcOnly?: boolean }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
@@ -936,6 +938,9 @@ const HOME_TOP_BANNERS: { id: string; image: string; pcImage: string; alt: strin
       moreHref: `/businesses?category=${encodeURIComponent('웨딩홀')}`,
     } },
   { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match', pcCta: 'stores' },
+  // 프리티풀 비즈 — PC 전용(261007 사장 '프리티풀 비즈 배너, PC 에서만, 배너 글은 네가 쓰고 바로가기 버튼도'). 사진 오른쪽 아래에 Freetiful BIZ 로고가 들어 있어
+  // 제목·단추는 왼쪽 위. 결혼식사회자 1등 다음 = 프리티풀 자기 배너끼리 붙인다.
+  { id: 'biz', pcImage: '/images/banners/pc-hero-biz.webp', title: ['믿을 수 있는 파트너,', '기업 행사의 품격을 높이는', '프리티풀 비즈'], alt: '믿을 수 있는 파트너, 기업 행사의 품격을 높이는 프리티풀 비즈', href: '/biz', pcCta: 'go', pcOnly: true },
   // 슈슈몽드 강남 — 제휴 웨딩홀 사진(다이렉트결혼준비, 업체 상세와 같은 사진) · 배너·사진 모두 업체 상세로
   { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
     strip: {
@@ -998,7 +1003,8 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
   const router = useRouter();
   const authUser = useAuthStore((st) => st.user);
   const skipAnim = useHomeAnimationSkip();
-  const count = HOME_TOP_BANNERS.length;
+  const banners = pc ? HOME_TOP_BANNERS : HOME_TOP_BANNERS.filter((b) => !b.pcOnly);
+  const count = banners.length;
   const [idx, setIdx] = useState(0);
   const [drag, setDrag] = useState(0);
   const startRef = useRef<{ x: number; y: number } | null>(null);
@@ -1083,7 +1089,7 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
             transition: drag === 0 ? 'transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
           }}
         >
-          {HOME_TOP_BANNERS.map((b, i) => (
+          {banners.map((b, i) => (
             // 장 = 칸(div) 안에 배너 단추(가득) + PC 사진 줄(링크들) — 단추 안에 링크를 넣으면 안 돼서 나란히 둔다
             <div key={b.id} className="relative h-full shrink-0 overflow-hidden" style={{ width: `${100 / count}%` }}>
             <button
@@ -1093,7 +1099,7 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
               className={`absolute inset-0 overflow-hidden ${b.href || b.action ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pc ? b.pcImage : b.image} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
+              <img src={pc ? b.pcImage : b.image ?? b.pcImage} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
               {b.title && (
                 <>
                   {/* 왼쪽(PC 는 왼쪽 위)만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결) */}
@@ -1119,14 +1125,16 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
               )}
             </button>
             {/* PC 배너 위 단추 — 배너 단추와 나란히(단추 안 단추 금지), 장이 들어올 때마다 떠오른다 */}
-            {pc && b.pcCta === 'signup' && (
+            {/* go = 제목(top-8 · 32px · 줄 1.32) 바로 아래 18 — 제목 줄 수가 바뀌어도 따라 내려간다 */}
+            {pc && (b.pcCta === 'signup' || b.pcCta === 'go') && (
               <button
                 key={i === idx ? `cta-${turn}` : 'cta'}
                 type="button"
                 data-banner-strip
                 onClick={() => open(b)}
-                className="absolute left-9 top-[58%] z-[2] inline-flex h-[42px] items-center gap-0.5 rounded-full pl-4 pr-3 text-[16px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/30"
+                className={`absolute left-9 z-[2] inline-flex h-[42px] items-center gap-0.5 rounded-full pl-4 pr-3 text-[16px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/30 ${b.pcCta === 'signup' ? 'top-[58%]' : ''}`}
                 style={{
+                  ...(b.pcCta === 'go' ? { top: `calc(32px + ${b.title?.length ?? 0} * 32px * 1.32 + 18px)` } : null),
                   backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
                   ...(i === idx ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' } : { visibility: i === leaving ? 'visible' : 'hidden' }),
                 }}
@@ -2885,7 +2893,7 @@ export default function HomePage() {
         <div className="relative z-10 max-w-6xl mx-auto px-8 pt-8 pb-0 text-center">
           {/* 배너 위 알약 검색창은 뺐다(260928 사장) — 검색은 헤더 돋보기로 */}
           <Reveal delay={150} className="relative z-10">
-            {/* PC 첫 화면(260928 사장, 오늘의집 첫 화면 참고) — 왼쪽 4:3 배너(모바일과 같은 5장, 4:3 판) + 오른쪽 세로 카드 2개(퀵매칭·웨딩숲, 907:1735 같은 비율).
+            {/* PC 첫 화면(260928 사장, 오늘의집 첫 화면 참고) — 왼쪽 4:3 배너(모바일과 같은 5장 + PC 전용 프리티풀 비즈, 4:3 판) + 오른쪽 세로 카드 2개(퀵매칭·웨딩숲, 907:1735 같은 비율).
                 칸 너비를 각 비율(4/3 · 907/1735 · 907/1735)로 나눠 세 칸 높이가 딱 맞는다. 모서리 5 = 모바일과 같게. */}
             <div className="mx-auto mb-8 grid max-w-6xl gap-4" style={{ gridTemplateColumns: '1.3333fr 0.5228fr 0.5228fr' }}>
               <HomeTopBanner variant="pc" />
