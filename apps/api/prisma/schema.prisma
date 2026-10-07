@@ -592,6 +592,26 @@ model LandingVisit {
   @@map("landing_visits")
 }
 
+/// 페이지별 인사이트(261007 사장 '페이지별 방문자 수·잔류시간') — 화면을 한 번 열 때마다 1행(관리자·로그인 콜백 화면 빼고).
+/// 체류시간 = 그 화면이 실제로 보이던 시간(앱·탭이 뒤로 가면 멈춤), 떠날 때(다른 화면·탭 숨김·닫기) 채운다. 30분 넘으면 30분으로 센다.
+/// 개인 정보 없음 — visitorId 는 기기(브라우저)마다 만든 무작위 값.
+model PageView {
+  id           String   @id // 브라우저가 만든 uuid — 떠날 때 체류시간을 이 id 로 채운다
+  path         String // 경로 틀 — 아이디 칸은 :id(/pros/:id)
+  visitorId    String // 기기 하나(localStorage)
+  sessionKey   String // 탭 세션(sessionStorage, 랜딩 기록과 같은 키)
+  platform     String? // web | ios-app | android-app
+  device       String? // mobile | desktop
+  entry        Boolean  @default(false) // 이 세션의 첫 화면(바깥에서 들어온 곳)
+  referrerHost String? // 첫 화면일 때만 — 바깥 리퍼러 호스트
+  durationMs   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@map("page_views")
+}
+
 model MatchRequestPersonality {
   matchRequestId      String
   personalityOptionId String
