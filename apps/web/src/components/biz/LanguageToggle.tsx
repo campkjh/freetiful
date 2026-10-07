@@ -8,8 +8,9 @@ import { BIZ_LANGS, useBizLang } from '@/lib/biz/i18n';
 /**
  * 비즈 페이지 헤더 내부에서 사용하는 언어 토글.
  * 인라인 배치 — 버튼 클릭 시 아래로 드롭다운 열림.
+ * tone='light' = 어두운 첫 화면(영상) 위 흰 글자(261008 비즈 개편)
  */
-export default function LanguageToggle() {
+export default function LanguageToggle({ tone = 'dark' }: { tone?: 'dark' | 'light' }) {
   const [open, setOpen] = useState(false);
   const { lang, setLang } = useBizLang();
   const ref = useRef<HTMLDivElement>(null);
@@ -29,7 +30,7 @@ export default function LanguageToggle() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-full text-gray-700 hover:bg-gray-100 transition-colors"
+        className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-colors ${tone === 'light' ? 'text-white hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
         aria-label="Language"
       >
         <Globe size={15} />

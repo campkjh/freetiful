@@ -5,14 +5,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronRight, ChevronDown, ChevronLeft, Shield, BarChart3, Users, Building2,
-  CheckCircle, Award, Download, MapPin, Phone, Mail,
-  Clock, FileText, Send, User, Briefcase, Globe,
-  Target, Heart, Star, Zap, X, ArrowRight, Copy, Check,
+  ChevronRight, ChevronLeft, Shield, Briefcase, Download, MapPin, Phone, Mail,
+  Clock, FileText, Send, X, Copy, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useT } from '@/lib/biz/i18n';
 import LanguageToggle from '@/components/biz/LanguageToggle';
+import { CountUp, FadeUp, PhoneFrame, ScrollFillText, useInView } from '@/components/biz/biz-motion';
+
+/*
+ * 프리티풀 비즈(261008 사장 '토스 홈페이지처럼 디자인해줘') — 토스 홈의 디자인 어법만 따랐다:
+ *  첫 화면 가득 영상 + 흰 큰 제목 · 스크롤에 맞춰 차오르는 문장 · 넉넉한 여백과 큰 숫자 · 따라오는 폰 화면 · 아래에서 떠오르는 등장.
+ *  토스의 그림 · 영상 · 글꼴 · 문구 · 코드는 쓰지 않았다(저작물) — 영상은 2025 송년회 원본에서 14초(소리 없음) 잘라 낸 것,
+ *  폰 화면은 프리티풀 앱 실제 화면(채팅은 가상 대화), 글꼴은 사이트 기본 Pretendard.
+ *  섹션 id(회사소개 · 핵심서비스 · 연혁 · 자료실 · 오시는길 · 문의폼)는 그대로 — iOS 네이티브 하단 네비(__freetifulBizScroll)가 쓴다.
+ */
+
+const INK = '#191F28';
+const BODY = '#4E5968';
 
 /* ─── Map (OpenStreetMap iframe, no API key needed) ──────── */
 function BizKakaoMap() {
@@ -20,13 +30,13 @@ function BizKakaoMap() {
     <iframe
       title="프리티풀 오시는길"
       src="https://www.openstreetmap.org/export/embed.html?bbox=126.9863%2C37.5553%2C127.0013%2C37.5653&layer=mapnik&marker=37.56029%2C126.99376"
-      className="w-full h-full border-0"
+      className="h-full w-full border-0"
       loading="lazy"
     />
   );
 }
 
-/* ─── CopyableCard ────────────────────────────────────────── */
+/* ─── 정보 줄(주소 · 전화 · 이메일 · 업무시간) — 복사 단추 ─────── */
 function CopyableCard({ icon, label, value, copyable }: { icon: React.ReactNode; label: string; value: string; copyable: boolean }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
@@ -36,172 +46,22 @@ function CopyableCard({ icon, label, value, copyable }: { icon: React.ReactNode;
     });
   };
   return (
-    <div className="flex items-start gap-4 border border-gray-100 rounded-2xl p-5 transition-all hover:border-gray-200 hover:shadow-sm">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-bold text-gray-300">{label}</p>
-        <p className="mt-1 text-[14px] text-gray-700 break-all">{value}</p>
+    <div className="flex items-start gap-4 rounded-[20px] bg-[#F9FAFB] p-5 md:p-6">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white text-[#3182F6]">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-[#8B95A1]">{label}</p>
+        <p className="mt-1 break-all text-[16px] font-medium leading-[1.5] text-[#333D4B]">{value}</p>
       </div>
       {copyable && (
         <button
           onClick={handleCopy}
-          className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[#B0B8C1] transition-colors hover:bg-white hover:text-[#3182F6]"
           title="복사"
+          aria-label={`${label} 복사`}
         >
-          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+          {copied ? <Check className="h-4 w-4 text-[#03B26C]" /> : <Copy className="h-4 w-4" />}
         </button>
       )}
-    </div>
-  );
-}
-
-/* ─── HistorySidePeek — 연혁 좌/우 빼꼼 사진 ───────────────── */
-function HistorySidePeek({ images }: { images: string[] }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ob = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setVisible(true); },
-      { threshold: 0.1 },
-    );
-    ob.observe(el);
-    return () => ob.disconnect();
-  }, []);
-
-  const left = images.slice(0, Math.ceil(images.length / 2));
-  const right = images.slice(Math.ceil(images.length / 2));
-
-  // 좌측 이미지 설정 (top% / rotate / size) — 다이나믹하게 회전/크기 편차 ↑
-  const leftCfg = [
-    { top: '0%',  size: 200, rotate: -22, peek: 85 },
-    { top: '22%', size: 160, rotate: 14,  peek: 62 },
-    { top: '48%', size: 220, rotate: -18, peek: 95 },
-    { top: '78%', size: 170, rotate: 25,  peek: 70 },
-  ];
-  const rightCfg = [
-    { top: '5%',  size: 170, rotate: 18,  peek: 68 },
-    { top: '28%', size: 210, rotate: -15, peek: 90 },
-    { top: '56%', size: 160, rotate: 22,  peek: 60 },
-    { top: '82%', size: 200, rotate: -20, peek: 82 },
-  ];
-
-  const renderPhoto = (src: string, cfg: typeof leftCfg[number], idx: number, side: 'left' | 'right') => {
-    const offScreenX = side === 'left' ? '-120vw' : '120vw';
-    const settledX = side === 'left'
-      ? `calc(-100% + ${cfg.peek}px)`   // 좌측: 본인 너비의 (100%-peek)px 만큼 왼쪽으로 밀려서 우측만 peek 만큼 보임
-      : `calc(100% - ${cfg.peek}px)`;   // 우측: 반대
-    const delay = idx * 120 + (side === 'right' ? 60 : 0);
-    return (
-      <div
-        key={src}
-        className="absolute group"
-        style={{
-          top: cfg.top,
-          [side === 'left' ? 'left' : 'right']: 0,
-          width: cfg.size,
-          height: cfg.size,
-        }}
-      >
-        <div
-          className="w-full h-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:!rotate-0 hover:scale-[1.08] hover:z-20"
-          style={{
-            opacity: visible ? 1 : 0,
-            transform: visible
-              ? `translateX(${settledX}) rotate(${cfg.rotate}deg)`
-              : `translateX(${offScreenX}) rotate(${side === 'left' ? -20 : 20}deg)`,
-            transition: `opacity 0.7s ease-out ${delay}ms, transform 1.1s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms, box-shadow 0.4s ease`,
-            borderRadius: 24,
-            boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-            transformOrigin: side === 'left' ? 'right center' : 'left center',
-          }}
-        >
-          <img
-            src={src}
-            alt=""
-            className="w-full h-full object-cover pointer-events-none select-none"
-            draggable={false}
-          />
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div ref={ref} className="hidden md:block pointer-events-auto">
-      {/* 좌측 컬럼 */}
-      <div className="absolute left-0 top-0 bottom-0 w-0">
-        {left.map((src, i) => renderPhoto(src, leftCfg[i % leftCfg.length], i, 'left'))}
-      </div>
-      {/* 우측 컬럼 */}
-      <div className="absolute right-0 top-0 bottom-0 w-0">
-        {right.map((src, i) => renderPhoto(src, rightCfg[i % rightCfg.length], i, 'right'))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Scroll-Reveal ───────────────────────────────────────── */
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ob = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setVisible(true); },
-      { threshold: 0.15 },
-    );
-    ob.observe(el);
-    return () => ob.disconnect();
-  }, []);
-  return { ref, visible };
-}
-
-function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, visible } = useReveal();
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-10 opacity-0 blur-[4px]'} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/* ─── CountUp ─────────────────────────────────────────────── */
-function CountUp({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const [val, setVal] = useState(0);
-  const { ref, visible } = useReveal();
-  useEffect(() => {
-    if (!visible) return;
-    const dur = 1500;
-    const st = Date.now();
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - st) / dur);
-      setVal(Math.round(target * p));
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    tick();
-  }, [visible, target]);
-  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
-}
-
-/* ─── Freetiful Symbol (bounce on reveal) ────────────────── */
-function FreetifulSymbol({ visible }: { visible: boolean }) {
-  return (
-    <div className="flex items-center justify-center">
-      <svg width="30" height="60" viewBox="0 0 30 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[14px] h-[28px]">
-        <path d="M12.9337 43.4863C12.8426 43.6767 12.889 43.8822 12.889 44.0794C12.889 47.6437 12.889 51.208 12.889 54.7724C12.8932 55.6676 12.6726 56.5493 12.2478 57.3353C11.7305 58.2858 10.9282 59.0469 9.95574 59.5094C8.98329 59.972 7.89063 60.1124 6.83425 59.9104C5.77787 59.7084 4.81197 59.1745 4.0749 58.3851C3.33783 57.5957 2.8674 56.5913 2.73101 55.5159C2.7001 55.2586 2.68406 54.9997 2.68296 54.7406C2.68296 46.3683 2.65811 37.9961 2.69124 29.6238C2.7045 25.8579 4.10783 22.6483 6.80846 20.0386C8.34268 18.5566 10.1403 17.4856 12.097 16.6703C14.0601 15.8717 16.1118 15.3157 18.2074 15.0146C20.2102 14.7234 22.2313 14.5788 24.2548 14.5818C25.5738 14.5926 26.8372 15.1184 27.7797 16.0489C28.7223 16.9793 29.2705 18.2418 29.3094 19.5713C29.3482 20.9008 28.8745 22.1937 27.9879 23.1785C27.1013 24.1632 25.8707 24.7631 24.5547 24.8521C24.0047 24.8822 23.4529 24.8822 22.8979 24.9022C21.0211 24.9452 19.1564 25.2167 17.3442 25.7109C16.5807 25.9216 15.8415 26.2134 15.139 26.5813C14.7643 26.7801 14.4097 27.0151 14.0803 27.2831C13.3065 27.913 12.8642 28.7133 12.8708 29.7341C12.8664 30.0131 12.8797 30.2922 12.9105 30.5695C13.0119 31.3128 13.3912 31.9888 13.9709 32.4591C14.6571 33.0231 15.4447 33.4486 16.2905 33.7122C17.566 34.1408 18.9025 34.3564 20.247 34.3505C20.5038 34.3505 20.7606 34.312 21.0174 34.2953C23.2259 34.1416 24.9606 34.9803 26.0475 36.9335C26.4315 37.6247 26.6512 38.3963 26.6894 39.1877C26.7276 39.979 26.5833 40.7685 26.2678 41.4941C25.9522 42.2197 25.4741 42.8616 24.871 43.3693C24.2679 43.877 23.5562 44.2368 22.7919 44.4202C22.3078 44.5319 21.8137 44.594 21.3173 44.6057C20.1015 44.6671 18.8829 44.6335 17.6723 44.5054C16.2108 44.3385 14.7684 44.032 13.3645 43.5899C13.2292 43.5268 13.0827 43.4916 12.9337 43.4863Z" fill="#0C7BFF"/>
-        <path
-          d="M6.87733 14.0793C3.28202 14.1445 -0.00181093 11.1287 0.00315955 7.14728C-0.0247608 6.21861 0.132599 5.29373 0.4659 4.42755C0.799201 3.56137 1.30165 2.77154 1.94343 2.10492C2.58522 1.43829 3.35325 0.908469 4.20196 0.546887C5.05068 0.185304 5.96277 -0.000669829 6.88412 1.81273e-06C7.80546 0.000673454 8.71729 0.187975 9.56548 0.550795C10.4137 0.913615 11.181 1.44456 11.8218 2.11211C12.4626 2.77967 12.9639 3.57024 13.296 4.43691C13.628 5.30357 13.7841 6.22867 13.7548 7.15731C13.7532 11.1338 10.4975 14.1478 6.87733 14.0793Z"
-          fill="#66DEFF"
-          className={`origin-center transition-all duration-700 ${visible ? 'animate-[dotBounce_0.8s_ease-out]' : 'opacity-0'}`}
-        />
-      </svg>
     </div>
   );
 }
@@ -234,23 +94,6 @@ const NAV_SECTION_LABELS = {
   '오시는길':   { ko: '오시는길',   en: 'Location',  ja: 'アクセス', zh: '地址' },
   '문의':       { ko: '문의',       en: 'Contact',   ja: 'お問合せ', zh: '联系' },
 } as const;
-
-/* ─── Expert Marquee Images ──────────────────────────────── */
-const EXPERT_IMAGES_ROW1 = [
-  '/images/pro-15/IMG_0196.avif', '/images/pro-23/IMG_46511771924269213.avif', '/images/pro-12/IMG_27221772621229571.avif',
-  '/images/pro-31/IMG_73341772850094485.avif', '/images/pro-09/Facetune_10-02-2026-21-07-511772438130235.avif',
-  '/images/pro-25/2-11772248201484.avif', '/images/pro-01/10000133881772850005043.avif',
-  '/images/pro-18/20161016_161406_IMG_5921.avif', '/images/pro-05/10000029811773033474612.avif',
-  '/images/pro-34/IMG_2920.avif', '/images/pro-24/10001176941772847263491.avif',
-];
-const EXPERT_IMAGES_ROW2 = [
-  '/images/pro-07/IMG_53011772965035335.avif', '/images/pro-03/IMG_06781773894450803.avif',
-  '/images/pro-22/10000353831773035180593.avif', '/images/pro-10/10000016211774440274171.avif',
-  '/images/pro-28/IMG_002209_01772081523241.avif', '/images/pro-36/IMG_27041773036338469.avif',
-  '/images/pro-14/IMG_02661773035503788.avif', '/images/pro-38/IMG_34281772111635068.avif',
-  '/images/pro-04/IMG_23601771788594274.avif', '/images/pro-41/IMG_12201772513865121.avif',
-  '/images/pro-08/0DBA6E02-BBC8-4660-8464-5B5162FAD2461773045822216.avif',
-];
 
 const PROMO_IMAGES = [
   '/images/biz-promo/promo-1.jpeg', '/images/biz-promo/promo-2.jpeg', '/images/biz-promo/promo-3.jpeg',
@@ -328,73 +171,6 @@ const INTRO_IMAGES = [
   '/images/intro-ios9.png',
 ];
 
-function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: number }) {
-  const doubled = [...images, ...images, ...images];
-  return (
-    <div className="relative overflow-clip py-6">
-      {/* 좌우 그라데이션 페이드 */}
-      <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none" />
-      <div
-        className="flex items-center gap-6 px-4"
-        style={{
-          animation: `marquee-left ${speed}s linear infinite`,
-          width: 'max-content',
-        }}
-      >
-        {doubled.map((src, i) => (
-          <div
-            key={`${src}-${i}`}
-            className="relative flex-shrink-0"
-          >
-            <div
-              className="rounded-[20px] overflow-hidden shadow-xl border border-gray-200/50 bg-white transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:z-20"
-              style={{ width: 200, height: 420 }}
-            >
-              <Image
-                src={src}
-                alt="App Screen"
-                width={200}
-                height={420}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Netflix-style tilted grid row ───────────────────────── */
-function TiltedRow({ images, direction = 'left', speed = 35 }: { images: string[]; direction?: 'left' | 'right'; speed?: number }) {
-  const tripled = [...images, ...images, ...images];
-  return (
-    <div
-      className="flex gap-4"
-      style={{
-        animation: `marquee-${direction} ${speed}s linear infinite`,
-        width: 'max-content',
-      }}
-    >
-      {tripled.map((src, i) => (
-        <div
-          key={`${src}-${i}`}
-          className="flex-shrink-0 w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-full overflow-hidden border-2 border-white/60 shadow-lg"
-        >
-          <Image
-            src={src}
-            alt="Expert"
-            width={150}
-            height={150}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 const HISTORY_DATA = [
   { year: '2026', events: [
     { ko: '01월 프리티풀 브랜드 공식 론칭', en: 'Jan · Official brand launch',                ja: '1月 Freetiful ブランド公式ローンチ',      zh: '1月 Freetiful 品牌正式发布' },
@@ -411,6 +187,173 @@ const HISTORY_DATA = [
   ]},
 ];
 
+/** 앱으로 보는 섭외 — 따라오는 폰 화면(프리티풀 앱 실제 화면, 채팅은 가상 대화) */
+const FEATURES = [
+  {
+    key: 'pros',
+    screen: '/images/biz-v2/screens/pros.webp',
+    title: { ko: '오직 검증된 진행자만', en: 'Only verified hosts', ja: '検証済みの司会者だけ', zh: '只有经过认证的主持人' },
+    desc: {
+      ko: '방송사 출신이거나 실제 진행 경력이 확인된 진행자만 프로필을 열 수 있어요.',
+      en: 'Only hosts with a broadcasting background or confirmed event experience can open a profile.',
+      ja: '放送局出身、または実際の司会経歴が確認された司会者だけがプロフィールを公開できます。',
+      zh: '只有广播电视台出身或经核实拥有实际主持经验的主持人才能开设资料。',
+    },
+  },
+  {
+    key: 'profile',
+    screen: '/images/biz-v2/screens/profile.webp',
+    title: { ko: '프로필로 꼼꼼하게 비교', en: 'Compare profiles in detail', ja: 'プロフィールでじっくり比較', zh: '通过资料仔细比较' },
+    desc: {
+      ko: '진행 영상과 사진, 경력과 진행 분야를 한 화면에서 보고 골라요.',
+      en: 'See hosting videos, photos, career and specialties on a single screen.',
+      ja: '司会動画や写真、経歴や得意分野をひとつの画面で確認して選べます。',
+      zh: '在一个页面查看主持视频、照片、经历和擅长领域后再选择。',
+    },
+  },
+  {
+    key: 'reviews',
+    screen: '/images/biz-v2/screens/reviews.webp',
+    title: { ko: '6가지 항목의 실제 후기', en: 'Real reviews on six criteria', ja: '6項目のリアルな口コミ', zh: '六个维度的真实评价' },
+    desc: {
+      ko: '경력 · 만족도 · 구성력 · 위트 · 발성 · 이미지, 행사를 마친 고객의 평가로 비교해요.',
+      en: 'Career, satisfaction, structure, wit, voice and image — compare by ratings from clients after their events.',
+      ja: '経歴・満足度・構成力・ウィット・発声・イメージ。イベントを終えたお客様の評価で比較できます。',
+      zh: '经历、满意度、组织力、幽默感、发声、形象——依据活动结束后客户的评价进行比较。',
+    },
+  },
+  {
+    key: 'chat',
+    screen: '/images/biz-v2/screens/chat.webp',
+    title: { ko: '채팅으로 바로 견적', en: 'Quotes right in chat', ja: 'チャットですぐに見積もり', zh: '聊天即可获取报价' },
+    desc: {
+      ko: '행사 날짜와 장소를 남기면 진행자가 직접 견적을 보내요. 일정 조율도 채팅 한 번이면 끝나요.',
+      en: 'Leave your event date and venue, and hosts send quotes directly. Scheduling takes just one chat.',
+      ja: 'イベントの日程と会場を残すと、司会者が直接見積もりを送ります。日程調整もチャットひとつで完了します。',
+      zh: '留下活动日期和地点,主持人会直接发送报价。日程协调也只需一次聊天。',
+    },
+  },
+] as const;
+
+/* ─── 앱 화면 띠(자동으로 흐름) ─────────────────────────────── */
+function AppScreenMarquee({ images, speed = 40 }: { images: string[]; speed?: number }) {
+  const doubled = [...images, ...images, ...images];
+  return (
+    <div className="relative overflow-clip py-6">
+      <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-24 bg-gradient-to-r from-white to-transparent md:w-40" />
+      <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-24 bg-gradient-to-l from-white to-transparent md:w-40" />
+      <div className="flex items-center gap-5 px-4 md:gap-6" style={{ animation: `marquee-left ${speed}s linear infinite`, width: 'max-content' }}>
+        {doubled.map((src, i) => (
+          <div key={`${src}-${i}`} className="relative flex-shrink-0">
+            <div className="overflow-hidden rounded-[24px] bg-[#F2F4F6] shadow-[0_12px_40px_-12px_rgba(0,27,55,0.18)]" style={{ width: 200, height: 434 }}>
+              <Image src={src} alt="App Screen" width={200} height={434} className="h-full w-full object-cover" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 앱 기능 — 넓은 화면: 왼쪽 글 4칸(스크롤하면 지금 칸만 진해짐) · 오른쪽 따라오는 폰(지금 칸 화면으로 스르르 바뀜).
+ * 좁은 화면: 글 → 폰 차례로.
+ */
+function FeatureShowcase() {
+  const t = useT();
+  const [active, setActive] = useState(0);
+  const refs = useRef<(HTMLDivElement | null)[]>([]);
+  useEffect(() => {
+    const obs = refs.current.map((el, i) => {
+      if (!el) return null;
+      const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setActive(i); }, { rootMargin: '-45% 0px -45% 0px' });
+      ob.observe(el);
+      return ob;
+    });
+    return () => obs.forEach((o) => o?.disconnect());
+  }, []);
+  const screens = FEATURES.map((f) => ({ src: f.screen, alt: t(f.title) }));
+  return (
+    <>
+      <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,440px)] md:gap-12 lg:gap-20">
+        <div>
+          {FEATURES.map((f, i) => {
+            const on = active === i;
+            return (
+              <div key={f.key} ref={(el) => { refs.current[i] = el; }} className="flex min-h-[80vh] flex-col justify-center">
+                <p className="text-[17px] font-semibold tabular-nums transition-colors duration-500" style={{ color: on ? '#3182F6' : '#D1D6DB' }}>{String(i + 1).padStart(2, '0')}</p>
+                <h3 className="mt-3 text-[40px] font-bold leading-[1.3] tracking-[-0.035em] transition-colors duration-500 lg:text-[48px]" style={{ color: on ? INK : '#D1D6DB' }}>{t(f.title)}</h3>
+                <p className="mt-5 max-w-[460px] break-keep text-[19px] leading-[1.7] transition-colors duration-500" style={{ color: on ? BODY : '#D1D6DB' }}>{t(f.desc)}</p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="relative">
+          <div className="sticky top-0 flex h-screen items-center justify-center">
+            <PhoneFrame screens={screens} active={active} className="w-[min(300px,calc((100vh-140px)*0.43))]" />
+          </div>
+        </div>
+      </div>
+      <div className="space-y-24 md:hidden">
+        {FEATURES.map((f, i) => (
+          <div key={f.key}>
+            <FadeUp>
+              <p className="text-[15px] font-semibold tabular-nums text-[#3182F6]">{String(i + 1).padStart(2, '0')}</p>
+              <h3 className="mt-2 text-[28px] font-bold leading-[1.35] tracking-[-0.03em]" style={{ color: INK }}>{t(f.title)}</h3>
+              <p className="mt-3 break-keep text-[17px] leading-[1.7]" style={{ color: BODY }}>{t(f.desc)}</p>
+            </FadeUp>
+            <FadeUp delay={120} className="mt-10 flex justify-center">
+              <PhoneFrame screens={[screens[i]]} className="w-[240px]" />
+            </FadeUp>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** 2025 송년회 — 어두운 칸 가득, 영상은 화면에 들어오면 소리 없이 재생(조절 막대 있음) */
+function ReceptionSection() {
+  const { ref, inView } = useInView<HTMLElement>({ threshold: 0.35, once: false });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (inView) v.play().catch(() => {});
+    else v.pause();
+  }, [inView]);
+  return (
+    <section ref={ref} className="relative overflow-hidden bg-[#0B0C0E] text-white">
+      <div className="absolute inset-0">
+        <Image src="/images/img-8838-1.png" alt="" fill className="object-cover opacity-[0.16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-[#0B0C0E]/60 to-[#0B0C0E]" />
+      </div>
+      <div className="relative z-10 mx-auto max-w-[1140px] px-6 py-[120px] md:px-10 md:py-[180px]">
+        <div className="flex flex-col items-center gap-8 md:gap-10">
+          <FadeUp>
+            <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[260px] opacity-95 brightness-0 invert md:w-[380px]" />
+          </FadeUp>
+          <FadeUp delay={200}>
+            <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] opacity-50 brightness-0 invert md:w-[190px]" />
+          </FadeUp>
+        </div>
+        <FadeUp delay={250} className="mt-14 md:mt-20">
+          <div className="overflow-hidden rounded-[24px] bg-black shadow-[0_0_120px_rgba(255,255,255,0.06)] md:rounded-[32px]">
+            <video ref={videoRef} className="aspect-video w-full" controls playsInline preload="metadata" muted>
+              <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4#t=0.5" type="video/mp4" />
+            </video>
+          </div>
+        </FadeUp>
+        <div className="mt-14 flex items-center gap-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+          <span className="text-[11px] font-medium text-white/25">FREETIFUL 2025</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Page ─────────────────────────────────────────────────── */
 export default function BizPage() {
   const t = useT();
@@ -424,23 +367,31 @@ export default function BizPage() {
     window.location.href = 'mailto:support@freetiful.com?subject=' + encodeURIComponent('[Freetiful Biz] 기업 문의') + '&body=' + encodeURIComponent('안녕하세요, Freetiful 기업 서비스에 대해 문의드립니다.\n\n회사명:\n담당자명:\n연락처:\n\n문의 내용:\n');
   };
   const [scrollY, setScrollY] = useState(0);
+  const [heroH, setHeroH] = useState(800);
+  const heroRef = useRef<HTMLElement>(null);
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [bizNavExpanding, setBizNavExpanding] = useState(false);
   const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
   const [inquiryBubbleHidden, setInquiryBubbleHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [receptionFullscreen, setReceptionFullscreen] = useState(false);
-  const [receptionExiting, setReceptionExiting] = useState(false);
-  const receptionRef = useRef<HTMLElement>(null);
-  const receptionVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const h = () => setScrollY(window.scrollY);
+    h();
     window.addEventListener('scroll', h, { passive: true });
     return () => window.removeEventListener('scroll', h);
   }, []);
+  // 첫 화면 높이 — 머리줄이 영상 위(투명 · 흰 글자)인지, 지나서(흰 바탕 · 검은 글자)인지
+  useEffect(() => {
+    const m = () => setHeroH(heroRef.current?.offsetHeight || window.innerHeight);
+    m();
+    window.addEventListener('resize', m);
+    return () => window.removeEventListener('resize', m);
+  }, []);
+  const overHero = scrollY < heroH - 64;
 
-  // 스크롤 위치에 따라 activeSection 자동 업데이트
+  // 스크롤 위치에 따라 activeSection 자동 업데이트 — 화면 가운데 얇은 띠에 걸친 섹션이 지금 섹션
+  // (예전 threshold 0.3 은 화면보다 훨씬 긴 섹션(핵심서비스)에선 한 번도 안 걸려 '회사소개'에 머물렀다)
   useEffect(() => {
     const sectionIds = ['회사소개', '핵심서비스', '연혁', '자료실', '오시는길', '문의폼'];
     const ob = new IntersectionObserver(
@@ -451,7 +402,7 @@ export default function BizPage() {
           }
         });
       },
-      { threshold: 0.3 },
+      { rootMargin: '-48% 0px -50% 0px', threshold: 0 },
     );
     sectionIds.forEach((id) => {
       const el = document.getElementById(id);
@@ -460,73 +411,16 @@ export default function BizPage() {
     return () => ob.disconnect();
   }, []);
 
-  // 송년회 섹션 진입 감지 → 풀스크린 + 영상 자동재생
-  useEffect(() => {
-    const el = receptionRef.current;
-    if (!el) return;
-    const ob = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !sessionStorage.getItem('biz-overlay-shown')) {
-          sessionStorage.setItem('biz-overlay-shown', '1');
-          setReceptionFullscreen(true);
-          setReceptionExiting(false);
-          setTimeout(() => {
-            receptionVideoRef.current?.play().catch(() => {});
-          }, 300);
-        }
-      },
-      { threshold: 0.15 },
-    );
-    ob.observe(el);
-    return () => ob.disconnect();
-  }, []);
-
-  // 풀스크린 상태에서 스크롤 → 해제
-  useEffect(() => {
-    if (!receptionFullscreen || receptionExiting) return;
-    let touchStartY = 0;
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY > 30) {
-        setReceptionExiting(true);
-        setTimeout(() => setReceptionFullscreen(false), 500);
-      }
-    };
-    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0].clientY; };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (touchStartY - e.changedTouches[0].clientY > 50) {
-        setReceptionExiting(true);
-        setTimeout(() => setReceptionFullscreen(false), 500);
-      }
-    };
-    window.addEventListener('wheel', onWheel, { passive: true });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchend', onTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchend', onTouchEnd);
-    };
-  }, [receptionFullscreen, receptionExiting]);
-
-  // 풀스크린 시 body 스크롤 잠금
-  useEffect(() => {
-    if (receptionFullscreen && !receptionExiting) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [receptionFullscreen, receptionExiting]);
-
   // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
   useEffect(() => {
     const from = sessionStorage.getItem('nav-transition');
     if (from === 'from-platform') {
       setBizNavExpanding(true);
       sessionStorage.removeItem('nav-transition');
-      const t = setTimeout(() => setBizNavExpanding(false), 600);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setBizNavExpanding(false), 600);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, []);
 
   function scrollTo(id: string) {
@@ -585,94 +479,93 @@ export default function BizPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+  const inputCls = 'h-14 w-full rounded-[14px] border border-transparent bg-[#F2F4F6] px-4 text-[16px] text-[#191F28] outline-none transition-all placeholder-[#B0B8C1] focus:border-[#3182F6] focus:bg-white focus:ring-4 focus:ring-[#3182F6]/10';
+  const eyebrowCls = 'text-[15px] font-semibold text-[#3182F6] md:text-[17px]';
+  const h2Cls = 'text-[32px] font-bold leading-[1.32] tracking-[-0.035em] text-[#191F28] md:text-[56px]';
+  const leadCls = 'break-keep text-[17px] leading-[1.7] text-[#4E5968] md:text-[20px]';
 
-      {/* ─── Floating Header ─────────────────────────────────── */}
+  return (
+    // overflow-x: clip — hidden 이면 이 칸이 스크롤 칸이 돼 앱 기능 칸의 따라오는 폰(sticky)이 멈추지 않는다
+    <div className="min-h-screen overflow-x-clip bg-white text-[#191F28]">
+
+      {/* ─── 머리줄 — 영상 위에선 투명 · 흰 글자, 지나면 흰 바탕 · 검은 글자 ───── */}
       <header
-        className="fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-700 ease-out"
+        className="fixed left-0 right-0 top-0 z-50 transition-[background-color,box-shadow] duration-300"
         style={{
-          padding: scrollY > 80 ? '12px 16px 0' : '0',
-          transform: receptionFullscreen ? 'translateY(-100%)' : 'translateY(0)',
-          opacity: receptionFullscreen ? 0 : 1,
+          backgroundColor: overHero ? 'transparent' : 'rgba(255,255,255,0.92)',
+          boxShadow: overHero ? 'none' : '0 1px 0 #F2F4F6',
+          backdropFilter: overHero ? 'none' : 'saturate(180%) blur(16px)',
+          WebkitBackdropFilter: overHero ? 'none' : 'saturate(180%) blur(16px)',
         }}
       >
-        <div
-          className={`flex items-center justify-between transition-all duration-700 ease-out ${
-            scrollY > 80
-              ? 'max-w-[720px] w-full h-[52px] px-4 bg-white/80 backdrop-blur-2xl shadow-lg border border-gray-200/60 rounded-full'
-              : 'max-w-[1200px] w-full h-[60px] px-6 bg-transparent'
-          }`}
-        >
-          <Link href="/biz" className="transition-all duration-700">
+        <div className="mx-auto flex h-[60px] max-w-[1140px] items-center justify-between px-5 md:px-10">
+          <Link href="/biz" aria-label="Freetiful Biz">
             <Image
               src="/images/logo-prettyful.svg"
               alt="Freetiful"
-              width={scrollY > 80 ? 100 : 120}
-              height={scrollY > 80 ? 30 : 35}
-              className="transition-all duration-700"
-              style={{ width: scrollY > 80 ? 100 : 120, height: 'auto' }}
+              width={112}
+              height={32}
+              className="transition-[filter] duration-300"
+              style={{ width: 112, height: 'auto', filter: overHero ? 'brightness(0) invert(1)' : 'none' }}
             />
           </Link>
 
-          <nav className={`hidden items-center gap-0.5 md:flex transition-all duration-700 ${scrollY > 80 ? 'gap-0' : 'gap-1'}`}>
-            {NAV_SECTION_IDS.map((n) => (
-              <button
-                key={n}
-                onClick={() => scrollTo(n)}
-                className={`font-medium rounded-full transition-all ${
-                  scrollY > 80 ? 'text-[11px] px-2.5 py-1.5' : 'text-[13px] px-4 py-2'
-                } ${
-                  activeSection === n
-                    ? 'bg-gray-900/5 text-gray-900'
-                    : 'text-gray-400 hover:text-gray-700'
-                }`}
-              >
-                {t(NAV_SECTION_LABELS[n])}
-              </button>
-            ))}
+          <nav className="hidden items-center gap-1 md:flex" aria-label="섹션">
+            {NAV_SECTION_IDS.filter((n) => n !== '문의').map((n) => {
+              const on = activeSection === n && !overHero;
+              return (
+                <button
+                  key={n}
+                  onClick={() => scrollTo(n)}
+                  className="rounded-[10px] px-3.5 py-2 text-[15px] font-semibold transition-colors"
+                  style={{ color: overHero ? (on ? '#fff' : 'rgba(255,255,255,0.78)') : on ? INK : '#6B7684' }}
+                >
+                  {t(NAV_SECTION_LABELS[n])}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* 언어 토글 + 햄버거 메뉴 버튼 */}
-          <div className="flex items-center gap-1">
-            <LanguageToggle />
+          <div className="flex items-center gap-1.5">
+            <LanguageToggle tone={overHero ? 'light' : 'dark'} />
             <button
-              className="flex flex-col items-center justify-center gap-[5px] w-9 h-9"
-              onClick={() => setMobileMenuOpen(true)}
+              onClick={() => scrollTo('문의폼')}
+              className="hidden h-9 items-center rounded-[10px] bg-[#3182F6] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#1B64DA] md:inline-flex"
             >
-              <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
-              <span className="block w-5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
-              <span className="block w-3.5 h-[2px] rounded-full bg-gray-900 transition-all duration-300" />
+              {t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系我们' })}
+            </button>
+            <button
+              className="flex h-9 w-9 flex-col items-center justify-center gap-[5px]"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label={t({ ko: '메뉴', en: 'Menu', ja: 'メニュー', zh: '菜单' })}
+            >
+              {[20, 20, 14].map((w, i) => (
+                <span key={i} className="block h-[2px] rounded-full transition-colors duration-300" style={{ width: w, backgroundColor: overHero ? '#fff' : INK }} />
+              ))}
             </button>
           </div>
-
         </div>
       </header>
 
       {/* ═══ 모바일 메뉴 패널 ═══════════════════════════════════ */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[60]">
-          {/* 배경 오버레이 */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
             style={{ animation: 'menuOverlayIn 0.3s ease-out' }}
           />
-          {/* 슬라이드 패널 */}
           <div
-            className="absolute top-0 right-0 w-[280px] h-full bg-white shadow-2xl flex flex-col"
+            className="absolute right-0 top-0 flex h-full w-[300px] flex-col bg-white shadow-2xl"
             style={{ animation: 'menuSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
-            {/* 닫기 버튼 */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-4">
-              <span className="text-[14px] font-bold text-gray-900">{t({ ko: '메뉴', en: 'Menu', ja: 'メニュー', zh: '菜单' })}</span>
-              <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+            <div className="flex items-center justify-between px-6 pb-4 pt-6">
+              <span className="text-[17px] font-bold text-[#191F28]">{t({ ko: '메뉴', en: 'Menu', ja: 'メニュー', zh: '菜单' })}</span>
+              <button onClick={() => setMobileMenuOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-[#F2F4F6]" aria-label="닫기">
+                <X className="h-5 w-5 text-[#8B95A1]" />
               </button>
             </div>
-            <div className="h-px bg-gray-100 mx-6" />
-            {/* 메뉴 항목 */}
-            <div className="flex-1 px-6 py-4 flex flex-col gap-1">
+            <div className="flex flex-1 flex-col gap-1 px-4 py-2">
               {[
                 { label: t({ ko: 'CEO 인사말', en: "CEO's Message", ja: 'CEO 挨拶', zh: 'CEO 致辞' }), href: '/biz/ceo' },
                 { label: t({ ko: '연혁', en: 'Milestones', ja: '沿革', zh: '发展历程' }), href: '/biz/history' },
@@ -685,29 +578,28 @@ export default function BizPage() {
                   <Link
                     key={item.label}
                     href={item.href}
-                    className="flex items-center justify-between py-3.5 px-2 rounded-xl text-[15px] font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between rounded-[14px] px-3 py-4 text-[16px] font-semibold text-[#333D4B] transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6]"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {item.label}
-                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                    <ChevronRight className="h-4 w-4 text-[#C4CAD1]" />
                   </Link>
                 ) : (
                   <button
                     key={item.label}
                     onClick={item.action}
-                    className="flex items-center justify-between py-3.5 px-2 rounded-xl text-[15px] font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                    className="flex items-center justify-between rounded-[14px] px-3 py-4 text-left text-[16px] font-semibold text-[#333D4B] transition-colors hover:bg-[#F9FAFB] active:bg-[#F2F4F6]"
                   >
                     {item.label}
-                    <ChevronRight className="w-4 h-4 text-gray-300" />
+                    <ChevronRight className="h-4 w-4 text-[#C4CAD1]" />
                   </button>
                 )
               )}
             </div>
-            {/* 하단 문의 버튼 */}
             <div className="px-6 pb-8">
               <button
                 onClick={() => { openInquiryMail(); setMobileMenuOpen(false); }}
-                className="w-full py-3 bg-gray-900 text-white text-[14px] font-bold rounded-full active:scale-95 transition-transform"
+                className="h-14 w-full rounded-[16px] bg-[#3182F6] text-[16px] font-bold text-white transition-transform active:scale-[0.98]"
               >
                 {t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系我们' })}
               </button>
@@ -716,118 +608,77 @@ export default function BizPage() {
         </div>
       )}
 
-      {/* ═══ Hero (Netflix-style tilted grid) ═══════════════════ */}
-      <section className="relative flex min-h-screen items-center justify-center pt-[60px] overflow-hidden">
-        {/* 기울어진 사회자 그리드 배경 */}
-        <div
-          className="absolute inset-0 flex flex-col gap-4 justify-center"
-          style={{
-            transform: 'rotate(-12deg) scale(1.4)',
-            transformOrigin: 'center center',
-          }}
-        >
-          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={80} />
-          <TiltedRow images={EXPERT_IMAGES_ROW2} direction="right" speed={90} />
-          <TiltedRow images={[...EXPERT_IMAGES_ROW1].reverse()} direction="left" speed={85} />
-          <TiltedRow images={[...EXPERT_IMAGES_ROW2].reverse()} direction="right" speed={95} />
-          <TiltedRow images={EXPERT_IMAGES_ROW1} direction="left" speed={88} />
+      {/* ═══ 첫 화면 — 가득 찬 행사 영상 + 흰 큰 제목 ═════════════════ */}
+      <section ref={heroRef} className="relative flex h-[100svh] min-h-[560px] items-center justify-center overflow-hidden bg-[#0B0C0E]">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          src="/images/biz-v2/hero-loop.mp4"
+          poster="/images/biz-v2/hero-poster.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.38) 45%, rgba(0,0,0,0.62) 100%)' }} />
+
+        <div className="relative z-10 px-6 text-center">
+          <p className="mb-5 text-[12px] font-semibold tracking-[0.08em] text-white/70 md:text-[13px]" style={{ animation: 'bizHeroUp 1s cubic-bezier(0.22,1,0.36,1) 0.05s both' }}>FREELANCER MC MATCHING PLATFORM</p>
+          <h1 className="break-keep text-[38px] font-bold leading-[1.26] tracking-[-0.035em] text-white md:text-[76px]">
+            <span className="block" style={{ animation: 'bizHeroUp 1.1s cubic-bezier(0.22,1,0.36,1) 0.15s both' }}>
+              {t({ ko: '검증된 전문 진행자로', en: 'Trusted MC experts', ja: '検証されたプロ司会者で', zh: '经过认证的专业主持人' })}
+            </span>
+            <span className="block" style={{ animation: 'bizHeroUp 1.1s cubic-bezier(0.22,1,0.36,1) 0.4s both' }}>
+              {t({ ko: '기업행사의 품격을 높이다', en: 'Elevate your corporate events', ja: '企業イベントの品格を高める', zh: '提升企业活动品格' })}
+            </span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-[560px] break-keep text-[16px] leading-[1.65] text-white/75 md:mt-8 md:text-[19px]" style={{ animation: 'bizHeroUp 1.1s cubic-bezier(0.22,1,0.36,1) 0.65s both' }}>
+            {t({
+              ko: 'KBS · SBS · MBC 방송사 출신 검증된 아나운서, MC, 쇼호스트',
+              en: 'Verified announcers, MCs, and show hosts from KBS · SBS · MBC',
+              ja: 'KBS · SBS · MBC 放送局出身の認証済みアナウンサー、MC、ショーホスト',
+              zh: '来自 KBS · SBS · MBC 广播公司的认证主播、MC、购物主持人',
+            })}<br />
+            {t({
+              ko: '전국 1,000여 명의 전문 진행자와 맞춤 매칭합니다.',
+              en: 'Matched from a nationwide network of 1,000+ professionals.',
+              ja: '全国1,000名以上のプロ司会者とカスタムマッチング。',
+              zh: '与全国 1,000 余名专业主持人精准匹配。',
+            })}
+          </p>
+          <div className="mt-10 flex justify-center gap-3" style={{ animation: 'bizHeroUp 1.1s cubic-bezier(0.22,1,0.36,1) 0.85s both' }}>
+            <button onClick={() => scrollTo('문의폼')} className="h-14 rounded-[16px] bg-white px-7 text-[16px] font-bold text-[#191F28] transition-transform hover:bg-white/90 active:scale-[0.97] md:px-9 md:text-[17px]">
+              {t({ ko: '기업 문의하기', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}
+            </button>
+            <button onClick={() => scrollTo('핵심서비스')} className="h-14 rounded-[16px] bg-white/15 px-7 text-[16px] font-bold text-white backdrop-blur-md transition-colors hover:bg-white/25 md:px-9 md:text-[17px]">
+              {t({ ko: '서비스 알아보기', en: 'Learn More', ja: 'サービスを見る', zh: '了解服务' })}
+            </button>
+          </div>
         </div>
 
-        {/* 화이트 오버레이 */}
-        <div className="absolute inset-0 bg-white/75" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-white/60 to-white" />
-
-        {/* 콘텐츠 */}
-        <div className="relative z-10 text-center px-6">
-          <Reveal>
-            <p className="mb-5 text-[11px] font-medium tracking-normal text-gray-400">FREELANCER MC MATCHING PLATFORM</p>
-          </Reveal>
-          <Reveal delay={200}>
-            <h1 className="text-[40px] font-bold leading-[1.1] tracking-tight md:text-[72px]">
-              <span className="text-gray-900">{t({
-                ko: '검증된 전문 진행자로',
-                en: 'Trusted MC experts',
-                ja: '検証されたプロ司会者で',
-                zh: '经过认证的专业主持人',
-              })}</span><br />
-              <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">{t({
-                ko: '기업행사의 품격을 높이다',
-                en: 'Elevate your corporate events',
-                ja: '企業イベントの品格を高める',
-                zh: '提升企业活动品格',
-              })}</span>
-            </h1>
-          </Reveal>
-          <Reveal delay={400}>
-            <p className="mx-auto mt-6 max-w-[520px] text-[15px] leading-normal text-gray-500">
-              {t({
-                ko: 'KBS · SBS · MBC 방송사 출신 검증된 아나운서, MC, 쇼호스트',
-                en: 'Verified announcers, MCs, and show hosts from KBS · SBS · MBC',
-                ja: 'KBS · SBS · MBC 放送局出身の認証済みアナウンサー、MC、ショーホスト',
-                zh: '来自 KBS · SBS · MBC 广播公司的认证主播、MC、购物主持人',
-              })}<br />
-              {t({
-                ko: '전국 1,000여 명의 전문 진행자와 맞춤 매칭합니다.',
-                en: 'Matched from a nationwide network of 1,000+ professionals.',
-                ja: '全国1,000名以上のプロ司会者とカスタムマッチング。',
-                zh: '与全国 1,000 余名专业主持人精准匹配。',
-              })}
-            </p>
-          </Reveal>
-          <Reveal delay={600}>
-            <div className="mt-10 flex justify-center gap-3">
-              <button onClick={() => scrollTo('문의폼')} className="bg-gray-900 px-8 py-3.5 text-[14px] font-bold text-white rounded-full transition-all hover:bg-gray-800 active:scale-95">
-                {t({ ko: '기업 문의하기', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}
-              </button>
-              <button onClick={() => scrollTo('핵심서비스')} className="border border-gray-200 bg-white/80 backdrop-blur px-8 py-3.5 text-[14px] font-bold text-gray-500 rounded-full transition-all hover:border-gray-300 hover:text-gray-800 hover:bg-white">
-                {t({ ko: '서비스 알아보기', en: 'Learn More', ja: 'サービスを見る', zh: '了解服务' })}
-              </button>
-            </div>
-          </Reveal>
-        </div>
-
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce z-10">
-          <ChevronDown className="h-5 w-5 text-gray-300" />
+        {/* 아래로 — 마우스 휠 모양(모바일은 하단 네비가 덮어서 뺀다) */}
+        <div className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 md:block" aria-hidden="true">
+          <div className="flex h-[38px] w-[24px] justify-center rounded-full border-2 border-white/50 pt-[7px]">
+            <span className="block h-[7px] w-[3px] rounded-full bg-white/80" style={{ animation: 'bizWheel 1.6s ease-in-out infinite' }} />
+          </div>
         </div>
       </section>
 
-      {/* Marquee keyframes */}
       {/* eslint-disable-next-line react/no-danger */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes marquee-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes marquee-right {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-        @keyframes dotBounce {
-          0% { transform: translateY(-40px); opacity: 0; }
-          40% { transform: translateY(4px); opacity: 1; }
-          60% { transform: translateY(-8px); }
-          75% { transform: translateY(2px); }
-          90% { transform: translateY(-3px); }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes ripple1 {
-          0% { transform: scale(1); opacity: 0.6; }
-          100% { transform: scale(1.6); opacity: 0; }
-        }
-        @keyframes ripple2 {
-          0% { transform: scale(1); opacity: 0.4; }
-          100% { transform: scale(1.8); opacity: 0; }
-        }
-        @keyframes ripple3 {
-          0% { transform: scale(1); opacity: 0.3; }
-          100% { transform: scale(2.0); opacity: 0; }
-        }
+        @keyframes marquee-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes marquee-right { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
+        @keyframes bizHeroUp { from { opacity: 0; transform: translate3d(0, 28px, 0); } to { opacity: 1; transform: none; } }
+        @keyframes bizWheel { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 80% { opacity: 0; transform: translateY(9px); } 100% { opacity: 0; } }
+        @keyframes promoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
+        @keyframes bizLogoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }
+        @media (prefers-reduced-motion: reduce) { [style*="bizHeroUp"] { animation: none !important; } }
       `}} />
 
-      {/* ═══ 모바일 사이드 섹션 인디케이터 ═══════════════════════ */}
+      {/* ═══ 모바일 사이드 섹션 인디케이터 — 첫 화면을 지나서만 ═════════ */}
       <div
-        className="md:hidden fixed right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col items-end gap-3 transition-opacity duration-700"
-        style={{ opacity: receptionFullscreen ? 0 : 1, pointerEvents: receptionFullscreen ? 'none' : 'auto' }}
+        className="fixed right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col items-end gap-3 transition-opacity duration-500 md:hidden"
+        style={{ opacity: overHero ? 0 : 1, pointerEvents: overHero ? 'none' : 'auto' }}
       >
         {NAV_SECTION_IDS.map((name) => {
           const isActive = activeSection === name;
@@ -836,449 +687,286 @@ export default function BizPage() {
               key={name}
               onClick={() => scrollTo(name === '문의' ? '문의폼' : name)}
               className="flex items-center gap-2 transition-all duration-300"
+              aria-label={t(NAV_SECTION_LABELS[name])}
             >
               {isActive && (
-                <span className="text-[10px] font-bold text-gray-700 bg-white/90 backdrop-blur-sm shadow-sm rounded-full px-2 py-0.5 border border-gray-100">
+                <span className="rounded-full border border-[#F2F4F6] bg-white/90 px-2 py-0.5 text-[10px] font-bold text-[#333D4B] shadow-sm backdrop-blur-sm">
                   {t(NAV_SECTION_LABELS[name])}
                 </span>
               )}
-              <span
-                className={`block rounded-full transition-all duration-300 ${
-                  isActive
-                    ? 'w-[6px] h-[18px] bg-gray-900'
-                    : 'w-[5px] h-[5px] bg-gray-300'
-                }`}
-              />
+              <span className={`block rounded-full transition-all duration-300 ${isActive ? 'h-[18px] w-[6px] bg-[#191F28]' : 'h-[5px] w-[5px] bg-[#D1D6DB]'}`} />
             </button>
           );
         })}
       </div>
 
       {/* ═══ 회사소개 ═══════════════════════════════════════════ */}
-      <section id="회사소개" className="py-28">
-        <div className="mx-auto max-w-[1100px] px-6">
-          {/* 좌측 텍스트 + 우측 이미지 2열 */}
-          <div className="grid gap-12 md:grid-cols-[1fr_minmax(0,420px)] md:items-center">
-            {/* 좌측: 텍스트 */}
-            <div>
-              <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">ABOUT US</p></Reveal>
-              <Reveal delay={100}>
-                <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
-                  {t({
-                    ko: <>프리티풀을<br />소개합니다</>,
-                    en: <>Introducing<br />Freetiful</>,
-                    ja: <>Freetiful を<br />ご紹介します</>,
-                    zh: <>Freetiful<br />公司简介</>,
-                  }) as any}
-                </h2>
-              </Reveal>
-              <Reveal delay={200}>
-                <p className="mt-6 text-[15px] leading-[1.6] text-gray-400">
-                  {t({
-                    ko: <>프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다. 프리티풀은 <strong className="text-gray-600">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼, 여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.</>,
-                    en: <>Freetiful is a specialized matching platform for freelance event hosts. The name comes from the three words <strong className="text-gray-600">Freelancer, Beautiful, and Pool</strong> — a curated pool of professionals who turn your precious moments into beautiful memories.</>,
-                    ja: <>Freetiful はフリーランス司会者専門のマッチングプラットフォームです。<strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> の三つの単語から生まれた名前の通り、皆様の大切な時間を美しい瞬間に変えるフリーランス司会者が集まるプラットフォームです。</>,
-                    zh: <>Freetiful 是专业的自由主持人匹配平台。名称源自 <strong className="text-gray-600">Freelancer、Beautiful、Pool</strong> 三个单词——汇聚优秀自由主持人的人才库,将您珍贵的时刻变为美好的回忆。</>,
-                  }) as any}
-                </p>
-                <p className="mt-4 text-[15px] leading-[1.6] text-gray-400">
-                  {t({
-                    ko: <>결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지 전국 <strong className="text-gray-600">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다. KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.</>,
-                    en: <>From family events like weddings and first-birthdays to corporate events, international conferences, sports events, and team-building activities, we work with <strong className="text-gray-600">over 1,000 announcers, MCs, and show hosts</strong> nationwide. We only connect clients with verified hosts from Korea's top broadcasters including KBS, SBS, and MBC.</>,
-                    ja: <>結婚式・初誕生日などの家族イベントから、企業イベント・国際イベント、体育大会・レクリエーションまで、全国 <strong className="text-gray-600">1,000名以上のアナウンサー、MC、ショーホスト</strong> と共に活動しています。KBS、SBS、MBC の地上波3社をはじめ、放送局出身の認証済み司会者のみをお客様に紹介します。</>,
-                    zh: <>从婚礼、周岁宴等家庭活动,到企业活动、国际活动、体育赛事、团建活动,我们与全国 <strong className="text-gray-600">1,000 余名主播、MC、购物主持人</strong> 合作。仅将 KBS、SBS、MBC 三大电视台等广播公司出身的认证主持人介绍给客户。</>,
-                  }) as any}
-                </p>
-              </Reveal>
-            </div>
-
-            {/* 우측: 사회자 3명 이미지 */}
-            <Reveal delay={150}>
-              <div className="relative w-full rounded-2xl overflow-hidden">
-                <Image
-                  src="/images/biz-about-hosts.png"
-                  alt="프리티풀 대표 전문 사회자"
-                  width={840}
-                  height={840}
-                  className="w-full h-auto object-contain"
-                  priority={false}
-                />
-              </div>
-            </Reveal>
+      <section id="회사소개" className="pt-[120px] md:pt-[180px]">
+        <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+          {/* 차오르는 문장 */}
+          <div className="text-center">
+            <FadeUp><p className={eyebrowCls}>ABOUT US</p></FadeUp>
+            <ScrollFillText
+              className="mt-5 break-keep text-[30px] font-bold leading-[1.4] tracking-[-0.035em] md:mt-6 md:text-[56px]"
+              lines={t({
+                ko: ['여러분의 소중한 시간을', '아름다운 순간으로 만드는', '진행자들이 모였어요'],
+                en: ['A pool of hosts who turn', 'your precious time', 'into beautiful moments'],
+                ja: ['皆様の大切な時間を', '美しい瞬間に変える', '司会者が集まりました'],
+                zh: ['汇聚将您宝贵的时光', '化为美好瞬间的', '专业主持人'],
+              })}
+            />
           </div>
 
-          {/* 핵심 수치 */}
-          <div className="mt-16 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {/* 소개 글 + 대표 진행자 */}
+          <div className="mt-24 grid items-center gap-12 md:mt-36 md:grid-cols-[minmax(0,1fr)_minmax(0,460px)] md:gap-16">
+            <FadeUp>
+              <h2 className={h2Cls}>
+                {t<React.ReactNode>({
+                  ko: <>프리티풀을<br />소개합니다</>,
+                  en: <>Introducing<br />Freetiful</>,
+                  ja: <>Freetiful を<br />ご紹介します</>,
+                  zh: <>Freetiful<br />公司简介</>,
+                })}
+              </h2>
+              <p className={`mt-7 ${leadCls}`}>
+                {t<React.ReactNode>({
+                  ko: <>프리랜서 진행자 전문 매칭플랫폼 프리티풀입니다. 프리티풀은 <strong className="font-semibold text-[#191F28]">Freelancer, Beautiful, 그리고 Pool</strong>이라는 세 단어에서 유래된 이름처럼, 여러분의 소중한 시간을 아름다운 순간으로 만들어드리는 프리랜서 진행자들이 모여 있는 플랫폼입니다.</>,
+                  en: <>Freetiful is a specialized matching platform for freelance event hosts. The name comes from the three words <strong className="font-semibold text-[#191F28]">Freelancer, Beautiful, and Pool</strong> — a curated pool of professionals who turn your precious moments into beautiful memories.</>,
+                  ja: <>Freetiful はフリーランス司会者専門のマッチングプラットフォームです。<strong className="font-semibold text-[#191F28]">Freelancer、Beautiful、Pool</strong> の三つの単語から生まれた名前の通り、皆様の大切な時間を美しい瞬間に変えるフリーランス司会者が集まるプラットフォームです。</>,
+                  zh: <>Freetiful 是专业的自由主持人匹配平台。名称源自 <strong className="font-semibold text-[#191F28]">Freelancer、Beautiful、Pool</strong> 三个单词——汇聚优秀自由主持人的人才库,将您珍贵的时刻变为美好的回忆。</>,
+                })}
+              </p>
+              <p className={`mt-5 ${leadCls}`}>
+                {t<React.ReactNode>({
+                  ko: <>결혼식·돌잔치 등의 가족행사부터 기업행사·국제행사, 체육대회·레크리에이션 진행까지 전국 <strong className="font-semibold text-[#191F28]">1,000여 명의 아나운서, MC, 쇼호스트</strong>들과 함께하고 있습니다. KBS, SBS, MBC 지상파 3사를 포함하여 각 방송사 출신의 검증된 사회자만을 고객과 연결합니다.</>,
+                  en: <>From family events like weddings and first-birthdays to corporate events, international conferences, sports events, and team-building activities, we work with <strong className="font-semibold text-[#191F28]">over 1,000 announcers, MCs, and show hosts</strong> nationwide. We only connect clients with verified hosts from Korea&apos;s top broadcasters including KBS, SBS, and MBC.</>,
+                  ja: <>結婚式・初誕生日などの家族イベントから、企業イベント・国際イベント、体育大会・レクリエーションまで、全国 <strong className="font-semibold text-[#191F28]">1,000名以上のアナウンサー、MC、ショーホスト</strong> と共に活動しています。KBS、SBS、MBC の地上波3社をはじめ、放送局出身の認証済み司会者のみをお客様に紹介します。</>,
+                  zh: <>从婚礼、周岁宴等家庭活动,到企业活动、国际活动、体育赛事、团建活动,我们与全国 <strong className="font-semibold text-[#191F28]">1,000 余名主播、MC、购物主持人</strong> 合作。仅将 KBS、SBS、MBC 三大电视台等广播公司出身的认证主持人介绍给客户。</>,
+                })}
+              </p>
+            </FadeUp>
+            <FadeUp delay={150}>
+              <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-b from-[#EEF5FF] to-[#F9FAFB]">
+                <Image src="/images/biz-about-hosts.png" alt="프리티풀 대표 전문 사회자" width={840} height={840} className="h-auto w-full object-contain" />
+              </div>
+            </FadeUp>
+          </div>
+
+          {/* 큰 숫자 */}
+          <div className="mt-24 grid grid-cols-2 gap-x-6 gap-y-12 border-t border-[#F2F4F6] pt-14 md:mt-32 md:grid-cols-4 md:pt-20">
             {[
-              { num: 1000, suffix: '+', label: t({ ko: '검증된 진행자', en: 'Verified Hosts', ja: '認証済み司会者', zh: '认证主持人' }), icon: <Users className="h-4 w-4" /> },
-              { num: 13000, suffix: '+', label: t({ ko: '결혼식 사회 경력', en: 'Weddings Hosted', ja: '結婚式司会実績', zh: '婚礼主持经验' }), icon: <Star className="h-4 w-4" /> },
-              { num: 8, suffix: t({ ko: '개', en: '', ja: '分野', zh: '个' }), label: t({ ko: '서비스 분야', en: 'Service Areas', ja: 'サービス分野', zh: '服务领域' }), icon: <Briefcase className="h-4 w-4" /> },
-              { num: 3, suffix: t({ ko: '사', en: '', ja: '局', zh: '家' }), label: t({ ko: '지상파 방송사 출신', en: 'Major Broadcasters', ja: '地上波放送局出身', zh: '主流广播公司出身' }), icon: <Zap className="h-4 w-4" /> },
+              { num: 1000, suffix: '+', label: t({ ko: '검증된 진행자', en: 'Verified Hosts', ja: '認証済み司会者', zh: '认证主持人' }) },
+              { num: 13000, suffix: '+', label: t({ ko: '결혼식 사회 경력', en: 'Weddings Hosted', ja: '結婚式司会実績', zh: '婚礼主持经验' }) },
+              { num: 8, suffix: t({ ko: '개', en: '', ja: '分野', zh: '个' }), label: t({ ko: '서비스 분야', en: 'Service Areas', ja: 'サービス分野', zh: '服务领域' }) },
+              { num: 3, suffix: t({ ko: '사', en: '', ja: '局', zh: '家' }), label: t({ ko: '지상파 방송사 출신', en: 'Major Broadcasters', ja: '地上波放送局出身', zh: '主流广播公司出身' }) },
             ].map((s, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="border border-gray-100 rounded-2xl bg-white p-5 transition-all hover:border-gray-200 hover:shadow-sm">
-                  <div className="flex items-center gap-2 text-gray-300 mb-3">{s.icon}<span className="text-[10px] tracking-wider font-medium">{s.label}</span></div>
-                  <p className="text-[28px] font-bold text-gray-900">
-                    <CountUp target={s.num} suffix={s.suffix} />
-                  </p>
-                </div>
-              </Reveal>
+              <FadeUp key={i} delay={i * 90}>
+                <p className="text-[15px] font-semibold text-[#8B95A1] md:text-[17px]">{s.label}</p>
+                <p className="mt-2 text-[36px] font-bold leading-none tracking-[-0.03em] text-[#191F28] tabular-nums md:text-[56px]">
+                  <CountUp target={s.num} suffix={s.suffix} />
+                </p>
+              </FadeUp>
             ))}
           </div>
+        </div>
 
-          {/* 홍보이미지 캐러셀 */}
-          <Reveal delay={100}>
-            <div className="mt-20 -mx-6 overflow-hidden">
-              <div className="flex gap-4" style={{ width: 'max-content', animation: 'promoScroll 60s linear infinite' }}>
-                {[...PROMO_IMAGES, ...PROMO_IMAGES, ...PROMO_IMAGES].map((src, i) => (
-                  <div key={i} className="shrink-0 w-[280px] h-[200px] md:w-[360px] md:h-[240px] rounded-2xl overflow-hidden shadow-lg">
-                    <img src={src} alt="프리티풀 행사" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+        {/* 행사 사진 띠 */}
+        <FadeUp className="mt-24 overflow-hidden md:mt-32">
+          <div className="flex gap-4 md:gap-5" style={{ width: 'max-content', animation: 'promoScroll 70s linear infinite' }}>
+            {[...PROMO_IMAGES, ...PROMO_IMAGES, ...PROMO_IMAGES].map((src, i) => (
+              <div key={i} className="h-[220px] w-[300px] shrink-0 overflow-hidden rounded-[24px] md:h-[320px] md:w-[440px] md:rounded-[28px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="프리티풀 행사" loading="lazy" className="h-full w-full object-cover transition-transform duration-700 hover:scale-[1.04]" />
+              </div>
+            ))}
+          </div>
+        </FadeUp>
+
+        {/* 함께한 기업 */}
+        <div className="mx-auto max-w-[1140px] px-6 pt-24 md:px-10 md:pt-36">
+          <FadeUp className="text-center">
+            <p className={eyebrowCls}>OUR PARTNERS</p>
+            <h3 className={`mt-4 ${h2Cls}`}>
+              {t<React.ReactNode>({
+                ko: <>프리티풀 사회자들과<br />함께한 기업</>,
+                en: <>Companies that trust<br />our professionals</>,
+                ja: <>Freetiful 専門家と<br />共にした企業</>,
+                zh: <>与 Freetiful 专家<br />合作的企业</>,
+              })}
+            </h3>
+          </FadeUp>
+        </div>
+        <div className="relative mt-14 space-y-4 overflow-hidden pb-[120px] md:mt-20 md:space-y-5 md:pb-[180px]">
+          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-white to-transparent md:w-40" />
+          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-white to-transparent md:w-40" />
+          {BIZ_LOGO_ROWS.map((rowLogos, row) => {
+            const repeated = [...rowLogos, ...rowLogos, ...rowLogos];
+            const direction = row % 2 === 0 ? 'normal' : 'reverse';
+            const speed = 70 + row * 8;
+            return (
+              <div key={row} className="flex items-center gap-8 md:gap-12" style={{ width: 'max-content', animation: `bizLogoScroll ${speed}s linear infinite ${direction}` }}>
+                {repeated.map((logo, i) => (
+                  <div key={i} className="flex h-[34px] w-[90px] shrink-0 items-center justify-center opacity-40 grayscale transition-all duration-300 hover:opacity-90 hover:grayscale-0 md:h-[40px] md:w-[110px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logo} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
                   </div>
                 ))}
               </div>
-              <style>{`@keyframes promoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }`}</style>
-            </div>
-          </Reveal>
-
-
-          {/* 프리티풀 사회자들과 함께한 기업 */}
-          <Reveal delay={100}>
-            <div className="mt-20">
-              <p className="text-[11px] font-medium tracking-normal text-blue-500">OUR PARTNERS</p>
-              <h3 className="mt-3 text-[28px] font-bold tracking-tight">
-                {t({
-                  ko: <>프리티풀 사회자들과<br />함께한 기업</>,
-                  en: <>Companies that trust<br />our professionals</>,
-                  ja: <>Freetiful 専門家と<br />共にした企業</>,
-                  zh: <>与 Freetiful 专家<br />合作的企业</>,
-                }) as any}
-              </h3>
-            </div>
-          </Reveal>
-          <div className="mt-10 space-y-3 overflow-hidden -mx-6">
-            {BIZ_LOGO_ROWS.map((rowLogos, row) => {
-              const repeated = [...rowLogos, ...rowLogos, ...rowLogos];
-              const direction = row % 2 === 0 ? 'normal' : 'reverse';
-              const speed = 70 + row * 8;
-              return (
-                <div key={row} className="flex items-center gap-6" style={{ width: 'max-content', animation: `bizLogoScroll ${speed}s linear infinite ${direction}` }}>
-                  {repeated.map((logo, i) => (
-                    <div key={i} className="shrink-0 h-[32px] w-[80px] flex items-center justify-center opacity-30 grayscale hover:opacity-80 hover:grayscale-0 transition-all duration-300">
-                      <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-            <style>{`@keyframes bizLogoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } }`}</style>
-          </div>
-
+            );
+          })}
         </div>
       </section>
 
-      {/* ═══ 핵심서비스 섹션 삭제됨 ═══════════════════════════════ */}
-      <section id="핵심서비스" className="py-28 bg-gray-50/60">
-        <div className="mx-auto max-w-[1100px] px-6">
-          {/* CORE SERVICES 타이틀 + 카드 숨김 */}
-          <div className="hidden">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">CORE SERVICES</p></Reveal>
-          <Reveal delay={100}>
-            <h2 className="mt-3 text-[34px] font-bold tracking-tight md:text-[42px]">
-              마이크가 필요한<br />모든 순간, 프리티풀
+      {/* ═══ 핵심서비스 — 앱으로 보는 섭외 · 영상 · 앱 화면 ═══════════════ */}
+      <section id="핵심서비스" className="bg-white">
+        <div className="mx-auto max-w-[1140px] px-6 pt-[120px] md:px-10 md:pt-[180px]">
+          <FadeUp className="text-center">
+            <p className={eyebrowCls}>SERVICE</p>
+            <h2 className={`mt-4 break-keep ${h2Cls}`}>
+              {t<React.ReactNode>({
+                ko: <>검증부터 섭외까지<br />앱 하나로 간편하게</>,
+                en: <>From vetting to booking,<br />all in one app</>,
+                ja: <>検証からブッキングまで<br />アプリひとつで簡単に</>,
+                zh: <>从审核到预约<br />一个应用轻松搞定</>,
+              })}
             </h2>
-          </Reveal>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: <Heart className="h-6 w-6" />, title: '결혼식 사회자', desc: 'KBS·SBS·MBC 방송사 출신 아나운서, 결혼식 사회 13,000회 이상 경력의 전문 사회자가 함께합니다.', color: 'bg-rose-50 text-rose-500' },
-              { icon: <Building2 className="h-6 w-6" />, title: '공식행사 / 기업행사', desc: '정부기관, 관공서, 대기업 행사 등 공적인 자리에서 격에 맞는 진행으로 행사의 품격을 높여드립니다.', color: 'bg-blue-50 text-blue-500' },
-              { icon: <Star className="h-6 w-6" />, title: '방송 / 온라인 콘텐츠', desc: '아나운서, 쇼호스트, 인플루언서가 TV방송, 유튜브 콘텐츠, 라이브커머스에서 활약합니다.', color: 'bg-violet-50 text-violet-500' },
-              { icon: <Globe className="h-6 w-6" />, title: '통번역', desc: '국제포럼, 국제스포츠행사 등 글로벌 행사를 위한 통번역 사회자, 언어 사회자가 함께합니다.', color: 'bg-emerald-50 text-emerald-500' },
-              { icon: <Users className="h-6 w-6" />, title: '팀빌딩 / 레크리에이션', desc: '전국 상위 1%의 MC들이 모두가 하나 되는 순간, 즐길 수 있는 시간을 만들어 드립니다.', color: 'bg-amber-50 text-amber-500' },
-              { icon: <Zap className="h-6 w-6" />, title: '체육대회', desc: '기업·학교 체육대회에서 함께 뛰고 응원하며 즐기는 역동적인 시간을 베테랑 MC가 이끕니다.', color: 'bg-orange-50 text-orange-500' },
-              { icon: <Award className="h-6 w-6" />, title: '대학축제 / 지역축제', desc: '수도권 20곳 이상 대학 및 지역축제 진행자가 전국 각지 대규모 축제를 진행합니다.', color: 'bg-pink-50 text-pink-500' },
-              { icon: <BarChart3 className="h-6 w-6" />, title: '기업 PT', desc: '전문 프리젠터가 회사 성장을 위한 중요한 자리에서 비전을 담은 PT를 진행합니다.', color: 'bg-cyan-50 text-cyan-500' },
-            ].map((item, i) => (
-              <Reveal key={i} delay={i * 80}>
-                <div className="group bg-white border border-gray-100 rounded-2xl p-6 transition-all duration-300 hover:border-gray-200 hover:shadow-md">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} transition-transform duration-300 group-hover:scale-110`}>
-                    {item.icon}
-                  </div>
-                  <h3 className="mt-4 text-[16px] font-bold text-gray-900">{item.title}</h3>
-                  <p className="mt-2 text-[12px] leading-[1.5] text-gray-400">{item.desc}</p>
-                </div>
-              </Reveal>
-            ))}
+            <p className={`mx-auto mt-6 max-w-[620px] ${leadCls}`}>
+              {t({
+                ko: '직관적인 앱으로 진행자를 비교하고, 채팅으로 바로 섭외하세요.',
+                en: 'Compare hosts in an intuitive app and book them right in chat.',
+                ja: '直感的なアプリで司会者を比較し、チャットですぐに依頼できます。',
+                zh: '在直观的应用中比较主持人,通过聊天即刻预约。',
+              })}
+            </p>
+          </FadeUp>
+          <div className="mt-20 md:mt-10">
+            <FeatureShowcase />
           </div>
+        </div>
 
-          {/* 일반 플랫폼 vs 프리티풀 비교 */}
-          <Reveal delay={100}>
-            <h3 className="mt-20 text-[11px] font-medium tracking-normal text-gray-300">WHY FREETIFUL</h3>
-            <p className="mt-3 text-[20px] font-bold text-gray-900">왜 프리티풀이어야만 할까요?</p>
-          </Reveal>
-          {(() => {
-            const compare = useReveal();
-            return (
-              <div ref={compare.ref} className={`mt-8 transition-all duration-700 ${compare.visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-                <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                  {/* 헤더: 로고 포함 (h-[48px]) */}
-                  <div className="grid grid-cols-3 bg-gray-50 border-b border-gray-100 h-[48px]">
-                    <div />
-                    <div className="flex items-center justify-center gap-2 border-x border-gray-100">
-                      {/* 경쟁사 로고 (은은한 블러) */}
-                      <div className="relative w-[48px] h-[28px] filter blur-[2px] opacity-50">
-                        <Image src="/images/group-1707481883.png" alt="" width={48} height={28} className="w-full h-full object-contain" />
-                      </div>
-                      <span className="text-[12px] font-bold text-gray-400">일반 플랫폼</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      {/* 프리티풀 심볼 (바운스) */}
-                      <FreetifulSymbol visible={compare.visible} />
-                      <span className="text-[12px] font-bold text-blue-500">프리티풀</span>
-                    </div>
-                  </div>
-                  {[
-                    { label: '진행자 등록', general: '누구나 자유롭게 가능', freetiful: '직접 심사·검증을 통한 입점' },
-                    { label: '경력 인증', general: '미비 또는 자율 기재', freetiful: '포트폴리오 및 실제 경력 검증 필수' },
-                    { label: '품질 보증', general: '무관여 (후기 중심)', freetiful: '진행자 관리 및 사후 피드백 시스템' },
-                    { label: '전문성', general: '아마추어/초보자 존재', freetiful: '방송·행사 경력 보유 사회자만 선발' },
-                    { label: '위험요소', general: '후기 조작, 무경험자 섭외 가능', freetiful: '검증되지 않은 진행자는 등록 불가' },
-                  ].map((row, i) => (
-                    <div key={i} className={`grid grid-cols-3 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                      <div className="p-4 text-[13px] font-semibold text-gray-600">{row.label}</div>
-                      <div className="p-4 text-[12px] text-gray-400 text-center border-x border-gray-50">{row.general}</div>
-                      <div className="p-4 text-[12px] text-blue-600 font-medium text-center">{row.freetiful}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          </div>{/* hidden 끝 */}
-
-          {/* 홍보 영상 */}
-          <div className="mt-16">
-            <Reveal delay={100}>
-              <p className="text-[11px] font-medium tracking-normal text-gray-300 text-center">PROMOTION VIDEO</p>
-              <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900 text-center">{t({
+        {/* 홍보 영상 */}
+        <div className="bg-[#F9FAFB] py-[120px] md:py-[160px]">
+          <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+            <FadeUp className="text-center">
+              <p className={eyebrowCls}>PROMOTION VIDEO</p>
+              <h2 className={`mt-4 break-keep ${h2Cls}`}>{t({
                 ko: '프리티풀을 영상으로 만나보세요',
                 en: 'Watch Freetiful in action',
                 ja: 'Freetiful を動画でご覧ください',
                 zh: '通过视频了解 Freetiful',
-              })}</p>
-            </Reveal>
-
-            <div className="space-y-6">
-              {/* 영상 1 — 플랫폼 */}
-              <Reveal delay={200}>
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                  <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
-                    <source src="/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4#t=0.5" type="video/mp4" />
-                  </video>
-                  <div className="p-4">
-                    <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-violet-500 bg-violet-50 rounded-full mb-2">PLATFORM</span>
-                    <h4 className="text-[16px] font-bold text-gray-900">{t({
-                      ko: '프리티풀 플랫폼 소개',
-                      en: 'Freetiful Platform Overview',
-                      ja: 'Freetiful プラットフォーム紹介',
-                      zh: 'Freetiful 平台简介',
-                    })}</h4>
-                    <p className="mt-1 text-[13px] text-gray-400 leading-normal">{t({
-                      ko: 'KBS·SBS·MBC 방송사 출신 검증된 진행자, 전국 1,000여 명과 함께하는 매칭 플랫폼',
-                      en: 'A matching platform with 1,000+ verified hosts from KBS·SBS·MBC',
-                      ja: 'KBS・SBS・MBC出身の認証済み司会者 1,000名以上と共に歩むマッチングプラットフォーム',
-                      zh: '汇聚来自 KBS·SBS·MBC 的 1,000 余名认证主持人的匹配平台',
-                    })}</p>
+              })}</h2>
+            </FadeUp>
+            <div className="mt-14 grid gap-6 md:mt-20 md:grid-cols-2 md:gap-8">
+              {[
+                {
+                  src: '/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4#t=0.5',
+                  tag: 'PLATFORM',
+                  title: t({ ko: '프리티풀 플랫폼 소개', en: 'Freetiful Platform Overview', ja: 'Freetiful プラットフォーム紹介', zh: 'Freetiful 平台简介' }),
+                  desc: t({ ko: 'KBS·SBS·MBC 방송사 출신 검증된 진행자, 전국 1,000여 명과 함께하는 매칭 플랫폼', en: 'A matching platform with 1,000+ verified hosts from KBS·SBS·MBC', ja: 'KBS・SBS・MBC出身の認証済み司会者 1,000名以上と共に歩むマッチングプラットフォーム', zh: '汇聚来自 KBS·SBS·MBC 的 1,000 余名认证主持人的匹配平台' }),
+                },
+                {
+                  src: '/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4#t=0.5',
+                  tag: 'APPLICATION',
+                  title: t({ ko: '프리티풀 어플리케이션 소개', en: 'Freetiful App Overview', ja: 'Freetiful アプリ紹介', zh: 'Freetiful 应用程序简介' }),
+                  desc: t({ ko: '검증된 사회자를 직관적으로 비교하고, 실시간 소통으로 간편하게 매칭하세요', en: 'Compare verified hosts intuitively and match instantly with real-time chat', ja: '認証済み司会者を直感的に比較し、リアルタイムチャットで簡単にマッチング', zh: '直观比较认证主持人,通过实时聊天轻松匹配' }),
+                },
+              ].map((v, i) => (
+                <FadeUp key={v.tag} delay={i * 120}>
+                  <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_20px_50px_-24px_rgba(0,27,55,0.18)]">
+                    <video className="aspect-video w-full bg-black" controls playsInline preload="metadata" muted>
+                      <source src={v.src} type="video/mp4" />
+                    </video>
+                    <div className="p-6 md:p-8">
+                      <span className="text-[13px] font-semibold text-[#3182F6]">{v.tag}</span>
+                      <h3 className="mt-2 text-[20px] font-bold tracking-[-0.02em] text-[#191F28] md:text-[24px]">{v.title}</h3>
+                      <p className="mt-2 break-keep text-[15px] leading-[1.65] text-[#6B7684] md:text-[16px]">{v.desc}</p>
+                    </div>
                   </div>
-                </div>
-              </Reveal>
-
-              {/* 영상 2 — 어플리케이션 */}
-              <Reveal delay={300}>
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                  <video className="w-full aspect-video bg-black" controls playsInline preload="metadata" muted>
-                    <source src="/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4#t=0.5" type="video/mp4" />
-                  </video>
-                  <div className="p-4">
-                    <span className="inline-block px-2.5 py-1 text-[10px] font-bold tracking-wider text-[#3180F7] bg-blue-50 rounded-full mb-2">APPLICATION</span>
-                    <h4 className="text-[16px] font-bold text-gray-900">{t({
-                      ko: '프리티풀 어플리케이션 소개',
-                      en: 'Freetiful App Overview',
-                      ja: 'Freetiful アプリ紹介',
-                      zh: 'Freetiful 应用程序简介',
-                    })}</h4>
-                    <p className="mt-1 text-[13px] text-gray-400 leading-normal">{t({
-                      ko: '검증된 사회자를 직관적으로 비교하고, 실시간 소통으로 간편하게 매칭하세요',
-                      en: 'Compare verified hosts intuitively and match instantly with real-time chat',
-                      ja: '認証済み司会者を直感的に比較し、リアルタイムチャットで簡単にマッチング',
-                      zh: '直观比较认证主持人,通过实时聊天轻松匹配',
-                    })}</p>
-                  </div>
-                </div>
-              </Reveal>
+                </FadeUp>
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* 서비스 소개 스크린 */}
-          <Reveal delay={100}>
-            <h3 className="mt-24 text-[11px] font-medium tracking-normal text-gray-300">APP SCREENS</h3>
-            <p className="mt-2 mb-8 text-[20px] font-bold text-gray-900">{t({
+        {/* 앱 화면 */}
+        <div className="pb-[100px] pt-[120px] md:pb-[140px] md:pt-[160px]">
+          <FadeUp className="mx-auto max-w-[1140px] px-6 text-center md:px-10">
+            <p className={eyebrowCls}>APP SCREENS</p>
+            <h2 className={`mt-4 break-keep ${h2Cls}`}>{t({
               ko: '직관적인 앱으로 간편하게',
               en: 'Simple, intuitive app experience',
               ja: '直感的なアプリで簡単に',
               zh: '直观应用,简便体验',
-            })}</p>
-          </Reveal>
+            })}</h2>
+          </FadeUp>
+          <FadeUp delay={150} className="mt-12 md:mt-16">
+            <AppScreenMarquee images={INTRO_IMAGES} speed={90} />
+          </FadeUp>
         </div>
-        <Reveal delay={200}>
-          <AppScreenMarquee images={INTRO_IMAGES} speed={90} />
-        </Reveal>
       </section>
 
       {/* ═══ 2025 송년회 RECEPTION ═════════════════════════════ */}
-      <section ref={receptionRef} className="relative overflow-hidden bg-[#0a0a0a] text-white">
-        {/* 배경 이미지 (옅게) */}
-        <div className="absolute inset-0">
-          <Image src="/images/img-8838-1.png" alt="" fill className="object-cover opacity-20" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
-        </div>
-
-        <div className="relative z-10 mx-auto max-w-[1100px] px-6 py-32">
-          <div className="flex flex-col items-center gap-10">
-            <Reveal>
-              <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[300px] md:w-[400px] brightness-0 invert opacity-90" />
-            </Reveal>
-            <Reveal delay={300}>
-              <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[160px] md:w-[200px] brightness-0 invert opacity-50" />
-            </Reveal>
-          </div>
-          <Reveal delay={300}>
-            <div className="mt-16 rounded-2xl overflow-hidden shadow-[0_0_80px_rgba(255,255,255,0.05)] border border-white/10 bg-black">
-              <video className="w-full aspect-video" controls playsInline preload="metadata" muted>
-                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4#t=0.5" type="video/mp4" />
-              </video>
-            </div>
-          </Reveal>
-          <div className="mt-16 flex items-center gap-4">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/10" />
-            <span className="text-[10px] tracking-normal text-white/20 font-medium">FREETIFUL 2025</span>
-            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/10" />
-          </div>
-        </div>
-
-      </section>
-
-      {/* ═══ 모바일 송년회 풀스크린 오버레이 ═══════════════════ */}
-      {receptionFullscreen && (
-        <div
-          className="md:hidden fixed inset-0 z-[100] bg-[#0a0a0a] overflow-hidden"
-          style={{
-            animation: receptionExiting
-              ? 'receptionFadeOut 0.5s ease-out forwards'
-              : 'receptionFadeIn 0.5s ease-out forwards',
-          }}
-        >
-          <div className="absolute inset-0">
-            <Image src="/images/img-8838-1.png" alt="" fill className="object-cover opacity-20" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-[#0a0a0a]/40 to-[#0a0a0a]" />
-          </div>
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-10">
-            <Image src="/images/frame-1707488417.svg" alt="2025 Year-End Reception" width={272} height={161} className="w-[280px] brightness-0 invert opacity-90" />
-            <Image src="/images/group-1707482062.svg" alt="Freetiful" width={176} height={30} className="w-[150px] brightness-0 invert opacity-50 mt-8" />
-            <div className="mt-10 w-full rounded-xl overflow-hidden bg-black">
-              <video ref={receptionVideoRef} className="w-full aspect-video" autoPlay muted playsInline controls preload="metadata">
-                <source src="/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4#t=0.5" type="video/mp4" />
-              </video>
-            </div>
-          </div>
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce z-30">
-            <span className="text-white/40 text-[11px] font-medium">{t({
-              ko: '아래로 스와이프하여 닫기',
-              en: 'Swipe down to close',
-              ja: '下にスワイプして閉じる',
-              zh: '向下滑动关闭',
-            })}</span>
-          </div>
-        </div>
-      )}
+      <ReceptionSection />
 
       {/* ═══ 연혁 ═══════════════════════════════════════════════ */}
-      <section id="연혁" className="py-28 relative overflow-hidden">
-        {/* 좌/우 빼꼼 사진 — 섹션 전체 기준 */}
-        <HistorySidePeek images={PROMO_IMAGES.slice(0, 8)} />
+      <section id="연혁" className="bg-white py-[120px] md:py-[180px]">
+        <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+          <FadeUp>
+            <p className={eyebrowCls}>MILESTONES</p>
+            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '성장의 발자취', en: 'Our Growth Journey', ja: '成長の足跡', zh: '成长足迹' })}</h2>
+          </FadeUp>
 
-        <div className="mx-auto max-w-[820px] px-6 relative z-10">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">MILESTONES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold tracking-tight">{t({
-            ko: '성장의 발자취',
-            en: 'Our Growth Journey',
-            ja: '成長の足跡',
-            zh: '成长足迹',
-          })}</h2></Reveal>
-
-          {/* Minimal timeline — no cards */}
-          <div className="mt-14 space-y-16">
-            {HISTORY_DATA.map((h, hi) => (
-              <div key={h.year} className="relative">
-                {/* Year — 큰 아웃라인 숫자 */}
-                <Reveal delay={hi * 80}>
-                  <div className="flex items-baseline gap-4 mb-8">
-                    <span className="text-[60px] md:text-[80px] font-bold leading-none tracking-tight text-[#3180F7]">
-                      {h.year}
-                    </span>
-                    <div className="h-px flex-1 bg-gray-200" />
-                  </div>
-                </Reveal>
-
-                {/* Events — 얇은 세로 라인 + 도트, hover 시 라인 확장 */}
-                <div className="relative pl-6 border-l border-gray-100 space-y-4">
+          <div className="mt-14 md:mt-20">
+            {HISTORY_DATA.map((h) => (
+              <div key={h.year} className="grid gap-6 border-t border-[#E5E8EB] py-12 md:grid-cols-[260px_minmax(0,1fr)] md:gap-10 md:py-16">
+                <FadeUp>
+                  <p className="text-[52px] font-bold leading-none tracking-[-0.04em] text-[#3182F6] tabular-nums md:sticky md:top-28 md:text-[72px]">{h.year}</p>
+                </FadeUp>
+                <ul className="space-y-5 md:space-y-6">
                   {h.events.map((event, i) => (
-                    <Reveal key={i} delay={hi * 80 + i * 50}>
-                      <div className="group relative py-1">
-                        <span className="absolute -left-[25px] top-2.5 w-1.5 h-1.5 rounded-full bg-gray-300 transition-all duration-300 group-hover:bg-[#3180F7] group-hover:scale-[2] group-hover:shadow-[0_0_0_4px_rgba(49,128,247,0.15)]" />
-                        <span className="absolute -left-px top-0 bottom-0 w-px bg-[#3180F7] scale-y-0 group-hover:scale-y-100 origin-top transition-transform duration-500 ease-out pointer-events-none" />
-                        <span className="text-[14px] text-gray-600 transition-all duration-300 group-hover:text-gray-900 group-hover:translate-x-1.5 inline-block">
-                          {t(event)}
-                        </span>
-                      </div>
-                    </Reveal>
+                    <FadeUp key={i} delay={Math.min(i, 6) * 60}>
+                      <li className="flex gap-4">
+                        <span className="mt-[11px] h-[7px] w-[7px] shrink-0 rounded-full bg-[#C4CAD1] md:mt-[13px]" />
+                        <span className="break-keep text-[17px] font-medium leading-[1.6] text-[#333D4B] md:text-[20px]">{t(event)}</span>
+                      </li>
+                    </FadeUp>
                   ))}
-                </div>
+                </ul>
               </div>
             ))}
           </div>
 
-          {/* Roadmap — 미니멀 inline 번호 */}
-          <Reveal delay={100}>
-            <h3 className="mt-24 text-[11px] font-medium tracking-normal text-gray-300">ROADMAP</h3>
-          </Reveal>
-          <div className="mt-8 space-y-8">
+          {/* 로드맵 */}
+          <FadeUp className="mt-20 md:mt-28">
+            <p className={eyebrowCls}>ROADMAP</p>
+          </FadeUp>
+          <div className="mt-8 grid gap-4 md:grid-cols-3 md:gap-5">
             {[
               { phase: '01', title: t({ ko: '사회자 매칭 플랫폼 고도화', en: 'Matching Platform Upgrade', ja: 'マッチングプラットフォーム高度化', zh: '专家匹配平台升级' }), desc: t({ ko: 'AI 매칭 정확도 향상, 사회자 카테고리 확장', en: 'Improve AI matching accuracy and expand expert categories', ja: 'AIマッチング精度向上、専門家カテゴリー拡大', zh: '提高AI匹配准确度,扩展专家类别' }) },
               { phase: '02', title: t({ ko: '전국 서비스 확대', en: 'Nationwide Service Expansion', ja: '全国サービス拡大', zh: '全国服务扩展' }), desc: t({ ko: '수도권 중심에서 전국 서비스 커버리지 확장', en: 'Expand coverage from capital region to nationwide', ja: '首都圏中心から全国サービスへ拡大', zh: '从首都圈扩展至全国服务覆盖' }) },
               { phase: '03', title: t({ ko: '종합 행사 솔루션', en: 'Total Event Solution', ja: '総合イベントソリューション', zh: '综合活动解决方案' }), desc: t({ ko: '기획·공간·사회자·장비까지 원스톱 행사 플랫폼으로 진화', en: 'Evolve into a one-stop event platform covering planning, venues, experts, and equipment', ja: '企画・会場・専門家・機材まで、ワンストップイベントプラットフォームへ進化', zh: '发展为涵盖策划、场地、专家、设备的一站式活动平台' }) },
             ].map((p, i) => (
-              <Reveal key={i} delay={i * 80}>
-                <div className="group flex items-start gap-6 pb-6 border-b border-gray-100 last:border-b-0 transition-all">
-                  <span className="text-[22px] md:text-[26px] font-medium text-gray-200 tabular-nums shrink-0 transition-colors duration-300 group-hover:text-[#3180F7]">{p.phase}</span>
-                  <div className="flex-1 pt-1">
-                    <h3 className="text-[16px] font-medium text-gray-800 transition-transform duration-300 group-hover:translate-x-1">{p.title}</h3>
-                    <p className="mt-1.5 text-[13px] text-gray-400 transition-colors duration-300 group-hover:text-gray-600">{p.desc}</p>
-                  </div>
+              <FadeUp key={p.phase} delay={i * 100}>
+                <div className="h-full rounded-[28px] bg-[#F9FAFB] p-7 md:p-9">
+                  <span className="text-[34px] font-bold leading-none tracking-[-0.03em] text-[#D1D6DB] tabular-nums md:text-[44px]">{p.phase}</span>
+                  <h3 className="mt-6 break-keep text-[20px] font-bold tracking-[-0.02em] text-[#191F28] md:text-[22px]">{p.title}</h3>
+                  <p className="mt-2 break-keep text-[15px] leading-[1.65] text-[#6B7684] md:text-[16px]">{p.desc}</p>
                 </div>
-              </Reveal>
+              </FadeUp>
             ))}
           </div>
         </div>
       </section>
 
       {/* ═══ 자료실 ═══════════════════════════════════════════ */}
-      <section id="자료실" className="py-28 bg-gray-50/60">
-        <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">RESOURCES</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '자료실', en: 'Resources', ja: '資料室', zh: '资料库' })}</h2></Reveal>
+      <section id="자료실" className="bg-[#F9FAFB] py-[120px] md:py-[160px]">
+        <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+          <FadeUp>
+            <p className={eyebrowCls}>RESOURCES</p>
+            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '자료실', en: 'Resources', ja: '資料室', zh: '资料库' })}</h2>
+          </FadeUp>
 
-          <div className="mt-12 grid gap-3 md:grid-cols-2">
+          <div className="mt-12 grid gap-3 md:mt-16 md:grid-cols-2 md:gap-4">
             {[
               { icon: <Download className="h-5 w-5" />, title: 'CI', desc: 'SVG', file: '/images/CI.svg' },
               { icon: <Download className="h-5 w-5" />, title: t({ ko: 'BI 가이드라인', en: 'BI Guideline', ja: 'BI ガイドライン', zh: 'BI 指南' }), desc: 'PDF', file: '/images/freetiful_bi.pdf' },
@@ -1286,158 +974,126 @@ export default function BizPage() {
               { icon: <Briefcase className="h-5 w-5" />, title: t({ ko: '파트너 제안서', en: 'Partner Proposal', ja: 'パートナー提案書', zh: '合作伙伴提案' }), desc: t({ ko: '제휴 안내', en: 'Partnership', ja: '提携案内', zh: '合作指南' }), file: '#문의폼' },
               { icon: <Shield className="h-5 w-5" />, title: t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' }), desc: '', file: 'privacy' },
             ].map((item, i) => (
-              <Reveal key={i} delay={i * 80}>
-                <div className="group relative">
-                  <button
-                    onClick={() => {
-                      if (item.file === 'privacy') { router.push('/terms/privacy'); return; }
-                      if (item.file.startsWith('#')) {
-                        document.querySelector(item.file)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        return;
-                      }
-                      setPreviewFile(item.file);
-                    }}
-                    className="flex w-full items-center gap-4 bg-white border border-gray-100 rounded-2xl p-5 text-left transition-all hover:border-gray-200 hover:shadow-sm"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500 transition-transform group-hover:scale-110">{item.icon}</div>
-                    <div className="flex-1"><p className="text-[15px] font-bold text-gray-900">{item.title}</p></div>
-                    {item.desc && <span className="text-[11px] text-gray-300">{item.desc}</span>}
-                    <ChevronRight className="h-4 w-4 text-gray-200 transition-transform group-hover:translate-x-1" />
-                  </button>
-                </div>
-              </Reveal>
+              <FadeUp key={i} delay={i * 70}>
+                <button
+                  onClick={() => {
+                    if (item.file === 'privacy') { router.push('/terms/privacy'); return; }
+                    if (item.file.startsWith('#')) {
+                      document.querySelector(item.file)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      return;
+                    }
+                    setPreviewFile(item.file);
+                  }}
+                  className="group flex w-full items-center gap-4 rounded-[20px] bg-white p-5 text-left transition-colors hover:bg-white/70 md:p-6"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#E8F3FF] text-[#3182F6]">{item.icon}</div>
+                  <p className="flex-1 text-[17px] font-semibold text-[#191F28]">{item.title}</p>
+                  {item.desc && <span className="text-[13px] font-medium text-[#8B95A1]">{item.desc}</span>}
+                  <ChevronRight className="h-5 w-5 text-[#C4CAD1] transition-transform group-hover:translate-x-1" />
+                </button>
+              </FadeUp>
             ))}
           </div>
         </div>
       </section>
 
       {/* ═══ 오시는길 ═══════════════════════════════════════════ */}
-      <section id="오시는길" className="py-28">
-        <div className="mx-auto max-w-[1000px] px-6">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">LOCATION</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '오시는길', en: 'How to Find Us', ja: 'アクセス', zh: '地理位置' })}</h2></Reveal>
+      <section id="오시는길" className="bg-white py-[120px] md:py-[160px]">
+        <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+          <FadeUp>
+            <p className={eyebrowCls}>LOCATION</p>
+            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '오시는길', en: 'How to Find Us', ja: 'アクセス', zh: '地理位置' })}</h2>
+          </FadeUp>
 
-          <div className="mt-12 w-full h-[320px] border border-gray-100 rounded-2xl overflow-hidden">
-            <BizKakaoMap />
-          </div>
+          <FadeUp delay={100} className="mt-12 md:mt-16">
+            <div className="h-[300px] w-full overflow-hidden rounded-[28px] bg-[#F2F4F6] md:h-[420px]">
+              <BizKakaoMap />
+            </div>
+          </FadeUp>
 
-          <div className="mt-8 grid gap-3 md:grid-cols-2">
+          <div className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4">
             {[
               { icon: <MapPin className="h-5 w-5" />, label: t({ ko: '주소', en: 'Address', ja: '住所', zh: '地址' }), value: COMPANY_INFO.address, copyable: true },
               { icon: <Phone className="h-5 w-5" />, label: t({ ko: '대표전화', en: 'Phone', ja: '代表電話', zh: '代表电话' }), value: COMPANY_INFO.phone, copyable: true },
               { icon: <Mail className="h-5 w-5" />, label: t({ ko: '이메일', en: 'Email', ja: 'メール', zh: '邮箱' }), value: COMPANY_INFO.email, copyable: true },
               { icon: <Clock className="h-5 w-5" />, label: t({ ko: '업무시간', en: 'Business Hours', ja: '営業時間', zh: '营业时间' }), value: t({ ko: '평일 09:00 - 18:00 (주말/공휴일 휴무)', en: 'Weekdays 09:00 - 18:00 (Closed weekends/holidays)', ja: '平日 09:00 - 18:00 (週末/祝日休み)', zh: '工作日 09:00 - 18:00 (周末/节假日休息)' }), copyable: false },
             ].map((item, i) => (
-              <Reveal key={i} delay={i * 80}>
+              <FadeUp key={i} delay={i * 70}>
                 <CopyableCard icon={item.icon} label={item.label} value={item.value} copyable={item.copyable} />
-              </Reveal>
+              </FadeUp>
             ))}
           </div>
 
-          <Reveal delay={200}>
-            <div className="mt-8 bg-gray-50 rounded-2xl p-6">
-              <p className="text-[11px] font-medium tracking-normal text-gray-300 mb-4">{t({ ko: '교통편 안내', en: 'GETTING HERE', ja: '交通案内', zh: '交通指南' })}</p>
-              <div className="space-y-3 text-[13px] text-gray-500">
-                <p><span className="text-blue-500 font-bold">{t({ ko: '지하철', en: 'Subway', ja: '地下鉄', zh: '地铁' })}</span> — {t({ ko: '1호선·3호선·5호선 종로3가역 도보 5분', en: '5-min walk from Jongno 3-ga Station (Lines 1·3·5)', ja: '1号線・3号線・5号線 鍾路3街駅 徒歩5分', zh: '1号线·3号线·5号线 钟路3街站步行5分钟' })}</p>
-                <p><span className="text-emerald-500 font-bold">{t({ ko: '버스', en: 'Bus', ja: 'バス', zh: '公交' })}</span> — {t({ ko: '종로6가 정류장 하차', en: 'Get off at Jongno 6-ga stop', ja: '鍾路6街バス停下車', zh: '钟路6街站下车' })}</p>
+          <FadeUp delay={150}>
+            <div className="mt-4 rounded-[20px] bg-[#F9FAFB] p-6">
+              <p className="mb-4 text-[13px] font-semibold text-[#8B95A1]">{t({ ko: '교통편 안내', en: 'GETTING HERE', ja: '交通案内', zh: '交通指南' })}</p>
+              <div className="space-y-3 text-[15px] text-[#4E5968] md:text-[16px]">
+                <p><span className="font-bold text-[#3182F6]">{t({ ko: '지하철', en: 'Subway', ja: '地下鉄', zh: '地铁' })}</span> — {t({ ko: '1호선·3호선·5호선 종로3가역 도보 5분', en: '5-min walk from Jongno 3-ga Station (Lines 1·3·5)', ja: '1号線・3号線・5号線 鍾路3街駅 徒歩5分', zh: '1号线·3号线·5号线 钟路3街站步行5分钟' })}</p>
+                <p><span className="font-bold text-[#03B26C]">{t({ ko: '버스', en: 'Bus', ja: 'バス', zh: '公交' })}</span> — {t({ ko: '종로6가 정류장 하차', en: 'Get off at Jongno 6-ga stop', ja: '鍾路6街バス停下車', zh: '钟路6街站下车' })}</p>
               </div>
             </div>
-          </Reveal>
+          </FadeUp>
         </div>
       </section>
 
-      {/* ═══ 기업문의 (CTA + 캐릭터) ══════════════════════════ */}
-      <section className="relative py-32 overflow-hidden bg-gradient-to-b from-white via-blue-50/30 to-white">
-        {/* 배경 글로우 */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-[120px]" />
-
-        <div className="relative z-10 mx-auto max-w-[900px] px-6">
-          <div className="flex flex-col items-center md:flex-row md:items-center md:gap-12">
-            {/* MC 캐릭터 */}
-            <Reveal>
-              <div className="shrink-0 mb-8 md:mb-0">
-                <Image
-                  src="/images/mc-characters.png"
-                  alt="MC Characters"
-                  width={400}
-                  height={300}
-                  className="w-[280px] md:w-[340px] drop-shadow-2xl"
-                />
-              </div>
-            </Reveal>
-
-            {/* CTA 영역 */}
-            <div className="flex-1 text-center md:text-left">
-              <Reveal delay={100}>
-                <p className="text-[11px] font-medium tracking-normal text-blue-400 mb-3">CONTACT US</p>
-                <h2 className="text-[32px] font-bold tracking-tight leading-[1.2] md:text-[40px]">
-                  {t({
-                    ko: <>당신의 특별한 순간,<br /><span className="text-blue-500">프리티풀</span>과 함께하세요</>,
-                    en: <>Your special moments,<br />with <span className="text-blue-500">Freetiful</span></>,
-                    ja: <>あなたの特別な瞬間、<br /><span className="text-blue-500">Freetiful</span> と共に</>,
-                    zh: <>您的特别时刻,<br />与 <span className="text-blue-500">Freetiful</span> 同行</>,
-                  }) as any}
-                </h2>
-                <p className="mt-4 text-[14px] leading-[1.5] text-gray-400">
-                  {t({
-                    ko: <>아나운서·MC 섭외부터 행사기획까지<br />검증된 사회자가 함께합니다.</>,
-                    en: <>From booking announcers and MCs to full event planning,<br />verified professionals are with you.</>,
-                    ja: <>アナウンサー・MC のブッキングからイベント企画まで、<br />認証済みの専門家がサポートします。</>,
-                    zh: <>从主播、MC 预约到活动策划,<br />认证专业人士全程陪同。</>,
-                  }) as any}
-                </p>
-              </Reveal>
-
-              {/* 파동 버튼 */}
-              <Reveal delay={300}>
-                <div className="mt-8 flex justify-center md:justify-start">
-                  <button
-                    onClick={() => scrollTo('문의폼')}
-                    className="group relative px-10 py-4 text-[16px] font-bold text-white rounded-full overflow-hidden transition-all duration-300 active:scale-95"
-                    style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
-                  >
-                    {/* 파동 링 1 */}
-                    <span className="absolute inset-0 rounded-full border-2 border-blue-400/40 animate-[ripple1_2.5s_ease-out_infinite]" />
-                    {/* 파동 링 2 */}
-                    <span className="absolute inset-0 rounded-full border-2 border-blue-300/30 animate-[ripple2_2.5s_ease-out_0.8s_infinite]" />
-                    {/* 파동 링 3 */}
-                    <span className="absolute inset-0 rounded-full border border-blue-200/20 animate-[ripple3_2.5s_ease-out_1.6s_infinite]" />
-                    {/* 쉬머 */}
-                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    {/* 글로우 */}
-                    <span className="absolute -inset-1 rounded-full bg-blue-500/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <span className="relative z-10 flex items-center gap-2">
-                      <Send className="h-4 w-4" />
-                      {t({ ko: '지금 문의하기', en: 'Contact Now', ja: '今すぐお問合せ', zh: '立即咨询' })}
-                    </span>
-                  </button>
-                </div>
-              </Reveal>
-            </div>
-          </div>
+      {/* ═══ 기업문의 — 큰 마무리 문장 ════════════════════════════ */}
+      <section className="relative overflow-hidden bg-[#F9FAFB] py-[120px] md:py-[180px]">
+        <div className="relative z-10 mx-auto max-w-[900px] px-6 text-center">
+          <FadeUp className="flex justify-center">
+            <Image src="/images/mc-characters.png" alt="MC Characters" width={400} height={300} className="w-[240px] md:w-[320px]" />
+          </FadeUp>
+          <FadeUp delay={100}>
+            <h2 className={`mt-10 break-keep ${h2Cls}`}>
+              {t<React.ReactNode>({
+                ko: <>당신의 특별한 순간,<br /><span className="text-[#3182F6]">프리티풀</span>과 함께하세요</>,
+                en: <>Your special moments,<br />with <span className="text-[#3182F6]">Freetiful</span></>,
+                ja: <>あなたの特別な瞬間、<br /><span className="text-[#3182F6]">Freetiful</span> と共に</>,
+                zh: <>您的特别时刻,<br />与 <span className="text-[#3182F6]">Freetiful</span> 同行</>,
+              })}
+            </h2>
+            <p className={`mx-auto mt-6 max-w-[560px] ${leadCls}`}>
+              {t<React.ReactNode>({
+                ko: <>아나운서·MC 섭외부터 행사기획까지<br />검증된 사회자가 함께합니다.</>,
+                en: <>From booking announcers and MCs to full event planning,<br />verified professionals are with you.</>,
+                ja: <>アナウンサー・MC のブッキングからイベント企画まで、<br />認証済みの専門家がサポートします。</>,
+                zh: <>从主播、MC 预约到活动策划,<br />认证专业人士全程陪同。</>,
+              })}
+            </p>
+          </FadeUp>
+          <FadeUp delay={220} className="mt-10 flex justify-center">
+            <button
+              onClick={() => scrollTo('문의폼')}
+              className="inline-flex h-14 items-center gap-2 rounded-[16px] bg-[#3182F6] px-8 text-[17px] font-bold text-white transition-colors hover:bg-[#1B64DA] active:scale-[0.98]"
+            >
+              <Send className="h-4 w-4" />
+              {t({ ko: '지금 문의하기', en: 'Contact Now', ja: '今すぐお問合せ', zh: '立即咨询' })}
+            </button>
+          </FadeUp>
         </div>
       </section>
 
       {/* ═══ 문의 폼 ═══════════════════════════════════════════ */}
-      <section id="문의폼" className="py-28 bg-gray-50/60">
-        <div id="문의" className="mx-auto max-w-[600px] px-6">
-          <Reveal><p className="text-[11px] font-medium tracking-normal text-blue-500">INQUIRY FORM</p></Reveal>
-          <Reveal delay={100}><h2 className="mt-3 text-[34px] font-bold">{t({ ko: '기업 문의', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}</h2></Reveal>
+      <section id="문의폼" className="bg-white py-[120px] md:py-[160px]">
+        <div id="문의" className="mx-auto max-w-[640px] px-6">
+          <FadeUp className="text-center">
+            <p className={eyebrowCls}>INQUIRY FORM</p>
+            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '기업 문의', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}</h2>
+          </FadeUp>
 
-          <Reveal delay={200}>
-            <form onSubmit={handleInquiry} className="mt-10 space-y-3">
+          <FadeUp delay={120}>
+            <form onSubmit={handleInquiry} className="mt-12 space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '회사명', en: 'Company', ja: '会社名', zh: '公司名称' })} value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '담당자명 *', en: 'Contact Name *', ja: '担当者名 *', zh: '联系人 *' })} value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
+                <input className={inputCls} placeholder={t({ ko: '회사명', en: 'Company', ja: '会社名', zh: '公司名称' })} value={inquiry.company} onChange={(e) => setInquiry({ ...inquiry, company: e.target.value })} />
+                <input className={inputCls} placeholder={t({ ko: '담당자명 *', en: 'Contact Name *', ja: '担当者名 *', zh: '联系人 *' })} value={inquiry.name} onChange={(e) => setInquiry({ ...inquiry, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '연락처 *', en: 'Phone *', ja: '連絡先 *', zh: '联系电话 *' })} value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
-                <input className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '이메일', en: 'Email', ja: 'メール', zh: '邮箱' })} value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
+                <input className={inputCls} placeholder={t({ ko: '연락처 *', en: 'Phone *', ja: '連絡先 *', zh: '联系电话 *' })} value={inquiry.phone} onChange={(e) => setInquiry({ ...inquiry, phone: e.target.value })} required />
+                <input className={inputCls} placeholder={t({ ko: '이메일', en: 'Email', ja: 'メール', zh: '邮箱' })} value={inquiry.email} onChange={(e) => setInquiry({ ...inquiry, email: e.target.value })} />
               </div>
               <select
                 value={inquiry.type}
                 onChange={(e) => setInquiry({ ...inquiry, type: e.target.value })}
-                className="h-12 w-full border border-gray-200 rounded-xl bg-white px-4 text-[16px] text-gray-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
+                className={`${inputCls} ${inquiry.type ? '' : 'text-[#B0B8C1]'}`}
               >
                 <option value="">{t({ ko: '문의유형 선택', en: 'Select inquiry type', ja: 'お問合せ種別を選択', zh: '选择咨询类型' })}</option>
                 <option value="wedding">{t({ ko: '결혼식 사회자 섭외', en: 'Wedding MC Booking', ja: '結婚式司会者の依頼', zh: '婚礼主持人预约' })}</option>
@@ -1447,19 +1103,19 @@ export default function BizPage() {
                 <option value="partnership">{t({ ko: '제휴 / 파트너십', en: 'Partnership', ja: '提携 / パートナーシップ', zh: '合作 / 合作伙伴' })}</option>
                 <option value="other">{t({ ko: '기타', en: 'Other', ja: 'その他', zh: '其他' })}</option>
               </select>
-              <textarea className="h-32 w-full resize-none border border-gray-200 rounded-xl bg-white px-4 py-3 text-[16px] text-gray-900 outline-none transition-all placeholder-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-50" placeholder={t({ ko: '문의 내용 *', en: 'Message *', ja: 'お問合せ内容 *', zh: '咨询内容 *' })} value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
+              <textarea className={`${inputCls} h-36 resize-none py-4`} placeholder={t({ ko: '문의 내용 *', en: 'Message *', ja: 'お問合せ内容 *', zh: '咨询内容 *' })} value={inquiry.message} onChange={(e) => setInquiry({ ...inquiry, message: e.target.value })} required />
               {/* 파일 첨부 */}
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 transition-colors text-[14px] text-gray-500">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                <label className="flex cursor-pointer items-center gap-2 rounded-[12px] bg-[#F2F4F6] px-4 py-3 text-[15px] font-medium text-[#4E5968] transition-colors hover:bg-[#E5E8EB]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
                   {t({ ko: '파일 첨부', en: 'Attach File', ja: 'ファイル添付', zh: '附件' })}
                   <input type="file" className="hidden" onChange={(e) => setInquiryFile(e.target.files?.[0] || null)} />
                 </label>
                 {inquiryFile && (
-                  <div className="flex items-center gap-2 text-[13px] text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg">
-                    <span className="truncate max-w-[200px]">{inquiryFile.name}</span>
-                    <button type="button" onClick={() => setInquiryFile(null)} className="text-gray-400 hover:text-red-500">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  <div className="flex items-center gap-2 rounded-[10px] bg-[#F9FAFB] px-3 py-2 text-[14px] text-[#4E5968]">
+                    <span className="max-w-[200px] truncate">{inquiryFile.name}</span>
+                    <button type="button" onClick={() => setInquiryFile(null)} className="text-[#B0B8C1] hover:text-[#F04452]" aria-label="첨부 지우기">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
                     </button>
                   </div>
                 )}
@@ -1467,42 +1123,38 @@ export default function BizPage() {
               <button
                 type="submit"
                 disabled={sending}
-                className="group relative flex w-full items-center justify-center gap-2 py-4 text-[15px] font-bold text-white rounded-xl overflow-hidden transition-all active:scale-[0.98] disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #3B82F6, #2563EB, #1D4ED8)' }}
+                className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-[16px] bg-[#3182F6] text-[17px] font-bold text-white transition-colors hover:bg-[#1B64DA] active:scale-[0.99] disabled:opacity-50"
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <span className="relative z-10 flex items-center gap-2">
-                  <Send className="h-4 w-4" /> {sending ? t({ ko: '전송 중...', en: 'Sending...', ja: '送信中...', zh: '发送中...' }) : t({ ko: '문의하기', en: 'Submit', ja: 'お問合せ', zh: '提交' })}
-                </span>
+                <Send className="h-4 w-4" /> {sending ? t({ ko: '전송 중...', en: 'Sending...', ja: '送信中...', zh: '发送中...' }) : t({ ko: '문의하기', en: 'Submit', ja: 'お問合せ', zh: '提交' })}
               </button>
-              <p className="text-[11px] text-gray-300 text-center">{t({
+              <p className="pt-1 text-center text-[13px] text-[#8B95A1]">{t({
                 ko: '문의 접수 후 영업일 기준 1~2일 내 담당자가 연락드립니다',
                 en: 'We will get back to you within 1-2 business days',
                 ja: 'お問合せ後、営業日 1~2 日以内に担当者よりご連絡いたします',
                 zh: '收到咨询后,我们将在 1-2 个工作日内回复您',
               })}</p>
             </form>
-          </Reveal>
+          </FadeUp>
         </div>
       </section>
 
       {/* ═══ Footer ═══════════════════════════════════════════ */}
-      <footer className="border-t border-gray-100 py-12 pb-28 md:pb-12 bg-white">
-        <div className="mx-auto max-w-[1000px] px-6">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <footer className="bg-[#F9FAFB] py-14 pb-32 md:pb-16">
+        <div className="mx-auto max-w-[1140px] px-6 md:px-10">
+          <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-[16px] font-bold text-gray-900">Freetiful <span className="text-gray-300 font-normal text-[12px]">for Business</span></p>
-              <p className="mt-1 text-[11px] text-gray-300">{COMPANY_INFO.name} | {t({ ko: '대표', en: 'CEO', ja: '代表', zh: '代表' })} {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
-              <p className="text-[10px] text-gray-200">Copyright &copy; Freetiful Inc. All rights reserved.</p>
+              <p className="text-[17px] font-bold text-[#333D4B]">Freetiful <span className="text-[13px] font-medium text-[#8B95A1]">for Business</span></p>
+              <p className="mt-3 text-[13px] leading-[1.7] text-[#8B95A1]">{COMPANY_INFO.name} | {t({ ko: '대표', en: 'CEO', ja: '代表', zh: '代表' })} {COMPANY_INFO.ceo} | T {COMPANY_INFO.phone} | E {COMPANY_INFO.email}</p>
+              <p className="mt-1 text-[12px] text-[#B0B8C1]">Copyright &copy; Freetiful Inc. All rights reserved.</p>
             </div>
-            <div className="flex flex-wrap gap-4 text-[12px] text-gray-300">
-              <a href={COMPANY_INFO.blog} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '블로그', en: 'Blog', ja: 'ブログ', zh: '博客' })}</a>
-              <a href={`https://instagram.com/${COMPANY_INFO.instagram}`} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '인스타그램', en: 'Instagram', ja: 'Instagram', zh: 'Instagram' })}</a>
-              <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '유튜브', en: 'YouTube', ja: 'YouTube', zh: 'YouTube' })}</a>
-              <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gray-500">{t({ ko: '틱톡', en: 'TikTok', ja: 'TikTok', zh: 'TikTok' })}</a>
-              <Link href="/terms/privacy" className="transition-colors hover:text-gray-500">{t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' })}</Link>
-              <Link href="/careers" className="transition-colors hover:text-gray-500">{t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' })}</Link>
-              <Link href="/main" className="transition-colors hover:text-gray-500">{t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}</Link>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-[14px] font-medium text-[#6B7684]">
+              <a href={COMPANY_INFO.blog} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#191F28]">{t({ ko: '블로그', en: 'Blog', ja: 'ブログ', zh: '博客' })}</a>
+              <a href={`https://instagram.com/${COMPANY_INFO.instagram}`} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#191F28]">{t({ ko: '인스타그램', en: 'Instagram', ja: 'Instagram', zh: 'Instagram' })}</a>
+              <a href={COMPANY_INFO.youtube} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#191F28]">{t({ ko: '유튜브', en: 'YouTube', ja: 'YouTube', zh: 'YouTube' })}</a>
+              <a href={COMPANY_INFO.tiktok} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#191F28]">{t({ ko: '틱톡', en: 'TikTok', ja: 'TikTok', zh: 'TikTok' })}</a>
+              <Link href="/terms/privacy" className="transition-colors hover:text-[#191F28]">{t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' })}</Link>
+              <Link href="/careers" className="transition-colors hover:text-[#191F28]">{t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' })}</Link>
+              <Link href="/main" className="transition-colors hover:text-[#191F28]">{t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}</Link>
             </div>
           </div>
         </div>
@@ -1511,21 +1163,11 @@ export default function BizPage() {
       {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
       <nav
         data-native-biz-nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe transition-all duration-700"
-        style={{
-          transform: receptionFullscreen ? 'translateY(100%)' : 'translateY(0)',
-          opacity: receptionFullscreen ? 0 : 1,
-        }}
+        className="pb-safe fixed bottom-0 left-0 right-0 z-50 px-4 md:hidden"
       >
-        <div
-          className="max-w-lg mx-auto mb-2"
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-start',
-          }}
-        >
+        <div className="mx-auto mb-2 max-w-lg" style={{ display: 'flex', justifyContent: 'flex-start' }}>
           <div
-            className="bg-white/90 backdrop-blur-2xl shadow-[0_-4px_30px_rgba(0,0,0,0.08)] border border-gray-100/60 transition-all duration-500"
+            className="border border-gray-100/60 bg-white/90 shadow-[0_-4px_30px_rgba(0,0,0,0.08)] backdrop-blur-2xl transition-all duration-500"
             style={{
               width: bizNavCollapsing ? 60 : '100%',
               maxWidth: bizNavCollapsing ? 60 : 512,
@@ -1539,7 +1181,7 @@ export default function BizPage() {
               ...(bizNavExpanding ? { animation: 'bizPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
             }}
           >
-            <div className="flex items-center h-full px-2">
+            <div className="flex h-full items-center px-2">
               {/* 홈 이동 버튼 */}
               <button
                 onClick={() => {
@@ -1547,13 +1189,14 @@ export default function BizPage() {
                   setBizNavCollapsing(true);
                   setTimeout(() => router.push('/main'), 500);
                 }}
-                className={`flex items-center justify-center w-[48px] h-[48px] shrink-0 -ml-1 rounded-full transition-all duration-500 active:scale-90 ${bizNavCollapsing ? 'bg-transparent text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                className={`-ml-1 flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full transition-all duration-500 active:scale-90 ${bizNavCollapsing ? 'bg-transparent text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                aria-label={t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
 
               {/* 네비 아이템들 */}
-              <div className="flex-1 flex items-center justify-around">
+              <div className="flex flex-1 items-center justify-around">
                 {[
                   { id: '회사소개', iconSrc: '/images/company-intro.svg', label: t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' }) },
                   { id: '핵심서비스', iconSrc: '/images/service.svg', label: t({ ko: '서비스', en: 'Services', ja: 'サービス', zh: '服务' }) },
@@ -1562,79 +1205,79 @@ export default function BizPage() {
                 ].map((item, idx) => {
                   const isInquiry = item.id === '문의';
                   return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      scrollTo(isInquiry ? '문의폼' : item.id);
-                      if (isInquiry) setInquiryBubbleHidden(true);
-                    }}
-                    className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all active:scale-90 ${isInquiry ? '' : 'text-gray-400 hover:text-gray-700'}`}
-                    style={{
-                      opacity: bizNavCollapsing ? 0 : 1,
-                      transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
-                      filter: bizNavCollapsing ? 'blur(4px)' : 'blur(0px)',
-                      transition: bizNavCollapsing
-                        ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
-                        : 'opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease',
-                      ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
-                    }}
-                  >
-                    {isInquiry ? (
-                      <div
-                        className="w-5 h-5 relative"
-                        style={{
-                          WebkitMask: `url(${item.iconSrc}) no-repeat center / contain`,
-                          mask: `url(${item.iconSrc}) no-repeat center / contain`,
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        scrollTo(isInquiry ? '문의폼' : item.id);
+                        if (isInquiry) setInquiryBubbleHidden(true);
+                      }}
+                      className={`relative flex flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 transition-all active:scale-90 ${isInquiry ? '' : 'text-gray-400 hover:text-gray-700'}`}
+                      style={{
+                        opacity: bizNavCollapsing ? 0 : 1,
+                        transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
+                        filter: bizNavCollapsing ? 'blur(4px)' : 'blur(0px)',
+                        transition: bizNavCollapsing
+                          ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
+                          : 'opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease',
+                        ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
+                      }}
+                    >
+                      {isInquiry ? (
+                        <div
+                          className="relative h-5 w-5"
+                          style={{
+                            WebkitMask: `url(${item.iconSrc}) no-repeat center / contain`,
+                            mask: `url(${item.iconSrc}) no-repeat center / contain`,
+                            background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
+                            backgroundSize: '200% 100%',
+                            animation: 'iconGradientShift 2s linear infinite',
+                          }}
+                        />
+                      ) : (
+                        <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
+                      )}
+                      <span
+                        className="whitespace-nowrap text-[9px] font-medium"
+                        style={isInquiry ? {
                           background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
                           backgroundSize: '200% 100%',
-                          animation: 'iconGradientShift 2s linear infinite',
-                        }}
-                      />
-                    ) : (
-                      <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
-                    )}
-                    <span
-                      className={`text-[9px] font-medium whitespace-nowrap ${isInquiry ? '' : ''}`}
-                      style={isInquiry ? {
-                        background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
-                        backgroundSize: '200% 100%',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        animation: 'textGradientShift 2s linear infinite',
-                        fontWeight: 700,
-                      } : {}}
-                    >
-                      {item.label}
-                    </span>
-                    {/* 문의하기 말풍선 — 문의 버튼 바로 위에 고정(화면 비율 무관) */}
-                    {isInquiry && !inquiryBubbleHidden && !bizNavCollapsing && (
-                      <div
-                        className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 pointer-events-none whitespace-nowrap"
-                        style={{
-                          animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
-                          zIndex: 51,
-                        }}
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          backgroundClip: 'text',
+                          animation: 'textGradientShift 2s linear infinite',
+                          fontWeight: 700,
+                        } : {}}
                       >
-                        <div className="relative bg-white rounded-full px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)] border border-gray-100">
-                          <span
-                            className="text-[11px] font-bold"
-                            style={{
-                              background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
-                              backgroundSize: '200% 100%',
-                              WebkitBackgroundClip: 'text',
-                              WebkitTextFillColor: 'transparent',
-                              backgroundClip: 'text',
-                              animation: 'textGradientShift 2.5s ease-in-out infinite',
-                            }}
-                          >
-                            문의하기
-                          </span>
-                          <div className="absolute left-1/2 -translate-x-1/2 -bottom-[4px] w-2 h-2 bg-white border-r border-b border-gray-100 rotate-45" />
+                        {item.label}
+                      </span>
+                      {/* 문의하기 말풍선 — 문의 버튼 바로 위에 고정(화면 비율 무관) */}
+                      {isInquiry && !inquiryBubbleHidden && !bizNavCollapsing && (
+                        <div
+                          className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap"
+                          style={{
+                            animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
+                            zIndex: 51,
+                          }}
+                        >
+                          <div className="relative rounded-full border border-gray-100 bg-white px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
+                            <span
+                              className="text-[11px] font-bold"
+                              style={{
+                                background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
+                                backgroundSize: '200% 100%',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                animation: 'textGradientShift 2.5s ease-in-out infinite',
+                              }}
+                            >
+                              문의하기
+                            </span>
+                            <div className="absolute -bottom-[4px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-gray-100 bg-white" />
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </button>
+                      )}
+                    </button>
                   );
                 })}
               </div>
@@ -1676,14 +1319,6 @@ export default function BizPage() {
           0% { background-position: 0% 50%; }
           100% { background-position: 200% 50%; }
         }
-        @keyframes receptionFadeIn {
-          0% { opacity: 0; transform: scale(1.05); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes receptionFadeOut {
-          0% { opacity: 1; transform: scale(1); }
-          100% { opacity: 0; transform: scale(0.95); }
-        }
         @keyframes menuSlideIn {
           0% { transform: translateX(100%); }
           100% { transform: translateX(0); }
@@ -1696,33 +1331,33 @@ export default function BizPage() {
 
       {/* ═══ 파일 미리보기 모달 ═══════════════════════════════ */}
       {previewFile && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setPreviewFile(null)}>
-          <div className="relative w-full max-w-[900px] max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden animate-[scaleIn_0.2s_ease-out] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <p className="text-[16px] font-bold text-gray-900">{previewFile.split('/').pop()}</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setPreviewFile(null)}>
+          <div className="relative flex max-h-[90vh] w-full max-w-[900px] animate-[scaleIn_0.2s_ease-out] flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#F2F4F6] px-6 py-4">
+              <p className="text-[16px] font-bold text-[#191F28]">{previewFile.split('/').pop()}</p>
               <div className="flex items-center gap-2">
                 <a
                   href={previewFile}
                   download
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-[13px] font-bold rounded-lg hover:bg-gray-800 active:scale-95 transition-all"
+                  className="flex items-center gap-1.5 rounded-[10px] bg-[#3182F6] px-4 py-2 text-[13px] font-bold text-white transition-all hover:bg-[#1B64DA] active:scale-95"
                 >
                   <Download className="h-3.5 w-3.5" />
                   다운로드
                 </a>
-                <button onClick={() => setPreviewFile(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <X className="h-5 w-5 text-gray-400" />
+                <button onClick={() => setPreviewFile(null)} className="rounded-[10px] p-2 transition-colors hover:bg-[#F2F4F6]" aria-label="닫기">
+                  <X className="h-5 w-5 text-[#8B95A1]" />
                 </button>
               </div>
             </div>
-            {/* 미리보기 */}
-            <div className="flex-1 overflow-auto bg-gray-50 p-4 flex items-center justify-center min-h-[400px]">
+            <div className="flex min-h-[400px] flex-1 items-center justify-center overflow-auto bg-[#F9FAFB] p-4">
               {previewFile.endsWith('.svg') ? (
-                <img src={previewFile} alt="CI" className="max-w-full max-h-[70vh] object-contain" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewFile} alt="CI" className="max-h-[70vh] max-w-full object-contain" />
               ) : previewFile.endsWith('.pdf') ? (
-                <iframe src={previewFile} className="w-full h-[70vh] border-0 rounded-lg" />
+                <iframe src={previewFile} className="h-[70vh] w-full rounded-lg border-0" />
               ) : (
-                <img src={previewFile} alt="Preview" className="max-w-full max-h-[70vh] object-contain" />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewFile} alt="Preview" className="max-h-[70vh] max-w-full object-contain" />
               )}
             </div>
           </div>
