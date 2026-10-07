@@ -48,6 +48,7 @@ export const WEDDING_PARTNER_CATEGORY_ICONS: Record<WeddingPartnerCategory, stri
  */
 export const CATEGORY_TILE_DEFAULT = '#F6F6F6';
 export const CATEGORY_TILE_TINTS: Record<string, string> = {
+  'biz.png': '#F8EEE3', // 비즈(PC 전용, 261007) — 캐러멜 가죽 가방 베이지
   'wedding-mc-icon.png': '#F2F6E8', // 백합 잎 연두·크림
   'event-mc-icon.png': '#FBEBEC', // 와인 로제
   'foreign-mc.png': '#EAF3FC', // 지구본 하늘

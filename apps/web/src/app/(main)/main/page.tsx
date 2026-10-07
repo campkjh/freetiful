@@ -1528,6 +1528,8 @@ function ApplianceIconSwap() {
 
 type HomeCategoryItem = { name: string; img: string; href: string };
 const HOME_CATEGORY_ICON_DIR = '/images/category-icons';
+/** 비즈 — PC 에서만 결혼식사회자 앞에(261007 사장). 모바일 5×2 칸·쪽 나누기에는 넣지 않는다(첫 쪽 앞에 hidden lg:flex 로만) */
+const HOME_PC_BIZ_ITEM: HomeCategoryItem = { name: '비즈', img: `${HOME_CATEGORY_ICON_DIR}/biz.png`, href: '/biz' };
 
 function getHomeCategoryItems(): HomeCategoryItem[] {
   const weddingPartnerCats = WEDDING_PARTNER_CATEGORIES
@@ -1603,13 +1605,16 @@ function CategorySwiper() {
       <div ref={scrollRef} className="flex snap-x snap-mandatory overflow-x-auto scrollbar-hide" style={{ scrollBehavior: 'smooth' }}>
         {pages.map((pageCats, pageIndex) => (
           <div key={pageIndex} className="w-full shrink-0 snap-start">
-            <div className="grid grid-cols-5 gap-x-1 gap-y-3 py-2 pl-[18px] pr-[10px] lg:grid-cols-10 lg:gap-x-3 lg:px-2 lg:py-3">
-              {/* PC 는 10칸 한 줄(260926 사장 "5×2 말고 일렬로 나란히"), 모바일은 5×2 그대로 */}
-              {pageCats.map((item, index) => (
+            <div className="grid grid-cols-5 gap-x-1 gap-y-3 py-2 pl-[18px] pr-[10px] lg:grid-cols-11 lg:gap-x-3 lg:px-2 lg:py-3">
+              {/* PC 는 한 줄(260926 사장 "5×2 말고 일렬로 나란히") — 맨 앞 비즈까지 11칸(261007), 모바일은 비즈 없이 5×2 그대로 */}
+              {(pageIndex === 0 ? [HOME_PC_BIZ_ITEM, ...pageCats] : pageCats).map((item, i) => {
+                const pcOnly = item === HOME_PC_BIZ_ITEM;
+                const index = pageIndex === 0 ? i - 1 : i;
+                return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="flex flex-col items-center gap-0.5 opacity-0 lg:gap-1"
+                  className={`${pcOnly ? 'hidden lg:flex' : 'flex'} flex-col items-center gap-0.5 opacity-0 lg:gap-1`}
                   style={skipAnim ? { opacity: 1 } : { animation: `fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${0.2 + index * 0.03}s forwards` }}
                 >
                   {/* 아이콘 뒤 둥근 타일(사장 레퍼런스 260925: 모서리 약 1/3) — 색은 아이콘마다 그 그림 색을 아주 옅게(260926, lib/business-categories CATEGORY_TILE_TINTS).
@@ -1626,7 +1631,8 @@ function CategorySwiper() {
                     {item.name}
                   </span>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
