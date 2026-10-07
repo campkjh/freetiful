@@ -12,6 +12,7 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import AccountSwitcher, { SavedAccountsQuickList, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
+import BizHeaderButton from '@/components/BizHeaderButton';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
@@ -546,7 +547,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             />
           </Link>
 
-          {/* 세그먼트 네비 — 회색 트랙 위에서 흰 알약이 탭 사이를 미끄러진다(제이씨랩 톤) */}
+          {/* 세그먼트 네비 — 회색 트랙 위에서 흰 알약이 탭 사이를 미끄러진다(제이씨랩 톤).
+              홈 바로 왼쪽에 따로 떨어진 '프리티풀 비즈' 버튼(261007 사장) — 네비 묶음 가운데 정렬이 흔들리지 않게 묶음 밖에 붙인다(첫 진입 말풍선은 BizHeaderButton) */}
+          <div className="relative">
+          <div className="absolute bottom-0 right-full top-0 mr-2.5 flex items-center">
+            <BizHeaderButton />
+          </div>
           <LayoutGroup id="pc-nav">
             <nav className="flex items-center gap-1 rounded-[14px] bg-[#F2F3F5] p-1">
               {NAV_ITEMS.map(({ href, label }) => {
@@ -580,6 +586,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               })}
             </nav>
           </LayoutGroup>
+          </div>
 
           {/* 모바일 홈 헤더와 같은 종·돋보기(260928 사장 'PC 도 모바일 헤더랑 동일하게') — 종 = 오른쪽 알림 서랍(모바일 알림 화면 그대로), 돋보기 = 검색
               웨딩숲에선 돋보기 대신 웨딩숲 검색창(260928 사장 'PC 웨딩숲 헤더 2개 → 원래 헤더 빼고 검색창도 헤더로') */}

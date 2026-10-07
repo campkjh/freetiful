@@ -3381,6 +3381,21 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
   from { opacity: 1; }
   to { opacity: 0; }
 }
+/* PC 머리줄 '프리티풀 비즈' 말풍선(261007 사장 '퀵매칭 말풍선 애니메이션·디자인 그대로, 아이콘·색상만') — 위 .qm-bubble 그대로에 색만 덧칠.
+   유리 = 꼬리 쪽 따뜻한 흰색 80%(같은 구간), 그림자 = 갈색 기, 제목 = 앞쪽(강조 '기업 행사는')이 캐러멜 → 짙은 갈색 → 44% 에서 검은 본문 */
+.qm-bubble.biz .qm-bubble-glass {
+  background: linear-gradient(180deg,
+    rgba(255, 251, 246, 0.8) 0%, rgba(255, 251, 246, 0.8) 14%, rgba(255, 252, 248, 0.84) 21%,
+    rgba(255, 253, 250, 0.9) 27%, rgba(255, 254, 252, 0.96) 31.5%, #FFFEFD 35%, #FFFEFD 100%);
+}
+.qm-bubble.biz .qm-bubble-shadow { box-shadow: 0 14px 30px -12px rgba(72, 44, 22, 0.16), 0 4px 14px -6px rgba(72, 44, 22, 0.07); }
+.qm-bubble.biz .qm-bubble-title {
+  background: linear-gradient(90deg,
+    #B36B27 0%, #AC6626 4%, #A15F25 8%, #955823 12%, #8A5122 16%, #7A4720 20%, #6A3E1F 24%,
+    #5B371F 28%, #4C301F 32%, #3E2A20 36%, #2E2421 40%, #191F28 44%, #191F28 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+}
+.qm-bubble.biz .qm-bubble-ic img { display: block; width: 28px; height: 28px; object-fit: contain; }
 @media (prefers-reduced-motion: reduce) {
   .qm-bubble, .qm-bubble * { animation: none !important; }
 }
