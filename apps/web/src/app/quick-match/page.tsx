@@ -1237,6 +1237,18 @@ export default function QuickMatchPage() {
           ].filter(Boolean),
           source: suppressed ? 'quick-match-test' : 'quick-match',
           ...utm,
+          // 시트 뒤쪽에 칸을 더하면 바로 찍히도록 미리 보내는 값(261009 — 지금 Apps Script 는 안 읽는다, 칸 추가는 사장이 스크립트에서)
+          eventTime: time,
+          venue: venue.trim(),
+          mood: [...moods].join('/'),
+          eventPart: part,
+          genderPref: genderLabel,
+          contactMethod: contact,
+          selectedPros: pickedNames,
+          selectedCount: selected.size,
+          phoneShared: phoneShared ? 'Y' : 'N',
+          matchRequestId: res?.matchRequest?.id || '',
+          isTest: suppressed ? 'Y' : 'N',
         }),
       }).catch(() => undefined);
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));

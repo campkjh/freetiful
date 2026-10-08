@@ -487,6 +487,11 @@ export default function WeddingMcLandingPage() {
         tier,
         source: 'freetiful-mc-wedding-v3',
         ...utm,
+        // 시트 뒤쪽에 칸을 더하면 바로 찍히도록 미리 보내는 값(261009 — 지금 Apps Script 는 안 읽는다). 퀵매칭과 같은 키
+        eventTime: timePart || '',
+        venue: addressDetail.trim(),
+        matchRequestId: activeMatch?.matchRequestId || '',
+        isTest: isTestSubmission(name.trim(), authUser?.id) ? 'Y' : 'N',
       }),
     }).catch(() => undefined);
     setStage('matching');
