@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -9,6 +10,7 @@ import { NotificationService } from '../notification/notification.service';
 import { ImageService } from '../image/image.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { randomUUID } from 'crypto';
+import { toSecureImageUrl } from '../common/default-avatar';
 
 const NOTIFICATION_SETTING_FIELDS = [
   'chatPush',
@@ -71,16 +73,25 @@ export class UsersService {
       profileImageUrl = await this.saveProfileImageFromDataUrl(data.profileImageDataUrl);
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-        ...(profileImageUrl !== undefined && {
-          profileImageUrl,
-        }),
-      },
-    });
+    // 전화번호 — 빈 값은 NULL(users.phone 은 UNIQUE 라 '' 가 한 명만 있어도 번호 없는 회원 전원의 저장이 실패했다, 261008),
+    // 있으면 숫자만. 다른 계정 번호면 409 로 알려 준다(예전엔 500 '저장에 실패했습니다')
+    const phone = data.phone === undefined ? undefined : (data.phone.replace(/\D/g, '') || null);
+    let updated;
+    try {
+      updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(data.name !== undefined && { name: data.name }),
+          ...(phone !== undefined && phone !== (user.phone ?? null) && { phone }),
+          ...(profileImageUrl !== undefined && {
+            profileImageUrl: toSecureImageUrl(profileImageUrl),
+          }),
+        },
+      });
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'P2002') throw new ConflictException('이미 다른 계정에 등록된 전화번호예요');
+      throw e;
+    }
     if (data.name !== undefined || profileImageUrl !== undefined) {
       this.chatRealtime.emitProfileUpdatedForUser(userId, {
         name: updated.name,

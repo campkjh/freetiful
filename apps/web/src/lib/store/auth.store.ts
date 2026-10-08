@@ -148,8 +148,12 @@ export const useAuthStore = create<AuthState>()(
             usersApi.getProfile()
               .then((fresh: any) => {
                 if (!fresh?.id) return;
-                if (fresh.id !== cachedUser.id || fresh.email !== cachedUser.email) {
-                  useAuthStore.getState().setUser(fresh);
+                // 이름 · 사진 · 번호 · 역할이 하나라도 다르면 서버 값으로(261008 — 예전엔 id · email 이 다를 때만 바꿔,
+                // 다른 기기 · 관리자 · 앱 로그인으로 바뀐 이름 · 사진이 헤더 · 웨딩숲 글쓰기 칸에 계속 옛 값으로 남았다)
+                const cur = useAuthStore.getState().user || cachedUser;
+                const keys = ['id', 'email', 'name', 'profileImageUrl', 'phone', 'role'] as const;
+                if (keys.some((k) => (fresh as any)[k] !== (cur as any)[k])) {
+                  useAuthStore.getState().setUser({ ...cur, ...fresh });
                 }
               })
               .catch(() => {});

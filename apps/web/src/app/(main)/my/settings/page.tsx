@@ -60,6 +60,28 @@ export default function SettingsPage() {
   const [selectedProfileImageFile, setSelectedProfileImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);   // 회원탈퇴 확인 모달 (confirm() 대신)
+  // 서버 기준값 — 바뀐 칸만 보낸다(261008: 예전엔 번호 없는 회원도 phone:'' 을 보내 UNIQUE 충돌로 저장이 늘 실패했고,
+  // 저장된 로그인 정보의 옛 이름·사진을 그대로 다시 보내 다른 곳에서 바꾼 값을 되돌렸다)
+  const baseRef = useRef({ name: authUser?.name || '', phone: (authUser?.phone || '').replace(/\D/g, '') });
+  const editedRef = useRef(false);
+  useEffect(() => {
+    if (!authUser) return;
+    let alive = true;
+    usersApi.getProfile()
+      .then((fresh: any) => {
+        if (!alive || !fresh?.id) return;
+        baseRef.current = { name: fresh.name || '', phone: (fresh.phone || '').replace(/\D/g, '') };
+        if (!editedRef.current) {
+          setName(fresh.name || '');
+          setPhone(fresh.phone || '');
+          if (!selectedProfileImageFile) setProfileImage(fresh.profileImageUrl || '');
+        }
+        setUser({ ...authUser, ...fresh });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
 
   // 연결된 소셜 계정 감지 — email prefix 기반 (kakao_*, naver_*, google_*, apple_*)
   const [connectedProviders, setConnectedProviders] = useState<Set<string>>(new Set());
@@ -143,20 +165,27 @@ export default function SettingsPage() {
       } catch {}
       // Save to API
       if (authUser) {
-        let uploadedProfileImageUrl = profileImage;
+        // 사진은 올리는 순간 서버에 저장된다(upload API) — 아래 저장이 실패해도 화면 값은 새 사진으로 맞춘다
+        let uploadedProfileImageUrl: string | null = null;
         if (selectedProfileImageFile) {
           const uploaded = await usersApi.uploadProfileImage(selectedProfileImageFile);
-          uploadedProfileImageUrl = uploaded.profileImageUrl || uploadedProfileImageUrl;
+          uploadedProfileImageUrl = uploaded.profileImageUrl || null;
+          if (uploadedProfileImageUrl) {
+            setUser({ ...useAuthStore.getState().user!, profileImageUrl: uploadedProfileImageUrl });
+            setProfileImage(uploadedProfileImageUrl);
+          }
+          setSelectedProfileImageFile(null);
         }
-        const payload = {
-          name,
-          phone: phone.replace(/\D/g, ''),
-          profileImageUrl: uploadedProfileImageUrl,
-        };
-        const updated = await usersApi.updateProfile({
-          ...payload,
-        });
-        setUser(updated);
+        const digits = phone.replace(/\D/g, '');
+        const payload: { name?: string; phone?: string } = {};
+        if (name.trim() !== baseRef.current.name) payload.name = name.trim();
+        if (digits !== baseRef.current.phone) payload.phone = digits;
+        const updated = Object.keys(payload).length > 0
+          ? await usersApi.updateProfile(payload)
+          : { ...useAuthStore.getState().user!, ...(uploadedProfileImageUrl ? { profileImageUrl: uploadedProfileImageUrl } : {}) };
+        baseRef.current = { name: updated.name || '', phone: (updated.phone || '').replace(/\D/g, '') };
+        editedRef.current = false;
+        setUser({ ...useAuthStore.getState().user!, ...updated });
         try {
           const u = JSON.parse(localStorage.getItem('freetiful-user') || '{}');
           localStorage.setItem('freetiful-user', JSON.stringify({
@@ -167,11 +196,11 @@ export default function SettingsPage() {
           }));
         } catch {}
         if (updated.profileImageUrl) setProfileImage(updated.profileImageUrl);
-        setSelectedProfileImageFile(null);
       }
       toast.success('저장되었습니다');
-    } catch {
-      toast.error('저장에 실패했습니다');
+    } catch (e: any) {
+      // 409 = 다른 계정에 등록된 번호 — 서버 문구를 그대로 보여 준다
+      toast.error(e?.response?.data?.message && e?.response?.status === 409 ? e.response.data.message : '저장에 실패했습니다');
     } finally {
       setSaving(false);
     }
@@ -223,7 +252,7 @@ export default function SettingsPage() {
         <p className="text-[17px] font-semibold text-[#333D4B]">기본 정보</p>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이름</label>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="qd-input font-medium" placeholder="이름을 입력하세요" />
+          <input type="text" value={name} onChange={(e) => { editedRef.current = true; setName(e.target.value); }} className="qd-input font-medium" placeholder="이름을 입력하세요" />
         </div>
         <div>
           <label className="mb-1.5 block text-[13px] font-semibold text-[#A4ABBA]">이메일</label>
@@ -235,7 +264,7 @@ export default function SettingsPage() {
           <input
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            onChange={(e) => { editedRef.current = true; setPhone(formatPhone(e.target.value)); }}
             className="qd-input font-medium"
             placeholder="010-0000-0000"
           />

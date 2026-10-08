@@ -1,3 +1,5 @@
+import { toSecureImageUrl } from '@/lib/default-profile';
+
 /**
  * 웨딩숲(커뮤니티) 일반 회원 닉네임 — '사랑받는 오리' 식 랜덤 닉네임(260928 사장 "사회자들 제외하고 일반 사람들은 랜덤 닉네임").
  *  · 실명(카카오 이름 등)이 웨딩숲에 뜨지 않게 한다. 회원 ID 로 정해져 사람마다 늘 같은 이름(DB 에 저장하지 않음).
@@ -91,7 +93,8 @@ export function memberCommunityDisplay(
   const name = (user.name || '').trim();
   const general = !user.role || user.role === 'general';
   if (general && name && user.id && !STAFF_USER_IDS.has(user.id) && hasRealProfilePhoto(user.profileImageUrl)) {
-    return { nickname: name, avatar: user.profileImageUrl || null, real: true };
+    return { nickname: name, avatar: toSecureImageUrl(user.profileImageUrl) || null, real: true };
   }
-  return { nickname: own?.nickname || communityNickname(user), avatar: own?.avatarUrl || user.profileImageUrl || null, real: false };
+  // 사진 주소는 https 로(카카오 http 사진은 갤럭시 앱 WebView 에서 막힘, 261008)
+  return { nickname: own?.nickname || communityNickname(user), avatar: toSecureImageUrl(own?.avatarUrl || user.profileImageUrl) || null, real: false };
 }

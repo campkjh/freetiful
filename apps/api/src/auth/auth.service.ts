@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { createPublicKey, createVerify } from 'crypto';
-import { generalProfileImage, isPlaceholderProfileImage } from '../common/default-avatar';
+import { generalProfileImage, isPlaceholderProfileImage, toSecureImageUrl } from '../common/default-avatar';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -419,7 +419,7 @@ export class AuthService {
             email: normalizedEmail ?? null,
             ...(info.name && !legacyUser.name ? { name: info.name } : {}),
             ...(info.profileImageUrl && !isPlaceholderProfileImage(info.profileImageUrl) && !legacyUser.profileImageUrl
-              ? { profileImageUrl: info.profileImageUrl }
+              ? { profileImageUrl: toSecureImageUrl(info.profileImageUrl) }
               : {}),
           },
         });
@@ -489,8 +489,10 @@ export class AuthService {
     const { data: tokenData } = await axios.post('https://kauth.kakao.com/oauth/token', null, {
       params,
     });
+    // secure_resource — 프로필 사진을 https 로 받는다(없으면 http 주소라 안드로이드 WebView 에서 막힘, 261008)
     const { data: kakaoUser } = await axios.get('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      params: { secure_resource: true },
     });
     return this.socialLogin(AuthProvider.kakao, {
       providerUserId: String(kakaoUser.id),
@@ -505,6 +507,7 @@ export class AuthService {
   async kakaoNativeLogin(accessToken: string, deviceInfo?: LoginDeviceInfo) {
     const { data: kakaoUser } = await axios.get('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
+      params: { secure_resource: true },
     });
     return this.socialLogin(AuthProvider.kakao, {
       providerUserId: String(kakaoUser.id),
