@@ -942,7 +942,7 @@ const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: stri
   { id: 'mc-no1', image: '/images/banners/home-top-mc-no1-8x3.webp', pcImage: '/images/banners/pc-hero-mc-no1.webp', alt: '프리티풀 결혼식사회자 1등 매칭 플랫폼', href: '/quick-match', pcCta: 'stores' },
   // 프리티풀 비즈 — PC 전용(261007 사장 '프리티풀 비즈 배너, PC 에서만, 배너 글은 네가 쓰고 바로가기 버튼도'). 사진 오른쪽 아래에 Freetiful BIZ 로고가 들어 있어
   // 제목·단추는 왼쪽 위. 결혼식사회자 1등 다음 = 프리티풀 자기 배너끼리 붙인다.
-  { id: 'biz', pcImage: '/images/banners/pc-hero-biz.webp', title: ['믿을 수 있는 파트너,', '기업 행사의 품격을 높이는', '프리티풀 비즈'], alt: '믿을 수 있는 파트너, 기업 행사의 품격을 높이는 프리티풀 비즈', href: '/biz', pcCta: 'go', pcOnly: true },
+  { id: 'biz', pcImage: '/images/banners/pc-hero-biz.webp', title: ['기업 행사부터', '웨딩홀 전속 사회자까지', '프리티풀 비즈'], alt: '기업 행사부터 웨딩홀 전속 사회자까지, 프리티풀 비즈', href: '/biz', pcCta: 'go', pcOnly: true },
   // 슈슈몽드 강남 — 제휴 웨딩홀 사진(다이렉트결혼준비, 업체 상세와 같은 사진) · 배너·사진 모두 업체 상세로
   { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
     strip: {

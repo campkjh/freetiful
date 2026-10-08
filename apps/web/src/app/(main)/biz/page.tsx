@@ -558,7 +558,7 @@ export default function BizPage() {
         <div id="문의" className="mx-auto max-w-[640px] px-6">
           <FadeUp className="text-center">
             <p className={eyebrowCls}>INQUIRY FORM</p>
-            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '기업 문의', en: 'Business Inquiry', ja: '法人お問合せ', zh: '企业咨询' })}</h2>
+            <h2 className={`mt-4 ${h2Cls}`}>{t({ ko: '기업 · 웨딩홀 문의', en: 'Business Inquiry', ja: '法人・式場お問合せ', zh: '企业 · 婚礼堂咨询' })}</h2>
           </FadeUp>
 
           <FadeUp delay={120}>
@@ -580,6 +580,7 @@ export default function BizPage() {
                 <option value="">{t({ ko: '문의유형 선택', en: 'Select inquiry type', ja: 'お問合せ種別を選択', zh: '选择咨询类型' })}</option>
                 <option value="wedding">{t({ ko: '결혼식 사회자 섭외', en: 'Wedding MC Booking', ja: '結婚式司会者の依頼', zh: '婚礼主持人预约' })}</option>
                 <option value="enterprise">{t({ ko: '기업행사 / 공식행사', en: 'Corporate / Official Event', ja: '企業イベント / 公式行事', zh: '企业活动 / 官方活动' })}</option>
+                <option value="wedding-hall">{t({ ko: '웨딩홀 전속 사회자 제휴', en: 'Wedding hall resident MC partnership', ja: '式場専属司会者の提携', zh: '婚礼堂专属主持合作' })}</option>
                 <option value="festival">{t({ ko: '축제 / 체육대회', en: 'Festival / Sports Event', ja: 'フェスティバル / 体育大会', zh: '节庆 / 体育赛事' })}</option>
                 <option value="broadcast">{t({ ko: '방송 / 라이브커머스', en: 'Broadcast / Live Commerce', ja: '放送 / ライブコマース', zh: '广播 / 直播电商' })}</option>
                 <option value="partnership">{t({ ko: '제휴 / 파트너십', en: 'Partnership', ja: '提携 / パートナーシップ', zh: '合作 / 合作伙伴' })}</option>

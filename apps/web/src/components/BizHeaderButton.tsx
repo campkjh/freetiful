@@ -113,7 +113,7 @@ export default function BizHeaderButton() {
           style={{ top, left, width: BIZ_BUBBLE_WIDTH, '--tail-x': `${BIZ_BUBBLE_TAIL_X}px` } as CSSProperties}
           role="link"
           tabIndex={0}
-          aria-label="기업 행사는 프리티풀 비즈로. 공식행사·팀빌딩·체육대회 MC 섭외까지"
+          aria-label="기업 행사도 웨딩홀도 프리티풀 비즈로. 기업행사 MC · 웨딩홀 전속 사회자 섭외"
           onClick={go}
           onKeyDown={(e) => { if (e.key === 'Enter') go(); }}
         >
@@ -125,8 +125,8 @@ export default function BizHeaderButton() {
               {/* eslint-disable-next-line @next/next/no-img-element -- 사장이 준 파란 폴더 */}
               <img src={BIZ_ICON} alt="" width={28} height={28} />
             </span>
-            <p className="qm-bubble-title">기업 행사는 프리티풀 비즈로.</p>
-            <p className="qm-bubble-sub">공식행사·팀빌딩·체육대회 MC 섭외까지</p>
+            <p className="qm-bubble-title">기업 행사도 웨딩홀도 프리티풀 비즈로.</p>
+            <p className="qm-bubble-sub">기업행사 MC · 웨딩홀 전속 사회자 섭외</p>
             <button type="button" className="qm-bubble-x" aria-label="말풍선 닫기" onClick={close}>
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
                 <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

@@ -1,6 +1,7 @@
 /*
  * 비즈 페이지 장면 문구 · 소재(261008 토스 홈 어법 재구현). 문구는 전부 프리티풀이 새로 쓴 것(토스 문장 틀을 옮기지 않음),
  * 사실만 — 검증 입점 · 방송사 출신 · 1,000여 명 · 결혼식 13,000회+ · 영어 진행 · 전국 · 안전결제(행사 뒤 대금 전달)는 기존 비즈 페이지 · 앱 화면에 있는 내용.
+ * 방향(261008 사장 '비즈는 기업행사와 웨딩홀 전속 사회자 느낌으로') = 두 축: 기업행사 사회자 섭외 + 웨딩홀 전속 사회자(빌라드지디 웨딩홀 제휴 — 연혁).
  * 그림은 /images/biz-v2 아래 프리티풀 소재(앱 실제 캡처 · 행사 사진 · 송년회 영상 프레임). 장면 컴포넌트는 이 파일만 읽고 고치지 않는다.
  */
 
@@ -17,7 +18,7 @@ export const DOCK = [
   { id: 'dock-hosts', label: tr('진행자', 'Hosts', '司会者', '主持人') },
   { id: 'dock-match', label: tr('매칭', 'Matching', 'マッチング', '匹配') },
   { id: 'dock-career', label: tr('경력', 'Career', '経歴', '经历') },
-  { id: 'dock-door', label: tr('현장', 'On site', '現場', '现场') },
+  { id: 'dock-door', label: tr('웨딩홀', 'Halls', '式場', '婚礼堂') },
   { id: 'dock-book', label: tr('예약', 'Reserve', '予約', '预订') },
   { id: 'dock-events', label: tr('행사', 'Events', 'イベント', '活动') },
   { id: 'dock-scale', label: tr('규모', 'Network', '規模', '规模') },
@@ -32,8 +33,8 @@ export const INTRO = {
   heroPoster: `${V2}/hero-poster.jpg`,
   /** 첫 화면 큰 제목 — 세 덩어리가 한 줄에 양 끝 맞춤으로 */
   heroWords: [
-    tr('검증된 진행자', 'Verified hosts,', '検証済みの司会者を', '认证主持人'),
-    tr('가장 쉽게', 'made simple.', 'いちばん簡単に', '最简单的方式'),
+    tr('기업행사부터', 'From corporate events', '企業イベントから', '从企业活动'),
+    tr('웨딩홀 전속까지', 'to resident wedding MCs,', '式場専属司会まで', '到婚礼堂专属主持'),
     tr('프리티풀 비즈', 'Freetiful Biz', 'Freetiful Biz', 'Freetiful Biz'),
   ],
   chatTitle: [tr('견적 문의부터 섭외까지', 'From inquiry to booking,', '見積もり相談から依頼まで', '从询价到预约'), tr('채팅 한 번으로', 'in a single chat', 'チャットひとつで', '一次聊天就够了')],
@@ -94,11 +95,11 @@ export const INTRO = {
 
 /* ② 매칭 카드 3장(토스 '금융' 장면 자리) */
 export const MATCH = {
-  title: [tr('어떤 행사든', 'Whatever the event,', 'どんなイベントでも', '无论什么活动'), tr('딱 맞는 진행자로', 'the right host', 'ぴったりの司会者を', '都有合适的主持人')],
+  title: [tr('기업행사도 웨딩홀도', 'Corporate events or weddings,', '企業イベントも式場も', '企业活动、婚礼堂'), tr('딱 맞는 사회자로', 'the right MC', 'ぴったりの司会者を', '都有合适的主持人')],
   /** 부제 — [알약][알약][알약] + 뒤 글 */
-  subPills: [tr('공식행사', 'Ceremonies', '式典', '官方活动'), tr('체육대회', 'Sports days', '運動会', '运动会'), tr('팀빌딩', 'Team building', 'チームビルディング', '团建')],
+  subPills: [tr('기업행사', 'Corporate', '企業イベント', '企业活动'), tr('공식행사', 'Ceremonies', '式典', '官方活动'), tr('웨딩홀 예식', 'Wedding halls', '式場の挙式', '婚礼堂仪式')],
   subPrefix: tr('', 'From', '', ''),
-  subSuffix: tr('까지 진행자 고민은 끝', '— no more host worries', 'まで、司会者選びの悩みはおしまい', '——不再为主持人发愁'),
+  subSuffix: tr('까지 사회자 고민은 끝', '— no more MC worries', 'まで、司会者選びの悩みはおしまい', '——不再为主持人发愁'),
   cards: [
     {
       key: 'match',
@@ -182,8 +183,9 @@ export const CAREER = {
 /* ④ 연회장 문 열기 — 스크롤로 넘기는 사진 60장(토스 '쇼핑 상자' 장면 자리) */
 export const DOOR = {
   frames: Array.from({ length: 60 }, (_, i) => `${V2}/seq/hall-${String(i).padStart(2, '0')}.webp`),
-  line1: tr('중요한 행사의 문을', 'Open the door to', '大切なイベントの扉を', '与 Freetiful 一起'),
-  line2: tr('프리티풀과 함께 열어요', 'your big event with Freetiful', 'Freetifulと一緒に開きましょう', '开启重要活动的大门'),
+  // 웨딩홀 전속 사회자(261008 사장 '비즈는 기업행사와 웨딩홀 전속사회자 느낌으로') — 연회장 문이 열리는 장면이라 웨딩홀 이야기를 여기에
+  line1: tr('웨딩홀의 모든 예식을', 'Every ceremony in your hall,', '式場のすべての挙式を', '婚礼堂的每一场仪式'),
+  line2: tr('전속 사회자가 열어요', 'opened by a resident MC', '専属司会者が開きます', '由专属主持人开启'),
 };
 
 /* ⑤ 문의 → 안전결제 → 예약 완료 폰(토스 '결제' 장면 자리) */
@@ -207,13 +209,13 @@ export const EVENTS = {
     { photo: `${V2}/photos/event-10.webp`, title: tr('체육대회', 'Sports days', '運動会', '运动会'), desc: tr('함께 뛰고 응원하는 역동적인 진행', 'Energetic hosting for all', '一緒に盛り上がる熱い進行', '一起奔跑加油的活力主持') },
     { photo: `${V2}/photos/event-13.webp`, title: tr('대학 · 지역 축제', 'Festivals', '大学・地域フェス', '校园 · 地区庆典'), desc: tr('대규모 무대도 자신 있게', 'At home on big stages', '大舞台も自信をもって', '大型舞台也从容应对') },
     { photo: `${V2}/photos/event-11.webp`, title: tr('컨퍼런스 · 기업 PT', 'Conferences & PT', 'カンファレンス・企業PT', '会议 · 企业演示'), desc: tr('비전을 전하는 정확한 진행', 'Clear hosting for your vision', 'ビジョンを伝える正確な進行', '准确传达愿景的主持') },
-    { photo: `${V2}/photos/event-09.webp`, title: tr('결혼식', 'Weddings', '結婚式', '婚礼'), desc: tr('결혼식 사회 13,000회 이상의 경력', '13,000+ weddings hosted', '結婚式司会13,000回以上の実績', '超过 13,000 场婚礼主持经验') },
+    { photo: `${V2}/photos/event-09.webp`, title: tr('웨딩홀 · 결혼식', 'Wedding halls', '式場・結婚式', '婚礼堂 · 婚礼'), desc: tr('결혼식 사회 13,000회 이상의 경력', '13,000+ weddings hosted', '結婚式司会13,000回以上の実績', '超过 13,000 场婚礼主持经验') },
   ],
   tag: tr('행사 성격', 'Event type', 'イベントの種類', '活动类型'),
   /** 모바일 마키 뒤 두 번째 제목(첫 제목 typing 을 되풀이하지 않게 — 토스 seg9 도 이 자리는 다른 제목). 배지(tag)는 마지막 줄 뒤 */
   secondTitle: [tr('행사마다 다른 분위기,', 'Every room has its mood,', '行事ごとに違う空気、', '每场活动氛围不同，'), tr('진행도 맞춤으로', 'and hosting to match', '進行もオーダーメイド', '主持也量身定制')],
   /** 카드 윗줄용 짧은 한 줄(설명이 칸보다 길 때 쓰는 대안) */
-  eyebrows: [tr('격식 있는 자리라면', 'For formal occasions', '格式ある場なら', '正式场合'), tr('다 함께 즐기려면', 'For fun together', 'みんなで楽しむなら', '一起欢乐'), tr('뛰고 응원하려면', 'For active days', '体を動かすなら', '运动日'), tr('큰 무대라면', 'For big stages', '大舞台なら', '大型舞台'), tr('비전을 전하려면', 'For your message', 'ビジョンを伝えるなら', '传达愿景'), tr('평생 한 번이라면', 'For once in a lifetime', '一生に一度なら', '一生一次')],
+  eyebrows: [tr('격식 있는 자리라면', 'For formal occasions', '格式ある場なら', '正式场合'), tr('다 함께 즐기려면', 'For fun together', 'みんなで楽しむなら', '一起欢乐'), tr('뛰고 응원하려면', 'For active days', '体を動かすなら', '运动日'), tr('큰 무대라면', 'For big stages', '大舞台なら', '大型舞台'), tr('비전을 전하려면', 'For your message', 'ビジョンを伝えるなら', '传达愿景'), tr('웨딩홀이라면', 'For wedding halls', '式場なら', '婚礼堂')],
 };
 
 /* ⑦ 점 지형 + 숫자(토스 '광고' 장면 자리) */
@@ -231,7 +233,7 @@ export const SCALE = {
 /* ⑧ 함께한 기업 + 소개 영상(토스 '결제 대시보드' 장면 자리) */
 export const CLIENTS = {
   title: [tr('프리티풀 진행자와', 'Companies that worked', 'Freetifulの司会者と', '与 Freetiful 主持人'), tr('함께한 기업', 'with our hosts', '共にした企業', '合作过的企业')],
-  desc: tr('방송사와 기업, 공공기관의 중요한 자리에 프리티풀 진행자가 함께했어요.', 'Freetiful hosts have taken the stage for broadcasters, companies and public institutions.', '放送局や企業、公共機関の大切な場にFreetifulの司会者が立ちました。', 'Freetiful 主持人曾在电视台、企业和公共机构的重要场合登台。'),
+  desc: tr('방송사와 기업, 공공기관부터 웨딩홀까지 프리티풀 사회자가 함께했어요.', 'From broadcasters, companies and public institutions to wedding halls, Freetiful MCs have been there.', '放送局や企業、公共機関から式場まで、Freetifulの司会者が立ってきました。', '从电视台、企业、公共机构到婚礼堂，都有 Freetiful 主持人的身影。'),
   video: '/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4',
   video2: '/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4',
   blocks: [
@@ -242,7 +244,7 @@ export const CLIENTS = {
 
 /* ⑨ 검은 무대(토스 '매장' 장면 자리) — 송년회 무대 사진 72장 스크롤 */
 export const STAGE = {
-  wordLeft: tr('가족 행사', 'Family events', '家族の行事', '家庭活动'),
+  wordLeft: tr('웨딩홀 예식', 'Wedding halls', '式場の挙式', '婚礼堂仪式'),
   wordRight: tr('기업 행사', 'Corporate events', '企業イベント', '企业活动'),
   overlay: [tr('모든 무대의 진행을', 'Every stage,', 'すべてのステージの進行を', '每一个舞台'), tr('프리티풀 진행자에게', 'hosted by Freetiful', 'Freetifulの司会者に', '交给 Freetiful 主持人')],
   frames: Array.from({ length: 72 }, (_, i) => `${V2}/seq/stage-${String(i).padStart(2, '0')}.webp`),
@@ -262,9 +264,9 @@ export const MOMENTS = {
   photos: [`${'/images/biz-v2/photos'}/event-01.webp`, `${'/images/biz-v2/photos'}/event-07.webp`, `${'/images/biz-v2/photos'}/event-02.webp`, `${'/images/biz-v2/photos'}/event-12.webp`],
   /** 마지막에 화면 가득 커지는 사진 */
   hero: `${'/images/biz-v2/photos'}/event-02.webp`,
-  tiles: [tr('검증 완료', 'Verified', '検証済み', '已认证'), tr('★ 4.9', '★ 4.9', '★ 4.9', '★ 4.9'), tr('견적서 도착', 'Quote arrived', '見積書到着', '报价已送达'), tr('안전결제', 'Safe Pay', '安全決済', '安全支付'), tr('전국 진행', 'Anywhere', '全国対応', '全国可约'), tr('영어 진행', 'English MC', '英語進行', '英语主持')],
-  closing: [tr('당신의 특별한 순간,', 'Your special moments,', 'あなたの特別な瞬間、', '您的特别时刻，'), tr('프리티풀과 함께하세요', 'with Freetiful', 'Freetifulと共に', '与 Freetiful 同行')],
-  closingCta: tr('기업 문의하기', 'Business inquiry', '法人お問合せ', '企业咨询'),
+  tiles: [tr('검증 완료', 'Verified', '検証済み', '已认证'), tr('웨딩홀 전속', 'Resident MC', '式場専属', '婚礼堂专属'), tr('견적서 도착', 'Quote arrived', '見積書到着', '报价已送达'), tr('안전결제', 'Safe Pay', '安全決済', '安全支付'), tr('전국 진행', 'Anywhere', '全国対応', '全国可约'), tr('영어 진행', 'English MC', '英語進行', '英语主持')],
+  closing: [tr('기업행사도, 웨딩홀 예식도', 'Corporate events and weddings,', '企業イベントも、式場の挙式も', '企业活动、婚礼堂仪式，'), tr('프리티풀 사회자에게 맡기세요', 'leave them to Freetiful MCs', 'Freetifulの司会者にお任せください', '都交给 Freetiful 主持人')],
+  closingCta: tr('기업 · 웨딩홀 문의', 'Business inquiry', '法人・式場お問合せ', '企业 · 婚礼堂咨询'),
 };
 
 /** 함께한 기업 로고(기존 비즈 페이지와 같은 52개) */

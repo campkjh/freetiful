@@ -82,6 +82,7 @@ const statusLabel: Record<string, string> = {
 const typeLabel: Record<string, string> = {
   wedding: '결혼식 사회자 섭외',
   enterprise: '기업행사 / 공식행사',
+  'wedding-hall': '웨딩홀 전속 사회자 제휴',
   festival: '축제 / 체육대회',
   broadcast: '방송 / 라이브커머스',
   partnership: '제휴 / 파트너십',
