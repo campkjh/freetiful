@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  UnauthorizedException,
   Logger,
 } from '@nestjs/common';
 import { randomAnimalAvatar } from '../common/default-avatar';
@@ -22,6 +23,7 @@ import {
   sharedCustomerPhone,
 } from './quick-match.config';
 import { QuickMatchRosterService, type QuickMatchFeatured } from './quick-match-roster.service';
+import { isTestLeadUserId } from './test-lead';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -89,12 +91,9 @@ export class MatchService {
    * (문의목록이 MatchDelivery 기준이라 뿌리에서 한 번만 막으면 된다).
    * 의뢰 레코드 자체는 그대로 남으므로 어드민에서는 보이고, 고객 화면도 평소처럼 매칭 UI 가 돈다.
    */
-  private static readonly TEST_LEAD_USER_IDS = new Set<string>([
-    'a7c23078-a2cd-4643-87c0-c9292321bc3b', // 사회자 김정현(campkjh@nate.com) — 랜딩 점검용
-  ]);
-
+  // 점검용 계정 명단 = ./test-lead.ts (웹 lib/test-lead.ts 와 같게 유지)
   private isTestLead(userId: string, requesterName?: string | null, rawUserInput?: any): boolean {
-    if (MatchService.TEST_LEAD_USER_IDS.has(userId)) return true;
+    if (isTestLeadUserId(userId)) return true;
     const candidates = [rawUserInput?.name, requesterName];
     return candidates.some((v) => {
       // 공백을 지우고 정확히 '테스트' 일 때만. '테스트일'·'김테스트' 같은 실제 이름 오탐을 막는다.
@@ -148,7 +147,8 @@ export class MatchService {
     const rerollBatch = quickMatch && data.rawUserInput?.quickBatch === 'reroll';
     const roster = quickMatch && !rerollBatch ? await this.quickRoster.roster() : null;
     const featuredIds = roster && !roster.degraded ? roster.ids : null;
-    const phoneSharedProProfileIds = featuredIds
+    // 테스트 의뢰는 아무에게도 번호를 열지 않는다 — 이 의뢰 id 로 사회자와 방이 하나라도 생기면 방에서 번호가 보이던 틈(sharedCustomerPhone)
+    const phoneSharedProProfileIds = featuredIds && !testLead
       ? Array.from(new Set(data.selectedProProfileIds || [])).filter((id) => featuredIds.has(id))
       : [];
 
@@ -390,7 +390,9 @@ export class MatchService {
         : rawUserInput
           ? { value: rawUserInput }
           : {};
-    return { ...base, ...resolved };
+    // 서버만 적는 칸 — 폼이 보낸 값은 버린다(웹 완료 화면·어드민 퍼널이 '사회자에게 안 갔다'의 진실로 읽는다)
+    const { suppressedAsTestLead: _clientValue, ...clean } = base as Record<string, any>;
+    return { ...clean, ...resolved };
   }
 
   /** 새 매칭 요청을 카테고리 일치하는 approved 사회자에게 분배 + 알림 */
@@ -1012,9 +1014,10 @@ export class MatchService {
 
     if (userId) {
       // 로그인 상태 — 전화번호가 비어있으면 채워주기만 함
+      // (점검용 테스트 계정은 안 채운다 — 점검하며 적은 번호가 계정에 붙으면 그 번호의 실제 고객 비회원 신청이 이 계정으로 묶인다)
       const existing = await this.prisma.user.findUnique({ where: { id: userId } });
       resolvedUser = existing;
-      if (existing && !existing.phone) {
+      if (existing && !existing.phone && !isTestLeadUserId(userId)) {
         this.prisma.user
           .update({ where: { id: userId }, data: { phone } })
           .then((u) => { resolvedUser = u; })
@@ -1077,19 +1080,39 @@ export class MatchService {
     };
   }
 
+  /**
+   * quick-request 의 로그인 판정 — 헤더가 없을 때만 비로그인(null, 번호 경로)이다.
+   * 토큰을 보냈는데 만료·서명 오류·없는/막힌 계정이면 401 을 던진다(261008).
+   *   예전엔 조용히 비로그인으로 떨어져, 로그인한 고객의 신청이 번호로 찾은 다른 계정·새 '고객XXXX' 계정에 붙었고,
+   *   번호가 없는 점검용 테스트 계정은 테스트 판정을 잃고 실제 사회자에게 그대로 나갔다.
+   *   401 이면 웹 인터셉터가 토큰을 새로 받아 다시 보낸다(/match/request 의 JwtAuthGuard 와 같은 흐름).
+   * 머지된(별칭) 계정 토큰은 AuthService.validateUserUncached 처럼 본 계정으로 이어 준다.
+   */
   private async resolveUserIdFromAuthHeader(header: string | undefined): Promise<string | null> {
     if (!header) return null;
     const m = header.match(/^Bearer\s+(.+)$/i);
     if (!m) return null;
+    const expired = () => new UnauthorizedException('로그인이 만료됐어요. 다시 로그인해 주세요.');
+    let sub: string | undefined;
     try {
-      const payload = this.jwt.verify(m[1]) as { sub?: string };
-      if (!payload?.sub) return null;
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user || !user.isActive || user.isBanned) return null;
-      return user.mergedToUserId || user.id;
+      sub = (this.jwt.verify(m[1]) as { sub?: string })?.sub;
     } catch {
-      return null;
+      throw expired();
     }
+    if (!sub) throw expired();
+    const user = await this.prisma.user.findUnique({
+      where: { id: sub },
+      select: { id: true, isActive: true, isBanned: true, mergedToUserId: true },
+    });
+    if (user && user.isActive && !user.isBanned) return user.mergedToUserId || user.id; // 예전과 같이 — 살아 있는 계정도 머지 대상이 있으면 그쪽
+    if (user?.mergedToUserId) {
+      const target = await this.prisma.user.findUnique({
+        where: { id: user.mergedToUserId },
+        select: { id: true, isActive: true, isBanned: true },
+      });
+      if (target && target.isActive && !target.isBanned) return target.id;
+    }
+    throw expired();
   }
 
   private async issueTokensForUser(userId: string) {

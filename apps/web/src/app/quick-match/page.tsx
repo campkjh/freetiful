@@ -7,6 +7,8 @@ import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/lan
 import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
+import MetaPixel, { META_PIXEL_ID } from '@/components/landing/MetaPixel';
+import { isTestLeadSubmission } from '@/lib/test-lead';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -951,7 +953,30 @@ function NoteCard({ note }: { note: Note }) {
 
 /** 포트폴리오(상세)에 갔다 뒤로 오면 보던 결과 그대로 — 갈 때 sessionStorage 에 적고, 돌아와 한 번 쓰고 지운다(30분 지나면 버림) */
 const QM_RETURN_KEY = 'qm-return-v1';
+/** 랜딩 리드 구글 시트(Apps Script, 시트에 붙어 있어 저장소엔 없음) — wedding-mc 와 같은 주소 */
+const QUICK_SHEET_URL =
+  'https://script.google.com/macros/s/AKfycbwGOi4e1J2Q1w8x-5UEe-czB3uy6mET90xBhP9OG82fl4jRPEyYdBfqJkmDZuYJMFuc/exec';
 const QM_RETURN_TTL = 30 * 60 * 1000;
+/** 테스트 계정 로그인이 신청 중에 풀렸다는 표시(이 탭 세션) — 풀린 뒤 다시 누르면 비로그인(번호) 경로로 실제 사회자에게 가므로 막는다 */
+const QM_TEST_LOCK_KEY = 'qm-test-lock';
+/** 시트에 남길 번호 — wedding-mc normalizePhone 과 같은 모양(11자리 3-4-4, 10자리 3-3-4·02 는 2-4-4). 하이픈 없는 숫자는 시트가 숫자로 바꿔 앞 0 이 빠질 수 있다 */
+function sheetPhone(d: string) {
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return d.startsWith('02') ? `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return d;
+}
+/** 지금 로그인 정보로 본 '점검용 테스트 계정' 짐작(lib/test-lead, 서버와 같은 규칙) — 신청 전 안내·분석 생략용. 사회자에게 갔는지는 서버 응답이 정한다 */
+function storeTestHint() {
+  const u = useAuthStore.getState().user;
+  return isTestLeadSubmission(u?.name, u?.id);
+}
+function ssFlag(key: string, on?: boolean) {
+  try {
+    if (on === undefined) return sessionStorage.getItem(key) === '1';
+    if (on) sessionStorage.setItem(key, '1'); else sessionStorage.removeItem(key);
+  } catch {}
+  return false;
+}
 
 export default function QuickMatchPage() {
   const [step, setStep] = useState<Step>('date');
@@ -985,10 +1010,31 @@ export default function QuickMatchPage() {
   const authUser = useAuthStore((st) => st.user);
   const doneDest = authUser?.role === 'general' ? '/inquiries' : '/main';
   const leaveDone = useCallback(() => router.replace(doneDest), [router, doneDest]);
+  const accessToken = useAuthStore((st) => st.accessToken);
+  // 점검용 테스트 계정(lib/test-lead, 261008 사장) — 서버가 토큰으로 판정해 사회자에게 안 보낸다.
+  // 화면 판정은 둘로 나눈다: 신청 전 알약은 '토큰까지 있는' 테스트 계정일 때만(토큰이 없으면 서버는 비로그인 번호 경로로 보고 실제로 보낸다),
+  // 완료 문구·시트 [테스트] 는 서버 응답(matchRequest.rawUserInput.suppressedAsTestLead)으로 — 서버가 실제로 보냈는데 화면이 '안 갔다'고 하지 않게.
+  // 로그인 정보는 브라우저 저장소에서 오므로 첫 렌더(서버와 같아야 함) 뒤에 판정한다
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const isTest = mounted && isTestLeadSubmission(authUser?.name, authUser?.id);
+  /** 서버가 테스트 의뢰로 받아 사회자에게 안 보냈는지(완료 화면용) */
+  const [doneSuppressed, setDoneSuppressed] = useState(false);
+  // 메타 픽셀 '신청 시작'(wedding-mc 의 폼 시작과 같은 이벤트) — 첫 단계(예식 일시)를 넘길 때 한 번.
+  // 이 랜딩 픽셀에만(trackSingle) — 'track' 은 루트 GTM 이 띄운 사이트 픽셀에도 가 퀵매칭 전엔 없던 이벤트가 사이트 픽셀에 생긴다. 테스트 계정은 안 보낸다
+  const startFiredRef = useRef(false);
+  const fireStart = useCallback(() => {
+    if (startFiredRef.current) return;
+    startFiredRef.current = true;
+    if (storeTestHint()) return;
+    const fbq = (window as any).fbq;
+    if (typeof fbq === 'function') fbq('trackSingle', META_PIXEL_ID, 'InitiateCheckout', { content_name: 'Quick Match Start' });
+  }, []);
 
   const group = useMemo(() => REGION_GROUPS.find((g) => g.key === regionKey), [regionKey]);
   // 유입 값 보존 + 방문 1건(기기 세션당 1번) — 어드민 홈 '전환 퍼널' 2단계(261005)
-  useEffect(() => { captureUtm(); trackLandingVisit('quick-match'); }, []);
+  // 점검용 테스트 계정 방문은 퍼널에 안 센다(persist 는 localStorage 라 마운트 때 이미 복원돼 있다)
+  useEffect(() => { captureUtm(); if (!storeTestHint()) trackLandingVisit('quick-match'); }, []);
   // 날짜·시간을 아직 안 골랐으면 단계에 들어오자마자 시트를 띄운다(제목이 먼저 보이게 한 박자 뒤) — 따로 누를 필요 없이
   useEffect(() => {
     if (step !== 'date' || (date && time)) return;
@@ -1115,17 +1161,88 @@ export default function QuickMatchPage() {
   async function submit() {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10 || selected.size === 0 || !contact) return;
+    // 서버는 Authorization 토큰으로만 테스트 계정을 알아본다 — 토큰 없이 보내면 비로그인(번호) 경로라 실제 사회자에게 간다.
+    // 테스트 계정인데 토큰이 없거나, 이 탭에서 신청 중에 테스트 계정 로그인이 풀렸으면 보내지 않는다.
+    const before = useAuthStore.getState();
+    const testHint = isTestLeadSubmission(before.user?.name, before.user?.id);
+    if ((testHint && !before.accessToken) || (!before.accessToken && ssFlag(QM_TEST_LOCK_KEY))) {
+      window.alert('테스트 계정 로그인이 풀려 있어요.\n지금 신청하면 실제 사회자에게 가요. 다시 로그인한 뒤 신청해 주세요.');
+      return;
+    }
     setSubmitting(true);
-    const utm = { utm_source: sessionStorage.getItem('utm_source') || '', utm_medium: sessionStorage.getItem('utm_medium') || '', utm_campaign: sessionStorage.getItem('utm_campaign') || '', referrer: sessionStorage.getItem('referrer') || '', landing_url: typeof window !== 'undefined' ? window.location.href : '' };
+    const ssGet = (k: string) => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } };
+    const utm = {
+      utm_source: ssGet('utm_source'), utm_medium: ssGet('utm_medium'), utm_campaign: ssGet('utm_campaign'),
+      utm_term: ssGet('utm_term'), utm_content: ssGet('utm_content'), referrer: ssGet('referrer'),
+      landing_url: ssGet('landing_url') || window.location.href,
+    };
+    const region = [group?.label, venue.trim()].filter(Boolean).join(' ');
+    const payload = { phone: digits, categoryId: '결혼식사회자', type: 'single' as const, selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: region || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } };
     try {
-      await matchApi.quickRequest({ phone: digits, categoryId: '결혼식사회자', type: 'single', selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: [group?.label, venue.trim()].filter(Boolean).join(' ') || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } });
-      if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') (window as any).fbq('track', 'Lead', { content_category: 'quick-match', currency: 'KRW' });
-      // 페이지별 유입 분석 — 이 세션의 퀵매칭 방문을 '견적 요청'으로(261005)
-      trackLandingConversion('quick-match');
+      let res: any;
+      try {
+        res = await matchApi.quickRequest(payload);
+      } catch (e: any) {
+        // 토큰이 만료돼 서버가 401 → 인터셉터가 새 토큰을 못 받아 로그아웃된 경우
+        const sessionLost = !!before.accessToken && !useAuthStore.getState().accessToken;
+        if (!sessionLost) throw e;
+        if (testHint) {
+          // 테스트 계정 — 다시 보내면 비로그인 경로로 실제 사회자에게 간다. 다시 로그인할 때까지 이 탭에서 막는다
+          ssFlag(QM_TEST_LOCK_KEY, true);
+          window.alert('테스트 계정 로그인이 만료됐어요. 신청은 보내지 않았어요.\n다시 로그인한 뒤 신청해 주세요.');
+          return;
+        }
+        // 실제 고객 — 로그인이 풀렸어도 신청은 받는다(예전처럼 번호로). 이제 토큰이 없으니 헤더 없이 간다
+        res = await matchApi.quickRequest(payload);
+      }
+      if (useAuthStore.getState().accessToken) ssFlag(QM_TEST_LOCK_KEY, false);
+      // 사회자에게 보냈는지는 서버 판정이 진실 — createMatchRequest 가 테스트 의뢰에만 suppressedAsTestLead 를 남겨 돌려준다
+      const suppressed = res?.matchRequest?.rawUserInput?.suppressedAsTestLead === true;
+      setDoneSuppressed(suppressed);
+      // 점검용 신청은 광고 전환으로 세지 않는다 — 메타 학습·어드민 전환 퍼널이 가짜 전환으로 오염된다(wedding-mc 와 같은 규칙).
+      // 서버가 테스트로 받았거나, 보낸 사람이 테스트 계정이면(API 배포 전이라 서버가 아직 모르는 경우 포함) 건너뛴다
+      if (!suppressed && !testHint) {
+        const fbq = (window as any).fbq;
+        // Lead 는 'track'(init 된 픽셀 전부) — 사이트 픽셀(루트 GTM)은 예전부터 퀵매칭 Lead 를 받아 왔고, 이 랜딩 픽셀에도 함께 간다
+        if (typeof fbq === 'function') fbq('track', 'Lead', { content_name: 'Quick Match Request', content_category: 'quick-match', currency: 'KRW' });
+        // 페이지별 유입 분석 — 이 세션의 퀵매칭 방문을 '견적 요청'으로(261005)
+        trackLandingConversion('quick-match');
+      }
+      // 구글 시트(wedding-mc 와 같은 Apps Script) — 한 신청 = 한 행, fire-and-forget(261008 사장 'wedding-mc 의 구글시트 퀵매칭에도').
+      // 스크립트는 고정 순서 칸에 name·phone·q1·weddingDate·region·benefits(배열)·couponCode·source·utm…만 쓴다 →
+      // 퀵매칭 답(분위기·몇 부·성별·연락 방식·고른 사회자)은 wedding-mc 의 '희망등급:' 처럼 접두어를 붙여 benefits 칸에 함께 남긴다
+      // (스크립트가 benefits 를 ', ' 로 이으므로 한 항목 안의 여러 값은 '/' 로 잇는다).
+      // formType 은 corporate-mc 가 아니므로 '랜딩_결혼' 시트로 간다. 서버가 테스트로 받은 신청도 시트 연결 확인용으로 남기되 이름·출처에 [테스트] 표시.
+      const proName = new Map([...pool.featured, ...pool.rest].map((p) => [p.id, p.name] as const));
+      const pickedNames = [...selected].map((id) => proName.get(id)).filter(Boolean).join('/');
+      const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : gender === 'any' ? '상관없음' : '';
+      const who = (useAuthStore.getState().user?.name || before.user?.name || '').trim() || `고객${digits.slice(-4)}`;
+      fetch(QUICK_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          formType: 'quick-match',
+          name: suppressed ? `[테스트] ${who}` : who,
+          phone: sheetPhone(digits),
+          q1: phoneShared ? '퀵매칭(지정 사회자)' : '퀵매칭(다른 사회자 보기)',
+          weddingDate: [date, time].filter(Boolean).join(' '),
+          region,
+          benefits: [
+            moods.size ? `분위기: ${[...moods].join('/')}` : '',
+            part ? `진행: ${part}` : '',
+            genderLabel ? `성별: ${genderLabel}` : '',
+            contact ? `연락: ${contact}` : '',
+            `사회자 ${selected.size}명${pickedNames ? `: ${pickedNames}` : ''}`,
+          ].filter(Boolean),
+          source: suppressed ? 'quick-match-test' : 'quick-match',
+          ...utm,
+        }),
+      }).catch(() => undefined);
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
-    setSubmitting(false);
+    finally { setSubmitting(false); }
   }
 
   const phoneDigits = phone.replace(/\D/g, '');
@@ -1135,6 +1252,7 @@ export default function QuickMatchPage() {
       {/* ⚠ <style>{CSS}</style> 로 두면 서버가 ' > 를 &#x27; &gt; 로 바꿔 내보내(스타일 태그 안은 안 풀림) 글꼴·자식 선택자가 깨지고,
           클라와 글자가 달라 hydration 이 매번 실패해 문서 전체를 다시 그렸다(운영 React #425) */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <MetaPixel />
 
       {step === 'date' && (
         <div className="qm-page" key="date">
@@ -1153,13 +1271,13 @@ export default function QuickMatchPage() {
             </button>
           </main>
           {/* 예식 시간도 필수(260927 사장) */}
-          <Cta disabled={!date || !time} onClick={() => setStep('region')}>다음</Cta>
+          <Cta disabled={!date || !time} onClick={() => { fireStart(); setStep('region'); }}>다음</Cta>
           {dtOpen && (
             <QmDateTimeSheet
               date={date}
               time={time}
               onClose={(d, t) => { if (d) setDate(d); if (t) setTime(t); setDtOpen(false); }}
-              onNext={(d, t) => { setDate(d); setTime(t); setDtOpen(false); setStep('region'); }}
+              onNext={(d, t) => { setDate(d); setTime(t); setDtOpen(false); fireStart(); setStep('region'); }}
             />
           )}
         </div>
@@ -1329,6 +1447,11 @@ export default function QuickMatchPage() {
           <main className="qm-main">
             <h1 className="qm-h1 qm-a-title">연락받을 번호를<br />입력해주세요</h1>
             <p className="qm-sub qm-a-sub">{contact}(으)로 연락드려요. 매칭된 사회자 연결에만 사용돼요.</p>
+            {/* 점검용 테스트 계정 — 신청 버튼 누르기 전에 '사회자에게 안 간다'를 보이게(261008 사장 '고객 입장 흐름만 확인') */}
+            {/* 토큰이 없으면 서버는 테스트 계정을 못 알아본다 → 알약 대신 '다시 로그인' 안내(신청도 submit 에서 막는다) */}
+            {isTest && (accessToken
+              ? <div className="qm-testpill qm-a-sub" role="status">테스트 계정이라 신청해도 사회자에게는 가지 않아요</div>
+              : <div className="qm-testpill qm-a-sub" role="status">테스트 계정 로그인이 풀려 있어요 · 다시 로그인해야 신청할 수 있어요</div>)}
             <div className={`qm-bignum qm-a-item ${phoneDigits ? 'on' : ''}`} style={stag(0)}>
               <span className="qm-bignum-t">
                 {phone ? <b>{phone}</b> : <i>010-0000-0000</i>}
@@ -1358,7 +1481,9 @@ export default function QuickMatchPage() {
           <div className="qm-done-body">
             <span className="qm-done-ic"><Ic name="check" size={40} color="#fff" /></span>
             <h2 className="qm-h2 center">매칭 신청이<br />완료되었어요</h2>
-            <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>
+            {doneSuppressed
+              ? <p className="qm-done-sub">테스트 신청이라 <b className="blue">사회자에게는 전달하지 않았어요.</b><br />실제 고객이라면 선택한 {selected.size}명에게 전달돼요.</p>
+              : <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>}
             <div className="qm-summary">
               <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
               <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
@@ -1632,4 +1757,6 @@ const CSS = `
   /* PC 틀(430×824) — 카드가 버튼 줄에 가리지 않게 */
   .qm-cslide{flex-basis:272px;}
 }
+/* 점검용 테스트 계정 표시 — 번호 입력 화면 설명 아래 작은 알약(흐름 안에 둬 머리줄·시트·버튼을 안 가린다) */
+.qm-testpill{display:inline-block;margin:-6px 0 18px;background:#FFF4E5;color:#B25E09;border:1px solid #FFE0B2;font-size:13px;font-weight:600;line-height:1;padding:8px 12px;border-radius:999px;}
 `;

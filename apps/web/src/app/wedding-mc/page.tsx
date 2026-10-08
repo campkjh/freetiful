@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Script from 'next/script';
+import MetaPixel from '@/components/landing/MetaPixel';
+import { isTestLeadSubmission } from '@/lib/test-lead';
 import { Check, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
@@ -39,15 +40,8 @@ const GOOGLE_SHEET_URL =
 const ACTIVE_MATCH_STORAGE_KEY = 'wmc-active-match-v1';
 
 /* 폼 제출 후 설문(혜택 안내) 항목 */
-/** 랜딩 점검용 계정 — 서버 match.service.ts 의 TEST_LEAD_USER_IDS 와 동일하게 유지할 것 */
-const TEST_LEAD_USER_IDS = ['a7c23078-a2cd-4643-87c0-c9292321bc3b']; // 사회자 김정현
-
-/** 서버(match.service.ts isTestLead)와 같은 규칙 — 공백 제거 후 정확히 '테스트'/'test' 일 때만 */
-const isTestSubmission = (name: string, userId?: string | null) => {
-  if (userId && TEST_LEAD_USER_IDS.includes(userId)) return true;
-  const s = name.replace(/\s/g, '');
-  return s === '테스트' || s.toLowerCase() === 'test';
-};
+/** 서버(match.service.ts isTestLead)와 같은 규칙·같은 점검용 계정 — lib/test-lead.ts 한 곳에서 관리 */
+const isTestSubmission = isTestLeadSubmission;
 
 const SURVEY_BENEFITS = ['웨딩홀 할인', '스튜디오 할인', '본식스냅 DVD 할인', '피부샵 할인', '신혼여행', '예복 한복'];
 
@@ -519,18 +513,7 @@ export default function WeddingMcLandingPage() {
 
   return (
     <main className="bg-white text-[#181C24]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif", paddingBottom: stage === 'form' ? 'calc(210px + env(safe-area-inset-bottom))' : 0 }}>
-      <Script id="meta-pixel" strategy="afterInteractive">{`
-        !function(f,b,e,v,n,t,s)
-        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-        n.queue=[];t=b.createElement(e);t.async=!0;
-        t.src=v;s=b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t,s)}(window, document,'script',
-        'https://connect.facebook.net/en_US/fbevents.js');
-        fbq('init', '4542157089361204');
-        fbq('track', 'PageView');
-      `}</Script>
+      <MetaPixel />
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Allura&display=swap" />
 
       {stage === 'survey' ? (

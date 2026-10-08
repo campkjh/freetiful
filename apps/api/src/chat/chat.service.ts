@@ -14,6 +14,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChatRealtimeService } from './chat-realtime.service';
 import { AutoReplyService } from '../auto-reply/auto-reply.service';
 import { customerContactMethod, rawForPro, sharedCustomerPhone } from '../match/quick-match.config';
+import { isTestLeadUserId } from '../match/test-lead';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -605,6 +606,10 @@ export class ChatService implements OnModuleInit {
     if (!targetPro) throw new NotFoundException('전문가를 찾을 수 없습니다');
     if (targetPro.userId === userId) {
       throw new NotFoundException('본인과는 채팅을 시작할 수 없습니다');
+    }
+    // 점검용 테스트 계정(match/test-lead)은 사회자와 대화를 열 수 없다 — 방을 만들면 사회자에게 인사말·알림·알림톡이 간다(261008 사장 '테스트는 사회자에게 연락 안 가게')
+    if (isTestLeadUserId(userId)) {
+      throw new BadRequestException('테스트 계정은 사회자와 대화를 시작할 수 없어요');
     }
 
     const participantUserIds = await this.getChatParticipantUserIds(userId);
@@ -1851,6 +1856,11 @@ export class ChatService implements OnModuleInit {
 
   async sendMessage(roomId: string, userId: string, dto: SendMessageDto) {
     await this.verifyMembership(roomId, userId);
+    // 점검용 테스트 계정이 고객 쪽으로 보내는 말은 막는다 — 보내면 사회자에게 푸시·알림톡·AI 자동응답이 돈다(사회자로 쓰는 점검 계정의 사회자 쪽 말은 그대로)
+    if (isTestLeadUserId(userId)) {
+      const room = await this.prisma.chatRoom.findUnique({ where: { id: roomId }, select: { userId: true } });
+      if (room?.userId === userId) throw new BadRequestException('테스트 계정은 사회자에게 메시지를 보낼 수 없어요');
+    }
 
     const metadata =
       dto.metadata && typeof dto.metadata === 'object' && !Array.isArray(dto.metadata)
