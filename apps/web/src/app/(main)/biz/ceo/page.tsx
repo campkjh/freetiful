@@ -324,6 +324,13 @@ export default function CeoPage() {
                 image: '/images/ceo.png',
               },
               {
+                // 261009 사장 '김도윤 부대표 COO'
+                name: t({ ko: '김도윤', en: 'Doyun Kim', ja: '金ドユン', zh: '金度允' }),
+                role: t({ ko: '부대표', en: 'Vice President', ja: '副代表', zh: '副总裁' }),
+                badge: 'COO',
+                image: '/images/director-kim-dy.webp',
+              },
+              {
                 name: t({ ko: '김명옥', en: 'Myeongok Kim', ja: '金明玉', zh: '金明玉' }),
                 role: t({ ko: '최고재무책임자', en: 'Chief Financial Officer', ja: '最高財務責任者', zh: '首席财务官' }),
                 badge: 'CFO',
@@ -352,6 +359,13 @@ export default function CeoPage() {
                 role: t({ ko: '마케팅본부장', en: 'Head of Marketing', ja: 'マーケティング本部長', zh: '营销部门负责人' }),
                 badge: 'HB',
                 image: '/images/director-park-sy.png',
+              },
+              {
+                // 261009 사장 '차보경 마케팅실장'
+                name: t({ ko: '차보경', en: 'Bokyung Cha', ja: '車ボギョン', zh: '车宝京' }),
+                role: t({ ko: '마케팅실장', en: 'Marketing Director', ja: 'マーケティング室長', zh: '营销室长' }),
+                badge: 'DIR',
+                image: '/images/director-cha-bk.webp',
               },
               {
                 name: t({ ko: '황지애', en: 'Jiae Hwang', ja: '黃志愛', zh: '黄志爱' }),
