@@ -51,7 +51,7 @@ import { useImageTone } from '@/lib/image-tone';
 import PartnerToneCard from '@/components/business/PartnerToneCard';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
-import BizSwipePeek from '@/components/home/BizSwipePeek';
+import BizSwipePeek, { preloadBizPeek } from '@/components/home/BizSwipePeek';
 import { skipNextPageTransition } from '@/components/PageTransition';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
@@ -1978,6 +1978,7 @@ function HomeSwipeTabs() {
       const target = e.target as HTMLElement | null;
       const ignore = !!target?.closest?.('[data-hswipe-ignore]');
       s = { x: t.clientX, y: t.clientY, locked: 0, ignore, mode: fromRight ? 'next' : 'biz', vx: 0, lx: t.clientX, lt: performance.now() };
+      if (fromLeft) preloadBizPeek();
     };
     const onMove = (e: TouchEvent) => {
       if (!s || s.ignore) return;
@@ -2034,12 +2035,15 @@ function HomeSwipeTabs() {
       if (s?.mode === 'biz') closeBiz();
       s = null; setDragX(0);
     };
+    // 비즈 첫 화면 사진은 홈이 자리 잡은 뒤 한가할 때 미리 받아 둔다(끌자마자 빈 카드가 보이지 않게)
+    const warmPeek = window.setTimeout(() => { if (isMobile()) preloadBizPeek(); }, 2500);
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onEnd, { passive: true });
     window.addEventListener('touchcancel', onCancel, { passive: true });
     return () => {
       window.clearTimeout(bizTimer);
+      window.clearTimeout(warmPeek);
       window.removeEventListener('touchstart', onStart);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onEnd);
@@ -2113,30 +2117,21 @@ function HomeSwipeTabs() {
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
         style={{ height: 64 }}
       />
-      {/* 비즈 — 왼쪽 끝에서 끌어오는 비즈 첫 화면(헤더·하단 탭 위를 덮는다) + 뒤 홈을 살짝 어둡게 */}
+      {/* 비즈 — 왼쪽 끝에서 끌어오는 비즈 첫 화면(헤더·하단 탭 위를 덮는다).
+          들어오는 화면 오른쪽 끝은 흰색 100% → 0% 로 번져 홈과 이어진다(261009 사장 '검은색 영역 말고 흰색 그라데이션으로 자연스럽게' — 예전 검은 딤·그림자 삭제) */}
       {biz && (
-        <>
-          <div
-            aria-hidden="true"
-            className="lg:hidden pointer-events-none fixed inset-0 z-[69] bg-black"
-            style={{
-              opacity: biz.phase === 'open' ? 0.14 : biz.phase === 'close' ? 0 : Math.min(1, biz.x / (typeof window !== 'undefined' ? window.innerWidth : 390)) * 0.14,
-              transition: biz.phase === 'drag' ? 'none' : 'opacity 0.28s cubic-bezier(0.22,0.61,0.36,1)',
-            }}
-          />
-          <div
-            aria-hidden="true"
-            className="lg:hidden pointer-events-none fixed inset-0 z-[70]"
-            style={{
-              transform: biz.phase === 'open' ? 'translate3d(0,0,0)' : biz.phase === 'close' ? 'translate3d(-100%,0,0)' : `translate3d(calc(-100% + ${biz.x}px),0,0)`,
-              transition: biz.phase === 'drag' ? 'none' : 'transform 0.28s cubic-bezier(0.22,0.61,0.36,1)',
-              boxShadow: '6px 0 24px rgba(0,0,0,0.12)',
-              willChange: 'transform',
-            }}
-          >
-            <BizSwipePeek />
-          </div>
-        </>
+        <div
+          aria-hidden="true"
+          className="lg:hidden pointer-events-none fixed inset-0 z-[70]"
+          style={{
+            transform: biz.phase === 'open' ? 'translate3d(0,0,0)' : biz.phase === 'close' ? 'translate3d(calc(-100% - 48px),0,0)' : `translate3d(calc(-100% + ${biz.x}px),0,0)`,
+            transition: biz.phase === 'drag' ? 'none' : 'transform 0.28s cubic-bezier(0.22,0.61,0.36,1)',
+            willChange: 'transform',
+          }}
+        >
+          <BizSwipePeek />
+          <div className="absolute inset-y-0" style={{ left: '100%', width: 48, background: 'linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%)' }} />
+        </div>
       )}
       {/* 탭 — 헤더 줄(위 12 · 높이 42) 로고와 아이콘 사이 */}
       <div className="lg:hidden fixed top-[12px] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
