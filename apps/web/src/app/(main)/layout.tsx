@@ -211,6 +211,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 커뮤니티는 폭 제한 없이 자기 사이드바 화면. PC 전체 헤더는 웨딩숲에서도 보인다(260928 사장 'PC 웨딩숲에서 빠져나갈 방법이 없음') —
   // 웨딩숲 자기 머리줄·사이드바·글쓰기 칸은 그 아래에 붙는다(community.css --fcom-pc-top).
   const communityRoute = /^\/community(\/|$)/.test(pathname);
+  // 비즈 첫 화면(토스식 장면, 261008) — 화면 가득 장면이라 폭 제한 없이(하위 화면 ceo·faq 등은 그대로)
+  const bizFullRoute = /^\/biz(\/lab)?$/.test(pathname);
   // 사회자 목록 · 웨딩파트너 목록 — 모바일은 자기 머리줄(하단 탭 없음) 그대로, PC 는 전체 헤더를 보인다(260928 사장 'PC 목록 화면도 지금 톤앤매너로')
   const pcHeaderRoute = /^\/(pros|businesses)$/.test(pathname);
   // PC 웨딩숲 검색창(전체 헤더) — 웨딩숲 글 목록이 같은 값으로 찾는다. 웨딩숲을 벗어나면 비운다.
@@ -531,7 +533,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute || requestListRoute ? 'bg-white lg:bg-surface-50' : myRoute ? 'bg-[#F4F6FA] lg:bg-surface-50' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
-      {!embedded && <VilladegdEventOverlay />}
+      {/* 비즈(/biz…)는 기업 손님이 바로 들어오는 화면 — 웨딩홀 전면 영상(약 6MB)을 덮지 않는다. 여기선 마운트하지 않아 '본 것' 표시도 안 남아 홈에선 그대로 뜬다 */}
+      {!embedded && !/^\/biz(\/|$)/.test(pathname) && <VilladegdEventOverlay />}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
       <header className={`${hideNav && !pcHeaderRoute ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         {/* 가운데 칸 고정(1fr · auto · 1fr) — 웨딩숲에서 오른쪽에 검색창이 붙어도 탭 줄이 옆으로 밀리지 않는다 */}
@@ -683,7 +686,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       {/* ─── Content ─────────────────────────────────────────────────── */}
       {/* 모바일에서 회사 정보 푸터가 보이는 화면은 푸터가 아래 탭바 자리(여백+끝 흰색 그라데이션)를 맡는다 → 본문 아래 여백은 조금만
           (예전 pb-24 가 푸터 위에 흰 빈칸 96px 을 더 만들었다, 260926) */}
-      <main className={`${communityRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : mobileFooterShown ? 'pb-4 lg:pb-12' : 'pb-24 lg:pb-12'}`}>
+      <main className={`${communityRoute || bizFullRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : mobileFooterShown ? 'pb-4 lg:pb-12' : 'pb-24 lg:pb-12'}`}>
         <div className="lg:max-w-none">
           <PageTransition>{children}</PageTransition>
         </div>

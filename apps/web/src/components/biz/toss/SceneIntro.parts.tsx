@@ -1,0 +1,604 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useBizLang, useT } from '@/lib/biz/i18n';
+import { INTRO } from './content';
+import { scrollToElement } from './scene';
+
+/*
+ * 첫 장면(SceneIntro) 조각 — 기울어진 폰 · 폰 속 채팅 · 알약 단추 · 떠다니는 점 캔버스 · 장면 전용 CSS.
+ * 치수는 토스 홈 실측값(1920×1080 디자인 판 기준)을 따르되, 그림 · 코드는 전부 새로 그린 것(폰 틀도 CSS 로 만든다).
+ */
+
+export const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+/* ─── 장면 전용 CSS(클래스 앞머리 si-) ─────────────────────────────── */
+export const SI_CSS = `
+.si-root .break-keep{overflow-wrap:anywhere}
+.si-desk{display:none}
+@media (min-width:1024px) and (min-aspect-ratio:6/5) and (prefers-reduced-motion:no-preference){.si-desk{display:block}.si-stack{display:none}}
+.si-hw{display:inline-block;white-space:pre;will-change:transform,opacity;transition:transform .8s cubic-bezier(.16,1,.3,1) calc(var(--i)*100ms),opacity .8s cubic-bezier(.16,1,.3,1) calc(var(--i)*100ms);animation:si-rise .8s cubic-bezier(.16,1,.3,1) calc(var(--i)*100ms + 200ms) backwards}
+.si-hero-h[data-gone] .si-hw{transform:translate3d(0,-40px,0);opacity:0;transition-delay:calc(var(--r)*100ms)}
+@keyframes si-rise{from{transform:translate3d(0,40px,0);opacity:0}to{transform:none;opacity:1}}
+.si-tt{opacity:0;transition:opacity .8s ease}
+.si-tt[data-on]{opacity:1}
+.si-hl{display:block;opacity:0;transform:translate3d(0,24px,0);filter:blur(16px);transition:opacity 1s cubic-bezier(.37,.31,0,1),transform 1s cubic-bezier(.37,.31,0,1),filter 1s cubic-bezier(.37,.31,0,1)}
+[data-rev] .si-hl{opacity:1;transform:none;filter:blur(0);transition-delay:calc(var(--i)*100ms)}
+.si-row{opacity:0;transform:translate3d(0,60px,0)}
+[data-rev] .si-row{opacity:1;transform:none;transition:opacity .5s cubic-bezier(.25,.46,.45,.94) calc(500ms + var(--i)*100ms),transform .5s cubic-bezier(.25,.46,.45,.94) calc(500ms + var(--i)*100ms)}
+.si-chipw{opacity:0;transform:translate3d(0,24px,0) scale(.96);transition:opacity .4s ease,transform .4s ease}
+[data-rev] .si-chipw{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.25,1,.5,1) calc(900ms + var(--i)*120ms),transform .9s cubic-bezier(.25,1,.5,1) calc(900ms + var(--i)*120ms)}
+.si-chip{animation:si-float 6.5s ease-in-out calc(var(--i)*-2.1s) infinite;transition:box-shadow .5s cubic-bezier(.25,.46,.45,.94),background-color .5s ease}
+.si-chip>span{transition:transform .5s cubic-bezier(.25,.46,.45,.94),opacity .5s ease}
+@keyframes si-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-9px,0)}}
+.si-acc-t{color:rgba(51,56,64,.2);padding:calc(20px*var(--k)) 0;transition:color .5s cubic-bezier(.25,.46,.45,.94),padding-bottom .5s cubic-bezier(.25,.46,.45,.94)}
+.si-acc-t:hover{color:rgba(51,56,64,.42)}
+[data-on]>.si-acc-t{color:rgb(51,56,64);padding-bottom:calc(4px*var(--k))}
+.si-pill{-webkit-tap-highlight-color:transparent}
+.si-pill .si-ch{display:inline-block;white-space:pre;transition:transform .195s cubic-bezier(.37,.06,.84,.75),opacity .195s cubic-bezier(.37,.06,.84,.75),filter .195s cubic-bezier(.37,.06,.84,.75)}
+.si-pill .si-cb .si-ch{transform:translate3d(0,16px,0);opacity:0}
+.si-pill .si-trk{transform:translate3d(-21px,0,0);transition:transform .3s cubic-bezier(.61,0,0,.6)}
+@media (hover:hover){
+.si-pill:hover .si-ct .si-ch{transform:translate3d(0,-16px,0);opacity:0;filter:blur(4px);transition-duration:.27s;transition-timing-function:cubic-bezier(.31,.52,.35,1);transition-delay:calc(var(--i)*5ms)}
+.si-pill:hover .si-cb .si-ch{transform:none;opacity:1;transition-duration:.27s;transition-timing-function:cubic-bezier(.31,.52,.35,1);transition-delay:calc(var(--i)*5ms)}
+.si-pill:hover .si-trk{transform:translate3d(7px,0,0)}
+}
+.si-pill:focus-visible .si-ct .si-ch{transform:translate3d(0,-16px,0);opacity:0;filter:blur(4px)}
+.si-pill:focus-visible .si-cb .si-ch{transform:none;opacity:1}
+.si-pill:focus-visible .si-trk{transform:translate3d(7px,0,0)}
+@keyframes si-pop{from{opacity:0;transform:translate3d(0,12px,0) scale(.92)}to{opacity:1;transform:none}}
+.si-msg{animation:si-pop .46s cubic-bezier(.2,.9,.3,1.12) both}
+@keyframes si-dot{0%,70%,100%{transform:translate3d(0,0,0);opacity:.35}35%{transform:translate3d(0,-3px,0);opacity:1}}
+.si-dot{animation:si-dot 1.1s ease-in-out infinite}
+.si-fu{opacity:0;transform:translate3d(0,80px,0);transition:opacity .7s cubic-bezier(.25,1,.5,1),transform .7s cubic-bezier(.25,1,.5,1)}
+.si-fu[data-in]{opacity:1;transform:none}
+.si-mphone{--ps:.74}
+@media (min-width:768px){.si-mphone{--ps:.86}}
+.si-mhero{--t:56px;--s:20px;--b:calc(96px + env(safe-area-inset-bottom,0px));--r:40px;height:100vh;height:100svh;min-height:540px}
+@media (min-width:768px){.si-mhero{--t:64px;--s:24px;--b:24px;--r:40px}}
+.si-mclip{clip-path:inset(var(--t) var(--s) var(--b) round var(--r));transition:clip-path 1s cubic-bezier(.33,1,.68,1)}
+.si-mhero[data-x] .si-mclip{clip-path:inset(0px 0px 0px round 0px);transition-duration:.8s}
+.si-mvid{transform:translate3d(-50%,-50%,0) scale(1.2);transition:transform 1s cubic-bezier(.33,1,.68,1)}
+.si-mhero[data-x] .si-mvid{transform:translate3d(-50%,-50%,0) scale(1);transition-duration:.8s}
+.si-mhl{display:block;transition:transform .9s cubic-bezier(.33,1,.68,1) calc(var(--i)*75ms),opacity .9s cubic-bezier(.33,1,.68,1) calc(var(--i)*75ms)}
+.si-mhero[data-x] .si-mhl{transform:translate3d(0,-40px,0);opacity:0;transition-duration:.45s}
+@media (prefers-reduced-motion:reduce){
+.si-hw{animation:none}
+.si-fu{opacity:1;transform:none;transition:none}
+.si-msg,.si-dot,.si-chip{animation:none}
+.si-mclip,.si-mvid,.si-mhl{transition:none}
+}
+`;
+
+/* ─── 영상 반복 구간 자르기 — 원본 끝 1.7초가 흰 화면으로 사라지는 장면이라 12초에서 처음으로 돌린다 ─── */
+const LOOP_END = 12;
+type FrameCbVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number; cancelVideoFrameCallback?: (id: number) => void };
+/** 영상 요소에 반복 구간 자르기를 붙인다 — 떼는 함수를 돌려준다 */
+export function attachTrimLoop(el: HTMLVideoElement): () => void {
+  const v = el as FrameCbVideo;
+  let id = 0;
+  const back = () => {
+    if (v.currentTime >= LOOP_END) v.currentTime = 0.04;
+  };
+  if (typeof v.requestVideoFrameCallback === 'function') {
+    const tick = () => {
+      back();
+      id = v.requestVideoFrameCallback!(tick);
+    };
+    id = v.requestVideoFrameCallback(tick);
+    return () => v.cancelVideoFrameCallback?.(id);
+  }
+  v.addEventListener('timeupdate', back);
+  return () => v.removeEventListener('timeupdate', back);
+}
+export function useTrimLoop(ref: React.RefObject<HTMLVideoElement>) {
+  useEffect(() => {
+    const v = ref.current;
+    return v ? attachTrimLoop(v) : undefined;
+  }, [ref]);
+}
+
+/* ─── 아이콘(직접 그린 단순 도형) ─────────────────────────────────── */
+function ArrowIcon({ size = 14, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M2.2 7h9.4M7.6 2.9 11.7 7l-4.1 4.1" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StatusBar({ tone = '#191F28' }: { tone?: string }) {
+  return (
+    <div className="absolute inset-x-0 top-0 z-[3] flex h-[30px] items-center justify-between bg-white px-[26px] pt-[3px]" style={{ color: tone }}>
+      <span className="text-[12.5px] font-semibold tracking-[-0.2px]">9:41</span>
+      <span className="flex items-center gap-[4px]" aria-hidden="true">
+        <svg width="15" height="10" viewBox="0 0 15 10" fill="currentColor"><rect x="0" y="6.4" width="2.5" height="3.6" rx=".6" /><rect x="4.1" y="4.4" width="2.5" height="5.6" rx=".6" /><rect x="8.2" y="2.3" width="2.5" height="7.7" rx=".6" /><rect x="12.3" y="0" width="2.5" height="10" rx=".6" /></svg>
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><path d="M7 2.1c2.1 0 4 .8 5.4 2.2l1.1-1.1A9.1 9.1 0 0 0 7 .5 9.1 9.1 0 0 0 .5 3.2l1.1 1.1A7.6 7.6 0 0 1 7 2.1Zm0 3c1.2 0 2.4.5 3.2 1.3l1.1-1.1A6.1 6.1 0 0 0 7 3.6 6.1 6.1 0 0 0 2.7 5.3l1.1 1.1C4.6 5.6 5.8 5.1 7 5.1Zm0 3c.4 0 .8.2 1.1.4L7 9.6 5.9 8.5c.3-.2.7-.4 1.1-.4Z" /></svg>
+        <svg width="23" height="11" viewBox="0 0 23 11" fill="none"><rect x=".5" y=".5" width="19" height="10" rx="3" stroke="currentColor" opacity=".38" /><rect x="2" y="2" width="16" height="7" rx="1.7" fill="currentColor" /><path d="M21 3.8v3.4c.7-.2 1.1-.9 1.1-1.7S21.7 4 21 3.8Z" fill="currentColor" opacity=".4" /></svg>
+      </span>
+    </div>
+  );
+}
+
+function PersonAvatar({ size }: { size: number }) {
+  return (
+    <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E5E8EB]" style={{ width: size, height: size }} aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 30 30"><circle cx="15" cy="11.6" r="5.2" fill="#fff" /><path d="M5.6 26.4c1.4-5 5-7.7 9.4-7.7s8 2.7 9.4 7.7" fill="#fff" /></svg>
+    </span>
+  );
+}
+
+/* ─── 알약 단추(글자 굴림 + 화살표 밀기) ────────────────────────────── */
+export function PillCta({ label, href, size = 'md' }: { label: string; href: string; size?: 'md' | 'sm' }) {
+  const chars = Array.from(label);
+  const fs = size === 'md' ? 'calc(16px*var(--k,1))' : '14px';
+  const lh = size === 'md' ? 'calc(25.6px*var(--k,1))' : '22.4px';
+  const inner = (
+    <>
+      <span className="relative block overflow-hidden" style={{ height: lh }}>
+        <span className="si-ct block" aria-hidden="true">
+          {chars.map((c, i) => <span key={i} className="si-ch" style={{ '--i': i } as CSSProperties}>{c}</span>)}
+        </span>
+        <span className="si-cb absolute inset-0 block" aria-hidden="true">
+          {chars.map((c, i) => <span key={i} className="si-ch" style={{ '--i': i } as CSSProperties}>{c}</span>)}
+        </span>
+        <span className="sr-only">{label}</span>
+      </span>
+      <span className="block pl-[12px] pr-[10px]" aria-hidden="true">
+        <span className="relative block h-[28px] w-[28px] overflow-hidden rounded-[80px] bg-[#1C1F25]">
+          <span className="si-trk absolute left-0 top-[7px] flex gap-[14px]">
+            <ArrowIcon />
+            <ArrowIcon />
+          </span>
+        </span>
+      </span>
+    </>
+  );
+  const cls = 'si-pill inline-flex h-[48px] items-center rounded-[136px] border border-[rgba(13,25,74,0.04)] bg-[rgba(7,25,76,0.05)] pl-[18px] font-semibold text-[#1C1F25] backdrop-blur-[10px] transition-colors duration-200 hover:bg-[rgba(3,31,63,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3182F6]/40';
+  const style: CSSProperties = { fontSize: fs, lineHeight: lh, letterSpacing: '-0.02em' };
+  if (href.startsWith('#')) {
+    const id = href.slice(1);
+    return (
+      <button
+        type="button"
+        className={cls}
+        style={style}
+        onClick={() => {
+          const el = document.getElementById(id);
+          if (el) scrollToElement(el);
+        }}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <Link href={href} className={cls} style={style}>
+      {inner}
+    </Link>
+  );
+}
+
+/* ─── 기울어진 폰(토스 실측 기울기: 직교 투영 rotateX 21 · rotateY -2 · rotateZ 11.5 · scaleY 1.03) ───
+ * 1920×1080 판 위 677×827 칸(969.67, 139.25)에 놓인다. 틀 두께는 같은 평면 안에서 오른쪽 아래로 쌓은 그림자 층으로 그린다(3D 층 없음 → GPU 가볍게).
+ */
+const PHONE_BOX = { left: 969.67, top: 139.25, width: 677, height: 827 };
+export const SCREEN_W = 332;
+const SCREEN_H = 745;
+const TILT = 'translate(153.3px, 28.5px) rotateX(21deg) rotateY(-2deg) rotateZ(11.5deg) scaleY(1.03)';
+
+const BAND_SHADOW = (() => {
+  // 화면 기준 두께 벡터(디자인 px) → 폰 평면 안의 밀기 값으로 되돌려 층마다 조금씩 민다
+  const ex = 15, ey = 17, N = 22;
+  const a = 0.979328, b = -0.205224, c = 0.17387, d = 0.944852;
+  const det = a * d - b * c;
+  const u = (d * ex - b * ey) / det;
+  const v = (-c * ex + a * ey) / det;
+  const stops: [number, [number, number, number]][] = [
+    [0, [246, 248, 252]],
+    [0.1, [196, 205, 220]],
+    [0.32, [156, 168, 188]],
+    [0.62, [136, 149, 171]],
+    [0.86, [112, 125, 147]],
+    [1, [74, 84, 103]],
+  ];
+  const col = (f: number) => {
+    let i = 0;
+    while (i < stops.length - 2 && f > stops[i + 1][0]) i += 1;
+    const [f0, c0] = stops[i];
+    const [f1, c1] = stops[i + 1];
+    const k = (f - f0) / (f1 - f0 || 1);
+    return `rgb(${c0.map((x, j) => Math.round(x + (c1[j] - x) * k)).join(',')})`;
+  };
+  return Array.from({ length: N }, (_, i) => {
+    const f = (i + 1) / N;
+    return `${(u * f).toFixed(2)}px ${(v * f).toFixed(2)}px 0 ${col(f)}`;
+  }).join(',');
+})();
+
+export function TiltPhone({ screen, pop }: { screen: ReactNode; pop?: ReactNode }) {
+  return (
+    <div className="absolute" style={{ left: PHONE_BOX.left, top: PHONE_BOX.top, width: PHONE_BOX.width, height: PHONE_BOX.height }} aria-hidden="true">
+      <div className="absolute left-0" style={{ top: 5, width: 352, height: 775, transformOrigin: '176px 387.5px', transform: TILT }}>
+        {/* 옆면(금속 띠) — 같은 모양을 오른쪽 아래로 층층이 밀어 두께를 만든다 */}
+        <div className="absolute" style={{ left: -1.5, top: 3.5, width: 355, height: 768, borderRadius: 60, background: '#B9C3D3', boxShadow: BAND_SHADOW }} />
+        {/* 옆 단추 */}
+        <div className="absolute rounded-[3px]" style={{ left: 351.5, top: 214, width: 6, height: 68, background: 'linear-gradient(90deg, #DDE3EC, #9AA6BA)', boxShadow: '3px 3px 0 #7D899E' }} />
+        <div className="absolute rounded-[3px]" style={{ left: 351.5, top: 296, width: 6, height: 68, background: 'linear-gradient(90deg, #DDE3EC, #9AA6BA)', boxShadow: '3px 3px 0 #7D899E' }} />
+        {/* 아랫면 스피커 구멍 · 단자 */}
+        <div className="absolute flex items-center gap-[7px]" style={{ left: 176 - 78 + 9, top: 771.5 + 6, transform: 'skewX(-12deg)' }}>
+          {[0, 1, 2, 3, 4].map((d) => <span key={d} className="block h-[4px] w-[4px] rounded-full bg-[#4A5466]" />)}
+          <span className="mx-[10px] block h-[5px] w-[34px] rounded-full bg-[#3E4757]" />
+          {[0, 1, 2, 3, 4].map((d) => <span key={d} className="block h-[4px] w-[4px] rounded-full bg-[#4A5466]" />)}
+        </div>
+        {/* 앞 테두리(얇은 금속 테) */}
+        <div className="absolute" style={{ left: -1.5, top: 3.5, width: 355, height: 768, borderRadius: 60, background: 'linear-gradient(160deg, #FFFFFF 0%, #C9D2DF 18%, #F1F4F8 42%, #A7B2C4 70%, #E6EAF0 100%)' }} />
+        {/* 검은 베젤 */}
+        <div className="absolute" style={{ left: 0.5, top: 5.5, width: 351, height: 764, borderRadius: 58, background: '#08090C', boxShadow: 'inset 0 0 0 1.2px #30353E' }} />
+        {/* 화면 */}
+        <div className="absolute overflow-hidden" style={{ left: 10, top: 15, width: SCREEN_W, height: SCREEN_H, borderRadius: 48, background: '#F2F4F6', isolation: 'isolate' }}>
+          {screen}
+          <div className="absolute left-1/2 top-[9px] z-[5] h-[27px] w-[98px] -translate-x-1/2 rounded-full bg-[#050608]" />
+        </div>
+        {/* 화면 밖으로 튀어나오는 카드 층(잘리지 않음) */}
+        {pop && <div className="pointer-events-none absolute" style={{ left: 10, top: 15, width: SCREEN_W, height: SCREEN_H }}>{pop}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ─── 폰 속 채팅(프리티풀 앱 채팅 화면 어법) ────────────────────────── */
+type ChatStep = { show: number; typing?: boolean };
+/** 단계: 말풍선이 하나씩 — 사회자 답장 앞엔 입력 중 점 세 개 */
+export const CHAT_STEPS: ChatStep[] = [
+  { show: 1 },
+  { show: 1, typing: true },
+  { show: 2 },
+  { show: 3 },
+  { show: 3, typing: true },
+  { show: 4 },
+  { show: 4, typing: true },
+  { show: 5 },
+];
+const CHAT_TIMES = ['14:06', '14:09', '14:12', '14:15', '14:16'];
+
+function Bubble({ me, text, time }: { me: boolean; text: string; time: string }) {
+  if (me) {
+    return (
+      <div className="si-msg mt-[10px] flex items-end justify-end gap-[6px]" style={{ transformOrigin: '100% 100%' }}>
+        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
+        <p className="max-w-[212px] break-keep rounded-[18px] rounded-br-[5px] bg-[#3182F6] px-[13px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.2px] text-white">{text}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
+      <PersonAvatar size={30} />
+      <div className="flex items-end gap-[6px]">
+        <p className="max-w-[196px] break-keep rounded-[18px] rounded-bl-[5px] bg-[#F2F4F6] px-[13px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.2px] text-[#191F28]">{text}</p>
+        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
+      </div>
+    </div>
+  );
+}
+
+function QuoteBubble({ title, sub, time }: { title: string; sub: string; time: string }) {
+  return (
+    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
+      <PersonAvatar size={30} />
+      <div className="flex items-end gap-[6px]">
+        <QuoteCard title={title} sub={sub} />
+        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
+      </div>
+    </div>
+  );
+}
+
+function QuoteCard({ title, sub, className = '', style }: { title: string; sub: string; className?: string; style?: CSSProperties }) {
+  return (
+    <div className={`w-[196px] overflow-hidden rounded-[18px] rounded-bl-[5px] border border-[#E5E8EB] bg-white ${className}`} style={style}>
+      <div className="flex items-center gap-[8px] bg-[#F4F8FF] px-[12px] py-[10px]">
+        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#3182F6]">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 1.8h4.8l2.7 2.7v7.1a.6.6 0 0 1-.6.6H3.5a.6.6 0 0 1-.6-.6V2.4c0-.3.3-.6.6-.6Z" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" /><path d="M5 7h4M5 9.3h2.6" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" /></svg>
+        </span>
+        <p className="break-keep text-[13.5px] font-bold leading-[1.35] tracking-[-0.2px] text-[#191F28]">{title}</p>
+      </div>
+      <p className="break-keep px-[12px] pb-[11px] pt-[8px] text-[12px] leading-[1.45] tracking-[-0.1px] text-[#6B7684]">{sub}</p>
+    </div>
+  );
+}
+
+function Typing() {
+  return (
+    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
+      <PersonAvatar size={30} />
+      <div className="flex h-[38px] items-center gap-[4px] rounded-[18px] rounded-bl-[5px] bg-[#F2F4F6] px-[14px]">
+        {[0, 1, 2].map((i) => <span key={i} className="si-dot h-[6px] w-[6px] rounded-full bg-[#8B95A1]" style={{ animationDelay: `${i * 0.16}s` }} />)}
+      </div>
+    </div>
+  );
+}
+
+/** 채팅 화면 전체(332×745 디자인 px) — step 0 이면 빈 대화 */
+export function ChatScreen({ step, listMax }: { step: number; listMax?: number }) {
+  const t = useT();
+  const { lang } = useBizLang();
+  const st = step > 0 ? CHAT_STEPS[Math.min(step, CHAT_STEPS.length) - 1] : null;
+  const show = st ? st.show : 0;
+  const typing = !!st?.typing;
+  const listRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [off, setOff] = useState(0);
+  useIsoLayoutEffect(() => {
+    const l = listRef.current;
+    const n = innerRef.current;
+    if (!l || !n) return;
+    setOff(Math.max(0, n.offsetHeight - l.clientHeight));
+  }, [show, typing, lang]);
+  const msgs = INTRO.chatMessages;
+  return (
+    <div className="absolute inset-0 flex flex-col bg-white">
+      <StatusBar />
+      <div className="h-[30px] shrink-0" />
+      {/* 머리줄 */}
+      <div className="relative z-[2] flex h-[50px] shrink-0 items-center border-b border-[#F2F4F6] bg-white px-[12px]">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M13.6 4.6 7.2 11l6.4 6.4" stroke="#191F28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="ml-[8px] flex min-w-0 flex-1 items-center gap-[5px]">
+          <span className="truncate text-[15.5px] font-bold tracking-[-0.3px] text-[#191F28]">{t(INTRO.chatHostName)}</span>
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l1.8 1.3 2.2-.1.7 2.1 1.8 1.3-.7 2.1.7 2.1-1.8 1.3-.7 2.1-2.2-.1L8 15.1l-1.8-1.3-2.2.1-.7-2.1-1.8-1.3.7-2.1-.7-2.1 1.8-1.3.7-2.1 2.2.1Z" fill="#3182F6" /><path d="m5.3 8.1 1.8 1.8 3.6-3.7" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="#191F28" aria-hidden="true"><circle cx="10" cy="4.4" r="1.7" /><circle cx="10" cy="10" r="1.7" /><circle cx="10" cy="15.6" r="1.7" /></svg>
+      </div>
+      {/* 대화 */}
+      <div ref={listRef} className={`relative min-h-0 overflow-hidden ${listMax ? 'shrink-0' : 'flex-1'}`} style={listMax ? { height: listMax } : undefined}>
+        <div ref={innerRef} className="px-[12px] pb-[14px] pt-[6px]" style={{ transform: `translate3d(0, ${-off}px, 0)`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
+          <p className="mb-[4px] mt-[8px] text-center text-[11px] text-[#8B95A1]">2026.12.08</p>
+          {msgs.slice(0, Math.min(show, msgs.length)).map((m, i) => <Bubble key={i} me={m.me} text={t(m.text)} time={CHAT_TIMES[i]} />)}
+          {show > msgs.length && <QuoteBubble title={t(INTRO.chatQuoteCard.title)} sub={t(INTRO.chatQuoteCard.sub)} time={CHAT_TIMES[4]} />}
+          {typing && <Typing />}
+        </div>
+      </div>
+      {listMax ? <div className="flex-1" /> : null}
+      {/* 입력 줄 */}
+      <div className="flex h-[62px] shrink-0 items-center gap-[8px] bg-white px-[12px] pb-[6px]">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M11 4v14M4 11h14" stroke="#4E5968" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        <div className="flex h-[38px] min-w-0 flex-1 items-center justify-between rounded-full bg-[#F2F4F6] pl-[14px] pr-[8px]">
+          <span className="truncate text-[13px] text-[#B0B8C1]">{t(INTRO.chatInputPlaceholder)}</span>
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.4" fill="#B0B8C1" /><circle cx="7.3" cy="8.4" r="1.1" fill="#fff" /><circle cx="12.7" cy="8.4" r="1.1" fill="#fff" /><path d="M6.6 11.6c.8 1.3 2 2 3.4 2s2.6-.7 3.4-2" stroke="#fff" strokeWidth="1.3" fill="none" strokeLinecap="round" /></svg>
+        </div>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="#C5CBD3" aria-hidden="true"><path d="M3.2 10.2 18.6 3.4c.5-.2 1 .3.8.8L12.6 19.6c-.2.5-1 .5-1.1-.1l-1.4-6.2c0-.2-.2-.3-.4-.4L3.3 11.4c-.6-.1-.6-.9-.1-1.2Z" /></svg>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 진행자 고르기 화면(긴 캡처) + 튀어나오는 카드 ───────────────────────
+ * crop = 780px 너비 캡처 안 좌표. 폰 화면 332px 로 줄여 보인다(scale 332/780).
+ */
+export type HostScreen = { key: string; src: string; h: number; offset: number; crop: { x: number; y: number; w: number; h: number } | null };
+export const SCREEN_SCALE = SCREEN_W / 780;
+export const HOST_SCREENS: HostScreen[] = [
+  { key: 'pros', src: INTRO.listItems[0].screen, h: 4800, offset: 0, crop: { x: 18, y: 226, w: 744, h: 588 } },
+  { key: 'profile', src: INTRO.listItems[1].screen, h: 4800, offset: -206, crop: { x: 18, y: 1050, w: 744, h: 286 } },
+  { key: 'reviews', src: INTRO.listItems[2].screen, h: 4800, offset: 0, crop: { x: 18, y: 452, w: 744, h: 310 } },
+  { key: 'chat', src: INTRO.listItems[3].screen, h: 1688, offset: 0, crop: null },
+];
+const POP_EASE = 'cubic-bezier(.6,0,0,.6)';
+
+export function HostScreenLayers({ active }: { active: number }) {
+  const shown = active < 0 ? 0 : active;
+  const dim = active >= 0;
+  return (
+    <>
+      <div className="absolute inset-0 bg-white" />
+      {HOST_SCREENS.map((sc, i) => {
+        const on = i === shown;
+        return (
+          <div
+            key={sc.key}
+            className="absolute inset-x-0"
+            style={{
+              top: 30,
+              opacity: on ? 1 : 0,
+              transform: `translate3d(0, ${on ? sc.offset : sc.offset + 48}px, 0)`,
+              transition: on ? `transform .4s ${POP_EASE}, opacity .3s ease` : 'transform 0s linear .3s, opacity .3s ease',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 캡처 */}
+            <img
+              src={sc.src}
+              alt=""
+              width={SCREEN_W}
+              height={Math.round(sc.h * SCREEN_SCALE)}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="block select-none"
+              style={{ width: SCREEN_W, height: 'auto', opacity: on && dim ? 0.2 : 1, transition: 'opacity .3s ease .03s' }}
+            />
+          </div>
+        );
+      })}
+      <StatusBar />
+    </>
+  );
+}
+
+export function HostPopCards({ active }: { active: number }) {
+  const t = useT();
+  return (
+    <>
+      {HOST_SCREENS.map((sc, i) => {
+        const on = i === active;
+        const base: CSSProperties = {
+          position: 'absolute',
+          left: 14,
+          width: 304,
+          transformOrigin: '100% 50%',
+          borderRadius: 24,
+          overflow: 'hidden',
+          opacity: on ? 1 : 0,
+          transform: on ? `translate3d(-30px, 0, 0) scale(${i === 0 ? 1.05 : 1.1})` : 'translate3d(0, 48px, 0)',
+          boxShadow: on ? '0 8px 90px 0 rgba(2,32,71,0.05), 0 6px 24px -8px rgba(2,32,71,0.12)' : '0 0 0 0 rgba(2,32,71,0)',
+          border: '1px solid rgba(7,25,76,0.05)',
+          backgroundColor: 'rgba(251,251,252,0.99)',
+          transition: on
+            ? `transform .4s ${POP_EASE}, box-shadow .4s ${POP_EASE}, opacity .2s ease`
+            : `transform 0s linear .3s, box-shadow .3s ease, opacity .25s ease`,
+        };
+        if (!sc.crop) {
+          // 채팅: 캡처에 없는 견적서 카드를 직접 그려 띄운다
+          return (
+            <div key={sc.key} style={{ ...base, top: 30 + 452 }}>
+              <PopQuote title={t(INTRO.chatQuoteCard.title)} sub={t(INTRO.chatQuoteCard.sub)} />
+            </div>
+          );
+        }
+        // 캡처 조각 — 카드 안쪽 여백(10px)을 두려고 조금 작게(콘텐츠 x 24–756 → 폭 284) 넣는다
+        const c = sc.crop;
+        const f = 284 / 732;
+        const H = c.h * f + 20;
+        const cy = 30 + sc.offset + (c.y + c.h / 2) * SCREEN_SCALE;
+        return (
+          <div
+            key={sc.key}
+            style={{
+              ...base,
+              top: cy - H / 2,
+              height: H,
+              backgroundImage: on ? `url(${sc.src})` : undefined,
+              backgroundSize: `${780 * f}px auto`,
+              backgroundPosition: `${10 - 24 * f}px ${10 - c.y * f}px`,
+              backgroundRepeat: 'no-repeat',
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function PopQuote({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="px-[18px] py-[16px]">
+      <div className="flex items-center gap-[10px]">
+        <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[#3182F6]">
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 1.8h4.8l2.7 2.7v7.1a.6.6 0 0 1-.6.6H3.5a.6.6 0 0 1-.6-.6V2.4c0-.3.3-.6.6-.6Z" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" /><path d="M5 7h4M5 9.3h2.6" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" /></svg>
+        </span>
+        <p className="break-keep text-[17px] font-bold leading-[1.35] tracking-[-0.3px] text-[#191F28]">{title}</p>
+      </div>
+      <p className="mt-[10px] break-keep text-[13.5px] leading-[1.5] tracking-[-0.2px] text-[#4E5968]">{sub}</p>
+    </div>
+  );
+}
+
+/* ─── 떠다니는 흰 점(빛 번짐 위, 시간 기반 — 스크롤과 무관) ─────────────── */
+export function Particles({ style, count = 470 }: { style?: CSSProperties; count?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv) return undefined;
+    const reduced = (() => {
+      try {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch {
+        return false;
+      }
+    })();
+    const ctx = cv.getContext('2d');
+    if (!ctx) return undefined;
+    // 부드러운 점 하나를 미리 그려 두고 찍는다
+    const sprite = document.createElement('canvas');
+    sprite.width = sprite.height = 32;
+    const sx = sprite.getContext('2d');
+    if (sx) {
+      const g = sx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.45, 'rgba(255,255,255,.85)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      sx.fillStyle = g;
+      sx.fillRect(0, 0, 32, 32);
+    }
+    let W = 0;
+    let H = 0;
+    let dpr = 1;
+    const dots = Array.from({ length: count }, () => ({ x: Math.random(), y: Math.random(), r: 0, a: 0, vy: 0, ph: Math.random() * Math.PI * 2, f: 0.3 + Math.random() * 0.5 }));
+    const seed = () => {
+      dots.forEach((d) => {
+        const z = Math.random();
+        d.r = 1 + Math.pow(z, 1.8) * 8; // 1–9px, 가운데값 약 4
+        d.a = 0.23 + Math.random() * 0.28;
+        d.vy = 4 + Math.random() * 6; // px/s 아래로
+      });
+    };
+    seed();
+    const size = () => {
+      const r = cv.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.max(1, Math.round(r.width * dpr));
+      H = Math.max(1, Math.round(r.height * dpr));
+      if (cv.width !== W) cv.width = W;
+      if (cv.height !== H) cv.height = H;
+    };
+    size();
+    let raf = 0;
+    let last = performance.now();
+    let visible = false;
+    const draw = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      ctx.clearRect(0, 0, W, H);
+      for (const d of dots) {
+        if (!reduced) {
+          d.y += (d.vy * dt * dpr) / H;
+          d.ph += d.f * dt;
+          if (d.y > 1.02) {
+            d.y = -0.02;
+            d.x = Math.random();
+          }
+        }
+        const px = d.x * W + Math.sin(d.ph) * 6 * dpr;
+        const py = d.y * H;
+        const s = d.r * dpr;
+        ctx.globalAlpha = d.a;
+        ctx.drawImage(sprite, px - s / 2, py - s / 2, s, s);
+      }
+      ctx.globalAlpha = 1;
+      if (visible && !reduced) raf = requestAnimationFrame(draw);
+    };
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      cancelAnimationFrame(raf);
+      if (visible) {
+        size();
+        last = performance.now();
+        raf = requestAnimationFrame(draw);
+      }
+    });
+    io.observe(cv);
+    const onResize = () => size();
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
+  }, [count]);
+  return <canvas ref={ref} className="pointer-events-none absolute" style={style} aria-hidden="true" />;
+}
+
+/* ─── 바닥 그림자(흐린 납작한 타원, 곱하기) ─────────────────────────── */
+export function FloorShadow({ style }: { style?: CSSProperties }) {
+  const id = useId().replace(/:/g, '');
+  return (
+    <svg className="pointer-events-none absolute" width="760" height="260" viewBox="0 0 760 260" style={{ mixBlendMode: 'multiply', opacity: 0.5, ...style }} aria-hidden="true">
+      <defs>
+        <filter id={`si-fs-${id}`} x="-30%" y="-80%" width="160%" height="260%">
+          <feGaussianBlur stdDeviation="12" />
+        </filter>
+      </defs>
+      <path d="M96 124 C 220 112, 400 98, 512 101 C 590 110, 640 132, 650 146 C 560 158, 450 162, 362 160 C 250 150, 140 138, 96 124 Z" fill="#D7D2D7" filter={`url(#si-fs-${id})`} />
+    </svg>
+  );
+}

@@ -8,9 +8,10 @@ import { BIZ_LANGS, useBizLang } from '@/lib/biz/i18n';
 /**
  * 비즈 페이지 헤더 내부에서 사용하는 언어 토글.
  * 인라인 배치 — 버튼 클릭 시 아래로 드롭다운 열림.
- * tone='light' = 어두운 첫 화면(영상) 위 흰 글자(261008 비즈 개편)
+ * tone='light' = 어두운 첫 화면(영상) 위 흰 글자(261008 비즈 개편) · 'inherit' = 머리줄 글자색을 따른다(토스식 머리줄이 밝기를 정함)
+ * placement='up' = 화면 아래쪽(모바일 메뉴 바닥)에 둘 때 위로 열림. 누르는 칸은 42px 높이(햄버거와 같은 크기 — 32px 은 옆 단추와 헷갈려 잘못 눌렸다)
  */
-export default function LanguageToggle({ tone = 'dark' }: { tone?: 'dark' | 'light' }) {
+export default function LanguageToggle({ tone = 'dark', placement = 'down' }: { tone?: 'dark' | 'light' | 'inherit'; placement?: 'down' | 'up' }) {
   const [open, setOpen] = useState(false);
   const { lang, setLang } = useBizLang();
   const ref = useRef<HTMLDivElement>(null);
@@ -30,17 +31,24 @@ export default function LanguageToggle({ tone = 'dark' }: { tone?: 'dark' | 'lig
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-colors ${tone === 'light' ? 'text-white hover:bg-white/10' : 'text-gray-700 hover:bg-gray-100'}`}
+        className={`flex min-h-[42px] items-center gap-1.5 px-3 py-2 rounded-full transition-colors ${tone === 'light' ? 'text-white hover:bg-white/10' : tone === 'inherit' ? 'text-inherit hover:bg-current/10' : 'text-gray-700 hover:bg-gray-100'}`}
         aria-label="Language"
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <Globe size={15} />
         <span className="text-[12px] font-bold">{currentShort}</span>
       </button>
       {open && (
-        <div className="pop-menu absolute top-full right-0 mt-2 min-w-[150px] overflow-hidden py-1.5 z-[70]" style={{ transformOrigin: 'top right' }}>
+        <div
+          role="menu"
+          className={`pop-menu absolute min-w-[150px] overflow-hidden py-1.5 z-[70] ${placement === 'up' ? 'bottom-full left-0 mb-2' : 'top-full right-0 mt-2'}`}
+          style={{ transformOrigin: placement === 'up' ? 'bottom left' : 'top right' }}
+        >
           {BIZ_LANGS.map((l, i) => (
             <button
               key={l.code}
+              role="menuitem"
               onClick={() => {
                 setLang(l.code);
                 setOpen(false);
