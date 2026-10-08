@@ -1,0 +1,507 @@
+/* 웨딩숲 댓글 시트(CommentSheet) — 261008 사장 '이 영상(인스타 릴스 댓글 시트)을 완전히 분석해서 댓글 모달 디자인과 인터렉션 다시'.
+   치수·색은 영상(아이폰 16 Pro Max 1320×2868 = 440×956pt) 프레임을 재서 맞췄다(1pt = 1px).
+   글자 크기는 영상의 글자 '실제 잉크' 높이·폭을 Pretendard 로 다시 잰 값 — 같은 px 라도 Pretendard 한글이 애플 SD 고딕보다 커서
+   인스타 기본값(본문 14·이름 13·제목 16)보다 작은 숫자가 같은 크기로 보인다. */
+
+.cmt-root {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0; /* inset 단축은 구형 안드 WebView 가 모른다 */
+  z-index: 300; /* 웨딩숲 머리줄(80)·당겨서 새로고침(90)·하단 탭(50) 위, 공통 모달(.ft-scrim 700)·팝 메뉴(400) 아래 */
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.cmt-dim {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: rgba(9, 15, 19, 0.7); /* 영상: 흰 255 → 84, 검정 12 → 10 ⇒ 짙은 남색 검정 70% */
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* ── 시트 ── */
+.cmt-sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  margin: 0 auto;
+  max-width: 600px;
+  height: 70%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 34px 34px 0 0; /* 영상 실측 34 */
+  overflow: hidden;
+  transform: translate3d(0, 110%, 0); /* 첫 그림 전 — 스크립트가 곧 자리를 잡는다 */
+  will-change: transform;
+  outline: none;
+  contain: layout paint;
+}
+.cmt-head {
+  position: relative;
+  flex: none;
+  height: 60px;
+  touch-action: none; /* 머리는 끌어서 올리고 내린다 */
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cmt-head:active { cursor: grabbing; }
+.cmt-grab {
+  position: absolute;
+  top: 15px; left: 50%;
+  width: 34px; height: 2.5px;
+  margin-left: -17px;
+  border-radius: 2px;
+  background: #6a6f75;
+}
+.cmt-title {
+  position: absolute;
+  top: 29px; left: 0; right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 700;
+  color: #0a0b0c;
+  pointer-events: none;
+}
+.cmt-sort {
+  position: absolute;
+  top: 24px; right: 10px;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 15px;
+  background: none;
+  color: #6a6e73;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.cmt-sort:active { background: rgba(0, 0, 0, 0.05); }
+.cmt-sort svg { transition: transform 0.2s ease; }
+.cmt-sort[aria-expanded="true"] svg { transform: rotate(180deg); }
+.cmt-sr {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 목록 ── */
+.cmt-list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0; /* 좁은 화면에서 입력창이 밀려나지 않게 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 22px 0 14px;
+}
+.cmt-fade { transition: opacity 0.18s ease; }
+.cmt-fade.is-dim { opacity: 0.45; }
+
+.cmt-row {
+  position: relative;
+  padding: 9px 0 1.4px;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* 답글 대상·방금 쓴 댓글 — 켤 땐 바로, 끌 땐 0.2초에 걸쳐(영상 그대로) */
+.cmt-row.is-flash { background-color: #e8f7fe; transition: none; }
+.cmt-body {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding: 0 56px 0 12px;
+  transform-origin: 50% 50%;
+  transition: transform 0.18s ease;
+}
+.cmt-row.is-reply .cmt-body { padding-left: 50px; }
+/* 길게 누르는 동안 살짝 떠오른다(영상: 0.5초 동안 1.03배) */
+.cmt-body.is-pressing { transform: scale(1.03); transition: transform 0.48s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.cmt-body.is-lifted { visibility: hidden; }
+.cmt-av {
+  flex: none;
+  width: 32px; height: 32px;
+  margin-top: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f1f2f6;
+  color: #8b95a1;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cmt-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cmt-row.is-reply .cmt-av { width: 24px; height: 24px; margin-top: 4px; font-size: 11px; }
+.cmt-main { flex: 1; min-width: 0; margin-left: 8px; }
+.cmt-row.is-reply .cmt-main { margin-left: 10px; }
+.cmt-pin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: -2px 0 2px;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  color: #6a6e73;
+}
+.cmt-nameline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  font-size: 11.25px;
+  line-height: 16px;
+  min-width: 0;
+}
+.cmt-nick {
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #222427;
+}
+.cmt-role { font-size: 10px; font-weight: 600; color: #3182f6; white-space: nowrap; }
+.cmt-meta { font-size: 10px; font-weight: 400; color: #6a6e73; white-space: nowrap; }
+.cmt-text {
+  margin: 2.3px 0 0;
+  font-size: 12.2px;
+  line-height: 14px;
+  font-weight: 400;
+  color: #0d0e10;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cmt-text.is-dead { color: #a0a5ab; }
+.cmt-mention { color: #3949d4; }
+/* 본문 속 이모지는 글자보다 조금 크게(영상: 애플 이모지가 본문보다 한 단계 큼) */
+.cmt-emo { font-size: 1.17em; line-height: 0; }
+.cmt-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4.2px;
+  padding-left: 52px;
+}
+.cmt-row.is-reply .cmt-foot { padding-left: 84px; }
+.cmt-replybtn {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6a6e73;
+  font: inherit;
+  font-size: 10.2px;
+  line-height: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cmt-replybtn::after { content: ""; position: absolute; top: -6px; right: -8px; bottom: -6px; left: -8px; }
+.cmt-replybtn:active { opacity: 0.55; }
+.cmt-like {
+  position: absolute;
+  top: 25px; right: 12px;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cmt-heart {
+  width: 32px; height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #64696f;
+  cursor: pointer;
+}
+.cmt-heart.is-on { color: #f04452; }
+.cmt-heart svg { display: block; transition: transform 0.12s ease; }
+.cmt-heart:active svg { transform: scale(0.86); }
+.cmt-heart.is-pop svg { animation: cmtHeartPop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.4); }
+@keyframes cmtHeartPop { 0% { transform: scale(0.7); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.cmt-count {
+  margin-top: 5.2px;
+  font-size: 9.6px;
+  line-height: 12px;
+  font-weight: 500;
+  color: #6a6e73;
+  font-variant-numeric: tabular-nums;
+}
+.cmt-more {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 30px;
+  margin: 2px 0 4px;
+  padding: 0 0 0 84px;
+  border: 0;
+  background: none;
+  color: #6a6e73;
+  font: inherit;
+  font-size: 10.2px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cmt-more::before { content: ""; width: 24px; height: 1px; background: #c8cbd0; }
+
+/* 불러오는 동안(영상: 32 동그라미 + 막대 두 줄, 67 간격, 연회색 #F1F2F6) */
+.cmt-skel { padding-top: 12.7px; transition: opacity 0.15s ease; }
+.cmt-skel-row { position: relative; height: 67px; }
+.cmt-skel-row::before,
+.cmt-skel-row::after,
+.cmt-skel-row i {
+  content: "";
+  position: absolute;
+  background: #f1f2f6;
+}
+.cmt-skel-row i { left: 12px; top: 0; width: 32px; height: 32px; border-radius: 50%; }
+.cmt-skel-row::before { left: 52px; top: 0; width: 62.5%; height: 14px; border-radius: 7px; }
+.cmt-skel-row::after { left: 52px; top: 20px; width: 37.5%; height: 14px; border-radius: 7px; }
+
+.cmt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 0 24px;
+  text-align: center;
+}
+.cmt-empty img { display: block; }
+.cmt-empty p { margin: 0; font-size: 13px; line-height: 1.5; font-weight: 600; color: #8b95a1; }
+
+/* ── 입력 칸 ── */
+.cmt-composer { position: relative; flex: none; background: #fff; }
+.cmt-composer::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: #e3e3e5;
+  transform-origin: 0 0;
+  transform: scaleY(0.5);
+}
+@media (min-resolution: 3dppx) { .cmt-composer::before { transform: scaleY(0.34); } }
+.cmt-persona { padding: 10px 16px 0; }
+.cmt-persona:empty { display: none; }
+.cmt-persona .tdet-replying { margin-bottom: 0; }
+.cmt-emojis {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 16px 0;
+}
+.cmt-emoji {
+  position: relative;
+  width: 26px; height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 23px;
+  line-height: 26px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.cmt-emoji::after { content: ""; position: absolute; top: -8px; right: -12px; bottom: -8px; left: -12px; }
+.cmt-emoji:active { transform: scale(0.82); }
+.cmt-inwrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 14px 16px calc(4px + env(safe-area-inset-bottom, 0px));
+}
+/* 안드 웹뷰는 콘텐츠가 이미 시스템 네비바 위로 인셋된다(env 까지 더하면 2중 — .ft-sheet 와 같은 이유) */
+html[data-platform="android"] .cmt-inwrap { padding-bottom: 8px; }
+.cmt-root.is-kb .cmt-inwrap { padding-bottom: 14px; }
+.cmt-me {
+  flex: none;
+  width: 44px; height: 44px;
+  margin-bottom: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #eff0f2;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+.cmt-me img, .cmt-me svg { width: 100%; height: 100%; display: block; object-fit: cover; }
+.cmt-pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e7eaed;
+  border-radius: 22px;
+  background: #fff;
+  overflow: hidden;
+}
+.cmt-bar {
+  flex: none;
+  overflow: hidden;
+  background: #f1f2f6;
+}
+.cmt-bar-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 38px;
+  padding: 0 4px 0 12px;
+  font-size: 10.3px;
+  color: #6a6e73;
+}
+.cmt-bar-in span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmt-bar-x {
+  flex: none;
+  width: 30px; height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #64696f;
+  cursor: pointer;
+}
+.cmt-inrow {
+  display: flex;
+  align-items: flex-end;
+  min-height: 42px;
+  padding: 0 6px 0 13px;
+}
+.cmt-input {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  height: 42px;
+  max-height: 96px;
+  margin: 0;
+  padding: 12px 0;
+  border: 0;
+  outline: 0;
+  border-radius: 0;
+  resize: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 18px;
+  font-weight: 400;
+  color: #0a0b0c;
+  caret-color: #465eff;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* 입력칸 끝까지 스크롤한 뒤 계속 끌어도 뒤로 넘기지 않는다 */
+  -webkit-appearance: none;
+  appearance: none;
+}
+.cmt-input::placeholder { color: #6a6e73; opacity: 1; }
+.cmt-send {
+  flex: none;
+  width: 49px; height: 30px;
+  margin: 0 1px 6px 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 15px;
+  background: #465eff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cmt-send:disabled { opacity: 0.55; cursor: default; }
+.cmt-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 2;
+  padding: 10px 15px;
+  border-radius: 12px;
+  background: rgba(25, 31, 40, 0.92);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── 길게 눌렀을 때(영상: 나머지는 20% 어둡게, 그 댓글만 흰 카드로 떠오르고 유리 메뉴) ── */
+.cmt-ctx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 5; }
+.cmt-ctx-dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.2); }
+.cmt-card {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  pointer-events: none;
+}
+.cmt-card .cmt-row { padding-bottom: 6px; background: transparent; }
+.cmt-card .cmt-row .cmt-body,
+.cmt-card .cmt-row.is-reply .cmt-body { padding: 0 0 0 10px; }
+.cmt-menu,
+.cmt-pop {
+  position: absolute;
+  padding: 11px 0;
+  border-radius: 30px;
+  background: rgba(247, 247, 248, 0.8);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  backdrop-filter: blur(22px) saturate(1.7);
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.cmt-menu { width: 250px; }
+.cmt-mi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 38px;
+  padding: 0 22px 0 26px;
+  border: 0;
+  background: none;
+  color: #0a0b0c;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.cmt-mi svg { flex: none; width: 22px; height: 22px; }
+.cmt-mi:active { background: rgba(0, 0, 0, 0.06); }
+/* 메뉴가 열리면 첫 항목으로 포커스가 간다 — 손가락으로 열었을 땐 테두리 없이, 키보드로 옮길 땐 옅은 칠로 */
+.cmt-mi:focus { outline: none; }
+.cmt-mi:focus-visible { background: rgba(0, 0, 0, 0.06); }
+.cmt-mi.is-danger { color: #e5373e; }
+.cmt-mi .cmt-check { margin-left: auto; color: #465eff; }
+.cmt-pop { width: 172px; padding: 8px 0; border-radius: 24px; z-index: 6; }
+.cmt-pop .cmt-mi { height: 40px; padding: 0 18px 0 20px; font-size: 14px; }
+.cmt-pop .cmt-mi.is-on { font-weight: 600; }
+.cmt-pop-shield { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 6; }
+
+@media (hover: hover) {
+  .cmt-mi:hover { background: rgba(0, 0, 0, 0.04); }
+  .cmt-replybtn:hover, .cmt-more:hover { color: #3d4045; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmt-body.is-pressing { transform: none; }
+  .cmt-heart.is-pop svg { animation: none; }
+}

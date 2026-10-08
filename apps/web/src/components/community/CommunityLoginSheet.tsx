@@ -25,7 +25,10 @@ export default function CommunityLoginSheet() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // 처리했다고 표시 — 아래에 깔린 댓글 시트(CommentSheet)가 같은 Esc 로 같이 닫히지 않게
+      e.preventDefault();
+      setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

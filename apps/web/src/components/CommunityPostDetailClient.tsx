@@ -29,6 +29,7 @@ import {
   SmallHeartIcon,
 } from "@/components/community/TossIcons";
 import { popItemDelay } from "@/lib/pop-menu";
+import { cameFromFeed, clearCameFromFeed } from "@/components/community/feedRestore";
 
 // Android WebView often returns gallery files with an empty/generic MIME type,
 // so fall back to the file extension (same logic as the write form).
@@ -360,6 +361,22 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
       setActionBusy(false);
     }
   }
+
+  // 뒤로 — 목록에서 눌러 들어왔으면 history 뒤로(목록 자리·정렬 그대로). 새 이동(push)은 맨 위로 올라가던 원인(261008).
+  // 공유 링크·알림·유니버설 링크로 바로 들어온 경우 등은 목록으로 새로 간다 — 새 진입이라 맨 위에서(scroll 기본값).
+  // (scroll:false 로 가면 상세에서 읽던 스크롤이 목록에 그대로 남아 머리가 잘리거나 목록 한가운데서 열렸다)
+  function goBackToFeed() {
+    if (cameFromFeed(postId) && window.history.length > 1) router.back();
+    else router.push("/community");
+  }
+
+  // 이 글을 떠나면(다른 글 상세로 가는 것 말고) '목록에서 들어옴' 표시를 지운다 — 남아 있으면 나중에 홈·알림에서
+  // 같은 글을 다시 열었을 때 '뒤로'가 router.back() 으로 목록 대신 직전 화면(홈)으로 갔다. 새로고침은 정리가 안 돌아 표시가 남는다(새로고침 뒤 뒤로 유지).
+  useEffect(() => {
+    return () => {
+      if (!/^\/community\/[^/]+/.test(window.location.pathname)) clearCameFromFeed();
+    };
+  }, []);
 
   async function doDelete() {
     if (!post) return;
@@ -702,7 +719,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
           type="button"
           className="tdet-icon-btn tdet-back"
           aria-label="웨딩숲 목록으로"
-          onClick={() => router.push("/community")}
+          onClick={goBackToFeed}
         >
           <BackIcon />
         </button>

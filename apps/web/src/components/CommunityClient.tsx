@@ -12,14 +12,13 @@ import {
   SortArrowsIcon,
   MenuCheckIcon,
 } from "@/components/community/TossIcons";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "framer-motion";
 import CommunityPostDetailClient from "@/components/CommunityPostDetailClient";
 import CommunityComposeModal from "@/components/CommunityComposeModal";
 import TossComposer from "@/components/community/TossComposer";
 import { communityNickname } from "@/lib/community/nickname";
-import NicknameBar from "@/components/community/NicknameBar";
 import TossPoll from "@/components/community/TossPoll";
 import TossLikers from "@/components/community/TossLikers";
 import BlindNoiseCover from "@/components/BlindNoiseCover";
@@ -27,15 +26,33 @@ import { clientCache } from "@/lib/clientCache";
 import { communityPostsKey, hydrateCommunityCache, orderCommunityGroups, persistCommunityFeed } from "@/lib/community/prefetch";
 import KingBadges from "@/components/KingBadges";
 import PullToRefresh from "@/components/PullToRefresh";
-import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { WRITE_NUDGE_KEY, todayKey } from "@/lib/writeNudge";
 import { formatRelativeTime, formatExactTime } from "@/lib/relativeTime";
 import { useEntranceWindow, useListEntrance, useTabEntrance } from "@/lib/hooks/useTabEntrance";
 import { popItemDelay } from "@/lib/pop-menu";
 import { HeaderSearchIcon, HeaderCloseIcon } from "@/components/icons/HeaderIcons";
 import { useCommunitySearch } from "@/lib/community/search-store";
-import { personaBody } from "@/lib/community/persona-store";
 import TrendPanel from "@/components/community/TrendPanel";
+import CommentSheet from "@/components/community/CommentSheet";
+import {
+  type FeedSnap,
+  type FeedRestoreCtl,
+  isFeedReturn,
+  consumeFeedReturn,
+  noteFeedMounted,
+  peekFeedSnap,
+  readFeedSnap,
+  takeExpiredFeedSnap,
+  saveFeedSnap,
+  clearFeedSnap,
+  clearCameFromFeed,
+  findFeedAnchor,
+  restoreFeedScroll,
+} from "@/components/community/feedRestore";
+
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+/** 등장 애니를 안 틀 때 useListEntrance 에 넘기는 빈 목록(같은 참조) */
+const NO_IDS: string[] = [];
 
 // 게시글 목록 캐시 키(필터 조합별) — 앱 로드 때 미리 받는 prefetch 와 같은 키를 쓴다.
 const postsKey = communityPostsKey;
@@ -185,15 +202,21 @@ export default function CommunityClient() {
     };
   }, []);
   const topbarRef = useRef<HTMLElement | null>(null);
+  // 글 상세에서 돌아온 경우 떠날 때 목록 상태(정렬·카테고리·자리) — 앱 안 이동은 메모리로 바로, 새로고침 뒤엔 마운트 후 sessionStorage 로(261008)
+  // 뒤로가기로 돌아올 때만 쓴다 — 하단 탭·링크 등 새 진입은 맨 위에서(feedRestore.isFeedReturn)
+  const [restoreSnap, setRestoreSnap] = useState<FeedSnap | null>(() => (isFeedReturn() ? peekFeedSnap() : null));
+  // 자리 되돌리는 중(등장 애니 생략) — 첫 렌더는 메모리 기억만 보고(서버 HTML 과 같게), sessionStorage 기억은 마운트 직후에 켠다
+  const [restoring, setRestoring] = useState(() => !!restoreSnap);
+  const initialKey = postsKey(restoreSnap?.groupId ?? "", useCommunitySearch.getState().query, restoreSnap?.tagId ?? "", restoreSnap?.sort ?? "latest");
   // 캐시된 값으로 초기화 → 탭 재진입 시 즉시 표시(로딩/깜빡임 없음).
   const [groups, setGroups] = useState<CategoryGroup[]>(() => clientCache.get<CategoryGroup[]>("community-groups") ?? []);
-  const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(postsKey("", "", "", "latest")) ?? []);
+  const [posts, setPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>(initialKey) ?? []);
   const [weeklyPosts, setWeeklyPosts] = useState<CommunityPost[]>(() => clientCache.get<CommunityPost[]>("community-weekly") ?? []);
-  const [selectedGroupId, setSelectedGroupId] = useState("");
-  const [selectedTagId, setSelectedTagId] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState(() => restoreSnap?.groupId ?? "");
+  const [selectedTagId, setSelectedTagId] = useState(() => restoreSnap?.tagId ?? "");
   // 토스식 정렬(인기순/최신순) + 정렬 메뉴 + 토스트
   // 기본 정렬 = 최신순(사장 지시 260925). 인기순은 메뉴에서 고른다.
-  const [sortMode, setSortMode] = useState<"popular" | "latest">("latest");
+  const [sortMode, setSortMode] = useState<"popular" | "latest">(() => restoreSnap?.sort ?? "latest");
   const [sortOpen, setSortOpen] = useState(false);
   const [toast, setToast] = useState("");
   const toastTimerRef = useRef(0);
@@ -206,7 +229,8 @@ export default function CommunityClient() {
   // 주간 인기글 옆 '내 글 / 내 댓글' 필터. 전체 탭·검색 없음일 때만 보인다.
   // 글 상세로 갔다가 돌아와도 필터가 유지되도록 sessionStorage 에 두고 복원한다(스크롤 복원과 같은 방식).
   // 초기값은 서버와 같게 "" 로 두고 마운트 후 복원한다(초기화 함수에서 sessionStorage 를 읽으면 하이드레이션 불일치).
-  const [mineFilter, setMineFilterState] = useState<"" | "posts" | "comments">("");
+  // 앱 안 이동으로 돌아올 땐(메모리 기억) 떠날 때 필터로 바로 — 복원이 필터 안 된 목록 위에서 먼저 돌던 것(261008)
+  const [mineFilter, setMineFilterState] = useState<"" | "posts" | "comments">(() => restoreSnap?.mine ?? "");
   const setMineFilter = (v: "" | "posts" | "comments") => {
     setMineFilterState(v);
     try {
@@ -219,17 +243,26 @@ export default function CommunityClient() {
   // 내가 댓글 단 글 id → 내 최신 댓글 내용(카드 미리보기에 내 댓글을 보여준다).
   const [myCommentByPost, setMyCommentByPost] = useState<Map<string, string> | null>(null);
   // 캐시가 있으면 로딩 표시 안 함(데이터 변동 시에만 갱신).
-  const [loading, setLoading] = useState(() => !clientCache.has(postsKey("", "", "", "latest")));
-  // 화면에 그리는 글 수 — 받은 글이 60개여도 12개부터(스크롤이 닿으면 12개씩 더). 상세에서 돌아와 스크롤을 되돌릴 땐 전부(260926 '웨딩숲 느림')
+  const [loading, setLoading] = useState(() => !clientCache.has(initialKey));
+  // 지금 posts 가 어느 목록(postsKey) 것인지 — 자리 복원은 떠날 때와 같은 목록이 들어온 뒤에만
+  const [loadedKey, setLoadedKey] = useState(() => (clientCache.has(initialKey) ? initialKey : ""));
+  // 화면에 그리는 글 수 — 받은 글이 60개여도 12개부터(스크롤이 닿으면 12개씩 더). 상세에서 돌아올 땐 떠날 때 그려 둔 만큼(260926 '웨딩숲 느림')
   const FEED_STEP = 12;
-  const [renderCount, setRenderCount] = useState(FEED_STEP);
+  const [renderCount, setRenderCount] = useState(() => Math.max(FEED_STEP, restoreSnap?.renderCount ?? 0));
   const renderMoreRef = useRef<HTMLDivElement | null>(null);
   const [topbarHeight, setTopbarHeight] = useState(0);
   const weeklyTrackRef = useRef<HTMLDivElement | null>(null);
   const [weeklyActiveIndex, setWeeklyActiveIndex] = useState(0);
   const [weeklyAtEnd, setWeeklyAtEnd] = useState(false);
   const scrollRestoredRef = useRef(false);
-  const restoreTimerRef = useRef<number | null>(null);
+  const restoreCtlRef = useRef<FeedRestoreCtl | null>(null);
+  // 새로고침 뒤 돌아옴: 첫 커밋의 목록 받기는 곧 바뀔 기본 필터라 건너뛴다(그 필터 목록만 받는다)
+  const pendingFiltersRef = useRef<{ groupId: string; tagId: string; sort: "popular" | "latest"; q: string } | null>(null);
+  // 복원을 시작할 때의 검색어 — 그 사이 사용자가 검색어를 바꾸면 복원은 포기
+  const restoreQueryRef = useRef<string | null>(restoreSnap ? useCommunitySearch.getState().query : null);
+  const loadSeqRef = useRef(0);
+  // 이 화면에서 서버 새 목록까지 받은 키 — 자리 복원은 그게 올 때까지 붙잡고 있는다(맨 위 새 글로 밀림 방지)
+  const freshKeyRef = useRef("");
   // 오늘 아직 글을 안 썼을 때만 글쓰기 말풍선을 띄운다(서버 렌더 깜빡임 방지로 기본 false).
   const [showWriteNudge, setShowWriteNudge] = useState(false);
   // 아래로 스크롤하면 카테고리 탭을 한 줄(아이콘+라벨)로 접어 헤더를 낮춘다.
@@ -432,21 +465,77 @@ export default function CommunityClient() {
     };
   }, []);
 
+  // 목록에 들어올 때 한 번(첫 그림 전) — 뒤로가기로 돌아왔는지 보고 기억해 둔 목록 상태를 되돌릴지 정한다(261008).
+  //  · 새 진입(하단 탭·링크·유니버설 링크·푸시·주소창): 남은 기억은 버린다 → 맨 위·등장 애니 그대로.
+  //  · 뒤로가기 + 메모리 기억(앱 안 이동): 초기값에서 이미 되돌렸다.
+  //  · 뒤로가기 + sessionStorage 기억(상세에서 새로고침한 뒤): 정렬·카테고리·검색어·내 글 필터를 첫 그림 전에 되돌린다
+  //    — 기본 목록(최신순 캐시)이 0.3~0.8초 보였다가 점프하던 것. 그 목록이 메모리에 없으면 첫 그림부터 뼈대.
+  //  · 30분 지나 버려진 기억으로 돌아왔으면 브라우저가 잘라 놓은 어중간한 자리 대신 맨 위에서.
+  //  · '목록에서 들어옴' 표시는 지운다(다음 글은 다시 눌러 들어갈 때 새로 단다).
+  //  · '내 글/내 댓글' 필터(sessionStorage)도 여기서 되돌린다 — 초기값에서 읽으면 하이드레이션 불일치.
+  useIsoLayoutEffect(() => {
+    const unmark = noteFeedMounted();
+    clearCameFromFeed();
+    let mine: "" | "posts" | "comments" = restoreSnap?.mine ?? "";
+    if (!restoreSnap) {
+      try {
+        const v = sessionStorage.getItem("community-mine-filter");
+        if (v === "posts" || v === "comments") mine = v;
+      } catch { /* ignore */ }
+    }
+    const returning = consumeFeedReturn();
+    let s: FeedSnap | null = null;
+    if (!returning) clearFeedSnap();
+    else if (!restoreSnap) {
+      s = readFeedSnap();
+      if (!s && takeExpiredFeedSnap()) {
+        // 브라우저 자체 복원이 목록이 자라는 대로 옛 자리(잘린 값)로 부드럽게 끌고 가므로 한 번 scrollTo 로는 안 된다 —
+        // 기억 복원과 같은 장치로 잠깐 맨 위에 붙잡는다(손대면 멈춤)
+        restoreCtlRef.current = restoreFeedScroll({ y: 0, anchorId: null, anchorTop: 0, groupId: "", tagId: "", sort: "latest", q: "", renderCount: FEED_STEP, postId: "", at: Date.now() });
+      }
+    }
+    if (s) {
+      const curQ = useCommunitySearch.getState().query;
+      const q = s.q && !curQ ? s.q : curQ;
+      const key = postsKey(s.groupId, q, s.tagId, s.sort);
+      pendingFiltersRef.current = { groupId: s.groupId, tagId: s.tagId, sort: s.sort, q };
+      restoreQueryRef.current = q;
+      setSelectedGroupId(s.groupId);
+      setSelectedTagId(s.tagId);
+      setSortMode(s.sort);
+      if (q !== curQ) {
+        setQuery(q);
+        setSearchOpen(true);
+      }
+      // 제목(카테고리 이름)·태그 칩은 그룹 목록으로 그린다 — 새로고침 뒤 메모리가 비었으면 기기에 남긴 그룹으로 먼저(받아 오는 동안 '웨딩숲'으로 보이던 것)
+      if (s.groupId && !clientCache.has("community-groups")) hydrateCommunityCache();
+      const cachedGroups = clientCache.get<CategoryGroup[]>("community-groups");
+      if (cachedGroups?.length && groups.length === 0) setGroups(cachedGroups);
+      const cached = clientCache.get<CommunityPost[]>(key);
+      setPosts(cached ?? []);
+      setLoading(!cached);
+      setLoadedKey(cached ? key : "");
+      setRenderCount(Math.max(FEED_STEP, s.renderCount));
+      if (s.mine !== undefined) mine = s.mine;
+      setRestoring(true);
+      setRestoreSnap(s);
+    }
+    if (mine) {
+      setMineFilterState(mine);
+      ensureMineData(mine);
+    }
+    return unmark;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
+    const p = pendingFiltersRef.current;
+    pendingFiltersRef.current = null;
+    // 새로고침 뒤 돌아옴: 곧 기억한 필터로 바뀐다 — 기본 목록을 먼저 받지 않는다(다음 커밋에서 그 필터로 받는다)
+    if (p && (p.groupId !== selectedGroupId || p.tagId !== selectedTagId || p.sort !== sortMode || p.q !== query)) return;
     loadPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGroupId, query, selectedTagId, sortMode]);
-
-  // 상세에서 돌아온 경우 저장해 둔 필터를 복원하고, 필요한 데이터를 다시 받는다.
-  useEffect(() => {
-    let v: string | null = null;
-    try { v = sessionStorage.getItem("community-mine-filter"); } catch { /* ignore */ }
-    if (v === "posts" || v === "comments") {
-      setMineFilterState(v);
-      ensureMineData(v);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // 접혔을 때 항목 너비(아이콘 30 + 여백 + 라벨). 라벨 길이가 제각각이라 실제로 재서 넣는다.
   useEffect(() => {
@@ -495,13 +584,13 @@ export default function CommunityClient() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // 필터·정렬이 바뀌면 다시 12개부터. 저장된 스크롤(상세에서 복귀)이 있으면 복원할 수 있게 전부 그린다
+  // 필터·정렬이 바뀌면 다시 12개부터. 상세에서 돌아와 자리를 되돌릴 땐 떠날 때 그려 둔 만큼(그 자리까지 같은 높이로)
   useEffect(() => {
-    let restoring = false;
-    try { restoring = !!sessionStorage.getItem("community-scroll"); } catch { /* ignore */ }
-    setRenderCount(restoring ? Number.POSITIVE_INFINITY : FEED_STEP);
+    const snap = !scrollRestoredRef.current ? restoreSnap : null;
+    setRenderCount(snap ? Math.max(FEED_STEP, snap.renderCount) : FEED_STEP);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId, query, selectedTagId, sortMode, mineFilter]);
+  }, [selectedGroupId, query, selectedTagId, sortMode, mineFilter, restoreSnap]);
+  // '내 글/내 댓글' 필터는 그 데이터가 온 뒤에야 '더 그리기' 칸이 다시 생긴다 — 그때 새 칸을 다시 지켜본다(전엔 12개에서 멈춤)
   useEffect(() => {
     const target = renderMoreRef.current;
     if (!target) return;
@@ -510,42 +599,42 @@ export default function CommunityClient() {
     }, { rootMargin: "800px 0px" });
     io.observe(target);
     return () => io.disconnect();
-  }, [renderCount, posts.length, loading]);
-
-  // 상세에서 돌아왔을 때(목록 첫 로드 완료 시점) 저장해둔 스크롤 위치로 복원.
-  useEffect(() => {
-    if (scrollRestoredRef.current) return;
-    if (loading || posts.length === 0) return; // 실제 목록이 렌더된 뒤에만 복원
-    if (selectedGroupId || query.trim()) {
-      scrollRestoredRef.current = true;
-      return;
-    }
-    scrollRestoredRef.current = true;
-    let saved: string | null = null;
-    try { saved = sessionStorage.getItem("community-scroll"); } catch {}
-    if (!saved) return;
-    try { sessionStorage.removeItem("community-scroll"); } catch {}
-    const y = parseInt(saved, 10);
-    if (Number.isNaN(y) || y <= 0) return;
-    // 카드/이미지가 점차 렌더되며 목록 높이가 늘어나므로, 목표 위치에 닿을 때까지
-    // (또는 최대 ~1.2초) 반복 적용한다.
-    let tries = 0;
-    restoreTimerRef.current = window.setInterval(() => {
-      window.scrollTo(0, y);
-      tries += 1;
-      if (Math.abs(window.scrollY - y) <= 2 || tries >= 24) {
-        if (restoreTimerRef.current) window.clearInterval(restoreTimerRef.current);
-        restoreTimerRef.current = null;
-      }
-    }, 50);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, posts]);
+  }, [renderCount, posts.length, loading, mineFilter, meId, myCommentByPost]);
 
   useEffect(() => {
-    return () => {
-      if (restoreTimerRef.current) window.clearInterval(restoreTimerRef.current);
-    };
+    return () => restoreCtlRef.current?.cancel();
   }, []);
+
+  // 복원을 시작하기 전(그 목록을 받아 오는 중)에 사용자가 필터·정렬·검색·내 글 필터를 바꾸거나 화면을 만지면 복원은 포기한다(261008)
+  //  — 남겨 두면 그 사이 다른 목록도 기억한 개수만큼 한꺼번에 그리고, 나중에 원래 필터로 돌아오는 순간 옛 자리로 점프했다.
+  function abandonRestore() {
+    if (scrollRestoredRef.current) return;
+    scrollRestoredRef.current = true;
+    pendingFiltersRef.current = null;
+    clearFeedSnap();
+    setRestoreSnap(null);
+  }
+  useEffect(() => {
+    const snap = restoreSnap;
+    if (!snap || scrollRestoredRef.current) return;
+    const changed =
+      selectedGroupId !== snap.groupId ||
+      selectedTagId !== snap.tagId ||
+      sortMode !== snap.sort ||
+      (restoreQueryRef.current !== null && query !== restoreQueryRef.current) ||
+      (snap.mine !== undefined && mineFilter !== snap.mine);
+    if (changed) abandonRestore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSnap, selectedGroupId, selectedTagId, sortMode, query, mineFilter]);
+  useEffect(() => {
+    if (!restoreSnap || scrollRestoredRef.current) return;
+    // 복원이 시작되면 restoreFeedScroll 이 스스로 입력을 보고 멈춘다 — 여기선 시작 전 대기만
+    const onInput = () => abandonRestore();
+    const evs = ["touchstart", "wheel", "keydown", "mousedown"] as const;
+    evs.forEach((e) => window.addEventListener(e, onInput, { capture: true, passive: true }));
+    return () => evs.forEach((e) => window.removeEventListener(e, onInput, true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSnap]);
 
   async function loadGroups() {
     try {
@@ -554,7 +643,10 @@ export default function CommunityClient() {
       if (!response.ok) throw new Error(data.error || "카테고리를 불러오지 못했습니다.");
       // "자유"를 맨 앞으로 (나머지는 기존 순서 유지).
       const ordered = orderCommunityGroups<CategoryGroup>(data.groups || []);
-      if (clientCache.set("community-groups", ordered)) setGroups(ordered);
+      // 요청 중에 loadPosts 의 hydrateCommunityCache 가 같은 그룹을 캐시에 먼저 채우면 set 이 '안 바뀜'을 돌려
+      // 화면은 빈 채로 남았다(새로고침 직후 카테고리 서랍에 '전체'만) — 비어 있으면 늘 채운다
+      const changed = clientCache.set("community-groups", ordered);
+      setGroups((prev) => (changed || prev.length === 0 ? ordered : prev));
       persistCommunityFeed({ groups: ordered });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "카테고리를 불러오지 못했습니다.");
@@ -601,8 +693,11 @@ export default function CommunityClient() {
     if (isLatestAll && !clientCache.has(key)) hydrateCommunityCache();
     // 캐시가 있으면 즉시 표시하고 로딩을 띄우지 않는다(백그라운드 재검증).
     const cached = clientCache.get<CommunityPost[]>(key);
+    // 필터를 빨리 바꾸면 앞 요청이 늦게 와서 다른 목록으로 덮던 것 — 마지막 요청만 반영
+    const seq = ++loadSeqRef.current;
     if (cached) {
       setPosts(cached);
+      setLoadedKey(key);
       setLoading(false);
     } else {
       setLoading(true);
@@ -618,12 +713,20 @@ export default function CommunityClient() {
       if (!response.ok) throw new Error(data.error || "게시글을 불러오지 못했습니다.");
       const fresh = data.posts || [];
       // 달라졌을 때만 갱신(데이터 변동 시에만 리렌더).
-      if (clientCache.set(key, fresh)) setPosts(fresh);
+      const changed = clientCache.set(key, fresh);
       if (isLatestAll) persistCommunityFeed({ latest: fresh });
+      if (seq !== loadSeqRef.current) return;
+      if (changed) setPosts(fresh);
+      setLoadedKey(key);
+      freshKeyRef.current = key;
     } catch (error) {
+      if (seq !== loadSeqRef.current) return;
       setMessage(error instanceof Error ? error.message : "게시글을 불러오지 못했습니다.");
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) {
+        setLoading(false);
+        restoreCtlRef.current?.release();
+      }
     }
   }
 
@@ -651,15 +754,34 @@ export default function CommunityClient() {
             .map((p) => ({ ...p, topComment: { id: "mine-" + p.id, nickname: "내 댓글", content: myCommentByPost!.get(p.id) || "", likeCount: 0, pinned: false } }))
         : posts;
 
+  // 상세에서 돌아왔을 때 — 떠날 때와 같은 목록(정렬·카테고리)이 그려지면 그 글을 같은 화면 위치로 되돌린다.
+  // 글 목록은 메모리 캐시라 앱 안 이동이면 첫 화면부터 바로 맞춘다(새로고침 뒤면 받아 온 다음).
+  // '내 글/내 댓글' 필터면 그 데이터(내 id·내 댓글 단 글)가 온 뒤에 — 전엔 목록이 비어 기준 글을 그릴 수 없다.
+  useEffect(() => {
+    const snap = restoreSnap;
+    if (!snap || scrollRestoredRef.current) return;
+    if (loading) return;
+    if (selectedGroupId !== snap.groupId || selectedTagId !== snap.tagId || sortMode !== snap.sort) return; // 필터 되돌린 뒤
+    if (loadedKey !== postsKey(snap.groupId, query, snap.tagId, snap.sort)) return; // 그 목록이 실제로 들어온 뒤
+    if (activeMineFilter === "posts" && !meLoaded) return;
+    if (activeMineFilter === "comments" && myCommentByPost === null) return;
+    scrollRestoredRef.current = true;
+    if (visiblePosts.length === 0) {
+      clearFeedSnap();
+      return;
+    }
+    restoreCtlRef.current = restoreFeedScroll(snap, { hold: freshKeyRef.current !== loadedKey, onDone: clearFeedSnap });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSnap, loading, loadedKey, posts, selectedGroupId, selectedTagId, sortMode, activeMineFilter, meLoaded, myCommentByPost]);
+
   // 처음 들어올 때 퀵매칭 등장(제목↑ → 글쓰기 칸·정렬줄·글 카드 ←) — 글에서 돌아와 스크롤을 되돌릴 땐 생략
+  // (restoring 이 마운트 직후 켜질 수 있어 — sessionStorage 기억 — 등장 창·목록 등장도 entrance 로 다시 묶는다)
   const tabEntrance = useTabEntrance("community");
-  const [restoringAtMount] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try { return !!sessionStorage.getItem("community-scroll"); } catch { return false; }
-  });
-  const entrance = tabEntrance && !restoringAtMount;
-  const enterWindow = useEntranceWindow(entrance);
-  const enterPostStyle = useListEntrance(visiblePosts.slice(0, renderCount).map((p) => p.id), entrance, { base: 0.42 });
+  const entrance = tabEntrance && !restoring;
+  const enterWindow = useEntranceWindow(entrance) && entrance;
+  const listEntranceStyle = useListEntrance(entrance ? visiblePosts.slice(0, renderCount).map((p) => p.id) : NO_IDS, entrance, { base: 0.42 });
+  // 첫 커밋에 기본 목록으로 묶음이 정해진 뒤 복원으로 바뀌어도(같은 글이 복원 목록에 있으면) 카드가 움직이지 않게
+  const enterPostStyle = (id: string) => (entrance ? listEntranceStyle(id) : undefined);
   const enterBlock = (delay: number) => (enterWindow ? { className: " qd-a-item", style: { animationDelay: `${delay}s` } as CSSProperties } : { className: "", style: undefined });
 
   function openPost(postId: string) {
@@ -669,8 +791,22 @@ export default function CommunityClient() {
       setPanelPostId(postId);
       return;
     }
-    // 상세로 가기 전 현재 스크롤 위치를 저장해 두고, 돌아오면 그 자리로 복원한다.
-    try { sessionStorage.setItem("community-scroll", String(window.scrollY)); } catch {}
+    // 상세로 가기 전 목록 상태(보이던 글·화면 위치·정렬·카테고리·그린 개수)를 기억 → 돌아오면 그 자리로(feedRestore)
+    restoreCtlRef.current?.cancel();
+    const anchor = findFeedAnchor(topbarRef.current?.getBoundingClientRect().bottom ?? 0);
+    saveFeedSnap({
+      y: Math.round(window.scrollY),
+      anchorId: anchor.id,
+      anchorTop: anchor.top,
+      groupId: selectedGroupId,
+      tagId: selectedTagId,
+      sort: sortMode,
+      q: query,
+      mine: mineFilter,
+      renderCount: Math.max(FEED_STEP, Math.min(renderCount, visiblePosts.length)),
+      postId,
+      at: Date.now(),
+    });
     router.push(`/community/${postId}`);
   }
 
@@ -1152,6 +1288,7 @@ export default function CommunityClient() {
                   <article
                     key={post.id}
                     className="tcard"
+                    data-feed-post={post.id}
                     style={enterPostStyle(post.id)}
                     role="button"
                     tabIndex={0}
@@ -1433,9 +1570,9 @@ export default function CommunityClient() {
         />
       )}
 
-      {/* 목록에서 바로 여는 댓글 모달(상세 진입 불필요) */}
+      {/* 목록에서 바로 여는 댓글 시트(상세 진입 불필요) — 261008 인스타 릴스식 CommentSheet 로 교체 */}
       {commentModalPost && (
-        <CommentModal
+        <CommentSheet
           post={commentModalPost}
           onClose={() => setCommentModalPost(null)}
           onCountChange={(delta) => bumpCommentCount(commentModalPost.id, delta)}
@@ -1776,320 +1913,6 @@ function FeedQuiz({
           ? `${total}문제 중 ${quiz.solvedCount}문제 풀이 · ${quiz.correctCount}개 정답`
           : `${total}문제 · ${quiz.participantCount}명 참여`}
       </p>
-    </div>
-  );
-}
-
-
-interface FeedComment {
-  id: string;
-  userId: string | null;
-  parentId: string | null;
-  nickname: string;
-  avatar?: string | null;
-  content: string;
-  createdAt: string;
-  likeCount: number;
-  likedByMe: boolean;
-  replies: FeedComment[];
-  /** 내가 운영진 에디터 이름으로 단 댓글(260930) — 고치기·지우기 가능 */
-  postedByMe?: boolean;
-}
-
-// 댓글 정렬 옵션(백엔드 CommentSort 와 키 일치).
-const COMMENT_SORTS = [
-  { key: "newest", label: "최신순" },
-  { key: "oldest", label: "오래된순" },
-  { key: "popular", label: "인기순" },
-  { key: "recommended", label: "추천순" },
-] as const;
-type CommentSortKey = (typeof COMMENT_SORTS)[number]["key"];
-
-function countComments(list: FeedComment[]): number {
-  return list.reduce((sum, c) => sum + 1 + countComments(c.replies || []), 0);
-}
-
-function CommentRow({
-  c,
-  depth = 0,
-  meId,
-  onEdit,
-  onDelete,
-}: {
-  c: FeedComment;
-  depth?: number;
-  meId: string | null;
-  onEdit: (id: string, content: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-}) {
-  const mine = !!meId && (c.userId === meId || !!c.postedByMe);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(c.content);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  async function saveEdit() {
-    const next = draft.trim();
-    if (!next || busy) return;
-    setBusy(true);
-    try {
-      await onEdit(c.id, next);
-      setEditing(false);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function doDelete() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await onDelete(c.id);
-    } finally {
-      setBusy(false);
-      setConfirmDel(false);
-    }
-  }
-
-  return (
-    <div style={{ paddingLeft: depth ? 14 : 0, marginTop: depth ? 10 : 0 }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <span className="ccs-av" aria-hidden="true">
-          {c.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.avatar} alt="" referrerPolicy="no-referrer" />
-          ) : (
-            c.nickname.slice(0, 1)
-          )}
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="ccs-item">
-            <span className="ccs-name">{c.nickname}</span>
-            <span className="ccs-time">{formatRelativeTime(c.createdAt)}</span>
-            {mine && !editing && !confirmDel && (
-              <span className="ccs-actions">
-                <button type="button" className="ccs-action" onClick={() => { setDraft(c.content); setEditing(true); }}>수정</button>
-                <span className="ccs-action-dot">·</span>
-                <button type="button" className="ccs-action" onClick={() => setConfirmDel(true)}>삭제</button>
-              </span>
-            )}
-          </div>
-          {editing ? (
-            <div className="ccs-editbox">
-              <textarea
-                className="ccs-edit"
-                value={draft}
-                rows={2}
-                onChange={(e) => setDraft(e.target.value)}
-                onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 160) + "px"; }}
-                aria-label="댓글 수정"
-                autoFocus
-              />
-              <div className="ccs-editbtns">
-                <button type="button" className="ccs-action" onClick={() => setEditing(false)} disabled={busy}>취소</button>
-                <button type="button" className="ccs-action is-primary" onClick={saveEdit} disabled={busy || !draft.trim()}>{busy ? "저장 중…" : "저장"}</button>
-              </div>
-            </div>
-          ) : (
-            <p className="ccs-content">{c.content}</p>
-          )}
-          {confirmDel && (
-            // 인앱 확인 — 안드로이드 WebView 는 window.confirm 이 동작하지 않는다.
-            <div className="ccs-confirm">
-              <span>댓글을 삭제할까요?</span>
-              <button type="button" className="ccs-action" onClick={() => setConfirmDel(false)} disabled={busy}>취소</button>
-              <button type="button" className="ccs-action is-danger" onClick={doDelete} disabled={busy}>{busy ? "삭제 중…" : "삭제"}</button>
-            </div>
-          )}
-        </div>
-      </div>
-      {(c.replies || []).map((r) => (
-        <CommentRow key={r.id} c={r} depth={depth + 1} meId={meId} onEdit={onEdit} onDelete={onDelete} />
-      ))}
-    </div>
-  );
-}
-
-// 목록에서 상세 진입 없이 여는 댓글 모달(바텀시트) — 댓글 보기 + 작성.
-function CommentModal({
-  post,
-  onClose,
-  onCountChange,
-}: {
-  post: CommunityPost;
-  onClose: () => void;
-  onCountChange: (delta: number) => void; // 카드의 댓글 수 갱신(+1 등록, -1 삭제)
-}) {
-  const [comments, setComments] = useState<FeedComment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [text, setText] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [sort, setSort] = useState<CommentSortKey>("popular");
-  const [meId, setMeId] = useState<string | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  // 안드로이드 WebView 는 키보드가 떠도 fixed 기준 화면을 줄이지 않아 입력창이 키보드 뒤로 숨는다.
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const keyboardInset = useKeyboardInset(true, overlayRef);
-
-  // 내 댓글에만 수정·삭제를 보이기 위해 내 id 를 받는다.
-  useEffect(() => {
-    let alive = true;
-    cfetch("/api/auth/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (alive) setMeId(d?.user?.id ?? null); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
-
-  async function editComment(id: string, content: string) {
-    setMsg("");
-    const res = await cfetch(`/api/community/comments/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { setMsg(data.error || "댓글을 수정하지 못했습니다."); throw new Error("edit failed"); }
-    await load();
-  }
-
-  async function deleteComment(id: string) {
-    setMsg("");
-    const res = await cfetch(`/api/community/comments/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { setMsg(data.error || "댓글을 삭제하지 못했습니다."); return; }
-    onCountChange(-1);
-    await load();
-  }
-
-  async function load(s: CommentSortKey = sort) {
-    try {
-      const res = await cfetch(
-        `/api/community/posts/${encodeURIComponent(post.id)}/comments?sort=${s}`,
-        { credentials: "include" }
-      );
-      const data = await res.json();
-      if (res.ok) setComments(data.comments || []);
-    } catch {
-      /* 댓글을 못 받아도 모달은 열어둔다(작성은 가능) */
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load(sort);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post.id, sort]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  async function submit() {
-    const content = text.trim();
-    if (!content || posting) return;
-    setPosting(true);
-    setMsg("");
-    try {
-      const res = await cfetch(`/api/community/posts/${encodeURIComponent(post.id)}/comments`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, ...personaBody() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "댓글을 저장하지 못했습니다.");
-      setText("");
-      if (inputRef.current) inputRef.current.style.height = "auto";
-      onCountChange(1);
-      await load();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "댓글을 저장하지 못했습니다.");
-    } finally {
-      setPosting(false);
-    }
-  }
-
-  const total = countComments(comments);
-
-  return (
-    <div ref={overlayRef} className="community-comment-modal" style={{ paddingBottom: keyboardInset }} onClick={onClose}>
-      {/* 키보드가 뜨면 남은 영역을 꽉 채운다 — 고정 높이로 두면 입력창이 시트 밖으로 밀려 잘린다. */}
-      <div
-        className="community-comment-sheet"
-        style={keyboardInset > 0 ? { height: "100%" } : undefined}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="댓글"
-      >
-        <div className="ccs-head">
-          <div style={{ minWidth: 0 }}>
-            <p className="ccs-title">댓글 {total}</p>
-            <p className="ccs-sub">{post.title}</p>
-          </div>
-          <button type="button" className="ccs-close" onClick={onClose} aria-label="닫기">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="6" y1="6" x2="18" y2="18" />
-              <line x1="18" y1="6" x2="6" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className="ccs-sorts" role="tablist" aria-label="댓글 정렬">
-          {COMMENT_SORTS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              className={`ccs-sort${sort === s.key ? " is-on" : ""}`}
-              aria-selected={sort === s.key}
-              onClick={() => setSort(s.key)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="ccs-list">
-          {loading ? (
-            <p className="ccs-empty">불러오는 중이에요.</p>
-          ) : comments.length === 0 ? (
-            <div className="ccs-empty ccs-empty-sleep">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/toss/sleeping.svg" alt="" width={44} height={44} />
-              <p>댓글이 자고있나봐요<br />깨워주세요!</p>
-            </div>
-          ) : (
-            comments.map((c) => <CommentRow key={c.id} c={c} meId={meId} onEdit={editComment} onDelete={deleteComment} />)
-          )}
-        </div>
-        {msg && <p className="ccs-msg">{msg}</p>}
-        {/* 지정 계정만 — '닉네임 ○○ · 바꾸기'(계정당 하나) */}
-        <NicknameBar className="mx-4 mb-0 mt-2" onChanged={() => { load(); }} />
-        <div className="ccs-compose">
-          {/* 글자가 너비를 넘으면 줄바꿈되며 높이가 늘어난다(최대 120px, 그 뒤는 스크롤). Enter=등록, Shift+Enter=줄바꿈 */}
-          <textarea
-            ref={inputRef}
-            value={text}
-            rows={1}
-            onChange={(e) => setText(e.target.value)}
-            onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder="댓글을 입력하세요"
-            className="ccs-input"
-            aria-label="댓글 입력"
-          />
-          <button type="button" className="ccs-submit" onClick={submit} disabled={posting || !text.trim()}>
-            등록
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2835,215 +2658,6 @@ function CommunityStyles() {
         .community-metric-btn:not(.is-liked):hover {
           color: var(--c-text);
         }
-      }
-      /* ── 목록 댓글 모달(바텀시트) ── */
-      .community-comment-modal {
-        position: fixed;
-        top: 0; right: 0; bottom: 0; left: 0; /* inset 단축은 구형 안드로이드 WebView 가 모른다 */
-        box-sizing: border-box; /* 키보드 높이를 padding-bottom 으로 받으므로 필요 */
-        z-index: 95;
-        background: rgba(15, 23, 42, 0.42);
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        animation: communityPanelFade 0.16s ease;
-      }
-      .community-comment-sheet {
-        width: 100%;
-        max-width: 620px;
-        /* 기본 높이는 화면의 70% — 절반이면 댓글이 서너 개만 보여 너무 좁았다.
-           vh 대신 오버레이(top/bottom:0) 기준 % — 안드로이드 WebView vh 오계산 회피 */
-        height: 70%;
-        max-height: 88%;
-        display: flex;
-        flex-direction: column;
-        background: var(--c-bg);
-        border-top-left-radius: 20px;
-        border-top-right-radius: 20px;
-        box-shadow: 0 -14px 40px rgba(15, 23, 42, 0.18);
-        animation: communitySheetUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-        overflow: hidden;
-      }
-      @media (min-width: 720px) {
-        .community-comment-modal { align-items: center; }
-        .community-comment-sheet { border-radius: 20px; height: auto; min-height: 50%; max-height: 74%; }
-      }
-      .ccs-head {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 16px 16px 12px;
-        border-bottom: 1px solid var(--c-bg-muted-6);
-      }
-      .ccs-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--c-text); }
-      .ccs-sub {
-        margin: 3px 0 0;
-        font-size: 13px;
-        color: var(--c-text-4);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .ccs-close {
-        flex-shrink: 0;
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
-        border: none;
-        background: var(--c-bg-muted);
-        color: var(--c-text-3);
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .ccs-list {
-        flex: 1 1 auto;
-        /* 0 까지 줄어들 수 있어야 좁은 화면에서 입력창이 밀려나지 않는다. */
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
-        padding: 12px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-      .ccs-empty-sleep { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-      .ccs-empty-sleep img { display: block; }
-      .ccs-empty-sleep p { margin: 0; font-size: 14px; font-weight: 600; color: var(--c-text-4); line-height: 1.5; text-align: center; }
-      .ccs-empty {
-        margin: 0;
-        padding: 28px 0;
-        text-align: center;
-        color: var(--c-text-4);
-        font-size: 14px;
-        font-weight: 500;
-      }
-      .ccs-item { display: flex; align-items: center; gap: 6px; }
-      .ccs-name { font-size: 13px; font-weight: 700; color: var(--c-text); }
-      /* 댓글 아바타(사진 or 첫 글자) */
-      .ccs-av {
-        flex-shrink: 0;
-        width: 30px;
-        height: 30px;
-        border-radius: 999px;
-        overflow: hidden;
-        background: var(--c-bg-muted);
-        color: var(--c-text);
-        font-size: 13px;
-        font-weight: 700;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .ccs-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      /* 댓글 정렬 탭 */
-      .ccs-sorts {
-        display: flex;
-        gap: 6px;
-        padding: 10px 16px 2px;
-        flex-wrap: wrap;
-      }
-      .ccs-sort {
-        border: 1px solid var(--c-bg-muted-8);
-        background: transparent;
-        color: var(--c-text-3);
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-size: 12.5px;
-        font-weight: 600;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .ccs-sort.is-on {
-        background: var(--c-inverse);
-        border-color: var(--c-inverse);
-        color: #fff;
-      }
-      .ccs-time { font-size: 12px; font-weight: 500; color: var(--c-text-4); }
-      .ccs-content {
-        margin: 3px 0 0;
-        font-size: 14px;
-        line-height: 1.55;
-        color: var(--c-text-2d);
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-      .ccs-msg {
-        margin: 0;
-        padding: 6px 16px;
-        color: var(--c-brand-deep-2);
-        font-size: 13px;
-        font-weight: 600;
-      }
-      .ccs-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
-      .ccs-action {
-        border: none; background: none; padding: 0; font-size: 12px; font-weight: 600;
-        color: var(--c-text-4); cursor: pointer; -webkit-tap-highlight-color: transparent;
-      }
-      .ccs-action:disabled { opacity: 0.5; cursor: default; }
-      .ccs-action.is-primary { color: var(--c-brand); font-weight: 700; }
-      .ccs-action.is-danger { color: #D63A3A; font-weight: 700; }
-      .ccs-action-dot { font-size: 12px; color: var(--c-text-5); }
-      .ccs-editbox { margin-top: 6px; }
-      .ccs-edit {
-        width: 100%; box-sizing: border-box; min-height: 60px; max-height: 160px; resize: none;
-        border: 1px solid var(--c-brand); border-radius: 10px; padding: 9px 12px;
-        font-size: 16px; line-height: 1.45; color: var(--c-text); background: var(--c-bg); outline: none;
-      }
-      .ccs-editbtns { display: flex; justify-content: flex-end; gap: 14px; margin-top: 6px; }
-      .ccs-confirm {
-        margin-top: 8px; display: flex; align-items: center; gap: 12px;
-        padding: 8px 12px; border-radius: 10px; background: var(--c-bg-muted); font-size: 12.5px; color: var(--c-text-3);
-      }
-      .ccs-confirm span { flex: 1; }
-      .ccs-compose {
-        display: flex;
-        align-items: flex-end;
-        gap: 8px;
-        padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-        border-top: 1px solid var(--c-bg-muted-6);
-        background: var(--c-bg);
-      }
-      .ccs-input {
-        flex: 1;
-        min-width: 0;
-        min-height: 44px;
-        max-height: 120px;
-        box-sizing: border-box;
-        border: 1px solid var(--c-border);
-        border-radius: 12px;
-        padding: 11px 14px;
-        font-size: 16px;
-        line-height: 1.4;
-        font-family: inherit;
-        color: var(--c-text);
-        background: var(--c-bg);
-        outline: none;
-        resize: none;
-        overflow-y: auto;
-      }
-      .ccs-input:focus { border-color: var(--c-brand); }
-      .ccs-submit {
-        flex-shrink: 0;
-        height: 44px;
-        padding: 0 18px;
-        border: none;
-        border-radius: 12px;
-        background: var(--c-inverse);
-        color: #fff;
-        font-size: 15px;
-        font-weight: 700;
-        cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .ccs-submit:disabled { opacity: 0.5; cursor: default; }
-      @keyframes communitySheetUp {
-        from { transform: translateY(28px); opacity: 0.6; }
-        to { transform: translateY(0); opacity: 1; }
       }
       .community-icon-button:active,
       .community-floating-write:active {
