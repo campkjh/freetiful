@@ -2,6 +2,9 @@
  * 비즈 페이지 장면 문구 · 소재(261008 토스 홈 어법 재구현). 문구는 전부 프리티풀이 새로 쓴 것(토스 문장 틀을 옮기지 않음),
  * 사실만 — 검증 입점 · 방송사 출신 · 1,000여 명 · 결혼식 13,000회+ · 영어 진행 · 전국 · 안전결제(행사 뒤 대금 전달)는 기존 비즈 페이지 · 앱 화면에 있는 내용.
  * 방향(261008 사장 '비즈는 기업행사와 웨딩홀 전속 사회자 느낌으로') = 두 축: 기업행사 사회자 섭외 + 웨딩홀 전속 사회자(빌라드지디 웨딩홀 제휴 — 연혁).
+ * 261009 사장 '비즈의 모든 내용이 b2b 가 아니라 웨딩홀과 기업행사 위주로' — '법인 · 비즈니스 · 기업 고객' 같은 뭉뚱그린 말 대신
+ *   '웨딩홀 예식 · 기업행사'를 구체적으로 쓴다. 키 · 배열 길이 · 대략 글자 수는 그대로(장면 컴포넌트가 줄 폭을 이 길이에 맞춰 놓았다).
+ * 문의 CTA 는 전부 /biz/inquiry(상담 채팅 화면) — 아래쪽 문의 폼 섹션(#문의폼)은 없어졌다(261009).
  * 그림은 /images/biz-v2 아래 프리티풀 소재(앱 실제 캡처 · 행사 사진 · 송년회 영상 프레임). 장면 컴포넌트는 이 파일만 읽고 고치지 않는다.
  */
 
@@ -14,7 +17,8 @@ export const PRO_PROFILE_ID = '6fb8f628-7549-44e6-8136-71d74c937d75';
 /** 왼쪽 세로 눈금(장면 목차) — id 는 장면 뿌리 요소의 id(data-dock) */
 export const DOCK = [
   { id: 'dock-intro', label: tr('프리티풀', 'Freetiful', 'Freetiful', 'Freetiful') },
-  { id: 'dock-chat', label: tr('섭외', 'Booking', '依頼', '预约') },
+  // 261009 채팅 장면이 '일정 주고받기'로 바뀌어 눈금 이름도 '일정'
+  { id: 'dock-chat', label: tr('일정', 'Schedule', '日程', '日程') },
   { id: 'dock-hosts', label: tr('진행자', 'Hosts', '司会者', '主持人') },
   { id: 'dock-match', label: tr('매칭', 'Matching', 'マッチング', '匹配') },
   { id: 'dock-career', label: tr('경력', 'Career', '経歴', '经历') },
@@ -37,19 +41,49 @@ export const INTRO = {
     tr('웨딩홀 전속까지', 'to resident wedding MCs,', '式場専属司会まで', '到婚礼堂专属主持'),
     tr('프리티풀 비즈', 'Freetiful Biz', 'Freetiful Biz', 'Freetiful Biz'),
   ],
-  chatTitle: [tr('견적 문의부터 섭외까지', 'From inquiry to booking,', '見積もり相談から依頼まで', '从询价到预约'), tr('채팅 한 번으로', 'in a single chat', 'チャットひとつで', '一次聊天就够了')],
+  /*
+   * 채팅 장면(261009 사장 '사회자랑 채팅하는 것 처럼 말고, 기업담당자랑 프리티풀이 기업 및 웨딩홀에 스케줄 같은 걸 보내는 것처럼 — 서로 소통하는 것처럼').
+   * 가상 대화: 웨딩홀(연회장) 담당자 ↔ '프리티풀 비즈'. 담당자가 주말 예식 타임표를 보내면 프리티풀이 타임마다 전속 사회자를 배정한 일정표로 답하고,
+   * 같은 홀의 기업 송년회 순서를 보내면 사회자 배정 · 리허설 시간을 맞춘다 — 비즈의 두 축(웨딩홀 전속 · 기업행사)이 한 대화에 다 나온다.
+   * 사람 이름은 쓰지 않는다(사회자 A · B). 날짜 · 시각은 가상 예시(2026-11-14 토 · 12-18 금 — 요일 맞춤). 순서표 시각은 CAREER 큐시트와 같게.
+   * 제목은 모바일 360 에서 한 줄씩 들어가는 길이(24px · 가로 272px 안)로.
+   */
+  chatTitle: [tr('예식 타임표도 행사 순서도', 'Timetables, programs,', '挙式の時間表も進行表も', '婚礼时间表、活动流程'), tr('채팅 한 번으로', 'shared in one chat', 'チャットひとつで', '一次聊天就够了')],
   chatDesc: [
-    tr('행사 날짜와 장소만 남기면', 'Share your event date and venue,', 'イベントの日程と会場を伝えるだけで、', '只需留下活动日期和地点，'),
-    tr('진행자가 직접 견적을 보내요.', 'and hosts send you quotes directly.', '司会者が直接見積もりを送ります。', '主持人会直接发送报价。'),
+    tr('일정을 보내 주시면', 'Send us your schedule,', 'スケジュールを送るだけで、', '把日程发给我们，'),
+    tr('프리티풀이 사회자 배정까지 맞춰 드려요.', 'and Freetiful assigns the MCs.', 'Freetifulが司会者を配置します。', 'Freetiful 就为您安排主持人。'),
   ],
-  /** 폰 속 채팅(가상 대화 — 기업 송년회 섭외). me = 담당자(오른쪽 파란 말풍선) */
+  /** 채팅 머리줄 상대 이름 — 사회자 개인이 아니라 프리티풀 비즈 창구(261009) */
+  chatPartnerName: tr('프리티풀 비즈', 'Freetiful Biz', 'Freetiful Biz', 'Freetiful Biz'),
+  /** 진행자 라벨 — 예약 장면(SceneBook 결제 시트 '검증 완료' 줄 위)이 읽는다. 채팅 머리줄은 chatPartnerName */
   chatHostName: tr('프리티풀 사회자', 'Freetiful Host', 'Freetiful 司会者', 'Freetiful 主持人'),
+  /** 폰 속 대화의 글 말풍선(순서대로). me = 웨딩홀 담당자(오른쪽 파란 말풍선) · 카드는 아래 chatTimetable · chatScheduleCard · chatProgram 이 사이사이에 */
   chatMessages: [
-    { me: true, text: tr('12월 19일 금요일 저녁, 회사 송년회 진행 가능하실까요? 300명 규모예요.', 'Are you available for our company year-end party on Friday evening, Dec 19? About 300 guests.', '12月19日（金）夜、会社の忘年会の司会は可能でしょうか？300名規模です。', '12月19日周五晚上的公司年会可以主持吗？大约300人。') },
-    { me: false, text: tr('네, 가능합니다! 장소와 순서를 알려주시면 견적서 바로 보내드릴게요 😊', 'Yes, I’m available! Tell me the venue and program and I’ll send a quote right away 😊', 'はい、可能です！会場と進行順を教えていただければすぐに見積書をお送りします 😊', '可以的！告诉我场地和流程，我马上发报价单给您 😊') },
-    { me: true, text: tr('강남 호텔 그랜드볼룸이고, 1부 시상식 · 2부 레크리에이션이에요.', 'It’s a hotel grand ballroom in Gangnam — awards first, recreation second.', '江南のホテルのグランドボールルームで、1部授賞式・2部レクリエーションです。', '在江南酒店宴会厅，第一部分颁奖，第二部分团建游戏。') },
-    { me: false, text: tr('좋아요. 시상식과 레크리에이션까지 포함해서 견적서 보내드릴게요.', 'Great. I’ll send a quote that covers both the awards and the recreation.', '承知しました。授賞式とレクリエーションを含めた見積書をお送りします。', '好的，我会发送包含颁奖和团建游戏的报价单。') },
+    { me: true, text: tr('안녕하세요! 11월 14일 토요일 예식 타임표 보내드려요.', 'Hi! Here’s our wedding timetable for Saturday, Nov 14.', 'こんにちは！11月14日（土）の挙式タイムテーブルをお送りします。', '您好！发给您11月14日（周六）的婚礼时间表。') },
+    { me: false, text: tr('받았어요! 타임마다 전속 사회자를 배정해서 일정표로 보내드릴게요 😊', 'Got it! We’ll assign a resident MC to each slot and send you the schedule 😊', '受け取りました！各回に専属司会者を配置して、スケジュール表でお送りしますね 😊', '收到！我们会为每个时段安排专属主持人，再把日程表发给您 😊') },
+    { me: true, text: tr('확인했어요. 12월 18일 저희 홀 기업 송년회 순서도 보내드려요.', 'Perfect. Here’s the program for a corporate year-end party in our hall on Dec 18.', '確認しました。12月18日に当館で行う企業忘年会の進行表もお送りします。', '确认了。12月18日在我们会馆举办的企业年会流程也发给您。') },
+    { me: false, text: tr('네! 송년회 사회자도 배정하고, 리허설은 17시로 잡아 둘게요.', 'Sure! We’ll assign an MC for the party and set the rehearsal for 5 PM.', 'かしこまりました！忘年会の司会者も配置して、リハーサルは17時に入れておきますね。', '好的！年会主持人也会安排好，彩排就定在17点。') },
   ],
+  /** 담당자가 보내는 예식 타임표(파란 파일 말풍선) */
+  chatTimetable: {
+    title: tr('11/14(토) 예식 타임표', 'Nov 14 (Sat) ceremonies', '11/14（土）挙式タイムテーブル', '11/14（周六）婚礼时间表'),
+    sub: tr('11:00 · 13:00 · 15:00 · 17:00', '11:00 · 13:00 · 15:00 · 17:00', '11:00 · 13:00 · 15:00 · 17:00', '11:00 · 13:00 · 15:00 · 17:00'),
+  },
+  /** 프리티풀이 돌려주는 배정 일정표 — 타임마다 사회자 A · B(실명 없음) */
+  chatScheduleCard: {
+    title: tr('일정표가 도착했어요', 'Your schedule is here', 'スケジュール表が届きました', '日程表已送达'),
+    sub: tr('11월 14일 토요일 · 예식 4타임', 'Sat, Nov 14 · 4 ceremonies', '11月14日（土）・挙式4回', '11月14日 周六 · 4场仪式'),
+    slots: ['11:00', '13:00', '15:00', '17:00'],
+    hosts: ['A', 'B', 'A', 'B'],
+    host: tr('전속 사회자', 'Resident MC', '専属司会者', '专属主持'),
+    done: tr('전속 사회자 2명 배정 완료', '2 resident MCs assigned', '専属司会者2名の配置完了', '已安排 2 位专属主持'),
+  },
+  /** 담당자가 이어 보내는 기업 송년회 순서표(파란 파일 말풍선) — 시각은 CAREER 큐시트와 같다 */
+  chatProgram: {
+    title: tr('12/18(금) 송년회 순서', 'Dec 18 (Fri) year-end program', '12/18（金）忘年会の進行表', '12/18（周五）年会流程'),
+    sub: tr('18:00 개회 · 18:30 시상식 · 19:20 레크리에이션', '18:00 Opening · 18:30 Awards · 19:20 Recreation', '18:00 開会・18:30 授賞式・19:20 レクリエーション', '18:00 开幕 · 18:30 颁奖 · 19:20 团建游戏'),
+  },
+  /** 견적서 카드 — 진행자 고르기 아코디언 '채팅으로 바로 견적' 칸의 튀어나오는 카드 · 예약 장면 결제 시트 부제가 읽는다(기업 송년회 견적) */
   chatQuoteCard: { title: tr('견적서가 도착했어요', 'Your quote has arrived', '見積書が届きました', '报价单已送达'), sub: tr('송년회 진행 · 1부 시상식 · 2부 레크리에이션', 'Year-end party · Awards · Recreation', '忘年会進行・授賞式・レクリエーション', '年会主持 · 颁奖 · 团建游戏') },
   chatInputPlaceholder: tr('메시지 보내기', 'Send a message', 'メッセージを送る', '发送消息'),
 
@@ -84,9 +118,10 @@ export const INTRO = {
       key: 'chat',
       screen: `${V2}/screens/chat.webp`,
       title: tr('채팅으로 바로 견적', 'Quotes right in chat', 'チャットですぐに見積もり', '聊天即可获取报价'),
-      desc: tr('행사 날짜와 장소를 남기면 진행자가 직접 견적을 보내요. 일정 조율도 채팅 한 번이면 끝나요.', 'Leave your event date and venue, and hosts send quotes directly. Scheduling takes just one chat.', 'イベントの日程と会場を残すと、司会者が直接見積もりを送ります。日程調整もチャットひとつで完了します。', '留下活动日期和地点，主持人会直接发送报价。日程协调也只需一次聊天。'),
+      desc: tr('기업행사 날짜와 장소를 남기면 진행자가 직접 견적을 보내요. 웨딩홀 일정 조율도 채팅 한 번이면 끝나요.', 'Leave your corporate event date and venue, and hosts send quotes directly. Wedding hall schedules take just one chat.', '企業イベントの日程と会場を残すと、司会者が直接見積もりを送ります。式場の日程調整もチャットひとつで完了します。', '留下企业活动日期和地点，主持人会直接发送报价。婚礼堂的日程协调也只需一次聊天。'),
       cta: tr('문의하기', 'Contact us', 'お問合せ', '联系我们'),
-      href: '#문의폼',
+      // 261009 문의 폼 섹션 삭제 → 상담 채팅 화면으로(PillCta 가 '/' 로 시작하면 라우터 이동)
+      href: '/biz/inquiry',
     },
   ],
   /** 폰 옆에 떠 있는 작은 칩 */
@@ -147,7 +182,8 @@ export const CAREER = {
     tr('폐회사', 'Closing', '閉会', '闭幕致辞'), tr('의전', 'Protocol', '儀典', '礼宾'), tr('건배 제의', 'Toast', '乾杯', '祝酒'), tr('팀빌딩', 'Team games', 'チーム作り', '团建'),
     tr('퀴즈', 'Quiz', 'クイズ', '问答'), tr('네트워킹', 'Mixer', '交流会', '交流'), tr('기념 촬영', 'Photo time', '記念撮影', '合影'), tr('질의응답', 'Q&A', '質疑応答', '问答环节'),
   ],
-  sub: [tr('처음 맡기는 행사 진행도', 'Even your first event,', '初めてのイベント司会も', '第一次举办活动'), tr('자신 있게', 'with confidence', '自信をもって', '也能信心满满')],
+  // 261009 웨딩홀 · 기업행사 위주 — '행사 진행' 대신 '기업행사'(아래 카드도 송년회 영어 진행 · 큐시트 · 전국). 모바일 28px 한 줄(가로 272) 안 길이 — 영어는 그대로가 한 줄에 든다
+  sub: [tr('처음 맡기는 기업행사도', 'Even your first event,', '初めての企業行事も', '第一次筹备企业活动'), tr('자신 있게', 'with confidence', '自信をもって', '也能信心满满')],
   cards: [
     {
       key: 'translate',
@@ -222,7 +258,7 @@ export const EVENTS = {
 export const SCALE = {
   title: [tr('전국 1,000여\u00A0명의 진행자가', '1,000+ hosts nationwide', '全国1,000名以上の司会者が', '全国 1,000 余名主持人'), tr('행사를 기다리고 있어요', 'are ready for your event', 'イベントをお待ちしています', '正在等待您的活动')],
   leadTitle: tr('방송사 출신부터 행사 전문 MC까지', 'From broadcasters to event specialists', '放送局出身からイベント専門MCまで', '从广播电视台出身到活动专业主持'),
-  leadDesc: tr('KBS · SBS · MBC 출신 아나운서부터 레크리에이션 전문 MC까지, 검증을 마친 진행자만 연결해요.', 'From KBS · SBS · MBC announcers to recreation specialists — we only connect verified hosts.', 'KBS・SBS・MBC出身のアナウンサーからレクリエーション専門MCまで、検証済みの司会者だけをおつなぎします。', '从 KBS · SBS · MBC 出身的主播到团建专业主持，只为您对接通过认证的主持人。'),
+  leadDesc: tr('KBS · SBS · MBC 출신 아나운서부터 웨딩 · 레크리에이션 전문 MC까지, 검증을 마친 진행자만 웨딩홀과 기업행사에 연결해요.', 'From KBS · SBS · MBC announcers to wedding and recreation specialists — we only connect verified hosts to wedding halls and corporate events.', 'KBS・SBS・MBC出身のアナウンサーからウェディング・レクリエーション専門MCまで、検証済みの司会者だけを式場と企業イベントにおつなぎします。', '从 KBS · SBS · MBC 出身的主播到婚礼、团建专业主持，只为婚礼堂和企业活动对接通过认证的主持人。'),
   stats: [
     { value: 1000, suffix: tr('+', '+', '+', '+'), label: tr('검증된 진행자', 'Verified hosts', '認証済み司会者', '认证主持人') },
     { value: 13000, suffix: tr('+', '+', '+', '+'), label: tr('결혼식 사회 경력', 'Weddings hosted', '結婚式司会実績', '婚礼主持经验') },
@@ -237,7 +273,7 @@ export const CLIENTS = {
   video: '/images/KakaoTalk_Video_2026-04-08-23-05-28.mp4',
   video2: '/images/KakaoTalk_Video_2026-04-13-10-12-55.mp4',
   blocks: [
-    { title: tr('프리티풀 플랫폼 소개', 'Platform overview', 'プラットフォーム紹介', '平台简介'), desc: tr('검증된 진행자 1,000여 명과 함께하는 매칭 플랫폼', 'A matching platform with 1,000+ verified hosts', '認証済み司会者1,000名以上と歩むマッチングプラットフォーム', '汇聚 1,000 余名认证主持人的匹配平台') },
+    { title: tr('프리티풀 플랫폼 소개', 'Platform overview', 'プラットフォーム紹介', '平台简介'), desc: tr('웨딩홀 · 기업행사와 검증된 진행자 1,000여 명을 잇는 플랫폼', 'Connecting wedding halls and corporate events with 1,000+ verified hosts', '式場・企業イベントと認証済み司会者1,000名以上をつなぐプラットフォーム', '连接婚礼堂、企业活动与 1,000 余名认证主持人的平台') },
     { title: tr('프리티풀 앱 소개', 'App overview', 'アプリ紹介', '应用简介'), desc: tr('진행자를 직관적으로 비교하고 채팅으로 바로 섭외해요', 'Compare hosts intuitively and book them in chat', '司会者を直感的に比較し、チャットですぐに依頼', '直观比较主持人，通过聊天即刻预约') },
   ],
 };
@@ -248,8 +284,9 @@ export const STAGE = {
   wordRight: tr('기업 행사', 'Corporate events', '企業イベント', '企业活动'),
   overlay: [tr('모든 무대의 진행을', 'Every stage,', 'すべてのステージの進行を', '每一个舞台'), tr('프리티풀 진행자에게', 'hosted by Freetiful', 'Freetifulの司会者に', '交给 Freetiful 主持人')],
   frames: Array.from({ length: 72 }, (_, i) => `${V2}/seq/stage-${String(i).padStart(2, '0')}.webp`),
+  // 협회 이름 = 송년회 현수막 · 배너 글자 그대로 '한국여성사회자협회(WOMAN MC ASSOCIATION KOREA · WMAK)' — 예전 '한국웨딩사회자협회'는 잘못 옮긴 이름(261009 영상 프레임 확인)
   blocks: [
-    { label: 'RECEPTION', title: tr('2025 송년회', '2025 Year-End Reception', '2025 忘年会', '2025 年会'), desc: tr('한국웨딩사회자협회와 프리티풀이 함께한 2025 송년회', 'The 2025 year-end reception by the Korea Wedding MC Association and Freetiful', '韓国ウェディング司会者協会とFreetifulによる2025年の忘年会', '韩国婚礼主持人协会与 Freetiful 共同举办的 2025 年会'), cta: tr('영상 보기', 'Watch video', '動画を見る', '观看视频') },
+    { label: 'RECEPTION', title: tr('2025 송년회', '2025 Year-End Reception', '2025 忘年会', '2025 年会'), desc: tr('한국여성사회자협회와 프리티풀이 함께한 2025 송년회', 'The 2025 year-end reception by the Woman MC Association Korea and Freetiful', '韓国女性司会者協会とFreetifulによる2025年の忘年会', '韩国女性主持人协会与 Freetiful 共同举办的 2025 年会'), cta: tr('영상 보기', 'Watch video', '動画を見る', '观看视频') },
     { label: 'CEREMONY', title: tr('시상식과 협약식', 'Awards & signing', '授賞式と協約式', '颁奖与签约'), desc: tr('시상과 협약, 공식 순서도 격에 맞게 진행해요.', 'Awards, signings and formal moments, hosted with dignity.', '授賞や協約など、公式な進行も格式に合わせて。', '颁奖、签约等正式环节也得体主持。'), cta: tr('문의하기', 'Contact us', 'お問合せ', '联系我们') },
     { label: 'RECREATION', title: tr('모두가 함께하는 무대', 'A stage for everyone', 'みんなで楽しむステージ', '大家一起的舞台'), desc: tr('레크리에이션과 공연으로 행사장의 분위기를 이끌어요.', 'Recreation and performances that lift the whole room.', 'レクリエーションと公演で会場の雰囲気を盛り上げます。', '用团建游戏和表演带动全场气氛。'), cta: tr('문의하기', 'Contact us', 'お問合せ', '联系我们') },
   ],
@@ -260,13 +297,14 @@ export const STAGE = {
 export const MOMENTS = {
   heading1: tr('프리티풀이 함께한 순간', 'Moments with Freetiful', 'Freetifulと共にした瞬間', 'Freetiful 陪伴的瞬间'),
   heading2: tr('프리티풀이 함께할 순간', 'Moments to come', 'Freetifulと共にする瞬間', 'Freetiful 将陪伴的瞬间'),
-  desc: tr('공식 행사부터 축제와 체육대회까지, 프리티풀 진행자가 함께한 현장이에요.', 'From official ceremonies to festivals and sports days — scenes our hosts were part of.', '式典からフェスや運動会まで、Freetifulの司会者が立った現場です。', '从官方典礼到庆典和运动会，都有 Freetiful 主持人的身影。'),
+  // 261009 웨딩홀 · 기업행사 위주 — 사진 4장(기업 컨퍼런스 · 레크리에이션 · 축제 무대 · 웨딩홀 행사)에 맞춘 말
+  desc: tr('기업 컨퍼런스부터 웨딩홀까지, 프리티풀 진행자가 함께한 현장이에요.', 'From corporate conferences to wedding halls — scenes our hosts were part of.', '企業カンファレンスから式場まで、Freetifulの司会者が立った現場です。', '从企业会议到婚礼堂，都有 Freetiful 主持人的身影。'),
   photos: [`${'/images/biz-v2/photos'}/event-01.webp`, `${'/images/biz-v2/photos'}/event-07.webp`, `${'/images/biz-v2/photos'}/event-02.webp`, `${'/images/biz-v2/photos'}/event-12.webp`],
   /** 마지막에 화면 가득 커지는 사진 */
   hero: `${'/images/biz-v2/photos'}/event-02.webp`,
   tiles: [tr('검증 완료', 'Verified', '検証済み', '已认证'), tr('웨딩홀 전속', 'Resident MC', '式場専属', '婚礼堂专属'), tr('견적서 도착', 'Quote arrived', '見積書到着', '报价已送达'), tr('안전결제', 'Safe Pay', '安全決済', '安全支付'), tr('전국 진행', 'Anywhere', '全国対応', '全国可约'), tr('영어 진행', 'English MC', '英語進行', '英语主持')],
   closing: [tr('기업행사도, 웨딩홀 예식도', 'Corporate events and weddings,', '企業イベントも、式場の挙式も', '企业活动、婚礼堂仪式，'), tr('프리티풀 사회자에게 맡기세요', 'leave them to Freetiful MCs', 'Freetifulの司会者にお任せください', '都交给 Freetiful 主持人')],
-  closingCta: tr('기업 · 웨딩홀 문의', 'Business inquiry', '法人・式場お問合せ', '企业 · 婚礼堂咨询'),
+  closingCta: tr('기업 · 웨딩홀 문의', 'Event & hall inquiry', '企業・式場お問合せ', '企业 · 婚礼堂咨询'),
 };
 
 /** 함께한 기업 로고(기존 비즈 페이지와 같은 52개) */

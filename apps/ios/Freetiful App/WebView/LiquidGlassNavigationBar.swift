@@ -270,6 +270,10 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     private var items: [LiquidNavItem] = []
     private var iconCache: [String: UIImage] = [:]
     private var selectedPath = "/main"
+    /// 웹이 '어느 탭인지'를 직접 알려 주는 탭 묶음(비즈 탭바 data-active-tab)은 경로 대신 이 id 로 고른다.
+    /// 비즈 탭 경로는 /biz · /biz/news 처럼 서로 앞부분이 겹쳐 경로 비교(hasPrefix)로는 홈이 늘 같이 골라지고,
+    /// /biz/history 처럼 기업소개 묶음에 드는 화면도 경로만으론 못 맞춘다(261009 사장 'iOS 비즈 네비게이션바'). nil = 경로로 고름
+    private var selectedItemId: String?
     private var isProMode = false
     private var showsModeToggle = false
     private var badges: [String: Int] = [:]
@@ -401,13 +405,16 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
 
     func configure(items: [LiquidNavItem],
                    selectedPath: String,
+                   selectedItemId: String? = nil,
                    showsModeToggle: Bool,
                    isProMode: Bool) {
         let previousSelectedIndex = self.items.firstIndex(where: isSelected)
         let previousSelectedPath = self.selectedPath
+        let previousSelectedItemId = self.selectedItemId
         let changedItems = self.items != items
         self.items = items
         self.selectedPath = selectedPath
+        self.selectedItemId = selectedItemId
         self.showsModeToggle = showsModeToggle
         self.isProMode = isProMode
 
@@ -419,7 +426,8 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         let nextSelectedIndex = self.items.firstIndex(where: isSelected)
         let shouldUpdateSelection = changedItems ||
             previousSelectedIndex != nextSelectedIndex ||
-            previousSelectedPath != selectedPath
+            previousSelectedPath != selectedPath ||
+            previousSelectedItemId != selectedItemId
         guard shouldUpdateSelection else { return }
 
         let shouldAnimateSelection = !changedItems &&
@@ -524,6 +532,9 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
     }
 
     private func isSelected(_ item: LiquidNavItem) -> Bool {
+        if let selectedItemId {
+            return item.id == selectedItemId
+        }
         if item.path == "/main" {
             return selectedPath == "/" || selectedPath == "/main"
         }
@@ -543,6 +554,7 @@ final class LiquidGlassNavigationBar: UIView, UITabBarDelegate {
         let navItem = items[index]
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         selectedPath = navItem.path
+        if selectedItemId != nil { selectedItemId = navItem.id }   // id 로 고르는 묶음(비즈)이면 누른 탭 id 로
         if updateNativeSelection {
             updateSelection(animated: true)
         }

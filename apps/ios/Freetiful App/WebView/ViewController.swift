@@ -35,6 +35,17 @@ private let nativeProNavItems = [
     LiquidNavItem(id: "my", title: "마이", path: "/my", iconAssetName: "nav-my")
 ]
 
+// 비즈 화면 탭(261009 사장 '비즈페이지 ios 네비게이션바 작업해서 넣어줘') — 웹 components/biz/BizTabBar.tsx 와 같은 4개·같은 순서.
+//  · 홈 = 비즈 홈(/biz, 프리티풀 홈 아님 — 같은 날 사장 '홈 클릭하면 비즈 홈으로'). 프리티풀로 나가는 길은 비즈 머리줄 '프리티풀로' 글자 탭.
+//  · id 는 웹 탭바 nav 의 data-active-tab 값과 같다(home|news|inquiry|company) — 고름은 경로가 아니라 이 id 로(LiquidGlassNavigationBar.selectedItemId).
+//  · 아이콘 nav-biz-* / -active = 웹 BizTabIcons.tsx SVG 를 그대로 26pt 템플릿 PNG 로 렌더(평소 선 · 고름 채움 — 위 nav-* 와 같은 방식).
+private let nativeBizNavItems = [
+    LiquidNavItem(id: "home", title: "홈", path: "/biz", iconAssetName: "nav-biz-home"),
+    LiquidNavItem(id: "news", title: "뉴스·소식", path: "/biz/news", iconAssetName: "nav-biz-news"),
+    LiquidNavItem(id: "inquiry", title: "문의하기", path: "/biz/inquiry", iconAssetName: "nav-biz-inquiry"),
+    LiquidNavItem(id: "company", title: "기업소개", path: "/biz/ceo", iconAssetName: "nav-biz-company")
+]
+
 /// 프리티풀 iOS = 화면은 전부 웹, 하단 탭바만 네이티브(260927 사장 "네이티브 걷어내고 딱 네비게이션바만 네이티브로").
 ///  · 웹에서 고친 게 앱에도 그대로 보인다 — 앱 자체 화면(홈·채팅·새요청·마이·상세·알림·검색·빌라드지디 랜딩 …)은 모두 뺐다.
 ///  · 네이티브로 남긴 것: 하단 탭바, 로그인(카카오·네이버·구글·애플 SDK + 로그인 시트 — 웹 로그인 창엔 애플 로그인이 없어
@@ -42,6 +53,7 @@ private let nativeProNavItems = [
 ///    JS 알림창(alert/confirm/prompt), 바깥 링크(전화·문자·지도·결제 앱은 그 앱으로, 다른 사이트는 인앱 사파리로).
 ///  · 탭바는 웹이 알려 주는 상태로만 그린다 — 웹 하단 탭([data-ios-mobile-bottom-nav])이 그려진 화면에서만 보이고,
 ///    웹 모달(role=dialog)이 떠 있으면 숨는다. 웹 하단 탭 자체는 CSS 로 숨긴다.
+///  · 비즈 화면은 웹 비즈 탭바([data-ios-biz-bottom-nav])가 있으면 같은 자리에 비즈 탭 4개(nativeBizNavItems)로 바꿔 그린다(261009).
 class ViewController: UIViewController,
                       WKNavigationDelegate,
                       WKUIDelegate,
@@ -60,6 +72,10 @@ class ViewController: UIViewController,
     private var hasWebNav = false            // 웹이 하단 탭을 그리는 화면인지 — 웹 layout 의 HIDE_NAV_PATTERNS 결과를 그대로 따른다
     private var hasBlockingOverlay = false   // 웹 모달이 떠 있는지
     private var navBadges: [String: Int] = [:]
+    // 비즈 화면(261009) — 웹 비즈 탭바([data-ios-biz-bottom-nav])가 그려진 화면인지, 그 탭바가 고른 탭(data-active-tab)
+    private var isBizScreen = false
+    private var bizTab = ""
+    private var renderedBizMode = false      // 지금 탭바에 그려 둔 묶음이 비즈인지 — 묶음이 바뀌는 순간만 겹쳐 바꾼다
 
     private var didShowFirstPage = false
     private var didFinishFirstLoad = false   // 첫 화면을 한 번이라도 다 받았는지 — 그 전의 실패만 '다시 시도' 화면
@@ -218,6 +234,11 @@ class ViewController: UIViewController,
 
       // 웹 하단 탭 숨김 — 페이지가 그리는 중(하이드레이션·레이아웃 전환)에 html 클래스·<style> 이 지워지는 화면이 있어
       // (웨딩숲에서 웹 탭이 네이티브 탭바 위로 삐져나옴) 확인할 때마다 다시 붙이고, 탭 요소에도 직접 display:none 을 건다.
+      // 비즈 탭바([data-ios-biz-bottom-nav], 261009 사장 'iOS 비즈 네비게이션바')도 같은 식으로 숨긴다(네이티브 비즈 탭이 대신 뜬다).
+      //  · 비즈 탭바가 있는 동안 html 에 data-native-biz-tabs="1" — 웹 CSS 도 이 표시로 같이 숨긴다(html[data-native-biz-tabs="1"] [data-ios-biz-bottom-nav]).
+      //    비즈 탭바가 없어지면(비즈를 나가면) 표시를 뗀다.
+      //  · 우리 <style> 은 그 표시와 상관없이 비즈 탭바를 숨긴다 — 웹 바는 하이드레이션 뒤 포털로 생기고 확인은 80ms 모아서 하니,
+      //    표시가 붙기 전 그 틈에 웹 바가 잠깐 올라왔다 사라지지 않게.
       function ensureWebNavHidden() {
         var root = document.documentElement;
         if (!root.classList.contains('freetiful-ios-native-nav')) root.classList.add('freetiful-ios-native-nav');
@@ -225,12 +246,19 @@ class ViewController: UIViewController,
           var style = document.createElement('style');
           style.id = 'freetiful-ios-native-nav-style';
           style.textContent = 'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav],' +
-            'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav-blur]{display:none!important;pointer-events:none!important;}';
+            'html.freetiful-ios-native-nav [data-ios-mobile-bottom-nav-blur],' +
+            'html.freetiful-ios-native-nav [data-ios-biz-bottom-nav],' +
+            'html[data-native-biz-tabs="1"] [data-ios-biz-bottom-nav]{display:none!important;pointer-events:none!important;}';
           (document.head || root).appendChild(style);
         }
-        var navs = document.querySelectorAll('[data-ios-mobile-bottom-nav], [data-ios-mobile-bottom-nav-blur]');
+        var navs = document.querySelectorAll('[data-ios-mobile-bottom-nav], [data-ios-mobile-bottom-nav-blur], [data-ios-biz-bottom-nav]');
         for (var i = 0; i < navs.length; i++) {
           if (navs[i].style.getPropertyValue('display') !== 'none') navs[i].style.setProperty('display', 'none', 'important');
+        }
+        if (document.querySelector('[data-ios-biz-bottom-nav]')) {
+          if (root.getAttribute('data-native-biz-tabs') !== '1') root.setAttribute('data-native-biz-tabs', '1');
+        } else if (root.hasAttribute('data-native-biz-tabs')) {
+          root.removeAttribute('data-native-biz-tabs');
         }
       }
       ensureWebNavHidden();
@@ -257,10 +285,14 @@ class ViewController: UIViewController,
         var role = user.role || localStorage.getItem('userRole') || 'general';
         var badges = {};
         try { badges = window.__freetifulNavBadges || {}; } catch (e) {}
+        // 비즈 탭바 — 고른 탭은 웹이 정한 값(data-active-tab: home|news|inquiry|company)을 그대로 쓴다(누른 직후 · 화면 묶음까지 웹이 안다)
+        var bizNav = document.querySelector('[data-ios-biz-bottom-nav]');
         return {
           path: window.location.pathname || '/',
           actualIsPro: role === 'pro',
           hasWebNav: !!document.querySelector('[data-ios-mobile-bottom-nav]'),
+          biz: !!bizNav,
+          bizTab: bizNav ? (bizNav.getAttribute('data-active-tab') || '') : '',
           hasBlockingOverlay: overlayOpen(),
           badges: badges
         };
@@ -298,9 +330,10 @@ class ViewController: UIViewController,
         var observe = function() {
           if (!document.body) { setTimeout(observe, 50); return; }
           // 창이 생기고 없어지는 것 + 붙어 있는 창의 열림·닫힘 표시(aria-hidden 등)가 바뀌는 것
+          // + 비즈 탭바의 고른 탭(data-active-tab) — 같은 화면에서 고름만 바뀌면 자식 변화가 없어 이걸 봐야 바로 따라간다
           new MutationObserver(schedule).observe(document.body, {
             childList: true, subtree: true,
-            attributes: true, attributeFilter: ['aria-hidden', 'aria-modal', 'role', 'open', 'hidden', 'inert']
+            attributes: true, attributeFilter: ['aria-hidden', 'aria-modal', 'role', 'open', 'hidden', 'inert', 'data-active-tab']
           });
         };
         observe();
@@ -321,6 +354,12 @@ class ViewController: UIViewController,
         if let path = state["path"] as? String, !path.isEmpty { currentPath = path }
         isActualPro = (state["actualIsPro"] as? Bool) ?? false
         hasWebNav = (state["hasWebNav"] as? Bool) ?? false
+        isBizScreen = (state["biz"] as? Bool) ?? false
+        if isBizScreen {
+            // 고름은 웹 비즈 탭바가 정한 그대로 — 웹은 모르는 비즈 화면(없는 주소 등)에선 data-active-tab 을 비워 아무것도 안 고른다(그대로 따름)
+            let reported = (state["bizTab"] as? String) ?? ""
+            bizTab = nativeBizNavItems.contains(where: { $0.id == reported }) ? reported : ""
+        }
         hasBlockingOverlay = (state["hasBlockingOverlay"] as? Bool) ?? false
         if let badges = state["badges"] as? [String: Any] {
             var parsed: [String: Int] = [:]
@@ -338,30 +377,58 @@ class ViewController: UIViewController,
     }
 
     private func renderNavigation(animated: Bool) {
-        // 웹과 동일: role === 'pro' 이면 사회자 탭, 아니면 고객 탭
-        nativeNavBar.configure(
-            items: isActualPro ? nativeProNavItems : nativeUserNavItems,
-            selectedPath: currentPath,
-            showsModeToggle: false,
-            isProMode: false
-        )
-        // 지금 보고 있는 탭의 뱃지는 바로 숨김(새요청/채팅 진입 = 확인) — 웹 카운트 갱신 지연과 무관하게
-        var displayBadges = navBadges
+        let shouldShow = didShowFirstPage && (hasWebNav || isBizScreen) && !hasBlockingOverlay
+        // 비즈 화면이면 비즈 탭 4개(고름 = 웹 탭바의 data-active-tab), 아니면 웹과 동일: role === 'pro' 이면 사회자 탭, 아니면 고객 탭.
+        // 숨는 중엔 묶음을 그대로 둔다 — 비즈 → 상담 채팅(/biz/inquiry, 탭 없음)처럼 탭이 없어지는 순간 바가 내려가며
+        // 앱 탭(홈 · 웨딩숲 …)으로 바뀌어 비치지 않게. 묶음은 다시 보일 때 그 화면 것으로 바꾼다
+        let bizMode = shouldShow ? isBizScreen : renderedBizMode
+        let modeChanged = bizMode != renderedBizMode
+        renderedBizMode = bizMode
+        let apply = {
+            self.nativeNavBar.configure(
+                items: bizMode ? nativeBizNavItems : (self.isActualPro ? nativeProNavItems : nativeUserNavItems),
+                selectedPath: self.currentPath,
+                selectedItemId: bizMode ? self.bizTab : nil,
+                showsModeToggle: false,
+                isProMode: false
+            )
+        }
+        // 떠 있는 바의 묶음이 바뀔 때(앱 탭 ↔ 비즈 탭)는 아이콘 · 글자가 툭 바뀌지 않게 살짝 겹쳐 바꾼다.
+        // 숨어 있던 바(대개 화면 이동 중엔 웹 탭이 잠깐 없어 숨는다)는 그냥 바꾸고 아래 setVisible 의 스프링으로 올라온다
+        if animated && modeChanged && nativeNavBar.alpha > 0.01 {
+            UIView.transition(with: nativeNavBar, duration: 0.22,
+                              options: [.transitionCrossDissolve, .allowUserInteraction, .beginFromCurrentState],
+                              animations: apply)
+        } else {
+            apply()
+        }
+        // 지금 보고 있는 탭의 뱃지는 바로 숨김(새요청/채팅 진입 = 확인) — 웹 카운트 갱신 지연과 무관하게.
+        // 비즈 탭엔 안 읽음 점이 없다(새요청 · 채팅 칸이 없음)
+        var displayBadges = bizMode ? [:] : navBadges
         if currentPath == "/pro-dashboard/inquiries" { displayBadges["requests"] = 0 }
         if currentPath == "/chat" || currentPath.hasPrefix("/chat/") { displayBadges["chat"] = 0 }
         nativeNavBar.setBadges(displayBadges)
 
-        nativeNavBar.setVisible(didShowFirstPage && hasWebNav && !hasBlockingOverlay, animated: animated)
+        nativeNavBar.setVisible(shouldShow, animated: animated)
         // 탭 화면에선 WKWebView 스와이프 뒤로가기를 끈다 — 탭 전환은 기록을 안 쌓아서(replace)
         // 스와이프하면 엉뚱한 옛 화면으로 가던 것. 상세 화면에선 켠다.
         webView?.allowsBackForwardNavigationGestures = !isTopLevelTab(currentPath)
     }
 
+    /// 탭 맨 위 화면 — 여기선 스와이프 뒤로가기를 끈다(앱 탭 전환은 replace 라 되감으면 엉뚱한 옛 화면으로 갔다).
+    /// 비즈 화면(/biz · /biz/news · /biz/ceo …)은 여기 넣지 않는다 — 밀어서 뒤로가기를 켜 둔다(261009 검증):
+    ///  · 홈 왼쪽 끝 끌기 · 첫 진입 안내로 /biz 에 들어온(push) 사람이 밀어서 홈으로 돌아갈 수 있어야 한다. 끄면 나가는 길이 머리줄 '프리티풀로'(push)뿐이라
+    ///    기록이 /main → /biz → /main … 으로 쌓였다.
+    ///  · 비즈 탭 이동은 웹 탭바 · 네이티브 탭 모두 push(기록에 쌓임)라 되감으면 바로 앞 비즈 화면으로 간다 — 앱 탭(replace)과 달리 엉뚱하게 튀지 않는다.
     private func isTopLevelTab(_ path: String) -> Bool {
         ["/", "/main", "/community", "/inquiries", "/pro-dashboard/inquiries", "/chat", "/my"].contains(path)
     }
 
     func liquidGlassNavigationBar(_ navBar: LiquidGlassNavigationBar, didSelect item: LiquidNavItem) {
+        if renderedBizMode, nativeBizNavItems.contains(item) {
+            selectBizTab(item)
+            return
+        }
         if item.path == currentPath || (item.path == "/main" && currentPath == "/") {
             // 같은 탭을 다시 누르면 맨 위로(기록은 안 쌓는다)
             // ⚠ 웹이 이 scrollTo 호출(top 0 · smooth)과 __freetifulNavigate 로 '마이 두 번 누름 = 계정 전환'을 센다(AccountSwitcher) — 바꾸면 웹도
@@ -369,6 +436,28 @@ class ViewController: UIViewController,
             return
         }
         navigateWeb(to: item.path, replace: true)   // 탭 전환은 기록에 안 쌓음
+    }
+
+    /// 비즈 탭 누름 — 웹 비즈 탭바가 걸어 둔 window.__freetifulBizTab(id) 를 부른다(웹 탭을 누른 것과 똑같이:
+    /// 이미 /biz 면 맨 위로 · 누른 직후 고름 · 화면 이동까지 웹이 한 곳에서 처리). 그 함수가 없는 옛 웹이면 그 경로로 옮긴다.
+    private func selectBizTab(_ item: LiquidNavItem) {
+        bizTab = item.id   // 웹이 새 고름을 알려 오기 전에도 누른 탭이 골라져 보이게
+        let script = """
+        (function() {
+          if (typeof window.__freetifulBizTab !== 'function') return false;
+          try { window.__freetifulBizTab(\(jsLiteral(item.id))); } catch (e) { return false; }
+          return true;
+        })();
+        """
+        webView.evaluateJavaScript(script) { [weak self] result, _ in
+            guard let self = self, (result as? Bool) != true else { return }
+            if item.path == self.currentPath {
+                self.webView.evaluateJavaScript("window.scrollTo({ top: 0, behavior: 'smooth' });", completionHandler: nil)
+            } else {
+                // 웹 비즈 탭바도 탭 이동을 기록에 쌓는다(Link) — 같게 push
+                self.navigateWeb(to: item.path)
+            }
+        }
     }
 
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar) {}

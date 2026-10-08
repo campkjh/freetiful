@@ -1,7 +1,8 @@
 'use client';
 
 // 공지 카드 목록 + 본문 시트 — 토스 뉴스룸 카드 그대로(261001 · 260928 사장 '공지사항 카드 이렇게 — 완전 똑같이, 하단엔 그라데이션 블러, 카드는 4:3').
-// 마이 > 공지사항(my/announcements)과 비즈 '뉴스·소식'(biz/news)이 같이 쓴다(261008 사장 비즈 하단 탭 '뉴스소식') — 머리줄 · 큰 제목은 각 화면이 그린다.
+// 마이 > 공지사항(my/announcements)이 쓴다 — 머리줄 · 큰 제목은 화면이 그린다.
+// 비즈 '뉴스·소식'은 261009 부터 공지가 아닌 회사 소식 화면(프리티풀 뉴스 — components/biz/BizNewsFeed)이 됐고, 카드(NewsroomCard)만 여기 것을 같이 쓴다.
 //  · 카드가 모바일 1열 · 넓은 화면 2열.
 //  · 카드 = 4:3 · 모서리 크게 · 그림이 칸을 가득 채우고, 아래쪽은 점점 짙어지는 흐림(그라데이션 블러) + 옅은 흰 막 위에
 //    '태그 | 날짜'(회색) · 굵은 제목 2줄. 테두리·그림자 없음.
@@ -28,8 +29,22 @@ const ART_BG = [
   '#B4DEF6', '#FCCCCC', '#BAE4E4', '#D8C0F0', '#C6DEC6',
 ];
 
-/** cover = 공지 전용 그림(칸 가득) · 아니면 동물 친구(위로 올려 앉히고 좌우 끝을 녹임) */
-type Art = { src: string; bg: string; cover?: boolean };
+/**
+ * 카드 그림. cover = 공지 전용 그림 · 비즈 뉴스 사진(칸 가득) · 아니면 동물 친구(위로 올려 앉히고 좌우 끝을 녹임).
+ * position = cover 그림의 기준점(기본 '50% 35%'), veil = 아래 막 짙기 — 숫자면 맨 아래 불투명도(가운데는 그 0.68배),
+ * [가운데, 맨 아래] 면 둘 다 정한다(기본 = 가운데 0.42 · 맨 아래 0.62).
+ * 비즈 '프리티풀 뉴스'(components/biz/BizNewsFeed)가 같은 카드를 쓰며 어둡고 복잡한 행사 사진에만 veil 을 올린다(261009 —
+ * 글자 줄이 사진 무늬에 묻히지 않게). 공지 카드는 둘 다 안 넘겨 예전 그대로.
+ */
+export type NewsroomArt = { src: string; bg: string; cover?: boolean; position?: string; veil?: number | [number, number] };
+
+/** 아래 막 [가운데, 맨 아래] 불투명도 */
+function veilStops(veil: NewsroomArt['veil']): [number, number] {
+  if (veil === undefined) return [0.42, 0.62];
+  if (typeof veil === 'number') return [+(veil * 0.68).toFixed(3), veil];
+  return veil;
+}
+type Art = NewsroomArt;
 
 function art(n: number): Art {
   return { src: `/images/notices/notice-${String(n + 1).padStart(2, '0')}.webp`, bg: ART_BG[n] };
@@ -82,14 +97,38 @@ function artFor(a: Announcement, fallback: Art): Art {
   return a.imageUrl ? { src: a.imageUrl, bg: noticeArtTint(a.imageUrl), cover: true } : fallback;
 }
 
-/** 뉴스룸 카드 — 4:3 · 그림 가득 · 아래 그라데이션 블러 위에 '태그 | 날짜' + 굵은 제목 */
-function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
+/**
+ * 뉴스룸 카드 — 4:3 · 그림 가득 · 아래 그라데이션 블러 위에 '태그 | 날짜' + 굵은 제목.
+ * 공지(아래 NewsCard)와 비즈 '프리티풀 뉴스'(BizNewsFeed, 261009 사장 '뉴스소식은 따로 프리티풀 뉴스 페이지 — 디자인은 공지사항처럼')가
+ * 이 하나를 같이 써서 두 화면 카드가 늘 같은 모양이다. delay = 차례 등장 지연(초, 기본 0.22 + 칸마다 0.05).
+ */
+export function NewsroomCard({
+  art,
+  tag,
+  date,
+  title,
+  pinned,
+  pinnedLabel = '고정',
+  index,
+  delay,
+  onOpen,
+}: {
+  art: NewsroomArt;
+  tag: string;
+  date: string;
+  title: string;
+  pinned?: boolean;
+  pinnedLabel?: string;
+  index: number;
+  delay?: number;
+  onOpen: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onOpen}
       className="qd-a-item group card-press block w-full text-left"
-      style={{ animationDelay: `${0.22 + Math.min(index, 10) * 0.05}s` }}
+      style={{ animationDelay: `${delay ?? (0.22 + Math.min(index, 10) * 0.05)}s` }}
     >
       <div
         // translateZ(0): 사파리에서 안쪽 backdrop 흐림이 둥근 모서리 밖으로 번지지 않게
@@ -105,7 +144,7 @@ function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index:
             draggable={false}
             loading={index < 2 ? 'eager' : 'lazy'}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-            style={{ objectPosition: '50% 35%' }}
+            style={{ objectPosition: art.position ?? '50% 35%' }}
           />
         ) : (
           <>
@@ -136,27 +175,42 @@ function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index:
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[66%]"
-          style={{ background: `linear-gradient(to bottom, ${withAlpha(art.bg, 0)} 0%, ${withAlpha(art.bg, 0.42)} 50%, ${withAlpha(art.bg, 0.62)} 100%)` }}
+          style={{ background: `linear-gradient(to bottom, ${withAlpha(art.bg, 0)} 0%, ${withAlpha(art.bg, veilStops(art.veil)[0])} 50%, ${withAlpha(art.bg, veilStops(art.veil)[1])} 100%)` }}
         />
 
         <span className="absolute inset-x-0 bottom-0 block px-6 pb-6 sm:px-7 sm:pb-7 lg:px-[38px] lg:pb-[38px]">
           <span className="flex items-center text-[13px] font-medium leading-[1.4] tracking-[-0.2px] text-[#6B7684] lg:text-[15px]">
-            {a.isPinned && (
+            {pinned && (
               <>
-                <b className="font-semibold text-[#3182F6]">고정</b>
+                <b className="font-semibold text-[#3182F6]">{pinnedLabel}</b>
                 <span aria-hidden="true" className="mx-2 h-[11px] w-px bg-[#8B95A1] opacity-50 lg:mx-2.5 lg:h-[13px]" />
               </>
             )}
-            {a.tag || '안내'}
+            {tag}
             <span aria-hidden="true" className="mx-2 h-[11px] w-px bg-[#8B95A1] opacity-50 lg:mx-2.5 lg:h-[13px]" />
-            {formatDate(a.publishedAt || a.createdAt)}
+            {date}
           </span>
           <span className="mt-2.5 line-clamp-2 break-keep text-[19px] font-bold leading-[1.38] tracking-[-0.5px] text-[#191F28] sm:text-[20px] lg:mt-[18px] lg:text-[24px] lg:leading-[1.36]">
-            {a.title}
+            {title}
           </span>
         </span>
       </div>
     </button>
+  );
+}
+
+/** 공지 카드 — 공지 한 건을 뉴스룸 카드로(태그 없으면 '안내', 날짜 = 게시일) */
+function NewsCard({ a, art, index, onOpen }: { a: Announcement; art: Art; index: number; onOpen: () => void }) {
+  return (
+    <NewsroomCard
+      art={art}
+      tag={a.tag || '안내'}
+      date={formatDate(a.publishedAt || a.createdAt)}
+      title={a.title}
+      pinned={a.isPinned}
+      index={index}
+      onOpen={onOpen}
+    />
   );
 }
 

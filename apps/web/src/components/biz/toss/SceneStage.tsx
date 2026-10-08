@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import { useT } from '@/lib/biz/i18n';
 import { useInView } from '@/components/biz/biz-motion';
 import { STAGE, type Tr } from './content';
 import { lerp, seg, useFrame, useSceneProgress } from './scene';
-import { scrollToBizSection } from '../scroll-to';
+import { goBizInquiry } from '../scroll-to';
 import { CTA_SPRING, StageCta, VideoOverlay, createFrameLoader, squirclePath, type FrameLoader } from './SceneStage.parts';
 
 /*
@@ -229,13 +230,14 @@ export default function SceneStage() {
   const t = useT();
   const mode = useMode();
   const [video, setVideo] = useState(false);
+  const router = useRouter();
   const onCta = useCallback((i: number) => {
     if (i === 0) {
       setVideo(true);
       return;
     }
-    scrollToBizSection('문의폼'); // 탭바 '문의하기'와 같은 도우미(도착 자리 · 하단 탭바 붙잡기)
-  }, []);
+    goBizInquiry((href) => router.push(href)); // 문의하기 = 상담 채팅 화면(261009 사장 — /biz 아래 문의 섹션은 삭제)
+  }, [router]);
   return (
     <section id="dock-stage" data-no-natural-reveal className="stg relative bg-white" style={{ width: '100vw', marginLeft: 'calc(50% - 50vw)' }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />

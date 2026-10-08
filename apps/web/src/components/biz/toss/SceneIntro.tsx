@@ -36,7 +36,8 @@ const REVEAL_OFF_VH = 738; // 위로 돌아가면 초기화(6642)
 const ACC0 = 779.9; // 첫 칸 열림(7019)
 const BAND = 51.2; // 칸마다 461px
 const TEXT_AT = [0.35, 0.43, 0.56]; // 송금 글 세 줄 등장(진행률)
-const CHAT_AT = [0.29, 0.33, 0.37, 0.44, 0.48, 0.52, 0.555, 0.595]; // 채팅 단계
+// 채팅 단계(CHAT_STEPS 10개) — 261009 일정 주고받기 대화로 말풍선이 7개가 되어 폰이 자리 잡은 뒤(0.28)부터 카드가 줄기 전(0.65)까지 고르게 나눴다
+const CHAT_AT = [0.28, 0.31, 0.34, 0.375, 0.41, 0.445, 0.485, 0.515, 0.55, 0.59];
 const DARK_END = ASSET_TOP + 50; // 고정 흰 눈금 표식 끝(화면 가운데 기준) — 이후는 카드 실제 위치로 판단(dockOverRef)
 const CHIP_FOR = [0, 0, 1, 2]; // 열린 칸 → 강조할 칩
 const TEXT_LEFT_ART = 553.2; // 송금 글 왼쪽(판 좌표, 1440 에서 357px)
@@ -739,7 +740,7 @@ function MobileHero({ active, slotRef }: { active: boolean; slotRef: RefObject<H
   );
 }
 
-/** 섭외(채팅) 카드 — 흐린 영상 위 폰에서 대화가 한 줄씩(화면에 들어오면 한 번) */
+/** 일정 주고받기(채팅) 카드 — 흐린 영상 위 폰에서 웨딩홀 담당자 ↔ 프리티풀 비즈 대화가 한 줄씩(화면에 들어오면 한 번 · 261009) */
 function MobileTransfer({ active, ids, slotRef }: { active: boolean; ids: boolean; slotRef: RefObject<HTMLDivElement> }) {
   const t = useT();
   const capRef = useRef<HTMLDivElement>(null);
@@ -796,7 +797,9 @@ function MobileTransfer({ active, ids, slotRef }: { active: boolean; ids: boolea
         {/* 손에 든 듯 살짝 기운 폰 */}
         <div className="si-mphone absolute left-1/2 top-[30px] origin-top md:top-[40px]" style={{ width: 352, height: 775, transform: 'translateX(-50%) rotate(-6deg) scale(var(--ps))' }} aria-hidden="true">
           <FlatPhone>
-            <ChatScreen step={step} listMax={300} />
+            {/* 대화 칸 높이 230(디자인 px) — 300 이면 마지막 말풍선 · 배정 일정표가 카드 아래쪽 제목 · 어두운 그라데이션 뒤로 들어가 안 보였다
+                (261009 검증, 390 폭: 대화 칸 아래 끝 y≈334 > 제목 위 끝 317). 230 이면 아래 끝 ≈285 · md ≈334(제목 387) — 새 말이 늘 제목 위에 보인다 */}
+            <ChatScreen step={step} listMax={230} />
           </FlatPhone>
         </div>
         <div className="absolute inset-x-0 bottom-0 h-[253px] md:h-[300px]" style={{ background: 'linear-gradient(rgba(26,31,41,0), rgba(0,12,30,0.8))' }} />

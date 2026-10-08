@@ -3,7 +3,8 @@
 import { notFound, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { SmoothScroll } from '@/components/biz/toss/scene';
-import { BizFooter, BizNav, DockIndicator } from '@/components/biz/toss/TossChrome';
+import BizHeader from '@/components/biz/BizHeader';
+import { BizFooter, DockIndicator } from '@/components/biz/toss/TossChrome';
 import SceneIntro from '@/components/biz/toss/SceneIntro';
 import SceneMatch from '@/components/biz/toss/SceneMatch';
 import SceneCareer from '@/components/biz/toss/SceneCareer';
@@ -32,7 +33,7 @@ function Lab() {
   return (
     <div className="relative min-h-screen overflow-x-clip bg-white">
       <SmoothScroll />
-      {chrome && <BizNav items={[{ id: 'a', label: '회사소개' }, { id: 'b', label: '핵심서비스' }]} onNavigate={() => {}} ctaLabel="문의하기" onCta={() => {}} />}
+      {chrome && <BizHeader />}
       {chrome && <DockIndicator />}
       {name !== 'Intro' && name !== 'all' && <div style={{ height: '60vh' }} />}
       {list.map((S, i) => <S key={i} />)}

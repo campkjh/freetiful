@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useT } from '@/lib/biz/i18n';
 import { DOCK, INTRO } from './content';
-import { prefersReducedMotion, scrollToElement, scrollToY } from '../scroll-to';
+import { prefersReducedMotion, scrollToElement } from '../scroll-to';
 import { GlobeCanvas } from './TossChrome.globe';
 
 /*
- * 비즈 페이지 머리줄 · 왼쪽 눈금 · 바닥글(261008 토스 홈 어법 재구현).
+ * 비즈 페이지 왼쪽 눈금 · 바닥글(261008 토스 홈 어법 재구현). 머리줄은 261009 부터 공용 components/biz/BizHeader —
+ * 옛 투명 → 반투명 유리 머리줄(BizNav) · 모바일 햄버거 메뉴는 사장 '헤더 opacity 없게 · 햄버거 필요없고'로 지웠다.
  * 토스에서 잰 치수 · 글자 · 색 · 움직임 곡선만 옮겨 우리 코드로 다시 짠 것 — 토스 코드 · CSS · 그림 · 글꼴은 쓰지 않는다.
  * 스크롤마다 리렌더하지 않는다: 상태는 data-* 속성 · 인라인 스타일로 직접 쓴다.
  */
@@ -25,170 +27,6 @@ function darkAt(x: number, y: number) {
   if (!hit) return false;
   const h = hit as HTMLElement;
   return h.dataset.dockTheme === 'dark' && getComputedStyle(h).visibility !== 'hidden';
-}
-
-/** 스프링(토스 CTA 글자 굴림 1050ms) — 임계 감쇠 곡선을 linear() 로 굳힌다(50% ≈ 16%, 94% ≈ 45%) */
-const SPRING = (() => {
-  const w = 10.5; // 1/s, 1.05s 동안
-  const pts: string[] = [];
-  for (let i = 0; i <= 32; i++) {
-    const t = (i / 32) * 1.05;
-    const v = i === 32 ? 1 : 1 - (1 + w * t) * Math.exp(-w * t);
-    pts.push(v.toFixed(4));
-  }
-  return `linear(${pts.join(', ')})`;
-})();
-
-/* ───────────────────────── 머리줄 ───────────────────────── */
-
-const NAV_CSS = `
-.tc-nav{position:fixed;top:0;left:0;right:0;z-index:50;height:64px;will-change:transform;color:#333840;transition:color .3s ease}
-.tc-nav[data-tone="light"]{color:#fff}
-.tc-nav-bar{position:absolute;inset:0;background-color:rgba(255,255,255,0);-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);transition:background-color .4s ease,backdrop-filter .4s ease,-webkit-backdrop-filter .4s ease}
-.tc-nav[data-frosted="1"] .tc-nav-bar{background-color:rgba(255,255,255,.75);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
-.tc-nav-in{position:relative;height:100%;max-width:1920px;margin:0 auto;padding:0 clamp(24px,7.5vw,108px);display:flex;align-items:center;justify-content:space-between;transition:padding .3s}
-.tc-logo{display:flex;align-items:center;height:100%;flex-shrink:0}
-.tc-logo img{display:block;height:21.86px;width:auto;transition:filter .3s ease}
-.tc-nav[data-tone="light"] .tc-logo img{filter:brightness(0) invert(1)}
-.tc-menu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;gap:32px;margin:0;padding:0;list-style:none}
-.tc-menu button{height:64px;display:flex;align-items:center;background:none;border:0;padding:0;cursor:pointer;color:inherit;font-size:16px;font-weight:500;line-height:25.6px;letter-spacing:-.32px;white-space:nowrap;transition:opacity .2s}
-.tc-right{display:flex;align-items:center;gap:8px}
-.tc-right-slot{display:flex;align-items:center;font-size:16px;font-weight:500;line-height:16px;letter-spacing:-.32px}
-.tc-cta{position:relative;display:none;align-items:center;height:36px;padding:10px 12px;border:0;border-radius:12px;background:rgba(7,25,76,.05);color:inherit;cursor:pointer;font-size:16px;font-weight:500;line-height:16px;letter-spacing:-.32px;white-space:nowrap;transition:background-color .3s ease}
-.tc-nav[data-tone="light"] .tc-cta{background:rgba(255,255,255,.14)}
-.tc-roll{position:relative;display:inline-block}
-.tc-row{display:inline-flex}
-.tc-row2{position:absolute;left:0;top:0}
-.tc-row>span{display:inline-block;white-space:pre;transition-property:transform,opacity,filter;transition-duration:1050ms;transition-timing-function:cubic-bezier(.2,.9,.3,1);transition-timing-function:${SPRING}}
-.tc-row2>span{transform:translateY(16px);opacity:0}
-.tc-burger{display:flex;align-items:center;justify-content:center;width:42px;height:42px;padding:8px;border:0;background:none;color:inherit;cursor:pointer;border-radius:10px}
-@media (hover:hover){
-  .tc-menu:hover button{opacity:.5}
-  .tc-menu button:hover{opacity:1}
-  .tc-cta:hover .tc-row1>span{transform:translateY(-16px);opacity:0;filter:blur(4px)}
-  .tc-cta:hover .tc-row2>span{transform:none;opacity:1}
-}
-@media (min-width:768px){ .tc-cta{display:inline-flex} }
-@media (min-width:1024px){ .tc-menu{display:flex} .tc-burger{display:none} }
-@media (max-width:767px){
-  .tc-nav{height:56px}
-  .tc-nav-in{padding:7px 8px 7px 20px}
-  .tc-logo img{height:24px}
-  .tc-right{gap:2px}
-}
-`;
-
-/** 토스식 머리줄 — 맨 위 투명, 내리면 숨고(위로 64) 올리면 반투명 흰 유리로 돌아온다. 모바일은 56 높이 + 햄버거(숨지 않음) */
-export function BizNav({ items, onNavigate, ctaLabel, onCta, right }: { items: { id: string; label: string }[]; onNavigate: (id: string) => void; ctaLabel: string; onCta: () => void; right?: ReactNode }) {
-  const navRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return undefined;
-    const reduce = prefersReducedMotion();
-    const mqMobile = window.matchMedia('(max-width: 767px)');
-    let lastY = window.scrollY;
-    let shown = true;
-    // 숨김/보임 = 임계 감쇠 스프링(숨김 ω 11 ≈ 0.5s, 보임 ω 13.3 ≈ 0.7s 꼬리 τ≈120ms — 토스 실측에 맞춤)
-    let y = 0;
-    let v = 0;
-    let target = 0;
-    let raf = 0;
-    let last = 0;
-    const H = () => (mqMobile.matches ? 56 : 64);
-    const paint = () => { nav.style.transform = y === 0 ? '' : `translate3d(0,${y.toFixed(2)}px,0)`; };
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
-      last = now;
-      const w = target < 0 ? 11 : 13.3;
-      for (let i = 0; i < 2; i++) {
-        const h = dt / 2;
-        const a = w * w * (target - y) - 2 * w * v;
-        v += a * h;
-        y += v * h;
-      }
-      if (Math.abs(target - y) < 0.05 && Math.abs(v) < 1) { y = target; v = 0; paint(); raf = 0; last = 0; return; }
-      paint();
-      raf = requestAnimationFrame(tick);
-    };
-    const go = (to: number) => {
-      if (to === target) return;
-      target = to;
-      if (reduce) { y = to; v = 0; paint(); return; }
-      if (!raf) raf = requestAnimationFrame(tick);
-    };
-
-    let queued = false;
-    const update = () => {
-      queued = false;
-      const sy = Math.max(0, window.scrollY);
-      const d = sy - lastY;
-      lastY = sy;
-      if (mqMobile.matches || sy <= 0) shown = true;
-      else if (d > 0.5) shown = false; // 아래로 조금이라도(27px 도) 내리면 숨김
-      else if (d < -0.5) shown = true;
-      go(shown ? 0 : -H());
-      const frosted = shown && sy > (mqMobile.matches ? 20 : 10);
-      nav.dataset.frosted = frosted ? '1' : '0';
-      // 투명할 때만 아래가 어두운 무대면 흰 글자 · 흰 로고
-      nav.dataset.tone = !frosted && darkAt(window.innerWidth / 2, H() / 2) ? 'light' : 'dark';
-    };
-    const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
-    update();
-    // 장면이 data-dock-theme 를 스크롤 없이 바꿀 때를 위해 가끔 다시 본다
-    const iv = window.setInterval(() => {
-      const frosted = nav.dataset.frosted === '1';
-      nav.dataset.tone = !frosted && darkAt(window.innerWidth / 2, H() / 2) ? 'light' : 'dark';
-    }, 300);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      window.clearInterval(iv);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  const chars = Array.from(ctaLabel);
-  const toTop = (e: React.MouseEvent) => {
-    e.preventDefault();
-    scrollToY(0); // Lenis 로 부드럽게 · 줄인 움직임이면 바로
-  };
-
-  return (
-    <header ref={navRef} className="tc-nav" data-tone="dark" data-frosted="0" data-no-natural-reveal>
-      <style dangerouslySetInnerHTML={{ __html: NAV_CSS }} />
-      <div className="tc-nav-bar" aria-hidden />
-      <nav className="tc-nav-in">
-        <a href="#" className="tc-logo" onClick={toTop} aria-label="Freetiful">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/logo-prettyful.svg" alt="Freetiful" />
-        </a>
-        <ul className="tc-menu">
-          {items.map((it) => (
-            <li key={it.id}>
-              <button type="button" onClick={() => onNavigate(it.id)}><span>{it.label}</span></button>
-            </li>
-          ))}
-        </ul>
-        <div className="tc-right">
-          {right && <div className="tc-right-slot">{right}</div>}
-          <button type="button" className="tc-cta" onClick={onCta} aria-label={ctaLabel}>
-            <span className="tc-roll" aria-hidden>
-              <span className="tc-row tc-row1">{chars.map((c, i) => <span key={i} style={{ transitionDelay: `${i * 30}ms` }}>{c}</span>)}</span>
-              <span className="tc-row tc-row2">{chars.map((c, i) => <span key={i} style={{ transitionDelay: `${i * 30}ms` }}>{c}</span>)}</span>
-            </span>
-          </button>
-          <button type="button" className="tc-burger" onClick={() => onNavigate('__menu__')} aria-label="Menu">
-            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
-              <path d="M3 5h20M3 13h20M3 21h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-      </nav>
-    </header>
-  );
 }
 
 /* ───────────────────────── 왼쪽 눈금 ───────────────────────── */
@@ -448,8 +286,15 @@ function Wordmark({ text }: { text: string }) {
   );
 }
 
+type FootLinkItem = { label: string; href: string; external?: boolean };
+/** 바닥글 링크 — 바깥 링크는 새 창, 안쪽 링크는 Next Link(예전 <a> 는 비즈 화면끼리 옮길 때마다 문서를 새로 받아 장면 · 글꼴을 처음부터 불렀다) */
+function FootLink({ l, className, children }: { l: FootLinkItem; className?: string; children: ReactNode }) {
+  if (l.external || /^https?:/.test(l.href)) return <a className={className} href={l.href} target="_blank" rel="noopener noreferrer">{children}</a>;
+  return <Link className={className} href={l.href}>{children}</Link>;
+}
+
 /** 토스식 바닥글 — 밤하늘 → 라벤더 안개 배경(그라데이션), 도는 점 지구본, 링크 묶음, 회사 정보, 큰 반투명 글자 */
-export function BizFooter({ links, company }: { links: { label: string; href: string; external?: boolean }[]; company: string[] }) {
+export function BizFooter({ links, company }: { links: FootLinkItem[]; company: string[] }) {
   const t = useT();
   const slogan = [t(INTRO.heroWords[0]), `${t(INTRO.heroWords[1])} ${t(INTRO.heroWords[2])}`];
 
@@ -470,7 +315,6 @@ export function BizFooter({ links, company }: { links: { label: string; href: st
   const copy = copyIdx >= 0 ? company[copyIdx] : '';
   const info = company.filter((_, i) => i !== copyIdx);
 
-  const linkProps = (l: (typeof links)[number]) => (l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {});
 
   return (
     <footer className="tc-foot" data-dock-theme="dark" data-no-natural-reveal>
@@ -486,7 +330,7 @@ export function BizFooter({ links, company }: { links: { label: string; href: st
             {cols.map((col, ci) => (
               <ul key={ci} className="tc-foot-col">
                 {col.map((l) => (
-                  <li key={l.href + l.label}><a className="tc-foot-link" href={l.href} {...linkProps(l)}>{l.label}</a></li>
+                  <li key={l.href + l.label}><FootLink l={l} className="tc-foot-link">{l.label}</FootLink></li>
                 ))}
               </ul>
             ))}
@@ -494,14 +338,14 @@ export function BizFooter({ links, company }: { links: { label: string; href: st
           <ul className="tc-foot-rows">
             {rest.map((l) => (
               <li key={l.href + l.label}>
-                <a href={l.href} {...linkProps(l)}>
+                <FootLink l={l}>
                   <span>{l.label}</span>
                   {l.external ? (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M5 11l6-6M6 5h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   ) : (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   )}
-                </a>
+                </FootLink>
               </li>
             ))}
           </ul>
@@ -521,7 +365,7 @@ export function BizFooter({ links, company }: { links: { label: string; href: st
         {policy.length > 0 && (
           <ul className="tc-foot-side tc-foot-small tc-foot-policy">
             {policy.map((l) => (
-              <li key={l.href}><a href={l.href} {...linkProps(l)}>{l.label}</a></li>
+              <li key={l.href}><FootLink l={l}>{l.label}</FootLink></li>
             ))}
           </ul>
         )}

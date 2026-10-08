@@ -52,6 +52,7 @@ import PartnerToneCard from '@/components/business/PartnerToneCard';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
 import BizSwipePeek, { preloadBizPeek } from '@/components/home/BizSwipePeek';
+import BizSwipeHint from '@/components/home/BizSwipeHint';
 import { skipNextPageTransition } from '@/components/PageTransition';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
@@ -1856,9 +1857,15 @@ function HomeSwipeTabs() {
   useEffect(() => { tabRef.current = tab; }, [tab]);
   // 왼쪽 끝을 오른쪽으로 끌면 비즈(261009 사장 — 오른쪽 끝 왼쪽 끌기 = 남성사회자와 같은 끝 영역). 끄는 동안 비즈 첫 화면이 왼쪽에서 따라 들어온다
   const [biz, setBiz] = useState<{ x: number; phase: 'drag' | 'open' | 'close' } | null>(null);
+  const bizActiveRef = useRef(false);
+  bizActiveRef.current = !!biz;
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
+  // 홈 첫 진입 안내(BizSwipeHint, 261009 사장)에서 비즈를 누르면 — 손으로 끌어 열 때와 같은 이동(끝까지 들어온 화면이라 공통 슬라이드는 건너뜀)
+  const goBizFromHint = useCallback(() => { skipNextPageTransition(); routerRef.current.push('/biz'); }, []);
+  // 안내는 전체(홈) 탭이고 손으로 비즈를 끄는 중이 아닐 때만 시작
+  const canStartBizHint = useCallback(() => tabRef.current === 0 && !bizActiveRef.current, []);
 
   useEffect(() => {
     // 홈에 있을 때도 한가할 때 미리 받아 둔다 — 끌었을 때 옆이 빈 흰 화면이면 '덮인다' 로 보인다
@@ -2133,6 +2140,8 @@ function HomeSwipeTabs() {
           <div className="absolute inset-y-0" style={{ left: '100%', width: 48, background: 'linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%)' }} />
         </div>
       )}
+      {/* 홈 첫 진입 5초 '비즈 페이지가 추가되었어요' — 왼쪽에서 비즈가 보잉보잉 엿보고 딤 + 왼쪽 꼬리 말풍선(261009 사장). 이 기기에서 한 번만 */}
+      <BizSwipeHint canStart={canStartBizHint} onOpen={goBizFromHint} />
       {/* 탭 — 헤더 줄(위 12 · 높이 42) 로고와 아이콘 사이 */}
       <div className="lg:hidden fixed top-[12px] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
 

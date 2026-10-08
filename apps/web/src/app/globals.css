@@ -3463,6 +3463,55 @@ html[data-platform="android"] .ft-sheet { padding-bottom: 24px; }
 @media (prefers-reduced-motion: reduce) {
   .qm-bubble, .qm-bubble * { animation: none !important; }
 }
+/* 왼쪽 꼬리 판 .qm-bubble.side(261009 사장 '홈 첫 진입 — 비즈 페이지가 추가되었어요 말풍선, PC 비즈 말풍선이랑 디자인·애니메이션 똑같이, 꼬리만 왼쪽').
+   위 .qm-bubble 을 그대로 쓰고 꼬리 쪽만 90° 돌린다 — 꼬리 자리(13)는 위 대신 왼쪽, 커지는 기준점 = 꼬리 끝(왼쪽 가운데),
+   등장 = 같은 녹화 실측 프레임에서 세로↔가로만 바꾼 것(꼬리 쪽으로 납작하게 나타나 10 붙었다가 반대로 6.3 넘어가 제자리),
+   유리 = 꼬리 쪽(왼쪽) 80% → 불투명 구간을 위 판과 같은 '픽셀'(꼬리 13 · 불투명 31)로 — 폭은 높이보다 훨씬 커서 % 로 두면 반투명 띠가 몸통 1/3 까지 번진다.
+   유리 윤곽 = TossBubble quickMatchBubbleSidePath(꼬리+몸통 한 장). 짝 = components/home/BizSwipeHint.tsx */
+.qm-bubble.side { transform-origin: 0 var(--tail-y, 50%); animation-name: qmBubblePopSide; }
+.qm-bubble.side.is-out { animation-name: qmBubbleOutSide; }
+.qm-bubble.side .qm-bubble-shadow { top: 0; left: 13px; border-radius: 24px; }
+.qm-bubble.side .qm-bubble-body { margin-top: 0; margin-left: 13px; }
+.qm-bubble.side .qm-bubble-glass {
+  background: linear-gradient(90deg,
+    rgba(250, 252, 255, 0.8) 0px, rgba(250, 252, 255, 0.8) 13px, rgba(251, 252, 255, 0.84) 18.5px,
+    rgba(252, 253, 255, 0.9) 23.8px, rgba(253, 254, 255, 0.96) 27.7px, #FEFEFE 30.8px, #FEFEFE 100%);
+}
+.qm-bubble.biz.side .qm-bubble-glass {
+  background: linear-gradient(90deg,
+    rgba(246, 251, 255, 0.8) 0px, rgba(246, 251, 255, 0.8) 13px, rgba(248, 252, 255, 0.84) 18.5px,
+    rgba(250, 253, 255, 0.9) 23.8px, rgba(252, 254, 255, 0.96) 27.7px, #FEFEFF 30.8px, #FEFEFF 100%);
+}
+@keyframes qmBubblePopSide {
+  0%    { transform: translateX(-10px) scale(0.16, 0.53); }
+  3.3%  { transform: translateX(-9.5px) scale(0.6, 0.8); }
+  6.7%  { transform: translateX(-9px) scale(0.62, 0.85); }
+  8.3%  { transform: translateX(-8.5px) scale(0.66, 0.86); }
+  10%   { transform: translateX(-8px) scale(0.85, 0.92); }
+  13.3% { transform: translateX(-6.5px) scale(0.92, 0.96); }
+  15%   { transform: translateX(-5px) scale(1, 0.99); }
+  18.3% { transform: translateX(-3px) scale(1.003); }
+  20%   { transform: translateX(-0.7px) scale(1.01); }
+  21.7% { transform: translateX(1.3px) scale(1.013); }
+  23.3% { transform: translateX(3px) scale(1.013); }
+  25%   { transform: translateX(4px) scale(1.013); }
+  31.7% { transform: translateX(6.3px) scale(1.009); }
+  38.3% { transform: translateX(5.7px) scale(1.004); }
+  41.7% { transform: translateX(4.3px) scale(1.002); }
+  45%   { transform: translateX(3.3px) scale(1); }
+  48.3% { transform: translateX(2.3px) scale(1); }
+  51.7% { transform: translateX(1.3px) scale(1); }
+  55%   { transform: translateX(0.7px) scale(1); }
+  70%   { transform: translateX(0.2px) scale(1); }
+  100%  { transform: translateX(0) scale(1); }
+}
+@keyframes qmBubbleOutSide {
+  from { transform: none; }
+  to { transform: translateX(-6px) scale(0.7, 0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qm-bubble.side, .qm-bubble.side * { animation: none !important; }
+}
 
 /* ═══ 파트너 신청·사회자 프로필 수정 공통(260928 사장 '톤앤매너 맞춰서, 전환 인터랙션 퀵매칭처럼') = 퀵매칭 선택 카드 어법 ═══
    · 선택 카드 .rg-opt(60 · 1.5px 테두리 · 모서리 16, 고르면 파랑 테두리·연파랑 바탕) + 동그라미 체크 .rg-chk(체크가 톡 튀어나온다)

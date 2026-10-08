@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
+import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { INTRO } from './content';
 import { scrollToElement } from './scene';
 
@@ -47,8 +48,12 @@ export const SI_CSS = `
 .si-pill:focus-visible .si-ct .si-ch{transform:translate3d(0,-16px,0);opacity:0;filter:blur(4px)}
 .si-pill:focus-visible .si-cb .si-ch{transform:none;opacity:1}
 .si-pill:focus-visible .si-trk{transform:translate3d(7px,0,0)}
-@keyframes si-pop{from{opacity:0;transform:translate3d(0,12px,0) scale(.92)}to{opacity:1;transform:none}}
-.si-msg{animation:si-pop .46s cubic-bezier(.2,.9,.3,1.12) both}
+@keyframes si-pop{0%{opacity:0;transform:translate3d(0,10px,0) scale(.62)}45%{opacity:1}100%{opacity:1;transform:none}}
+.si-msg{animation:si-pop .42s cubic-bezier(.2,.9,.3,1) both}
+@keyframes si-slot{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:none}}
+.si-slot{animation:si-slot .4s cubic-bezier(.2,.9,.3,1) calc(240ms + var(--i)*110ms) both}
+@keyframes si-ck{0%{transform:scale(0)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+.si-ck{animation:si-ck .36s cubic-bezier(.34,1.56,.64,1) calc(330ms + var(--i)*110ms) both}
 @keyframes si-dot{0%,70%,100%{transform:translate3d(0,0,0);opacity:.35}35%{transform:translate3d(0,-3px,0);opacity:1}}
 .si-dot{animation:si-dot 1.1s ease-in-out infinite}
 .si-fu{opacity:0;transform:translate3d(0,80px,0);transition:opacity .7s cubic-bezier(.25,1,.5,1),transform .7s cubic-bezier(.25,1,.5,1)}
@@ -66,7 +71,7 @@ export const SI_CSS = `
 @media (prefers-reduced-motion:reduce){
 .si-hw{animation:none}
 .si-fu{opacity:1;transform:none;transition:none}
-.si-msg,.si-dot,.si-chip{animation:none}
+.si-msg,.si-dot,.si-chip,.si-slot,.si-ck{animation:none}
 .si-mclip,.si-mvid,.si-mhl{transition:none}
 }
 `;
@@ -121,14 +126,6 @@ function StatusBar({ tone = '#191F28' }: { tone?: string }) {
   );
 }
 
-function PersonAvatar({ size }: { size: number }) {
-  return (
-    <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E5E8EB]" style={{ width: size, height: size }} aria-hidden="true">
-      <svg width={size} height={size} viewBox="0 0 30 30"><circle cx="15" cy="11.6" r="5.2" fill="#fff" /><path d="M5.6 26.4c1.4-5 5-7.7 9.4-7.7s8 2.7 9.4 7.7" fill="#fff" /></svg>
-    </span>
-  );
-}
-
 /* ─── 알약 단추(글자 굴림 + 화살표 밀기) ────────────────────────────── */
 export function PillCta({ label, href, size = 'md' }: { label: string; href: string; size?: 'md' | 'sm' }) {
   const chars = Array.from(label);
@@ -157,6 +154,7 @@ export function PillCta({ label, href, size = 'md' }: { label: string; href: str
   );
   const cls = 'si-pill inline-flex h-[48px] items-center rounded-[136px] border border-[rgba(13,25,74,0.04)] bg-[rgba(7,25,76,0.05)] pl-[18px] font-semibold text-[#1C1F25] backdrop-blur-[10px] transition-colors duration-200 hover:bg-[rgba(3,31,63,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3182F6]/40';
   const style: CSSProperties = { fontSize: fs, lineHeight: lh, letterSpacing: '-0.02em' };
+  // '#…' = 같은 화면 섹션으로 스크롤, '/…' 경로(예: /biz/inquiry 상담 채팅 — 261009 문의 폼 섹션 삭제)는 아래 Link 로 라우터 이동
   if (href.startsWith('#')) {
     const id = href.slice(1);
     return (
@@ -248,75 +246,162 @@ export function TiltPhone({ screen, pop }: { screen: ReactNode; pop?: ReactNode 
   );
 }
 
-/* ─── 폰 속 채팅(프리티풀 앱 채팅 화면 어법) ────────────────────────── */
+/* ─── 폰 속 채팅(프리티풀 앱 채팅방 어법) ──────────────────────────────
+ * 261009 사장 '견적 문의부터 섭외까지 채팅 한 번으로 — 사회자랑 채팅하는 것처럼 말고, 기업 담당자랑 프리티풀이 기업 및 웨딩홀에
+ *   스케줄 같은 걸 보내는 것처럼, 서로 소통하는 것처럼'. → 웨딩홀 담당자(오른쪽) ↔ 프리티풀 비즈(왼쪽)가
+ *   예식 타임표 → 사회자 배정 일정표 → 기업 송년회 순서표 → 리허설 확인을 주고받는다(문구 = content.ts INTRO.chat*).
+ * 말풍선은 프리티풀 채팅방(app/(main)/chat/[id])과 같은 결: 파랑 #3180F7 · 회색 #F2F3F5, 묶음 마지막 말풍선에만 꼬리(BubbleTail)와 시각,
+ *   상대 묶음 첫 말풍선에만 프로필, 새 말풍선은 bubbleGrow 와 같은 값(si-msg). 파일 · 일정표는 채팅방 파일 말풍선처럼 같은 말풍선 안에 그린다.
+ */
+type ThreadItem = { kind: 'msg'; i: number } | { kind: 'timetable' } | { kind: 'schedule' } | { kind: 'program' };
+/** 대화 순서 — 글은 INTRO.chatMessages[i], 카드는 chatTimetable · chatScheduleCard · chatProgram */
+const THREAD: ThreadItem[] = [
+  { kind: 'msg', i: 0 },
+  { kind: 'timetable' },
+  { kind: 'msg', i: 1 },
+  { kind: 'schedule' },
+  { kind: 'msg', i: 2 },
+  { kind: 'program' },
+  { kind: 'msg', i: 3 },
+];
+const isMine = (it: ThreadItem) => (it.kind === 'msg' ? INTRO.chatMessages[it.i].me : it.kind !== 'schedule');
+
 type ChatStep = { show: number; typing?: boolean };
-/** 단계: 말풍선이 하나씩 — 사회자 답장 앞엔 입력 중 점 세 개 */
+/** 단계: 말풍선이 하나씩 — 프리티풀 답장 앞엔 입력 중 점 세 개(담당자가 이어 보내는 파일은 바로) */
 export const CHAT_STEPS: ChatStep[] = [
   { show: 1 },
-  { show: 1, typing: true },
   { show: 2 },
+  { show: 2, typing: true },
   { show: 3 },
   { show: 3, typing: true },
   { show: 4 },
-  { show: 4, typing: true },
   { show: 5 },
+  { show: 6 },
+  { show: 6, typing: true },
+  { show: 7 },
 ];
-const CHAT_TIMES = ['14:06', '14:09', '14:12', '14:15', '14:16'];
+const CHAT_DATE = '2026.11.09';
+const CHAT_TIMES = ['10:02', '10:02', '10:05', '10:08', '10:11', '10:11', '10:13'];
+/** 프리티풀 채팅방과 같은 말풍선 색 */
+const ME_BG = '#3180F7';
+const OTHER_BG = '#F2F3F5';
 
-function Bubble({ me, text, time }: { me: boolean; text: string; time: string }) {
+/** 프리티풀 비즈 프로필 — 로고 앞 'F' 표시(logo-prettyful.svg 왼쪽 53.8/379 칸)만 잘라 동그라미 안에 */
+function BizAvatar({ size }: { size: number }) {
+  const h = Math.round(size * 0.56);
+  return (
+    <span className="flex shrink-0 items-center justify-center rounded-full border border-[#E5E8EB] bg-white" style={{ width: size, height: size }} aria-hidden="true">
+      <span
+        className="block"
+        style={{ width: Math.round(h * 0.485 * 10) / 10, height: h, marginLeft: 1, backgroundImage: 'url(/images/logo-prettyful.svg)', backgroundSize: `auto ${h}px`, backgroundRepeat: 'no-repeat', backgroundPosition: '0 0' }}
+      />
+    </span>
+  );
+}
+
+function CalendarIcon({ size = 16, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2.2" y="3.2" width="11.6" height="10.6" rx="2.2" stroke={color} strokeWidth="1.5" />
+      <path d="M2.6 6.6h10.8M5.4 1.8v2.6M10.6 1.8v2.6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="5.6" cy="9.6" r=".95" fill={color} />
+      <circle cx="8" cy="9.6" r=".95" fill={color} />
+      <circle cx="10.4" cy="9.6" r=".95" fill={color} />
+    </svg>
+  );
+}
+
+/** 말풍선 껍데기 — 꼬리가 붙는 모서리는 채팅방과 같이 8 로 줄인다(TAIL_CORNER_CLASS) */
+function Shell({ me, tailed, className = '', children }: { me: boolean; tailed: boolean; className?: string; children: ReactNode }) {
+  const bg = me ? ME_BG : OTHER_BG;
+  return (
+    <div className={`relative rounded-[18px] ${tailed ? (me ? TAIL_CORNER_CLASS.mine : TAIL_CORNER_CLASS.other) : ''} ${className}`} style={{ background: bg }}>
+      {children}
+      {tailed && <BubbleTail mine={me} color={bg} />}
+    </div>
+  );
+}
+
+/** 한 줄(말풍선 + 시각 · 프로필) — 묶음 첫 줄은 위 12, 이어지는 줄은 4 */
+function Row({ me, first, time, children }: { me: boolean; first: boolean; time: string | null; children: ReactNode }) {
+  const gap = first ? 'mt-[12px]' : 'mt-[4px]';
+  const stamp = time ? <span className="mb-[1px] shrink-0 text-[10.5px] tabular-nums text-[#8B95A1]">{time}</span> : null;
   if (me) {
     return (
-      <div className="si-msg mt-[10px] flex items-end justify-end gap-[6px]" style={{ transformOrigin: '100% 100%' }}>
-        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
-        <p className="max-w-[212px] break-keep rounded-[18px] rounded-br-[5px] bg-[#3182F6] px-[13px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.2px] text-white">{text}</p>
+      <div className={`si-msg ${gap} flex items-end justify-end gap-[6px] pr-[2px]`} style={{ transformOrigin: '100% 100%' }}>
+        {stamp}
+        {children}
       </div>
     );
   }
   return (
-    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
-      <PersonAvatar size={30} />
-      <div className="flex items-end gap-[6px]">
-        <p className="max-w-[196px] break-keep rounded-[18px] rounded-bl-[5px] bg-[#F2F4F6] px-[13px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.2px] text-[#191F28]">{text}</p>
-        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
+    <div className={`si-msg ${gap} flex items-start gap-[7px] pl-[2px]`} style={{ transformOrigin: '0% 100%' }}>
+      {first ? <BizAvatar size={30} /> : <span className="w-[30px] shrink-0" aria-hidden="true" />}
+      <div className="flex min-w-0 items-end gap-[6px]">
+        {children}
+        {stamp}
       </div>
     </div>
   );
 }
 
-function QuoteBubble({ title, sub, time }: { title: string; sub: string; time: string }) {
+/** 파일 말풍선(담당자가 보내는 타임표 · 순서표) — 채팅방 파일 말풍선처럼 동그란 아이콘 + 이름 */
+function FileBody({ title, sub }: { title: string; sub: string }) {
   return (
-    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
-      <PersonAvatar size={30} />
-      <div className="flex items-end gap-[6px]">
-        <QuoteCard title={title} sub={sub} />
-        <span className="mb-[2px] shrink-0 text-[10.5px] text-[#8B95A1]">{time}</span>
-      </div>
+    <div className="flex max-w-[214px] items-center gap-[9px] py-[9px] pl-[9px] pr-[13px]">
+      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-white/20">
+        <CalendarIcon />
+      </span>
+      <span className="min-w-0">
+        <span className="block break-keep text-[13.5px] font-bold leading-[1.35] tracking-[-0.2px] text-white">{title}</span>
+        <span className="mt-[2px] block break-keep text-[11.5px] leading-[1.4] tracking-[-0.1px] text-white/80">{sub}</span>
+      </span>
     </div>
   );
 }
 
-function QuoteCard({ title, sub, className = '', style }: { title: string; sub: string; className?: string; style?: CSSProperties }) {
+/** 프리티풀이 돌려주는 배정 일정표 — 타임 줄이 차례로 들어오고 체크가 톡(si-slot · si-ck) */
+function ScheduleBody() {
+  const t = useT();
+  const c = INTRO.chatScheduleCard;
   return (
-    <div className={`w-[196px] overflow-hidden rounded-[18px] rounded-bl-[5px] border border-[#E5E8EB] bg-white ${className}`} style={style}>
-      <div className="flex items-center gap-[8px] bg-[#F4F8FF] px-[12px] py-[10px]">
-        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[#3182F6]">
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 1.8h4.8l2.7 2.7v7.1a.6.6 0 0 1-.6.6H3.5a.6.6 0 0 1-.6-.6V2.4c0-.3.3-.6.6-.6Z" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" /><path d="M5 7h4M5 9.3h2.6" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" /></svg>
+    <div className="w-[210px] p-[10px]">
+      <div className="flex items-center gap-[8px] px-[2px]">
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full" style={{ background: ME_BG }}>
+          <CalendarIcon size={15} />
         </span>
-        <p className="break-keep text-[13.5px] font-bold leading-[1.35] tracking-[-0.2px] text-[#191F28]">{title}</p>
+        <span className="min-w-0">
+          <span className="block break-keep text-[13.5px] font-bold leading-[1.3] tracking-[-0.2px] text-[#191F28]">{t(c.title)}</span>
+          <span className="mt-[1px] block break-keep text-[11px] leading-[1.35] tracking-[-0.1px] text-[#6B7684]">{t(c.sub)}</span>
+        </span>
       </div>
-      <p className="break-keep px-[12px] pb-[11px] pt-[8px] text-[12px] leading-[1.45] tracking-[-0.1px] text-[#6B7684]">{sub}</p>
+      <ul className="mt-[9px] rounded-[12px] bg-white px-[10px] py-[3px]">
+        {c.slots.map((s, i) => (
+          <li key={s} className="si-slot flex h-[26px] items-center gap-[8px] border-b border-[#F2F4F6] last:border-b-0" style={{ '--i': i } as CSSProperties}>
+            <span className="w-[34px] shrink-0 text-[11.5px] font-semibold tabular-nums tracking-[-0.1px] text-[#191F28]">{s}</span>
+            <span className="min-w-0 flex-1 truncate text-[11.5px] tracking-[-0.1px] text-[#4E5968]">
+              {t(c.host)} {c.hosts[i]}
+            </span>
+            <span className="si-ck flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full" style={{ '--i': i, background: ME_BG } as CSSProperties}>
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="m2.4 5.2 1.8 1.8 3.5-3.7" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="si-slot mt-[8px] break-keep px-[2px] text-[11.5px] font-semibold leading-[1.35] tracking-[-0.1px]" style={{ '--i': c.slots.length, color: ME_BG } as CSSProperties}>{t(c.done)}</p>
     </div>
   );
 }
 
-function Typing() {
+function Typing({ first }: { first: boolean }) {
   return (
-    <div className="si-msg mt-[10px] flex items-start gap-[7px]" style={{ transformOrigin: '0% 100%' }}>
-      <PersonAvatar size={30} />
-      <div className="flex h-[38px] items-center gap-[4px] rounded-[18px] rounded-bl-[5px] bg-[#F2F4F6] px-[14px]">
-        {[0, 1, 2].map((i) => <span key={i} className="si-dot h-[6px] w-[6px] rounded-full bg-[#8B95A1]" style={{ animationDelay: `${i * 0.16}s` }} />)}
-      </div>
-    </div>
+    <Row me={false} first={first} time={null}>
+      <Shell me={false} tailed>
+        <div className="flex h-[37px] items-center gap-[4px] px-[14px]">
+          {[0, 1, 2].map((i) => <span key={i} className="si-dot h-[6px] w-[6px] rounded-full bg-[#8B95A1]" style={{ animationDelay: `${i * 0.16}s` }} />)}
+        </div>
+      </Shell>
+    </Row>
   );
 }
 
@@ -336,16 +421,17 @@ export function ChatScreen({ step, listMax }: { step: number; listMax?: number }
     if (!l || !n) return;
     setOff(Math.max(0, n.offsetHeight - l.clientHeight));
   }, [show, typing, lang]);
-  const msgs = INTRO.chatMessages;
+  const items = THREAD.slice(0, Math.min(show, THREAD.length));
+  const last = items.length ? items[items.length - 1] : null;
   return (
     <div className="absolute inset-0 flex flex-col bg-white">
       <StatusBar />
       <div className="h-[30px] shrink-0" />
-      {/* 머리줄 */}
+      {/* 머리줄 — 상대는 사회자 개인이 아니라 '프리티풀 비즈' 창구 */}
       <div className="relative z-[2] flex h-[50px] shrink-0 items-center border-b border-[#F2F4F6] bg-white px-[12px]">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M13.6 4.6 7.2 11l6.4 6.4" stroke="#191F28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <span className="ml-[8px] flex min-w-0 flex-1 items-center gap-[5px]">
-          <span className="truncate text-[15.5px] font-bold tracking-[-0.3px] text-[#191F28]">{t(INTRO.chatHostName)}</span>
+          <span className="truncate text-[15.5px] font-bold tracking-[-0.3px] text-[#191F28]">{t(INTRO.chatPartnerName)}</span>
           <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l1.8 1.3 2.2-.1.7 2.1 1.8 1.3-.7 2.1.7 2.1-1.8 1.3-.7 2.1-2.2-.1L8 15.1l-1.8-1.3-2.2.1-.7-2.1-1.8-1.3.7-2.1-.7-2.1 1.8-1.3.7-2.1 2.2.1Z" fill="#3182F6" /><path d="m5.3 8.1 1.8 1.8 3.6-3.7" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
         <svg width="20" height="20" viewBox="0 0 20 20" fill="#191F28" aria-hidden="true"><circle cx="10" cy="4.4" r="1.7" /><circle cx="10" cy="10" r="1.7" /><circle cx="10" cy="15.6" r="1.7" /></svg>
@@ -353,10 +439,43 @@ export function ChatScreen({ step, listMax }: { step: number; listMax?: number }
       {/* 대화 */}
       <div ref={listRef} className={`relative min-h-0 overflow-hidden ${listMax ? 'shrink-0' : 'flex-1'}`} style={listMax ? { height: listMax } : undefined}>
         <div ref={innerRef} className="px-[12px] pb-[14px] pt-[6px]" style={{ transform: `translate3d(0, ${-off}px, 0)`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
-          <p className="mb-[4px] mt-[8px] text-center text-[11px] text-[#8B95A1]">2026.12.08</p>
-          {msgs.slice(0, Math.min(show, msgs.length)).map((m, i) => <Bubble key={i} me={m.me} text={t(m.text)} time={CHAT_TIMES[i]} />)}
-          {show > msgs.length && <QuoteBubble title={t(INTRO.chatQuoteCard.title)} sub={t(INTRO.chatQuoteCard.sub)} time={CHAT_TIMES[4]} />}
-          {typing && <Typing />}
+          <p className="mb-[2px] mt-[8px] text-center text-[11px] text-[#8B95A1]">{CHAT_DATE}</p>
+          {items.map((it, i) => {
+            const me = isMine(it);
+            const prev = i > 0 ? isMine(items[i - 1]) : null;
+            // 꼬리는 입력 중 점까지 묶음으로 보고(점이 묶음 끝), 시각은 실제 말풍선만 본다
+            const nextWithTyping = i + 1 < items.length ? isMine(items[i + 1]) : typing ? false : null;
+            const nextReal = i + 1 < items.length ? isMine(items[i + 1]) : null;
+            const tailed = nextWithTyping !== me;
+            const time = nextReal !== me ? CHAT_TIMES[i] : null;
+            let body: ReactNode;
+            if (it.kind === 'msg') {
+              body = (
+                <Shell me={me} tailed={tailed}>
+                  <p className={`${me ? 'max-w-[212px] text-white' : 'max-w-[196px] text-[#191F28]'} break-keep px-[13px] py-[9px] text-[14px] leading-[1.45] tracking-[-0.2px]`}>{t(INTRO.chatMessages[it.i].text)}</p>
+                </Shell>
+              );
+            } else if (it.kind === 'schedule') {
+              body = (
+                <Shell me={false} tailed={tailed}>
+                  <ScheduleBody />
+                </Shell>
+              );
+            } else {
+              const f = it.kind === 'timetable' ? INTRO.chatTimetable : INTRO.chatProgram;
+              body = (
+                <Shell me tailed={tailed}>
+                  <FileBody title={t(f.title)} sub={t(f.sub)} />
+                </Shell>
+              );
+            }
+            return (
+              <Row key={i} me={me} first={prev !== me} time={time}>
+                {body}
+              </Row>
+            );
+          })}
+          {typing && <Typing first={!last || isMine(last)} />}
         </div>
       </div>
       {listMax ? <div className="flex-1" /> : null}

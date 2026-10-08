@@ -40,11 +40,43 @@ export function quickMatchBubblePath(w: number, h: number, tailX: number) {
 }
 
 /**
+ * 왼쪽 꼬리 판 윤곽(261009 사장 '홈 첫 진입 비즈 안내 말풍선 — PC 비즈 말풍선과 같게, 꼬리만 왼쪽') — 위 꼬리를 대각선으로 뒤집어
+ * 몸통 왼쪽 변에 붙인다(꼬리 모양·크기는 위 꼬리와 같은 실측값). 몸통은 x = 꼬리 높이(13) ~ w.
+ * 몸통이 낮아(글 두 줄 ≈ 75) 왼쪽 직선 구간(h − 2r)이 꼬리 밑동 28 보다 짧으면 모서리를 그만큼만 줄인다 —
+ * 밑동이 모서리 곡선에 걸치면 꼬리 옆에 턱이 생긴다(26 → 23.5 정도, 눈으로는 같은 둥글기).
+ */
+export function quickMatchBubbleSidePath(w: number, h: number, tailY?: number) {
+  const t = QM_TAIL_H;
+  const r = Math.max(8, Math.min(QM_RADIUS, (h - 28) / 2, (w - t) / 2));
+  const y = Math.min(Math.max(tailY ?? h / 2, r + 14), h - r - 14);
+  const n = (v: number) => Math.round(v * 100) / 100;
+  return [
+    `M${n(t + r)} 0`,
+    `L${n(w - r)} 0`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(w)} ${n(r)}`,
+    `L${n(w)} ${n(h - r)}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(w - r)} ${n(h)}`,
+    `L${n(t + r)} ${n(h)}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${t} ${n(h - r)}`,
+    `L${t} ${n(y + 14)}`,
+    `C${t} ${n(y + 11.4)} ${n(t - 1.8)} ${n(y + 10.7)} ${n(t - 2.9)} ${n(y + 9.8)}`,
+    `L${n(t - 10.2)} ${n(y + 3.9)}`,
+    `Q${n(t - 14.6)} ${n(y)} ${n(t - 10.2)} ${n(y - 3.9)}`,
+    `L${n(t - 2.9)} ${n(y - 9.8)}`,
+    `C${n(t - 1.8)} ${n(y - 10.7)} ${t} ${n(y - 11.4)} ${t} ${n(y - 14)}`,
+    `L${t} ${n(r)}`,
+    `A${n(r)} ${n(r)} 0 0 1 ${n(t + r)} 0`,
+    'Z',
+  ].join('');
+}
+
+/**
  * 말풍선 바탕 유리 — 꼬리와 몸통을 한 장으로(260927 사장 '꼬리랑 본체랑 잘리는 선').
  * 둘을 따로 흐리면 각자 뒤를 따로 흐려(꼬리는 사진만, 몸통은 사진+흰 틈) 만나는 자리에 색이 6단계 툭 끊겼다.
  * 제 크기를 재서(ResizeObserver) 윤곽 path 로 잘라 쓴다 — 크기를 재기 전엔 숨김.
+ * side='left' = 왼쪽 꼬리 판(261009, 홈 첫 진입 비즈 안내) — tailY 를 안 주면 몸통 세로 가운데. 기본(위 꼬리)은 그대로.
  */
-export function QuickMatchBubbleGlass({ tailX }: { tailX: number }) {
+export function QuickMatchBubbleGlass({ tailX = 0, tailY, side = 'top' }: { tailX?: number; tailY?: number; side?: 'top' | 'left' }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   useLayoutEffect(() => {
@@ -60,6 +92,8 @@ export function QuickMatchBubbleGlass({ tailX }: { tailX: number }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const clip = size ? `path('${quickMatchBubblePath(size.w, size.h, tailX)}')` : undefined;
+  const clip = size
+    ? `path('${side === 'left' ? quickMatchBubbleSidePath(size.w, size.h, tailY) : quickMatchBubblePath(size.w, size.h, tailX)}')`
+    : undefined;
   return <span ref={ref} className="qm-bubble-glass" aria-hidden="true" style={{ clipPath: clip, WebkitClipPath: clip, visibility: size ? undefined : 'hidden' }} />;
 }

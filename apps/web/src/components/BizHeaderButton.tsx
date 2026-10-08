@@ -20,7 +20,12 @@ const BIZ_BUBBLE_HIDE_MS = 30 * 60 * 1000;
 const BIZ_BUBBLE_GAP = 5;
 /** 말풍선 왼쪽에서 꼬리 끝까지 — 버튼 가운데에 꼬리가 오도록 말풍선을 이만큼 왼쪽으로 */
 const BIZ_BUBBLE_TAIL_X = 64;
+/**
+ * 말풍선 폭 — 글자 폭에 맞춘다(max-content), 이 값은 최소 폭. 예전엔 352 고정이라 제목 '기업 행사도 웨딩홀도 프리티풀 비즈로.'가
+ * 글씨 칸(352 − 아이콘 64 − × 42)보다 길어 말줄임(…)으로 잘렸다(261009 검증). 홈 첫 진입 왼쪽 꼬리 판(BizSwipeHint)도 같은 max-content
+ */
 const BIZ_BUBBLE_WIDTH = 352;
+const BIZ_BUBBLE_MAX_WIDTH = 460;
 const BIZ_ICON = '/images/icons/biz-folder.png';
 
 export default function BizHeaderButton() {
@@ -110,7 +115,7 @@ export default function BizHeaderButton() {
       {phase !== 'hidden' && left !== null && (
         <div
           className={`qm-bubble biz${phase === 'out' ? ' is-out' : ''}`}
-          style={{ top, left, width: BIZ_BUBBLE_WIDTH, '--tail-x': `${BIZ_BUBBLE_TAIL_X}px` } as CSSProperties}
+          style={{ top, left, width: 'max-content', minWidth: BIZ_BUBBLE_WIDTH, maxWidth: BIZ_BUBBLE_MAX_WIDTH, '--tail-x': `${BIZ_BUBBLE_TAIL_X}px` } as CSSProperties}
           role="link"
           tabIndex={0}
           aria-label="기업 행사도 웨딩홀도 프리티풀 비즈로. 기업행사 MC · 웨딩홀 전속 사회자 섭외"
