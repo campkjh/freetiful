@@ -51,6 +51,8 @@ import { useImageTone } from '@/lib/image-tone';
 import PartnerToneCard from '@/components/business/PartnerToneCard';
 import ProFeedCard, { matchesGender, mapProFeedItems, PRO_FEED_LIST_PARAMS, type ProFeedItem } from '@/components/pros/ProFeedCard';
 import ProReviewsSheet, { type ReviewSheetPro } from '@/components/pros/ProReviewsSheet';
+import BizSwipePeek from '@/components/home/BizSwipePeek';
+import { skipNextPageTransition } from '@/components/PageTransition';
 import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.api';
 
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
@@ -1852,6 +1854,11 @@ function HomeSwipeTabs() {
   const touchRef = useRef<{ x: number; y: number; locked: 0 | 1 | -1 } | null>(null);
   const tabRef = useRef(0);
   useEffect(() => { tabRef.current = tab; }, [tab]);
+  // 왼쪽 끝을 오른쪽으로 끌면 비즈(261009 사장 — 오른쪽 끝 왼쪽 끌기 = 남성사회자와 같은 끝 영역). 끄는 동안 비즈 첫 화면이 왼쪽에서 따라 들어온다
+  const [biz, setBiz] = useState<{ x: number; phase: 'drag' | 'open' | 'close' } | null>(null);
+  const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   useEffect(() => {
     // 홈에 있을 때도 한가할 때 미리 받아 둔다 — 끌었을 때 옆이 빈 흰 화면이면 '덮인다' 로 보인다
@@ -1953,9 +1960,11 @@ function HomeSwipeTabs() {
     if (dx > 0) setTab((c) => Math.max(0, c - 1)); // 1→0(전체/홈)까지 허용
   };
 
-  // 전체(홈)에서 좌스와이프 → 결혼식 탭 열기 (윈도우 리스너, 축잠금 + 무시영역[배너/카테고리])
+  // 전체(홈)에서 오른쪽 끝 좌스와이프 → 남성사회자 탭 · 왼쪽 끝 우스와이프 → 비즈 (윈도우 리스너, 축잠금 + 무시영역[배너/카테고리])
   useEffect(() => {
-    let s: { x: number; y: number; locked: 0 | 1 | -1; ignore: boolean } | null = null;
+    let s: { x: number; y: number; locked: 0 | 1 | -1; ignore: boolean; mode: 'next' | 'biz'; vx: number; lx: number; lt: number } | null = null;
+    let prefetched = false;
+    let bizTimer = 0;
     const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
     // 오른쪽 가장자리에서 시작한 스와이프만 다음 탭으로 — 화면 아무 데서나 끌리면
     // 가로 스크롤·카드 조작과 헷갈린다
@@ -1963,10 +1972,12 @@ function HomeSwipeTabs() {
     const onStart = (e: TouchEvent) => {
       if (tabRef.current !== 0 || !isMobile()) { s = null; return; }
       const t = e.touches[0];
-      if (t.clientX < window.innerWidth - EDGE) { s = null; return; }
+      const fromRight = t.clientX >= window.innerWidth - EDGE;
+      const fromLeft = t.clientX <= EDGE;
+      if (!fromRight && !fromLeft) { s = null; return; }
       const target = e.target as HTMLElement | null;
       const ignore = !!target?.closest?.('[data-hswipe-ignore]');
-      s = { x: t.clientX, y: t.clientY, locked: 0, ignore };
+      s = { x: t.clientX, y: t.clientY, locked: 0, ignore, mode: fromRight ? 'next' : 'biz', vx: 0, lx: t.clientX, lt: performance.now() };
     };
     const onMove = (e: TouchEvent) => {
       if (!s || s.ignore) return;
@@ -1980,24 +1991,59 @@ function HomeSwipeTabs() {
       // 가로 스와이프 — 안드 웹뷰/브라우저의 뒤로가기 제스처·세로스크롤 가로채기 방지(non-passive preventDefault)
       // + 손가락 따라 패널을 끌어와(인터랙티브 드래그) '플로팅 덮기'가 아니라 페이지가 스와이프되게.
       e.preventDefault();
+      if (s.mode === 'biz') {
+        // 비즈 — 들어오는 비즈 화면은 손가락을 그대로, 홈은 30% 만 오른쪽으로(겹쳐 밀리는 깊이감). 손 뗄 때 휙 판정용 속도
+        const now = performance.now();
+        if (now > s.lt) { s.vx = (t.clientX - s.lx) / (now - s.lt); s.lx = t.clientX; s.lt = now; }
+        if (!prefetched) { prefetched = true; try { routerRef.current.prefetch('/biz'); } catch {} }
+        const x = Math.max(0, dx);
+        setBiz({ x, phase: 'drag' });
+        setDragX(x * 0.3);
+        return;
+      }
       setWarm(true);
       setDragX(dx < 0 ? dx : dx * 0.3); // 탭0: 왼쪽(다음 탭)만 따라가고 오른쪽은 저항
     };
+    const closeBiz = () => {
+      setBiz((b) => (b ? { x: 0, phase: 'close' } : b));
+      window.clearTimeout(bizTimer);
+      bizTimer = window.setTimeout(() => setBiz(null), 300);
+    };
     const onEnd = (e: TouchEvent) => {
-      if (!s || s.ignore || s.locked !== 1) { s = null; setDragX(0); return; }
+      if (!s || s.ignore || s.locked !== 1) {
+        if (s?.mode === 'biz') closeBiz();
+        s = null; setDragX(0); return;
+      }
       const t = e.changedTouches[0];
       const dx = t.clientX - s.x; const dy = t.clientY - s.y;
+      const mode = s.mode; const vx = s.vx;
       s = null;
       setDragX(0);
+      if (mode === 'biz') {
+        // 화면 30% 넘게 끌었거나 오른쪽으로 휙 — 끝까지 들어온 뒤 /biz 로(공통 슬라이드는 건너뜀: 이미 들어온 화면이라)
+        if (dx > window.innerWidth * 0.3 || (dx > 40 && vx > 0.45)) {
+          setBiz({ x: window.innerWidth, phase: 'open' });
+          window.clearTimeout(bizTimer);
+          bizTimer = window.setTimeout(() => { skipNextPageTransition(); routerRef.current.push('/biz'); }, 280);
+        } else closeBiz();
+        return;
+      }
       if (dx < -50 && Math.abs(dx) > Math.abs(dy)) setTab(1);
+    };
+    const onCancel = () => {
+      if (s?.mode === 'biz') closeBiz();
+      s = null; setDragX(0);
     };
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onEnd, { passive: true });
+    window.addEventListener('touchcancel', onCancel, { passive: true });
     return () => {
+      window.clearTimeout(bizTimer);
       window.removeEventListener('touchstart', onStart);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onCancel);
     };
   }, []);
 
@@ -2067,6 +2113,31 @@ function HomeSwipeTabs() {
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
         style={{ height: 64 }}
       />
+      {/* 비즈 — 왼쪽 끝에서 끌어오는 비즈 첫 화면(헤더·하단 탭 위를 덮는다) + 뒤 홈을 살짝 어둡게 */}
+      {biz && (
+        <>
+          <div
+            aria-hidden="true"
+            className="lg:hidden pointer-events-none fixed inset-0 z-[69] bg-black"
+            style={{
+              opacity: biz.phase === 'open' ? 0.14 : biz.phase === 'close' ? 0 : Math.min(1, biz.x / (typeof window !== 'undefined' ? window.innerWidth : 390)) * 0.14,
+              transition: biz.phase === 'drag' ? 'none' : 'opacity 0.28s cubic-bezier(0.22,0.61,0.36,1)',
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="lg:hidden pointer-events-none fixed inset-0 z-[70]"
+            style={{
+              transform: biz.phase === 'open' ? 'translate3d(0,0,0)' : biz.phase === 'close' ? 'translate3d(-100%,0,0)' : `translate3d(calc(-100% + ${biz.x}px),0,0)`,
+              transition: biz.phase === 'drag' ? 'none' : 'transform 0.28s cubic-bezier(0.22,0.61,0.36,1)',
+              boxShadow: '6px 0 24px rgba(0,0,0,0.12)',
+              willChange: 'transform',
+            }}
+          >
+            <BizSwipePeek />
+          </div>
+        </>
+      )}
       {/* 탭 — 헤더 줄(위 12 · 높이 42) 로고와 아이콘 사이 */}
       <div className="lg:hidden fixed top-[12px] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
 

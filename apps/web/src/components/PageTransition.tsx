@@ -22,6 +22,12 @@ const ROUTES_WITH_LOCAL_ENTRY_MOTION = [
   /^\/pros\/[^/]+$/,
 ];
 
+let skipUntil = 0;
+/** 다음 경로 전환의 공통 슬라이드를 한 번 건너뛴다 — 화면이 이미 자기 전환으로 들어온 경우(홈 왼쪽 끝 끌어 비즈, 261009) */
+export function skipNextPageTransition(ms = 1500) {
+  skipUntil = Date.now() + ms;
+}
+
 function isDetailPath(path: string): boolean {
   return DETAIL_PATTERNS.some((p) => p.test(path));
 }
@@ -40,6 +46,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
     const prev = prevPath.current;
     prevPath.current = pathname;
     if (prev === null || prev === pathname) return;
+    if (Date.now() < skipUntil) { skipUntil = 0; return; }
 
     // 사회자 상세는 페이지 내부 Reveal이 이미 진입 모션을 담당한다.
     // 공통 슬라이드까지 같이 걸리면 진입 애니메이션이 두 번 보인다.
