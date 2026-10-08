@@ -44,6 +44,22 @@ export function useBizLang() {
 }
 
 /**
+ * 문서 언어(html lang)를 비즈 언어로 — 일본어 · 중국어 한자 글자꼴과 줄바꿈 규칙(:lang)이 이걸 본다. 비즈를 떠나면 원래대로.
+ * 비즈 레이아웃(biz/layout.tsx)에 하나 — 예전엔 /biz 화면에서만 걸어 /biz/news · ceo 등은 lang=ko 로 남았고,
+ * 같은 하단 탭 라벨이 화면에 따라 한국어 글꼴 · 중일 글꼴이 섞여 폭이 바뀌었다(261008).
+ */
+export function BizHtmlLang() {
+  const { lang } = useBizLang();
+  useEffect(() => {
+    const el = document.documentElement;
+    const prev = el.lang;
+    el.lang = lang === 'zh' ? 'zh-CN' : lang;
+    return () => { el.lang = prev; };
+  }, [lang]);
+  return null;
+}
+
+/**
  * Translation helper: pass an object keyed by language.
  * Missing keys fallback to Korean (original).
  *   const title = useT({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' });

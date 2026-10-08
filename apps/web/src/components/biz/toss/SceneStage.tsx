@@ -4,7 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { useT } from '@/lib/biz/i18n';
 import { useInView } from '@/components/biz/biz-motion';
 import { STAGE, type Tr } from './content';
-import { lerp, scrollToElement, seg, useFrame, useSceneProgress } from './scene';
+import { lerp, seg, useFrame, useSceneProgress } from './scene';
+import { scrollToBizSection } from '../scroll-to';
 import { CTA_SPRING, StageCta, VideoOverlay, createFrameLoader, squirclePath, type FrameLoader } from './SceneStage.parts';
 
 /*
@@ -233,8 +234,7 @@ export default function SceneStage() {
       setVideo(true);
       return;
     }
-    const el = document.getElementById('문의폼');
-    if (el) scrollToElement(el, -20);
+    scrollToBizSection('문의폼'); // 탭바 '문의하기'와 같은 도우미(도착 자리 · 하단 탭바 붙잡기)
   }, []);
   return (
     <section id="dock-stage" data-no-natural-reveal className="stg relative bg-white" style={{ width: '100vw', marginLeft: 'calc(50% - 50vw)' }}>

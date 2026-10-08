@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/lib/biz/i18n';
 import { DOCK, INTRO } from './content';
-import { prefersReducedMotion, scrollToElement } from './scene';
+import { prefersReducedMotion, scrollToElement, scrollToY } from '../scroll-to';
 import { GlobeCanvas } from './TossChrome.globe';
 
 /*
@@ -153,8 +153,7 @@ export function BizNav({ items, onNavigate, ctaLabel, onCta, right }: { items: {
   const chars = Array.from(ctaLabel);
   const toTop = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (window.__bizLenis) window.__bizLenis.scrollTo(0, { duration: 1.2 });
-    else window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToY(0); // Lenis 로 부드럽게 · 줄인 움직임이면 바로
   };
 
   return (
@@ -373,6 +372,8 @@ const FOOT_CSS = `
   .tc-foot-row1{flex-direction:column;gap:48px}
   .tc-foot-grid{width:100%}
   .tc-foot-side{margin-left:0;width:100%}
+  /* 1024 미만엔 비즈 하단 탭바(BizTabBar 58 + 안전영역, 261008)가 떠 있다 — 맨 아래 © 줄이 가리지 않게 원래 48 에 탭바 높이를 더함(767 이하는 아래 120 규칙) */
+  .tc-foot-in{padding-bottom:calc(106px + max(8px, env(safe-area-inset-bottom)))}
 }
 @media (max-width:767px){
   .tc-foot-bg{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 140px);mask-image:linear-gradient(180deg,transparent 0,#000 140px)}

@@ -263,13 +263,13 @@ export default function FaqPage() {
                 { label: t({ ko: 'CEO 인사말',   en: "CEO's Message", ja: 'CEO 挨拶',         zh: 'CEO 致辞' }),     href: '/biz/ceo' },
                 { label: t({ ko: '연혁',         en: 'Milestones',    ja: '沿革',             zh: '发展历程' }),      href: '/biz/history' },
                 { label: t({ ko: '인재채용',     en: 'Careers',       ja: '採用情報',         zh: '人才招聘' }),      href: '/careers' },
-                { label: t({ ko: '주요소식',     en: 'News',          ja: 'お知らせ',         zh: '主要消息' }),      href: '/biz', hash: '자료실' },
+                { label: t({ ko: '뉴스·소식',    en: 'News',          ja: 'ニュース',         zh: '新闻资讯' }),      href: '/biz/news' }, // 하단 탭 '뉴스·소식'과 같은 곳(261008 — 예전 '주요소식'은 자료실로 내려갔다)
                 { label: t({ ko: '자주묻는질문', en: 'FAQ',           ja: 'よくある質問',     zh: '常见问题' }),      href: '/biz/faq' },
                 { label: t({ ko: '고객사',       en: 'Clients',       ja: '取引先',           zh: '客户' }),          href: '/biz/clients' },
               ].map((item) => (
                 <Link
                   key={item.label}
-                  href={item.hash ? `${item.href}#${item.hash}` : item.href}
+                  href={item.href}
                   className="flex items-center justify-between py-3.5 px-2 rounded-xl text-[15px] font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >

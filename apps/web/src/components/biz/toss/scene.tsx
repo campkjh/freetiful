@@ -46,17 +46,8 @@ export function useFrame(progress: MotionValue<number>, cb: (p: number) => void)
   useMotionValueEvent(progress, 'change', (v) => ref.current(v));
 }
 
-export function prefersReducedMotion() {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
-
-declare global {
-  interface Window { __bizLenis?: Lenis }
-}
+// 줄인 움직임 확인 · 섹션 이동(window.__bizLenis 타입 포함)은 의존성 없는 biz/scroll-to.ts 로 옮겼다 — 하단 탭바가 이 파일(framer · lenis)을 끌고 오지 않게
+export { prefersReducedMotion, scrollToElement } from '../scroll-to';
 
 /**
  * 부드러운 휠 스크롤(Lenis, 토스 홈과 같은 감) — 휠만 부드럽게, 터치는 기기 기본. 줄인 움직임 설정이면 끈다(설정이 바뀌면 바로 따라감).
@@ -108,11 +99,4 @@ export function SmoothScroll() {
     };
   }, [reduced]);
   return null;
-}
-
-/** 섹션으로 이동 — Lenis 가 있으면 그걸로(네이티브 smooth 와 섞이면 끊긴다) */
-export function scrollToElement(el: HTMLElement, offset = 0) {
-  const top = el.getBoundingClientRect().top + window.scrollY + offset;
-  if (window.__bizLenis) window.__bizLenis.scrollTo(top, { duration: 1.2 });
-  else window.scrollTo({ top, behavior: 'smooth' });
 }

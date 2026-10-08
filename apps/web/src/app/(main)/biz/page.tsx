@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronRight, ChevronLeft, Shield, Briefcase, Download, MapPin, Phone, Mail,
+  ChevronRight, Shield, Briefcase, Download, MapPin, Phone, Mail,
   Clock, FileText, Send, X, Copy, Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useT, useBizLang } from '@/lib/biz/i18n';
 import LanguageToggle from '@/components/biz/LanguageToggle';
 import { FadeUp } from '@/components/biz/biz-motion';
-import { SmoothScroll, scrollToElement } from '@/components/biz/toss/scene';
+import { SmoothScroll } from '@/components/biz/toss/scene';
 import { BizFooter, BizNav, DockIndicator } from '@/components/biz/toss/TossChrome';
+import { bizSectionAnchor, cameByHistory, scrollToBizSection, takePendingBizSection } from '@/components/biz/scroll-to';
 import SceneIntro from '@/components/biz/toss/SceneIntro';
 import SceneMatch from '@/components/biz/toss/SceneMatch';
 import SceneCareer from '@/components/biz/toss/SceneCareer';
@@ -148,9 +148,6 @@ export default function BizPage() {
   const [sending, setSending] = useState(false);
 
   const [previewFile, setPreviewFile] = useState<string | null>(null);
-  const [bizNavExpanding, setBizNavExpanding] = useState(false);
-  const [bizNavCollapsing, setBizNavCollapsing] = useState(false);
-  const [inquiryBubbleHidden, setInquiryBubbleHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** 메뉴 칸은 닫힐 때 0.15s 서서히 사라진 뒤 내린다 */
   const [menuMounted, setMenuMounted] = useState(false);
@@ -161,13 +158,7 @@ export default function BizPage() {
   /** 자료실 파일 중 서버에 없는 것(404) — 깨진 미리보기 · HTML 404 를 내려받는 대신 목록에서 뺀다(파일이 돌아오면 다시 보인다) */
   const [missingFiles, setMissingFiles] = useState<string[]>([]);
 
-  // 문서 언어 — 일본어 · 중국어 글꼴(한자 글자꼴)과 줄바꿈 규칙(:lang)이 이걸 본다. 비즈를 떠나면 원래대로
-  useEffect(() => {
-    const el = document.documentElement;
-    const prev = el.lang;
-    el.lang = htmlLang;
-    return () => { el.lang = prev; };
-  }, [htmlLang]);
+  // 문서 언어(html lang)는 비즈 레이아웃(BizHtmlLang)이 비즈 모든 화면에 건다 — 예전엔 여기서만 걸어 /biz/news · ceo 등은 lang=ko 로 남았다
 
   // 메뉴 · 파일 미리보기가 떠 있는 동안 뒤 페이지 잠금(휠 = Lenis 멈춤, 터치 = 문서 overflow + touchmove 막기) + Esc 로 닫기
   const overlayOpen = mobileMenuOpen || !!previewFile;
@@ -237,23 +228,70 @@ export default function BizPage() {
   }, []);
 
 
-  // 플랫폼에서 비즈로 왔을 때 펼쳐지는 애니메이션
+  // 다른 비즈 화면의 하단 탭 '문의하기'(scroll-to 의 대기 섹션) · 옛 메뉴 링크(/biz#문의폼 · /biz#자료실)로 왔을 때 —
+  // 장면 배치가 끝난 뒤 그 섹션으로 내려간다(261008 사장 '모바일 네비게이션바'). 첫 그림이 확정되게 rAF 두 번 + 짧은 지연 뒤 출발,
+  // 내려가는 동안 위쪽 장면 높이가 바뀌면(이미지 시퀀스 · 영상이 늦게 뜸) 도착 뒤 다시 맞춘다.
+  // 사람이 손대면(누름 · 손가락 · 휠 · 키) 바로 손 뗀다 — 예전엔 누름이 빠져 있어, 도착 직후 '기업소개'를 눌러도 다시 확인이 문의폼으로 끌고 내려갔다
   useEffect(() => {
-    const from = sessionStorage.getItem('nav-transition');
-    if (from === 'from-platform') {
-      setBizNavExpanding(true);
-      sessionStorage.removeItem('nav-transition');
-      const timer = setTimeout(() => setBizNavExpanding(false), 600);
-      return () => clearTimeout(timer);
+    const timers: number[] = [];
+    let id: string | null = takePendingBizSection();
+    const hash = window.location.hash;
+    if (hash.length > 1) {
+      if (!id && !cameByHistory()) {
+        const raw = hash.slice(1);
+        try { id = decodeURIComponent(raw); } catch { id = raw; } // 한글 해시(#%EB%AC%B8…)
+      }
+      // 읽은 해시는 주소에서 지운다 — 남겨 두면 나중에 /biz 가 다시 마운트될 때마다(뒤로가기 · 새로 고침, 기업소개로 맨 위에 갔다 돌아올 때)
+      // 또 섹션으로 끌려 내려갔다. state 를 null 로 주면 Next 가 고친 replaceState 가 내부 상태를 옮겨 담고 라우터 주소도 같이 맞춘다 —
+      // 첫 로드에선 Next 가 replaceState 를 고치는 effect(부모)가 이 effect(자식) 뒤에 돌아 한 틱 미룬다(고치기 전에 부르면 Next 상태가 지워진다)
+      timers.push(window.setTimeout(() => {
+        if (window.location.pathname !== '/biz' || window.location.hash.length < 2) return;
+        try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch { /* noop */ }
+      }, 0));
     }
-    return undefined;
+    if (!id) return () => timers.forEach((tm) => window.clearTimeout(tm));
+    const target = id;
+    let cancelled = false;
+    let raf = 0;
+    const stop = () => { cancelled = true; };
+    const userEvents = ['pointerdown', 'touchstart', 'touchmove', 'wheel', 'keydown'] as const;
+    userEvents.forEach((ev) => window.addEventListener(ev, stop, { passive: true, capture: true }));
+    /** 도착 자리(섹션 위 끝이 offset 자리)에 와 있는지(4px 안쪽) */
+    const arrived = (a: { el: HTMLElement; offset: number }) => Math.abs(a.el.getBoundingClientRect().top + a.offset) <= 4;
+    const go = (attempt: number) => {
+      const a = bizSectionAnchor(target);
+      if (cancelled || !a) return;
+      if (attempt > 0 && arrived(a)) return;
+      // 내려가는 동안 하단 탭바를 붙잡고, 문의면 문의하기 먼저 선택(scrollToBizSection 안에서)
+      if (!scrollToBizSection(target)) return;
+      if (attempt < 2) timers.push(window.setTimeout(() => go(attempt + 1), 1400)); // 1.2s 이동 뒤 확인
+    };
+    raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => { timers.push(window.setTimeout(() => go(0), 120)); });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      timers.forEach((tm) => window.clearTimeout(tm));
+      userEvents.forEach((ev) => window.removeEventListener(ev, stop, { capture: true }));
+    };
   }, []);
 
+  /** 섹션으로 — 문의 폼이면 도착 자리(제목이 머리줄 아래) · 하단 탭바 붙잡기까지 탭바 '문의하기'와 같다(메뉴 · 자료실 · 머리줄 CTA · iOS 브리지) */
   function scrollTo(id: string) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    // Lenis 부드러운 스크롤과 섞이지 않게 scrollToElement(머리줄 64 만큼 위 여백)
-    scrollToElement(el, id === '문의폼' ? -20 : 0);
+    scrollToBizSection(id);
+  }
+  /** 이 화면 안 섹션 링크(<a href="#문의폼"> — 장면 카드 CTA 등)는 주소에 해시를 남기지 않고 같은 도우미로 */
+  function onInPageHashClick(e: React.MouseEvent) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null;
+    const raw = a?.getAttribute('href')?.slice(1);
+    if (!raw) return;
+    let id = raw;
+    try { id = decodeURIComponent(raw); } catch { /* 그대로 */ }
+    if (!document.getElementById(id)) return;
+    e.preventDefault();
+    scrollTo(id);
   }
   /** 메뉴를 닫고(뒤 페이지 잠금이 풀린 다음) 섹션으로 — 잠긴 동안엔 Lenis 가 scrollTo 를 무시한다 */
   function closeMenuThenScroll(id: string) {
@@ -312,7 +350,7 @@ export default function BizPage() {
 
   return (
     // overflow-x: clip — hidden 이면 이 칸이 스크롤 칸이 돼 앱 기능 칸의 따라오는 폰(sticky)이 멈추지 않는다
-    <div lang={htmlLang} className="biz-root relative min-h-screen overflow-x-clip bg-white text-[#191F28]">
+    <div lang={htmlLang} className="biz-root relative min-h-screen overflow-x-clip bg-white text-[#191F28]" onClickCapture={onInPageHashClick}>
 
       <SmoothScroll />
       <BizNav
@@ -355,16 +393,13 @@ export default function BizPage() {
               { label: t({ ko: 'CEO 인사말', en: "CEO's Message", ja: 'CEO 挨拶', zh: 'CEO 致辞' }), href: '/biz/ceo' },
               { label: t({ ko: '연혁', en: 'Milestones', ja: '沿革', zh: '发展历程' }), href: '/biz/history' },
               { label: t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' }), href: '/careers' },
-              { label: t({ ko: '주요소식', en: 'News', ja: 'お知らせ', zh: '主要消息' }), action: () => closeMenuThenScroll('자료실') },
+              // 뉴스 = 하단 탭 '뉴스·소식'과 같은 이름 · 같은 곳(예전 '주요소식'은 자료실로 내려가 영어로는 같은 'News' 가 두 곳으로 갈렸다)
+              { label: t({ ko: '뉴스·소식', en: 'News', ja: 'ニュース', zh: '新闻资讯' }), href: '/biz/news' },
               { label: t({ ko: '자주묻는질문', en: 'FAQ', ja: 'よくある質問', zh: '常见问题' }), href: '/biz/faq' },
               { label: t({ ko: '고객사', en: 'Clients', ja: '取引先', zh: '客户' }), href: '/biz/clients' },
             ].map((item, i) => (
               <li key={item.label} className="biz-menu-row" style={{ ['--i' as string]: i }}>
-                {item.href ? (
-                  <Link href={item.href} onClick={() => setMobileMenuOpen(false)}>{item.label}</Link>
-                ) : (
-                  <button type="button" onClick={item.action}>{item.label}</button>
-                )}
+                <Link href={item.href} onClick={() => setMobileMenuOpen(false)}>{item.label}</Link>
               </li>
             ))}
           </ul>
@@ -590,6 +625,8 @@ export default function BizPage() {
           { label: t({ ko: 'CEO 인사말', en: "CEO's Message", ja: 'CEO 挨拶', zh: 'CEO 致辞' }), href: '/biz/ceo' },
           { label: t({ ko: '연혁', en: 'Milestones', ja: '沿革', zh: '发展历程' }), href: '/biz/history' },
           { label: t({ ko: '고객사', en: 'Clients', ja: '取引先', zh: '客户' }), href: '/biz/clients' },
+          // PC(1024 이상)는 하단 탭바 · 햄버거 메뉴가 없어 뉴스·소식으로 가는 길이 여기뿐
+          { label: t({ ko: '뉴스·소식', en: 'News', ja: 'ニュース', zh: '新闻资讯' }), href: '/biz/news' },
           { label: t({ ko: '자주묻는질문', en: 'FAQ', ja: 'よくある質問', zh: '常见问题' }), href: '/biz/faq' },
           { label: t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' }), href: '/careers' },
           { label: t({ ko: '개인정보처리방침', en: 'Privacy Policy', ja: 'プライバシーポリシー', zh: '隐私政策' }), href: '/terms/privacy' },
@@ -607,166 +644,8 @@ export default function BizPage() {
         ]}
       />
 
-      {/* ═══ 모바일 바텀 네비게이션 ═══════════════════════════ */}
-      <nav
-        data-native-biz-nav
-        className="pb-safe fixed bottom-0 left-0 right-0 z-50 px-4 md:hidden"
-      >
-        <div className="mx-auto mb-2 max-w-lg" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-          <div
-            className="border border-gray-100/60 bg-white/90 shadow-[0_-4px_30px_rgba(0,0,0,0.08)] backdrop-blur-2xl transition-all duration-500"
-            style={{
-              width: bizNavCollapsing ? 60 : '100%',
-              maxWidth: bizNavCollapsing ? 60 : 512,
-              height: 60,
-              borderRadius: 9999,
-              // 접힘 애니메이션 때만 클립 — 평소엔 visible 라야 문의 버튼 위 말풍선이 안 잘림
-              overflow: bizNavCollapsing ? 'hidden' : 'visible',
-              transition: bizNavCollapsing
-                ? 'width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), max-width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                : 'none',
-              ...(bizNavExpanding ? { animation: 'bizPillExpand 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
-            }}
-          >
-            <div className="flex h-full items-center px-2">
-              {/* 홈 이동 버튼 */}
-              <button
-                onClick={() => {
-                  sessionStorage.setItem('nav-transition', 'from-biz');
-                  setBizNavCollapsing(true);
-                  setTimeout(() => router.push('/main'), 500);
-                }}
-                className={`-ml-1 flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full transition-all duration-500 active:scale-90 ${bizNavCollapsing ? 'bg-transparent text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-                aria-label={t({ ko: '홈으로', en: 'Home', ja: 'ホーム', zh: '返回首页' })}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-
-              {/* 네비 아이템들 */}
-              <div className="flex flex-1 items-center justify-around">
-                {[
-                  { id: '회사소개', iconSrc: '/images/company-intro.svg', label: t({ ko: '회사소개', en: 'About', ja: '会社紹介', zh: '公司简介' }) },
-                  { id: '핵심서비스', iconSrc: '/images/service.svg', label: t({ ko: '서비스', en: 'Services', ja: 'サービス', zh: '服务' }) },
-                  { id: '자료실', iconSrc: '/images/resources.svg', label: t({ ko: '자료실', en: 'Resources', ja: '資料', zh: '资料' }) },
-                  { id: '문의', iconSrc: '/images/inquiry.svg', label: t({ ko: '문의하기', en: 'Contact Us', ja: 'お問合せ', zh: '联系咨询' }) },
-                ].map((item, idx) => {
-                  const isInquiry = item.id === '문의';
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        scrollTo(isInquiry ? '문의폼' : item.id);
-                        if (isInquiry) setInquiryBubbleHidden(true);
-                      }}
-                      className={`relative flex flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 transition-all active:scale-90 ${isInquiry ? '' : 'text-gray-400 hover:text-gray-700'}`}
-                      style={{
-                        opacity: bizNavCollapsing ? 0 : 1,
-                        transform: bizNavCollapsing ? 'scale(0.5)' : (bizNavExpanding ? undefined : 'scale(1)'),
-                        filter: bizNavCollapsing ? 'blur(4px)' : 'blur(0px)',
-                        transition: bizNavCollapsing
-                          ? `opacity 0.25s ease ${idx * 0.03}s, transform 0.25s ease ${idx * 0.03}s, filter 0.25s ease ${idx * 0.03}s`
-                          : 'opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease',
-                        ...(bizNavExpanding ? { animation: `bizIconAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.25 + idx * 0.08}s both` } : {}),
-                      }}
-                    >
-                      {isInquiry ? (
-                        <div
-                          className="relative h-5 w-5"
-                          style={{
-                            WebkitMask: `url(${item.iconSrc}) no-repeat center / contain`,
-                            mask: `url(${item.iconSrc}) no-repeat center / contain`,
-                            background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
-                            backgroundSize: '200% 100%',
-                            animation: 'iconGradientShift 2s linear infinite',
-                          }}
-                        />
-                      ) : (
-                        <Image src={item.iconSrc} alt={item.label} width={20} height={20} className="opacity-60" />
-                      )}
-                      <span
-                        className="whitespace-nowrap text-[9px] font-medium"
-                        style={isInquiry ? {
-                          background: 'linear-gradient(90deg, #0052B5, #111111, #0052B5)',
-                          backgroundSize: '200% 100%',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text',
-                          animation: 'textGradientShift 2s linear infinite',
-                          fontWeight: 700,
-                        } : {}}
-                      >
-                        {item.label}
-                      </span>
-                      {/* 문의하기 말풍선 — 문의 버튼 위. 칸 폭 = 단추 폭이고 말풍선은 오른쪽 끝을 단추에 맞춰 왼쪽으로 자란다
-                          (가운데 정렬이면 화면 오른쪽 끝을 넘어 테두리 · 그림자가 잘렸다 — 375 에서 1px, 320 에서 8px). 꼬리는 단추 가운데 */}
-                      {isInquiry && !inquiryBubbleHidden && !bizNavCollapsing && (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 bottom-full mb-2 flex justify-end whitespace-nowrap"
-                          style={{
-                            animation: 'bubbleBoingOnce 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both, bubbleFloat 2.8s ease-in-out 1.5s infinite',
-                            zIndex: 51,
-                          }}
-                        >
-                          <div className="rounded-full border border-gray-100 bg-white px-3 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
-                            <span
-                              className="text-[11px] font-bold"
-                              style={{
-                                background: 'linear-gradient(90deg, #111111, #0052B5, #111111)',
-                                backgroundSize: '200% 100%',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                backgroundClip: 'text',
-                                animation: 'textGradientShift 2.5s ease-in-out infinite',
-                              }}
-                            >
-                              {t({ ko: '문의하기', en: 'Contact us', ja: 'お問合せ', zh: '联系我们' })}
-                            </span>
-                          </div>
-                          <div className="absolute -bottom-[4px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-gray-100 bg-white" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Biz nav transition keyframes */}
+      {/* 비즈 페이지 전역 스타일(모바일 하단 탭바는 biz/layout.tsx 의 BizTabBar — 옛 유리 알약 바 · 문의 말풍선은 261008 걷어냄) */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes bizPillExpand {
-          0% { width: 60px; max-width: 60px; filter: blur(0px); }
-          15% { filter: blur(3px); }
-          50% { filter: blur(1px); }
-          70% { width: 105%; max-width: 530px; filter: blur(0px); }
-          100% { width: 100%; max-width: 512px; filter: blur(0px); }
-        }
-        @keyframes bizIconAppear {
-          0% { opacity: 0; transform: scale(0.3) translateY(4px); filter: blur(4px); }
-          60% { opacity: 1; transform: scale(1.1) translateY(-1px); filter: blur(0px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
-        }
-        @keyframes bubbleBoingOnce {
-          0% { transform: scale(0) translateY(6px); opacity: 0; }
-          50% { transform: scale(1.15) translateY(-2px); opacity: 1; }
-          70% { transform: scale(0.95) translateY(0); }
-          85% { transform: scale(1.05) translateY(-1px); }
-          100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-        @keyframes bubbleFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-        @keyframes textGradientShift {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 200% 50%; }
-        }
-        @keyframes iconGradientShift {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 200% 50%; }
-        }
         /* framer useScroll 의 스크롤 칸(<html>)이 static 이면 개발 모드 경고 — 계산은 같다(offsetParent 는 body 에서 끝남) */
         html { position: relative; }
         /* 일본어 · 중국어 — 띄어쓰기가 없어 keep-all(전역 body · break-keep)이면 줄바꿈 기회가 0 이 돼 칸 밖으로 넘쳤다.

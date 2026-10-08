@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useT } from '@/lib/biz/i18n';
 import { MOMENTS } from './content';
-import { clamp01, ease, lerp, prefersReducedMotion, scrollToElement, seg, useFrame, usePassProgress } from './scene';
+import { clamp01, ease, lerp, prefersReducedMotion, seg, useFrame, usePassProgress } from './scene';
+import { scrollToBizSection } from '../scroll-to';
 import { GlassTile, WhitePill, bezier } from './SceneMoments.parts';
 
 /*
@@ -108,9 +109,9 @@ function twoLines(s: string) {
   return `${s.slice(0, cut).replace(/ — $/, ' —').trimEnd()}\n${s.slice(cut).trimStart()}`;
 }
 
+/** 문의 폼으로 — 탭바 '문의하기'와 같은 도우미(도착 자리 · 하단 탭바 붙잡기) */
 function goInquiry() {
-  const el = document.getElementById('문의폼');
-  if (el) scrollToElement(el, -20);
+  scrollToBizSection('문의폼');
 }
 
 /** 주인공 사진을 둘째 자리로(나머지 순서 유지) */

@@ -212,7 +212,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 웨딩숲 자기 머리줄·사이드바·글쓰기 칸은 그 아래에 붙는다(community.css --fcom-pc-top).
   const communityRoute = /^\/community(\/|$)/.test(pathname);
   // 비즈 첫 화면(토스식 장면, 261008) — 화면 가득 장면이라 폭 제한 없이(하위 화면 ceo·faq 등은 그대로)
-  const bizFullRoute = /^\/biz(\/lab)?$/.test(pathname);
+  const bizFullRoute = /^\/biz(\/lab|\/news)?$/.test(pathname); // news(261008 비즈 뉴스·소식) = 흰 머리줄이 화면 끝까지라 max-w-7xl·px-8 칸이면 PC 양옆에 회색 띠가 비쳤다 — 폭은 화면이 직접 1100 으로
   // 사회자 목록 · 웨딩파트너 목록 — 모바일은 자기 머리줄(하단 탭 없음) 그대로, PC 는 전체 헤더를 보인다(260928 사장 'PC 목록 화면도 지금 톤앤매너로')
   const pcHeaderRoute = /^\/(pros|businesses)$/.test(pathname);
   // PC 웨딩숲 검색창(전체 헤더) — 웨딩숲 글 목록이 같은 값으로 찾는다. 웨딩숲을 벗어나면 비운다.
