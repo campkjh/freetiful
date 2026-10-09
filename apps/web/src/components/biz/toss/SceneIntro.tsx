@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { motion, type MotionValue } from 'framer-motion';
 import { useBizLang, useT } from '@/lib/biz/i18n';
-import { INTRO } from './content';
+import { HERO_TALL_MQ, INTRO, heroMedia } from './content';
 import { clamp01, ease, prefersReducedMotion, seg, useFrame, useSceneProgress } from './scene';
 import {
   BoardListCard, CHAT_STEPS, ChatScreen, FLAT_BAND_SHADOW, FloorShadow, HOST_SCREENS, HostPopCards, HostScreenLayers, PHONE_BEZEL, PHONE_FRAME, PHONE_RIM_BG,
@@ -632,8 +632,26 @@ function useSharedLoopVideo(active: boolean, a: RefObject<HTMLDivElement>, b: Re
     v.setAttribute('aria-hidden', 'true');
     v.tabIndex = -1;
     v.preload = 'none';
-    v.poster = INTRO.heroPoster;
-    v.src = INTRO.heroVideo;
+    // 폰 세로면 세로 편집본(진행자를 따라 자른 것), 아니면 가로 영상 — 포스터 칸(<picture>)과 같은 기준(HERO_TALL_MQ · 261009)
+    const pick = () => {
+      const m = heroMedia();
+      v.poster = m.poster;
+      if (v.getAttribute('src') !== m.video) v.src = m.video;
+    };
+    pick();
+    // 폰을 돌리면(세로 ↔ 가로) 그 화면용 영상으로 갈아 끼운다 — 보던 시각에서 이어서
+    let tallMq: MediaQueryList | null = null;
+    try {
+      tallMq = window.matchMedia(HERO_TALL_MQ);
+    } catch { /* matchMedia 없음 — 처음 고른 영상 그대로 */ }
+    const onTall = () => {
+      const at = v.currentTime;
+      const playing = !v.paused;
+      pick();
+      if (at > 0) v.currentTime = at;
+      if (playing) v.play().catch(() => {});
+    };
+    tallMq?.addEventListener?.('change', onTall);
     const untrim = attachTrimLoop(v);
     const area = [0, 0];
     let owner = -1;
@@ -650,9 +668,11 @@ function useSharedLoopVideo(active: boolean, a: RefObject<HTMLDivElement>, b: Re
       if (best !== owner) {
         owner = best;
         const tpl = els[best].querySelector<HTMLElement>('[data-vslot]');
-        v.className = tpl?.className || 'absolute inset-0 h-full w-full object-cover';
+        v.className = tpl?.className || 'absolute inset-0 h-full w-full object-cover si-hpos';
         v.style.cssText = tpl?.style.cssText || '';
-        if (tpl) tpl.after(v);
+        // 포스터 그림은 <picture> 안 — 영상은 그 <picture> 뒤에 단다(picture 안엔 source · img 만)
+        const anchor = tpl?.parentElement?.tagName === 'PICTURE' ? tpl.parentElement : tpl;
+        if (anchor) anchor.after(v);
         else els[best].prepend(v);
       }
       if (v.preload !== 'auto') v.preload = 'auto';
@@ -668,6 +688,7 @@ function useSharedLoopVideo(active: boolean, a: RefObject<HTMLDivElement>, b: Re
     els.forEach((el) => io.observe(el));
     return () => {
       io.disconnect();
+      tallMq?.removeEventListener?.('change', onTall);
       untrim();
       v.pause();
       v.removeAttribute('src');
@@ -679,12 +700,16 @@ function useSharedLoopVideo(active: boolean, a: RefObject<HTMLDivElement>, b: Re
 
 /**
  * 영상 칸 밑 포스터(영상이 다른 칸에 가 있거나 아직 안 왔을 때 보임).
- * 구도(objectPosition)는 INTRO.heroPos.mob 을 기본으로 박아 둔다 — 영상이 이 칸으로 옮겨 올 때 이 style 을 그대로 입어 포스터 ↔ 영상이 같은 자리(261009).
+ * 폰 세로(HERO_TALL_MQ)는 세로 편집본 첫 장면, 그 밖은 가로 포스터 — <picture> 가 서버 그림부터 화면에 맞게 고른다(하이드레이션 뒤 바뀌지 않음 · 261009).
+ * 구도는 class si-hpos(SI_CSS — 화면에 따라 heroPos.tall / mob) — 영상이 이 칸으로 옮겨 올 때 이 class · style 을 그대로 입어 포스터 ↔ 영상이 같은 자리.
  */
 function PosterSlot({ className, style, lazy }: { className: string; style?: CSSProperties; lazy?: boolean }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- public 정적 포스터, 영상과 같은 칸 맞춤
-    <img data-vslot src={INTRO.heroPoster} alt="" aria-hidden="true" draggable={false} decoding="async" loading={lazy ? 'lazy' : undefined} className={className} style={{ objectPosition: INTRO.heroPos.mob, ...style }} />
+    <picture>
+      <source media={HERO_TALL_MQ} srcSet={INTRO.heroPosterTall} />
+      {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 포스터, 영상과 같은 칸 맞춤 */}
+      <img data-vslot src={INTRO.heroPoster} alt="" aria-hidden="true" draggable={false} decoding="async" loading={lazy ? 'lazy' : undefined} className={`${className} si-hpos`} style={style} />
+    </picture>
   );
 }
 

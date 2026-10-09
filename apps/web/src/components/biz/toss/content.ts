@@ -32,24 +32,50 @@ export const DOCK = [
   { id: 'dock-moments', label: tr('순간', 'Moments', '瞬間', '瞬间') },
 ] as const;
 
+/**
+ * 세로 편집본(INTRO.heroVideoTall · heroPosterTall)을 쓰는 화면 — 가로:세로가 2:3 보다 세로로 긴 화면(폰 세로).
+ * 9:16 편집본이 위아래를 16% 넘게 잘리지 않는 경계(첫 화면 카드 상태 1.2배 확대에서도 진행자 머리가 남는다).
+ * 태블릿 세로(3:4)는 가로 영상 + heroPos.mob 그대로(261009).
+ */
+export const HERO_TALL_MQ = '(max-aspect-ratio: 2/3)';
+/** 지금 화면에 맞는 첫 장면 영상 · 포스터 · 구도(브라우저에서만 — 서버에선 가로판) */
+export function heroMedia(): { video: string; poster: string; pos: string; tall: boolean } {
+  let tall = false;
+  try {
+    tall = typeof window !== 'undefined' && window.matchMedia(HERO_TALL_MQ).matches;
+  } catch { /* matchMedia 없음 — 가로판 */ }
+  return tall
+    ? { video: INTRO.heroVideoTall, poster: INTRO.heroPosterTall, pos: INTRO.heroPos.tall, tall }
+    : { video: INTRO.heroVideo, poster: INTRO.heroPoster, pos: INTRO.heroPos.mob, tall };
+}
+
 /* ① 첫 화면 → 채팅 섭외 → 진행자 고르기(토스 '토스·송금·자산' 장면 자리) */
 export const INTRO = {
   /*
    * 261009 사장 '기업행사부터 웨딩홀 전속까지 프리티풀 비즈 — 영상을 송년회 영상 말고 corporate-mc 그 페이지 히어로로'.
-   * hero-cmc-loop = videos/corporate-mc-hero.mp4 를 960×540 · 1.5Mbps · 소리 없음 · 15초로 줄인 것, hero-cmc-poster = 그 첫 장면.
+   * hero-cmc-loop = videos/corporate-mc-hero.mp4 를 960×540 · 1.5Mbps · 소리 없음 · 15초로 줄인 것, hero-cmc-poster = 그 첫 장면(mozjpeg 80 · 76KB).
    * 첫 화면 영상 카드 · 채팅 장면 뒤 흐린 영상(데스크톱 · 모바일) · 홈 스와이프 미리보기(BizSwipePeek)가 같이 쓴다.
    */
   heroVideo: `${V2}/hero-cmc-loop.mp4`,
   heroPoster: `${V2}/hero-cmc-poster.jpg`,
+  /*
+   * 세로 화면(폰 · HERO_TALL_MQ)용 세로 편집본 — 같은 원본에서 장면마다 진행자를 따라가며 404×720 으로 잘라 낸 것(1Mbps · 소리 없음 · 15초 · 1.9MB).
+   * (261009 검증: 가로 영상 하나를 구도값 하나로 세로 화면에 깔면 15초 중 약 60% 동안 진행자가 화면 밖이거나 반만 보였다 —
+   *  폰에선 영상 가로의 20~26% 만 보이는데, 장면마다 카메라가 오른쪽 → 왼쪽으로 흘러 어느 값으로 고정해도 진행자가 빠져나간다.)
+   * 진행자 위치 = macOS Vision 얼굴 · 사람 찾기로 프레임마다 재고(9프레임 고르기) 장면 사이(빛 번짐 와이프 · 빛망울)에서 끊어 잇는다.
+   * 그래서 이 영상은 가운데(heroPos.tall)로 깔면 늘 진행자가 가운데. 포스터 = 이 편집본 첫 장면(mozjpeg 80 · 43KB).
+   * 장면 경계(초) 2.458 · 5.667 · 9.917 · 12.958, 렌더 = AVAssetWriter H.264 High(YUV 평면 그대로 잘라 색 변환 없음). 가로 원본이 바뀌면 이것도 다시 뽑을 것.
+   */
+  heroVideoTall: `${V2}/hero-cmc-loop-tall.mp4`,
+  heroPosterTall: `${V2}/hero-cmc-poster-tall.jpg`,
   /**
-   * 영상 구도 — 진행자가 가운데에서 오른쪽에 서 있고, 장면마다 카메라가 오른쪽 → 왼쪽으로 흐른다
-   *   (0.5초마다 잰 진행자 가로 위치: 첫 장면 연단 63% → 2초에 48%, 이후 장면도 73~79% 에서 시작해 30~50% 로).
-   * mob = 세로 화면(390×844 에서 영상 가로의 26%, 첫 화면 둥근 카드 상태는 20% 만 보임): 가운데 50% 면 첫 장면 진행자가 화면 오른쪽 밖,
-   *   60% 는 카드 상태에서 어깨가 카드 오른쪽에 잘렸고, 66% 는 첫 장면이 가운데지만 1초 뒤 진행자가 왼쪽 끝으로 나간다 → 62%
-   *   (첫 장면 진행자 화면 가로 ≈ 67% · 카드 상태 ≈ 74%, 1.6초까지 화면 안). desk = 가로 화면(가로는 거의 다 보임 · 위아래가 잘릴 때 머리 쪽을 남기게 42%).
+   * 영상 구도 — 가로 원본은 진행자가 가운데에서 오른쪽에 서 있고, 장면마다 카메라가 오른쪽 → 왼쪽으로 흐른다.
+   * tall = 세로 편집본(위) — 이미 진행자를 가운데로 잘라 놓아 50%.
+   * mob = 세로로 길지 않은 쌓는 판(태블릿 · 가로로 돌린 폰 · 줄인 움직임) 가로 영상 — 진행자 첫 위치(63%) 쪽 62%.
+   * desk = 가로 화면(가로는 거의 다 보임 · 위아래가 잘릴 때 머리 쪽을 남기게 42%).
    * 영상 칸 · 포스터 칸 · 홈 미리보기가 같은 값을 써야 영상이 칸을 옮기거나 미리보기에서 진짜 화면으로 바뀔 때 그림이 튀지 않는다.
    */
-  heroPos: { mob: '62% 50%', desk: '60% 42%' },
+  heroPos: { mob: '62% 50%', desk: '60% 42%', tall: '50% 50%' },
   /** 반복 구간 끝(초) — 옛 송년회 영상은 끝 1.7초가 흰 화면으로 사라져 12초에서 되돌렸다. 새 영상(15초)은 끝까지 행사 장면이라 null = 통째로 반복 */
   heroLoopEnd: null as number | null,
   /** 첫 화면 큰 제목 — 세 덩어리가 한 줄에 양 끝 맞춤으로 */

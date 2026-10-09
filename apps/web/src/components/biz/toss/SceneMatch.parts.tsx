@@ -173,7 +173,7 @@ export function MatchDemo({ card, t, active, run, still }: { card: MatchCardData
  * 등장 = 판 고유의 것(점 → 제목 → 원 커짐 → 반짝이 → 칩 톡 · 체크 배지, 이후 칩 둥실 · 원 숨쉬기). 카드가 떠오르기 전에 판이 혼자
  * 재생되지 않게, 카드가 켜지고(fired) 화면 안일 때(visible) 붙인다 — 판의 6초 폴백이 화면 밖에서 먼저 터지는 것도 막는다.
  */
-export function OrbDemo({ card, fired, visible, still, delay }: { card: OrbCardData; fired: boolean; visible: boolean; still: boolean; delay: number }) {
+export function OrbDemo({ card, fired, visible, still, delay, hovered }: { card: OrbCardData; fired: boolean; visible: boolean; still: boolean; delay: number; hovered: boolean }) {
   const { lang } = useBizLang();
   const [mount, setMount] = useState(still);
   useEffect(() => {
@@ -182,6 +182,20 @@ export function OrbDemo({ card, fired, visible, still, delay }: { card: OrbCardD
     const id = window.setTimeout(() => setMount(true), delay);
     return () => window.clearTimeout(id);
   }, [fired, visible, still, mount, delay]);
+  /*
+   * 마우스를 올리면 판 고유의 등장을 한 번 더(261009 검증 — 옆 두 카드는 올리면 데모가 도는데 이 카드만 반응이 없었다).
+   * 첫 등장 · 직전 재생 뒤 2.6초(등장이 다 끝나는 시간) 안에 다시 올린 것은 무시 — 카드 사이를 오가며 판이 깜빡이지 않게.
+   */
+  const [play, setPlay] = useState(0);
+  const lastPlay = useRef(0);
+  useEffect(() => {
+    if (!mount || still) return;
+    const now = performance.now();
+    if (!lastPlay.current) { lastPlay.current = now; return; }
+    if (!hovered || now - lastPlay.current < 2600) return;
+    lastPlay.current = now;
+    setPlay((p) => p + 1);
+  }, [hovered, mount, still]);
   const o = card.orb;
   const text = useMemo<KeywordOrbText>(() => {
     const t = (tr: Tr) => getT(tr, lang);
@@ -197,9 +211,10 @@ export function OrbDemo({ card, fired, visible, still, delay }: { card: OrbCardD
   return (
     <>
       <div className="smx-orbp" />
-      <div className="smx-orbw">
-        {/* key = 언어 — 바뀌면 판을 새로 그려 칩 폭 · 제목 맞춤을 처음부터 다시 잰다 */}
-        {mount && <KeywordOrb key={lang} text={text} still={still} />}
+      {/* 카드가 화면 밖이면 판의 끝없는 움직임(원 숨쉬기 · 반짝임 · 칩 둥실)을 멈춘다 — 옆 카드들과 같게(SceneMatch .smx-orbw.paused · 261009 검증) */}
+      <div className={`smx-orbw${mount && !visible && !still ? ' paused' : ''}`}>
+        {/* key = 언어 · 다시 재생 — 바뀌면 판을 새로 그려 칩 폭 · 제목 맞춤을 처음부터 다시 재고 등장도 처음부터 */}
+        {mount && <KeywordOrb key={`${lang}-${play}`} text={text} still={still} />}
       </div>
     </>
   );

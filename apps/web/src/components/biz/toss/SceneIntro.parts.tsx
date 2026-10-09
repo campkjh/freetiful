@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
-import { INTRO } from './content';
+import { HERO_TALL_MQ, INTRO } from './content';
 import { scrollToElement } from './scene';
 
 /*
@@ -59,7 +59,12 @@ export const SI_CSS = `
 .si-fu{opacity:0;transform:translate3d(0,80px,0);transition:opacity .7s cubic-bezier(.25,1,.5,1),transform .7s cubic-bezier(.25,1,.5,1)}
 .si-fu[data-in]{opacity:1;transform:none}
 .si-mphone{--ps:.74}
+/* 아주 좁은 폰(320 — SE 1세대 · 작은 안드)은 기운 폰 오른쪽 위 옆면이 카드 오른쪽 끝에 2px 걸려 잘렸다 → 그 폭에서만 조금 작게(261009 검증) */
+@media (max-width:340px){.si-mphone{--ps:.68}}
 @media (min-width:768px){.si-mphone{--ps:.86}}
+/* 첫 장면 영상 · 포스터 구도(261009) — 폰 세로는 세로 편집본이라 가운데, 그 밖(태블릿 · 가로 폰)은 가로 영상 62% */
+.si-hpos{object-position:${INTRO.heroPos.mob}}
+@media ${HERO_TALL_MQ}{.si-hpos{object-position:${INTRO.heroPos.tall}}}
 .si-mhero{--t:56px;--s:20px;--b:calc(96px + env(safe-area-inset-bottom,0px));--r:40px;height:100vh;height:100svh;min-height:540px}
 @media (min-width:768px){.si-mhero{--t:64px;--s:24px;--b:24px;--r:40px}}
 .si-mclip{clip-path:inset(var(--t) var(--s) var(--b) round var(--r));transition:clip-path 1s cubic-bezier(.33,1,.68,1)}

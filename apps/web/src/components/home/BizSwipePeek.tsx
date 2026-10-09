@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { INTRO } from '@/components/biz/toss/content';
+import { INTRO, heroMedia } from '@/components/biz/toss/content';
 import { BIZ_LANGS, getT, type BizLangCode, type Translations } from '@/lib/biz/i18n';
 
 /** 비즈에서 고른 언어(lib/biz/i18n 이 localStorage 'biz-lang' 에 적는다) — 홈은 비즈 언어 칸 밖이라 직접 읽는다 */
@@ -35,7 +35,8 @@ export function preloadBizPeek(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
   if (!peekReady) {
     peekReady = Promise.all(
-      [INTRO.heroPoster, '/images/logo-prettyful.svg'].map(
+      // 포스터는 지금 화면에 맞는 것(폰 세로 = 세로 편집본 첫 장면 · 261009) — 미리보기 · /biz 첫 장면과 같은 그림
+      [heroMedia().poster, '/images/logo-prettyful.svg'].map(
         (src) => new Promise<void>((resolve) => {
           try {
             const img = new window.Image();
@@ -54,6 +55,8 @@ export function preloadBizPeek(): Promise<void> {
 export default function BizSwipePeek() {
   // 넘긴 뒤 진짜 /biz 와 같은 말로(261009 — 영어로 보던 사람에게 한국어 미리보기가 나왔다 바뀌면 튄다). 홈 포털 안에서만 그려져 첫 렌더부터 읽어도 된다
   const [lang] = useState<BizLangCode>(() => (typeof window === 'undefined' ? 'ko' : savedBizLang()));
+  // 첫 장면 그림 · 구도 — /biz 모바일 첫 장면과 같은 기준(폰 세로 = 세로 편집본 포스터 + 가운데, 그 밖 = 가로 포스터 + 62% · 261009)
+  const [hero] = useState(heroMedia);
   const titleRef = useRef<HTMLHeadingElement>(null);
   // 사진이 뜨기 전엔 밝은 빈 카드만 — 어두운 카드 바탕·아래 띠·흰 제목이 먼저 보이면 '검은 덩어리'로 보였다(261009 사장). 사진과 함께 스르르
   const [loaded, setLoaded] = useState(false);
@@ -89,14 +92,14 @@ export default function BizSwipePeek() {
         {/* 비즈 첫 장면처럼 화면 기준 120% 로 깔고 카드가 창이 된다 */}
         {/* eslint-disable-next-line @next/next/no-img-element -- 정적 포스터 한 장 */}
         <img
-          src={INTRO.heroPoster}
+          src={hero.poster}
           alt=""
           draggable={false}
           onLoad={() => setLoaded(true)}
           ref={(el) => { if (el && el.complete && el.naturalWidth > 0 && !loaded) setLoaded(true); }}
           className="absolute max-w-none object-cover"
-          // 구도 = 비즈 모바일 첫 장면과 같은 값(261009 corporate-mc 히어로 영상 — 진행자가 가운데 · 오른쪽) — 넘긴 뒤 진짜 /biz 로 바뀌어도 그림이 안 튄다
-          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - 10vh)', width: '120vw', height: '120vh', objectPosition: INTRO.heroPos.mob, ...fade }}
+          // 구도 = 비즈 모바일 첫 장면과 같은 값(261009 corporate-mc 히어로 영상 — 폰 세로는 진행자를 따라 자른 세로 편집본) — 넘긴 뒤 진짜 /biz 로 바뀌어도 그림이 안 튄다
+          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - 10vh)', width: '120vw', height: '120vh', objectPosition: hero.pos, ...fade }}
         />
         <div className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: 'linear-gradient(rgba(56,68,82,0), rgb(56,68,82))', ...fade }} />
         <h2

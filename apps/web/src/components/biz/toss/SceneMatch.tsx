@@ -202,6 +202,8 @@ const CSS = `
   background:radial-gradient(90% 70% at 50% 34%,rgba(255,255,255,.96) 0,rgba(255,255,255,.9) 55%,rgba(255,255,255,.66) 100%);
   -webkit-mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.55) 84%,transparent 100%);mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.55) 84%,transparent 100%)}
 .smx-orbw{position:absolute;left:50%;top:calc(5% + 8px);width:min(calc(88% - 16px),calc(110.7% - 89px));transform:translateX(-50%);pointer-events:none}
+/* 화면 밖이면 판의 끝없는 움직임을 멈춤(261009 검증). 판은 inline animation 축약형이라 play-state 가 inline 으로 running — !important 라야 이긴다 */
+.smx-orbw.paused [style*="kwo"]{animation-play-state:paused!important}
 
 /* 카드 3 */
 .smx-p3{border-radius:32px;padding:36px 32px 0;gap:8px;
@@ -342,7 +344,7 @@ function DemoCard({
         {kind === 'orb' ? (
           // 언급 키워드 판 — 무대 밖(판이 제 폭을 잰다). 카드가 떠오르기 시작하고 조금 뒤(카드 지연 + 250ms) 판 고유의 등장이 시작된다
           <div className="smx-orb" aria-hidden>
-            <OrbDemo card={card as unknown as OrbCardData} fired={fired} visible={run} still={still} delay={(mode === 'desk' ? dlDesk : i * 200) + 250} />
+            <OrbDemo card={card as unknown as OrbCardData} fired={fired} visible={run} still={still} hovered={hovered} delay={(mode === 'desk' ? dlDesk : i * 200) + 250} />
           </div>
         ) : (
           <div className="smx-stage" ref={stageRef} aria-hidden>
