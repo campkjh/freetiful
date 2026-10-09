@@ -9,6 +9,7 @@ import { ChevronRightIcon, CheckIcon } from '@/components/icons/mono';
 import { useBizLang, useT, type BizLangCode, type Translations } from '@/lib/biz/i18n';
 import { popItemDelay } from '@/lib/pop-menu';
 import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import BizInquiryPros, { cleanPicked, isMcInquiry, prefetchBizInquiryPros, warmBizInquiryPros, type McInquiryKind, type PickedPro } from '@/components/biz/BizInquiryPros';
 
 /*
  * 비즈 상담 채팅(/biz/inquiry, 261009 사장 '문의하기 누르면 문의 섹션으로 내려가지 말고, 타임키퍼 키키 상담처럼 —
@@ -27,10 +28,16 @@ import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
  *    실패하면 '다시 보내기'. 접수 뒤엔 sessionStorage 에 완료를 남겨 새로 고침해도 다시 보내지 않고 접수 화면을 그대로 보여 준다(30분).
  *    중간에 새로 고침하면 쓰던 답까지 이어서(첨부 파일은 브라우저가 다시 줄 수 없어 파일 질문부터 다시).
  *  · 첨부는 4MB 까지 — 웹은 Vercel 함수라 요청 본문이 4.5MB 를 넘으면 문의 전체가 413 으로 실패한다(10MB 로 안내하면 큰 파일은 접수가 통째로 안 됨).
+ *  · 사회자 고르기(261009 사장 '사회자섭외 부분 누르면 사회자 리스트 주르륵 나오게끔') — 기업행사 · 결혼식 사회자 섭외 · 축제 · 체육대회를 고르면
+ *    유형 다음에 'pros' 단계: '이런 사회자들이 함께해요 · 원하는 분을 골라 주세요(여러 명 가능)' 말풍선 아래 사회자 카드 가로 줄(BizInquiryPros) → 칩 '선택 완료(N명)' · '아직 모르겠어요'.
+ *    고른 사람은 내 말풍선 '희망 사회자: 이름, 이름'으로 쌓이고(눌러서 다시 고르기), 접수 때 message 맨 앞에 '[희망 사회자] 이름(프로필 id), …' 줄로 붙는다
+ *    (서버 /api/inquiry 는 그대로 — message 로만). 고르는 중인 사람(pick)도 저장본에 남겨 사회자 상세에 다녀와도 그대로.
  */
 
-const STEPS = ['type', 'company', 'name', 'phone', 'message', 'file'] as const;
+const STEPS = ['type', 'pros', 'company', 'name', 'phone', 'message', 'file'] as const;
 type Step = (typeof STEPS)[number];
+/** 이 문의유형에서 묻는 순서 — 'pros'(사회자 고르기)는 사회자 섭외 유형(기업행사 · 결혼식 · 축제 · 체육대회)만 */
+const flowOf = (type: InquiryType | null): Step[] => STEPS.filter((s) => s !== 'pros' || isMcInquiry(type));
 /** unsure = 보내는 중에 새로 고침 · 화면을 떠났다 돌아옴 — 서버는 이미 접수했을 수 있어 첨부 질문부터 그냥 다시 묻지 않는다(같은 문의 두 번 방지) */
 type Phase = Step | 'sending' | 'failed' | 'unsure' | 'done';
 const isStep = (p: unknown): p is Step => typeof p === 'string' && (STEPS as readonly string[]).includes(p);
@@ -61,8 +68,9 @@ type FailKind = 'net' | 'server';
 type BotMsg = { id: string; from: 'bot'; key: BotKey; at: number; fail?: FailKind; qt?: InquiryType | null };
 type MeMsg = { id: string; from: 'me'; step: Step; at: number; fileName?: string; fileSize?: number };
 type Msg = BotMsg | MeMsg;
-type Answers = { type: InquiryType | null; company: string; companySkipped: boolean; name: string; phone: string; message: string };
-const EMPTY_ANSWERS: Answers = { type: null, company: '', companySkipped: false, name: '', phone: '', message: '' };
+/** pros = 고른 희망 사회자(선택 완료), prosSkipped = '아직 모르겠어요' */
+type Answers = { type: InquiryType | null; pros: PickedPro[]; prosSkipped: boolean; company: string; companySkipped: boolean; name: string; phone: string; message: string };
+const EMPTY_ANSWERS: Answers = { type: null, pros: [], prosSkipped: false, company: '', companySkipped: false, name: '', phone: '', message: '' };
 
 /* ───────────── 문구(4개 언어) ───────────── */
 
@@ -94,7 +102,10 @@ const S = {
   phHall: { ko: '웨딩홀 이름', en: 'Wedding hall name', ja: '式場名', zh: '婚礼堂名称' },
   phName: { ko: '담당자명', en: 'Contact name', ja: 'ご担当者名', zh: '联系人姓名' },
   phMessage: { ko: '문의 내용', en: 'Your message', ja: 'お問合せ内容', zh: '咨询内容' },
-  phFile: { ko: "파일을 고르거나 '없어요'를 눌러 주세요", en: "Choose a file or tap 'No file'", ja: 'ファイルを選ぶか「ありません」を押してください', zh: '请选择文件或点击“没有”' },
+  // 일본어는 360 에서 끝이 잘려 짧게(261009 검증)
+  phPros: { ko: '위에서 사회자를 골라 주세요', en: 'Pick MCs from the cards above', ja: '上で司会者を選んでください', zh: '请在上方选择主持人' },
+  // 일본어는 360 · 390 입력 칸(256 · 286px)을 넘어 끝이 잘려 짧게(261009 검증)
+  phFile: { ko: "파일을 고르거나 '없어요'를 눌러 주세요", en: "Choose a file or tap 'No file'", ja: 'ファイルを選ぶか「ありません」', zh: '请选择文件或点击“没有”' },
   phSending: { ko: '보내는 중…', en: 'Sending…', ja: '送信中…', zh: '发送中…' },
   phFailed: { ko: "'다시 보내기'를 눌러 주세요", en: "Tap 'Send again'", ja: '「再送信」を押してください', zh: '请点击“重新发送”' },
   phWait: { ko: '메시지 보내기', en: 'Message', ja: 'メッセージ', zh: '发送消息' },
@@ -106,6 +117,7 @@ const S = {
   errMessage: { ko: '문의 내용을 입력해 주세요', en: 'Please enter your message', ja: 'お問合せ内容を入力してください', zh: '请输入咨询内容' },
   // 고칠 항목 이름
   fType: { ko: '문의유형', en: 'Inquiry type', ja: 'お問合せ種類', zh: '咨询类型' },
+  fPros: { ko: '희망 사회자', en: 'MC picks', ja: '希望司会者', zh: '心仪主持' },
   fCompany: { ko: '회사명', en: 'Company', ja: '会社名', zh: '公司' },
   fHall: { ko: '웨딩홀', en: 'Wedding hall', ja: '式場', zh: '婚礼堂' },
   fName: { ko: '담당자', en: 'Contact', ja: 'ご担当者', zh: '联系人' },
@@ -115,7 +127,18 @@ const S = {
   personal: { ko: '개인 문의', en: 'Personal', ja: '個人', zh: '个人' },
   none: { ko: '없음', en: 'None', ja: 'なし', zh: '无' },
   receipt: { ko: '접수 완료', en: 'Received', ja: '受付完了', zh: '已受理' },
+  // 사회자 고르기(261009 사장)
+  // 일본어 칩은 360 에서 '選択完了（2名）'가 화면 밖으로 잘려 짧게(261009 검증)
+  prosUnsure: { ko: '아직 모르겠어요', en: 'Not sure yet', ja: 'まだ未定', zh: '还没想好' },
+  reprosHead: { ko: '희망 사회자 다시 고르기', en: 'Choose your MCs again', ja: '希望の司会者を選び直す', zh: '重新选择心仪主持人' },
 } satisfies Record<string, Translations>;
+
+/** 칩 '선택 완료(N명)' */
+const prosDoneOf = (n: number): Translations => ({ ko: `선택 완료(${n}명)`, en: `Done (${n})`, ja: `決定（${n}名）`, zh: `选好了（${n}位）` });
+/** 내 말풍선 '희망 사회자: 이름, 이름' */
+const prosAnswerOf = (names: string): Translations => ({ ko: `희망 사회자: ${names}`, en: `Preferred MCs: ${names}`, ja: `希望の司会者：${names}`, zh: `心仪的主持人：${names}` });
+/** 접수 message 맨 앞 줄 — 어드민 · 메일에서 읽는 줄이라 언어와 상관없이 한국어(이름(프로필 id)) */
+const prosMessageLine = (pros: PickedPro[]) => (pros.length ? `[희망 사회자] ${pros.map((p) => `${p.name}(${p.id})`).join(', ')}` : '');
 
 /** 상대(프리티풀 비즈) 말 */
 function botTextOf(key: BotKey, type: InquiryType | null, fail: FailKind | undefined): Translations {
@@ -129,6 +152,17 @@ function botTextOf(key: BotKey, type: InquiryType | null, fail: FailKind | undef
       };
     case 'type':
       return { ko: '문의유형을 알려주세요', en: 'What would you like to ask about?', ja: 'お問合せの種類を教えてください', zh: '请告诉我们咨询类型' };
+    case 'pros':
+      return {
+        // 줄마다 폰 말풍선 한 줄에 들어가게 짧게 — '함께하고 있어요'는 '있어요'만, '마음에 드는 분을 골라 주세요'는 360 에서 '주세요'만
+        // 홀로 내려갔다. 괄호 안은 줄이 안 갈리게(390 에서 '(여러 / 명 가능)'으로 갈렸다) 띄어쓰기는 NBSP.
+        // 일 · 중은 띄어쓰기가 없어 아무 글자에서나 갈린다 — 말 덩어리('選んでください' · '在籍中です' · '主持人')를 낱자 사이 WORD JOINER 로 묶어
+        // 줄 끝 'ます' · 'い' 만 홀로 떨어지지 않게(261009 검증, 일본어 360). 일본어 둘째 줄은 360 말풍선 한 줄(12자)에 들어가게 '好きな方を…'
+        ko: '이런 사회자들이 함께해요\n원하는 분을 골라 주세요 (여러\u00A0명\u00A0가능)',
+        en: 'Meet some of our MCs.\nPick any you like (several\u00A0is\u00A0fine).',
+        ja: 'こんな\u2060司\u2060会\u2060者\u2060が在\u2060籍\u2060中\u2060で\u2060す\n好\u2060き\u2060な\u2060方\u2060を選\u2060ん\u2060で\u2060く\u2060だ\u2060さ\u2060い（\u2060複\u2060数\u2060選\u2060択\u2060可\u2060）',
+        zh: '这些\u2060主\u2060持\u2060人\u2060与\u2060我\u2060们\u2060合\u2060作\n请选择您喜欢的\u2060主\u2060持\u2060人（\u2060可\u2060多\u2060选\u2060）',
+      };
     case 'company':
       if (type === 'wedding-hall') return { ko: '웨딩홀 이름을 알려주세요', en: 'What is the name of your wedding hall?', ja: '式場名を教えてください', zh: '请告诉我们婚礼堂名称' };
       if (needsCompany(type)) return { ko: '회사명을 알려주세요', en: 'What is your company name?', ja: '会社名を教えてください', zh: '请告诉我们公司名称' };
@@ -256,7 +290,8 @@ const GROUP_GAP = 3 * 60 * 1000;
 const STORE_KEY = 'biz-inquiry-chat-v1';
 const STORE_TTL = 30 * 60 * 1000;
 /** rid = 이 문의의 요청 번호 — 다시 보내기 · 새로 고침 뒤 다시 보내도 같은 번호라 서버(/api/inquiry)가 겹친 요청을 한 번만 처리할 수 있다 */
-type Stored = { v: 1; savedAt: number; msgs: Msg[]; answers: Answers; phase: Phase; rid?: string };
+/** pick = 사회자 줄에서 고르는 중인 사람(선택 완료 전), editPros = 희망 사회자를 다시 고르는 중 — 사회자 상세에 다녀와도 그대로(261009 사장) */
+type Stored = { v: 1; savedAt: number; msgs: Msg[]; answers: Answers; phase: Phase; rid?: string; pick?: PickedPro[]; editPros?: boolean };
 
 function readStore(): Stored | null {
   try {
@@ -265,6 +300,9 @@ function readStore(): Stored | null {
     const s = JSON.parse(raw) as Stored;
     if (!s || s.v !== 1 || !Array.isArray(s.msgs) || !s.msgs.length || Date.now() - s.savedAt > STORE_TTL) return null;
     if (!s.answers || (s.answers.type !== null && !isInquiryType(s.answers.type))) return null;
+    // 사회자 고르기 전(예전) 저장본에도 맞게 — 모양이 어긋난 고른 사람은 버린다
+    s.answers = { ...EMPTY_ANSWERS, ...s.answers, pros: cleanPicked(s.answers.pros), prosSkipped: s.answers.prosSkipped === true };
+    s.pick = cleanPicked(s.pick);
     return s;
   } catch {
     return null;
@@ -337,6 +375,8 @@ export default function BizInquiryChat() {
   const [error, setError] = useState<Translations | null>(null);
   const [errorTick, setErrorTick] = useState(0);
   const [editing, setEditing] = useState<Step | null>(null);
+  /** 사회자 줄에서 고르는 중인 사람 — '선택 완료'를 누르면 answers.pros 로(261009 사장) */
+  const [pick, setPick] = useState<PickedPro[]>([]);
   const [ready, setReady] = useState(false); // 저장본을 읽은 뒤부터 저장
   const [headerH, setHeaderH] = useState(72);
   const [footerH, setFooterH] = useState(64);
@@ -362,6 +402,8 @@ export default function BizInquiryChat() {
   msgsRef.current = msgs;
   /** 이 문의의 요청 번호(Stored.rid) — 처음 보낼 때 만들고 다시 보내기 · 새로 고침 뒤에도 그대로 쓴다. 다시 문의하기에서만 새로 */
   const ridRef = useRef('');
+  /** 사회자 줄을 '주르륵' 흘러 들어오게 틀지 — 질문이 방금 나왔거나 말풍선을 눌러 다시 고를 때만(되살린 화면은 그냥 보인다) */
+  const prosAnimRef = useRef(false);
 
   // 상대 말에는 그때의 문의유형을 같이 남긴다(qt) — 말풍선이 나오는 순간엔 고른 유형이 이미 answersRef 에 들어와 있다(say 의 쉼 동안 다시 그려짐)
   const pushBot = useCallback((key: BotKey, extra?: Partial<BotMsg>) => {
@@ -395,6 +437,9 @@ export default function BizInquiryChat() {
       setMsgs(saved.msgs);
       setAnswers({ ...EMPTY_ANSWERS, ...saved.answers });
       ridRef.current = typeof saved.rid === 'string' ? saved.rid : '';
+      // 사회자 상세에 다녀옴 — 고르던 사람 · 다시 고르던 중인지 그대로(줄 위치는 BizInquiryPros 가 되살린다)
+      setPick(saved.pick || []);
+      if (saved.editPros && saved.phase !== 'done' && saved.phase !== 'sending' && saved.phase !== 'unsure') setEditing('pros');
       const last = saved.msgs[saved.msgs.length - 1];
       if (saved.phase === 'done') {
         doneRef.current = true;
@@ -408,27 +453,37 @@ export default function BizInquiryChat() {
         else void say(['unsure']);
       } else {
         // 실패에서 새로 고침 = 파일을 다시 받아야 한다(브라우저가 File 을 되살려 주지 않는다)
-        const next: Step = isStep(saved.phase) ? saved.phase : 'file';
+        let next: Step = isStep(saved.phase) ? saved.phase : 'file';
+        // 사회자 고르기는 사회자 섭외 유형에서만 — 어긋난 저장본이면 다음 질문(회사명)으로
+        if (next === 'pros' && !isMcInquiry(saved.answers.type)) next = 'company';
         setPhase(next);
         if (last && last.from === 'bot' && last.key === next) setBusy(false);
-        else void say([next]);
+        else {
+          if (next === 'pros') prosAnimRef.current = true; // 질문을 새로 하는 거라 줄도 새로 주르륵
+          void say([next]);
+        }
       }
     } else {
       setPhase('type');
       void say(['greet', 'type']);
     }
     setReady(true);
+    // 사회자 목록 · 매칭 제외 명단을 미리 받아 둔다 — 사회자 섭외를 고를 즈음엔 와 있게(홈 · /pros 와 같은 캐시).
+    // 접수 완료 화면을 되살렸거나 이미 사회자 섭외가 아닌 유형으로 진행 중이면 받지 않는다(유형을 고쳐 섭외로 바꾸면 줄이 그때 받는다, 261009 검증)
+    const warmNeeded = !saved || (saved.phase !== 'done' && (saved.answers.type === null || isMcInquiry(saved.answers.type)));
+    const warm = warmNeeded ? window.setTimeout(prefetchBizInquiryPros, 600) : 0;
     return () => {
       aliveRef.current = false;
       seqRef.current++;
+      window.clearTimeout(warm);
     };
   }, [say]);
 
   // 쓰는 대로 저장(새로 고침 · 실수로 뒤로가기에도 이어지게)
   useEffect(() => {
     if (!ready || !msgs.length) return;
-    writeStore({ msgs, answers, phase, rid: ridRef.current || undefined });
-  }, [ready, msgs, answers, phase]);
+    writeStore({ msgs, answers, phase, rid: ridRef.current || undefined, pick, editPros: editing === 'pros' || undefined });
+  }, [ready, msgs, answers, phase, pick, editing]);
 
   // 키보드 — 채팅방과 같은 계산: 보이는 영역(visualViewport)만큼 컨테이너 바닥을 올려 입력 줄이 키보드 위에 붙게(iOS · 안드 웹뷰 공통)
   useEffect(() => {
@@ -488,7 +543,12 @@ export default function BizInquiryChat() {
 
   /* ── 답 ── */
 
-  const nextOf = (s: Step): Step | null => STEPS[STEPS.indexOf(s) + 1] ?? null;
+  /** 다음 질문 — type 을 주면 그 유형의 순서로(유형을 고른 바로 그 순간엔 answersRef 가 아직 옛 값이다) */
+  const nextOf = (s: Step, type: InquiryType | null = answersRef.current.type): Step | null => {
+    const flow = flowOf(type);
+    const i = flow.indexOf(s);
+    return i >= 0 ? flow[i + 1] ?? null : null;
+  };
 
   const showError = (e: Translations) => {
     setError(e);
@@ -534,13 +594,22 @@ export default function BizInquiryChat() {
     });
   };
 
-  const answer = (step: Step, patch: Partial<Answers>, extra?: Partial<MeMsg>) => {
+  /** 이 유형 순서에서 아직 답하지 않은 첫 단계(문의유형 · skip 은 빼고) — 없으면 첨부(다시 보내기 자리, resendUnsure 와 같음) */
+  const resumeStep = (type: InquiryType | null, skip: readonly Step[] = []): Step => {
+    const answered = new Set(msgsRef.current.filter((m): m is MeMsg => m.from === 'me').map((m) => m.step));
+    return flowOf(type).find((s) => s !== 'type' && !skip.includes(s) && !answered.has(s)) ?? 'file';
+  };
+
+  /** nextStep = 다음 질문을 정해서 줄 때(사회자 고르기를 중간에 끼워 넣은 뒤 하던 단계로 돌아가기 등) */
+  const answer = (step: Step, patch: Partial<Answers>, extra?: Partial<MeMsg>, nextStep?: Step | null) => {
     setAnswers((a) => ({ ...a, ...patch }));
     setMsgs((prev) => [...prev, { id: uid(), from: 'me', step, at: Date.now(), ...extra }]);
-    setDraft('');
+    // 사회자 고르기는 칩으로 답해 입력 칸 글과 상관없다 — 중간에 끼워 넣은 경우 쓰던 회사명 등이 지워지지 않게
+    if (step !== 'pros') setDraft('');
     setError(null);
-    const nx = nextOf(step);
+    const nx = nextStep !== undefined ? nextStep : nextOf(step, patch.type !== undefined ? patch.type : answersRef.current.type);
     if (nx) {
+      if (nx === 'pros') prosAnimRef.current = true;
       setPhase(nx);
       void say([nx]);
     }
@@ -552,13 +621,77 @@ export default function BizInquiryChat() {
       setEditing(null);
       setDraft(stashRef.current);
       pulseAnswer('type');
+      const prosAnswered = msgsRef.current.some((m) => m.from === 'me' && m.step === 'pros');
+      // 사회자 섭외가 아닌 유형으로 시작했다가(또는 고르는 중에 비섭외로 바꿨다가) 사회자 섭외로 바꿨는데 아직 사회자를 안 골랐으면
+      // 사회자 질문을 지금 끼워 넣는다 — 고르고 나면 하던 단계로 돌아간다(resumeStep). 예전엔 카드가 끝까지 안 나오고
+      // 진행 막대도 100% 에 못 닿았다(261009 검증). 회사명을 다시 받아야 하는 경우는 사회자를 고른 뒤에 묻는다(finishPros)
+      if (isMcInquiry(type) && !prosAnswered && phase !== 'pros' && phase !== 'type') {
+        setPick([]);
+        prosAnimRef.current = true;
+        setPhase('pros');
+        void say(['pros']);
+        return;
+      }
       // 웨딩홀 · 기업행사로 바꿨는데 회사명을 '개인 문의'로 건너뛰어 뒀으면 바로 회사명(웨딩홀 이름)을 다시 묻는다 — 접수증에 '개인 문의'로 남지 않게
       const answeredCompany = msgsRef.current.some((m) => m.from === 'me' && m.step === 'company');
-      if (needsCompany(type) && answersRef.current.companySkipped && answeredCompany) startEdit('company', true);
+      if (needsCompany(type) && answersRef.current.companySkipped && answeredCompany) { startEdit('company', true); return; }
+      // 사회자를 고르던 중에 사회자 섭외가 아닌 유형으로 바꿨으면 고르기를 접고 아직 안 한 다음 질문으로(처음이면 회사명,
+      // 중간에 끼워 넣은 사회자 질문이었으면 하던 단계 — 이미 답한 회사명을 또 묻지 않게)
+      // 섭외 → 섭외(결혼식 → 기업행사 등)는 고른 사람을 그대로 둔다 — 새 줄에 없는 사람은 줄 맨 앞에 같이 보여 뺄 수 있다(BizInquiryPros)
+      if (phase === 'pros' && !isMcInquiry(type)) {
+        setPick([]);
+        const nx = resumeStep(type);
+        setPhase(nx);
+        void say([nx]);
+      }
       return;
     }
     if (phase !== 'type' || busy) return;
+    // 사회자 섭외 — 상대 '입력 중' 동안 앞 카드 사진을 미리 받아 둔다
+    if (isMcInquiry(type)) warmBizInquiryPros(type);
     answer('type', { type });
+  };
+
+  /* ── 사회자 고르기(261009 사장) ── */
+
+  const prosOpen = editing === 'pros' || (!editing && !busy && phase === 'pros');
+  // 줄이 닫히면 '주르륵' 표시도 끈다 — 다음에 열릴 땐 질문이 새로 나왔거나 다시 고를 때만 다시 켜진다
+  useEffect(() => { if (!prosOpen) prosAnimRef.current = false; }, [prosOpen]);
+  // 희망 사회자를 다시 고를 땐 줄이 대화 맨 아래에 열린다 — 그쪽으로 내려 준다
+  useEffect(() => {
+    if (editing !== 'pros') return;
+    const c = scrollRef.current;
+    if (c) requestAnimationFrame(() => c.scrollTo({ top: c.scrollHeight, behavior: reducedMotion() ? 'auto' : 'smooth' }));
+  }, [editing]);
+  /** '선택 완료' · '아직 모르겠어요'를 한 번만 — 같은 틱에 두 번 오면(옛 값의 prosOpen 으로) '희망 사회자' 말풍선이 두 개 쌓였다(261009 검증) */
+  const prosLockRef = useRef(false);
+  useEffect(() => { if (prosOpen) prosLockRef.current = false; }, [prosOpen]);
+  const togglePick = (p: PickedPro) => {
+    if (!prosOpen || prosLockRef.current) return;
+    setPick((prev) => (prev.some((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : [...prev, p]));
+  };
+  /** 사회자 답 — 다시 고르기면 제자리에서 바꾸고, 아니면 말풍선을 붙이고 아직 안 한 다음 단계로(처음이면 회사명) */
+  const finishPros = (patch: Pick<Answers, 'pros' | 'prosSkipped'>) => {
+    prosLockRef.current = true;
+    if (editing === 'pros') {
+      setAnswers((a) => ({ ...a, ...patch }));
+      setEditing(null);
+      setDraft(stashRef.current);
+      pulseAnswer('pros');
+      return;
+    }
+    answer('pros', patch, undefined, resumeStep(answersRef.current.type, ['pros']));
+    // 유형을 웨딩홀 · 기업행사로 바꾸며 끼워 넣은 사회자 질문이었고 회사명을 '개인 문의'로 건너뛰어 뒀으면 이어서 회사명을 다시 받는다
+    if (companyMissing()) startEdit('company', true);
+  };
+  const confirmPros = () => {
+    if (!prosOpen || !pick.length || prosLockRef.current) return;
+    finishPros({ pros: pick, prosSkipped: false });
+  };
+  const skipPros = () => {
+    if (!prosOpen || prosLockRef.current) return;
+    setPick([]);
+    finishPros({ pros: [], prosSkipped: true });
   };
 
   const skipCompany = () => {
@@ -623,13 +756,18 @@ export default function BizInquiryChat() {
     if (phase === 'sending' || phase === 'done' || step === 'file') return;
     if (!editing && !keepStash) stashRef.current = draft;
     const a = answersRef.current;
-    const v = step === 'company' ? (a.companySkipped ? '' : a.company) : step === 'type' ? '' : a[step];
+    const v = step === 'company' ? (a.companySkipped ? '' : a.company) : step === 'type' || step === 'pros' ? '' : a[step];
+    // 희망 사회자 다시 고르기 — 지금 고른 사람부터, 줄은 다시 주르륵
+    if (step === 'pros') {
+      setPick(a.pros);
+      prosAnimRef.current = true;
+    }
     flushSync(() => {
       setEditing(step);
       setDraft(v);
       setError(null);
     });
-    if (step !== 'type') {
+    if (step !== 'type' && step !== 'pros') {
       const el = inputRef.current;
       if (el) {
         el.focus({ preventScroll: true });
@@ -645,10 +783,26 @@ export default function BizInquiryChat() {
       inputRef.current?.focus({ preventScroll: true });
       return;
     }
+    // 희망 사회자 다시 고르기 취소 — 고르던 건 버리고 원래 고른 사람으로
+    if (editing === 'pros') setPick(answersRef.current.pros);
     setEditing(null);
     setDraft(stashRef.current);
     setError(null);
   };
+
+  // 문의유형 · 희망 사회자를 고칠 땐 입력 칸이 꺼져 있어 textarea 의 Esc 가 안 닿는다 — 화면 어디서든 Esc 로 취소(261009 검증)
+  const cancelEditRef = useRef(cancelEdit);
+  cancelEditRef.current = cancelEdit;
+  useEffect(() => {
+    if (editing !== 'type' && editing !== 'pros') return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+      e.preventDefault();
+      cancelEditRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
 
   /* ── 전송 ── */
 
@@ -677,7 +831,11 @@ export default function BizInquiryChat() {
     fd.append('phone', a.phone);
     fd.append('email', '');
     fd.append('type', a.type || 'other');
-    fd.append('message', a.message);
+    // 희망 사회자는 message 맨 앞 줄로(서버 · 어드민은 그대로 — 261009 사장).
+    // 사회자 섭외 유형일 때만 — 고른 뒤 유형을 웨딩홀 전속 제휴 · 기타 등으로 바꿨으면 붙이지 않는다(접수증도 같은 조건, 261009 검증).
+    // 고른 사람은 지우지 않아 다시 섭외 유형으로 바꾸면 그대로 돌아온다
+    const prosLine = isMcInquiry(a.type) ? prosMessageLine(a.pros) : '';
+    fd.append('message', prosLine ? `${prosLine}\n\n${a.message}` : a.message);
     // 요청 번호 — 다시 보내기 · 새로 고침 뒤 다시 보내도 같은 번호(서버가 같은 번호를 한 번만 처리)
     fd.append('requestId', ridRef.current);
     if (file) fd.append('file', file);
@@ -763,6 +921,7 @@ export default function BizInquiryChat() {
     firstScroll.current = true;
     setMsgs([]);
     setAnswers(EMPTY_ANSWERS);
+    setPick([]);
     setEditing(null);
     setDraft('');
     setError(null);
@@ -797,14 +956,19 @@ export default function BizInquiryChat() {
 
   const type = answers.type;
   const answeredSteps = new Set(msgs.filter((m): m is MeMsg => m.from === 'me').map((m) => m.step));
-  const progress = phase === 'done' ? 100 : Math.round((answeredSteps.size / STEPS.length) * 100);
+  const flow = flowOf(type);
+  const progress = phase === 'done' ? 100 : Math.round((flow.filter((s) => answeredSteps.has(s)).length / flow.length) * 100);
   const lastFileMsg = [...msgs].reverse().find((m): m is MeMsg => m.from === 'me' && m.step === 'file');
+  /** 유형을 사회자 섭외가 아닌 것으로 바꾼 뒤 희망 사회자를 다시 고를 때 — 그 질문을 할 때의 유형으로 줄을 보인다 */
+  const lastProsQ = [...msgs].reverse().find((m): m is BotMsg => m.from === 'bot' && m.key === 'pros');
+  const lastProsKind: McInquiryKind = isMcInquiry(lastProsQ?.qt) ? lastProsQ.qt : 'enterprise';
   const firstEditableIdx = msgs.findIndex((m) => m.from === 'me' && m.step !== 'file');
   const canEdit = phase !== 'sending' && phase !== 'done';
 
   const answerText = (m: MeMsg): string => {
     switch (m.step) {
       case 'type': return type ? t(TYPE_LABEL[type]) : '';
+      case 'pros': return answers.pros.length ? t(prosAnswerOf(answers.pros.map((p) => p.name).join(', '))) : t(S.prosUnsure);
       case 'company': return answers.companySkipped ? t(S.skipCompany) : answers.company;
       case 'name': return answers.name;
       case 'phone': return answers.phone;
@@ -815,6 +979,7 @@ export default function BizInquiryChat() {
   const fieldLabel = (s: Step): string => {
     switch (s) {
       case 'type': return t(S.fType);
+      case 'pros': return t(S.fPros);
       case 'company': return t(type === 'wedding-hall' ? S.fHall : S.fCompany);
       case 'name': return t(S.fName);
       case 'phone': return t(S.fPhone);
@@ -825,6 +990,8 @@ export default function BizInquiryChat() {
 
   let placeholder: string;
   if (editing === 'type') placeholder = t(S.phTypeEdit);
+  else if (editing === 'pros') placeholder = t(S.phPros);
+  else if (activeStep === 'pros') placeholder = busy ? t(S.phWait) : t(S.phPros);
   else if (activeStep === 'company') placeholder = t(type === 'wedding-hall' ? S.phHall : S.phCompany);
   else if (activeStep === 'name') placeholder = t(S.phName);
   else if (activeStep === 'phone') placeholder = '010-1234-5678';
@@ -838,10 +1005,15 @@ export default function BizInquiryChat() {
   const canSend = textActive && !!draft.trim() && (!busy || !!editing);
 
   // 칩 줄(채팅방 '답장 추천' 자리) — 지금 고를 수 있는 것
-  type Chip = { key: string; label: string; onClick: () => void; icon?: 'clip'; selected?: boolean };
+  type Chip = { key: string; label: string; onClick: () => void; icon?: 'clip'; selected?: boolean; primary?: boolean };
   let chips: Chip[] = [];
   let chipsKey = '';
-  if (editing === 'type') {
+  if (prosOpen) {
+    // 사회자 고르기 — '아직 모르겠어요' 는 늘, '선택 완료(N명)' 는 한 명이라도 고르면 뒤에 붙는다(줄 key 는 그대로라 새 칩만 톡 나온다)
+    chipsKey = editing === 'pros' ? 'edit-pros' : 'pros';
+    chips = [{ key: 'unsure', label: t(S.prosUnsure), onClick: skipPros }];
+    if (pick.length) chips.push({ key: 'done', label: t(prosDoneOf(pick.length)), onClick: confirmPros, primary: true });
+  } else if (editing === 'type') {
     chipsKey = 'edit-type';
     chips = INQUIRY_TYPES.map((k) => ({ key: k, label: t(TYPE_LABEL[k]), onClick: () => pickType(k), selected: k === type }));
   } else if (editing === 'company' && !needsCompany(type)) {
@@ -950,6 +1122,8 @@ export default function BizInquiryChat() {
             const fresh = mountedAt.current > 0 && m.at >= mountedAt.current;
             const grow = fresh ? GROW : '';
             const origin = { transformOrigin: mine ? 'right bottom' : 'left bottom' } as const;
+            // 고른 뒤 유형을 사회자 섭외가 아닌 것으로 바꿨으면 희망 사회자는 접수에 안 붙는다 — 말풍선(+꼬리)도 흐리게 · 못 고치게(섭외로 되돌리면 다시 살아난다, 261009 검증)
+            const unused = m.from === 'me' && m.step === 'pros' && !isMcInquiry(type);
 
             let bubble: ReactElement;
             if (m.from === 'bot') {
@@ -975,7 +1149,7 @@ export default function BizInquiryChat() {
                 </div>
               );
             } else {
-              const editable = canEdit && m.step !== 'file';
+              const editable = canEdit && m.step !== 'file' && !unused;
               const isEditingThis = editing === m.step;
               bubble = (
                 // disabled 속성 대신 aria-disabled — iOS Safari 는 disabled 단추를 흐리게(opacity) 그려 보낸 뒤 말풍선이 바래 보인다
@@ -1006,7 +1180,7 @@ export default function BizInquiryChat() {
                     <span className="mr-2 w-10 shrink-0" aria-hidden="true" />
                   ))}
                   <div className={`flex min-w-0 max-w-[78%] items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
-                    <div className="relative min-w-0">
+                    <div className={`relative min-w-0 transition-opacity duration-300 ${unused ? 'opacity-40' : ''}`}>
                       {bubble}
                       {groupEnd && <BubbleTail mine={mine} color={mine ? '#3180F7' : '#F2F3F5'} pop={fresh} />}
                     </div>
@@ -1044,6 +1218,24 @@ export default function BizInquiryChat() {
             </div>
           )}
 
+          {/* 사회자 카드 줄 — '이런 사회자들이…' 질문 아래(다시 고를 땐 대화 맨 아래), 채팅 칸 전체 폭(261009 사장) */}
+          {/* 다시 고를 땐 줄이 그다음 질문('회사명을 알려주세요' 등) 밑에 열려 그 질문의 답처럼 읽혔다 — 작은 머리를 단다(261009 검증).
+              답 말풍선 바로 밑에 넣지 않는 건 그 자리가 말풍선 알림 칸(role=log) 안이라 카드 12장을 화면 읽기가 다 읽어서 */}
+          {prosOpen && editing === 'pros' && (
+            <div className="bzq-fade mt-5 flex items-center gap-1.5 pl-12 text-[13px] font-semibold text-[#8B95A1]">
+              <span aria-hidden="true" className="h-[3px] w-[3px] rounded-full bg-[#B0B8C1]" />
+              {t(S.reprosHead)}
+            </div>
+          )}
+          {prosOpen && (
+            <BizInquiryPros
+              kind={isMcInquiry(type) ? type : lastProsKind}
+              picked={pick}
+              onToggle={togglePick}
+              animate={prosAnimRef.current}
+            />
+          )}
+
           {/* 접수증 — 완료 말 아래 */}
           {done && (
             <div className="mt-2 flex">
@@ -1058,6 +1250,10 @@ export default function BizInquiryChat() {
                 <dl className="mt-4 space-y-2.5 text-[14px] leading-[1.45]">
                   {([
                     ['type', type ? t(TYPE_LABEL[type]) : '-'],
+                    // 희망 사회자 — 보낸 message 와 같은 조건(사회자 섭외 유형일 때만)
+                    ...(!isMcInquiry(type) ? []
+                      : answers.pros.length ? [['pros', answers.pros.map((p) => p.name).join(', ')]]
+                        : answeredSteps.has('pros') ? [['pros', t(S.prosUnsure)]] : []),
                     ['company', answers.companySkipped || !answers.company ? t(S.personal) : answers.company],
                     ['name', answers.name],
                     ['phone', answers.phone],
@@ -1116,8 +1312,10 @@ export default function BizInquiryChat() {
                     // 칩을 눌러도 입력 칸 초점(열린 키보드)은 그대로 — '개인 문의예요' 다음 담당자명을 이어서 쓰게
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={c.onClick}
-                    className={`pop-menu-item pointer-events-auto flex h-11 shrink-0 items-center gap-1.5 rounded-full border bg-white px-5 text-[16px] font-semibold transition-[transform,background-color] active:scale-[0.97] active:bg-[#F7F8FA] ${
-                      c.selected ? 'border-[#3182F6] text-[#3182F6]' : 'border-[#EEF0F3] text-[#191F28]'
+                    className={`pop-menu-item pointer-events-auto flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-5 text-[16px] font-semibold transition-[transform,background-color] active:scale-[0.97] ${
+                      c.primary
+                        ? 'border-[#3182F6] bg-[#3182F6] tabular-nums text-white active:bg-[#2272EB]'
+                        : c.selected ? 'border-[#3182F6] bg-white text-[#3182F6] active:bg-[#F7F8FA]' : 'border-[#EEF0F3] bg-white text-[#191F28] active:bg-[#F7F8FA]'
                     }`}
                     style={popItemDelay(i)}
                   >
