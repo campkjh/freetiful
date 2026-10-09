@@ -1,19 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { KeywordOrb, type KeywordOrbText } from '@/components/pros/ReviewKeywordOrb';
+import { getT, useBizLang } from '@/lib/biz/i18n';
 import type { Tr } from './content';
 
 /*
  * 매칭 장면 카드 속 움직이는 화면 3종(토스 '금융' 카드 데모의 움직임 · 치수만 따라 우리 데이터로 다시 그림).
- * 모든 좌표는 500×600 무대 px — 카드 너비에 맞춰 무대째 줄인다(SceneMatch 의 --s).
+ * 카드 1 · 3 좌표는 500×600 무대 px — 카드 너비에 맞춰 무대째 줄인다(SceneMatch 의 --s). 카드 2(언급 키워드 판, 261009)만 무대 밖 진짜 px.
  */
 
 type T = (tr: Tr) => string;
 export type DemoState = { active: boolean; run: boolean; still: boolean };
 
 export type MatchCardData = { demoTitle: Tr; demoLabel: Tr; rows: Tr[]; scores: number[] };
-export type FlipCardData = { photo: string; frontTags: Tr[]; backTitle: Tr; backRows: Tr[]; backScores: number[] };
+export type OrbCardData = { orb: { titleTop: Tr; titleStrong: Tr; titleRest: Tr; orbLines: readonly Tr[]; keywords: readonly Tr[] } };
 export type ReportCardData = { demoTitle: Tr; analyzing: Tr; rows: Tr[]; scores: number[]; best: Tr };
 
 /* ── 숫자 굴림(오도미터) ─────────────────────────────── */
@@ -163,90 +165,43 @@ export function MatchDemo({ card, t, active, run, still }: { card: MatchCardData
   );
 }
 
-/* ── 카드 2: 프로필 카드 3D 뒤집기 ─────────────────────────────── */
-
-const F_REST = 'translate3d(-8px,-10px,18px) scale(1) rotateZ(0deg)';
-const B_REST = 'translate3d(14px,18px,0px) scale(1) rotateZ(0deg)';
-const F_ON = 'translate3d(-12px,-11px,52px) scale(1.01) rotateZ(-0.9deg)';
-const B_ON = 'translate3d(15px,19px,4px) scale(0.99) rotateZ(0.6deg)';
-
-export function FlipDemo({ card, t, active, run, still }: { card: FlipCardData; t: T } & DemoState) {
-  const fRef = useRef<HTMLDivElement>(null);
-  const bRef = useRef<HTMLDivElement>(null);
-  const anims = useRef<Animation[]>([]);
-  const first = useRef(true);
-  const on = active || still;
-
+/* ── 카드 2: 사회자 상세 '언급 키워드' 판(보라 원 안 반짝이 별) ─────────────────────────────
+ * 261009 사장 '사회자 상세페이지에 동그라미 하고 안에 별 있는 거, 그걸로 해줘 똑같이' — 예전 사진 / 후기 6항목 뒤집기 카드 자리.
+ * 상세 화면이 쓰는 KeywordOrb(components/pros/ReviewKeywordOrb)를 고치지 않고 그대로 쓴다(ReviewKeywordOrb 는 한국어 글을 만들어
+ * 비즈 4개 언어를 못 받아서, 같은 판에 글만 넣는 named export 쪽). 판은 제 폭을 재서 칩을 놓으므로 500×600 무대(배율) 밖,
+ * 카드(.smx-vis) 안에 진짜 px 폭으로 놓는다(SceneMatch .smx-orb*).
+ * 등장 = 판 고유의 것(점 → 제목 → 원 커짐 → 반짝이 → 칩 톡 · 체크 배지, 이후 칩 둥실 · 원 숨쉬기). 카드가 떠오르기 전에 판이 혼자
+ * 재생되지 않게, 카드가 켜지고(fired) 화면 안일 때(visible) 붙인다 — 판의 6초 폴백이 화면 밖에서 먼저 터지는 것도 막는다.
+ */
+export function OrbDemo({ card, fired, visible, still, delay }: { card: OrbCardData; fired: boolean; visible: boolean; still: boolean; delay: number }) {
+  const { lang } = useBizLang();
+  const [mount, setMount] = useState(still);
   useEffect(() => {
-    // 처음엔 제자리 — 뒤집힐 때 / 돌아올 때만 두 장이 Z 로 벌어졌다 모인다(올라감 250ms → 자리 잡기 450ms)
-    if (first.current) { first.current = false; if (!on) return; }
-    const f = fRef.current, b = bRef.current;
-    if (!f || !b || typeof f.animate !== 'function') return;
-    const cur = (el: HTMLElement) => { const m = getComputedStyle(el).transform; return m && m !== 'none' ? m : undefined; };
-    const fFrom = cur(f) ?? (on ? F_REST : F_ON);
-    const bFrom = cur(b) ?? (on ? B_REST : B_ON);
-    anims.current.forEach((a) => a.cancel());
-    if (still) {
-      f.style.transform = on ? F_ON : F_REST;
-      b.style.transform = on ? B_ON : B_REST;
-      return;
-    }
-    const fPeak = on ? 'translate3d(-22px,-18px,180px) scale(1.06) rotateZ(-3.2deg)' : 'translate3d(-20px,-17px,165px) scale(1.05) rotateZ(-2.6deg)';
-    const bPeak = on ? 'translate3d(28px,26px,-140px) scale(0.94) rotateZ(2.6deg)' : 'translate3d(26px,25px,-120px) scale(0.95) rotateZ(2.2deg)';
-    const opt: KeyframeAnimationOptions = { duration: 700, fill: 'forwards' };
-    const k = (from: string, peak: string, to: string): Keyframe[] => [
-      { transform: from, easing: 'cubic-bezier(0.2,0.7,0.3,1)' },
-      { transform: peak, offset: 0.357, easing: 'cubic-bezier(0.45,0,0.35,1)' },
-      { transform: to },
-    ];
-    anims.current = [
-      f.animate(k(fFrom, fPeak, on ? F_ON : F_REST), opt),
-      b.animate(k(bFrom, bPeak, on ? B_ON : B_REST), opt),
-    ];
-  }, [on, still]);
-
+    if (still) { setMount(true); return undefined; }
+    if (mount || !fired || !visible) return undefined;
+    const id = window.setTimeout(() => setMount(true), delay);
+    return () => window.clearTimeout(id);
+  }, [fired, visible, still, mount, delay]);
+  const o = card.orb;
+  const text = useMemo<KeywordOrbText>(() => {
+    const t = (tr: Tr) => getT(tr, lang);
+    return {
+      titleTop: t(o.titleTop),
+      titleStrong: t(o.titleStrong),
+      titleRest: t(o.titleRest),
+      orbLines: [t(o.orbLines[0]), t(o.orbLines[1])],
+      primary: o.keywords.slice(0, 4).map(t),
+      secondary: o.keywords.slice(4, 8).map(t),
+    };
+  }, [o, lang]);
   return (
-    <div className={`smx-flip${on ? ' on' : ''}${run && !still ? ' run' : ''}`}>
-      <div className="smx-flip-float">
-        <div className="smx-flip-lift">
-          <div className="smx-flip-rot">
-            <div className="smx-flip-layer" ref={bRef} style={{ transform: B_REST }}>
-              <div className="smx-face smx-face-pale" />
-              <div className="smx-face smx-face-bk smx-face-iri">
-                <div className="smx-iri-sheen" />
-                <div className="smx-back">
-                  <div className="smx-back-t">{t(card.backTitle)}</div>
-                  <div className="smx-back-rows">
-                    {card.backRows.map((r, i) => (
-                      <div className="smx-back-row" key={i}>
-                        <span className="smx-back-l">{t(r)}</span>
-                        <span className="smx-back-bar"><i style={{ width: `${(card.backScores[i] / 5) * 100}%` }} /></span>
-                        <span className="smx-back-s">{card.backScores[i].toFixed(1)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="smx-flip-layer" ref={fRef} style={{ transform: F_REST }}>
-              <div className="smx-face smx-face-pro">
-                <div className="smx-pro-ph">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={card.photo} alt="" loading="lazy" decoding="async" />
-                </div>
-                <div className="smx-pro-b">
-                  <div className="smx-pro-tags">
-                    {card.frontTags.map((tg, i) => <span key={i}>{t(tg)}</span>)}
-                  </div>
-                  <div className="smx-pro-star"><b>★</b> 4.9</div>
-                </div>
-              </div>
-              <div className="smx-face smx-face-bk smx-face-plain" />
-            </div>
-          </div>
-        </div>
+    <>
+      <div className="smx-orbp" />
+      <div className="smx-orbw">
+        {/* key = 언어 — 바뀌면 판을 새로 그려 칩 폭 · 제목 맞춤을 처음부터 다시 잰다 */}
+        {mount && <KeywordOrb key={lang} text={text} still={still} />}
       </div>
-    </div>
+    </>
   );
 }
 

@@ -6,8 +6,8 @@ import { useBizLang, useT } from '@/lib/biz/i18n';
 import { MATCH } from './content';
 import { prefersReducedMotion } from './scene';
 import {
-  ArrowButton, FlipDemo, MatchDemo, ReportDemo,
-  type FlipCardData, type MatchCardData, type ReportCardData,
+  ArrowButton, MatchDemo, OrbDemo, ReportDemo,
+  type MatchCardData, type OrbCardData, type ReportCardData,
 } from './SceneMatch.parts';
 
 /*
@@ -123,7 +123,7 @@ const CSS = `
 .smx-arw-g{position:absolute;left:-1px;top:-1px;width:48px;height:48px}
 .smx-arw:focus-visible{outline:2px solid #3182F6;outline-offset:3px}
 
-/* 카드 바탕 — 토스 실측 색 표본으로 겹친 그러데이션(그림 파일 안 씀) */
+/* 카드 바탕 — 토스 실측 색 표본으로 겹친 그러데이션(그림 파일 안 씀). 2 는 261009 언급 키워드 판에 맞춰 살구(peach) · 연보라 — 판의 보라 원과 이어지고 옆 카드의 살구 · 하늘빛과 어울리게 */
 .smx-bg1{background:
   radial-gradient(62% 42% at 100% 0%,#A2C0F3 0%,rgba(162,192,243,0) 100%),
   radial-gradient(45% 30% at 55% 0%,#C3D5F1 0%,rgba(195,213,241,0) 100%),
@@ -136,12 +136,13 @@ const CSS = `
 .smx-bg1-streak{position:absolute;inset:-10%;background:linear-gradient(100deg,rgba(255,255,255,0) 22%,rgba(244,246,252,.55) 30%,rgba(252,244,236,.7) 36%,rgba(255,255,255,0) 47%);filter:blur(16px);
   -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 45%);mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 45%)}
 .smx-bg2{background:
-  radial-gradient(55% 40% at 0% 100%,#93BAF8 0%,rgba(147,186,248,0) 100%),
-  radial-gradient(45% 35% at 100% 100%,#D4E7F8 0%,rgba(212,231,248,0) 100%),
-  radial-gradient(50% 30% at 0% 0%,#C6D7F5 0%,rgba(198,215,245,0) 100%),
-  linear-gradient(180deg,#B3D0F6 0%,#B7D1F6 45%,#BCD5F6 100%)}
+  radial-gradient(58% 40% at 100% 0%,#E0D3F6 0%,rgba(224,211,246,0) 100%),
+  radial-gradient(60% 42% at 0% 100%,#F6CDBB 0%,rgba(246,205,187,0) 100%),
+  radial-gradient(46% 34% at 100% 100%,#F2D9E5 0%,rgba(242,217,229,0) 100%),
+  radial-gradient(44% 30% at 0% 0%,#DCE4F5 0%,rgba(220,228,245,0) 100%),
+  linear-gradient(180deg,#EEE2EF 0%,#F3E1E4 45%,#F6E0D7 100%)}
 .smx-bg2-blob{position:absolute;left:74%;top:70%;width:132%;height:94%;transform:translate(-50%,-50%) rotate(-8deg);border-radius:50%;
-  background:radial-gradient(ellipse at 30% 42%,#F1F7FE 0%,#E5F1FD 40%,#DCEEFB 72%,rgba(214,234,250,.75) 100%);filter:blur(7px);
+  background:radial-gradient(ellipse at 30% 42%,#FFF7F3 0%,#FCEEE9 40%,#F9E6E0 72%,rgba(247,225,218,.75) 100%);filter:blur(7px);
   -webkit-mask-image:linear-gradient(205deg,transparent 12%,#000 42%);mask-image:linear-gradient(205deg,transparent 12%,#000 42%)}
 .smx-bg3{background:
   radial-gradient(60% 46% at 100% 100%,#B7CEF8 0%,rgba(183,206,248,0) 100%),
@@ -192,36 +193,15 @@ const CSS = `
 .smx-d1-name{font-size:19px;font-weight:600;color:#1A1F29;letter-spacing:-.02em;white-space:nowrap}
 .smx-d1-score{font-size:19px;font-weight:600;color:#2972E8;letter-spacing:-.01em}
 
-/* 카드 2 */
-.smx-flip{position:absolute;left:134px;top:134px;width:226px;height:336px;perspective:1300px}
-.smx-flip-float,.smx-flip-lift,.smx-flip-rot,.smx-flip-layer{position:absolute;inset:0;transform-style:preserve-3d}
-.smx-flip.run .smx-flip-float{animation:smx-wob 2.25s ease-in-out infinite alternate}
-@keyframes smx-wob{from{transform:translate(-2px,2px) scale(.99) rotateX(-.8deg) rotateZ(-1.2deg)}to{transform:translate(3px,-5px) scale(1.01) rotateX(1.2deg) rotateZ(1.4deg)}}
-.smx-flip-lift{transition:transform .25s cubic-bezier(.2,.7,.3,1)}
-.smx-flip.on .smx-flip-lift{transform:translateY(-3px) scale(1.03) rotateX(1.6deg) rotateZ(-1deg)}
-.smx-flip-rot{transition:transform .73s cubic-bezier(.12,.8,.2,1)}
-.smx-flip.on .smx-flip-rot{transform:rotateY(-180deg)}
-.smx-face{position:absolute;inset:0;border-radius:22px;overflow:hidden;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#fff;
-  box-shadow:0 12px 24px rgba(59,96,145,.10),inset 0 0 0 1px rgba(0,0,0,.02)}
-.smx-face-bk{transform:rotateY(180deg)}
-.smx-face-pale{opacity:.72}
-.smx-pro-ph{position:absolute;left:10px;top:10px;right:10px;height:196px;border-radius:14px;overflow:hidden;background:#1d2340}
-.smx-pro-ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:39% 78%;transform:scale(1.9);transform-origin:39% 78%}
-.smx-pro-b{position:absolute;left:24px;right:20px;bottom:24px;display:flex;flex-direction:column;gap:8px}
-.smx-pro-tags{display:flex;flex-wrap:wrap;gap:4px}
-.smx-pro-tags span{font-size:12px;font-weight:600;line-height:16px;padding:3px 7px;border-radius:6px;background:#F2F4F6;color:#4E5968;letter-spacing:-.02em;white-space:nowrap}
-.smx-pro-star{font-size:17px;font-weight:700;line-height:22.95px;color:#333840;letter-spacing:-.01em}
-.smx-pro-star b{color:#FFB331;font-weight:700}
-.smx-face-iri{background:linear-gradient(142deg,#F4F1FF 0%,#DDEAFF 26%,#FBE8F4 48%,#E0F0FF 70%,#EEE9FF 100%)}
-.smx-iri-sheen{position:absolute;inset:0;background:linear-gradient(118deg,rgba(255,255,255,0) 28%,rgba(255,255,255,.75) 42%,rgba(255,236,250,.35) 50%,rgba(255,255,255,0) 62%)}
-.smx-back{position:absolute;inset:0;padding:24px 20px 26px;display:flex;flex-direction:column;justify-content:flex-end}
-.smx-back-t{margin-bottom:16px;font-size:13px;font-weight:500;line-height:17.55px;color:#727780;letter-spacing:-.01em}
-.smx-back-rows{display:flex;flex-direction:column;gap:13px}
-.smx-back-row{display:flex;align-items:center;gap:8px}
-.smx-back-l{width:58px;flex:none;font-size:13px;font-weight:600;color:#4E5968;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.smx-back-bar{position:relative;flex:1;height:5px;border-radius:5px;background:rgba(49,130,246,.12);overflow:hidden}
-.smx-back-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:linear-gradient(90deg,#8AB8FA,#3182F6)}
-.smx-back-s{width:26px;text-align:right;font-size:14px;font-weight:700;color:#333840}
+/* 카드 2 — 사회자 상세 '언급 키워드' 판(261009 사장 '동그라미 안에 별 있는 거 똑같이'). 판은 제 폭을 재서 칩을 놓아 무대(배율) 밖에 둔다.
+   흰 유리 판(.smx-orbp, 카드 1 · 3 의 흰 패널과 같은 결 — 아래로 옅어져 화살표 단추가 그 위에 앉는다) + 판(.smx-orbw).
+   판 폭 = min(카드 88% - 16, 110.7% - 89) — 판 맨 아래 칩의 아래 끝(폰 판 345/335 × 폭)이 화살표 단추 위(카드 높이 - 80)보다 4px 위에 오게:
+   판 위 = 5%(높이) + 8 · 카드 높이 = 폭 × 1.2 → 폭 ≤ (1.14 × 카드 폭 - 92) × 335/345. 판이 상세 화면처럼 흰 바탕 위에 그려지도록 패널은 흰색 쪽으로 진하게 */
+.smx-orb{position:absolute;inset:0;pointer-events:none}
+.smx-orbp{position:absolute;left:6%;right:6%;top:5%;bottom:0;border-radius:28px 28px 0 0;pointer-events:none;
+  background:radial-gradient(90% 70% at 50% 34%,rgba(255,255,255,.96) 0,rgba(255,255,255,.9) 55%,rgba(255,255,255,.66) 100%);
+  -webkit-mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.55) 84%,transparent 100%);mask-image:linear-gradient(180deg,#000 62%,rgba(0,0,0,.55) 84%,transparent 100%)}
+.smx-orbw{position:absolute;left:50%;top:calc(5% + 8px);width:min(calc(88% - 16px),calc(110.7% - 89px));transform:translateX(-50%);pointer-events:none}
 
 /* 카드 3 */
 .smx-p3{border-radius:32px;padding:36px 32px 0;gap:8px;
@@ -291,7 +271,7 @@ const CSS = `
 .smx-still .smx-dg-out{display:none}
 `;
 
-type CardKey = 'match' | 'flip' | 'report';
+type CardKey = 'match' | 'orb' | 'report';
 
 function DemoCard({
   i, kind, still, canHover, hovered, setHover, fired, mode,
@@ -320,9 +300,9 @@ function DemoCard({
     return () => ro.disconnect();
   }, []);
 
-  // 터치 기기 — 화면 안에서 분석 중 ↔ 결과를 저절로 오간다(토스 모바일처럼)
+  // 터치 기기 — 화면 안에서 분석 중 ↔ 결과를 저절로 오간다(토스 모바일처럼). 언급 키워드 판은 결과 상태가 따로 없어 안 돌린다
   useEffect(() => {
-    if (canHover || still || !run) { setAuto(false); return undefined; }
+    if (canHover || still || !run || kind === 'orb') { setAuto(false); return undefined; }
     let alive = true;
     let tm = 0;
     const step = (next: boolean) => {
@@ -334,7 +314,7 @@ function DemoCard({
     };
     step(true);
     return () => { alive = false; window.clearTimeout(tm); };
-  }, [canHover, still, run, i]);
+  }, [canHover, still, run, i, kind]);
 
   const active = hovered || auto;
   const demo = { active, run, still };
@@ -359,11 +339,17 @@ function DemoCard({
           {i === 1 && <div className="smx-bg2-blob" />}
           {i === 2 && <div className="smx-bg3-blob" />}
         </div>
-        <div className="smx-stage" ref={stageRef} aria-hidden>
-          {kind === 'match' && <MatchDemo card={card as unknown as MatchCardData} t={t} {...demo} />}
-          {kind === 'flip' && <FlipDemo card={card as unknown as FlipCardData} t={t} {...demo} />}
-          {kind === 'report' && <ReportDemo card={card as unknown as ReportCardData} t={t} {...demo} />}
-        </div>
+        {kind === 'orb' ? (
+          // 언급 키워드 판 — 무대 밖(판이 제 폭을 잰다). 카드가 떠오르기 시작하고 조금 뒤(카드 지연 + 250ms) 판 고유의 등장이 시작된다
+          <div className="smx-orb" aria-hidden>
+            <OrbDemo card={card as unknown as OrbCardData} fired={fired} visible={run} still={still} delay={(mode === 'desk' ? dlDesk : i * 200) + 250} />
+          </div>
+        ) : (
+          <div className="smx-stage" ref={stageRef} aria-hidden>
+            {kind === 'match' && <MatchDemo card={card as unknown as MatchCardData} t={t} {...demo} />}
+            {kind === 'report' && <ReportDemo card={card as unknown as ReportCardData} t={t} {...demo} />}
+          </div>
+        )}
         <ArrowButton href={card.href} label={t(card.cta)} />
       </div>
       <Link href={card.href} className="smx-cap">
@@ -481,7 +467,7 @@ export default function SceneMatch() {
         </p>
 
         <div className="smx-row" ref={rowRef}>
-          {(['match', 'flip', 'report'] as const).map((k, i) => (
+          {(['match', 'orb', 'report'] as const).map((k, i) => (
             <DemoCard
               key={k}
               i={i}

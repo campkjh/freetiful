@@ -6,8 +6,8 @@ import { useBizLang, useT } from '@/lib/biz/i18n';
 import { INTRO } from './content';
 import { clamp01, ease, prefersReducedMotion, seg, useFrame, useSceneProgress } from './scene';
 import {
-  BoardListCard, CHAT_STEPS, ChatScreen, FloorShadow, HOST_SCREENS, HostPopCards, HostScreenLayers, Particles, PillCta, SI_CSS, TiltPhone,
-  attachTrimLoop, boardListH, useIsoLayoutEffect, useTrimLoop,
+  BoardListCard, CHAT_STEPS, ChatScreen, FLAT_BAND_SHADOW, FloorShadow, HOST_SCREENS, HostPopCards, HostScreenLayers, PHONE_BEZEL, PHONE_FRAME, PHONE_RIM_BG,
+  Particles, PhoneIsland, PillCta, SI_CSS, TiltPhone, attachTrimLoop, boardListH, useIsoLayoutEffect, useTrimLoop,
 } from './SceneIntro.parts';
 
 /*
@@ -203,7 +203,9 @@ function MediaStage({ P, active, ids, rootRef }: { P: MotionValue<number>; activ
     const push = ease.inOut(seg(tp, 0, 0.6));
     const dk = ease.out(seg(tp, 0, 0.3));
     put(zoomRef.current, 'transform', `scale(${((1.2 - 0.2 * hp) * (1 + 0.14 * push)).toFixed(4)})`);
-    put(dimRef.current, 'opacity', (0.4 * dk).toFixed(3));
+    // 어둡게 0.55 — 261009 corporate-mc 히어로 영상(밝은 LED 무대 · 흰 연단)으로 바뀌며 0.4 로는 흰 글 뒤 대비가 3.5:1 까지 떨어졌다
+    // (옛 송년회 영상 ≈ 6:1 · 0.5 는 설명 글 뒤 4.2:1 — 1440 캡처 실측)
+    put(dimRef.current, 'opacity', (0.55 * dk).toFixed(3));
     put(vidRef.current, 'filter', dk > 0.002 ? `blur(${(14 * dk).toFixed(2)}px)` : 'none');
     // 폰이 아래에서 올라와 자리 잡음
     const rp = seg(tp, 0.03, 0.3);
@@ -317,7 +319,8 @@ function MediaStage({ P, active, ids, rootRef }: { P: MotionValue<number>; activ
                 <video
                   ref={vidRef}
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={{ objectPosition: '65% 50%' }}
+                  // 261009 corporate-mc 히어로 영상 — 진행자가 가운데 · 오른쪽에 서 있는 구도(INTRO.heroPos)
+                  style={{ objectPosition: INTRO.heroPos.desk }}
                   muted
                   loop
                   playsInline
@@ -674,11 +677,14 @@ function useSharedLoopVideo(active: boolean, a: RefObject<HTMLDivElement>, b: Re
   }, [active, a, b]);
 }
 
-/** 영상 칸 밑 포스터(영상이 다른 칸에 가 있거나 아직 안 왔을 때 보임) */
+/**
+ * 영상 칸 밑 포스터(영상이 다른 칸에 가 있거나 아직 안 왔을 때 보임).
+ * 구도(objectPosition)는 INTRO.heroPos.mob 을 기본으로 박아 둔다 — 영상이 이 칸으로 옮겨 올 때 이 style 을 그대로 입어 포스터 ↔ 영상이 같은 자리(261009).
+ */
 function PosterSlot({ className, style, lazy }: { className: string; style?: CSSProperties; lazy?: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- public 정적 포스터, 영상과 같은 칸 맞춤
-    <img data-vslot src={INTRO.heroPoster} alt="" aria-hidden="true" draggable={false} decoding="async" loading={lazy ? 'lazy' : undefined} className={className} style={style} />
+    <img data-vslot src={INTRO.heroPoster} alt="" aria-hidden="true" draggable={false} decoding="async" loading={lazy ? 'lazy' : undefined} className={className} style={{ objectPosition: INTRO.heroPos.mob, ...style }} />
   );
 }
 
@@ -820,15 +826,25 @@ function MobileTransfer({ active, ids, slotRef }: { active: boolean; ids: boolea
   );
 }
 
-/** 2D 폰 틀(모바일 카드용) — 352×775 칸, 화면 332×745 */
+/**
+ * 2D 폰 틀(모바일 카드용) — 352×775 칸, 화면 332×745. 틀 치수 · 색은 데스크톱 기울어진 폰(TiltPhone)과 같은 한 벌(PHONE_FRAME).
+ * 261009 사장 '폰 UI 상단이 이상함, 다이나믹 아일랜드 위쪽? r값이랑 뭔가 잘린다' — 원인 둘(390 · 360 · 430 dpr3 확대 캡처로 확인):
+ *  ① 옆면을 한 장짜리 그림자(10px 14px, 퍼짐 -2)로 그려, 오른쪽 위 모서리에서 그 둥근 판이 테두리와 안 이어지고 계단처럼 따로 삐져나왔다 → 층을 쌓은 옆면(FLAT_BAND_SHADOW)
+ *  ② 베젤이 위 · 아래 11.5 · 옆 6.5 로 달라 다이나믹 아일랜드 위가 두툼한 띠처럼 보이고, 바깥 60 · 화면 48 모서리가 옆 두께와 안 맞아 모서리가 어긋나 보였다
+ *     → 베젤 9.5 고르게 · 모서리 60 → 58 → 48 한 중심(데스크톱 폰 비율)
+ */
 function FlatPhone({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative h-full w-full">
-      <div className="absolute inset-0 rounded-[63px]" style={{ background: 'linear-gradient(155deg, #F7F9FC 0%, #C5CEDB 22%, #E9EDF3 48%, #A9B4C5 78%, #DCE2EA 100%)', boxShadow: '10px 14px 0 -2px #8F9BAF, 0 40px 80px -20px rgba(0,0,0,0.55)' }} />
-      <div className="absolute rounded-[60px] bg-[#0A0B0E]" style={{ inset: '3.5px 3.5px', boxShadow: 'inset 0 0 0 1.5px #2A2E36' }} />
-      <div className="absolute overflow-hidden rounded-[48px] bg-white" style={{ left: 10, top: 15, width: 332, height: 745 }}>
+      {/* 옆면(층층이 민 금속 띠) + 카드 위 그림자 */}
+      <div className="absolute" style={{ ...PHONE_FRAME.rim, background: '#B9C3D3', boxShadow: `${FLAT_BAND_SHADOW}, 0 40px 80px -20px rgba(0,0,0,0.55)` }} />
+      {/* 앞 테두리(얇은 금속 테) */}
+      <div className="absolute" style={{ ...PHONE_FRAME.rim, background: PHONE_RIM_BG }} />
+      {/* 검은 베젤 */}
+      <div className="absolute" style={{ ...PHONE_FRAME.bezel, ...PHONE_BEZEL }} />
+      <div className="absolute overflow-hidden bg-white" style={{ ...PHONE_FRAME.screen, isolation: 'isolate' }}>
         {children}
-        <div className="absolute left-1/2 top-[9px] z-[5] h-[27px] w-[98px] -translate-x-1/2 rounded-full bg-[#050608]" />
+        <PhoneIsland />
       </div>
     </div>
   );

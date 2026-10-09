@@ -95,7 +95,8 @@ export default function BizSwipePeek() {
           onLoad={() => setLoaded(true)}
           ref={(el) => { if (el && el.complete && el.naturalWidth > 0 && !loaded) setLoaded(true); }}
           className="absolute max-w-none object-cover"
-          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - 10vh)', width: '120vw', height: '120vh', ...fade }}
+          // 구도 = 비즈 모바일 첫 장면과 같은 값(261009 corporate-mc 히어로 영상 — 진행자가 가운데 · 오른쪽) — 넘긴 뒤 진짜 /biz 로 바뀌어도 그림이 안 튄다
+          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - 10vh)', width: '120vw', height: '120vh', objectPosition: INTRO.heroPos.mob, ...fade }}
         />
         <div className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: 'linear-gradient(rgba(56,68,82,0), rgb(56,68,82))', ...fade }} />
         <h2

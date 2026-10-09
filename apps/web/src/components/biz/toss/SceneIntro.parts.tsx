@@ -76,15 +76,17 @@ export const SI_CSS = `
 }
 `;
 
-/* ─── 영상 반복 구간 자르기 — 원본 끝 1.7초가 흰 화면으로 사라지는 장면이라 12초에서 처음으로 돌린다 ─── */
-const LOOP_END = 12;
+/* ─── 영상 반복 구간 자르기 — 영상 끝이 행사 장면이 아니면(옛 송년회 영상: 끝 1.7초가 흰 화면) 그 앞에서 처음으로 돌린다 ───
+ * 끝 초 = INTRO.heroLoopEnd. 261009 corporate-mc 히어로 영상으로 바꾸며 null(끝까지 행사 장면 → 그대로 loop) */
 type FrameCbVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number; cancelVideoFrameCallback?: (id: number) => void };
 /** 영상 요소에 반복 구간 자르기를 붙인다 — 떼는 함수를 돌려준다 */
 export function attachTrimLoop(el: HTMLVideoElement): () => void {
+  const end = INTRO.heroLoopEnd;
+  if (!end) return () => {};
   const v = el as FrameCbVideo;
   let id = 0;
   const back = () => {
-    if (v.currentTime >= LOOP_END) v.currentTime = 0.04;
+    if (v.currentTime >= end) v.currentTime = 0.04;
   };
   if (typeof v.requestVideoFrameCallback === 'function') {
     const tick = () => {
@@ -186,13 +188,26 @@ export const SCREEN_W = 332;
 const SCREEN_H = 745;
 const TILT = 'translate(153.3px, 28.5px) rotateX(21deg) rotateY(-2deg) rotateZ(11.5deg) scaleY(1.03)';
 
-const BAND_SHADOW = (() => {
-  // 화면 기준 두께 벡터(디자인 px) → 폰 평면 안의 밀기 값으로 되돌려 층마다 조금씩 민다
-  const ex = 15, ey = 17, N = 22;
-  const a = 0.979328, b = -0.205224, c = 0.17387, d = 0.944852;
-  const det = a * d - b * c;
-  const u = (d * ex - b * ey) / det;
-  const v = (-c * ex + a * ey) / det;
+/**
+ * 폰 틀 치수(352×775 칸 안, 디자인 px) — 기울어진 폰(TiltPhone, 데스크톱)과 모바일 채팅 카드의 납작 폰(SceneIntro FlatPhone)이 같이 쓴다.
+ * 금속 테 2 · 검은 베젤 9.5(위 · 아래 · 옆 같음) · 모서리 60 → 58 → 48(안쪽으로 들어간 만큼 줄어 한 중심을 공유) — 실제 아이폰 비율에 가깝게.
+ * 261009 사장 '모바일 폰 UI 상단이 이상함, 다이나믹 아일랜드 위쪽? r값이랑 뭔가 잘린다' — 납작 폰만 따로 베젤 위 11.5 · 옆 6.5 · 모서리 60/48 이라
+ *   위가 두껍고 모서리가 어긋나 보였다. 이제 두 폰이 이 한 벌을 쓴다.
+ */
+export const PHONE_FRAME = {
+  rim: { left: -1.5, top: 3.5, width: 355, height: 768, borderRadius: 60 },
+  bezel: { left: 0.5, top: 5.5, width: 351, height: 764, borderRadius: 58 },
+  screen: { left: 10, top: 15, width: SCREEN_W, height: SCREEN_H, borderRadius: 48 },
+} as const;
+export const PHONE_RIM_BG = 'linear-gradient(160deg, #FFFFFF 0%, #C9D2DF 18%, #F1F4F8 42%, #A7B2C4 70%, #E6EAF0 100%)';
+export const PHONE_BEZEL = { background: '#08090C', boxShadow: 'inset 0 0 0 1.2px #30353E' } as const;
+/** 화면 위 다이나믹 아일랜드(화면 332 폭 기준 98×27, 위에서 9) */
+export function PhoneIsland() {
+  return <div className="absolute left-1/2 top-[9px] z-[5] h-[27px] w-[98px] -translate-x-1/2 rounded-full bg-[#050608]" />;
+}
+
+/** 옆면(금속 띠) 층 — 폰 평면 안에서 (u, v) 쪽으로 n 장을 조금씩 밀어 쌓는다. 앞 → 뒤로 밝은 은색 → 어두운 회청색 */
+function bandLayers(u: number, v: number, n: number) {
   const stops: [number, [number, number, number]][] = [
     [0, [246, 248, 252]],
     [0.1, [196, 205, 220]],
@@ -209,18 +224,30 @@ const BAND_SHADOW = (() => {
     const k = (f - f0) / (f1 - f0 || 1);
     return `rgb(${c0.map((x, j) => Math.round(x + (c1[j] - x) * k)).join(',')})`;
   };
-  return Array.from({ length: N }, (_, i) => {
-    const f = (i + 1) / N;
+  return Array.from({ length: n }, (_, i) => {
+    const f = (i + 1) / n;
     return `${(u * f).toFixed(2)}px ${(v * f).toFixed(2)}px 0 ${col(f)}`;
   }).join(',');
+}
+const BAND_SHADOW = (() => {
+  // 화면 기준 두께 벡터(디자인 px) → 폰 평면 안의 밀기 값으로 되돌려 층마다 조금씩 민다
+  const ex = 15, ey = 17;
+  const a = 0.979328, b = -0.205224, c = 0.17387, d = 0.944852;
+  const det = a * d - b * c;
+  return bandLayers((d * ex - b * ey) / det, (-c * ex + a * ey) / det, 22);
 })();
+/**
+ * 납작 폰(모바일 채팅 카드 — -6° 기운 2D 폰) 옆면. 예전엔 한 장짜리 그림자(10px 14px, 퍼짐 -2)라 위 · 오른쪽 모서리에서
+ * 둥근 판이 계단처럼 따로 삐져나와 '잘린' 것처럼 보였다(261009). 데스크톱 폰처럼 층을 쌓아 테두리와 이어지게.
+ */
+export const FLAT_BAND_SHADOW = bandLayers(8, 11, 16);
 
 export function TiltPhone({ screen, pop }: { screen: ReactNode; pop?: ReactNode }) {
   return (
     <div className="absolute" style={{ left: PHONE_BOX.left, top: PHONE_BOX.top, width: PHONE_BOX.width, height: PHONE_BOX.height }} aria-hidden="true">
       <div className="absolute left-0" style={{ top: 5, width: 352, height: 775, transformOrigin: '176px 387.5px', transform: TILT }}>
         {/* 옆면(금속 띠) — 같은 모양을 오른쪽 아래로 층층이 밀어 두께를 만든다 */}
-        <div className="absolute" style={{ left: -1.5, top: 3.5, width: 355, height: 768, borderRadius: 60, background: '#B9C3D3', boxShadow: BAND_SHADOW }} />
+        <div className="absolute" style={{ ...PHONE_FRAME.rim, background: '#B9C3D3', boxShadow: BAND_SHADOW }} />
         {/* 옆 단추 */}
         <div className="absolute rounded-[3px]" style={{ left: 351.5, top: 214, width: 6, height: 68, background: 'linear-gradient(90deg, #DDE3EC, #9AA6BA)', boxShadow: '3px 3px 0 #7D899E' }} />
         <div className="absolute rounded-[3px]" style={{ left: 351.5, top: 296, width: 6, height: 68, background: 'linear-gradient(90deg, #DDE3EC, #9AA6BA)', boxShadow: '3px 3px 0 #7D899E' }} />
@@ -231,13 +258,13 @@ export function TiltPhone({ screen, pop }: { screen: ReactNode; pop?: ReactNode 
           {[0, 1, 2, 3, 4].map((d) => <span key={d} className="block h-[4px] w-[4px] rounded-full bg-[#4A5466]" />)}
         </div>
         {/* 앞 테두리(얇은 금속 테) */}
-        <div className="absolute" style={{ left: -1.5, top: 3.5, width: 355, height: 768, borderRadius: 60, background: 'linear-gradient(160deg, #FFFFFF 0%, #C9D2DF 18%, #F1F4F8 42%, #A7B2C4 70%, #E6EAF0 100%)' }} />
+        <div className="absolute" style={{ ...PHONE_FRAME.rim, background: PHONE_RIM_BG }} />
         {/* 검은 베젤 */}
-        <div className="absolute" style={{ left: 0.5, top: 5.5, width: 351, height: 764, borderRadius: 58, background: '#08090C', boxShadow: 'inset 0 0 0 1.2px #30353E' }} />
+        <div className="absolute" style={{ ...PHONE_FRAME.bezel, ...PHONE_BEZEL }} />
         {/* 화면 */}
-        <div className="absolute overflow-hidden" style={{ left: 10, top: 15, width: SCREEN_W, height: SCREEN_H, borderRadius: 48, background: '#F2F4F6', isolation: 'isolate' }}>
+        <div className="absolute overflow-hidden" style={{ ...PHONE_FRAME.screen, background: '#F2F4F6', isolation: 'isolate' }}>
           {screen}
-          <div className="absolute left-1/2 top-[9px] z-[5] h-[27px] w-[98px] -translate-x-1/2 rounded-full bg-[#050608]" />
+          <PhoneIsland />
         </div>
         {/* 화면 밖으로 튀어나오는 카드 층(잘리지 않음) */}
         {pop && <div className="pointer-events-none absolute" style={{ left: 10, top: 15, width: SCREEN_W, height: SCREEN_H }}>{pop}</div>}
@@ -438,6 +465,8 @@ export function ChatScreen({ step, listMax }: { step: number; listMax?: number }
       </div>
       {/* 대화 */}
       <div ref={listRef} className={`relative min-h-0 overflow-hidden ${listMax ? 'shrink-0' : 'flex-1'}`} style={listMax ? { height: listMax } : undefined}>
+        {/* 위로 밀려 나간 말풍선 끝(꼬리 몇 px)이 머리줄 밑에 잘린 조각처럼 남지 않게 위 14px 을 흰색으로 흐린다(261009 확대 캡처 — 첫 줄 날짜는 14px 아래라 안 가린다) */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[14px]" style={{ background: 'linear-gradient(#fff 25%, rgba(255,255,255,0))' }} aria-hidden="true" />
         <div ref={innerRef} className="px-[12px] pb-[14px] pt-[6px]" style={{ transform: `translate3d(0, ${-off}px, 0)`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
           <p className="mb-[2px] mt-[8px] text-center text-[11px] text-[#8B95A1]">{CHAT_DATE}</p>
           {items.map((it, i) => {
