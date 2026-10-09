@@ -19,6 +19,7 @@ import { BizCompanyTabIcon, BizHomeTabIcon, BizInquiryTabIcon, BizNewsTabIcon } 
  * 탭 4개는 모두 비즈 안의 화면이다(261009 사장 '홈 누르면 프리티풀 홈이 아니라 비즈 홈 · 뉴스소식은 따로 뉴스 화면 ·
  * 문의하기는 문의 섹션으로 내려가지 말고 상담 채팅 · 기업소개는 CEO 인사말') —
  *   홈 = /biz(이미 /biz 면 맨 위로) · 뉴스·소식 = /biz/news · 문의하기 = /biz/inquiry(상담 채팅) · 기업소개 = /biz/ceo.
+ *   (261009 사장 지시로 '문의하기' 탭 이름은 '비즈문의' — 칸 · 경로는 그대로)
  *   예전 '홈 = 프리티풀 앱 홈(/main)' · '문의하기 = /biz 문의 섹션으로 스크롤'은 없어졌다(문의 섹션 자체가 지워짐) —
  *   그래서 /biz 스크롤 위치로 선택을 바꾸던 스크롤 스파이도 걷어냈다. 앱으로 나가는 길은 비즈 머리줄 '프리티풀로' 글자 탭.
  *
@@ -44,7 +45,8 @@ type TabIcon = ComponentType<{ active?: boolean; className?: string }>;
 const TABS: { key: BizTabKey; href: string; icon: TabIcon; label: Translations }[] = [
   { key: 'home', href: '/biz', icon: BizHomeTabIcon, label: { ko: '홈', en: 'Home', ja: 'ホーム', zh: '首页' } },
   { key: 'news', href: '/biz/news', icon: BizNewsTabIcon, label: { ko: '뉴스·소식', en: 'News', ja: 'ニュース', zh: '新闻资讯' } },
-  { key: 'inquiry', href: '/biz/inquiry', icon: BizInquiryTabIcon, label: { ko: '문의하기', en: 'Contact', ja: 'お問合せ', zh: '咨询' } },
+  // 261009 사장 '문의하기를 비즈문의로 바꿔줘 — 네비게이션바에 있는 거'(머리줄 가운데 메뉴도 같이. 바닥 링크는 범위 밖이라 '문의하기' 그대로)
+  { key: 'inquiry', href: '/biz/inquiry', icon: BizInquiryTabIcon, label: { ko: '비즈문의', en: 'Biz inquiry', ja: 'ビズお問合せ', zh: '企业咨询' } },
   { key: 'company', href: '/biz/ceo', icon: BizCompanyTabIcon, label: { ko: '기업소개', en: 'About', ja: '会社紹介', zh: '公司介绍' } },
 ];
 const TAB_HREF: Record<BizTabKey, string> = { home: '/biz', news: '/biz/news', inquiry: '/biz/inquiry', company: '/biz/ceo' };

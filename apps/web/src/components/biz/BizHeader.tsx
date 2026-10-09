@@ -17,7 +17,7 @@ import { scrollToY } from './scroll-to';
  *  · 높이 모바일 56 · md 이상 64(옛 /biz 머리줄과 같은 값). 화면 쪽은 위 여백 pt-14 md:pt-16 만 맞춘다.
  *  · 오른쪽 '비즈 · 프리티풀로' = 홈 HomeSwipeTabs 글자 탭과 같은 결(16px · 고른 탭 굵은 #191F28 · 나머지 semibold #B0B8C1).
  *    비즈 화면에선 '비즈'가 늘 고른 탭, '프리티풀로' = 프리티풀 홈(/main).
- *  · lg 이상엔 가운데 글자 메뉴(뉴스·소식 · 기업소개 · 문의하기) — 그 폭에선 하단 탭바(BizTabBar, lg:hidden)가 없어서.
+ *  · lg 이상엔 가운데 글자 메뉴(뉴스·소식 · 기업소개 · 비즈문의 — 261009 '문의하기'에서 이름만 바꿈) — 그 폭에선 하단 탭바(BizTabBar, lg:hidden)가 없어서.
  *  · fixed 라 (main) 레이아웃의 max-w-7xl 칸을 벗어나 화면 끝까지 흰 줄이 깔린다. 좌우 여백은 옛 /biz 머리줄(tc-nav-in)과 같게.
  */
 
@@ -29,7 +29,8 @@ type MenuKey = 'news' | 'company' | 'inquiry';
 const MENU: { key: MenuKey; href: string; label: Translations }[] = [
   { key: 'news', href: '/biz/news', label: { ko: '뉴스·소식', en: 'News', ja: 'ニュース', zh: '新闻资讯' } },
   { key: 'company', href: '/biz/ceo', label: { ko: '기업소개', en: 'About', ja: '会社紹介', zh: '公司介绍' } },
-  { key: 'inquiry', href: '/biz/inquiry', label: { ko: '문의하기', en: 'Contact', ja: 'お問合せ', zh: '咨询' } },
+  // 261009 사장 '문의하기를 비즈문의로 — 네비게이션바에 있는 거'(하단 탭바와 같은 이름. 바닥 링크는 범위 밖이라 '문의하기' 그대로)
+  { key: 'inquiry', href: '/biz/inquiry', label: { ko: '비즈문의', en: 'Biz inquiry', ja: 'ビズお問合せ', zh: '企业咨询' } },
 ];
 
 /** 가운데 메뉴의 고른 칸 — 하단 탭바(BizTabBar)와 같은 묶음: ceo · history · clients = 기업소개, inquiry · faq · complete = 문의하기 */
@@ -238,6 +239,7 @@ export function BizPageFooter({ current }: { current?: MoreKey }) {
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-semibold text-[#6B7684]">
             <Link href="/biz" className="transition-colors hover:text-[#191F28]">{t({ ko: '비즈 홈', en: 'Biz home', ja: 'ビズ ホーム', zh: '企业首页' })}</Link>
+            {/* 바닥 링크는 '문의하기' 그대로 — 261009 사장 지시는 '네비게이션바에 있는 거'(머리줄 · 하단 탭바)만이고, /biz · /biz/ceo 바닥글도 '문의하기'라 맞춘다 */}
             <Link href="/biz/inquiry" className="transition-colors hover:text-[#191F28]">{t({ ko: '문의하기', en: 'Contact', ja: 'お問合せ', zh: '咨询' })}</Link>
             <Link href="/careers" className="transition-colors hover:text-[#191F28]">{t({ ko: '인재채용', en: 'Careers', ja: '採用情報', zh: '人才招聘' })}</Link>
             <Link href="/main" className="transition-colors hover:text-[#191F28]">{t({ ko: '프리티풀 홈', en: 'Freetiful home', ja: 'Freetiful ホーム', zh: 'Freetiful 首页' })}</Link>

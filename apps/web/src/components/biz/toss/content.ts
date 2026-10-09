@@ -83,12 +83,15 @@ export const INTRO = {
     title: tr('12/18(금) 송년회 순서', 'Dec 18 (Fri) year-end program', '12/18（金）忘年会の進行表', '12/18（周五）年会流程'),
     sub: tr('18:00 개회 · 18:30 시상식 · 19:20 레크리에이션', '18:00 Opening · 18:30 Awards · 19:20 Recreation', '18:00 開会・18:30 授賞式・19:20 レクリエーション', '18:00 开幕 · 18:30 颁奖 · 19:20 团建游戏'),
   },
-  /** 견적서 카드 — 진행자 고르기 아코디언 '채팅으로 바로 견적' 칸의 튀어나오는 카드 · 예약 장면 결제 시트 부제가 읽는다(기업 송년회 견적) */
+  /** 견적서 카드 — 예약 장면 결제 시트 부제가 읽는다(기업 송년회 견적). 진행자 고르기 아코디언 넷째 칸은 261009 '엔터프라이즈 전담'으로 바뀌어 더는 안 읽는다 */
   chatQuoteCard: { title: tr('견적서가 도착했어요', 'Your quote has arrived', '見積書が届きました', '报价单已送达'), sub: tr('송년회 진행 · 1부 시상식 · 2부 레크리에이션', 'Year-end party · Awards · Recreation', '忘年会進行・授賞式・レクリエーション', '年会主持 · 颁奖 · 团建游戏') },
   chatInputPlaceholder: tr('메시지 보내기', 'Send a message', 'メッセージを送る', '发送消息'),
 
   listTitle: [tr('진행자를 고르는 일도', 'Choosing a host,', '司会者選びも', '挑选主持人'), tr('이제는 간단하게', 'now made simple', 'もっとシンプルに', '也变得简单')],
-  /** 아코디언 4칸 — 폰 화면(긴 캡처)이 칸마다 바뀌며 위로 흐른다. pop = 폰 밖으로 튀어나오는 카드(캡처에서 잘라 낸 조각) */
+  /**
+   * 아코디언 4칸 — 폰 화면(긴 캡처)이 칸마다 바뀌며 위로 흐른다. pop = 폰 밖으로 튀어나오는 카드(캡처에서 잘라 낸 조각).
+   * screen = 폰 화면 긴 캡처(780 폭) · piece = 모바일 카드 · 튀어나오는 조각에 쓰는 고해상도 조각(있을 때만) · screen null = 컴포넌트로 그린 화면.
+   */
   listItems: [
     {
       key: 'pros',
@@ -107,25 +110,67 @@ export const INTRO = {
       href: '/pros',
     },
     {
+      /*
+       * 261009 사장 '6가지 항목의 실제 후기 이거 없어졌잖아 — AI 후기 이미지로 바꿔줘'. 그림 = 운영 사회자 상세(/pros/PRO_PROFILE_ID) 리뷰 칸의
+       * 'AI 후기 요약' 카드(StyleIntroCard '이 사회자의 스타일을 소개합니다') 실제 캡처(390 폭 · 3x, 리뷰 이름은 앱에서 이미 m** 처럼 가려진 그대로).
+       * 조각(piece)은 별점 줄 없이 AI 요약 카드만(앱 별점은 내림이라 4.9 가 별 4개로 보여서 — 261009 검증).
+       * 사실: 요약은 서버(review-summary.service)가 그 사회자의 공개 리뷰(isVisible)를 모아 만들고, AI 가 실패하면 규칙 요약이 같은 카드로 뜬다
+       * (리뷰 2개 미만이면 카드 자체가 안 뜸). 그래서 설명은 '실제 후기만'처럼 세게 말하지 않는다.
+       */
       key: 'reviews',
-      screen: `${V2}/screens/reviews-tall.webp`,
-      title: tr('6가지 항목의 실제 후기', 'Real reviews on six criteria', '6項目のリアルな口コミ', '六个维度的真实评价'),
-      desc: tr('경력 · 만족도 · 구성력 · 위트 · 발성 · 이미지, 행사를 마친 고객의 평가로 비교해요.', 'Career, satisfaction, structure, wit, voice and image — compare by ratings from clients after their events.', '経歴・満足度・構成力・ウィット・発声・イメージ。イベントを終えたお客様の評価で比較できます。', '经历、满意度、组织力、幽默感、发声、形象——依据活动结束后客户的评价进行比较。'),
+      screen: `${V2}/screens/ai-review-tall.webp`,
+      piece: `${V2}/screens/ai-review.webp`,
+      title: tr('AI가 정리한 실제 후기', 'Real reviews, summed up by AI', 'AIがまとめたリアルな口コミ', 'AI 整理的真实评价'),
+      desc: tr('행사를 마친 고객의 후기를 모아 AI가 진행자 스타일을 한눈에 정리해요.', 'AI gathers reviews from clients after their events and sums up each host’s style at a glance.', 'イベントを終えたお客様の口コミを集め、AIが司会者のスタイルをひと目でわかるようにまとめます。', 'AI 汇总活动结束后客户的评价，让主持人的风格一目了然。'),
       cta: tr('후기 보기', 'Read reviews', '口コミを見る', '查看评价'),
       href: '/pros',
     },
     {
-      key: 'chat',
-      screen: `${V2}/screens/chat.webp`,
-      title: tr('채팅으로 바로 견적', 'Quotes right in chat', 'チャットですぐに見積もり', '聊天即可获取报价'),
-      desc: tr('기업행사 날짜와 장소를 남기면 진행자가 직접 견적을 보내요. 웨딩홀 일정 조율도 채팅 한 번이면 끝나요.', 'Leave your corporate event date and venue, and hosts send quotes directly. Wedding hall schedules take just one chat.', '企業イベントの日程と会場を残すと、司会者が直接見積もりを送ります。式場の日程調整もチャットひとつで完了します。', '留下企业活动日期和地点，主持人会直接发送报价。婚礼堂的日程协调也只需一次聊天。'),
-      cta: tr('문의하기', 'Contact us', 'お問合せ', '联系我们'),
+      /*
+       * 261009 사장 '채팅으로 바로 견적을 프리티풀 엔터프라이즈 전담 솔루션 이렇게 — 사회자가 하는 게 아니라 우리가 스케줄 배정까지 다 해준다 그런 느낌으로'.
+       * 그림 = 캡처 대신 컴포넌트로 그린 '사회자 배정 현황' 보드(SceneIntro.parts ScheduleBoardScreen, 문구 = 아래 enterpriseBoard) —
+       * 첫 채팅 장면(일정 주고받기)과 겹치지 않게 채팅이 아니라 배정표로. 지어낸 수치 · 약속은 쓰지 않는다('전담' · '배정'은 사장 지시).
+       */
+      key: 'enterprise',
+      screen: null,
+      title: tr('프리티풀 엔터프라이즈 전담 솔루션', 'Freetiful Enterprise, fully managed', 'Freetiful Enterprise 専任ソリューション', 'Freetiful 企业专属解决方案'),
+      desc: tr('웨딩홀 · 기업 담당자는 일정만 보내 주세요. 프리티풀 전담팀이 사회자 섭외부터 스케줄 배정 · 변경 대응까지 맡아요.', 'Wedding halls and corporate planners just send the schedule. Our dedicated team handles everything from booking MCs to assigning slots and handling changes.', '式場・企業のご担当者様は日程を送るだけ。Freetifulの専任チームが司会者の手配からスケジュールの配置・変更対応まで担当します。', '婚礼堂和企业负责人只需发送日程，Freetiful 专属团队负责从邀约主持人到排期安排、变更应对的全部工作。'),
+      cta: tr('비즈문의', 'Biz inquiry', 'ビズお問合せ', '企业咨询'),
       // 261009 문의 폼 섹션 삭제 → 상담 채팅 화면으로(PillCta 가 '/' 로 시작하면 라우터 이동)
       href: '/biz/inquiry',
     },
   ],
-  /** 폰 옆에 떠 있는 작은 칩 */
-  chips: [tr('방송사 출신', 'Broadcast background', '放送局出身', '广播电视台出身'), tr('★ 4.9 실제 후기', '★ 4.9 real reviews', '★ 4.9 リアルな口コミ', '★ 4.9 真实评价'), tr('견적서 도착', 'Quote arrived', '見積書到着', '报价已送达')],
+  /**
+   * 엔터프라이즈 칸 폰 화면 — 프리티풀 전담팀이 관리하는 '사회자 배정 현황' 보드(261009).
+   * 첫 채팅 장면의 '일정표가 도착했어요'(한 날짜 · 타임별 사회자 표)와 겹쳐 보이지 않게(261009 검증), 여기선 하루가 아니라 여러 날 · 여러 행사를
+   * 한 줄씩 모은 '다가오는 배정' 목록 + 주간 달력 — 전담팀이 배정하고 변경(B → C)까지 반영해 둔 모습. 날짜는 가상 예시(요일 맞춤:
+   * 2026-11-08 일 ~ 14 토 · 11-21 · 11-28 토 · 12-18 금, 송년회 리허설 17시 = 첫 채팅 장면과 같은 예시). 사람 실명 없음(사회자 A · B · C) · 수치는 이 예시 안의 개수뿐.
+   */
+  enterpriseBoard: {
+    title: tr('사회자 배정 현황', 'MC assignments', '司会者の配置状況', '主持人安排'),
+    month: tr('2026년 11월', 'November 2026', '2026年11月', '2026年11月'),
+    /** 주간 달력 요일(일 → 토, 칸마다 띄어쓰기로 나눔) · 날짜 = 2026-11-08(일) ~ 14(토), pick = 고른 날 */
+    weekdays: tr('일 월 화 수 목 금 토', 'S M T W T F S', '日 月 火 水 木 金 土', '日 一 二 三 四 五 六'),
+    week: [8, 9, 10, 11, 12, 13, 14],
+    pick: 14,
+    filters: [tr('전체', 'All', 'すべて', '全部'), tr('웨딩홀 예식', 'Wedding halls', '式場の挙式', '婚礼堂'), tr('기업행사', 'Corporate', '企業イベント', '企业活动')],
+    /** 목록 카드 머리 — 튀어나오는 조각 · 모바일 카드에서도 '사회자 개인이 아니라 프리티풀 전담팀'이 바로 읽히게 */
+    team: tr('프리티풀 전담팀이 맡고 있어요', 'Managed by the Freetiful team', 'Freetiful専任チームが担当中', 'Freetiful 专属团队负责安排'),
+    teamSub: tr('다가오는 배정 일정', 'Upcoming assignments', '今後の配置予定', '即将进行的安排'),
+    rows: [
+      { m: tr('11월', 'Nov', '11月', '11月'), d: '14', title: tr('웨딩홀 예식 4타임', '4 weddings', '式場の挙式 4回', '婚礼仪式 4 场'), sub: tr('전속 사회자 A · B', 'Resident MCs A · B', '専属司会者 A・B', '专属主持 A · B'), changed: false },
+      { m: tr('11월', 'Nov', '11月', '11月'), d: '21', title: tr('웨딩홀 예식 3타임', '3 weddings', '式場の挙式 3回', '婚礼仪式 3 场'), sub: tr('전속 사회자 A · B', 'Resident MCs A · B', '専属司会者 A・B', '专属主持 A · B'), changed: false },
+      { m: tr('11월', 'Nov', '11月', '11月'), d: '28', title: tr('웨딩홀 예식 2타임', '2 weddings', '式場の挙式 2回', '婚礼仪式 2 场'), sub: tr('사회자 B → C 변경', 'MC changed B → C', '司会者 B → C に変更', '主持人 B → C 已变更'), changed: true },
+      { m: tr('12월', 'Dec', '12月', '12月'), d: '18', title: tr('기업 송년회', 'Year-end party', '企業忘年会', '企业年会'), sub: tr('리허설 17시', 'Rehearsal at 5 PM', 'リハーサル 17時', '彩排 17点'), changed: false },
+    ],
+    assigned: tr('배정 완료', 'Assigned', '配置完了', '已安排'),
+    changed: tr('변경 반영', 'Updated', '変更反映', '已变更'),
+    note: tr('변경 · 추가 일정도 보내 주세요', 'Changes or new dates? Send them', '変更・追加の日程もお送りください', '变更或新增日程也请发给我们'),
+    noteSub: tr('전담팀이 사회자 재배정까지 챙겨요', 'Our team reassigns MCs for you', '専任チームが司会者の再配置まで対応します', '专属团队负责重新安排主持人'),
+    send: tr('일정 보내기', 'Send a schedule', '日程を送る', '发送日程'),
+  },
+  /** 폰 옆에 떠 있는 작은 칩 — 셋째(엔터프라이즈 칸이 열리면 강조)는 261009 '견적서 도착' → '사회자 배정 완료' */
+  chips: [tr('방송사 출신', 'Broadcast background', '放送局出身', '广播电视台出身'), tr('★ 4.9 실제 후기', '★ 4.9 real reviews', '★ 4.9 リアルな口コミ', '★ 4.9 真实评价'), tr('사회자 배정 완료', 'MCs assigned', '司会者の配置完了', '主持人已安排')],
 };
 
 /* ② 매칭 카드 3장(토스 '금융' 장면 자리) */

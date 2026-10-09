@@ -6,8 +6,8 @@ import { useBizLang, useT } from '@/lib/biz/i18n';
 import { INTRO } from './content';
 import { clamp01, ease, prefersReducedMotion, seg, useFrame, useSceneProgress } from './scene';
 import {
-  CHAT_STEPS, ChatScreen, FloorShadow, HOST_SCREENS, HostPopCards, HostScreenLayers, Particles, PillCta, SI_CSS, TiltPhone,
-  attachTrimLoop, useIsoLayoutEffect, useTrimLoop,
+  BoardListCard, CHAT_STEPS, ChatScreen, FloorShadow, HOST_SCREENS, HostPopCards, HostScreenLayers, Particles, PillCta, SI_CSS, TiltPhone,
+  attachTrimLoop, boardListH, useIsoLayoutEffect, useTrimLoop,
 } from './SceneIntro.parts';
 
 /*
@@ -418,10 +418,12 @@ function AssetStage({ P, active, ids, rootRef }: { P: MotionValue<number>; activ
     // 진행자 화면 캡처는 장면이 가까워지면 미리 받아 둔다
     if (!s.pre && y > 250) {
       s.pre = true;
-      HOST_SCREENS.forEach((sc) => {
+      // 배정 보드 칸(src 없음)은 그림이 없고, AI 후기 칸은 튀어나오는 고해상도 조각(piece)도 같이
+      HOST_SCREENS.flatMap((sc) => [sc.src, sc.piece]).forEach((src) => {
+        if (!src) return;
         const im = new Image();
         im.decoding = 'async';
-        im.src = sc.src;
+        im.src = src;
       });
     }
   };
@@ -546,10 +548,12 @@ function ChipIcon({ i, on }: { i: number; on: boolean }) {
       </svg>
     );
   }
+  // 셋째 칩 '사회자 배정 완료'(261009, 예전 '견적서 도착' 문서 그림) — 달력 + 체크
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path d="M5 2.6h5.4l3 3v9.2a.7.7 0 0 1-.7.7H5a.7.7 0 0 1-.7-.7V3.3c0-.4.3-.7.7-.7Z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" />
-      <path d="M6.8 9h4.4M6.8 11.8h2.8" stroke={c} strokeWidth="1.6" strokeLinecap="round" />
+      <rect x="2.8" y="3.8" width="12.4" height="11.4" rx="2.4" stroke={c} strokeWidth="1.6" />
+      <path d="M3.2 7.4h11.6M6.2 2.2v2.8M11.8 2.2v2.8" stroke={c} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="m6.6 11.1 1.7 1.6 3.2-3.2" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -873,37 +877,48 @@ function MobileHosts({ active, ids }: { active: boolean; ids: boolean }) {
   );
 }
 
-/** 회색 카드 속 화면 조각 — 진행자 목록 · 프로필 · 후기는 캡처 조각, 채팅은 대화 부분 */
-const MOBILE_CROPS = [
+/**
+ * 회색 카드 속 화면 조각 — 진행자 목록 · 프로필은 긴 캡처 조각, AI 후기는 고해상도 조각(piece) 통째로,
+ * 엔터프라이즈는 배정 보드의 '다가오는 배정' 목록 카드(BoardListCard, 줄 간격 좁힌 판)를 그대로(261009 — 첫 채팅 장면의 하루 일정표와 겹쳐 보이지 않게 여러 날 목록).
+ * 조각이 카드 아래로 넘칠 때만(진행자 목록) 아래를 흐리게 덮는다 — 다 보이는 조각(AI 요약 카드 · 배정 목록 카드)은 끝까지 또렷하게.
+ */
+const MOBILE_CROPS: ({ y: number; h: number } | null)[] = [
   { y: 226, h: 588 },
   { y: 1050, h: 286 },
-  { y: 144, h: 274 },
-  { y: 460, h: 660 },
+  null,
+  null,
 ];
+const SHOT_H = 272;
+const SHOT_W = 300;
+const SHOT_SHADOW = '0 69px 42px rgba(99,109,131,0.09), 0 31px 31px rgba(99,109,131,0.05), 0 123px 49px rgba(99,109,131,0.01), 0 193px 54px rgba(99,109,131,0)';
 function MobileShot({ i }: { i: number }) {
   const sc = HOST_SCREENS[i];
   const c = MOBILE_CROPS[i];
-  const W = 300;
-  const k = W / 780;
-  const h = Math.round(c.h * k);
-  const top = Math.max(26, Math.round((272 - h) / 2));
+  const k = SHOT_W / 780;
+  let h: number;
+  let look: CSSProperties = {};
+  if (sc.board) {
+    h = boardListH(true);
+  } else if (sc.piece && sc.crop) {
+    h = Math.round((SHOT_W * sc.crop.h) / sc.crop.w);
+    look = { backgroundImage: `url(${sc.piece})`, backgroundSize: `${SHOT_W}px auto`, backgroundPosition: '0 0' };
+  } else {
+    const cc = c || { y: 0, h: 600 };
+    h = Math.round(cc.h * k);
+    look = { backgroundImage: sc.src ? `url(${sc.src})` : undefined, backgroundSize: `${SHOT_W}px auto`, backgroundPosition: `0 ${-cc.y * k}px` };
+  }
+  const top = Math.max(26, Math.round((SHOT_H - h) / 2));
+  const spills = top + h > SHOT_H - 26;
   return (
     <div className="relative h-[272px] overflow-hidden rounded-[32px] bg-[#F2F4F6]">
       <div
-        className="absolute left-1/2 -translate-x-1/2 rounded-[19px] border border-white/60"
-        style={{
-          top,
-          width: W,
-          height: h,
-          backgroundColor: 'rgba(251,251,252,0.9)',
-          backgroundImage: `url(${sc.src})`,
-          backgroundSize: `${W}px auto`,
-          backgroundPosition: `0 ${-c.y * k}px`,
-          boxShadow: '0 69px 42px rgba(99,109,131,0.09), 0 31px 31px rgba(99,109,131,0.05), 0 123px 49px rgba(99,109,131,0.01), 0 193px 54px rgba(99,109,131,0)',
-        }}
+        className="absolute left-1/2 -translate-x-1/2 overflow-hidden rounded-[19px] border border-white/60"
+        style={{ top, width: SHOT_W, height: h, backgroundColor: 'rgba(251,251,252,0.9)', boxShadow: SHOT_SHADOW, ...look }}
         aria-hidden="true"
-      />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[75px]" style={{ background: 'linear-gradient(rgba(242,244,247,0), rgb(242,244,247))' }} />
+      >
+        {sc.board && <BoardListCard compact />}
+      </div>
+      {spills && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[75px]" style={{ background: 'linear-gradient(rgba(242,244,247,0), rgb(242,244,247))' }} />}
     </div>
   );
 }

@@ -494,16 +494,185 @@ export function ChatScreen({ step, listMax }: { step: number; listMax?: number }
 
 /* ─── 진행자 고르기 화면(긴 캡처) + 튀어나오는 카드 ───────────────────────
  * crop = 780px 너비 캡처 안 좌표. 폰 화면 332px 로 줄여 보인다(scale 332/780).
+ * 261009 사장: 셋째 칸 = 'AI가 정리한 실제 후기'(운영 사회자 상세 AI 요약 캡처 — 조각은 3x 고해상도 piece 로),
+ *   넷째 칸 = '프리티풀 엔터프라이즈 전담 솔루션'(캡처 대신 컴포넌트로 그린 사회자 배정 보드 — board).
  */
-export type HostScreen = { key: string; src: string; h: number; offset: number; crop: { x: number; y: number; w: number; h: number } | null };
+export type HostScreen = {
+  key: string;
+  /** 폰 화면 긴 캡처(780 폭) — board 칸은 null */
+  src: string | null;
+  h: number;
+  offset: number;
+  /** 튀어나오는 조각 자리(긴 캡처 좌표) */
+  crop: { x: number; y: number; w: number; h: number } | null;
+  /** crop 자리와 같은 내용을 따로 받은 고해상도 조각(모바일 카드 · 튀어나오는 조각이 이걸 쓴다) */
+  piece?: string;
+  /** 캡처 대신 배정 보드(ScheduleBoardScreen)를 그린다 */
+  board?: boolean;
+};
 export const SCREEN_SCALE = SCREEN_W / 780;
 export const HOST_SCREENS: HostScreen[] = [
   { key: 'pros', src: INTRO.listItems[0].screen, h: 4800, offset: 0, crop: { x: 18, y: 226, w: 744, h: 588 } },
   { key: 'profile', src: INTRO.listItems[1].screen, h: 4800, offset: -206, crop: { x: 18, y: 1050, w: 744, h: 286 } },
-  { key: 'reviews', src: INTRO.listItems[2].screen, h: 4800, offset: 0, crop: { x: 18, y: 452, w: 744, h: 310 } },
-  { key: 'chat', src: INTRO.listItems[3].screen, h: 1688, offset: 0, crop: null },
+  // ai-review-tall = 390×1200 css 화면 3x 캡처를 780 폭으로 · ai-review = 그 안 css (10,190)–(380,402) 3x 조각(AI 요약 카드만 —
+  // 261009 검증: 위 별점 줄은 앱이 내림으로 별을 채워 4.9 가 별 4개로 읽혀서 뺐다. 긴 화면 캡처엔 그대로 남지만 흐리게(0.2) 깔린다)
+  { key: 'reviews', src: INTRO.listItems[2].screen, h: 2400, offset: 0, crop: { x: 20, y: 380, w: 740, h: 424 }, piece: INTRO.listItems[2].piece },
+  { key: 'enterprise', src: null, h: 715, offset: 0, crop: null, board: true },
 ];
 const POP_EASE = 'cubic-bezier(.6,0,0,.6)';
+
+/* ─── 엔터프라이즈 칸: 사회자 배정 보드(261009) ─────────────────────────
+ * '사회자가 하는 게 아니라 프리티풀이 스케줄 배정까지 다 해 준다' — 프리티풀 전담팀이 관리하는 배정 현황 화면을 앱 화면 결로 그린다.
+ * 첫 채팅 장면과 겹쳐 보이지 않게(261009 검증 — 채팅 속 '일정표가 도착했어요'가 한 날짜의 타임별 사회자 표라서) 여기선 하루 표가 아니라
+ * 주간 달력 + 여러 날 · 여러 행사를 한 줄씩 모은 '다가오는 배정' 목록(BoardListCard, 머리 = 프리티풀 전담팀). 변경 반영(B → C) 줄로 '변경 대응'도 보인다.
+ * 같은 목록 카드를 폰 화면 · 튀어나오는 조각 · 모바일 카드가 함께 쓴다. 높이는 고정값(BOARD_*)이라 바깥에서 자리를 셈한다.
+ */
+const BOARD_HEAD = 56;
+const BOARD_HEAD_COMPACT = 46;
+const BOARD_ROW = 50;
+const BOARD_ROW_COMPACT = 42;
+const BOARD_PAD_B = 6;
+export const boardListH = (compact = false) =>
+  (compact ? BOARD_HEAD_COMPACT : BOARD_HEAD) + INTRO.enterpriseBoard.rows.length * (compact ? BOARD_ROW_COMPACT : BOARD_ROW) + BOARD_PAD_B;
+/** 보드 화면(상태 막대 아래 715) 안 목록 카드 위 끝 — 머리줄 50 · 주간 달력 10+84 · 거르기 칩 12+30 · 12 */
+const BOARD_LIST_TOP = 198;
+const CHANGED_FG = '#6B5CE7';
+
+function CheckDot({ size = 14, color = ME_BG, className = '', style }: { size?: number; color?: string; className?: string; style?: CSSProperties }) {
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-full ${className}`} style={{ width: size, height: size, background: color, ...style }}>
+      <svg width={Math.round(size * 0.62)} height={Math.round(size * 0.62)} viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="m2.4 5.2 1.8 1.8 3.5-3.7" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </span>
+  );
+}
+
+/**
+ * '다가오는 배정' 목록 카드 — 머리 = 프리티풀 전담팀, 줄 = 날짜 칸(월 · 일) · 행사 · 배정된 사회자 · 상태 칩(배정 완료 / 변경 반영).
+ * compact = 모바일 카드(줄 간격 좁힘) · animate = 줄이 차례로 들어오고 체크가 톡(튀어나오는 조각)
+ */
+export function BoardListCard({ compact = false, animate = false }: { compact?: boolean; animate?: boolean }) {
+  const t = useT();
+  const b = INTRO.enterpriseBoard;
+  const rowH = compact ? BOARD_ROW_COMPACT : BOARD_ROW;
+  return (
+    <div className="overflow-hidden rounded-[18px] bg-white px-[14px]" style={{ height: boardListH(compact), paddingBottom: BOARD_PAD_B }}>
+      <div className="flex items-center gap-[10px]" style={{ height: compact ? BOARD_HEAD_COMPACT : BOARD_HEAD }}>
+        <BizAvatar size={compact ? 28 : 30} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13.5px] font-bold leading-[1.3] tracking-[-0.3px] text-[#191F28]">{t(b.team)}</span>
+          <span className="mt-[1px] block truncate text-[11px] leading-[1.35] tracking-[-0.1px] text-[#6B7684]">{t(b.teamSub)}</span>
+        </span>
+      </div>
+      <ul>
+        {b.rows.map((r, i) => {
+          const picked = r.m === b.rows[0].m && Number(r.d) === b.pick;
+          return (
+            <li
+              key={i}
+              className={`flex items-center gap-[10px] border-t border-[#F2F4F6] ${animate ? 'si-slot' : ''}`}
+              style={{ height: rowH, '--i': i } as CSSProperties}
+            >
+              {/* 날짜 칸 — 고른 날(달력과 같은 11/14)만 파랗게 */}
+              <span
+                className={`flex shrink-0 flex-col items-center justify-center rounded-[11px] ${picked ? 'bg-[#E8F3FF]' : 'bg-[#F2F4F6]'}`}
+                style={{ width: compact ? 34 : 38, height: compact ? 34 : 38 }}
+              >
+                <span className={`text-[9.5px] font-semibold leading-[1.15] tracking-[-0.1px] ${picked ? 'text-[#3182F6]' : 'text-[#8B95A1]'}`}>{t(r.m)}</span>
+                <span className={`text-[14.5px] font-bold leading-[1.15] tabular-nums tracking-[-0.2px] ${picked ? 'text-[#1B64DA]' : 'text-[#191F28]'}`}>{r.d}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12.5px] font-semibold leading-[1.3] tracking-[-0.2px] text-[#333D4B]">{t(r.title)}</span>
+                <span className={`mt-[1px] block truncate text-[10.5px] leading-[1.35] tracking-[-0.1px] ${r.changed ? 'text-[#6B5CE7]' : 'text-[#8B95A1]'}`}>{t(r.sub)}</span>
+              </span>
+              <span
+                className={`flex h-[22px] shrink-0 items-center gap-[4px] rounded-full pl-[4px] pr-[8px] text-[11px] font-semibold tracking-[-0.1px] ${r.changed ? 'bg-[#F3F0FF]' : 'bg-[#F2F7FF] text-[#3182F6]'}`}
+                style={r.changed ? { color: CHANGED_FG } : undefined}
+              >
+                <CheckDot size={13} color={r.changed ? CHANGED_FG : ME_BG} className={animate ? 'si-ck' : ''} style={{ '--i': i } as CSSProperties} />
+                {t(r.changed ? b.changed : b.assigned)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** 배정 보드 화면(상태 막대 아래 332×715 디자인 px) — 머리줄 · 주간 달력 · 거르기 칩 · 다가오는 배정 목록 · 변경 안내 · 일정 보내기 */
+export function ScheduleBoardScreen() {
+  const t = useT();
+  const b = INTRO.enterpriseBoard;
+  const wd = t(b.weekdays).split(' ');
+  return (
+    <div className="absolute inset-0 bg-[#F2F4F6]">
+      {/* 머리줄 */}
+      <div className="flex h-[50px] items-center gap-[8px] bg-white px-[12px]">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M13.6 4.6 7.2 11l6.4 6.4" stroke="#191F28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="min-w-0 flex-1 truncate text-[16px] font-bold tracking-[-0.3px] text-[#191F28]">{t(b.title)}</span>
+        <CalendarIcon size={20} color="#4E5968" />
+      </div>
+      <div className="px-[12px]">
+        {/* 주간 달력 — 11/8(일) ~ 11/14(토), 고른 날 = 14 */}
+        <div className="mt-[10px] h-[84px] rounded-[16px] bg-white px-[12px] pt-[10px]">
+          <div className="flex h-[20px] items-center justify-between">
+            <span className="truncate text-[13.5px] font-bold tracking-[-0.3px] text-[#191F28]">{t(b.month)}</span>
+            <span className="flex shrink-0 items-center gap-[10px]" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.6 3.2 4.8 7l3.8 3.8" stroke="#B0B8C1" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5.4 3.2 9.2 7l-3.8 3.8" stroke="#4E5968" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
+          </div>
+          <div className="mt-[6px] grid grid-cols-7">
+            {b.week.map((d, i) => {
+              const on = d === b.pick;
+              return (
+                <span key={d} className="flex flex-col items-center">
+                  <span className="h-[14px] text-[10px] leading-[14px] text-[#8B95A1]">{wd[i] || ''}</span>
+                  <span
+                    className={`mt-[2px] flex h-[26px] w-[26px] items-center justify-center rounded-full text-[12.5px] font-semibold tabular-nums ${on ? 'text-white' : 'text-[#333D4B]'}`}
+                    style={on ? { background: ME_BG } : undefined}
+                  >
+                    {d}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        {/* 거르기 칩 */}
+        <div className="mt-[12px] flex h-[30px] items-center gap-[6px] overflow-hidden">
+          {b.filters.map((f, i) => (
+            <span
+              key={i}
+              className={`flex h-[30px] shrink-0 items-center rounded-full px-[12px] text-[12px] font-semibold tracking-[-0.2px] ${i === 0 ? 'bg-[#191F28] text-white' : 'bg-white text-[#4E5968]'}`}
+            >
+              {t(f)}
+            </span>
+          ))}
+        </div>
+        {/* 다가오는 배정 목록(튀어나오는 조각과 같은 카드) */}
+        <div className="mt-[12px]">
+          <BoardListCard />
+        </div>
+        {/* 변경 안내 — 바뀐 일정도 담당자는 보내기만, 재배정은 전담팀이 */}
+        <div className="mt-[10px] flex h-[56px] items-center gap-[10px] rounded-[16px] bg-white px-[14px]">
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[#E8F3FF]">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M12.6 6.2A4.9 4.9 0 0 0 3.7 5M3.4 9.8a4.9 4.9 0 0 0 8.9 1.2" stroke="#3182F6" strokeWidth="1.6" strokeLinecap="round" /><path d="M12.9 2.9v3.4H9.5M3.1 13.1V9.7h3.4" stroke="#3182F6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-bold leading-[1.35] tracking-[-0.3px] text-[#191F28]">{t(b.note)}</span>
+            <span className="mt-[1px] block truncate text-[11px] leading-[1.35] tracking-[-0.1px] text-[#6B7684]">{t(b.noteSub)}</span>
+          </span>
+        </div>
+      </div>
+      {/* 일정 보내기 — 담당자는 일정만 보낸다 */}
+      <div className="absolute inset-x-[12px] bottom-[20px] flex h-[46px] items-center justify-center gap-[6px] rounded-[14px] text-[14.5px] font-bold tracking-[-0.3px] text-white" style={{ background: ME_BG }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" /></svg>
+        {t(b.send)}
+      </div>
+    </div>
+  );
+}
 
 export function HostScreenLayers({ active }: { active: number }) {
   const shown = active < 0 ? 0 : active;
@@ -513,29 +682,37 @@ export function HostScreenLayers({ active }: { active: number }) {
       <div className="absolute inset-0 bg-white" />
       {HOST_SCREENS.map((sc, i) => {
         const on = i === shown;
+        const faded = { opacity: on && dim ? 0.2 : 1, transition: 'opacity .3s ease .03s' };
         return (
           <div
             key={sc.key}
             className="absolute inset-x-0"
             style={{
               top: 30,
+              height: sc.board ? sc.h : undefined,
               opacity: on ? 1 : 0,
               transform: `translate3d(0, ${on ? sc.offset : sc.offset + 48}px, 0)`,
               transition: on ? `transform .4s ${POP_EASE}, opacity .3s ease` : 'transform 0s linear .3s, opacity .3s ease',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- public 정적 캡처 */}
-            <img
-              src={sc.src}
-              alt=""
-              width={SCREEN_W}
-              height={Math.round(sc.h * SCREEN_SCALE)}
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              className="block select-none"
-              style={{ width: SCREEN_W, height: 'auto', opacity: on && dim ? 0.2 : 1, transition: 'opacity .3s ease .03s' }}
-            />
+            {sc.board ? (
+              <div className="absolute inset-0" style={faded}>
+                <ScheduleBoardScreen />
+              </div>
+            ) : sc.src ? (
+              // eslint-disable-next-line @next/next/no-img-element -- public 정적 캡처
+              <img
+                src={sc.src}
+                alt=""
+                width={SCREEN_W}
+                height={Math.round(sc.h * SCREEN_SCALE)}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                className="block select-none"
+                style={{ width: SCREEN_W, height: 'auto', ...faded }}
+              />
+            ) : null}
           </div>
         );
       })}
@@ -545,7 +722,6 @@ export function HostScreenLayers({ active }: { active: number }) {
 }
 
 export function HostPopCards({ active }: { active: number }) {
-  const t = useT();
   return (
     <>
       {HOST_SCREENS.map((sc, i) => {
@@ -566,19 +742,40 @@ export function HostPopCards({ active }: { active: number }) {
             ? `transform .4s ${POP_EASE}, box-shadow .4s ${POP_EASE}, opacity .2s ease`
             : `transform 0s linear .3s, box-shadow .3s ease, opacity .25s ease`,
         };
-        if (!sc.crop) {
-          // 채팅: 캡처에 없는 견적서 카드를 직접 그려 띄운다
+        if (sc.board) {
+          // 배정 보드: 화면 속 '다가오는 배정' 목록 카드가 그대로 튀어나온다 — 열릴 때마다 줄이 차례로 · 체크가 톡(key 로 다시 그려 애니메이션을 처음부터)
+          const H = boardListH() + 20;
+          const cy = 30 + sc.offset + BOARD_LIST_TOP + boardListH() / 2;
           return (
-            <div key={sc.key} style={{ ...base, top: 30 + 452 }}>
-              <PopQuote title={t(INTRO.chatQuoteCard.title)} sub={t(INTRO.chatQuoteCard.sub)} />
+            <div key={sc.key} style={{ ...base, top: cy - H / 2, height: H, padding: 10 }}>
+              <BoardListCard key={on ? 'on' : 'off'} animate={on} />
             </div>
           );
         }
-        // 캡처 조각 — 카드 안쪽 여백(10px)을 두려고 조금 작게(콘텐츠 x 24–756 → 폭 284) 넣는다
+        if (!sc.crop) return null;
         const c = sc.crop;
+        const cy = 30 + sc.offset + (c.y + c.h / 2) * SCREEN_SCALE;
+        if (sc.piece) {
+          // 고해상도 조각(crop 자리와 같은 내용) — 카드 안쪽 여백 10, 폭 284
+          const H = (284 * c.h) / c.w + 20;
+          return (
+            <div
+              key={sc.key}
+              style={{
+                ...base,
+                top: cy - H / 2,
+                height: H,
+                backgroundImage: on ? `url(${sc.piece})` : undefined,
+                backgroundSize: '284px auto',
+                backgroundPosition: '10px 10px',
+                backgroundRepeat: 'no-repeat',
+              }}
+            />
+          );
+        }
+        // 캡처 조각 — 카드 안쪽 여백(10px)을 두려고 조금 작게(콘텐츠 x 24–756 → 폭 284) 넣는다
         const f = 284 / 732;
         const H = c.h * f + 20;
-        const cy = 30 + sc.offset + (c.y + c.h / 2) * SCREEN_SCALE;
         return (
           <div
             key={sc.key}
@@ -595,20 +792,6 @@ export function HostPopCards({ active }: { active: number }) {
         );
       })}
     </>
-  );
-}
-
-function PopQuote({ title, sub }: { title: string; sub: string }) {
-  return (
-    <div className="px-[18px] py-[16px]">
-      <div className="flex items-center gap-[10px]">
-        <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[#3182F6]">
-          <svg width="16" height="16" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 1.8h4.8l2.7 2.7v7.1a.6.6 0 0 1-.6.6H3.5a.6.6 0 0 1-.6-.6V2.4c0-.3.3-.6.6-.6Z" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" /><path d="M5 7h4M5 9.3h2.6" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" /></svg>
-        </span>
-        <p className="break-keep text-[17px] font-bold leading-[1.35] tracking-[-0.3px] text-[#191F28]">{title}</p>
-      </div>
-      <p className="mt-[10px] break-keep text-[13.5px] leading-[1.5] tracking-[-0.2px] text-[#4E5968]">{sub}</p>
-    </div>
   );
 }
 
