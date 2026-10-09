@@ -42,7 +42,8 @@ private let nativeProNavItems = [
 private let nativeBizNavItems = [
     LiquidNavItem(id: "home", title: "홈", path: "/biz", iconAssetName: "nav-biz-home"),
     LiquidNavItem(id: "news", title: "뉴스·소식", path: "/biz/news", iconAssetName: "nav-biz-news"),
-    LiquidNavItem(id: "inquiry", title: "문의하기", path: "/biz/inquiry", iconAssetName: "nav-biz-inquiry"),
+    // 이름 = 웹 BizTabBar 와 같게 '비즈문의'(261009 사장 '문의하기를 비즈문의로 바꿔줘 — 네비게이션바에 있는 거') — iOS 비즈 바 글자 · VoiceOver 이름은 여기서 온다
+    LiquidNavItem(id: "inquiry", title: "비즈문의", path: "/biz/inquiry", iconAssetName: "nav-biz-inquiry"),
     LiquidNavItem(id: "company", title: "기업소개", path: "/biz/ceo", iconAssetName: "nav-biz-company")
 ]
 
@@ -390,7 +391,8 @@ class ViewController: UIViewController,
                 selectedPath: self.currentPath,
                 selectedItemId: bizMode ? self.bizTab : nil,
                 showsModeToggle: false,
-                isProMode: false
+                isProMode: false,
+                isBizStyle: bizMode   // 비즈 = 동그란 ← 단추 + 유리 알약(261009 사장 '비즈 푸터는 이렇게 디자인해줘 ios만')
             )
         }
         // 떠 있는 바의 묶음이 바뀔 때(앱 탭 ↔ 비즈 탭)는 아이콘 · 글자가 툭 바뀌지 않게 살짝 겹쳐 바꾼다.
@@ -461,6 +463,29 @@ class ViewController: UIViewController,
     }
 
     func liquidGlassNavigationBarDidTapModeToggle(_ navBar: LiquidGlassNavigationBar) {}
+
+    /// 비즈 바 왼쪽 동그란 ← 단추(261009 사장 '비즈 푸터는 이렇게 디자인해줘 ios만' — 토스 하단 견본의 뒤로 단추) = 비즈 묶음을 한 번에 나가는 길.
+    ///  · 기록을 최근 것부터 훑어 처음 나오는 비즈 밖 화면(= 비즈에 들어오기 바로 전 화면)으로 단번에 돌아간다(go(to:)).
+    ///    비즈 탭 이동은 웹 · 네이티브 모두 push 라 그사이 비즈 화면이 여러 개 쌓여 있어도 ← 한 번이면 된다
+    ///    (261009 검증: 예전엔 바로 앞 비즈 화면으로 한 칸씩 되감겨 탭을 N번 옮겼으면 N번 눌러야 나갔다).
+    ///  · 그 화면이 홈이 아니어도 그대로 그 화면으로 — 사회자 상세 '기업 섭외 문의' → /biz → ← = 사회자 상세(화살표 뜻 그대로).
+    ///    예전엔 홈(/main)으로 바꿔 끼워 오던 화면으로 돌아갈 길이 없었다(홈은 밀어서 뒤로가기도 꺼져 있다).
+    ///  · 비즈 밖 기록이 없거나(푸시 · 링크로 비즈가 바로 열림) 바깥 사이트면 프리티풀 홈(/main)으로 replace —
+    ///    지금 비즈 화면 자리를 홈으로 바꿔 끼워 기록에 비즈가 남지 않게(앱 탭 전환과 같은 방식)
+    func liquidGlassNavigationBarDidTapBack(_ navBar: LiquidGlassNavigationBar) {
+        let exitItem = webView.backForwardList.backList.reversed().first { !isBizURL($0.url) }
+        if let exitItem, let host = exitItem.url.host?.lowercased(), kWebHosts.contains(host) {
+            webView.go(to: exitItem)
+            return
+        }
+        navigateWeb(to: "/main", replace: true)
+    }
+
+    /// 프리티풀 웹의 비즈 화면 주소인지(/biz · /biz/…)
+    private func isBizURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased(), kWebHosts.contains(host) else { return false }
+        return url.path == "/biz" || url.path.hasPrefix("/biz/")
+    }
 
     /// 웹 안에서 이동 — (main) 레이아웃이 있으면 SPA 라우팅(__freetifulNavigate), 없으면 주소 이동
     private func navigateWeb(to path: String, replace: Bool = false) {
