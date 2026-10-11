@@ -61,6 +61,8 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
       { href: '/admin/reviews', label: '리뷰 관리', icon: 'star', desc: '고객 리뷰를 노출·삭제해요' },
       { href: '/admin/community', label: '커뮤니티 관리', icon: 'message-square-text', desc: '웨딩숲 글·댓글·신고·닉네임을 살피고 고쳐요' },
       { href: '/admin/operator', label: '운영 콘텐츠', icon: 'loudspeaker', desc: "운영팀 이름으로 웨딩숲 글을 쓰고 반응을 봐요 — 앱엔 늘 '운영팀' 표시가 붙어요" },
+      // (261011 검증 E5) 자동 보류된 웨딩런 판(완주 3번 이상 등)을 운영자가 확인·반영 — 예전엔 주소로만 들어갔다
+      { href: '/admin/wedding-run', label: '웨딩런 기록', icon: 'trophy', desc: '자동 보류된 판을 확인하고 랭킹에 반영하거나 보류를 유지해요' },
     ],
   },
 ];
@@ -119,7 +121,7 @@ function NavIcon({ name }: { name: string }) {
 
 function SideNav({ pathname, badge, onNavigate }: {
   pathname: string;
-  badge: { todayUsers: number; pendingPros: number };
+  badge: { todayUsers: number; pendingPros: number; wrHeld?: number };
   onNavigate?: () => void;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -152,6 +154,7 @@ function SideNav({ pathname, badge, onNavigate }: {
                 <span className="adm-nav-text">{item.label}</span>
                 {item.href === '/admin/users' && badge.pendingPros > 0 && <span className="adm-nav-badge warn">승인 {badge.pendingPros}</span>}
                 {item.href === '/admin/users' && badge.pendingPros === 0 && badge.todayUsers > 0 && <span className="adm-nav-badge">+{badge.todayUsers}</span>}
+                {item.href === '/admin/wedding-run' && (badge.wrHeld ?? 0) > 0 && <span className="adm-nav-badge warn">보류 {badge.wrHeld}</span>}
               </Link>
             );
           })}
@@ -191,7 +194,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hasAdminKey, setHasAdminKey] = useState(false);
-  const [navBadge, setNavBadge] = useState<{ todayUsers: number; pendingPros: number }>({ todayUsers: 0, pendingPros: 0 });
+  const [navBadge, setNavBadge] = useState<{ todayUsers: number; pendingPros: number; wrHeld?: number }>({ todayUsers: 0, pendingPros: 0 });
   // 운영 이슈 서랍(종) — 빨간 점 = 서랍을 마지막으로 닫은 뒤 새로 생긴 이슈
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueCount, setIssueCount] = useState(0);
@@ -284,10 +287,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       try {
         const s: any = await adminFetch('GET', '/api/v1/admin/stats', undefined, { cache: false });
         if (stop) return;
-        setNavBadge({
+        setNavBadge((b) => ({
+          ...b,
           todayUsers: Number(s?.newUsersToday || 0),
           pendingPros: Number(s?.pendingPros ?? s?.profiles?.proStatus?.pending ?? 0),
-        });
+        }));
+      } catch {}
+      // 웨딩런 자동 보류 건수(운영 확인 대기) — 서버가 없거나 실패하면 뱃지만 안 보임
+      try {
+        const w: any = await adminFetch('GET', '/api/v1/game/wedding-run/admin/scores?hidden=auto&limit=1', undefined, { cache: false });
+        if (stop) return;
+        setNavBadge((b) => ({ ...b, wrHeld: Math.max(0, Number(w?.total) || 0) }));
       } catch {}
     };
     load();

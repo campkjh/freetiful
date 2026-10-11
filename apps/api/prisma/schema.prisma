@@ -1511,3 +1511,103 @@ model CommunityNickname {
 
   @@map("community_nicknames")
 }
+
+/// 웨딩런 '신혼집까지 달려!' 점수(261011 사장 '원라인솔루션 에그점프처럼 점프게임') — 한 판 = 1행.
+/// sessionId unique = 한 판은 한 번만 제출. playerKey = 'u:<userId>'(로그인) | 'd:<deviceId>'(게스트).
+/// 순위는 이 표가 아니라 기간별 요약(WeddingRunBest)에서 읽는다. 공개 닉네임은 플레이어 표(WeddingRunPlayer)의 '마지막으로 정한 이름'.
+/// nickname 칸 = 그 판을 낼 때의 닉네임(운영 기록용 — 화면에는 쓰지 않음). IP 는 해시만(ipHash), 원문은 저장하지 않는다.
+/// 표는 추가만 하는 DDL(migrations/20261011120000_wedding_run_scores + 20261011123000_wedding_run_sessions_bests)로 만든다(db push 없이).
+model WeddingRunScore {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique
+  playerKey    String
+  userId       String?
+  deviceId     String
+  nickname     String
+  score        Int
+  /// 캐릭터 단계 0~4(드레스·부케·부케+베일티아라·신랑 합류·손잡고)
+  stage        Int
+  /// 구간 0~11(서울→종로→경복궁→상견례→드레스 매장→가전 매장→플래너 상담→빈 웨딩홀→하객 웨딩홀→비행기→발리→신혼집)
+  segment      Int
+  /// 신혼집에 한 번 이상 도착
+  arrived      Boolean   @default(false)
+  /// 완주(신혼집 도착) 수
+  laps         Int       @default(0)
+  /// 실제 달린 시간(일시정지 제외)
+  durationMs   Int
+  hearts       Int       @default(0)
+  envelopes    Int       @default(0)
+  ipHash       String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  /// 운영 숨김(261011 검증 보강) — 순위 요약·공유 링크에서 뺀다. 이유 예: 'admin:…'
+  hiddenAt     DateTime? @db.Timestamptz(3)
+  hiddenReason String?
+
+  @@index([createdAt])
+  @@index([playerKey, score(sort: Desc)])
+  @@map("wedding_run_scores")
+}
+
+/// 웨딩런 한 판의 세션(261011 검증 보강 — 토큰을 받아 두고 기다렸다가 큰 점수를 내는 공격 막기).
+/// 판 시작 때 1행, 점수 제출 때 usedAt 을 찍어 한 번만 쓴다. 30분 지나면 만료(WR_SESSION_TTL_MS).
+/// 같은 기기에 열린 판이 너무 많으면 오래된 것부터 닫는다(closeReason 'superseded'). 하루 지난 행은 서비스가 조금씩 지운다.
+model WeddingRunSession {
+  /// = 세션 토큰의 sid(uuid)
+  id          String    @id
+  deviceId    String
+  /// 판을 연 시점의 플레이어('u:<userId>' | 'd:<deviceId>')
+  playerKey   String
+  userId      String?
+  ipHash      String?
+  startedAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  /// 'submitted'(점수 제출) | 'superseded'(같은 기기 새 판에 밀려 닫힘)
+  closeReason String?
+
+  @@index([deviceId, startedAt])
+  @@index([ipHash, startedAt])
+  @@index([startedAt])
+  @@map("wedding_run_sessions")
+}
+
+/// 웨딩런 플레이어(261011 검증 보강) — 공개 닉네임('마지막으로 정한 이름')·운영 숨김을 플레이어 단위로.
+/// playerKey = 'u:<userId>' | 'd:<deviceId>'. 게스트로 하다 로그인해 제출하면 d: 기록·요약·닉네임이 u: 로 옮겨진다.
+model WeddingRunPlayer {
+  playerKey      String    @id
+  userId         String?
+  /// 마지막으로 제출한 기기(기본 '꾸밈말 동물' 닉네임을 다시 만들 때)
+  deviceId       String
+  nickname       String
+  /// 직접 정한 닉네임의 비교용 접은 글자(대소문자·띄어쓰기·닮은꼴 접기) — 다른 플레이어와 같은 이름 금지. 기본 닉네임이면 null
+  nicknameKey    String?   @unique
+  /// 운영자가 닉네임을 기본값으로 되돌리고 잠금
+  nicknameLocked Boolean   @default(false)
+  /// 운영 숨김(운영자 숨김·탈퇴/정지 계정) — 순위·공유 링크에서 뺀다
+  hiddenAt       DateTime? @db.Timestamptz(3)
+  hiddenReason   String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("wedding_run_players")
+}
+
+/// 웨딩런 기간별 플레이어 최고점 요약(261011 검증 보강 — 순위 쿼리가 점수 표 전체를 정렬하지 않게).
+/// periodKey = 'all' | 'd:YYYY-MM-DD'(KST 날짜) | 'w:YYYY-MM-DD'(KST 주 월요일). 제출 때 더 높을 때만 바꾼다(동점은 먼저 낸 판 유지).
+/// hidden = 플레이어 숨김을 순위 쿼리에서 바로 거르려고 복사(플레이어 숨김·해제 때 같이 바꾼다). 숨긴 판은 요약을 다시 계산해 뺀다.
+model WeddingRunBest {
+  periodKey  String
+  playerKey  String
+  scoreId    String
+  score      Int
+  stage      Int
+  arrived    Boolean
+  /// 그 최고점을 낸 시각(동점 순서)
+  achievedAt DateTime @db.Timestamptz(3)
+  hidden     Boolean  @default(false)
+
+  @@id([periodKey, playerKey])
+  @@index([periodKey, hidden, score(sort: Desc), achievedAt, scoreId])
+  @@index([playerKey])
+  @@map("wedding_run_bests")
+}

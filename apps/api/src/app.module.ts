@@ -29,6 +29,7 @@ import { PolicyModule } from './policy/policy.module';
 import { AutoReplyModule } from './auto-reply/auto-reply.module';
 import { LandingModule } from './landing/landing.module';
 import { CommunityModule } from './community/community.module';
+import { GameModule } from './game/game.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -63,6 +64,7 @@ import { HealthController } from './health.controller';
     AutoReplyModule,
     LandingModule,
     CommunityModule,
+    GameModule, // 웨딩런 미니게임(261011)
   ],
   controllers: [HealthController],
 })
