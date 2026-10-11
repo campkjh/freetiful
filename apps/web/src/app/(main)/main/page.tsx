@@ -925,7 +925,9 @@ const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.freeti
 // pcCta = PC 배너 위 단추(260929 사장) — signup: 가입 5천원 '바로가기' · stores: 1등 배너 앱 다운로드(App Store · Google Play)
 //   · go: 웹 글자 제목 바로 아래 '바로가기'(261007 사장, 프리티풀 비즈) → href
 // pcOnly = PC 4:3 배너에만(모바일 8:3 넘김엔 없다 — image 도 없다)
-const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip; pcCta?: 'signup' | 'stores' | 'go'; pcOnly?: boolean }[] = [
+// cta = 모바일 8:3 배너에도 제목 아래 '바로가기'(261012 사장, 웨딩런 — PC 는 pcCta 'go')
+// tone = 'light' — 밝은 그림(웨딩런 일러스트)이라 흰 제목 대신 titleColors 줄별 색 + 흰 테두리, 어둡게 깔던 막은 밝은 막, 바로가기는 흰 알약에 보라 글씨
+const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: string; title?: string[]; href?: string; action?: 'signup'; strip?: BannerStrip; pcCta?: 'signup' | 'stores' | 'go'; pcOnly?: boolean; cta?: 'go'; tone?: 'light'; titleColors?: string[] }[] = [
   // 순서(260926 사장): 빌라드지디 → 결혼식사회자 1등 → 슈슈몽드 → 가입 5천원 → 세라미크 — 8:3(260927).
   // 빌라드지디·슈슈몽드·세라미크는 글자 없는 사진 + 제목을 웹 글자로(퀵매칭 제목과 같은 21 굵게), 장이 넘어올 때마다 페이드 업(260927 사장).
   // 결혼식사회자 1등·가입 5천원은 그림에 글자가 들어 있다.
@@ -946,6 +948,10 @@ const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: stri
   // 프리티풀 비즈 — PC 전용(261007 사장 '프리티풀 비즈 배너, PC 에서만, 배너 글은 네가 쓰고 바로가기 버튼도'). 사진 오른쪽 아래에 Freetiful BIZ 로고가 들어 있어
   // 제목·단추는 왼쪽 위. 결혼식사회자 1등 다음 = 프리티풀 자기 배너끼리 붙인다.
   { id: 'biz', pcImage: '/images/banners/pc-hero-biz.webp', title: ['기업 행사부터', '웨딩홀 전속 사회자까지', '프리티풀 비즈'], alt: '기업 행사부터 웨딩홀 전속 사회자까지, 프리티풀 비즈', href: '/biz', pcCta: 'go', pcOnly: true },
+  // 웨딩런 미니게임(261012 사장 '배너에 웨딩런 배너 넣어줘, 바로가기도') — 모바일·PC 둘 다, 제목 아래 바로가기. 그림 = 게임 첫 진입 일러스트
+  // (scripts/wedding-run-banners.cjs — PC 4:3 은 일러스트를 아래에 깔고 위로 하늘을 이어 제목 자리를 만듦). 제목 색 = 게임 제목 보라·분홍(분홍은 밝은 그림 위 대비 때문에 게임 #EF5D8F 보다 조금 진하게).
+  // 프리티풀 자기 배너끼리 붙인다(비즈 다음 · 모바일은 비즈가 없어 결혼식사회자 1등 다음).
+  { id: 'wedding-run', image: '/images/banners/home-top-wedding-run-8x3.webp', pcImage: '/images/banners/pc-hero-wedding-run.webp', title: ['웨딩런:', '신혼집까지 달려!'], titleColors: ['#7655C2', '#D4407A'], tone: 'light', alt: '프리티풀 미니게임 웨딩런: 신혼집까지 달려!', href: '/wedding-run', pcCta: 'go', cta: 'go' },
   // 슈슈몽드 강남 — 제휴 웨딩홀 사진(다이렉트결혼준비, 업체 상세와 같은 사진) · 배너·사진 모두 업체 상세로
   { id: 'chouchoumonde', image: '/images/banners/home-top-chouchoumonde-bg.webp', pcImage: '/images/banners/pc-hero-chouchoumonde.webp', title: ['빛과 정원이 머무는,', '품격 있는 웨딩의 시작', '슈슈몽드'], alt: '빛과 정원이 머무는, 품격 있는 웨딩의 시작 슈슈몽드', href: '/businesses/78c08b05-2378-412f-8a61-d478c785a206',
     strip: {
@@ -1065,17 +1071,19 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
         className="relative w-full select-none overflow-hidden rounded-[5px] bg-[#F2F4F6]"
         style={{ aspectRatio: pc ? '4 / 3' : '8 / 3', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
-          // 사진 줄(링크)에서 시작한 누름은 넘기기로 잡지 않는다 — 잡으면(pointer capture) 링크 눌림이 배너로 가 버린다
-          if ((e.target as HTMLElement).closest?.('[data-banner-strip]')) return;
+          // 사진 줄(링크)·단추에서 시작한 마우스 누름은 넘기기로 잡지 않는다 — 잡으면(pointer capture) 링크 눌림이 배너로 가 버린다.
+          // 터치는 잡지 않으니 그대로 넘김을 받는다(모바일 바로가기 단추 위에서 밀어도 넘어가게 — 민 뒤엔 finish 의 lockRef 가 이동을 막음)
+          if (e.pointerType !== 'touch' && (e.target as HTMLElement).closest?.('[data-banner-strip]')) return;
           startRef.current = { x: e.clientX, y: e.clientY };
           setDrag(0);
-          if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture(e.pointerId);
         }}
         onPointerMove={(e) => {
           const st = startRef.current;
           if (!st) return;
           const dx = e.clientX - st.x;
           const dy = e.clientY - st.y;
+          // 마우스는 실제로 끌기 시작한 뒤(8px)에야 잡는다 — 누르자마자 잡으면 click 이 배너 칸(div)으로 가서 배너 단추(이동)가 안 눌린다
+          if (e.pointerType !== 'touch' && Math.max(Math.abs(dx), Math.abs(dy)) > 8 && !e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.setPointerCapture(e.pointerId);
           if (Math.abs(dy) > Math.abs(dx) * 1.3) return;
           setDrag(Math.max(-140, Math.min(140, dx)));
         }}
@@ -1085,6 +1093,8 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
           if (st) finish(e.clientX - st.x, e.clientY - st.y);
         }}
         onPointerCancel={() => { startRef.current = null; setDrag(0); }}
+        // 잡기 전(8px 안)에 칸 밖으로 튀어 나가 떼면 pointerup 이 안 와 누름이 남는다 — 나가면 버린다(잡힌 동안·터치는 leave 가 안 온다)
+        onPointerLeave={() => { if (startRef.current) { startRef.current = null; setDrag(0); } }}
       >
         <div
           className="flex h-full"
@@ -1096,7 +1106,9 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
         >
           {banners.map((b, i) => (
             // 장 = 칸(div) 안에 배너 단추(가득) + PC 사진 줄(링크들) — 단추 안에 링크를 넣으면 안 돼서 나란히 둔다
-            <div key={b.id} className="relative h-full shrink-0 overflow-hidden" style={{ width: `${100 / count}%` }}>
+            // --bt·--bg = 모바일 바로가기 배너(cta)의 제목 크기·제목↔단추 간격 — 359 이하 폰(배너 높이 ~127 미만)에선 줄여 단추가 아래 진행 선과 안 겹치게
+            //   (309 이하 — 폴드 커버 화면 등 — 는 단추를 숨긴다. 배너 자체를 눌러도 같은 곳으로 간다)
+            <div key={b.id} className={`relative h-full shrink-0 overflow-hidden ${!pc && b.cta ? '[--bg:8px] [--bt:21px] max-[359px]:[--bg:6px] max-[359px]:[--bt:18px]' : ''}`} style={{ width: `${100 / count}%` }}>
             <button
               type="button"
               onClick={() => open(b)}
@@ -1107,45 +1119,59 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
               <img src={pc ? b.pcImage : b.image ?? b.pcImage} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
               {b.title && (
                 <>
-                  {/* 왼쪽(PC 는 왼쪽 위)만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결) */}
+                  {/* 왼쪽(PC 는 왼쪽 위)만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결).
+                      tone 'light'(웨딩런) = 반대로 옅게 밝게 — 색 제목이 뒤 그림(서울 하늘·벚꽃)에 묻히지 않게 */}
                   <span
                     aria-hidden
                     className="pointer-events-none absolute inset-0"
-                    style={{ background: pc ? 'linear-gradient(160deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.12) 34%, rgba(0,0,0,0) 58%)' : 'linear-gradient(90deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0) 70%)' }}
+                    style={{
+                      background: b.tone === 'light'
+                        ? (pc ? 'linear-gradient(160deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.18) 36%, rgba(255,255,255,0) 60%)' : 'linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.28) 38%, rgba(255,255,255,0) 62%)')
+                        : (pc ? 'linear-gradient(160deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.12) 34%, rgba(0,0,0,0) 58%)' : 'linear-gradient(90deg, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0) 70%)'),
+                    }}
                   />
                   <span
                     key={i === idx ? `on-${turn}` : 'off'}
                     aria-hidden
-                    className={`pointer-events-none absolute text-left font-bold text-white ${pc ? 'left-9 top-8 text-[32px] leading-[1.32] tracking-[-0.7px]' : 'left-5 top-[14px] text-[21px] leading-[1.35] tracking-[-0.4px]'}`}
+                    className={`pointer-events-none absolute text-left font-bold ${b.tone === 'light' ? '' : 'text-white'} ${pc ? 'left-9 top-8 text-[32px] leading-[1.32] tracking-[-0.7px]' : `left-5 top-[14px] ${b.cta ? 'text-[length:var(--bt)]' : 'text-[21px]'} leading-[1.35] tracking-[-0.4px]`}`}
                     style={{
-                      textShadow: '0 1px 8px rgba(0,0,0,0.22)',
+                      // 밝은 그림 = 게임 제목처럼 흰 테두리(사방 1px) + 흰 번짐
+                      textShadow: b.tone === 'light' ? '0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 2px 10px rgba(255,255,255,0.9)' : '0 1px 8px rgba(0,0,0,0.22)',
                       ...(i === idx
                         ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both' }
                         : { opacity: i === leaving ? 1 : 0 }),
                     }}
                   >
-                    {b.title.map((line) => <span key={line} className="block">{line}</span>)}
+                    {b.title.map((line, li) => <span key={line} className="block" style={b.titleColors?.[li] ? { color: b.titleColors[li] } : undefined}>{line}</span>)}
                   </span>
                 </>
               )}
             </button>
-            {/* PC 배너 위 단추 — 배너 단추와 나란히(단추 안 단추 금지), 장이 들어올 때마다 떠오른다 */}
-            {/* go = 제목(top-8 · 32px · 줄 1.32) 바로 아래 18 — 제목 줄 수가 바뀌어도 따라 내려간다 */}
-            {pc && (b.pcCta === 'signup' || b.pcCta === 'go') && (
+            {/* 배너 위 단추 — 배너 단추와 나란히(단추 안 단추 금지), 장이 들어올 때마다 떠오른다 */}
+            {/* go = 제목 바로 아래(PC: top-8 · 32px · 줄 1.32 + 18 / 모바일 cta: top 14 · --bt(21px) · 줄 1.35 + --bg(8)) — 제목 줄 수가 바뀌어도 따라 내려간다 */}
+            {(pc ? b.pcCta === 'signup' || b.pcCta === 'go' : b.cta === 'go') && (
               <button
                 key={i === idx ? `cta-${turn}` : 'cta'}
                 type="button"
                 data-banner-strip
                 onClick={() => open(b)}
-                className={`absolute left-9 z-[2] inline-flex h-[42px] items-center gap-0.5 rounded-full pl-4 pr-3 text-[16px] font-semibold tracking-[-0.3px] text-white transition-colors hover:bg-white/30 ${b.pcCta === 'signup' ? 'top-[58%]' : ''}`}
+                aria-label={b.title ? `${b.title.join(' ')} 바로가기` : undefined}
+                className={`absolute z-[2] inline-flex items-center gap-0.5 rounded-full font-semibold transition-colors ${
+                  pc ? 'left-9 h-[42px] pl-4 pr-3 text-[16px] tracking-[-0.3px]' : 'left-5 h-[28px] pl-3 pr-2 text-[13px] tracking-[-0.2px] max-[359px]:h-[24px] max-[359px]:pl-2.5 max-[359px]:pr-1.5 max-[359px]:text-[12px] max-[309px]:hidden'
+                } ${b.tone === 'light' ? 'bg-white/[0.86] text-[#7655C2] hover:bg-white' : 'bg-white/20 text-white hover:bg-white/30'} ${pc && b.pcCta === 'signup' ? 'top-[58%]' : ''}`}
                 style={{
-                  ...(b.pcCta === 'go' ? { top: `calc(32px + ${b.title?.length ?? 0} * 32px * 1.32 + 18px)` } : null),
-                  backgroundColor: 'rgba(255,255,255,0.2)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)',
+                  ...((pc ? b.pcCta : b.cta) === 'go'
+                    ? { top: pc ? `calc(32px + ${b.title?.length ?? 0} * 32px * 1.32 + 18px)` : `calc(14px + ${b.title?.length ?? 0} * var(--bt) * 1.35 + var(--bg))` }
+                    : null),
+                  // 배경색은 클래스(bg-white/…)로 — 인라인으로 주면 hover 클래스가 눌려 안 먹는다
+                  ...(b.tone === 'light'
+                    ? { boxShadow: '0 2px 10px rgba(118,85,194,0.18)' }
+                    : { WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }),
                   ...(i === idx ? { animation: 'fadeSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both' } : { visibility: i === leaving ? 'visible' : 'hidden' }),
                 }}
               >
                 바로가기
-                <ChevronRight size={18} />
+                <ChevronRight size={pc ? 18 : 15} />
               </button>
             )}
             {pc && b.pcCta === 'stores' && (
@@ -1199,13 +1225,14 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
         </div>
         {/* 인디케이터 — 왼쪽 아래 길고 얇은 선(반투명 흰 선 위를 흰 막대가 지금 장으로 미끄러진다, 260926 사장 "1/5 말고 길고 얇은 선을 좌측에").
             PC 는 오른쪽 위 — 아래는 사진 줄(유리 판) 자리(260928) */}
+        {/* 밝은 장(tone 'light' — 웨딩런)에선 흰 선이 안 보여 보라 선으로 */}
         <div
           aria-hidden="true"
-          className={`pointer-events-none absolute h-[2px] overflow-hidden rounded-full bg-white/35 ${pc ? 'right-7 top-7 w-[96px]' : 'bottom-[14px] left-[14px] w-[80px]'}`}
+          className={`pointer-events-none absolute h-[2px] overflow-hidden rounded-full transition-colors duration-500 ${banners[idx]?.tone === 'light' ? 'bg-[#7655C2]/20' : 'bg-white/35'} ${pc ? 'right-7 top-7 w-[96px]' : 'bottom-[14px] left-[14px] w-[80px]'}`}
           style={{ filter: 'drop-shadow(0 0 1px rgba(0, 0, 0, 0.18))' }}
         >
           <div
-            className="h-full rounded-full bg-white"
+            className={`h-full rounded-full transition-colors duration-500 ${banners[idx]?.tone === 'light' ? 'bg-[#7655C2]' : 'bg-white'}`}
             style={{
               width: `${100 / count}%`,
               transform: `translateX(${idx * 100}%)`,
