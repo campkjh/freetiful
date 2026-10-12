@@ -184,20 +184,28 @@ html{position:relative}
 .cx-vc-screen img{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
 .cx-vc-island{position:absolute;left:50%;top:9px;width:30%;height:4.2%;transform:translateX(-50%);border-radius:999px;background:#0E1013}
 
-/* ④ 이사진 — 일렁이는 유리 · 비단 바탕 + 오른쪽 끝까지 이어지는 카드 줄(261012 사장 '이런느낌으로 · 배경을 일렁이는 고급스러운 3d배경 느낌으로') */
-/* 바탕 CSS = WebGL 이 없을 때(그리고 첫 장이 그려지기 전) 보이는 정지 그림 — 셰이더와 같은 연하늘 → 흰빛, 비스듬한 빛 띠 세 줄 */
-.cx-ld{position:relative;overflow:hidden;isolation:isolate;padding:96px 0 88px;--cw:min(72vw,300px);--gap:14px;--pad:24px;
+/* ④ 이사진 — 일렁이는 유리 · 비단 바탕 + 카드 줄(261012 사장 '이런느낌으로 · 배경을 일렁이는 고급스러운 3d배경 느낌으로')
+ * 261012 사장 2차 — 카드 살짝 반투명 · 스크롤 내리면 오른쪽에서 왼쪽으로 흐름 · 왼쪽은 그라데이션으로 사라짐 · 알약 '대표이사(CEO)' · 01 엄청 옅게 · 카드 r 5 */
+/* 바탕 CSS = WebGL 이 없을 때(그리고 첫 장이 그려지기 전) 보이는 정지 그림 — 셰이더와 같은 연하늘 → 흰빛, 비스듬한 빛 띠 세 줄.
+   overflow 는 clip(가로만) — hidden 이면 이 칸이 스크롤 칸이 돼 흐르는 판의 무대 · 비단이 붙지(sticky) 않는다 */
+.cx-ld{position:relative;overflow-x:clip;isolation:isolate;padding:96px 0 88px;--cw:min(72vw,300px);--gap:24px;--pad:24px;
   background:radial-gradient(70% 55% at 16% 18%,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 70%),linear-gradient(166deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 43%,rgba(255,255,255,0) 56%),linear-gradient(172deg,rgba(255,255,255,0) 56%,rgba(176,202,250,.55) 68%,rgba(255,255,255,0) 80%),linear-gradient(176deg,rgba(255,255,255,0) 62%,rgba(255,255,255,.7) 66%,rgba(255,255,255,0) 70%),linear-gradient(158deg,#F8FAFF 0%,#EAF1FE 40%,#D7E5FC 72%,#BCD2F8 100%)}
-@media (min-width:768px){.cx-ld{padding:130px 0 116px;--cw:300px;--gap:20px;--pad:40px}}
-.cx-ld-silk{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+/* 1단 카드 사이 = 옆 여백(폰 24 · 태블릿 32, 261012 검토) — 멈춘 앞 카드의 오른쪽 끝이 화면 왼쪽 끝 밖(또는 띠 시작)에 놓여 10~20px 조각이 남지 않는다 */
+@media (min-width:768px){.cx-ld{padding:130px 0 116px;--cw:300px;--gap:32px;--pad:40px}}
+/* 비단 — 섹션 높이만큼 깔린 칸 안에서 화면 한 장 높이가 따라 붙는다(흐르는 판은 섹션이 화면 몇 장이라 늘이면 띠가 길게 늘어진다) */
+.cx-ld-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.cx-ld-silk{position:sticky;top:0;height:100vh;max-height:100%;overflow:hidden}
+/* 흐르는 판 — 무대와 같은 top(머리줄 아래, 머리줄은 흰 바탕이라 그 밑은 안 보인다): 흐름 첫 56~64px 동안 바탕만 위로 미끄러지던 것(261012 검토) */
+.cx-ld[data-flow] .cx-ld-silk{top:var(--hh);height:calc(100vh - var(--hh))}
 .cx-ld-silk canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity 1.4s ease}
 .cx-ld-silk canvas[data-on]{opacity:1}
 /* 위(경영 철학 #F2F4F6) · 아래(조직도 흰색)와 이음새 없이 — 아래는 카드 밑 진한 띠가 급히 끊기지 않게 길게(261012 검토) */
 .cx-ld::before,.cx-ld::after{content:'';position:absolute;left:0;right:0;z-index:1;pointer-events:none}
 .cx-ld::before{top:0;height:80px;background:linear-gradient(#F2F4F6,rgba(242,244,246,0))}
 .cx-ld::after{bottom:0;height:150px;background:linear-gradient(rgba(255,255,255,0) 0%,rgba(255,255,255,.35) 35%,rgba(255,255,255,.8) 70%,#fff 100%)}
+.cx-ld-run{position:relative;z-index:2}
 /* 모바일 · 태블릿 = 제목 → 카드 줄 → 01 / 09 · 단추(DOM 은 단추가 카드 줄 앞 — 키보드 차례를 데스크톱 화면 순서와 맞춘다) */
-.cx-ld-in{position:relative;z-index:2;display:flex;flex-direction:column}
+.cx-ld-in{position:relative;display:flex;flex-direction:column}
 .cx-ld-rail{order:1}
 .cx-ld-nav{order:2}
 .cx-ld-head,.cx-ld-nav{position:relative;z-index:1;box-sizing:border-box;padding:0 var(--pad)}
@@ -206,56 +214,96 @@ html{position:relative}
 @media (min-width:768px){.cx-ld-sub{margin-top:16px;font-size:18px}}
 /* 이 섹션만 — 띠가 지나가는 바탕 위 작은 파란 글자는 한 단계 진하게 */
 .cx-ld .cx-eyebrow{color:#1B64DA}
-/* 카드 줄 — 위아래 여백(떠오름 · 그림자)만큼 넓혀 두고 바깥 여백으로 되돌린다 */
+/* 카드 줄 — 위아래 여백(떠오름 · 그림자)만큼 넓혀 두고 바깥 여백으로 되돌린다.
+   데스크톱은 스크립트가 잰 --ext(줄 왼쪽 끝을 제목 칸 쪽으로 넓힘 — 카드가 잘리기 전에 다 녹게) · --lead(첫 카드 자리) */
 .cx-ld-rail{position:relative;margin-top:30px}
 @media (min-width:768px){.cx-ld-rail{margin-top:40px}}
-.cx-ld-track{position:relative;display:flex;gap:var(--gap);margin:-24px 0 -64px;padding:24px 0 64px var(--pad);list-style:none;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-left:var(--pad);overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.cx-ld-track{position:relative;display:flex;gap:var(--gap);margin:-24px 0 -64px calc(-1 * var(--ext,0px));padding:24px 0 64px var(--lead,var(--pad));list-style:none;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding-left:var(--lead,var(--pad));overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .cx-ld-track::-webkit-scrollbar{display:none}
 /* 끝 빈칸 — 스크립트가 잰 --tail(끝에서 다 보이는 카드 수만큼 · 끝 자리 = 카드 경계). 없으면 줄 폭 - 카드 한 칸(마지막 카드가 맨 앞 자리에) */
 .cx-ld-track::after{content:'';flex:none;width:var(--tail,calc(100% - var(--cw) - var(--gap)))}
 .cx-ld-track[data-free]{scroll-snap-type:none}
 @media (hover:hover) and (pointer:fine){.cx-ld-track{cursor:grab}.cx-ld-track[data-drag]{cursor:grabbing}}
 .cx-ld-track:focus-visible .cx-lc[data-cur] .cx-lc-in{outline:2px solid #3182F6;outline-offset:3px}
-/* 카드 — 파랑 / 어두운 유리 / 흰 유리 */
+/* 흐르는 판 — 섹션 = 무대 높이 + 흐를 거리(스크립트), 무대는 머리줄 아래에 붙는다. 카드 줄은 스크롤 칸이 아니라 transform 으로 흐른다.
+   무대 높이는 svh(주소창이 나와 있을 때 높이) — 주소창이 들어가고 나와도 섹션 길이가 그대로다 */
+.cx-ld[data-flow]{padding:0}
+/* 무대 overflow 는 일부러 hidden(스크롤 칸) — 찾기(Ctrl+F) · 읽기 프로그램이 화면 밖 카드를 보여 주려고 무대를 옆으로 밀면 스크립트가 그만큼 페이지를 굴려
+   카드 줄을 흐르게 하고 무대는 0 으로 되돌린다(clip 이면 밀리지는 않지만 화면 밖 카드로 갈 길이 없다, 261012 검토) */
+.cx-ld[data-flow] .cx-ld-stage{position:sticky;top:var(--hh);display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:calc(100vh - var(--hh));height:calc(100svh - var(--hh));overflow:hidden}
+.cx-ld[data-flow] .cx-ld-rail{touch-action:pan-y}
+.cx-ld[data-flow] .cx-ld-track{overflow:visible;scroll-snap-type:none;margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;will-change:transform}
+.cx-ld[data-flow] .cx-ld-track::after{display:none}
+/* 서버 첫 그림(스크립트가 판을 고르기 전 = data-pre) — 흐르는 판이 될 화면은 섹션 높이 · 붙는 무대를 대략 미리 그려 둔다.
+   안 그러면 붙은 뒤 섹션이 1.8천 px 늘어나 스크롤 앵커링이 없는 브라우저는 섹션 아래에서 새로 고침 · 뒤로 가기 하면 자리가 위로 튄다(261012 검토).
+   흐를 거리 ≈ 데스크톱 카드 6칸(1280 미만 7칸) · 태블릿 7칸 · 폰 8칸(폰 카드 폭 ≈ 무대 높이에 맞춘 값) — 붙은 뒤와 차이 40px 안팎(실측).
+   스크립트가 없으면 <noscript> 가 되돌린다 */
+@media (prefers-reduced-motion:no-preference) and (min-width:1024px) and (min-height:560px){
+  .cx-ld[data-pre]{padding:0}
+  .cx-ld[data-pre] .cx-ld-run{height:calc(100vh - var(--hh) + 6 * (var(--cw) + var(--gap)))}
+}
+@media (prefers-reduced-motion:no-preference) and (min-width:1024px) and (max-width:1279.98px) and (min-height:560px){
+  .cx-ld[data-pre] .cx-ld-run{height:calc(100vh - var(--hh) + 7 * (var(--cw) + var(--gap)))}
+}
+@media (prefers-reduced-motion:no-preference) and (max-width:1023.98px) and (min-height:640px){
+  .cx-ld[data-pre]{padding:0}
+  .cx-ld[data-pre] .cx-ld-run{height:calc(100svh - var(--hh) + 8 * (min(var(--cw), (100svh - var(--hh) - 278px) * .7) + var(--gap)))}
+}
+@media (prefers-reduced-motion:no-preference) and (min-width:768px) and (max-width:1023.98px) and (min-height:640px){
+  .cx-ld[data-pre] .cx-ld-run{height:calc(100svh - var(--hh) + 7 * (var(--cw) + var(--gap)))}
+}
+@media (prefers-reduced-motion:no-preference) and (min-width:1024px) and (min-height:560px),(prefers-reduced-motion:no-preference) and (min-height:640px){
+  .cx-ld[data-pre] .cx-ld-stage{position:sticky;top:var(--hh);display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:calc(100vh - var(--hh));height:calc(100svh - var(--hh))}
+}
+@media (max-width:1023.98px){
+  /* 하단 탭바(58 + 바닥 안전 영역) 위에서 가운데 — 스크롤을 올려 탭바가 나와도 01 / 09 · 단추가 가려지지 않는다 */
+  .cx-ld[data-flow] .cx-ld-stage{padding-bottom:calc(58px + max(8px, env(safe-area-inset-bottom, 0px)))}
+  /* 사이 여백은 낮은 화면(사파리 · 크롬 실제 창 659~668)에서 더 줄여 카드를 키운다(844 이상은 예전과 같은 30 안팎) */
+  .cx-ld[data-flow] .cx-ld-rail{margin-top:clamp(16px,calc(7.5vh - 33px),30px)}
+  .cx-ld[data-flow] .cx-ld-nav{margin-top:clamp(14px,calc(7.5vh - 35px),30px)}
+}
+/* 카드 — 파랑 / 어두운 유리 / 흰 유리, 셋 다 뒤 비단이 살짝 비친다(파랑 ≈ .68 · 어두운 유리 ≈ .45 · 흰 유리 ≈ .4, 흐림은 띠 결이 남을 만큼만 8~10px,
+   왼쪽 위 옅은 빛 한 겹 = 유리 결). 사람 사진은 그 위라 비치지 않는다.
+   그림자 세기 --sh = 왼쪽 띠에 다가갈수록 스크립트가 0 으로(마스크가 그림자를 '툭' 자르기 전에).
+   마스크 그림 판은 카드보다 사방 64px 크게 · mask-clip:no-clip — 그림자(아래 44~58px)도 같은 띠로 녹는다(폰처럼 그림자 거둘 칸이 없는 1단에서
+   맨 앞 카드 그림자가 0.5px 만 움직여도 꺼지던 것, 261012 검토). no-clip 을 모르는 브라우저는 예전처럼 테두리에서 잘린다 — 스크립트 셈은 같다 */
 .cx-lc{flex:none;width:var(--cw);scroll-snap-align:start}
-.cx-lc-in{position:relative;margin:0;aspect-ratio:7/10;border-radius:28px;overflow:hidden;isolation:isolate;color:#fff;
-  --scrim:rgba(20,88,206,.96);--scrim-mid:rgba(27,96,214,.62);--ring:rgba(255,255,255,.24);--no:rgba(255,255,255,.58);
-  background:radial-gradient(90% 58% at 50% 24%,#73AEFF 0%,#3182F6 54%,#1B64DA 100%);
-  box-shadow:0 28px 44px -28px rgba(20,70,170,.5);transition:transform .6s var(--ez),box-shadow .6s var(--ez)}
-/* 어두운 유리 — 누끼 카드는 위쪽을 덜 막아 뒤의 비단이 흐리게 비친다(연기 낀 유리) */
-.cx-lc[data-tone=smoke] .cx-lc-in{--scrim:rgba(13,17,25,.95);--scrim-mid:rgba(17,21,31,.5);--ring:rgba(255,255,255,.16);--no:rgba(255,255,255,.42);
-  background:radial-gradient(85% 55% at 50% 26%,rgba(132,150,182,.38) 0%,rgba(46,54,70,.62) 56%,rgba(17,21,29,.9) 100%);
-  -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 28px 44px -28px rgba(8,18,40,.55)}
-.cx-lc[data-tone=frost] .cx-lc-in{color:#191F28;--scrim:rgba(250,251,253,.97);--scrim-mid:rgba(250,251,253,.6);--ring:rgba(255,255,255,.8);--no:rgba(49,130,246,.45);
-  background:linear-gradient(165deg,rgba(255,255,255,.84),rgba(255,255,255,.56));
-  -webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);box-shadow:0 28px 44px -28px rgba(30,70,140,.36)}
-.cx-lc[data-tone=frost]:not([data-cut]) .cx-lc-in{--no:rgba(49,130,246,.62)}
-/* 회색 배경 사진은 카드를 꽉 덮어 유리가 안 보인다 — 흐림 계산만 아낀다 */
-.cx-lc:not([data-cut]) .cx-lc-in{-webkit-backdrop-filter:none;backdrop-filter:none}
+.cx-lc-in{position:relative;margin:0;aspect-ratio:7/10;border-radius:5px;overflow:hidden;isolation:isolate;color:#fff;
+  --scrim:rgba(20,88,206,.9);--scrim-mid:rgba(27,96,214,.48);--ring:rgba(255,255,255,.3);--no:rgba(255,255,255,.12);--sc:20,70,170;--sa:.5;
+  background:linear-gradient(128deg,rgba(255,255,255,.2) 0%,rgba(255,255,255,0) 42%),radial-gradient(90% 58% at 50% 24%,rgba(115,174,255,.5) 0%,rgba(49,130,246,.66) 54%,rgba(27,100,218,.84) 100%);
+  -webkit-backdrop-filter:blur(8px) saturate(1.4);backdrop-filter:blur(8px) saturate(1.4);
+  box-shadow:0 28px 44px -28px rgba(var(--sc),calc(var(--sa) * var(--sh,1)));transition:transform .6s var(--ez);
+  -webkit-mask-size:calc(100% + 128px) calc(100% + 128px);mask-size:calc(100% + 128px) calc(100% + 128px);-webkit-mask-position:-64px -64px;mask-position:-64px -64px;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;mask-clip:no-clip}
+.cx-lc[data-tone=smoke] .cx-lc-in{--scrim:rgba(13,17,25,.86);--scrim-mid:rgba(17,21,31,.4);--ring:rgba(255,255,255,.18);--no:rgba(255,255,255,.11);--sc:8,18,40;--sa:.55;
+  background:linear-gradient(128deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 42%),radial-gradient(85% 55% at 50% 26%,rgba(132,150,182,.14) 0%,rgba(46,54,70,.4) 56%,rgba(17,21,29,.72) 100%);
+  -webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4)}
+.cx-lc[data-tone=frost] .cx-lc-in{color:#191F28;--scrim:rgba(250,251,253,.9);--scrim-mid:rgba(250,251,253,.48);--ring:rgba(255,255,255,.72);--no:rgba(27,100,218,.09);--sc:30,70,140;--sa:.36;
+  background:linear-gradient(165deg,rgba(255,255,255,.54),rgba(255,255,255,.26));
+  -webkit-backdrop-filter:blur(10px) saturate(1.6);backdrop-filter:blur(10px) saturate(1.6)}
 .cx-lc-in img{position:absolute;inset:0;z-index:0;display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0;pointer-events:none;-webkit-user-drag:none;transition:opacity .7s ease}
 .cx-ld[data-js] .cx-lc-in img:not([data-ld]){opacity:0}
 .cx-lc[data-cut] .cx-lc-in img{filter:drop-shadow(0 22px 28px rgba(6,20,52,.28))}
-/* 글자 덮막 — 카드 전체에 펴고 이름 · 직함 자리(아래 20%)는 카드 색으로 꽉(흰 재킷 누끼 위에서도 대비 AA, 261012 검토) */
-.cx-lc-in::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,transparent 40%,var(--scrim-mid) 62%,var(--scrim) 82%,var(--scrim) 100%);pointer-events:none}
-/* 회색 스튜디오 사진판 — 가장자리를 카드 색으로 물들여 사진이 아니라 유리 카드로 읽히게(어두운 유리는 번호 자리 오른쪽 위도) */
-.cx-lc[data-tone=smoke]:not([data-cut]) .cx-lc-in::before{background:linear-gradient(180deg,transparent 40%,var(--scrim-mid) 62%,var(--scrim) 82%,var(--scrim) 100%),radial-gradient(125% 80% at 50% 36%,rgba(13,17,25,0) 45%,rgba(13,17,25,.62) 100%),radial-gradient(70% 45% at 100% 0%,rgba(13,17,25,.5),rgba(13,17,25,0) 70%)}
-.cx-lc[data-tone=frost]:not([data-cut]) .cx-lc-in::before{background:linear-gradient(180deg,transparent 40%,var(--scrim-mid) 62%,var(--scrim) 82%,var(--scrim) 100%),radial-gradient(125% 80% at 50% 36%,rgba(250,251,253,0) 48%,rgba(250,251,253,.72) 100%)}
+/* 회색 스튜디오 사진 — 가장자리(회색 배경)를 녹여 유리 위에 앉힌다. 얼굴 · 몸 가운데는 그대로(유령처럼 비치지 않게).
+   타원을 좁혀(62%×74%) 머리 위 · 위쪽 모서리 회색도 녹인다 — 넓은 타원은 위 60% 가 불투명한 사진 인화처럼 보였다(261012 검토) */
+.cx-lc:not([data-cut]) .cx-lc-in img{opacity:.95;-webkit-mask-image:radial-gradient(ellipse 62% 74% at 50% 40%,#000 46%,rgba(0,0,0,.5) 70%,transparent 94%);mask-image:radial-gradient(ellipse 62% 74% at 50% 40%,#000 46%,rgba(0,0,0,.5) 70%,transparent 94%)}
+/* 글자 덮막 — 이름 자리(아래 20%)는 카드 색으로(흰 재킷 누끼 · 회색 사진 위에서도 대비 AA) */
+.cx-lc-in::before{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,transparent 42%,var(--scrim-mid) 64%,var(--scrim) 84%,var(--scrim) 100%);pointer-events:none}
 .cx-lc-in::after{content:'';position:absolute;inset:0;z-index:3;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--ring),inset 0 1px 0 var(--ring);pointer-events:none}
-.cx-lc-bd{position:absolute;left:18px;top:18px;z-index:2;display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.94);font-size:12px;font-weight:700;letter-spacing:.06em;color:#1B64DA}
+/* 알약 = 직함(코드) — 가장 긴 것(일 'マーケティングチームリーダー' · 영 'Chief Technology Officer')도 가장 좁은 카드 안에 한 줄 */
+/* 글자 크기 = 카드 폭 × .05(12px 까지) — 낮은 폰 화면에서 카드를 줄여도(최소 210) 한 줄에 든다 */
+.cx-lc-bd{position:absolute;left:16px;top:16px;z-index:2;box-sizing:border-box;display:inline-flex;align-items:center;max-width:calc(100% - 32px);height:28px;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.94);font-size:clamp(10.5px,calc(var(--cw) * .05),12px);line-height:1;font-weight:700;letter-spacing:-0.01em;color:#1B64DA;white-space:nowrap}
 .cx-lc[data-tone=smoke] .cx-lc-bd{background:rgba(10,14,22,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);color:#fff}
 .cx-lc[data-tone=frost] .cx-lc-bd{background:#1F6FE5;color:#fff}
-/* 큰 번호 — 선만(속 빈 글자), 오른쪽 위에 세로로 · 머리에 닿지 않게 오른쪽 끝으로 */
-.cx-lc-no{position:absolute;top:14px;right:6px;z-index:2;writing-mode:vertical-rl;font-size:clamp(56px,4.9vw,74px);line-height:1;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:transparent;-webkit-text-stroke:1.2px var(--no);pointer-events:none;user-select:none}
+/* 큰 번호 — 아주 옅은 선만(속 빈 글자), 오른쪽에 세로로 · 알약 줄 아래(긴 직함 알약과 겹치지 않게).
+   선 대비는 세 카드 모두 ≈1.12~1.14:1(261012 검토 — 흰 유리의 파란 선만 또렷하던 것) */
+.cx-lc-no{position:absolute;top:56px;right:8px;z-index:2;writing-mode:vertical-rl;font-size:clamp(54px,4.7vw,72px);line-height:1;font-weight:500;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:transparent;-webkit-text-stroke:1px var(--no);pointer-events:none;user-select:none}
 @supports not (-webkit-text-stroke:1px #000){.cx-lc-no{color:var(--no)}}
-.cx-lc-cap{position:absolute;left:22px;right:22px;bottom:22px;z-index:2;display:block}
-.cx-lc-n{display:block;font-size:22px;line-height:1.3;font-weight:700;letter-spacing:-0.02em}
-.cx-lc-r{display:block;margin-top:4px;font-size:14px;line-height:1.45;font-weight:500;color:rgba(255,255,255,.88);word-break:keep-all}
-.cx-lc[data-tone=frost] .cx-lc-r{color:#4E5968}
-/* 데스크톱 직함 — 1024~1365 은 카드가 최소폭이라 14px(일본어 'マーケティングチームリーダー' 가 한 줄에 든다) */
-@media (min-width:1024px){.cx-lc-n{font-size:24px}.cx-lc-r{font-size:clamp(14px,1.05vw,15px)}}
-/* 지나간 카드(줄 왼쪽 밖)는 그림자를 거둔다 — 안 그러면 줄 왼쪽 끝에서 그림자가 세로로 잘린 자국이 남는다 */
-.cx-lc[data-past] .cx-lc-in{box-shadow:none}
-@media (hover:hover) and (pointer:fine){.cx-lc:hover .cx-lc-in{transform:translate3d(0,-8px,0);box-shadow:0 38px 52px -32px rgba(20,60,150,.5)}}
+.cx-lc-cap{position:absolute;left:20px;right:20px;bottom:20px;z-index:2;display:block}
+.cx-lc-n{display:block;font-size:24px;line-height:1.3;font-weight:700;letter-spacing:-0.02em}
+@media (min-width:1024px){.cx-lc-n{font-size:26px}}
+@media (hover:hover) and (pointer:fine){.cx-lc:hover .cx-lc-in{transform:translate3d(0,-8px,0);box-shadow:0 38px 52px -32px rgba(var(--sc),calc(var(--sa) * var(--sh,1)))}}
+/* 왼쪽 띠를 다 지나간 카드는 숨긴다 */
+.cx-lc[data-gone]{visibility:hidden}
 /* 들어올 때 — 오른쪽에서 차례로(스크립트가 붙은 뒤에만 숨긴다) */
 .cx-lc{transition:opacity .9s var(--ez),transform 1.1s var(--ez);transition-delay:calc(min(var(--i),5) * 70ms)}
 .cx-ld[data-arm] .cx-lc{opacity:0;transform:translate3d(72px,0,0)}
@@ -281,7 +329,7 @@ html{position:relative}
 .cx-ld-btn:active:not([aria-disabled=true]){transform:scale(.94)}
 .cx-ld-btn[aria-disabled=true]{opacity:.55;cursor:default;box-shadow:none}
 .cx-ld-btn:focus-visible{outline:2px solid #3182F6;outline-offset:3px}
-/* 데스크톱 — 왼쪽 제목 칸 + 화면 오른쪽 끝까지 이어지는 카드 줄 */
+/* 데스크톱 — 왼쪽 제목 칸 + 카드 줄 */
 @media (min-width:1024px){
   .cx-ld{padding:150px 0 160px;--cw:clamp(244px,17.4vw,288px);--gap:20px;--pad:16px;--cl:max(48px,calc((100% - 1140px) / 2))}
   /* 제목 · 단추 묶음을 카드 세로 가운데에(가운데 두 줄 = 제목 · 단추, 위아래 1fr 은 빈 줄) */
