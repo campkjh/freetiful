@@ -1,7 +1,10 @@
 /**
  * 정산 내역 · 결제 조회 공용 칸 — 누가(사회자 · 고객) · 어떤 행사를 언제 어디서
  * (261004 사장 '정산내역에 어디서 어떤 고객과 행사' · '결제조회도 정산내역이랑 동일하게').
+ * 전화 링크는 handleAppLinkClick — 안드로이드 앱(2.0.6)에서 tel: 이 오류 화면이 되지 않게 시트로(261012).
+ * (쓰는 곳 payments·settlements 가 모두 'use client' 라 이벤트 처리기를 붙여도 된다)
  */
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 
 /** 서버(payment-event.ts)가 계산해 주는 행사 요약 */
 export interface AdminEvent {
@@ -71,7 +74,7 @@ export function AdminPartyCell({ pro, customer, phone }: { pro?: string | null; 
         {phone && (
           <>
             {' · '}
-            <a href={`tel:${phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">{formatPhone(phone)}</a>
+            <a href={`tel:${phone}`} onClick={handleAppLinkClick} className="font-semibold text-[#3182F6] tabular-nums hover:underline">{formatPhone(phone)}</a>
           </>
         )}
       </span>

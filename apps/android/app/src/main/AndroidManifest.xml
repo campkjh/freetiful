@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- 📍 채팅 '현재 위치 보내기'(웹 navigator.geolocation) — 앱을 쓰는 동안만. 백그라운드 위치는 받지 않는다
+         (261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패' — 2.0.6 은 위치 권한이 없어 위치 받기가 늘 실패) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

@@ -15,6 +15,8 @@ import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminSearchField } from '../_components/AdminSearchField';
+// 안드로이드 앱(2.0.6)에서 tel: 이 오류 화면이 되지 않게 시트로(261012)
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 
 interface UserItem {
   id: string;
@@ -385,7 +387,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {user.phone ? (
-                        <a href={`tel:${user.phone}`} className="font-semibold text-[#3182F6] tabular-nums hover:underline">
+                        <a href={`tel:${user.phone}`} onClick={handleAppLinkClick} className="font-semibold text-[#3182F6] tabular-nums hover:underline">
                           {formatPhone(user.phone)}
                         </a>
                       ) : (

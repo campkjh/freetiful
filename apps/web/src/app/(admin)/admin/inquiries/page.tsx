@@ -28,6 +28,8 @@ import { RollingNumber } from '../_components/AdminNumber';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
 import { AdminSearchField } from '../_components/AdminSearchField';
+// 안드로이드 앱(2.0.6)에서 tel:/mailto: 가 오류 화면이 되지 않게 시트로(261012)
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 
 interface BusinessInquiryItem {
   id: string;
@@ -302,11 +304,11 @@ export default function AdminInquiriesPage() {
                     <p className="mt-1 font-mono text-[10px] text-[#B0B8C1]">{item.id.slice(0, 8)}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <a href={`tel:${item.phone}`} className="flex items-center gap-1.5 font-bold text-[#191F28] hover:text-[#3180F7]">
+                    <a href={`tel:${item.phone}`} onClick={handleAppLinkClick} className="flex items-center gap-1.5 font-bold text-[#191F28] hover:text-[#3180F7]">
                       <Phone size={13} /> {item.phone}
                     </a>
                     {item.email && (
-                      <a href={`mailto:${item.email}`} className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#6B7684] hover:text-[#3180F7]">
+                      <a href={`mailto:${item.email}`} onClick={handleAppLinkClick} className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-[#6B7684] hover:text-[#3180F7]">
                         <Mail size={13} /> {item.email}
                       </a>
                     )}

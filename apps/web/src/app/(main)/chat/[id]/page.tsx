@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { popItemDelay } from '@/lib/pop-menu';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
 import { PhoneNumberNotice, containsPhoneNumber } from '@/components/chat/ChatNotice';
+import { openPhoneCall } from '@/components/AppLinkSheet';
 import { useListEntrance, useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import AiIcon from '@/components/icons/AiIcon';
 import { SearchIcon as MonoSearchIcon, CloseIcon as MonoCloseIcon } from '@/components/icons/mono';
@@ -31,6 +32,8 @@ import { SearchIcon as MonoSearchIcon, CloseIcon as MonoCloseIcon } from '@/comp
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 const SafePaymentNotice = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SafePaymentNotice })));
+// 위치 메시지 카드(지도 그림+장소명·주소+지도에서 보기, 261012) — 불러오는 동안은 예전 글자 말풍선
+const LocationCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.LocationCard })));
 
 // ── 채팅 메시지 localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ─────────────
 const MSG_CACHE_PREFIX = 'freetiful-chat-msg-cache-v1-';
@@ -44,12 +47,24 @@ function saveMsgCache(roomId: string, messages: Message[]) {
   } catch {}
 }
 
+// 캐시에 담긴 메시지(이미 Message 모양)도 글자 칸은 글자만 — 예전 번들은 metadata 값을 타입 확인 없이 옮겨 담았다(261012)
+function sanitizeCachedMessage(m: Message): Message {
+  return {
+    ...m,
+    content: typeof m.content === 'string' ? m.content : '',
+    fileName: typeof m.fileName === 'string' ? m.fileName : undefined,
+    address: typeof m.address === 'string' ? m.address : undefined,
+    placeName: typeof m.placeName === 'string' ? m.placeName : undefined,
+  };
+}
+
 function loadMsgCache(roomId: string): Message[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(MSG_CACHE_PREFIX + roomId);
     if (!raw) return [];
-    return JSON.parse(raw) as Message[];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Message[]).filter((m) => m && typeof m === 'object').map(sanitizeCachedMessage) : [];
   } catch { return []; }
 }
 
@@ -65,11 +80,14 @@ function mapApiMessage(m: MessageItem): Message {
     isRead: m.isRead,
     replyTo: m.replyTo ? { id: m.replyTo.id, name: m.replyTo.senderId, content: m.replyTo.content || '' } : null,
     reaction: m.reactions?.[0]?.emoji ?? null,
-    fileName: meta?.fileName as string | undefined,
-    duration: meta?.duration as number | undefined,
+    // metadata 는 서버가 안쪽을 검사하지 않는 JSON(소켓 경로는 검증도 없음) — 글자·숫자 칸은 타입을 확인해서만 받는다.
+    // 글자 아닌 값(address:{} 등)이 화면까지 가면 .trim()·JSX 에서 터져 방이 통째로 죽고, 캐시에 남아 다시 열어도 죽는다(261012).
+    fileName: typeof meta?.fileName === 'string' ? meta.fileName : undefined,
+    duration: typeof meta?.duration === 'number' && Number.isFinite(meta.duration) ? meta.duration : undefined,
     latitude: meta?.latitude as number | undefined,
     longitude: meta?.longitude as number | undefined,
-    address: meta?.address as string | undefined,
+    address: typeof meta?.address === 'string' ? meta.address : undefined,
+    placeName: typeof meta?.placeName === 'string' ? meta.placeName : undefined,
     system: meta?.system as SystemPayload | undefined,
     autoReply: meta?.autoReply === true,
   };
@@ -79,7 +97,7 @@ function mapCachedMessage(m: MessageItem | Message): Message {
   if ('metadata' in m || 'roomId' in m || 'sender' in m) {
     return mapApiMessage(m as MessageItem);
   }
-  return m as Message;
+  return sanitizeCachedMessage(m as Message);
 }
 
 // 네이티브 메시지 리스트(B3)용: 상대경로 /uploads 이미지를 API 절대경로로 (네이티브 UIImage 로딩 가능하게)
@@ -89,9 +107,10 @@ function absChatUrl(u: string): string {
   return u;
 }
 
-// 동영상 전용: Railway origin 직결 URL.
+// 동영상·음성 전용: Railway origin 직결 URL.
 // Vercel CDN 경유 시 Range 요청이 200(전체 캐시)으로 뭉개져 iOS <video> 가 재생을 거부
 // → "썸네일은 뜨는데 재생 안됨" QA 의 원인. origin 은 Range 206 + CORP cross-origin 지원.
+// 음성(<audio>)도 같은 Range 요청을 보내 같은 길로 돌린다(261012). blob:·절대 URL 은 그대로.
 const MEDIA_ORIGIN = process.env.NEXT_PUBLIC_DIRECT_API_URL || 'https://affectionate-smile-production-6535.up.railway.app';
 function videoDirectUrl(u: string): string {
   if (!u) return '';
@@ -1153,6 +1172,10 @@ export default function ChatRoomPage({
     }
   };
 
+  // 음성 재생(261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패') —
+  //  · /uploads 는 Railway 직결(videoDirectUrl)로 — CDN 의 Range 응답 문제를 영상과 같은 방식으로 피한다.
+  //  · 재생 실패(형식 미지원·네트워크)를 조용히 삼키지 않는다 — 일시정지 아이콘이 남지 않게 되돌리고 안내한다.
+  //  · webm(길이 정보 없음)은 duration 이 Infinity 라 진행 막대는 길이가 잡힐 때만 그린다(메시지의 녹음 길이로 보정).
   const handleVoicePlay = (msg: Message) => {
     if (playingVoice === msg.id) {
       voiceAudioRef.current?.pause();
@@ -1160,17 +1183,37 @@ export default function ChatRoomPage({
       return;
     }
     voiceAudioRef.current?.pause();
-    const audio = new Audio(msg.content);
+    if (!msg.content) {
+      toast.error('음성 파일을 찾을 수 없어요');
+      return;
+    }
+    const audio = new Audio(videoDirectUrl(msg.content));
+    audio.preload = 'auto';
     voiceAudioRef.current = audio;
+    let failed = false;
+    const fail = () => {
+      if (failed) return;
+      failed = true;
+      if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
+      setPlayingVoice((cur) => (cur === msg.id ? null : cur));
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: 0 }));
+      toast.error('이 기기에서 음성을 재생할 수 없어요. 잠시 후 다시 눌러 주세요.');
+    };
     audio.addEventListener('timeupdate', () => {
-      if (!audio.duration) return;
-      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: audio.currentTime / audio.duration }));
+      const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : (msg.duration || 0);
+      if (!total) return;
+      setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: Math.min(1, audio.currentTime / total) }));
     });
     audio.addEventListener('ended', () => {
-      setPlayingVoice(null);
+      setPlayingVoice((cur) => (cur === msg.id ? null : cur));
       setVoicePlayProgress((prev) => ({ ...prev, [msg.id]: 0 }));
     });
-    audio.play().catch(() => {});
+    audio.addEventListener('error', fail);
+    audio.play().catch((e: any) => {
+      // pause() 로 끊긴 AbortError 는 실패가 아니다(다른 음성을 눌렀을 때)
+      if (e?.name === 'AbortError') return;
+      fail();
+    });
     setPlayingVoice(msg.id);
   };
 
@@ -1430,7 +1473,8 @@ export default function ChatRoomPage({
         const customerPhone = isPro ? String(mr?.customerPhone || '').replace(/\D/g, '') : '';
         if (customerPhone) {
           const shown = customerPhone.length === 11 ? `${customerPhone.slice(0, 3)}-${customerPhone.slice(3, 7)}-${customerPhone.slice(7)}` : customerPhone;
-          chips.push({ key: 'call', label: shown, icon: 'call', onClick: () => { window.location.href = `tel:${customerPhone}`; } });
+          // 안드로이드 앱(2.0.6)은 tel: 을 못 열어 '웹페이지를 사용할 수 없음' → openPhoneCall 이 앱에선 시트, 그 밖엔 tel: 그대로(261012)
+          chips.push({ key: 'call', label: shown, icon: 'call', onClick: () => openPhoneCall(customerPhone) });
         }
         if (isPro) chips.push({ key: 'send-quote', label: '견적서 보내기', icon: 'quote', onClick: () => setShowQuoteModal(true) });
         if (q) chips.push({ key: 'view-quote', label: '견적서 보기', icon: 'quote', onClick: scrollToLatestQuote });
@@ -1895,18 +1939,18 @@ export default function ChatRoomPage({
                         onPointerLeave={handleLongPressCancel}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        {msg.latitude !== undefined && msg.longitude !== undefined ? (
-                          // Simple fallback for location - just show coordinates until NaverMapPreview loads
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
-                            <MapPin size={18} />
-                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
-                          </div>
-                        ) : (
-                          <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
-                            <MapPin size={18} />
-                            <span className="min-w-0 break-words text-[15px]">{msg.content}</span>
-                          </div>
-                        )}
+                        {/* 위치 카드(261012) — 예전엔 보낸 쪽·받은 쪽 모두 '내 위치를 공유했습니다' 글자만 보여 어디인지 알 수 없었다.
+                            지도 그림 + 장소명·주소 + '지도에서 보기'(카카오맵). 카드 청크를 불러오는 동안은 글자 말풍선. */}
+                        <Suspense
+                          fallback={
+                            <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>
+                              <MapPin size={18} />
+                              <span className="min-w-0 break-words text-[15px]">{msg.placeName || msg.content}</span>
+                            </div>
+                          }
+                        >
+                          <LocationCard msg={msg} mine={mine} tailCorner={tailCorner} />
+                        </Suspense>
                       </div>
                     ) : msg.type === 'voice' ? (
                       <div
@@ -2248,6 +2292,7 @@ export default function ChatRoomPage({
       {/* ─── Lazy-loaded ChatExtras (modals, action menu, rich cards, etc.) ─── */}
       <Suspense fallback={null}>
         <ChatExtras
+          roomId={roomId}
           messages={messages}
           setMessages={setMessages}
           chatPartner={chatPartner}

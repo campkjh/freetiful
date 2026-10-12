@@ -1345,4 +1345,18 @@ extension ViewController {
         })
         presentJSPanel(alert) { completionHandler(nil) }
     }
+
+    /// 웹 녹음(getUserMedia 마이크 — 채팅 음성 메시지)은 우리 주소에서는 WebKit 의 '"freetiful.com"이(가) 마이크에 접근하려고 합니다' 창 없이 허용.
+    /// (261012 사장 '채팅창 내에서 … 음성 전달 실패(아이폰 갤럭시 둘다)') 미구현이면 앱을 켤 때마다 그 창이 다시 뜨고,
+    /// 한 번 '허용 안 함'을 누르면 그 화면이 살아 있는 동안 녹음이 계속 거부된다. iOS 마이크 권한(NSMicrophoneUsageDescription) 창은
+    /// WebKit 이 처음 한 번 그대로 띄운다. 카메라·다른 사이트는 전과 같이 WebKit 이 묻는다(.prompt).
+    /// ※ 위치는 공개 API 가 없어(WKUIDelegate 에 위치 허용 함수 없음) WebKit 기본 창 그대로 — NSLocationWhenInUseUsageDescription 은 pbxproj 에 있다.
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        let isOurPage = origin.protocol.lowercased() == "https" && kWebHosts.contains(origin.host.lowercased())
+        decisionHandler(isOurPage && type == .microphone ? .grant : .prompt)
+    }
 }

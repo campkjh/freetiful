@@ -63,6 +63,9 @@ enum MessageType {
   image
   video
   file
+  // 음성 메시지 — 7/1 QA 배치(3e5c5355)에서 빠졌던 값을 되살림(261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패').
+  // 운영 DB 반영 = migrations/20261012100000_message_type_voice(ADD VALUE IF NOT EXISTS). DB 먼저, API 나중.
+  voice
   location
   link
   sticker

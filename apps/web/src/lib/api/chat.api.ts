@@ -77,7 +77,7 @@ export interface MessageItem {
   id: string;
   roomId: string;
   senderId: string;
-  type: 'text' | 'image' | 'file' | 'location' | 'link' | 'sticker' | 'system';
+  type: 'text' | 'image' | 'video' | 'file' | 'voice' | 'location' | 'link' | 'sticker' | 'system';
   content: string | null;
   metadata: Record<string, unknown> | null;
   replyToId: string | null;
@@ -140,17 +140,30 @@ export const chatApi = {
   ) =>
     apiClient.post<MessageItem>(`${BASE}/rooms/${roomId}/messages`, data, config),
 
-  uploadAudio: (roomId: string, blob: Blob, mimeType: string) => {
-    const ext = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-    const form = new FormData();
-    form.append('file', blob, `voice.${ext}`);
+  // 음성 녹음 업로드(261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패') → { url }.
+  //  · 예전엔 같은 출처 /images(이미지 변환기)로 올려 audio/* 가 400 으로 전부 거절됐다.
+  //    지금은 사진·영상처럼 Railway 직결 /media 에 type=voice 로 올린다 — 서버가 AAC m4a 로 통일 저장(아이폰·갤럭시 공통 재생).
+  //  · 직결이 네트워크 단에서 막히면(응답 자체가 없음) 같은 출처 /images 로 한 번 더 — 새 서버는 거기서도 녹음을 음성으로 받는다.
+  //  · 확장자는 실제 녹음 형식(blob.type) 기준 — 서버가 형식을 추정하는 힌트.
+  uploadAudio: async (roomId: string, blob: Blob, mimeType: string) => {
+    const kind = (blob.type || mimeType || '').toLowerCase();
+    const ext = kind.includes('mp4') || kind.includes('aac') || kind.includes('m4a') ? 'm4a' : kind.includes('ogg') ? 'ogg' : 'webm';
+    const makeForm = () => {
+      const form = new FormData();
+      form.append('file', blob, `voice.${ext}`);
+      form.append('type', 'voice');
+      return form;
+    };
+    type VoiceUpload = { url?: string; audioUrl?: string; imageUrl?: string; mimeType?: string };
     // Content-Type을 null로 설정 → axios가 인스턴스 기본값(application/json)을 제거하고
     // FormData 감지 시 multipart/form-data; boundary=... 를 자동으로 설정
-    return apiClient.post<{ audioUrl: string; imageUrl: string }>(
-      `${BASE}/rooms/${roomId}/images`,
-      form,
-      { headers: { 'Content-Type': null as any } },
-    );
+    const config = { headers: { 'Content-Type': null as any }, timeout: 60000 };
+    try {
+      return await apiClient.post<VoiceUpload>(`${MEDIA_UPLOAD_BASE}${BASE}/rooms/${roomId}/media`, makeForm(), config);
+    } catch (e: any) {
+      if (e?.response) throw e; // 서버가 답한 오류(400·401·413 등)는 그대로 — 다른 길로 가도 같다
+      return apiClient.post<VoiceUpload>(`${BASE}/rooms/${roomId}/images`, makeForm(), config);
+    }
   },
 
   // 미디어(사진/영상/파일) 멀티파트 업로드 → { url }. base64 JSON POST 가 WKWebView 에서 끊기는

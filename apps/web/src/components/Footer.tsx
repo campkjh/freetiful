@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AppSafeLink } from '@/components/AppLinkSheet';
 
 const FOOTER_LINKS = {
   서비스: [
@@ -46,16 +47,21 @@ export default function Footer() {
             <div key={title} className="min-w-0">
               <h4 className="mb-3.5 text-[15px] font-bold tracking-[-0.2px] text-[#333D4B] lg:mb-4 lg:text-[14px] lg:text-gray-900">{title}</h4>
               <ul className="space-y-3 lg:space-y-2.5">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="break-all text-[15px] leading-[1.5] tracking-[-0.2px] text-[#6B7684] transition-colors hover:text-gray-900 lg:text-[13px] lg:text-gray-500"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {links.map((link) => {
+                  const cls = 'break-all text-[15px] leading-[1.5] tracking-[-0.2px] text-[#6B7684] transition-colors hover:text-gray-900 lg:text-[13px] lg:text-gray-500';
+                  return (
+                    <li key={link.label}>
+                      {/* 전화·메일은 AppSafeLink — 안드로이드 앱(2.0.6)에서 tel:/mailto: 가 '웹페이지를 사용할 수 없음'이 되던 것 막음(261012) */}
+                      {/^(tel|mailto):/.test(link.href) ? (
+                        <AppSafeLink href={link.href} className={cls}>{link.label}</AppSafeLink>
+                      ) : (
+                        <Link href={link.href} className={cls}>
+                          {link.label}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

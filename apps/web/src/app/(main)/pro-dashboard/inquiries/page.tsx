@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 import { CalendarIcon, ChatBubbleIcon, PhoneIcon, PinLocationIcon } from '@/components/icons/mono';
 import { EmptyDocumentIcon } from '@/components/icons/color';
 import { chatApi } from '@/lib/api/chat.api';
@@ -596,9 +597,10 @@ export default function ProRequestsPage() {
                         <span className="min-w-0 truncate">{request.eventLocation}</span>
                       </p>
                     )}
-                    {/* 고객 번호 — 퀵매칭 지정 사회자에게만(260927 사장). 누르면 바로 전화 */}
+                    {/* 고객 번호 — 퀵매칭 지정 사회자에게만(260927 사장). 누르면 바로 전화
+                        (안드로이드 앱 2.0.6 은 tel: 이 '웹페이지를 사용할 수 없음'이 돼 handleAppLinkClick 이 시트로 받는다 · 261012) */}
                     {request.customerPhone && (
-                      <a href={`tel:${request.customerPhone}`} className="flex w-fit max-w-full items-center gap-1.5 font-semibold text-[#3182F6]">
+                      <a href={`tel:${request.customerPhone}`} onClick={handleAppLinkClick} className="flex w-fit max-w-full items-center gap-1.5 font-semibold text-[#3182F6]">
                         <PhoneIcon size={18} className="shrink-0" />
                         <span className="min-w-0 truncate">{formatPhone(request.customerPhone)}</span>
                         {contactHint(request.contactMethod) && (

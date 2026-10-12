@@ -176,6 +176,10 @@ function getPreviewContent(data: SendMessagePayload) {
     }
     case 'location':
       return '위치를 공유했습니다';
+    // 음성(261012) — 낙관적 목록 미리보기에 /uploads URL 이 그대로 보이지 않게(서버 알림 문구와 같게)
+    case 'voice':
+    case 'audio':
+      return '음성 메시지를 보냈습니다';
   }
   if (typeof data.content === 'string' && data.content.trim()) return data.content;
   if (data.type === 'system') return '안내 메시지를 보냈습니다';

@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.util.Base64
 import java.security.MessageDigest
 import com.kakao.sdk.auth.model.OAuthToken
+import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Color
@@ -16,6 +17,7 @@ import android.webkit.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
@@ -62,6 +64,26 @@ class MainActivity : ComponentActivity() {
         pendingWebViewPermissionRequest = null
         if (isGranted && pending != null) pending.grant(pending.resources)
         else pending?.deny()
+    }
+
+    // 웹 위치 요청(navigator.geolocation — 채팅 '현재 위치 보내기') 대기 — 시스템 위치 권한 창 결과를 기다리는 동안 보관.
+    // (261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패') 2.0.6 은 onGeolocationPermissionsShowPrompt 도 위치 권한도 없어
+    // 웹이 위치를 한 번도 받지 못했다.
+    private var pendingGeoOrigin: String? = null
+    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+    private var isAskingLocationPermission = false
+
+    // 위치 권한 요청 런처 — 대략·정확한 위치를 함께 물어야 Android 12+ 에서 사용자가 '대략적인 위치'를 고를 수 있다.
+    // 결과 맵 대신 실제 권한 상태로 판정(대략만 허용해도 위치는 보낸다).
+    private val requestLocationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        isAskingLocationPermission = false
+        val origin = pendingGeoOrigin
+        val callback = pendingGeoCallback
+        pendingGeoOrigin = null
+        pendingGeoCallback = null
+        if (origin != null && callback != null) callback.invoke(origin, hasLocationPermission(), false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,6 +194,8 @@ class MainActivity : ComponentActivity() {
                             allowContentAccess = true
                             // iOS 와 동등한 자동 미디어 재생 정책
                             mediaPlaybackRequiresUserGesture = false
+                            // 웹 위치(navigator.geolocation) — 기본값도 켜짐이지만 명시(허용 여부는 onGeolocationPermissionsShowPrompt 가 정함)
+                            setGeolocationEnabled(true)
                         }
 
                         webChromeClient = object : WebChromeClient() {
@@ -192,6 +216,50 @@ class MainActivity : ComponentActivity() {
                                     pendingWebViewPermissionRequest = request
                                     requestAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
                                 }
+                            }
+
+                            // 웹 위치 요청 — 우리 주소(https freetiful.com)만. 권한이 있으면 바로 허용, 없으면 시스템 권한 창을 띄우고
+                            // 그 결과로 답한다(requestLocationPermission). 남의 사이트(웹뷰 안에 열린 지도 등)는 거부.
+                            // retain=false — 페이지마다 다시 물어 와도 위 권한 확인만 하므로 창은 다시 안 뜨고,
+                            // 사용자가 설정에서 권한을 끄면 다음 요청부터 바로 반영된다.
+                            override fun onGeolocationPermissionsShowPrompt(
+                                origin: String?,
+                                callback: GeolocationPermissions.Callback?
+                            ) {
+                                if (origin == null || callback == null) return
+                                if (!isOurWebOrigin(origin)) {
+                                    callback.invoke(origin, false, false)
+                                    return
+                                }
+                                if (hasLocationPermission()) {
+                                    callback.invoke(origin, true, false)
+                                    return
+                                }
+                                pendingGeoOrigin = origin
+                                pendingGeoCallback = callback
+                                // 권한 창이 이미 떠 있으면 다시 띄우지 않고 그 결과로 최신 요청에 답한다
+                                if (isAskingLocationPermission) return
+                                isAskingLocationPermission = true
+                                try {
+                                    requestLocationPermission.launch(
+                                        arrayOf(
+                                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                } catch (e: Exception) {
+                                    android.util.Log.e("GEO", "위치 권한 창 실행 실패: ${e.message}", e)
+                                    isAskingLocationPermission = false
+                                    pendingGeoOrigin = null
+                                    pendingGeoCallback = null
+                                    callback.invoke(origin, false, false)
+                                }
+                            }
+
+                            // 웹이 위치 요청을 거둬들임(다른 화면으로 이동 등) — 권한 창 결과가 와도 답할 곳이 없게 비운다
+                            override fun onGeolocationPermissionsHidePrompt() {
+                                pendingGeoOrigin = null
+                                pendingGeoCallback = null
                             }
 
                             override fun onShowFileChooser(
@@ -216,30 +284,8 @@ class MainActivity : ComponentActivity() {
                                 view: WebView?,
                                 request: WebResourceRequest?
                             ): Boolean {
-
-                                val url = request?.url.toString()
-
-                                if (url.startsWith("intent://")) {
-                                    try {
-                                        val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                                        startActivity(intent)
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                    return true
-                                }
-
-                                if (url.contains("play.google.com")) {
-                                    try {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                        startActivity(intent)
-                                    } catch (e: Exception) {
-                                        view?.loadUrl(url)
-                                    }
-                                    return true
-                                }
-
-                                return false
+                                request ?: return false
+                                return handleNavigation(view, request)
                             }
 
                             override fun onPageStarted(
@@ -358,6 +404,188 @@ class MainActivity : ComponentActivity() {
                 null
             )
         }
+    }
+
+    // ---------------- 바깥 링크(전화·메일·카카오톡·지도·결제 앱) ----------------
+    /**
+     * 웹뷰가 열 주소인지, 다른 앱으로 넘길 주소인지 가른다 — iOS ViewController.decidePolicyFor 와 같은 규칙.
+     * (261012 사장 '마이페이지 - 고객센터 - 전화문의/이메일문의/카카오톡문의 누르면 웹페이지 사용할수없음(갤럭시)')
+     * 2.0.6 은 intent:// 와 플레이스토어만 밖으로 넘기고 나머지는 웹뷰에 맡겨서, tel:·mailto:·kakaotalk:·결제 앱 주소가
+     * net::ERR_UNKNOWN_URL_SCHEME('웹페이지를 사용할 수 없음') 화면이 됐고, 평문 http 주소(예전 카카오 채널 링크)는
+     * targetSdk 28+ 평문 차단(ERR_CLEARTEXT_NOT_PERMITTED)으로 같은 화면이 됐다.
+     *  · https(및 http 아닌 웹 내부 주소 about·blob·data·javascript·file·content) → 웹뷰가 연다(false)
+     *  · 플레이스토어 주소 → 스토어 앱
+     *  · 평문 http(메인 프레임) → 우리 주소는 https 로 고쳐 이 화면에서, 남의 주소는 http 를 열 수 있는 브라우저로
+     *  · freetiful:// → 앱 안 화면 이동(푸시 딥링크와 같은 경로)
+     *  · 그 밖의 스킴 전부 → openExternal(그 앱으로) 후 언제나 true — 웹뷰는 오류 화면을 그리지 않는다
+     */
+    private fun handleNavigation(view: WebView?, request: WebResourceRequest): Boolean {
+        val uri = request.url ?: return false
+        val scheme = uri.scheme?.lowercase().orEmpty()
+        val host = uri.host?.lowercase().orEmpty()
+        // 우리 페이지(freetiful.com 메인 프레임)가 직접 연 주소인지. 리다이렉트는 아직 view.url 이 우리 주소로 남아 있어
+        // 남의 서버가 302 로 intent:// 를 돌려도 우리 것처럼 보이므로 뺀다. 아니면 openExternal 이 BROWSABLE 을 붙인다.
+        val fromOurPage = request.isForMainFrame && !request.isRedirect &&
+            (view?.url?.let { isOurWebOrigin(it) } == true)
+
+        when (scheme) {
+            "http", "https" -> {
+                if (isStoreHost(host)) {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    } catch (e: Exception) {
+                        view?.loadUrl(uri.toString())
+                    }
+                    return true
+                }
+                if (scheme == "http" && request.isForMainFrame) {
+                    if (host == "freetiful.com" || host == "www.freetiful.com") {
+                        view?.loadUrl(uri.buildUpon().scheme("https").build().toString())
+                    } else {
+                        openExternal(view, uri, fromOurPage)
+                    }
+                    return true
+                }
+                return false
+            }
+            "", "about", "blob", "data", "javascript", "file", "content" -> return false
+            "freetiful" -> {
+                normalizeInternalPath(uri.toString())?.let { navigateToInternalPath(it) }
+                return true
+            }
+        }
+        openExternal(view, uri, fromOurPage)
+        return true
+    }
+
+    private fun isStoreHost(host: String): Boolean =
+        host == "play.google.com" || host == "market.android.com"
+
+    /**
+     * 주소를 그 앱에 넘긴다. tel: → 전화 걸기 화면(DIAL, 바로 걸지 않음), mailto: → 메일 쓰기(SENDTO),
+     * intent:// → 웹이 정한 Intent, 나머지(sms·kakaotalk·kakaoplus·market·geo·nmap·kakaomap·결제 앱 등) → VIEW.
+     * 열 앱이 없으면 intent 의 S.browser_fallback_url → 그 패키지의 스토어 화면 → 토스트 순(크롬과 같은 순서).
+     * resolveActivity 로 미리 확인하지 않는다 — Android 11+ 는 <queries> 없이 null 을 돌려줘 멀쩡한 앱도 못 연다.
+     * fromOurPage 가 아니면(남의 페이지·리다이렉트) intent·VIEW 에 CATEGORY_BROWSABLE 을 붙인다 — 크롬·구글
+     * 'Intent Scheme Hijacking' 권고(BROWSABLE + component·selector 제거)와 같게, 브라우저에서 열 수 있는 화면만 열린다.
+     * 우리 페이지의 intent(채팅 PDF 열기·intent://번호 전화·지도 카드)는 예전처럼 그대로 — PDF 뷰어가 BROWSABLE 을 안 받을 수 있다.
+     * tel:(DIAL)·mailto:(SENDTO)는 정해진 동작이라 붙이지 않는다.
+     */
+    private fun openExternal(view: WebView?, uri: Uri, fromOurPage: Boolean) {
+        val scheme = uri.scheme?.lowercase().orEmpty()
+        var fallbackUrl: String? = null
+        var fallbackPackage: String? = null
+        val intent = try {
+            when (scheme) {
+                "intent" -> Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME).also {
+                    fallbackUrl = it.getStringExtra("browser_fallback_url")
+                    fallbackPackage = it.`package`
+                    sanitizeWebIntent(it)
+                    if (!fromOurPage) it.addCategory(Intent.CATEGORY_BROWSABLE)
+                }
+                "tel" -> Intent(Intent.ACTION_DIAL, uri)
+                "mailto" -> Intent(Intent.ACTION_SENDTO, uri)
+                else -> Intent(Intent.ACTION_VIEW, uri).also {
+                    if (!fromOurPage) it.addCategory(Intent.CATEGORY_BROWSABLE)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("EXTERNAL_LINK", "주소 해석 실패($scheme): ${e.message}")
+            showToast("열 수 없는 링크예요")
+            return
+        }
+
+        try {
+            startActivity(intent)
+            return
+        } catch (e: ActivityNotFoundException) {
+            android.util.Log.w("EXTERNAL_LINK", "열 앱 없음($scheme)")
+        } catch (e: Exception) {
+            // SecurityException 등 — 앱이 없는 것과 같이 대체 경로로
+            android.util.Log.w("EXTERNAL_LINK", "실행 실패($scheme): ${e.message}")
+        }
+
+        // 1) 웹이 정해 둔 대체 주소 — https 는 이 화면에서(크롬도 같은 탭에서 연다), http 는 평문 차단이라 브라우저로
+        val fb = fallbackUrl
+        if (fb != null) {
+            val fbUri = Uri.parse(fb)
+            val fbScheme = fbUri.scheme?.lowercase()
+            if (fbScheme == "https" && !isStoreHost(fbUri.host?.lowercase().orEmpty())) {
+                view?.loadUrl(fb)
+                return
+            }
+            if (fbScheme == "https" || fbScheme == "http") {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, fbUri))
+                    return
+                } catch (_: Exception) {
+                }
+            }
+        }
+        // 2) 패키지가 정해진 intent(카카오톡 등)는 그 앱의 스토어 화면
+        val pkg = fallbackPackage
+        if (pkg != null && pkg.matches(Regex("[A-Za-z0-9_.]+"))) {
+            for (store in listOf("market://details?id=$pkg", "https://play.google.com/store/apps/details?id=$pkg")) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(store)))
+                    return
+                } catch (_: Exception) {
+                }
+            }
+        }
+        // 3) 안내만 — 웹뷰 화면은 그대로 둔다
+        showToast("이 링크를 열 수 있는 앱이 없어요")
+    }
+
+    /**
+     * 웹 페이지가 만든 intent:// 를 그대로 넘기지 않는다.
+     *  · component·selector 를 지워 남의 페이지(웹뷰에 열린 카카오·지도·결제 화면 등)가 이 앱의 내보내지 않은 화면을
+     *    직접 띄우지 못하게 — 대상은 action·data·package 로만 고른다(카카오톡처럼 package 지정은 유지).
+     *  · 파일 접근 권한을 넘기는 플래그는 지운다.
+     *  · 2.0.6 우회로 웹이 보내는 intent://번호#Intent;scheme=tel;… 는 data 가 tel://번호 꼴이 된다 —
+     *    전화·메일 앱이 // 까지 번호·주소로 읽지 않게 tel:번호 / mailto:주소 로 고친다(웹이 우회를 계속 써도 바르게 열림).
+     *  · CATEGORY_BROWSABLE 은 여기서 붙이지 않고 openExternal 이 남의 페이지에서 온 intent 에만 붙인다
+     *    (우리 채팅 PDF 열기 intent://…;type=application/pdf 의 뷰어가 BROWSABLE 을 못 받을 수 있어서).
+     */
+    private fun sanitizeWebIntent(intent: Intent) {
+        intent.component = null
+        intent.selector = null
+        intent.flags = intent.flags and (
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+            ).inv()
+
+        val data = intent.data ?: return
+        val dataScheme = data.scheme?.lowercase() ?: return
+        if (dataScheme !in setOf("tel", "mailto", "sms", "smsto")) return
+        val raw = data.toString()
+        val slashed = "$dataScheme://"
+        if (raw.length > slashed.length && raw.startsWith(slashed, ignoreCase = true)) {
+            intent.setDataAndType(Uri.parse("$dataScheme:" + raw.substring(slashed.length)), intent.type)
+        }
+    }
+
+    private fun isOurWebOrigin(origin: String): Boolean {
+        val uri = try {
+            Uri.parse(origin)
+        } catch (_: Exception) {
+            return false
+        }
+        val host = uri.host?.lowercase()
+        return uri.scheme.equals("https", ignoreCase = true) &&
+            (host == "freetiful.com" || host == "www.freetiful.com")
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun showToast(text: String) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
     }
 
     // ---------------- 파일/사진 선택 ----------------
@@ -704,6 +932,15 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface fun kakaoLogin() { runOnUiThread { startKakaoLogin() } }
         @JavascriptInterface fun googleLogin() { runOnUiThread { startGoogleLogin() } }
         @JavascriptInterface fun naverLogin() { runOnUiThread { startNaverLogin() } }
+
+        /**
+         * (261012) 웹이 이 빌드(2.0.7~)의 기능을 알아보는 신호 — 함수가 있는지(typeof window.Android.xxx === 'function')로 본다.
+         *  · supportsGeolocation: 채팅 '현재 위치 보내기'(navigator.geolocation)가 된다. 2.0.6 은 늘 실패하므로 웹이 이 줄을 숨긴다.
+         *  · supportsExternalSchemes: tel:·mailto:·카카오톡 등 앱 주소를 앱이 직접 그 앱으로 넘긴다.
+         *    있으면 웹의 2.0.6 우회(전화=intent://번호, 이메일=주소 복사)를 건너뛰고 평범한 링크를 써도 된다.
+         */
+        @JavascriptInterface fun supportsGeolocation(): Boolean = true
+        @JavascriptInterface fun supportsExternalSchemes(): Boolean = true
 
         /**
          * 웹(자동로그인/세션복원/로그인 성공 시)이 userId 넘기면

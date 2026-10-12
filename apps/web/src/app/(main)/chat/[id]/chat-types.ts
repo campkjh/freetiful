@@ -49,6 +49,8 @@ export interface Message {
   latitude?: number;
   longitude?: number;
   address?: string;
+  /** 위치 메시지의 장소명(261012 장소 검색으로 보낸 것) — 옛 위치 메시지엔 없다(좌표만) */
+  placeName?: string;
   replyTo?: { id: string; name: string; content: string } | null;
   reaction?: string | null;
   isNew?: boolean;

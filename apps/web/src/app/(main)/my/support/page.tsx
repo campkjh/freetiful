@@ -2,8 +2,12 @@
 
 import { useEffect } from 'react';
 import { ClockIcon } from '@/components/icons/mono';
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 import { MY_CARD, MySectionTitle, MyDetailHeader, QdList, QdRow } from '../_components/detail-ui';
 
+// (261012 사장 '전화문의/이메일문의/카카오톡문의 누르면 웹페이지 사용할수없음(갤럭시)') — 안드로이드 앱(2.0.6)은
+// tel:·mailto:·평문 http:// 를 못 열어 오류 화면이 떴다. 아래 '문의하기' 칸의 handleAppLinkClick 이 앱 안에서만 길을 바꾼다
+// (전화·메일 = 시트, 카카오 = 1:1 채팅 주소). 아이폰 앱·브라우저는 이 링크 그대로.
 const CONTACTS = [
   {
     href: 'tel:02-765-8882',
@@ -18,9 +22,11 @@ const CONTACTS = [
     ),
   },
   {
-    href: 'mailto:support@freetiful.co.kr',
+    // 예전 support@freetiful.co.kr 은 도메인이 없어(NXDOMAIN · MX 없음) 모든 기기에서 반송됐다 →
+    // 푸터·사업자 정보·비즈 FAQ 와 같은 주소로(261012)
+    href: 'mailto:freetiful2025@gmail.com',
     label: '이메일 문의',
-    value: 'support@freetiful.co.kr',
+    value: 'freetiful2025@gmail.com',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <rect x="2" y="5" width="20" height="14" rx="3" fill="#F59E0B" />
@@ -29,7 +35,8 @@ const CONTACTS = [
     ),
   },
   {
-    href: 'http://pf.kakao.com/_axbJmn',
+    // https — 안드 앱은 평문 http 를 막는다(targetSdk 36). 앱 안에선 handleAppLinkClick 이 /chat 으로 바꿔 카카오톡을 바로 연다
+    href: 'https://pf.kakao.com/_axbJmn',
     label: '카카오톡 문의',
     value: '프리티풀 카카오톡 채널',
     external: true,
@@ -69,8 +76,8 @@ export default function SupportPage() {
           <p className="mt-0.5 text-[13px] text-[#A4ABBA]">점심 12:00 ~ 13:00 · 주말 및 공휴일 휴무</p>
         </div>
 
-        {/* 연락 방법 */}
-        <div>
+        {/* 연락 방법 — 안드로이드 앱에서 전화·메일·카톡 링크가 오류 화면 대신 시트/카카오톡으로 가게 감싼 칸에서 가로챈다 */}
+        <div onClickCapture={handleAppLinkClick}>
           <MySectionTitle>문의하기</MySectionTitle>
           <QdList>
             {CONTACTS.map((row) => (

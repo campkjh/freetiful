@@ -10,6 +10,7 @@ import { EmptyDocumentIcon } from '@/components/icons/color';
 import TitleFilterMenu, { type TitleFilterOption } from '@/components/ui/TitleFilterMenu';
 import { QdBackIcon } from '../_components/detail-ui';
 import PaymentToneCard, { TossMenuIcon, type PaymentToneRow } from '../_components/PaymentToneCard';
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 
 type Filter = 'all' | 'paid' | 'waiting' | 'refunded';
 
@@ -197,7 +198,8 @@ export default function PaymentHistoryPage() {
                 meta={[p.date, ...(p.method ? [p.method] : []), p.title]}
                 rows={rows}
                 footer={viewerIsPro && p.phone ? (
-                  <a href={`tel:${p.phone}`} className="mt-3 flex h-11 items-center justify-center rounded-[12px] bg-white/70 text-[14px] font-bold text-[#3182F6] active:scale-[0.99]">
+                  // 안드로이드 앱(2.0.6)은 tel: 을 못 열어 오류 화면 → handleAppLinkClick 이 시트로(261012)
+                  <a href={`tel:${p.phone}`} onClick={handleAppLinkClick} className="mt-3 flex h-11 items-center justify-center rounded-[12px] bg-white/70 text-[14px] font-bold text-[#3182F6] active:scale-[0.99]">
                     {p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')} 전화하기
                   </a>
                 ) : undefined}

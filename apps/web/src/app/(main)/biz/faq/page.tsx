@@ -7,6 +7,7 @@ import { useT, type Translations } from '@/lib/biz/i18n';
 import BizHeader, { BizPageFooter } from '@/components/biz/BizHeader';
 import { FadeUp } from '@/components/biz/biz-motion';
 import { cameByHistory } from '@/components/biz/scroll-to';
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 
 /*
  * 비즈 자주 묻는 질문(261009 사장 '비즈의 모든 페이지를 프리티풀 톤앤매너 · 애니메이션으로 이쁘고 일관성 있게 · 비즈 내용은 웨딩홀과 기업행사 위주').
@@ -401,7 +402,8 @@ export default function FaqPage() {
                 {t({ ko: '문의하기', en: 'Contact us', ja: 'お問合せ', zh: '联系我们' })}
                 <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2.4} aria-hidden />
               </Link>
-              <a href="mailto:freetiful2025@gmail.com" className="inline-flex h-14 items-center justify-center gap-1.5 rounded-[16px] bg-white px-6 text-[17px] font-semibold text-[#4E5968] transition-[transform,background-color] duration-150 hover:bg-[#F9FAFB] active:scale-[0.98]">
+              {/* 안드로이드 앱(2.0.6)은 mailto: 를 못 열어 오류 화면 → handleAppLinkClick 이 주소 복사 시트로(261012) */}
+              <a href="mailto:freetiful2025@gmail.com" onClick={handleAppLinkClick} className="inline-flex h-14 items-center justify-center gap-1.5 rounded-[16px] bg-white px-6 text-[17px] font-semibold text-[#4E5968] transition-[transform,background-color] duration-150 hover:bg-[#F9FAFB] active:scale-[0.98]">
                 <Mail className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
                 {t({ ko: '이메일 보내기', en: 'Send email', ja: 'メール送信', zh: '发送邮件' })}
               </a>

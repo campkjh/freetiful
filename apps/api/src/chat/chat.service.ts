@@ -15,6 +15,7 @@ import { ChatRealtimeService } from './chat-realtime.service';
 import { AutoReplyService } from '../auto-reply/auto-reply.service';
 import { customerContactMethod, rawForPro, sharedCustomerPhone } from '../match/quick-match.config';
 import { isTestLeadUserId } from '../match/test-lead';
+import { VOICE_MAX_BYTES, looksLikeVoiceUpload, normalizeVoiceMime, transcodeVoiceToM4a } from './chat-voice';
 import {
   CreateChatRoomDto,
   CreateRoomAsProDto,
@@ -27,6 +28,28 @@ import {
   MessageQueryDto,
   PhotoGalleryQueryDto,
 } from './dto/chat.dto';
+
+/**
+ * 위치 메시지 metadata 정리(261012) — DTO 는 metadata 안쪽을 검사하지 않고 소켓 경로는 검증이 아예 없다.
+ * address:{} 같은 값이 그대로 저장되면 받는 쪽 위치 카드가 터져 방이 열리지 않았다.
+ * 장소명·주소 = 200자 안쪽 글자만, 좌표 = 유한한 숫자만(옛 앱의 숫자 글자 좌표는 숫자로). 다른 키(clientMessageId 등)는 그대로.
+ */
+function sanitizeLocationMetadata(meta: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...meta };
+  for (const key of ['placeName', 'address'] as const) {
+    const v = out[key];
+    const text = typeof v === 'string' ? v.trim().slice(0, 200) : '';
+    if (text) out[key] = text;
+    else delete out[key];
+  }
+  for (const key of ['latitude', 'longitude'] as const) {
+    const v = out[key];
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+    if (Number.isFinite(n)) out[key] = n;
+    else delete out[key];
+  }
+  return out;
+}
 
 @Injectable()
 export class ChatService implements OnModuleInit {
@@ -1864,7 +1887,9 @@ export class ChatService implements OnModuleInit {
 
     const metadata =
       dto.metadata && typeof dto.metadata === 'object' && !Array.isArray(dto.metadata)
-        ? dto.metadata
+        ? dto.type === 'location'
+          ? sanitizeLocationMetadata(dto.metadata)
+          : dto.metadata
         : undefined;
     const clientMessageId =
       typeof metadata?.clientMessageId === 'string' ? metadata.clientMessageId : undefined;
@@ -1942,6 +1967,23 @@ export class ChatService implements OnModuleInit {
       }
     }
 
+    // 음성(261012) — 웹은 먼저 업로드해 /uploads URL 을 content 로 보낸다. 혹시 base64 data URL 로 오면
+    // (소켓 경로는 DTO 검증이 없다) 원문을 DB·실시간에 흘리지 않고 저장 후 URL 로 바꾼다.
+    if (dto.type === 'voice' && dto.content && dto.content.startsWith('data:')) {
+      try {
+        const match = dto.content.match(/^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/i);
+        if (!match) throw new Error('bad data url');
+        const buffer = Buffer.from(match[2], 'base64');
+        if (!buffer.length || buffer.length > VOICE_MAX_BYTES) throw new Error('size');
+        finalContent = (await this.saveVoiceBuffer(buffer, match[1])).url;
+      } catch {
+        throw new BadRequestException('음성 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    }
+    if (dto.type === 'voice' && !finalContent) {
+      throw new BadRequestException('음성 파일이 없습니다. 다시 녹음해 주세요.');
+    }
+
     // [임시 진단] 채팅 미디어 전송 디버깅 (추후 제거)
     console.log(`[sendMessage] user=${userId.slice(0,8)} room=${roomId.slice(0,8)} type=${dto.type} inLen=${(dto.content || '').length} out=${(finalContent || '').slice(0, 48)}`);
     const participantIdsPromise = this.getRoomParticipantUserIds(roomId);
@@ -1951,7 +1993,8 @@ export class ChatService implements OnModuleInit {
         senderId: userId,
         type: dto.type,
         content: finalContent,
-        metadata: dto.metadata as any,
+        // 위치는 정리한 metadata(261012), 그 밖의 타입은 예전 그대로 받은 값
+        metadata: (dto.type === 'location' ? metadata : dto.metadata) as any,
         replyToId: dto.replyToId,
         mediaExpiresAt: ['image', 'file'].includes(dto.type)
           ? new Date(Date.now() + 20 * 24 * 60 * 60 * 1000) // 20 days
@@ -2006,7 +2049,11 @@ export class ChatService implements OnModuleInit {
         image: '사진을 보냈습니다', video: '동영상을 보냈습니다', file: '파일을 보냈습니다',
         audio: '음성 메시지를 보냈습니다', voice: '음성 메시지를 보냈습니다', location: '위치를 공유했습니다',
       };
-      const preview = previewByType[dto.type] || (finalContent || '').slice(0, 40);
+      // 장소 검색으로 보낸 위치는 장소명을 같이(261012) — 좌표만 온 옛 위치는 예전 문구 그대로
+      const placeName = dto.type === 'location' && typeof metadata?.placeName === 'string'
+        ? String(metadata.placeName).trim().slice(0, 40)
+        : '';
+      const preview = placeName ? `장소: ${placeName}` : previewByType[dto.type] || (finalContent || '').slice(0, 40);
       for (const receiverId of receiverIds) {
         if (mutedReceiverIds.has(receiverId)) continue;
         this.notificationService.createNotification(
@@ -2041,6 +2088,12 @@ export class ChatService implements OnModuleInit {
     if (!file) {
       throw new BadRequestException('이미지 파일이 필요합니다.');
     }
+    // 지금 배포된 웹 번들은 녹음(voice.webm / voice.m4a)도 이 /images 로 올린다(chat.api uploadAudio).
+    // 이미지 변환기(processImage)는 audio/* 를 400 '지원하지 않는 이미지 형식'으로 거절해 음성이 한 건도 안 갔다
+    // (261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패'). 녹음이면 음성 저장으로 돌린다 — 이미지 경로는 그대로.
+    if (looksLikeVoiceUpload(file)) {
+      return this.storeVoiceUpload(file);
+    }
 
     const processed = await this.imageService.processImage(file, {
       requireFace: false,
@@ -2073,6 +2126,12 @@ export class ChatService implements OnModuleInit {
       throw new BadRequestException('파일이 필요합니다.');
     }
     const mime = file.mimetype || '';
+    // 음성 녹음(웹 uploadAudio 가 type=voice 로 Railway 직결 업로드, 261012) → m4a 통일 저장.
+    // mime 만 보고 판정하지 않는다 — 파일 첨부(type=file)로 보낸 mp3 등은 원본 파일 그대로 둬야 한다.
+    if (type === 'voice' || type === 'audio') {
+      const saved = await this.storeVoiceUpload(file);
+      return { url: saved.url, audioUrl: saved.url, mimeType: saved.mimeType };
+    }
     const isImage = type === 'image' || mime.startsWith('image/');
     if (isImage) {
       try {
@@ -2094,6 +2153,34 @@ export class ChatService implements OnModuleInit {
     // 응답은 여기서 바로 나가므로 업로드 체감 속도에는 영향이 없다.
     this.queueVideoCompress(url, mime, file.buffer.length);
     return { url };
+  }
+
+  /**
+   * 채팅 녹음 저장(261012) — AAC m4a 로 바꿔(아이폰·갤럭시 공통 재생) DB 에 저장, 변환 실패면 원본 그대로.
+   * 방 멤버 확인은 호출부(uploadImage/uploadMedia)가 이미 했다.
+   */
+  private async storeVoiceUpload(file: Express.Multer.File) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('녹음 파일이 비어 있어요. 다시 녹음해 주세요.');
+    }
+    if (file.buffer.length > VOICE_MAX_BYTES) {
+      throw new BadRequestException('음성 메시지가 너무 길어요. 짧게 나눠서 보내 주세요.');
+    }
+    const saved = await this.saveVoiceBuffer(file.buffer, file.mimetype, file.originalname);
+    // url = 새 웹, audioUrl·imageUrl = 지금 배포된 웹(res.data.audioUrl || res.data.imageUrl)
+    return { url: saved.url, audioUrl: saved.url, imageUrl: saved.url, mimeType: saved.mimeType };
+  }
+
+  private async saveVoiceBuffer(buffer: Buffer, mime?: string, originalName?: string) {
+    const m4a = await transcodeVoiceToM4a(buffer, mime, originalName);
+    if (m4a) {
+      const url = await this.imageService.saveRawMedia(m4a, 'audio/mp4', 'voice.m4a');
+      return { url, mimeType: 'audio/mp4' };
+    }
+    const mimeType = normalizeVoiceMime(mime, originalName);
+    const ext = mimeType === 'audio/mp4' ? 'm4a' : (mimeType.split('/')[1] || 'webm');
+    const url = await this.imageService.saveRawMedia(buffer, mimeType, `voice.${ext}`);
+    return { url, mimeType };
   }
 
   async getRoomMemberIds(roomId: string) {

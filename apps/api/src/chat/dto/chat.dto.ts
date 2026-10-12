@@ -30,6 +30,9 @@ export enum MessageTypeEnum {
   image = 'image',
   video = 'video',
   file = 'file',
+  // 음성 메시지(261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패') — 웹은 늘 type 'voice' 로 보내는데
+  // 여기 없어서 REST 는 400(isEnum), 소켓은 Prisma enum 오류로 전부 실패했다. Prisma enum MessageType 과 같이 유지.
+  voice = 'voice',
   location = 'location',
   link = 'link',
   sticker = 'sticker',

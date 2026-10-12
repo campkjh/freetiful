@@ -20,7 +20,7 @@ import { isAdminUser } from '@/lib/admin-access';
  *  · 아래: 흰 카드 **목록**(왼쪽 회색 아이콘 칩 · 굵은 제목 · 오른쪽 회색 설명 — 들어가기 전에 뭘 하는지 안다).
  *  · 회색 바탕(#F4F6FA) 위 흰 면. 아이콘은 토스 컬러 원본(public/icons/toss) — 회색으로 깎으면 타일이 한 덩어리로 보인다.
  * 등장은 퀵매칭 어법: 제목 아래→위 페이드, 나머지 오른쪽→왼쪽 슬라이드(순차).
- * ⚠ iOS 앱의 /my 는 네이티브(NativeMyContent)라 이 화면은 웹·안드로이드에서만 보인다.
+ * ⚠ iOS 옛 네이티브 앱(스토어 2.1.10 이하)만 /my 가 네이티브(NativeMyContent) — 260927 웹 셸 전환(2.2.x) 뒤로는 iOS 도 이 웹 화면을 그대로 쓴다.
  * ════════════════════════════════════════════════════════════════ */
 
 const PRO_CATEGORY_CACHE_KEY = 'freetiful-my-pro-category';
@@ -306,6 +306,14 @@ export default function MyPage() {
         { k: 'purchase', icon: 'ledger', title: '구매 내역', desc: '구매한 서비스 · 견적', href: '/my/purchase-history' },
         { k: 'payment', icon: 'pay-card', title: '결제/환불 내역', desc: '결제 · 환불 기록', href: '/my/payment-history' },
       ],
+    },
+    // 미니게임 — 웨딩런(261012 사장 '마이페이지 리스트에도 웨딩런 넣어줘'). 일반회원·사회자·관리자 모두 같은 줄.
+    //  · 홈 배너처럼 로그인 없이 하는 게임이라 href 대신 onClick — href 줄은 비로그인이면 로그인 창을 띄운다(renderRow).
+    //  · PC 도 오른쪽 iframe 칸이 아니라 전체 화면으로 이동 — iframe 안에선 게임의 전체 화면·가로 고정(requestFullscreen·orientation.lock)이 막힌다.
+    //  · 설명은 8자 안팎으로 — NEW 알약까지 붙어 길면 좁은 폰에서 끝이 잘린다.
+    {
+      title: '즐길 거리',
+      rows: [{ k: 'wedding-run', icon: 'game', title: '웨딩런', desc: '신혼집까지 달려!', badge: 'NEW', onClick: () => router.push('/wedding-run') }],
     },
     {
       title: '설정',

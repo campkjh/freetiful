@@ -14,7 +14,6 @@ import {
   DocumentIcon as FileText,
   EmojiIcon as Smile,
   PlusIcon as Plus,
-  SearchIcon as Search,
   BellIcon as Bell,
   BellOffIcon as BellOff,
   FlagIcon as Flag,
@@ -45,6 +44,8 @@ import { popItemDelay } from '@/lib/pop-menu';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
+import { type PlaceResult, androidIntentUrl, isValidLatLng, kakaoMapUrl, locationContent, tilesForView } from './chat-location';
+import { SearchIcon as MonoSearchIcon } from '@/components/icons/mono';
 export type { Message, ChatPartner, SystemPayload };
 
 // ─── Helpers ───
@@ -172,190 +173,296 @@ const buildQuoteCheckoutUrl = (chatPartner: ChatPartner | null, sys: SystemPaylo
 
 declare global {
   interface Window {
-    naver?: any;
     kakao?: any;
   }
 }
 
-// 네이버 지도 SDK 동적 로드
-let naverMapsLoadingPromise: Promise<void> | null = null;
-function loadNaverMaps(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.reject('SSR');
-  if (window.naver?.maps) return Promise.resolve();
-  if (naverMapsLoadingPromise) return naverMapsLoadingPromise;
+// ─── 장소 보내기 시트 · 위치 카드 (261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패(아이폰 갤럭시 둘다 발생함)') ───
+//  예전 NaverMapPicker 는 운영에 네이버 지도 키가 없어 '네이버 지도 SDK 로드 실패' 문구만 뜨고 전송 버튼이 영영 꺼져 있었다.
+//  갤럭시 앱(2.0.6)은 웹뷰 위치 권한 처리가 없어 현재 위치도 못 받아 → 위치를 보낼 방법이 아예 없었다.
+//  지금: 장소 검색(서버 경유 카카오 로컬 /chat/place-search) → 골라서 보내기. 현재 위치는 되는 기기에서만 덤으로.
+//  검색이 안 되면 검색어 그대로(장소명만) 보낼 수 있다 — 어떤 경우에도 막다른 길이 없게.
 
-  const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID;
-  if (!clientId) return Promise.reject('NO_KEY');
+/** 시트에서 고른 장소 — label 은 시트 표시용, placeName·address 는 메시지 metadata 로 간다 */
+export type PickedPlace = { lat?: number; lng?: number; placeName?: string; address?: string; label: string };
 
-  naverMapsLoadingPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject('LOAD_ERROR');
-    document.head.appendChild(script);
-  });
-  return naverMapsLoadingPromise;
+/** 지금 깔린 안드로이드 앱(2.0.6)인지 — window.Android(앱 JS 다리)는 있는데 위치 지원 표시가 없으면 웹뷰가 위치를 못 준다 */
+function androidAppWithoutGeolocation() {
+  if (typeof window === 'undefined') return false;
+  const bridge = (window as unknown as { Android?: Record<string, unknown> }).Android;
+  return !!bridge && typeof bridge.supportsGeolocation !== 'function';
 }
 
-// ─── NaverMapPicker ───
-function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: number) => void; onClose: () => void }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<{ lat: number; lng: number } | null>(null);
-  const [hasNaverKey, setHasNaverKey] = useState<boolean | null>(null);
-  const naverMapInstanceRef = useRef<any>(null);
-  const naverMarkerRef = useRef<any>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Promise<boolean>; onClose: () => void }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<PlaceResult[] | null>(null); // null = 아직 검색 전
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [selected, setSelected] = useState<PickedPlace | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [geoState, setGeoState] = useState<'idle' | 'locating' | 'denied' | 'failed'>('idle');
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+  const [sending, setSending] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const seqRef = useRef(0);
+  const noGeoApp = androidAppWithoutGeolocation();
+  const geoSupported = typeof navigator !== 'undefined' && 'geolocation' in navigator && !noGeoApp;
 
+  // 검색 — 입력 멈추고 0.3초 뒤. 늦게 온 옛 응답은 버린다(seq).
   useEffect(() => {
-    let cancelled = false;
-    loadNaverMaps()
-      .then(() => {
-        if (cancelled || !mapRef.current || !window.naver?.maps) return;
-        setHasNaverKey(true);
-        const naver = window.naver;
-        const seoul = new naver.maps.LatLng(37.5665, 126.978);
-        const map = new naver.maps.Map(mapRef.current, {
-          center: seoul,
-          zoom: 14,
-          zoomControl: true,
-          zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT },
-          mapTypeControl: false,
-          logoControl: false,
-          mapDataControl: false,
-          scaleControl: false,
-        });
-        naverMapInstanceRef.current = map;
-
-        naver.maps.Event.addListener(map, 'click', (e: any) => {
-          const lat = e.coord.lat();
-          const lng = e.coord.lng();
-          setSelected({ lat, lng });
-          if (naverMarkerRef.current) {
-            naverMarkerRef.current.setPosition(e.coord);
-          } else {
-            naverMarkerRef.current = new naver.maps.Marker({ position: e.coord, map });
-          }
-        });
-
-        naverMarkerRef.current = new naver.maps.Marker({ position: seoul, map });
-        setSelected({ lat: 37.5665, lng: 126.978 });
-      })
-      .catch(() => {
-        if (!cancelled) setHasNaverKey(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleSearch = () => {
-    if (!searchQuery.trim() || !window.naver?.maps?.Service) {
-      toast.error('네이버 지오코딩 서비스를 사용할 수 없습니다');
+    const term = q.replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!term) {
+      seqRef.current += 1;
+      setResults(null);
+      setSearchError(false);
+      setSearching(false);
       return;
     }
-    window.naver.maps.Service.geocode({ query: searchQuery }, (status: any, response: any) => {
-      if (status !== window.naver.maps.Service.Status.OK) {
-        toast.error('검색 실패');
-        return;
+    const seq = ++seqRef.current;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q: term });
+        if (here) {
+          params.set('lat', here.lat.toFixed(4));
+          params.set('lng', here.lng.toFixed(4));
+        }
+        const res = await fetch(`/chat/place-search?${params.toString()}`, { credentials: 'omit' });
+        const data = await res.json().catch(() => ({} as any));
+        if (seq !== seqRef.current) return;
+        setResults(Array.isArray(data?.places) ? data.places : []);
+        setSearchError(!res.ok || !!data?.error);
+      } catch {
+        if (seq !== seqRef.current) return;
+        setResults([]);
+        setSearchError(true);
+      } finally {
+        if (seq === seqRef.current) setSearching(false);
       }
-      const result = response.v2.addresses[0];
-      if (!result) {
-        toast.error('검색 결과가 없습니다');
-        return;
-      }
-      const lat = parseFloat(result.y);
-      const lng = parseFloat(result.x);
-      const point = new window.naver.maps.LatLng(lat, lng);
-      naverMapInstanceRef.current?.setCenter(point);
-      naverMapInstanceRef.current?.setZoom(16);
-      if (naverMarkerRef.current) {
-        naverMarkerRef.current.setPosition(point);
-      }
-      setSelected({ lat, lng });
-    });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q, here]);
+
+  // 현재 위치 — 자체 감시 타이머(9초)로 끝을 보장한다(웹뷰가 위치 요청에 아무 답도 안 주는 경우 대비).
+  const locate = useCallback(() => {
+    if (!geoSupported) return;
+    setGeoState('locating');
+    let done = false;
+    const watchdog = setTimeout(() => {
+      if (done) return;
+      done = true;
+      setGeoState('failed');
+    }, 9000);
+    const finish = () => { done = true; clearTimeout(watchdog); };
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (done) return;
+          finish();
+          const { latitude, longitude } = pos.coords;
+          if (!isValidLatLng(latitude, longitude)) { setGeoState('failed'); return; }
+          setHere({ lat: latitude, lng: longitude });
+          setGeoState('idle');
+          setSelected({ lat: latitude, lng: longitude, label: '현재 위치' });
+          setSelectedKey('here');
+          inputRef.current?.blur();
+          // 주소 붙이기 — 실패해도 좌표만으로 보낼 수 있다. 건물 이름은 붙이지 않는다(GPS 오차로 옆 건물 이름이 갈 수 있어서)
+          fetch(`/chat/place-search?lat=${latitude.toFixed(4)}&lng=${longitude.toFixed(4)}`, { credentials: 'omit' })
+            .then((r) => r.json())
+            .then((d) => {
+              const address = typeof d?.address === 'string' ? d.address : '';
+              if (!address) return;
+              setSelected((cur) => (cur && cur.lat === latitude && cur.lng === longitude ? { ...cur, address } : cur));
+            })
+            .catch(() => {});
+        },
+        (err) => {
+          if (done) return;
+          finish();
+          setGeoState(err?.code === 1 ? 'denied' : 'failed');
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+      );
+    } catch {
+      finish();
+      setGeoState('failed');
+    }
+  }, [geoSupported]);
+
+  // 이미 위치 권한을 준 기기면(팝업 없이) 열자마자 현재 위치를 잡아 둔다
+  useEffect(() => {
+    if (!geoSupported) return;
+    const perms = (navigator as any).permissions;
+    if (!perms?.query) return;
+    perms.query({ name: 'geolocation' })
+      .then((st: any) => { if (st?.state === 'granted') locate(); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pick = (key: string, p: PickedPlace) => {
+    setSelected(p);
+    setSelectedKey(key);
+    // 안드로이드 웹뷰는 키보드가 떠도 화면이 안 줄어 아래 보내기 버튼이 가린다 → 고르면 키보드를 내린다
+    inputRef.current?.blur();
   };
 
+  const send = async () => {
+    if (!selected || sending) return;
+    setSending(true);
+    const ok = await onSend(selected).catch(() => false);
+    setSending(false);
+    if (ok) onClose();
+  };
+
+  const term = q.trim();
+  const geoLine =
+    geoState === 'locating' ? '현재 위치 찾는 중…'
+      : geoState === 'denied' ? '위치 권한이 꺼져 있어요 · 장소를 검색해서 보내 주세요'
+        : geoState === 'failed' ? '현재 위치를 찾지 못했어요 · 다시 누르거나 장소를 검색해 주세요'
+          : '지금 있는 곳을 보내요';
+
   return (
-    // 공통 시트(ft-*) — 지도 칸이 flex-1 로 남는 높이를 채우도록 시트 높이는 고정
+    // 공통 시트(ft-*) — 검색칸은 시트 위쪽(안드로이드 키보드에 가리지 않게), 결과 목록이 남는 높이를 채운다
     <div className="ft-scrim" onClick={onClose}>
       <div
         className="ft-sheet wide h-[80vh] sm:h-[600px] flex flex-col"
         role="dialog"
         aria-modal="true"
+        aria-label="장소 보내기"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="ft-grab shrink-0" aria-hidden="true" />
         <div className="flex items-center justify-between shrink-0">
-          <div>
-            <p className="text-[11px] font-bold tracking-wider text-gray-400">LOCATION</p>
-            <h3 className="ft-title">위치 선택</h3>
-          </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+          <h3 className="ft-title">장소 보내기</h3>
+          <button onClick={onClose} aria-label="닫기" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
             <X size={20} className="text-gray-500" />
           </button>
         </div>
 
-        <div className="pt-4 pb-3 shrink-0">
-          <div className="flex gap-2">
-            <div className="flex-1 flex items-center bg-gray-100 rounded-full pl-4 pr-2 h-11">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
-                placeholder="장소나 주소 검색"
-                className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder:text-gray-400"
-              />
-              <button onClick={handleSearch} className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-900 flex items-center justify-center active:scale-90 transition-transform">
-                <Search size={16} className="text-white" />
+        <div className="pt-3 pb-2 shrink-0">
+          <div className="flex items-center bg-[#F2F4F6] rounded-full pl-4 pr-2 h-11">
+            <MonoSearchIcon size={18} className="text-[#8B95A1] shrink-0" />
+            {/* type=search 는 브라우저 기본 지우기(×)가 따로 붙어 지우기 버튼이 둘이 된다 → text + 검색 키보드 */}
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              value={q}
+              maxLength={60}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); inputRef.current?.blur(); } }}
+              placeholder="장소·건물 이름이나 주소 검색"
+              className="ml-2 flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-[#B0B8C1]"
+            />
+            {q && (
+              <button type="button" aria-label="지우기" onClick={() => { setQ(''); inputRef.current?.focus(); }} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90">
+                <XCircle size={18} className="text-[#B0B8C1]" />
               </button>
-            </div>
+            )}
           </div>
-          <p className="text-[11px] text-gray-400 mt-2 px-1">지도를 탭하거나 검색하여 위치를 선택하세요</p>
         </div>
 
-        <div className="flex-1 relative bg-gray-100 rounded-2xl overflow-hidden">
-          {hasNaverKey !== false && <div ref={mapRef} className="absolute inset-0" />}
-          {hasNaverKey === false && (
-            <div className="absolute inset-0 flex items-center justify-center text-center p-6">
-              <div>
-                <MapPin size={36} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-500">네이버 지도 SDK 로드 실패</p>
-                <p className="text-[11px] text-gray-400 mt-1">NEXT_PUBLIC_NAVER_MAP_CLIENT_ID 환경변수를 확인해주세요</p>
-              </div>
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 overscroll-contain">
+          {geoSupported ? (
+            <button
+              type="button"
+              onClick={locate}
+              disabled={geoState === 'locating'}
+              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'here' ? 'bg-[#EEF5FF]' : ''}`}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8F7EF]">
+                {geoState === 'locating'
+                  ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#15B86C]/30 border-t-[#15B86C]" />
+                  : <MapPin size={20} className="text-[#15B86C]" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-bold text-[#191F28]">현재 위치 보내기</span>
+                <span className={`block text-[13px] ${geoState === 'denied' || geoState === 'failed' ? 'text-[#F04452]' : 'text-[#8B95A1]'}`}>{geoLine}</span>
+              </span>
+              {selectedKey === 'here' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+            </button>
+          ) : noGeoApp ? (
+            <div className="flex items-center gap-3 rounded-2xl px-3 py-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6]">
+                <MapPin size={20} className="text-[#B0B8C1]" />
+              </span>
+              <span className="min-w-0 flex-1 text-[13px] leading-[1.45] text-[#8B95A1]">
+                현재 위치는 앱 업데이트 후 쓸 수 있어요.<br />지금은 장소를 검색해서 보내 주세요.
+              </span>
             </div>
-          )}
-          {hasNaverKey === null && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-[13px] text-gray-400">지도 로딩 중...</p>
+          ) : null}
+
+          <div className="mx-3 my-1 h-px bg-[#F2F4F6]" />
+
+          {!term ? (
+            <p className="px-3 py-6 text-center text-[13px] leading-[1.6] text-[#8B95A1]">
+              가게·건물 이름이나 주소로 찾아보세요<br />예) 강남역, 서울 중구 세종대로 110
+            </p>
+          ) : searching && !results?.length ? (
+            <p className="px-3 py-6 text-center text-[13px] text-[#8B95A1]">찾는 중…</p>
+          ) : results && results.length > 0 ? (
+            <ul>
+              {results.map((p, idx) => {
+                const key = `r-${idx}-${p.lat}-${p.lng}`;
+                const sub = p.roadAddress || p.address;
+                const on = selectedKey === key;
+                return (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      onClick={() => pick(key, { lat: p.lat, lng: p.lng, placeName: p.name, address: sub, label: p.name })}
+                      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${on ? 'bg-[#EEF5FF]' : ''}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="min-w-0 truncate text-[15px] font-bold text-[#191F28]">{p.name}</span>
+                          {p.category && <span className="shrink-0 text-[12px] text-[#B0B8C1]">{p.category}</span>}
+                        </span>
+                        {sub && <span className="block truncate text-[13px] text-[#8B95A1]">{sub}</span>}
+                      </span>
+                      {on && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="px-3 py-4">
+              <p className="text-center text-[13px] text-[#8B95A1]">
+                {searchError ? '장소 검색을 잠시 쓸 수 없어요' : '검색 결과가 없어요'}
+              </p>
+              {/* 막다른 길 방지 — 검색이 안 되거나 없으면 검색어를 장소명으로 그대로 보낸다(받는 쪽은 카카오맵 검색으로 연다) */}
+              <button
+                type="button"
+                onClick={() => pick('typed', { placeName: term, label: term })}
+                className={`mt-3 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'typed' ? 'bg-[#EEF5FF]' : 'bg-[#F9FAFB]'}`}
+              >
+                <MapPin size={18} className="shrink-0 text-[#3182F6]" />
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#191F28]">‘{term}’ 그대로 보내기</span>
+                {selectedKey === 'typed' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+              </button>
             </div>
           )}
         </div>
 
         <div className="shrink-0">
           {selected && (
-            <div className="flex items-center gap-2 mt-3 px-3 py-2.5 bg-blue-50 rounded-xl">
-              <MapPin size={16} className="text-[#007AFF] shrink-0" />
+            <div className="flex items-center gap-2 mt-2 px-3 py-2.5 bg-[#F2F8FF] rounded-xl">
+              <MapPin size={16} className="text-[#3182F6] shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold text-gray-900">선택한 위치</p>
-                <p className="text-[11px] text-gray-500 truncate tabular-nums">{selected.lat.toFixed(5)}, {selected.lng.toFixed(5)}</p>
+                <p className="text-[13px] font-bold text-[#191F28] truncate">{selected.label}</p>
+                <p className="text-[12px] text-[#8B95A1] truncate">
+                  {selected.address || (isValidLatLng(selected.lat, selected.lng) ? `${selected.lat!.toFixed(5)}, ${selected.lng!.toFixed(5)}` : '장소 이름만 보내요')}
+                </p>
               </div>
             </div>
           )}
           <div className="ft-actions">
-            <button
-              onClick={() => {
-                if (!selected) {
-                  toast.error('지도에서 위치를 선택해주세요');
-                  return;
-                }
-                onSelect(selected.lat, selected.lng);
-                onClose();
-              }}
-              disabled={!selected}
-              className="ft-btn primary"
-            >
-              <MapPin size={16} />
-              이 위치 전송하기
+            <button onClick={send} disabled={!selected || sending} className="ft-btn primary">
+              {sending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <MapPin size={16} />}
+              {sending ? '보내는 중…' : '이 장소 보내기'}
             </button>
           </div>
         </div>
@@ -364,79 +471,93 @@ function NaverMapPicker({ onSelect, onClose }: { onSelect: (lat: number, lng: nu
   );
 }
 
-// ─── NaverMapPreview ───
-export function NaverMapPreview({ lat, lng, mine }: { lat: number; lng: number; mine: boolean }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [hasNaverKey, setHasNaverKey] = useState<boolean | null>(null);
+/** 위치 카드 위 작은 지도(OSM 타일 이어 붙이기) — 지도 SDK·키 없이. 타일이 안 오면 회색 바탕+핀만 */
+function LocationMiniMap({ lat, lng }: { lat: number; lng: number }) {
+  const W = 240;
+  const H = 120;
+  const [failed, setFailed] = useState(false);
+  const tiles = tilesForView(lat, lng, 16, W, H);
+  return (
+    <div className="relative h-[120px] w-full overflow-hidden bg-[#E5E8EB]" aria-hidden="true">
+      {!failed && (
+        <div className="absolute left-1/2 top-0 h-[120px] w-[240px] -translate-x-1/2">
+          {tiles.map((t) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={t.key}
+              src={t.url}
+              alt=""
+              width={256}
+              height={256}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="pointer-events-none absolute max-w-none select-none"
+              style={{ left: t.left, top: t.top, width: 256, height: 256 }}
+              onError={() => setFailed(true)}
+            />
+          ))}
+        </div>
+      )}
+      {/* 핀 — 끝이 칸 한가운데(좌표)에 오도록 */}
+      <svg width="30" height="38" viewBox="0 0 30 38" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)]">
+        <path d="M15 37C15 37 28 23.5 28 14.5C28 7 22.2 1 15 1C7.8 1 2 7 2 14.5C2 23.5 15 37 15 37Z" fill="#F04452" stroke="#fff" strokeWidth="2" />
+        <circle cx="15" cy="14.5" r="5" fill="#fff" />
+      </svg>
+      {!failed && (
+        <span className="absolute bottom-0.5 right-1 rounded bg-white/75 px-1 text-[9px] leading-[14px] text-[#4E5968]">© OpenStreetMap</span>
+      )}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    loadNaverMaps()
-      .then(() => {
-        if (cancelled || !mapRef.current || !window.naver?.maps) return;
-        setHasNaverKey(true);
-        const naver = window.naver;
-        const center = new naver.maps.LatLng(lat, lng);
-        const map = new naver.maps.Map(mapRef.current, {
-          center,
-          zoom: 16,
-          draggable: false,
-          pinchZoom: false,
-          scrollWheel: false,
-          keyboardShortcuts: false,
-          disableDoubleTapZoom: true,
-          disableDoubleClickZoom: true,
-          disableTwoFingerTapZoom: true,
-          zoomControl: false,
-          mapTypeControl: false,
-          logoControl: false,
-          mapDataControl: false,
-          scaleControl: false,
-        });
-        new naver.maps.Marker({ position: center, map });
-      })
-      .catch(() => {
-        if (!cancelled) setHasNaverKey(false);
-      });
-    return () => { cancelled = true; };
-  }, [lat, lng]);
-
-  const naverMapUrl = `https://map.naver.com/p/?c=${lng},${lat},16,0,0,0,0`;
-
+/**
+ * 받은·보낸 위치 메시지 카드 — 지도 그림 + 장소명·주소 + '지도에서 보기'(카카오맵).
+ * 옛 메시지(placeName 없이 좌표만, 본문 '내 위치를 공유했습니다')도 같은 카드로, 좌표 없이 장소명만 온 메시지는 지도 그림 없이.
+ * 꾹 누르기(메뉴)는 바깥 줄(page.tsx)이 그대로 맡는다.
+ */
+export function LocationCard({ msg, mine, tailCorner = '' }: { msg: Message; mine: boolean; tailCorner?: string }) {
+  // metadata 좌표가 문자열로 저장된 옛 메시지도 있을 수 있어 숫자로 맞춘다(빈 값은 NaN → 좌표 없음)
+  const toNum = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN);
+  const lat = toNum(msg.latitude);
+  const lng = toNum(msg.longitude);
+  const hasCoord = isValidLatLng(lat, lng);
+  // 글자인 것만 — 캐시(localStorage)에 예전 모양 그대로 남은 메시지는 mapApiMessage 를 다시 안 거친다(261012)
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const content = str(msg.content);
+  const placeName = str(msg.placeName);
+  const address = str(msg.address);
+  const fallbackTitle = hasCoord ? (mine ? '내 위치' : '상대가 보낸 위치') : '공유한 장소';
+  const title = placeName || (content && content !== '내 위치를 공유했습니다' ? content : '') || address || fallbackTitle;
+  const sub = address && address !== title ? address : '';
+  const href = kakaoMapUrl(placeName || address || (title !== fallbackTitle ? title : ''), lat, lng);
+  const open = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.stopPropagation();
+    // 안드로이드 앱 웹뷰 — intent:// 로 감싸 바깥(브라우저·카카오맵)으로. 그냥 열면 웹뷰 안에서 카카오맵 웹이
+    // 앱 스킴을 열다 '웹페이지를 사용할 수 없음'이 날 수 있다(지금 깔린 2.0.6 은 intent:// 만 밖으로 넘긴다).
+    const inAndroidApp = typeof window !== 'undefined' && !!(window as unknown as { Android?: unknown }).Android;
+    if (inAndroidApp) {
+      e.preventDefault();
+      try { window.location.href = androidIntentUrl(href); } catch { /* 링크를 못 만들면 아무 일도 안 한다(오류 화면보다 낫다) */ }
+    }
+  };
   return (
     <a
-      href={naverMapUrl}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="block w-[260px] rounded-2xl overflow-hidden bg-gray-100 active:scale-[0.98] transition-transform"
-      onClick={(e) => e.stopPropagation()}
+      onClick={open}
+      draggable={false}
+      className={`block w-[240px] max-w-full overflow-hidden rounded-[20px]${tailCorner} no-underline select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#191F28]'}`}
+      style={{ WebkitTouchCallout: 'none' }}
     >
-      <div className="relative w-full h-[160px] bg-gray-200">
-        {hasNaverKey !== false && (
-          <div ref={mapRef} className="absolute inset-0" />
-        )}
-        {hasNaverKey === false && (
-          <iframe
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.004}%2C${lat - 0.003}%2C${lng + 0.004}%2C${lat + 0.003}&layer=mapnik&marker=${lat}%2C${lng}`}
-            className="absolute inset-0 w-full h-full border-0 pointer-events-none"
-            loading="lazy"
-          />
-        )}
-        {hasNaverKey === null && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <MapPin size={32} className="text-[#007AFF]" />
-          </div>
-        )}
-      </div>
-      <div className={`px-3 py-2.5 ${mine ? 'bg-[#0066D9]' : 'bg-white'}`}>
-        <div className="flex items-center gap-2">
-          <MapPin size={14} className={mine ? 'text-white' : 'text-[#007AFF]'} />
-          <p className={`text-[13px] font-bold ${mine ? 'text-white' : 'text-gray-900'}`}>
-            내 위치
-          </p>
-        </div>
-        <p className={`text-[11px] mt-0.5 truncate ${mine ? 'text-white/70' : 'text-gray-500'}`}>
-          {lat.toFixed(5)}, {lng.toFixed(5)} · 네이버 지도에서 열기
+      {hasCoord && <LocationMiniMap lat={lat} lng={lng} />}
+      <div className="px-4 py-3">
+        <p className="break-words text-[15px] font-bold leading-[1.35] [overflow-wrap:anywhere]">{title}</p>
+        {sub && <p className={`mt-0.5 break-words text-[12px] leading-[1.4] ${mine ? 'text-white/80' : 'text-[#6B7684]'}`}>{sub}</p>}
+        <p className={`mt-2 flex items-center gap-1 text-[12px] font-semibold ${mine ? 'text-white/90' : 'text-[#3180F7]'}`}>
+          <MapPin size={13} />
+          지도에서 보기
         </p>
       </div>
     </a>
@@ -1166,6 +1287,8 @@ export { renderTextWithMentions } from './chat-text';
 // ─── ChatExtras Props ───
 
 export interface ChatExtrasProps {
+  /** 이 방 id — PC 임베드(주소가 /chat 그대로)에서도 맞는 방으로 보내게 주소창 대신 이걸 쓴다(261012) */
+  roomId?: string;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   chatPartner: ChatPartner | null;
@@ -1265,6 +1388,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
     inputRef, fileInputRef, cameraInputRef,
     roomMeta,
   } = props;
+  // 방 id — prop 우선, 없으면 예전처럼 주소창 끝 조각(옛 호출부 호환)
+  const currentRoomId = () =>
+    props.roomId || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() || '' : '');
 
   // ─── Internal refs for recording/voice ───
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1379,12 +1505,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // 녹음 형식 — AAC(mp4)를 먼저 고른다(261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패').
+  // 갤럭시가 webm/opus 로 녹음하면 아이폰에서 재생이 안 될 수 있다. AAC 를 지원하는 기기(아이폰 전부, 최근 크롬·웹뷰)는
+  // 처음부터 어디서나 재생되는 형식으로 녹음하고, 못 하는 기기는 webm 으로 녹음해 서버가 m4a 로 바꿔 저장한다.
+  // 'audio/mp4'(코덱 미지정)는 크롬에서 opus-in-mp4 가 될 수 있어 webm 뒤로 뺐다.
+  const VOICE_MAX_SECONDS = 300;
+
   const getSupportedMimeType = (): string => {
     if (typeof MediaRecorder === 'undefined') return '';
     const candidates = [
+      'audio/mp4;codecs=mp4a.40.2',
       'audio/webm;codecs=opus',
       'audio/webm',
-      'audio/mp4;codecs=mp4a.40.2',
       'audio/mp4',
       'audio/aac',
       'audio/ogg;codecs=opus',
@@ -1413,13 +1545,21 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
-      const mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      let mr: MediaRecorder;
+      try {
+        mr = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      } catch {
+        // isTypeSupported 는 true 인데 실제 생성이 거절되는 웹뷰가 있다 → 기기 기본 형식으로
+        mr = new MediaRecorder(stream);
+      }
       audioChunksRef.current = [];
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
       mr.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
+        // 실제로 녹음된 형식(mr.mimeType)을 붙인다 — 고른 후보와 다를 수 있다(서버가 형식을 추정하는 힌트)
+        const recordedType = mr.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: recordedType });
         const duration = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
         stream.getTracks().forEach((t) => t.stop());
 
@@ -1444,14 +1584,18 @@ export default function ChatExtras(props: ChatExtrasProps) {
           isNew: true,
         }]);
 
-        // 서버 업로드 후 WebSocket 전송
-        const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
-        if (!roomId || roomId.startsWith('pending-')) return;
+        // 서버 업로드 후 WebSocket 전송 — 방 id 는 prop(PC 임베드는 주소가 /chat 이라 주소창으로는 못 찾는다)
+        const roomId = currentRoomId();
+        if (!roomId || roomId === 'chat' || roomId.startsWith('pending-')) {
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+          toast.error('대화방이 아직 준비되지 않았어요. 잠시 후 다시 녹음해 주세요.');
+          return;
+        }
         import('@/lib/api/chat.api').then(({ chatApi }) => {
-          chatApi.uploadAudio(roomId, blob, mimeType || 'audio/webm')
+          chatApi.uploadAudio(roomId, blob, recordedType)
             .then(async (res) => {
-              const audioUrl = res.data.audioUrl || res.data.imageUrl;
-              if (!audioUrl) throw new Error('audioUrl missing');
+              const audioUrl = res.data.url || res.data.audioUrl || res.data.imageUrl;
+              if (!audioUrl) throw new Error('업로드 주소를 받지 못했어요');
 
               // 업로드 완료 → 낙관적 메시지 content를 blob URL에서 실제 audioUrl로 교체
               // 이렇게 하면 재생 중에도 실제 URL로 연속 재생 가능
@@ -1501,8 +1645,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
             })
             .catch((err) => {
               setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-              const detail = err?.message ? ` (${err.message})` : '';
-              toast.error(`음성 전송 실패${detail}`);
+              // 서버가 준 한국어 사유(예: '음성 메시지가 너무 길어요')가 있으면 그걸 보여 준다
+              const serverMsg = err?.response?.data?.message;
+              const raw = Array.isArray(serverMsg) ? serverMsg[0] : serverMsg || err?.message;
+              const detail = raw ? ` (${String(raw).slice(0, 60)})` : '';
+              toast.error(`음성 전송 실패${detail} · 다시 녹음해 주세요`);
             });
         });
       };
@@ -1517,7 +1664,13 @@ export default function ChatExtras(props: ChatExtrasProps) {
       setIsRecording(true);
       setRecordingTime(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(Math.floor((Date.now() - recordingStartRef.current) / 1000));
+        const sec = Math.floor((Date.now() - recordingStartRef.current) / 1000);
+        setRecordingTime(sec);
+        // 최대 5분 — 넘으면 지금까지 녹음한 걸 보낸다(서버 음성 한도·업로드 시간 보호)
+        if (sec >= VOICE_MAX_SECONDS && mediaRecorderRef.current === mr && mr.state === 'recording') {
+          toast('음성은 최대 5분까지 보낼 수 있어요. 지금까지 녹음한 걸 보낼게요.', { icon: '🎙️' });
+          stopRecording(false);
+        }
       }, 100);
     } catch (err: any) {
       console.error('startRecording error', err);
@@ -1875,28 +2028,68 @@ export default function ChatExtras(props: ChatExtrasProps) {
     }
   };
 
-  const sendLocationMessage = async (lat: number, lng: number) => {
-    const saved = await useChatStore.getState().sendMessage({
-      type: 'location',
-      content: '내 위치를 공유했습니다',
-      metadata: { latitude: lat, longitude: lng },
-    }).catch(() => null);
-    if (saved) {
-      setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
-        id: saved.id,
-        senderId: saved.senderId,
-        content: saved.content || '내 위치를 공유했습니다',
-        type: 'location',
-        createdAt: saved.createdAt,
-        isRead: saved.isRead,
-        isNew: true,
-        latitude: lat,
-        longitude: lng,
-      }]);
-      toast.success('위치 전송 완료');
-    } else {
-      toast.error('위치 전송 실패');
+  // 위치(장소) 전송(261012) — 장소명·주소를 metadata 에 덧붙인다(latitude/longitude 키 의미는 그대로, 옛 앱 호환).
+  //  · 본문(content)은 사람이 읽을 글(장소명 > 주소 > '내 위치를 공유했습니다') — 옛 앱·목록에도 그 글이 보인다.
+  //  · 스토어가 null(방 접속 전)이거나 실패하면 REST 로 한 번 더 — 같은 clientMessageId 라 서버가 중복을 걸러 준다.
+  //  · 성공 여부를 돌려준다(시트는 실패면 닫지 않고 그대로 — 다시 누르면 된다).
+  const sendLocationMessage = async (
+    lat: number | undefined,
+    lng: number | undefined,
+    info?: { placeName?: string; address?: string },
+  ): Promise<boolean> => {
+    const hasCoord = isValidLatLng(lat, lng);
+    const placeName = (info?.placeName || '').trim().slice(0, 100) || undefined;
+    const address = (info?.address || '').trim().slice(0, 200) || undefined;
+    if (!hasCoord && !placeName && !address) {
+      toast.error('보낼 장소를 골라 주세요');
+      return false;
     }
+    const content = locationContent(placeName, address);
+    const metadata: Record<string, unknown> = {
+      ...(hasCoord ? { latitude: Number(lat), longitude: Number(lng) } : {}),
+      ...(placeName ? { placeName } : {}),
+      ...(address ? { address } : {}),
+      clientMessageId: `cm-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    };
+    const payload = { type: 'location', content, metadata };
+    let saved: any = null;
+    let lastErr: any = null;
+    try {
+      saved = await useChatStore.getState().sendMessage(payload);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (!saved) {
+      const rid = currentRoomId();
+      if (rid && rid !== 'chat' && !rid.startsWith('pending-')) {
+        try {
+          saved = (await chatApi.sendMessage(rid, payload)).data;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+    }
+    if (!saved?.id) {
+      const detail = lastErr?.response?.data?.message || lastErr?.message || '';
+      toast.error(`위치 전송 실패${detail ? ` (${String(detail).slice(0, 60)})` : ''} · 잠시 후 다시 시도해 주세요`);
+      return false;
+    }
+    setMessages((prev) => prev.some((m) => m.id === saved.id) ? prev : [...prev, {
+      id: saved.id,
+      senderId: saved.senderId,
+      content: saved.content || content,
+      type: 'location',
+      createdAt: saved.createdAt,
+      isRead: saved.isRead,
+      isNew: true,
+      latitude: hasCoord ? Number(lat) : undefined,
+      longitude: hasCoord ? Number(lng) : undefined,
+      placeName,
+      address,
+    }]);
+    useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
+    toast.success('장소를 보냈어요');
+    return true;
   };
 
   // 이모티콘 전송 — 업로드 없이 사이트에 있는 스티커 URL 을 그대로 보낸다.
@@ -1923,32 +2116,11 @@ export default function ChatExtras(props: ChatExtrasProps) {
     useChatStore.getState().fetchRooms({ limit: 50, force: true }).catch(() => {});
   };
 
+  // '장소' — 장소 보내기 시트를 바로 연다(261012). 예전엔 현재 위치를 확인 없이 곧장 보내고,
+  // 실패하면 막힌 네이버 지도 선택창으로 넘겨 갤럭시 앱에서는 늘 막다른 길이었다.
   const handleLocationSend = () => {
     setShowAttach(false);
-    if (!('geolocation' in navigator)) {
-      setShowLocationPicker(true);
-      return;
-    }
-    const loadingToast = toast.loading('위치 가져오는 중...');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        toast.dismiss(loadingToast);
-        const { latitude, longitude } = pos.coords;
-        sendLocationMessage(latitude, longitude);
-      },
-      (err) => {
-        toast.dismiss(loadingToast);
-        if (err.code === err.PERMISSION_DENIED) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
-        } else if (err.code === err.TIMEOUT) {
-          toast('지도에서 위치를 선택해주세요', { icon: '📍' });
-        }
-        setShowLocationPicker(true);
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    );
+    setShowLocationPicker(true);
   };
 
   // ─── iOS 네이티브 글래스 메뉴(+/•••)용 액션 노출 ───
@@ -2050,7 +2222,7 @@ export default function ChatExtras(props: ChatExtrasProps) {
     w.__freetifulChatActions = {
       attachItems, menuItems, invokeAttach, invokeMenu,
       nativeMediaBegin, nativeMediaChunk, nativeMediaEnd,
-      sendLocation: (lat: number, lng: number) => sendLocationMessage(Number(lat), Number(lng)),
+      sendLocation: (lat: number, lng: number) => { void sendLocationMessage(Number(lat), Number(lng)); },
       getQuoteDefaults: () => computeQuoteDefaults(),
       // 네이티브 ⋮ → '고객 정보 보기' 모달용 — 견적서 폼과 독립적으로 고객 요청 정보 제공
       getRequestInfo: () => {
@@ -2747,8 +2919,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
 
       {/* ─── 위치 선택 모달 ─── */}
       {showLocationPicker && (
-        <NaverMapPicker
-          onSelect={(lat, lng) => sendLocationMessage(lat, lng)}
+        <PlacePickerSheet
+          onSend={(p) => sendLocationMessage(p.lat, p.lng, { placeName: p.placeName, address: p.address })}
           onClose={() => setShowLocationPicker(false)}
         />
       )}
