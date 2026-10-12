@@ -344,47 +344,10 @@ html{position:relative}
   .cx-ld-in::before{content:'';position:absolute;left:0;top:50%;width:min(48vw,660px);height:560px;transform:translateY(-50%);background:radial-gradient(closest-side at 42% 50%,rgba(250,252,255,.8),rgba(250,252,255,.5) 55%,rgba(250,252,255,0));pointer-events:none}
 }
 
-/* ⑤ 조직도 */
+/* ⑤ 조직도 — 카드 · 얼굴 원 · ⋯ 말풍선은 orgStyles.ts(cxo-, 261013). 여기는 섹션 여백만 */
 .cx-org{background:#fff;padding:120px 0}
 @media (min-width:768px){.cx-org{padding:150px 0}}
 @media (min-width:1024px){.cx-org{padding:180px 0}}
-.cx-ln{display:block;border-radius:2px;background:#C9D2DC}
-.cx-lv{width:2px;transform-origin:50% 0;transform:scaleY(0)}
-.cx-lh{height:2px;transform-origin:50% 50%;transform:scaleX(0)}
-.cx-ap{opacity:0;transform:translate3d(0,14px,0) scale(.96);filter:blur(6px);transition:opacity .6s var(--ez),transform .7s var(--ez),filter .6s var(--ez)}
-.cx-ap[data-on]{opacity:1;transform:none;filter:none}
-.cx-oc{display:flex;flex-direction:column;align-items:center;min-width:220px;padding:20px 40px;border-radius:22px;background:#3182F6;color:#fff;box-shadow:0 18px 40px -14px rgba(49,130,246,.5)}
-.cx-oc-b{font-size:12px;font-weight:600;letter-spacing:.06em;opacity:.8}
-.cx-oc-n{margin-top:4px;font-size:21px;font-weight:700}
-.cx-oc-r{font-size:13px;opacity:.9}
-.cx-og{margin-top:72px}
-.cx-og-top{display:flex;justify-content:center}
-.cx-og-trunk{height:40px;margin:0 auto}
-.cx-og-barw{position:relative;height:2px;margin:0 calc((100% - 64px) / 10)}
-.cx-og-bar{position:absolute;inset:0}
-.cx-og-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
-.cx-og-col{display:flex;flex-direction:column;align-items:center}
-.cx-og-stub{height:28px}
-.cx-og-stub2{height:18px}
-.cx-ou{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;width:100%;padding:18px 12px;border:1px solid #E5E8EB;border-radius:20px;background:#fff;text-align:center;box-shadow:0 10px 30px -18px rgba(2,32,71,.22)}
-.cx-ou-b{font-size:12px;font-weight:700;letter-spacing:.06em;color:#3182F6}
-.cx-ou-n{margin-top:4px;font-size:18px;font-weight:700;color:#191F28}
-.cx-ou-r{margin-top:2px;font-size:13px;line-height:1.4;color:#6B7684;word-break:keep-all}
-.cx-og-teams{display:flex;flex-direction:column;gap:8px;width:100%}
-.cx-ot{padding:11px 10px;border:1px solid #EEF0F3;border-radius:14px;background:#F9FAFB;font-size:13px;color:#4E5968;text-align:center;opacity:0;transform:translate3d(0,10px,0);transition:opacity .5s var(--ez),transform .6s var(--ez);transition-delay:calc(var(--j) * 90ms)}
-.cx-og-teams[data-on] .cx-ot{opacity:1;transform:none}
-.cx-og-cap{margin:56px 0 0;font-size:15px;line-height:1.7;color:#6B7684;text-align:center;word-break:keep-all}
-.cx-om{margin-top:44px}
-.cx-om .cx-oc{align-items:flex-start;min-width:0;padding:20px 22px}
-.cx-om-list{position:relative;padding:20px 0 0 44px}
-.cx-om-trunk{position:absolute;left:21px;top:0}
-.cx-om-row{position:relative;margin-top:14px}
-.cx-om-row:first-of-type{margin-top:0}
-.cx-om-stub{position:absolute;left:-23px;width:23px;transform-origin:0 50%}
-.cx-om-card{align-items:flex-start;padding:16px 18px;text-align:left}
-.cx-ou-teams{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.cx-ot-chip{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;background:#F2F4F6;font-size:12.5px;font-weight:500;color:#4E5968}
-@media (min-width:768px){.cx-om-list{padding-left:56px}.cx-om-trunk{left:27px}.cx-om-stub{left:-29px;width:29px}}
 
 /* ⑥ 맺음 */
 .cx-cl{position:relative;background:rgb(2,14,32);color:#fff}
@@ -415,7 +378,7 @@ html{position:relative}
   .cx-rise,.cx-hint,.cx-hm-card,.cx-hm-pt,.cx-vc-phone{animation:none}
   .cx-hint-line::after{animation:none;transform:none}
   .cx-chip{opacity:1;transform:none;transition:none}
-  .cx-ot,.cx-ap,.cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
+  .cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
   .cx-ld[data-arm] .cx-lc{opacity:1;transform:none}
   .cx-sign-line{transform:none}
 }

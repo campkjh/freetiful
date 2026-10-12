@@ -235,7 +235,7 @@ export const LEADERS: Leader[] = [
 
 /*
  * ⑤ 조직도 — 예전 화면의 구조 그대로(대표 → C레벨 5 → 산하 팀).
- * 김도윤 부대표(COO)는 산하 팀 · 보고 체계 자료가 없어 조직도 칸을 지어내지 않고 이사진 소개에만 둔다(261009).
+ * 김도윤 부대표(COO)는 산하 팀 자료가 없어 ORG_UNITS 에는 없다 — 조직도 카드 격자에는 대표 아래 첫 칸으로 둔다(261013 사장 '조직도 이런느낌으로', ⋯ 말풍선 없음).
  */
 export const ORG_HEAD = { eyebrow: 'ORGANIZATION', title: tr('조직도', 'Organization Chart', '組織図', '组织架构') };
 export const ORG_CEO = { badge: 'CEO', name: CEO_NAME, role: CEO_ROLE };
