@@ -5,8 +5,14 @@
 //  · 맨 위 = 사진 넘겨보기(4:3, 쓸어 넘김 · N/M · 누르면 크게) → 아래쪽이 대표 사진에서 뽑은 색(lib/image-tone)으로 녹아
 //    이름 칸으로 이어진다(홈 '사진 색 카드'와 같은 결).
 //  · 이름 칸: 분야 · 이름 24 · 한 줄 소개(카카오 자동 등록 문구는 숨김) · 지역 | 사진 N장 · 흰 반투명 칩
-//  · 바로가기(문의 · 길찾기 · 인스타그램/웹사이트 · 공유) → 사진 모아보기(3열, 마지막 칸 +N) → 위치(구글 지도 임베드 — 키 없이 됨,
-//    좌표 있으면 좌표·없으면 주소 / 카카오맵 · 네이버 지도 · 주소 복사) → 업체 정보
+//  · 바로가기(문의 · 길찾기 · 인스타그램/웹사이트 · 공유) → 사진 모아보기(3열, 마지막 칸 +N) → 위치(네이버 지도 칸 · 카카오맵/네이버 지도 단추 · 주소 복사)
+//    → 업체 정보
+//  · 위치 지도(261012 사장 '네이버 다이나믹맵 전부 다 적용') — 구글 지도 임베드 → 네이버 지도(components/map/NaverMap, 고정 칸 196px).
+//    업체 좌표에 핀 · 좌표가 없으면 주소를 우리 프록시(/api/naver-map/geocode)로 좌표로 바꿔 찍는다. 지역만 적힌 곳('서울/경기')은 칸을 처음부터 안 두고,
+//    주소로 찾아봤는데 못 찾은 곳(브랜미처럼 네이버 주소 검색 0건 · 두 번 다 실패)은 같은 높이의 주소 카드(누르면 네이버 장소 검색)로 바꾼다
+//    — 자리표시 칸이 통째로 사라져 아래 단추가 튀어 오르지 않게(261012 검수).
+//    칸을 누르면 네이버 지도(그 자리 핀). 길찾기 = 네이버 길찾기(도착지 채움). 바깥 지도 링크는 안드로이드 앱(2.0.6)에서 intent:// 로 넘긴다
+//    (웹뷰 안에서 열면 지도 웹이 nmap:// · kakaomap:// 를 열다 '웹페이지를 사용할 수 없음').
 //  · 아래 고정 '문의하기' → 시트(이름·연락처·문의 종류 칩·희망 시기·내용) → API POST /business-inquiries
 //    (source 'wedding_partner' — 관리자 문의함 + 관리자 알림톡). 전화 버튼은 예전 결정대로 숨김(오류 이슈).
 //  · iOS 앱은 이 화면을 네이티브로 그린다(웹 수정 미반영).
@@ -46,6 +52,10 @@ import {
 import { getRelevantBusinessCategories, isBusinessRelevantToAnyCategory, sanitizeBusinessImageUrls } from '@/lib/business-quality';
 import { extractHallInfo } from '@/lib/business-hall-info';
 import HallInfoSections from '@/components/business/HallInfoSections';
+import NaverMap from '@/components/map/NaverMap';
+import { isInKorea, toFiniteNumber, type LatLngLiteral } from '@/lib/naver-map-shared';
+import { naverMapLinkProps, openExternalMapLink } from '@/lib/naver-map-links';
+import { fetchMapJson } from '@/lib/naver-map';
 
 interface BizDetail {
   id: string;
@@ -90,6 +100,70 @@ function hostLabel(url: string) {
 function instagramHandle(url: string) {
   const m = url.match(/instagram\.com\/([^/?#]+)/i);
   return m ? `@${m[1]}` : hostLabel(url);
+}
+
+/* ─── 위치 지도 도우미(261012 사장 '네이버 다이나믹맵 전부 다 적용') ─────────────────── */
+
+/** 업체에 저장된 좌표(문자열 Decimal) — 대한민국 밖 · 0,0 · 빈 값이면 null(주소로 다시 찾는다) */
+function storedPoint(lat: unknown, lng: unknown): LatLngLiteral | null {
+  const la = toFiniteNumber(lat);
+  const ln = toFiniteNumber(lng);
+  return la != null && ln != null && isInKorea(la, ln) ? { lat: la, lng: ln } : null;
+}
+
+/**
+ * 좌표로 바꿔 볼 주소 — 번지 숫자가 없는 지역만 적힌 곳('서울/경기' · '서울 강남구')은 묻지 않는다(네이버 주소 검색은 0건이거나 엉뚱한 곳).
+ * 뒤에 붙은 층·호수('6층' · 'C동 412호')는 네이버 주소 검색이 알아서 무시한다(261012 실측). 프록시 한도 80자.
+ */
+function geocodeQuery(address?: string | null): string {
+  const s = String(address || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.length < 5 || !/\d/.test(s)) return '';
+  return s.slice(0, 80).trim();
+}
+
+type GeoState = { status: 'idle' | 'loading' | 'found' | 'missing'; point: LatLngLiteral | null };
+
+/**
+ * 좌표 없는 업체 — 주소 → 좌표(우리 프록시 /api/naver-map/geocode, CDN 7일 캐시).
+ * 한 번에 8초(SDK 로딩 한도와 같음), 망 오류 · 시간 초과 · 5xx 면 2.5초 뒤 한 번 더(261012 검수: 붐비는 서버에서 한 번 끊기면 지도 칸이 사라졌다).
+ * 그래도 못 받거나 0건이면 '못 찾음'.
+ */
+function useGeocodedPoint(query: string): GeoState {
+  const [result, setResult] = useState<{ query: string; point: LatLngLiteral | null } | null>(null);
+  useEffect(() => {
+    if (!query) return;
+    let alive = true;
+    const ctrl = new AbortController();
+    fetchMapJson<{ results?: Array<{ lat?: unknown; lng?: unknown }> }>(`/api/naver-map/geocode?query=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+      .then((d) => {
+        if (!alive) return;
+        const first = d?.results?.[0];
+        setResult({ query, point: first ? storedPoint(first.lat, first.lng) : null });
+      })
+      .catch(() => { if (alive) setResult({ query, point: null }); });
+    return () => { alive = false; ctrl.abort(); };
+  }, [query]);
+  if (!query) return { status: 'idle', point: null };
+  if (!result || result.query !== query) return { status: 'loading', point: null };
+  return { status: result.point ? 'found' : 'missing', point: result.point };
+}
+
+/** 핀 말풍선 글자 — 괄호 설명('(엘타워)' · '(레스토랑)')은 빼고, 16자가 넘으면 낱말 단위로 15자 안까지 + …(첫 낱말부터 길면 15자) */
+function mapPinLabel(name: string): string {
+  const s = name.replace(/\s*[(\[][^)\]]*[)\]]\s*/g, ' ').replace(/\s+/g, ' ').trim() || name.trim();
+  if (s.length <= 16) return s;
+  let out = '';
+  for (const w of s.split(' ')) {
+    const next = out ? `${out} ${w}` : w;
+    if (next.length > 15) break;
+    out = next;
+  }
+  return `${out || s.slice(0, 15)}…`;
+}
+
+/** 카카오 장소 주소는 http:// 로 들어온다 — 안드로이드 앱(평문 http 차단)·혼합 콘텐츠를 피해 https 로 */
+function httpsUrl(url: string): string {
+  return url.replace(/^http:\/\//i, 'https://');
 }
 
 function onImgError(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -279,6 +353,8 @@ export default function BusinessDetailPage() {
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [solidHeader, setSolidHeader] = useState(false);
+  // 지도 칸이 주소 카드로 내려앉은 좌표(그땐 카드에 '네이버 지도에서 보기'가 있어 '크게 보기' 칩을 뺀다 — 겹침)
+  const [mapCardKey, setMapCardKey] = useState<string | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -346,28 +422,24 @@ export default function BusinessDetailPage() {
       6,
     ).filter((tag) => tag !== '인기');
     const intro = readableIntro(stripBusinessTagMarker(biz.descriptionHtml));
-    const lat = Number(biz.lat);
-    const lng = Number(biz.lng);
-    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0;
     const address = [biz.address, biz.addressDetail].filter(Boolean).join(' ').trim();
-    const mapQuery = hasCoords ? `${lat},${lng}` : address || biz.businessName;
+    // 저장된 좌표(없거나 대한민국 밖이면 아래에서 주소로 찾는다)
+    const storedLatLng = storedPoint(biz.lat, biz.lng);
     const website = biz.websiteUrl && !/place\.map\.kakao\.com/i.test(biz.websiteUrl) ? biz.websiteUrl : '';
-    const kakaoPlace = biz.websiteUrl && /place\.map\.kakao\.com/i.test(biz.websiteUrl) ? biz.websiteUrl : '';
-    const kakaoMap = kakaoPlace
-      || (hasCoords ? `https://map.kakao.com/link/map/${encodeURIComponent(biz.businessName)},${lat},${lng}` : `https://map.kakao.com/link/search/${encodeURIComponent(biz.businessName)}`);
-    const kakaoRoute = hasCoords
-      ? `https://map.kakao.com/link/to/${encodeURIComponent(biz.businessName)},${lat},${lng}`
-      : `https://map.kakao.com/link/search/${encodeURIComponent(address || biz.businessName)}`;
-    const naverMap = `https://map.naver.com/p/search/${encodeURIComponent(biz.businessName)}`;
-    const mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&hl=ko&output=embed`;
+    const kakaoPlace = biz.websiteUrl && /place\.map\.kakao\.com/i.test(biz.websiteUrl) ? httpsUrl(biz.websiteUrl) : '';
+    // 네이버 장소 검색어 — 이름 앞에 시·군·구를 붙이면 그 근처 결과가 먼저 나온다('성동구 브랜미' → 성수점 하나, 261012 실측)
+    const regionWord = String(biz.address || '').trim().split(/\s+/).find((w, i) => i > 0 && /[시군구]$/.test(w)) || '';
+    const naverQuery = [regionWord, biz.businessName].filter(Boolean).join(' ');
     // 웨딩홀 상세(식대·보증 인원·홀 안내) — 제휴 웨딩홀은 소개 안의 숨은 표시로 들어온다(lib/business-hall-info)
     const hallInfo = extractHallInfo(biz.descriptionHtml);
-    return { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc, hallInfo };
+    return { images, category, categoryNames, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, hallInfo };
   }, [biz]);
 
   const tone = useImageTone(view?.images[0], 'scene');
   const toneBg = tone?.bg || '#F2F4F6';
   const toneSub = tone?.sub || '#6B7684';
+  // 좌표 없는 업체만 주소 → 좌표(지역만 적힌 곳은 묻지 않음)
+  const geo = useGeocodedPoint(view && !view.storedLatLng ? geocodeQuery(biz?.address) : '');
 
   if (loading) {
     return (
@@ -393,7 +465,22 @@ export default function BusinessDetailPage() {
     );
   }
 
-  const { images, category, categoryNames, tags, intro, address, website, kakaoMap, kakaoRoute, naverMap, mapSrc, hallInfo } = view;
+  const { images, category, categoryNames, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, hallInfo } = view;
+  // 지도 핀 자리 = 저장된 좌표 > 주소로 찾은 좌표
+  const point = storedLatLng || geo.point;
+  const mapKey = point ? `${point.lat},${point.lng}` : '';
+  // 지도 자리 — 좌표가 있거나 · 찾는 중이거나 · 찾아봤는데 못 찾음(같은 높이 주소 카드). 지역만 적힌 곳(묻지 않음)만 자리가 없다
+  const showMapBox = !!point || geo.status === 'loading' || geo.status === 'missing';
+  const kakaoMap = kakaoPlace
+    || (point
+      ? `https://map.kakao.com/link/map/${encodeURIComponent(biz.businessName.replace(/[,\n\r]+/g, ' '))},${point.lat},${point.lng}`
+      : `https://map.kakao.com/link/search/${encodeURIComponent(biz.businessName)}`);
+  const naverPlace = { lat: point?.lat, lng: point?.lng, name: biz.businessName, address };
+  // 길찾기 = 네이버 길찾기(도착지 = 업체 좌표). 좌표가 없으면 네이버 장소 검색(그 화면에 길찾기 단추가 있다)
+  const routeLink = naverMapLinkProps({ ...naverPlace, query: naverQuery }, { kind: 'route' });
+  // 초록 '네이버 지도' 단추 = 네이버 장소 검색(리뷰·사진·전화가 있는 장소 화면) — 지도 칸(그 자리 핀)과 나눠 둔다
+  const naverPlaceLink = naverMapLinkProps({ query: naverQuery });
+  const openKakao = (e: React.MouseEvent<HTMLAnchorElement>) => { openExternalMapLink(e, kakaoMap); };
 
   const share = async () => {
     const url = window.location.href;
@@ -417,14 +504,21 @@ export default function BusinessDetailPage() {
 
   const quick = [
     { key: 'inquiry', label: '문의하기', icon: <TossChatBubbleIcon size={24} />, onClick: () => setInquiryOpen(true) },
-    { key: 'route', label: '길찾기', icon: <TossDirectionIcon size={24} />, href: kakaoRoute },
+    { key: 'route', label: '길찾기', icon: <TossDirectionIcon size={24} />, href: routeLink.href, onLinkClick: routeLink.onClick },
     biz.instagramUrl
       ? { key: 'insta', label: '인스타그램', icon: <TossCameraIcon size={24} />, href: biz.instagramUrl }
       : website
         ? { key: 'web', label: '웹사이트', icon: <TossEarthIcon size={24} />, href: website }
         : null,
     { key: 'share', label: '공유', icon: <TossShareBoxIcon size={24} />, onClick: share },
-  ].filter(Boolean) as Array<{ key: string; label: string; icon: React.ReactNode; href?: string; onClick?: () => void }>;
+  ].filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    icon: React.ReactNode;
+    href?: string;
+    onClick?: () => void;
+    onLinkClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  }>;
 
   const gallery = images.slice(0, 9);
   const more = images.length - gallery.length;
@@ -521,7 +615,7 @@ export default function BusinessDetailPage() {
           );
           const cls = 'flex flex-col items-center py-1 transition-transform active:scale-[0.94]';
           return q.href ? (
-            <a key={q.key} href={q.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
+            <a key={q.key} href={q.href} target="_blank" rel="noopener noreferrer" onClick={q.onLinkClick} className={cls}>{inner}</a>
           ) : (
             <button key={q.key} type="button" onClick={q.onClick} className={cls}>{inner}</button>
           );
@@ -555,7 +649,8 @@ export default function BusinessDetailPage() {
 
       {hallInfo && <HallInfoSections info={hallInfo} images={images} onOpenPhoto={(i) => { if (i >= 0) setViewerAt(i); }} />}
 
-      {/* 위치 — 구글 지도 임베드(키 없이), 누르면 카카오맵 */}
+      {/* 위치 — 네이버 지도(261012 사장 '네이버 다이나믹맵 전부 다 적용'): 고정 칸(손가락은 페이지 스크롤), 누르면 네이버 지도 그 자리 핀.
+          인증 실패·로딩 실패면 같은 자리의 네이버 정적 지도 그림 → 그것도 안 되면 주소 카드(빈 칸 없음) */}
       {address && (
         <section className="px-5 pt-8">
           <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">위치</h2>
@@ -566,24 +661,48 @@ export default function BusinessDetailPage() {
               복사
             </button>
           </div>
-          <a href={kakaoMap} target="_blank" rel="noopener noreferrer" className="relative mt-3 block h-[196px] overflow-hidden rounded-[16px] bg-[#F2F4F6]" aria-label="카카오맵에서 크게 보기">
-            <iframe
-              src={mapSrc}
-              title={`${biz.businessName} 위치`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="pointer-events-none absolute inset-0 h-full w-full border-0"
+          {point ? (
+            <NaverMap
+              key={mapKey}
+              className="mt-3 h-[196px] rounded-[16px]"
+              markers={[{ lat: point.lat, lng: point.lng, label: mapPinLabel(biz.businessName) }]}
+              zoom={16}
+              title={biz.businessName}
+              address={address}
+              onFallback={(reason) => { if (reason === 'image' || reason === 'no_center') setMapCardKey(mapKey); }}
+            >
+              {/* 칩은 손가락을 받지 않는다(눌러도 아래 지도 칸 링크로) — 왼쪽 아래는 네이버 로고·'© NAVER Corp.' 자리(약관상 가리면 안 됨)라 오른쪽 아래에.
+                  화면 390px 아래(갤럭시 360·384)에선 칩이 저작권 글자에 닿아 '크게 보기'만(261012 실측) */}
+              {mapCardKey !== mapKey && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center gap-[3px] whitespace-nowrap rounded-[8px] bg-white/95 pl-2.5 pr-1.5 text-[13px] font-semibold tracking-[-0.2px] text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <span><span className="hidden min-[390px]:inline">네이버 지도에서 </span>크게 보기</span>
+                  <TossChevronRightIcon size={15} />
+                </span>
+              )}
+            </NaverMap>
+          ) : geo.status === 'loading' ? (
+            // 주소 → 좌표 찾는 동안(보통 한순간) — 같은 크기 연회색 칸(밀림 없음)
+            <div aria-hidden className="mt-3 h-[196px] animate-pulse rounded-[16px] bg-[#F2F4F6]" />
+          ) : geo.status === 'missing' ? (
+            // 주소로 좌표를 못 찾음 — 같은 높이 주소 카드(핀 + 이름 + 주소 + '네이버 지도에서 보기' → 네이버 장소 검색 '시·군·구 + 이름')
+            <NaverMap
+              className="mt-3 h-[196px] rounded-[16px]"
+              title={biz.businessName}
+              address={address}
+              searchQuery={naverQuery}
             />
-            <span className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center rounded-[8px] bg-white/95 px-2.5 text-[13px] font-semibold text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
-              크게 보기
-            </span>
-          </a>
+          ) : null}
           {/* 브랜드 색 버튼 — 사장 제공 아이콘(public/icons/brand): 카카오 노랑 + 톡 아이콘 / 네이버 초록 + 흰 NAVER 로고 */}
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
+          <div className={`${showMapBox ? 'mt-2.5' : 'mt-3'} grid grid-cols-2 gap-2`}>
             <a
               href={kakaoMap}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={openKakao}
               className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] bg-[#FBE300] text-[15px] font-bold tracking-[-0.2px] text-[#3B1E1E] transition active:scale-[0.98] active:brightness-95"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -591,9 +710,7 @@ export default function BusinessDetailPage() {
               카카오맵
             </a>
             <a
-              href={naverMap}
-              target="_blank"
-              rel="noopener noreferrer"
+              {...naverPlaceLink}
               className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#03C75A] text-[15px] font-bold tracking-[-0.2px] text-white transition active:scale-[0.98] active:brightness-95"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

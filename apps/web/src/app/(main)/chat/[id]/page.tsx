@@ -32,7 +32,7 @@ import { SearchIcon as MonoSearchIcon, CloseIcon as MonoCloseIcon } from '@/comp
 const ChatExtras = lazy(() => import('./ChatExtras'));
 const SystemMessageCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SystemMessageCard })));
 const SafePaymentNotice = lazy(() => import('./ChatExtras').then((m) => ({ default: m.SafePaymentNotice })));
-// 위치 메시지 카드(지도 그림+장소명·주소+지도에서 보기, 261012) — 불러오는 동안은 예전 글자 말풍선
+// 위치 메시지 카드(네이버 정적 지도 그림+장소명·주소+네이버 지도에서 보기, 261012) — 불러오는 동안은 예전 글자 말풍선
 const LocationCard = lazy(() => import('./ChatExtras').then((m) => ({ default: m.LocationCard })));
 
 // ── 채팅 메시지 localStorage 캐시 (딥링크·앱 재시작 후 즉시 표시) ─────────────
@@ -1940,7 +1940,8 @@ export default function ChatRoomPage({
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         {/* 위치 카드(261012) — 예전엔 보낸 쪽·받은 쪽 모두 '내 위치를 공유했습니다' 글자만 보여 어디인지 알 수 없었다.
-                            지도 그림 + 장소명·주소 + '지도에서 보기'(카카오맵). 카드 청크를 불러오는 동안은 글자 말풍선. */}
+                            네이버 정적 지도 그림 + 장소명·주소 + '네이버 지도에서 보기'(261012 사장 '네이버 다이나믹맵 전부 다 적용').
+                            카드 청크를 불러오는 동안은 글자 말풍선. */}
                         <Suspense
                           fallback={
                             <div className={`flex max-w-full min-w-0 items-center gap-2 px-4 py-3 rounded-[20px]${tailCorner} ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#2B313D]'}`}>

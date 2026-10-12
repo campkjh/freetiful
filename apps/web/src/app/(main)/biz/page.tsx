@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Briefcase, Check, Clock, Copy, Download, FileText, Mail, MapPin, Phone, Shield, X } from 'lucide-react';
+import { ArrowUpRight, Briefcase, Check, Clock, Copy, Download, FileText, Mail, MapPin, Phone, Shield, X } from 'lucide-react';
 import { useT, useBizLang, type Translations } from '@/lib/biz/i18n';
+import NaverMap from '@/components/map/NaverMap';
+import { naverMapLinkProps } from '@/lib/naver-map-links';
 import BizHeader from '@/components/biz/BizHeader';
 import { CEO_NAME, FOOTER as CEO_FOOTER } from '@/components/biz/ceo/content';
 import { SmoothScroll, prefersReducedMotion, useFrame, usePassProgress } from '@/components/biz/toss/scene';
@@ -165,8 +167,10 @@ const LOWER_CSS = `
 .bzl{background:#fff;padding:160px 0 120px}
 .bzl-grid{display:grid;gap:12px;margin-top:40px}
 .bzl-map{position:relative;height:280px;border-radius:24px;overflow:hidden;background:#F2F4F6;isolation:isolate}
-.bzl-lock{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:0 0 16px;border:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.bzl-hint{height:34px;padding:0 14px;border-radius:999px;background:#191F28;color:#fff;font-size:13px;line-height:34px;font-weight:600;letter-spacing:-0.26px;box-shadow:0 6px 16px -6px rgba(0,0,0,.35);opacity:.92;transition:transform .35s ${SPRING_OUT},opacity .2s ease}
+/* '지도에서 보기' 알약(261012 네이버 지도) — 왼쪽 위(오른쪽 위 = 확대 단추 · 아래 가운데 = '눌러서 지도 움직이기' · 왼쪽 아래 = 네이버 로고) */
+.bzl-open{position:absolute;left:12px;top:12px;display:inline-flex;align-items:center;gap:3px;height:34px;padding:0 10px 0 13px;border-radius:999px;background:#fff;color:#333D4B;font-size:13px;line-height:34px;font-weight:600;letter-spacing:-0.26px;white-space:nowrap;text-decoration:none;box-shadow:0 0 0 1px rgba(0,27,55,.06),0 4px 12px -4px rgba(0,27,55,.22);transition:transform .35s ${SPRING_OUT},box-shadow .35s ${SPRING_OUT},color .2s ease;-webkit-tap-highlight-color:transparent}
+.bzl-open svg{flex:none;color:#8B95A1;transition:transform .35s ${SPRING_OUT},color .2s ease}
+.bzl-open:active{transform:scale(.96)}
 .bzl-rows{display:flex;flex-direction:column}
 .bzl-row{display:flex;align-items:flex-start;gap:14px;padding:18px 0;border-top:1px solid rgba(3,31,63,.08)}
 .bzl-row:first-child{border-top:0}
@@ -183,7 +187,8 @@ const LOWER_CSS = `
   .bzs-row:hover .bz-arr{transform:translateX(7px)}
   .bzr-card:hover{transform:translateY(-4px);box-shadow:0 24px 48px -28px rgba(0,27,55,.25);background:#fff}
   .bzl-copy:hover{background:#F2F4F6;color:#3182F6}
-  .bzl-lock:hover .bzl-hint{transform:translateY(-2px);opacity:1}
+  .bzl-open:hover{color:#191F28;transform:translateY(-1px);box-shadow:0 0 0 1px rgba(0,27,55,.06),0 8px 18px -6px rgba(0,27,55,.28)}
+  .bzl-open:hover svg{color:#3182F6;transform:translate(1px,-1px)}
 }
 @media (min-width:768px){
   .bz{--side:48px}
@@ -202,6 +207,7 @@ const LOWER_CSS = `
   .bzs{padding:150px 0 160px}
   .bzl{padding-top:180px;padding-bottom:160px}
   .bzl-map{height:380px;border-radius:28px}
+  .bzl-open{left:16px;top:16px}
 }
 @media (min-width:1024px){
   .bz{--side:80px}
@@ -236,6 +242,7 @@ const LOWER_CSS = `
 @media (prefers-reduced-motion:reduce){
   .bz-rv,.bz-rv.nb,.bz-rv.up{opacity:1;transform:none;filter:none;transition:none}
   .bzh-fill,.bzh-pin,.bzh-yr,.bzh-mo,.bzh-tx,.bzh-year>span,.bzr-bar>i,.bz-arr{transition:none}
+  .bzl-open,.bzl-open svg{transition:none}
 }
 `;
 
@@ -488,39 +495,49 @@ function ResourcesSection({ items }: { items: { icon: ReactNode; title: string; 
 
 /* ═══ 오시는길 ═══ */
 /**
- * 지도 칸 — 외부 지도가 늦거나 막혀도(시간 초과 실측) 빈 상자가 되지 않게 뒤에 주소 카드를 깔고, 지도가 다 뜨면 그 위로 서서히 덮는다.
- * 지도는 한 번 눌러야 움직인다 — 그냥 두면 휠 · 손가락이 지도 확대/이동으로 빨려 들어가 페이지가 안 내려갔다(1440 실측: 지도 위 휠 = 지도 확대).
- * 마우스가 지도 밖으로 나가면 다시 잠근다
+ * 본사 좌표 — 네이버 주소 검색(지오코딩) '서울특별시 중구 퇴계로36길 2'(동국대학교 충무로 영상센터, 필동2가 82-1)의 주소점,
+ * 거꾸로 찾기도 같은 주소로 돌아온다(261012 /api/naver-map/geocode · reverse 실측). 예전 OSM 표시(37.56029, 126.99376)는 같은 캠퍼스 안 주차장 쪽으로 40m 남쪽이었다.
+ * 네이버 지도에서 이 주소를 검색하면 핀이 서는 바로 그 자리라 지도 칸 · '지도에서 보기'가 같은 곳을 가리킨다
  */
-function BizMap({ address, openLabel, hint }: { address: string; openLabel: string; hint: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const [active, setActive] = useState(false);
+const BIZ_HQ = { lat: 37.56065, lng: 126.99359 } as const;
+
+/**
+ * 지도 칸(261012 사장 '네이버 다이나믹맵 전부 다 적용') — 예전 OpenStreetMap 끼워 넣기 → 네이버 지도(components/map/NaverMap).
+ *  · 빈 상자 금지는 그대로: 들어오자마자 네이버 정적 지도 그림(같은 가운데 · 단계)이 깔리고, 다이나믹맵이 인증 · 타일까지 다 뜨면 그 위로 서서히 덮는다.
+ *    인증 실패 · SDK 막힘 · 8초 초과면 정적 그림이 남고(칸 전체가 네이버 지도 링크), 그림마저 안 오면 주소 카드(핀 + 회사 이름 + 주소 + '지도에서 보기').
+ *  · 지도는 한 번 눌러야 움직인다(눌러서 지도 움직이기) — 그냥 두면 휠 · 손가락이 지도 확대/이동으로 빨려 들어가 페이지가 안 내려갔다(1440 실측).
+ *    마우스가 칸 밖으로 나가거나 칸이 화면 밖으로 나가면 다시 잠근다.
+ *    풀린 지도 위 휠은 네이버 SDK 가 전파를 끊어 Lenis(부드러운 스크롤)까지 안 온다 — 지도만 확대되고 페이지는 그대로(1440 헤드리스 실측: window 에 휠 0건).
+ *  · '지도에서 보기' 알약은 늘 왼쪽 위에(예전엔 지도가 뜨면 링크가 지도 밑에 묻혔다) → 네이버 지도의 같은 핀.
+ *    PC = map.naver.com, 휴대폰 = m.map.naver.com, 안드로이드 앱(2.0.6) = intent:// 로 바깥 브라우저(nmap:// 같은 스킴은 앱 안에서 못 연다).
+ */
+function BizMap({ address, openLabel, hint, name }: { address: string; openLabel: string; hint: string; name: string }) {
+  const { lang } = useBizLang();
+  // 주소 카드(그림까지 실패)에는 이미 '지도에서 보기'가 있어 알약을 겹쳐 띄우지 않는다
+  const [cardOnly, setCardOnly] = useState(false);
+  const link = naverMapLinkProps({ lat: BIZ_HQ.lat, lng: BIZ_HQ.lng, name });
   return (
-    <div className="relative h-full w-full" onMouseLeave={() => setActive(false)}>
-      <a
-        href="https://www.openstreetmap.org/?mlat=37.56029&mlon=126.99376#map=17/37.56029/126.99376"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center"
-      >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#3182F6] shadow-[0_2px_10px_rgba(0,0,0,0.06)]"><MapPin className="h-5 w-5" /></span>
-        <span lang={/[가-힣]/.test(address) ? 'ko' : undefined} className="text-[16px] font-semibold leading-[1.5] text-[#333D4B]">{address}</span>
-        <span className="text-[14px] font-medium text-[#3182F6]">{openLabel}</span>
-      </a>
-      <iframe
-        title="프리티풀 오시는길"
-        src="https://www.openstreetmap.org/export/embed.html?bbox=126.9863%2C37.5553%2C127.0013%2C37.5653&layer=mapnik&marker=37.56029%2C126.99376"
-        className="absolute inset-0 h-full w-full border-0 transition-opacity duration-500"
-        style={{ opacity: loaded ? 1 : 0, pointerEvents: loaded && active ? 'auto' : 'none' }}
-        loading="lazy"
-        onLoad={() => setLoaded(true)}
-      />
-      {loaded && !active && (
-        <button type="button" className="bzl-lock" onClick={() => setActive(true)} aria-label={hint}>
-          <span className="bzl-hint">{hint}</span>
-        </button>
+    <NaverMap
+      className="h-full w-full"
+      center={BIZ_HQ}
+      zoom={16}
+      markers={[{ lat: BIZ_HQ.lat, lng: BIZ_HQ.lng, label: name }]}
+      interactive
+      lockHint={hint}
+      title={name}
+      address={address}
+      openLabel={openLabel}
+      linkLabel={openLabel}
+      lang={lang}
+      onFallback={(reason) => { if (reason === 'image' || reason === 'no_center') setCardOnly(true); }}
+    >
+      {!cardOnly && (
+        <a {...link} className="bzl-open">
+          {openLabel}
+          <ArrowUpRight className="h-[15px] w-[15px]" strokeWidth={2.2} aria-hidden />
+        </a>
       )}
-    </div>
+    </NaverMap>
   );
 }
 
@@ -564,7 +581,7 @@ function LocationSection() {
         />
         <div ref={ref} className="bzl-grid">
           <div className={`bzl-map ${map.className}`} style={map.style}>
-            <BizMap address={t(COMPANY_INFO.address)} openLabel={t({ ko: '지도에서 보기', en: 'Open in map', ja: '地図で見る', zh: '在地图中查看' })} hint={t({ ko: '눌러서 지도 움직이기', en: 'Tap to move the map', ja: 'タップして地図を操作', zh: '点击后可移动地图' })} />
+            <BizMap name={t({ ko: COMPANY_INFO.name, en: COMPANY_INFO.nameEn, ja: COMPANY_INFO.nameEn, zh: COMPANY_INFO.nameEn })} address={t(COMPANY_INFO.address)} openLabel={t({ ko: '지도에서 보기', en: 'Open in map', ja: '地図で見る', zh: '在地图中查看' })} hint={t({ ko: '눌러서 지도 움직이기', en: 'Tap to move the map', ja: 'タップして地図を操作', zh: '点击后可移动地图' })} />
           </div>
           <div>
             <div className="bzl-rows">

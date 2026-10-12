@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Check, ChevronRight, ChevronDown, MapPin } from 'lucide-react';
 import { getWeddingPartnerImages } from '@/lib/wedding-partner-images';
+import { naverMapLinkProps } from '@/lib/naver-map-links';
 
 const BLOB = 'https://jnhwlzeyberhyv7s.public.blob.vercel-storage.com/villadegd';
 
@@ -303,10 +304,19 @@ export default function VilladegdEventOverlay() {
               </div>
             )}
 
-            {/* 위치·연락 — 카드 없이 담백하게 */}
-            <p className="vgd-reveal mt-6 flex items-center justify-center gap-1.5 px-6 text-center text-[14px] text-[#8B95A1] md:text-[15px]">
-              <MapPin size={15} strokeWidth={2.2} className="text-[#B0B8C1]" />
-              {b.address} · {b.phone}
+            {/* 위치·연락 — 카드 없이 담백하게. 주소를 누르면 네이버 지도에서 그 지점(장소 검색 — 리뷰·길찾기까지)
+                (261012 사장 '네이버 다이나믹맵 전부 다 적용' — 아이폰 앱은 인앱 사파리, 안드로이드 앱 2.0.6 은 intent:// 로 바깥에) */}
+            <p className="vgd-reveal mt-6 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-6 text-center text-[14px] text-[#8B95A1] md:text-[15px]">
+              <a
+                {...naverMapLinkProps({ query: `빌라드지디 ${b.name}`, name: `빌라드지디 ${b.name}`, address: b.address })}
+                aria-label={`빌라드지디 ${b.name} 네이버 지도에서 보기 — ${b.address}`}
+                className="inline-flex items-center gap-1.5 underline decoration-[#D1D6DB] underline-offset-[3px] transition-colors active:text-[#4E5968] hover:text-[#4E5968]"
+              >
+                <MapPin size={15} strokeWidth={2.2} className="shrink-0 text-[#B0B8C1]" />
+                {b.address}
+              </a>
+              <span aria-hidden>·</span>
+              <span>{b.phone}</span>
             </p>
           </section>
         );

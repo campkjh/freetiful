@@ -11,6 +11,7 @@ import {
   TrashIcon as Trash2,
   DotsVerticalIcon as MoreVertical,
   PinLocationIcon as MapPin,
+  ArrowBackIcon as ArrowBack,
   DocumentIcon as FileText,
   EmojiIcon as Smile,
   PlusIcon as Plus,
@@ -44,7 +45,10 @@ import { popItemDelay } from '@/lib/pop-menu';
 
 import type { Message, ChatPartner, SystemPayload } from './chat-types';
 import { formatEventTime } from '@/lib/event-time';
-import { type PlaceResult, androidIntentUrl, isValidLatLng, kakaoMapUrl, locationContent, tilesForView } from './chat-location';
+import { type PickedPlace, type PlaceResult, isValidLatLng, locationContent } from './chat-location';
+import { DEFAULT_PICK_CENTER, GeoError, MapPickPanel, fetchReverseAddress, getCurrentPositionSafe, useReverseAddress } from './ChatMapPicker';
+import NaverMap from '@/components/map/NaverMap';
+import { MapFetchError, fetchMapJson, isInKorea, naverMapLinkProps } from '@/lib/naver-map';
 import { SearchIcon as MonoSearchIcon } from '@/components/icons/mono';
 export type { Message, ChatPartner, SystemPayload };
 
@@ -171,20 +175,18 @@ const buildQuoteCheckoutUrl = (chatPartner: ChatPartner | null, sys: SystemPaylo
   return proId ? `/pros/${proId}/checkout?${qs}` : `/pros/checkout?${qs}`;
 };
 
-declare global {
-  interface Window {
-    kakao?: any;
-  }
-}
-
 // ─── 장소 보내기 시트 · 위치 카드 (261012 사장 '채팅창 내에서 갤럭시 장소/음성 전달 실패(아이폰 갤럭시 둘다 발생함)') ───
 //  예전 NaverMapPicker 는 운영에 네이버 지도 키가 없어 '네이버 지도 SDK 로드 실패' 문구만 뜨고 전송 버튼이 영영 꺼져 있었다.
 //  갤럭시 앱(2.0.6)은 웹뷰 위치 권한 처리가 없어 현재 위치도 못 받아 → 위치를 보낼 방법이 아예 없었다.
 //  지금: 장소 검색(서버 경유 카카오 로컬 /chat/place-search) → 골라서 보내기. 현재 위치는 되는 기기에서만 덤으로.
 //  검색이 안 되면 검색어 그대로(장소명만) 보낼 수 있다 — 어떤 경우에도 막다른 길이 없게.
+//  (261012 사장 '네이버 다이나믹맵 전부 다 적용') 지도는 전부 네이버:
+//   · '지도에서 직접 고르기' — 네이버 지도 가운데 핀을 끌어 맞추면 네이버 역지오코딩 주소(ChatMapPicker MapPickPanel).
+//     다이나믹맵 인증이 안 되는 곳에선 정적 그림을 손으로 끄는 지도로 저절로 바뀐다(빈 칸 · 인증 실패 판 없음).
+//   · 검색에서 고른 장소는 네이버 정적 지도 작은 그림으로 미리 보이고, 눌러서 지도에서 핀을 다듬을 수 있다.
+//   · 받은 쪽 카드 = 네이버 정적 지도 그림 + 장소명·주소 + '네이버 지도에서 보기'(안드로이드 앱 2.0.6 은 intent:// 로 바깥에).
 
-/** 시트에서 고른 장소 — label 은 시트 표시용, placeName·address 는 메시지 metadata 로 간다 */
-export type PickedPlace = { lat?: number; lng?: number; placeName?: string; address?: string; label: string };
+export type { PickedPlace };
 
 /** 지금 깔린 안드로이드 앱(2.0.6)인지 — window.Android(앱 JS 다리)는 있는데 위치 지원 표시가 없으면 웹뷰가 위치를 못 준다 */
 function androidAppWithoutGeolocation() {
@@ -193,7 +195,23 @@ function androidAppWithoutGeolocation() {
   return !!bridge && typeof bridge.supportsGeolocation !== 'function';
 }
 
+/** 접은 지도 모양 — '지도에서 직접 고르기' 줄 */
+function FoldedMapIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M9 4 3.8 6.1A1.3 1.3 0 0 0 3 7.3v11.5c0 .9.9 1.5 1.8 1.2L9 18.3V4Z" fill="currentColor" opacity=".55" />
+      <path d="M9 4v14.3l6 1.7V5.7L9 4Z" fill="currentColor" />
+      <path d="m15 5.7 4.2-1.7c.9-.3 1.8.3 1.8 1.2v11.5c0 .5-.3 1-.8 1.2L15 20V5.7Z" fill="currentColor" opacity=".55" />
+    </svg>
+  );
+}
+
 function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Promise<boolean>; onClose: () => void }) {
+  const [mode, setMode] = useState<'search' | 'map'>('search');
+  const [mapStart, setMapStart] = useState<{ lat: number; lng: number }>(DEFAULT_PICK_CENTER);
+  const [mapSeed, setMapSeed] = useState<PickedPlace | null>(null);
+  const [mapPick, setMapPick] = useState<{ pick: PickedPlace; ready: boolean } | null>(null);
+  const [mapOpenSeq, setMapOpenSeq] = useState(0);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<PlaceResult[] | null>(null); // null = 아직 검색 전
   const [searching, setSearching] = useState(false);
@@ -247,46 +265,26 @@ function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Pro
   const locate = useCallback(() => {
     if (!geoSupported) return;
     setGeoState('locating');
-    let done = false;
-    const watchdog = setTimeout(() => {
-      if (done) return;
-      done = true;
-      setGeoState('failed');
-    }, 9000);
-    const finish = () => { done = true; clearTimeout(watchdog); };
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (done) return;
-          finish();
-          const { latitude, longitude } = pos.coords;
-          if (!isValidLatLng(latitude, longitude)) { setGeoState('failed'); return; }
-          setHere({ lat: latitude, lng: longitude });
-          setGeoState('idle');
-          setSelected({ lat: latitude, lng: longitude, label: '현재 위치' });
-          setSelectedKey('here');
-          inputRef.current?.blur();
-          // 주소 붙이기 — 실패해도 좌표만으로 보낼 수 있다. 건물 이름은 붙이지 않는다(GPS 오차로 옆 건물 이름이 갈 수 있어서)
-          fetch(`/chat/place-search?lat=${latitude.toFixed(4)}&lng=${longitude.toFixed(4)}`, { credentials: 'omit' })
-            .then((r) => r.json())
-            .then((d) => {
-              const address = typeof d?.address === 'string' ? d.address : '';
-              if (!address) return;
-              setSelected((cur) => (cur && cur.lat === latitude && cur.lng === longitude ? { ...cur, address } : cur));
-            })
-            .catch(() => {});
-        },
-        (err) => {
-          if (done) return;
-          finish();
-          setGeoState(err?.code === 1 ? 'denied' : 'failed');
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-      );
-    } catch {
-      finish();
-      setGeoState('failed');
-    }
+    getCurrentPositionSafe()
+      .then(({ lat: latitude, lng: longitude }) => {
+        setHere({ lat: latitude, lng: longitude });
+        setGeoState('idle');
+        setSelected({ lat: latitude, lng: longitude, label: '현재 위치' });
+        setSelectedKey('here');
+        inputRef.current?.blur();
+        // 주소 붙이기(네이버 역지오코딩, 서버 프록시) — 실패해도 좌표만으로 보낼 수 있다.
+        // 건물 이름은 붙이지 않는다(GPS 오차로 옆 건물 이름이 갈 수 있어서)
+        fetchReverseAddress(latitude, longitude)
+          .then((d) => {
+            const address = d.address || d.short;
+            if (!address) return;
+            setSelected((cur) => (cur && cur.lat === latitude && cur.lng === longitude ? { ...cur, address } : cur));
+          })
+          .catch(() => {});
+      })
+      .catch((err: unknown) => {
+        setGeoState(err instanceof GeoError && err.code === 'denied' ? 'denied' : 'failed');
+      });
   }, [geoSupported]);
 
   // 이미 위치 권한을 준 기기면(팝업 없이) 열자마자 현재 위치를 잡아 둔다
@@ -307,10 +305,22 @@ function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Pro
     inputRef.current?.blur();
   };
 
+  /** 지도에서 고르기 — seed(검색에서 고른 장소)가 있으면 그 자리에서, 없으면 현재 위치 · 서울시청에서 시작 */
+  const openMap = (seed: PickedPlace | null) => {
+    const s = seed && isValidLatLng(seed.lat, seed.lng) && isInKorea(seed.lat, seed.lng) ? seed : null;
+    setMapSeed(s);
+    setMapStart(s ? { lat: s.lat as number, lng: s.lng as number } : here && isInKorea(here.lat, here.lng) ? here : DEFAULT_PICK_CENTER);
+    setMapPick(null);
+    setMapOpenSeq((n) => n + 1);
+    setMode('map');
+    inputRef.current?.blur();
+  };
+
   const send = async () => {
-    if (!selected || sending) return;
+    const target = mode === 'map' ? (mapPick?.ready ? mapPick.pick : null) : selected;
+    if (!target || sending) return;
     setSending(true);
-    const ok = await onSend(selected).catch(() => false);
+    const ok = await onSend(target).catch(() => false);
     setSending(false);
     if (ok) onClose();
   };
@@ -321,6 +331,7 @@ function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Pro
       : geoState === 'denied' ? '위치 권한이 꺼져 있어요 · 장소를 검색해서 보내 주세요'
         : geoState === 'failed' ? '현재 위치를 찾지 못했어요 · 다시 누르거나 장소를 검색해 주세요'
           : '지금 있는 곳을 보내요';
+  const selectedMapable = !!selected && isValidLatLng(selected.lat, selected.lng) && isInKorea(selected.lat, selected.lng);
 
   return (
     // 공통 시트(ft-*) — 검색칸은 시트 위쪽(안드로이드 키보드에 가리지 않게), 결과 목록이 남는 높이를 채운다
@@ -333,187 +344,229 @@ function PlacePickerSheet({ onSend, onClose }: { onSend: (p: PickedPlace) => Pro
         onClick={(e) => e.stopPropagation()}
       >
         <div className="ft-grab shrink-0" aria-hidden="true" />
-        <div className="flex items-center justify-between shrink-0">
-          <h3 className="ft-title">장소 보내기</h3>
-          <button onClick={onClose} aria-label="닫기" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
-            <X size={20} className="text-gray-500" />
-          </button>
-        </div>
-
-        <div className="pt-3 pb-2 shrink-0">
-          <div className="flex items-center bg-[#F2F4F6] rounded-full pl-4 pr-2 h-11">
-            <MonoSearchIcon size={18} className="text-[#8B95A1] shrink-0" />
-            {/* type=search 는 브라우저 기본 지우기(×)가 따로 붙어 지우기 버튼이 둘이 된다 → text + 검색 키보드 */}
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="search"
-              enterKeyHint="search"
-              value={q}
-              maxLength={60}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); inputRef.current?.blur(); } }}
-              placeholder="장소·건물 이름이나 주소 검색"
-              className="ml-2 flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-[#B0B8C1]"
-            />
-            {q && (
-              <button type="button" aria-label="지우기" onClick={() => { setQ(''); inputRef.current?.focus(); }} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90">
-                <XCircle size={18} className="text-[#B0B8C1]" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 overscroll-contain">
-          {geoSupported ? (
-            <button
-              type="button"
-              onClick={locate}
-              disabled={geoState === 'locating'}
-              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'here' ? 'bg-[#EEF5FF]' : ''}`}
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8F7EF]">
-                {geoState === 'locating'
-                  ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#15B86C]/30 border-t-[#15B86C]" />
-                  : <MapPin size={20} className="text-[#15B86C]" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold text-[#191F28]">현재 위치 보내기</span>
-                <span className={`block text-[13px] ${geoState === 'denied' || geoState === 'failed' ? 'text-[#F04452]' : 'text-[#8B95A1]'}`}>{geoLine}</span>
-              </span>
-              {selectedKey === 'here' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
-            </button>
-          ) : noGeoApp ? (
-            <div className="flex items-center gap-3 rounded-2xl px-3 py-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6]">
-                <MapPin size={20} className="text-[#B0B8C1]" />
-              </span>
-              <span className="min-w-0 flex-1 text-[13px] leading-[1.45] text-[#8B95A1]">
-                현재 위치는 앱 업데이트 후 쓸 수 있어요.<br />지금은 장소를 검색해서 보내 주세요.
-              </span>
-            </div>
-          ) : null}
-
-          <div className="mx-3 my-1 h-px bg-[#F2F4F6]" />
-
-          {!term ? (
-            <p className="px-3 py-6 text-center text-[13px] leading-[1.6] text-[#8B95A1]">
-              가게·건물 이름이나 주소로 찾아보세요<br />예) 강남역, 서울 중구 세종대로 110
-            </p>
-          ) : searching && !results?.length ? (
-            <p className="px-3 py-6 text-center text-[13px] text-[#8B95A1]">찾는 중…</p>
-          ) : results && results.length > 0 ? (
-            <ul>
-              {results.map((p, idx) => {
-                const key = `r-${idx}-${p.lat}-${p.lng}`;
-                const sub = p.roadAddress || p.address;
-                const on = selectedKey === key;
-                return (
-                  <li key={key}>
-                    <button
-                      type="button"
-                      onClick={() => pick(key, { lat: p.lat, lng: p.lng, placeName: p.name, address: sub, label: p.name })}
-                      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${on ? 'bg-[#EEF5FF]' : ''}`}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-baseline gap-1.5">
-                          <span className="min-w-0 truncate text-[15px] font-bold text-[#191F28]">{p.name}</span>
-                          {p.category && <span className="shrink-0 text-[12px] text-[#B0B8C1]">{p.category}</span>}
-                        </span>
-                        {sub && <span className="block truncate text-[13px] text-[#8B95A1]">{sub}</span>}
-                      </span>
-                      {on && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="px-3 py-4">
-              <p className="text-center text-[13px] text-[#8B95A1]">
-                {searchError ? '장소 검색을 잠시 쓸 수 없어요' : '검색 결과가 없어요'}
-              </p>
-              {/* 막다른 길 방지 — 검색이 안 되거나 없으면 검색어를 장소명으로 그대로 보낸다(받는 쪽은 카카오맵 검색으로 연다) */}
+        {mode === 'map' ? (
+          <>
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                onClick={() => pick('typed', { placeName: term, label: term })}
-                className={`mt-3 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'typed' ? 'bg-[#EEF5FF]' : 'bg-[#F9FAFB]'}`}
+                onClick={() => setMode('search')}
+                aria-label="장소 검색으로 돌아가기"
+                className="-ml-2 w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
               >
-                <MapPin size={18} className="shrink-0 text-[#3182F6]" />
-                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#191F28]">‘{term}’ 그대로 보내기</span>
-                {selectedKey === 'typed' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+                <ArrowBack size={16} className="text-[#4E5968]" />
+              </button>
+              <h3 className="ft-title flex-1 min-w-0">지도에서 고르기</h3>
+              <button onClick={onClose} aria-label="닫기" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+                <X size={20} className="text-gray-500" />
               </button>
             </div>
-          )}
-        </div>
+            <p className="mt-0.5 mb-3 shrink-0 text-[13px] text-[#8B95A1]">지도를 끌어서 핀을 보낼 곳에 맞춰 주세요</p>
+            <MapPickPanel
+              key={mapOpenSeq}
+              initialCenter={mapStart}
+              seed={mapSeed}
+              geoSupported={geoSupported}
+              onPickChange={(p, ready) => setMapPick({ pick: p, ready })}
+            />
+            <div className="ft-actions shrink-0 !mt-4">
+              <button onClick={send} disabled={!mapPick?.ready || sending} className="ft-btn primary">
+                {sending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <MapPin size={16} />}
+                {sending ? '보내는 중…' : '이 위치 보내기'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between shrink-0">
+              <h3 className="ft-title">장소 보내기</h3>
+              <button onClick={onClose} aria-label="닫기" className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center active:scale-90 transition-transform">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
 
-        <div className="shrink-0">
-          {selected && (
-            <div className="flex items-center gap-2 mt-2 px-3 py-2.5 bg-[#F2F8FF] rounded-xl">
-              <MapPin size={16} className="text-[#3182F6] shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-bold text-[#191F28] truncate">{selected.label}</p>
-                <p className="text-[12px] text-[#8B95A1] truncate">
-                  {selected.address || (isValidLatLng(selected.lat, selected.lng) ? `${selected.lat!.toFixed(5)}, ${selected.lng!.toFixed(5)}` : '장소 이름만 보내요')}
-                </p>
+            <div className="pt-3 pb-2 shrink-0">
+              <div className="flex items-center bg-[#F2F4F6] rounded-full pl-4 pr-2 h-11">
+                <MonoSearchIcon size={18} className="text-[#8B95A1] shrink-0" />
+                {/* type=search 는 브라우저 기본 지우기(×)가 따로 붙어 지우기 버튼이 둘이 된다 → text + 검색 키보드 */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  value={q}
+                  maxLength={60}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); inputRef.current?.blur(); } }}
+                  placeholder="장소·건물 이름이나 주소 검색"
+                  className="ml-2 flex-1 min-w-0 bg-transparent text-[16px] focus:outline-none placeholder:text-[#B0B8C1]"
+                />
+                {q && (
+                  <button type="button" aria-label="지우기" onClick={() => { setQ(''); inputRef.current?.focus(); }} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90">
+                    <XCircle size={18} className="text-[#B0B8C1]" />
+                  </button>
+                )}
               </div>
             </div>
-          )}
-          <div className="ft-actions">
-            <button onClick={send} disabled={!selected || sending} className="ft-btn primary">
-              {sending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <MapPin size={16} />}
-              {sending ? '보내는 중…' : '이 장소 보내기'}
-            </button>
-          </div>
-        </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 overscroll-contain">
+              {geoSupported ? (
+                <button
+                  type="button"
+                  onClick={locate}
+                  disabled={geoState === 'locating'}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'here' ? 'bg-[#EEF5FF]' : ''}`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8F7EF]">
+                    {geoState === 'locating'
+                      ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#15B86C]/30 border-t-[#15B86C]" />
+                      : <MapPin size={20} className="text-[#15B86C]" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold text-[#191F28]">현재 위치 보내기</span>
+                    <span className={`block text-[13px] ${geoState === 'denied' || geoState === 'failed' ? 'text-[#F04452]' : 'text-[#8B95A1]'}`}>{geoLine}</span>
+                  </span>
+                  {selectedKey === 'here' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+                </button>
+              ) : noGeoApp ? (
+                <div className="flex items-center gap-3 rounded-2xl px-3 py-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6]">
+                    <MapPin size={20} className="text-[#B0B8C1]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[13px] leading-[1.45] text-[#8B95A1]">
+                    현재 위치는 앱 업데이트 후 쓸 수 있어요.<br />지금은 장소를 검색하거나 지도에서 골라 주세요.
+                  </span>
+                </div>
+              ) : null}
+
+              {/* 지도에서 직접 고르기 — 위치 권한 없이도(갤럭시 앱 2.0.6 포함) 핀으로 정할 수 있다 */}
+              <button
+                type="button"
+                onClick={() => openMap(null)}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8F3FF]">
+                  <FoldedMapIcon size={20} className="text-[#3182F6]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-bold text-[#191F28]">지도에서 직접 고르기</span>
+                  <span className="block text-[13px] text-[#8B95A1]">네이버 지도에서 핀을 옮겨 정해요</span>
+                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[#C9CFD6]" aria-hidden="true">
+                  <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              <div className="mx-3 my-1 h-px bg-[#F2F4F6]" />
+
+              {!term ? (
+                <p className="px-3 py-6 text-center text-[13px] leading-[1.6] text-[#8B95A1]">
+                  가게·건물 이름이나 주소로 찾아보세요<br />예) 강남역, 서울 중구 세종대로 110
+                </p>
+              ) : searching && !results?.length ? (
+                <p className="px-3 py-6 text-center text-[13px] text-[#8B95A1]">찾는 중…</p>
+              ) : results && results.length > 0 ? (
+                <ul>
+                  {results.map((p, idx) => {
+                    const key = `r-${idx}-${p.lat}-${p.lng}`;
+                    const sub = p.roadAddress || p.address;
+                    const on = selectedKey === key;
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          onClick={() => pick(key, { lat: p.lat, lng: p.lng, placeName: p.name, address: sub, label: p.name })}
+                          className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${on ? 'bg-[#EEF5FF]' : ''}`}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-baseline gap-1.5">
+                              <span className="min-w-0 truncate text-[15px] font-bold text-[#191F28]">{p.name}</span>
+                              {p.category && <span className="shrink-0 text-[12px] text-[#B0B8C1]">{p.category}</span>}
+                            </span>
+                            {sub && <span className="block truncate text-[13px] text-[#8B95A1]">{sub}</span>}
+                          </span>
+                          {on && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="px-3 py-4">
+                  <p className="text-center text-[13px] text-[#8B95A1]">
+                    {searchError ? '장소 검색을 잠시 쓸 수 없어요' : '검색 결과가 없어요'}
+                  </p>
+                  {/* 막다른 길 방지 — 검색이 안 되거나 없으면 검색어를 장소명으로 그대로 보낸다(받는 쪽은 네이버 지도 검색으로 연다) */}
+                  <button
+                    type="button"
+                    onClick={() => pick('typed', { placeName: term, label: term })}
+                    className={`mt-3 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors active:bg-[#F2F4F6] ${selectedKey === 'typed' ? 'bg-[#EEF5FF]' : 'bg-[#F9FAFB]'}`}
+                  >
+                    <MapPin size={18} className="shrink-0 text-[#3182F6]" />
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#191F28]">‘{term}’ 그대로 보내기</span>
+                    {selectedKey === 'typed' && <CheckCircle2 size={20} className="shrink-0 text-[#3182F6]" />}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="shrink-0">
+              {selected && (
+                <div className={`flex items-center gap-3 mt-2 bg-[#F2F8FF] rounded-xl ${selectedMapable ? 'p-2 pr-3' : 'px-3 py-2.5'}`}>
+                  {selectedMapable ? (
+                    // 고른 곳 미리보기(네이버 정적 지도) — 누르면 지도에서 핀을 다듬는다
+                    <div
+                      aria-hidden="true"
+                      onClick={() => openMap(selected)}
+                      className="h-14 w-14 shrink-0 cursor-pointer overflow-hidden rounded-[10px] active:opacity-80"
+                    >
+                      <NaverMap
+                        imageOnly
+                        markers={[{ lat: selected.lat as number, lng: selected.lng as number }]}
+                        zoom={16}
+                        href={null}
+                        title={selected.label}
+                        className="h-full w-full"
+                      />
+                    </div>
+                  ) : (
+                    <MapPin size={16} className="text-[#3182F6] shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold text-[#191F28] truncate">{selected.label}</p>
+                    <p className="text-[12px] text-[#8B95A1] truncate">
+                      {selected.address || (isValidLatLng(selected.lat, selected.lng) ? `${selected.lat!.toFixed(5)}, ${selected.lng!.toFixed(5)}` : '장소 이름만 보내요')}
+                    </p>
+                  </div>
+                  {selectedMapable && (
+                    <button
+                      type="button"
+                      onClick={() => openMap(selected)}
+                      className="shrink-0 rounded-full bg-white px-3 h-8 text-[12px] font-semibold text-[#3182F6] shadow-[0_1px_4px_rgba(0,0,0,0.06)] active:scale-95 transition-transform"
+                    >
+                      지도에서 조정
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="ft-actions">
+                <button onClick={send} disabled={!selected || sending} className="ft-btn primary">
+                  {sending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <MapPin size={16} />}
+                  {sending ? '보내는 중…' : '이 장소 보내기'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-/** 위치 카드 위 작은 지도(OSM 타일 이어 붙이기) — 지도 SDK·키 없이. 타일이 안 오면 회색 바탕+핀만 */
-function LocationMiniMap({ lat, lng }: { lat: number; lng: number }) {
-  const W = 240;
-  const H = 120;
-  const [failed, setFailed] = useState(false);
-  const tiles = tilesForView(lat, lng, 16, W, H);
-  return (
-    <div className="relative h-[120px] w-full overflow-hidden bg-[#E5E8EB]" aria-hidden="true">
-      {!failed && (
-        <div className="absolute left-1/2 top-0 h-[120px] w-[240px] -translate-x-1/2">
-          {tiles.map((t) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={t.key}
-              src={t.url}
-              alt=""
-              width={256}
-              height={256}
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              className="pointer-events-none absolute max-w-none select-none"
-              style={{ left: t.left, top: t.top, width: 256, height: 256 }}
-              onError={() => setFailed(true)}
-            />
-          ))}
-        </div>
-      )}
-      {/* 핀 — 끝이 칸 한가운데(좌표)에 오도록 */}
-      <svg width="30" height="38" viewBox="0 0 30 38" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)]">
-        <path d="M15 37C15 37 28 23.5 28 14.5C28 7 22.2 1 15 1C7.8 1 2 7 2 14.5C2 23.5 15 37 15 37Z" fill="#F04452" stroke="#fff" strokeWidth="2" />
-        <circle cx="15" cy="14.5" r="5" fill="#fff" />
-      </svg>
-      {!failed && (
-        <span className="absolute bottom-0.5 right-1 rounded bg-white/75 px-1 text-[9px] leading-[14px] text-[#4E5968]">© OpenStreetMap</span>
-      )}
-    </div>
-  );
-}
-
 /**
- * 받은·보낸 위치 메시지 카드 — 지도 그림 + 장소명·주소 + '지도에서 보기'(카카오맵).
- * 옛 메시지(placeName 없이 좌표만, 본문 '내 위치를 공유했습니다')도 같은 카드로, 좌표 없이 장소명만 온 메시지는 지도 그림 없이.
+ * 받은·보낸 위치 메시지 카드 — 네이버 정적 지도 그림 + 장소명·주소 + '네이버 지도에서 보기'.
+ * 옛 메시지(placeName 없이 좌표만, 본문 '내 위치를 공유했습니다')도 같은 카드로 — 주소는 네이버 역지오코딩으로 붙여 보인다.
+ * 좌표 없이 장소명만 온 메시지(검색어 그대로 보내기)는 지도 그림 없이, 누르면 네이버 지도 검색.
+ * 대한민국 밖 좌표는 그림 없이(정적 지도 범위 밖) 글자 카드만 — 누르면 네이버 지도 핀.
  * 꾹 누르기(메뉴)는 바깥 줄(page.tsx)이 그대로 맡는다.
  */
 export function LocationCard({ msg, mine, tailCorner = '' }: { msg: Message; mine: boolean; tailCorner?: string }) {
@@ -522,94 +575,115 @@ export function LocationCard({ msg, mine, tailCorner = '' }: { msg: Message; min
   const lat = toNum(msg.latitude);
   const lng = toNum(msg.longitude);
   const hasCoord = isValidLatLng(lat, lng);
+  const mapable = hasCoord && isInKorea(lat, lng);
   // 글자인 것만 — 캐시(localStorage)에 예전 모양 그대로 남은 메시지는 mapApiMessage 를 다시 안 거친다(261012)
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
   const content = str(msg.content);
   const placeName = str(msg.placeName);
   const address = str(msg.address);
+  const contentTitle = content && content !== '내 위치를 공유했습니다' ? content : '';
+  // 좌표만 있는 옛 메시지 — 주소를 화면에서만 붙인다(보낸 내용은 그대로)
+  const needsAddress = mapable && !placeName && !address && !contentTitle;
+  const reverse = useReverseAddress(needsAddress ? lat : null, needsAddress ? lng : null);
+  const reverseAddress = reverse ? reverse.address || reverse.short : '';
+  const [mapBroken, setMapBroken] = useState(false);
   const fallbackTitle = hasCoord ? (mine ? '내 위치' : '상대가 보낸 위치') : '공유한 장소';
-  const title = placeName || (content && content !== '내 위치를 공유했습니다' ? content : '') || address || fallbackTitle;
-  const sub = address && address !== title ? address : '';
-  const href = kakaoMapUrl(placeName || address || (title !== fallbackTitle ? title : ''), lat, lng);
-  const open = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.stopPropagation();
-    // 안드로이드 앱 웹뷰 — intent:// 로 감싸 바깥(브라우저·카카오맵)으로. 그냥 열면 웹뷰 안에서 카카오맵 웹이
-    // 앱 스킴을 열다 '웹페이지를 사용할 수 없음'이 날 수 있다(지금 깔린 2.0.6 은 intent:// 만 밖으로 넘긴다).
-    const inAndroidApp = typeof window !== 'undefined' && !!(window as unknown as { Android?: unknown }).Android;
-    if (inAndroidApp) {
-      e.preventDefault();
-      try { window.location.href = androidIntentUrl(href); } catch { /* 링크를 못 만들면 아무 일도 안 한다(오류 화면보다 낫다) */ }
-    }
-  };
+  const title = placeName || contentTitle || address || fallbackTitle;
+  const shownAddress = address || reverseAddress;
+  const sub = shownAddress && shownAddress !== title ? shownAddress : '';
+  const link = naverMapLinkProps({
+    lat: hasCoord ? lat : null,
+    lng: hasCoord ? lng : null,
+    name: placeName || contentTitle || (title !== fallbackTitle ? title : '') || undefined,
+    address: shownAddress || undefined,
+  });
   return (
     <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={open}
+      href={link.href}
+      target={link.target}
+      rel={link.rel}
+      onClick={(e) => {
+        e.stopPropagation();
+        // 안드로이드 앱 웹뷰 — intent:// 로 바깥(브라우저 · 네이버 지도 앱)으로. 그냥 열면 웹뷰 안에서 지도 웹이
+        // 앱 스킴(nmap://)을 열다 '웹페이지를 사용할 수 없음'이 날 수 있다. PC 는 누르는 순간 PC 지도 주소로 바뀐다.
+        link.onClick(e);
+      }}
       draggable={false}
       className={`block w-[240px] max-w-full overflow-hidden rounded-[20px]${tailCorner} no-underline select-none ${mine ? 'bg-[#3180F7] text-white' : 'bg-[#F2F3F5] text-[#191F28]'}`}
       style={{ WebkitTouchCallout: 'none' }}
     >
-      {hasCoord && <LocationMiniMap lat={lat} lng={lng} />}
+      {mapable && !mapBroken && (
+        <NaverMap
+          imageOnly
+          markers={[{ lat, lng }]}
+          zoom={16}
+          href={null}
+          title={title}
+          className="h-[120px] w-full"
+          onFallback={(reason) => { if (reason === 'image') setMapBroken(true); }}
+        />
+      )}
       <div className="px-4 py-3">
         <p className="break-words text-[15px] font-bold leading-[1.35] [overflow-wrap:anywhere]">{title}</p>
         {sub && <p className={`mt-0.5 break-words text-[12px] leading-[1.4] ${mine ? 'text-white/80' : 'text-[#6B7684]'}`}>{sub}</p>}
         <p className={`mt-2 flex items-center gap-1 text-[12px] font-semibold ${mine ? 'text-white/90' : 'text-[#3180F7]'}`}>
           <MapPin size={13} />
-          지도에서 보기
+          네이버 지도에서 보기
         </p>
       </div>
     </a>
   );
 }
 
-// ─── KakaoMapEmbed ───
-function KakaoMapEmbed({ venue }: { venue: string }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [loaded, setLoaded] = useState(false);
+// ─── 예약 확정 카드의 장소 지도 (261012 사장 '네이버 다이나믹맵 전부 다 적용') ───
+//  예전 KakaoMapEmbed 는 카카오 지도 JS(키를 코드에 박음)를 카드마다 띄우고, 장소를 못 찾으면 서울시청을 핀 없이 보였다.
+//  지금: 장소 이름을 /chat/place-search(카카오 로컬 → 안 되면 네이버 주소 검색, 서버 경유)로 좌표로 바꿔 네이버 정적 지도 그림 + 핀.
+//  못 찾으면 엉뚱한 곳 대신 같은 높이(120px)의 주소 카드(핀 + 장소 + '네이버 지도에서 보기' → 네이버 검색) — 칸이 사라져 채팅 목록이 튀지 않게(261012 검수).
+//  누르면 네이버 지도(안드로이드 앱은 intent://).
+//  기억(venueCoordCache)은 찾음 · 진짜 0건만 — 망 오류 · 5xx · 카카오/네이버 둘 다 안 됨('unavailable')은 2.5초 뒤 한 번 더 묻고, 그래도 안 되면 기억하지 않는다(다음에 다시).
+const venueCoordCache = new Map<string, Promise<{ lat: number; lng: number } | null>>();
 
+function resolveVenueCoord(venue: string): Promise<{ lat: number; lng: number } | null> {
+  const q = venue.replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (!q) return Promise.resolve(null);
+  const hit = venueCoordCache.get(q);
+  if (hit) return hit;
+  const ask = () =>
+    fetchMapJson<{ places?: any[]; error?: string }>(`/chat/place-search?q=${encodeURIComponent(q)}`).then((d) => {
+      if (d?.error === 'unavailable') throw new MapFetchError(503, true); // 장소 검색이 잠깐 안 됨 — 0건과 다르다
+      const list: any[] = Array.isArray(d?.places) ? d.places : [];
+      return list.map((x) => ({ lat: Number(x?.lat), lng: Number(x?.lng) })).find((c) => isInKorea(c.lat, c.lng)) || null;
+    });
+  const p = ask()
+    .catch((e) => (e instanceof MapFetchError && e.transient && e.status === 503 ? new Promise((r) => setTimeout(r, 2500)).then(ask) : Promise.reject(e)))
+    .catch(() => {
+      venueCoordCache.delete(q);
+      return null;
+    });
+  venueCoordCache.set(q, p);
+  return p;
+}
+
+function VenueMap({ venue }: { venue: string }) {
+  const [state, setState] = useState<{ venue: string; coord: { lat: number; lng: number } | null } | null>(null);
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    const existingScript = document.querySelector('script[src*="dapi.kakao.com/v2/maps"]');
-    const init = () => {
-      if (!window.kakao?.maps) return;
-      window.kakao.maps.load(() => {
-        const container = mapRef.current;
-        if (!container) return;
-        const map = new window.kakao.maps.Map(container, {
-          center: new window.kakao.maps.LatLng(37.566, 126.978),
-          level: 4,
-        });
-        const ps = new window.kakao.maps.services.Places();
-        ps.keywordSearch(venue, (data: any[], status: string) => {
-          if (status === window.kakao.maps.services.Status.OK && data[0]) {
-            const pos = new window.kakao.maps.LatLng(data[0].y, data[0].x);
-            map.setCenter(pos);
-            new window.kakao.maps.Marker({ map, position: pos });
-          }
-        });
-        setLoaded(true);
-      });
-    };
-
-    if (existingScript) {
-      if (window.kakao?.maps) init();
-      else existingScript.addEventListener('load', init);
-    } else {
-      const script = document.createElement('script');
-      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=dca1b472188890116c81a55eff590885&libraries=services&autoload=false`;
-      script.async = true;
-      script.onload = init;
-      document.head.appendChild(script);
-    }
+    let alive = true;
+    resolveVenueCoord(venue).then((coord) => { if (alive) setState({ venue, coord }); });
+    return () => { alive = false; };
   }, [venue]);
-
+  if (!state || state.venue !== venue) return <div aria-hidden="true" className="h-[120px] w-full animate-pulse bg-[#F2F4F6]" />;
+  if (!state.coord) {
+    return <NaverMap title={venue} linkLabel="네이버 지도에서 보기" className="h-[120px] w-full" />;
+  }
   return (
-    <a href={`https://map.kakao.com/?q=${encodeURIComponent(venue)}`} target="_blank" rel="noopener noreferrer" className="block">
-      <div ref={mapRef} className="w-full h-[120px]" style={{ background: '#F3F4F6' }} />
-    </a>
+    <NaverMap
+      imageOnly
+      markers={[state.coord]}
+      zoom={16}
+      title={venue}
+      linkLabel="네이버 지도에서 보기"
+      className="h-[120px] w-full"
+    />
   );
 }
 
@@ -1149,7 +1223,7 @@ export function SystemMessageCard({ msg, isPro = false, chatPartner = null, myPr
             <p className="text-[16px] font-semibold">예약이 확정되었습니다</p>
             <p className="text-[12px] opacity-60 mt-0.5">내 스케줄에 자동 추가되었습니다</p>
           </div>
-          {sys.venue && <KakaoMapEmbed venue={sys.venue} />}
+          {sys.venue && <VenueMap venue={sys.venue} />}
           {(sys.eventDate || sys.venue) && (
             <div className="px-4 py-3 space-y-1.5">
               {sys.eventDate && (

@@ -14,8 +14,13 @@ import {
   ChevronDown,
   Loader2,
   X,
+  Search,
 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
+import NaverMap from '@/components/map/NaverMap';
+import { isInKorea } from '@/lib/naver-map-shared';
+import { naverMapLinkProps } from '@/lib/naver-map-links';
+import type { NaverLatLng } from '@/lib/naver-map';
 import {
   adminPartnersApi,
   type AdminPartnerDetail,
@@ -37,6 +42,9 @@ interface Props {
   mode: 'create' | 'edit';
   partnerId?: string;
 }
+
+/** /api/naver-map/geocode 결과 한 줄(쓰는 칸만) */
+type GeoResult = { roadAddress: string; jibunAddress: string; buildingName: string; lat: number; lng: number };
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: '임시저장' },
@@ -76,6 +84,56 @@ export default function PartnerForm({ mode, partnerId }: Props) {
 
   // 드래그앤드롭 상태
   const [isDragging, setIsDragging] = useState(false);
+
+  // 위치 — 주소로 좌표 찾기 + 네이버 지도 미리보기(261012 사장 '네이버 다이나믹맵 전부 다 적용').
+  //  예전엔 위도·경도를 손으로 적어야 했다. 찾기는 버튼(·엔터)으로만 — 글자마다 부르면 네이버 한도를 쓴다.
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoCandidates, setGeoCandidates] = useState<GeoResult[]>([]);
+  /** 다이나믹맵이 실제로 떠서 지도를 눌러 핀을 옮길 수 있는가(인증 실패면 정적 그림 — 보기만) */
+  const [pinEditable, setPinEditable] = useState(false);
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+  const coordsTyped = lat.trim() !== '' && lng.trim() !== '';
+  const coordsValid = coordsTyped && isInKorea(latNum, lngNum);
+  // 미리보기는 0.45초 멈춘 뒤에만 옮긴다 — 위도·경도·업체명을 칠 때마다 정적 지도 그림(유료 한도)을 새로 받지 않게
+  const [preview, setPreview] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPreview(coordsValid ? { lat: latNum, lng: lngNum, label: businessName.trim().slice(0, 20) } : null);
+    }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng, businessName]);
+
+  const applyGeo = (r: GeoResult) => {
+    setLat(r.lat.toFixed(7));
+    setLng(r.lng.toFixed(7));
+    setGeoCandidates([]);
+    toast.success(`좌표를 채웠어요 · ${r.roadAddress || r.jibunAddress}`);
+  };
+
+  const findCoords = async () => {
+    const query = address.replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (query.length < 2) {
+      toast.error('주소를 먼저 적어 주세요');
+      return;
+    }
+    setGeoBusy(true);
+    setGeoCandidates([]);
+    try {
+      const res = await fetch(`/api/naver-map/geocode?${new URLSearchParams({ query }).toString()}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as { results?: GeoResult[] };
+      const results = (data.results || []).filter((r) => isInKorea(r.lat, r.lng));
+      if (results.length === 0) toast.error('이 주소로 좌표를 못 찾았어요. 도로명이나 지번 주소로 적어 주세요(층·호수는 상세 주소 칸에)');
+      else if (results.length === 1) applyGeo(results[0]);
+      else setGeoCandidates(results);
+    } catch {
+      toast.error('좌표 찾기에 실패했어요. 잠시 뒤 다시 눌러 주세요');
+    } finally {
+      setGeoBusy(false);
+    }
+  };
 
   // 카테고리 로드 — 항상 실행
   useEffect(() => {
@@ -427,13 +485,53 @@ export default function PartnerForm({ mode, partnerId }: Props) {
         <h2 className="text-[15px] font-bold text-gray-900">위치</h2>
 
         <Field label="주소">
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="서울시 강남구 도산대로 123"
-            className="input-plain"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              onKeyDown={(e) => {
+                // 한글 조합 중 엔터는 글자 확정용 — 그때는 찾지 않는다
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void findCoords();
+                }
+              }}
+              placeholder="서울시 강남구 도산대로 123"
+              className="input-plain min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => void findCoords()}
+              disabled={geoBusy}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#E8F3FF] px-4 text-[13px] font-semibold text-[#3182F6] hover:bg-[#D6E9FF] disabled:opacity-60"
+            >
+              {geoBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              좌표 찾기
+            </button>
+          </div>
+          {geoCandidates.length > 0 && (
+            <div className="mt-2 overflow-hidden rounded-xl border border-[#E5E8EB]">
+              <p className="px-4 pb-1 pt-3 text-[12px] font-semibold text-[#8B95A1]">찾은 주소 {geoCandidates.length}곳 — 맞는 곳을 고르세요</p>
+              {geoCandidates.map((r) => (
+                <button
+                  key={`${r.lat},${r.lng},${r.roadAddress}`}
+                  type="button"
+                  onClick={() => applyGeo(r)}
+                  className="block w-full px-4 py-2.5 text-left hover:bg-[#F9FAFB]"
+                >
+                  <span className="block text-[14px] font-semibold text-[#191F28]">
+                    {r.roadAddress || r.jibunAddress}
+                    {/* 도로명 주소 끝에 건물 이름이 이미 붙어 오면 또 쓰지 않는다 */}
+                    {r.buildingName && !(r.roadAddress || r.jibunAddress).includes(r.buildingName) && (
+                      <span className="ml-1 font-medium text-[#8B95A1]">({r.buildingName})</span>
+                    )}
+                  </span>
+                  {r.roadAddress && r.jibunAddress && <span className="block text-[12px] text-[#8B95A1]">지번 {r.jibunAddress}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </Field>
 
         <Field label="상세 주소 (동/호수 등)">
@@ -466,6 +564,56 @@ export default function PartnerForm({ mode, partnerId }: Props) {
             />
           </Field>
         </div>
+
+        {/* 네이버 지도 미리보기 — 업체 상세 지도와 같은 좌표·핀. 다이나믹맵이 뜨면 지도를 눌러 핀을 옮겨 위도·경도를 바로잡는다 */}
+        {coordsTyped && !coordsValid ? (
+          <p className="break-keep rounded-xl bg-[#FFF4E5] px-4 py-3 text-[13px] font-medium text-[#B25E00]">
+            대한민국 밖 좌표예요. 위도(33~38)와 경도(124~132)가 서로 바뀌지 않았는지 확인해 주세요.
+          </p>
+        ) : preview ? (
+          <div>
+            <NaverMap
+              className="h-[260px] rounded-xl"
+              markers={[{ lat: preview.lat, lng: preview.lng, label: preview.label || undefined }]}
+              zoom={17}
+              interactive
+              // 다이나믹맵이 뜬 뒤엔 핀을 옮길 때마다 밑에 깔 정적 그림(유료 한도)을 또 받지 않는다 — 실패하면 컴포넌트가 다시 그림으로
+              staticPreview={!pinEditable}
+              lockHint="눌러서 지도 움직이기 · 핀 옮기기"
+              title={businessName.trim() || undefined}
+              address={address.trim() || undefined}
+              onReady={(map, naver) => {
+                naver.Event.addListener(map, 'click', (ev) => {
+                  const c = (ev as { coord?: NaverLatLng } | undefined)?.coord;
+                  if (!c || !isInKorea(c.lat(), c.lng())) return;
+                  setLat(c.lat().toFixed(7));
+                  setLng(c.lng().toFixed(7));
+                });
+                setPinEditable(true);
+              }}
+              onFallback={() => setPinEditable(false)}
+            />
+            <div className="mt-2 flex items-center justify-between gap-3 text-[12px]">
+              <span className="text-[#8B95A1]">
+                {pinEditable ? '지도를 눌러 핀을 옮기면 위도·경도가 바뀌어요(저장해야 반영)' : '업체 상세 화면에 이 위치로 지도가 나와요'}
+              </span>
+              <a
+                {...naverMapLinkProps({ lat: preview.lat, lng: preview.lng, name: businessName.trim() || address.trim() })}
+                className="shrink-0 font-semibold text-[#3182F6] hover:underline"
+              >
+                네이버 지도에서 확인 ↗
+              </a>
+            </div>
+          </div>
+        ) : coordsValid ? (
+          // 미리보기가 0.45초 뒤 들어올 자리 — 칸이 튀지 않게 같은 높이로
+          <div className="h-[280px] animate-pulse rounded-xl bg-[#F2F4F6]" aria-hidden />
+        ) : !coordsTyped ? (
+          <div className="flex h-[112px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#D1D6DB] bg-[#F9FAFB] px-4 text-center">
+            <span className="text-[13px] font-semibold text-[#4E5968]">좌표가 비어 있어요</span>
+            <span className="text-[12px] text-[#8B95A1]">주소를 적고 &lsquo;좌표 찾기&rsquo;를 누르면 네이버 지도에 핀이 찍혀요</span>
+          </div>
+        ) : null}
       </div>
 
       {/* 연락처 / 링크 */}
