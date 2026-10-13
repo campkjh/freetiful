@@ -192,8 +192,8 @@ export const VALUES: ValueCard[] = [
     num: '04',
     title: tr('기술 기반 혁신', 'Tech-Driven Innovation', '技術基盤の革新', '技术驱动创新'),
     desc: tr('AI 매칭, 데이터 분석 등 최신 기술을 활용하여 매칭의 정확도와 서비스 품질을 끊임없이 높여갑니다.', 'We leverage cutting-edge tech like AI matching and data analytics to continuously improve accuracy and service quality.', 'AI マッチング、データ分析等の最新技術を活用し、マッチング精度とサービス品質を絶えず向上させます。', '运用 AI 匹配、数据分析等前沿技术，持续提升匹配精准度与服务品质。'),
-    // 앱 실제 캡처(진행자 목록 · 6가지 항목 후기)
-    screens: [`${V2}/screens/pros.webp`, `${V2}/screens/reviews.webp`],
+    // 앱 실제 캡처(진행자 목록 · 리뷰 화면). 리뷰 = 지금 상세 리뷰 칸(AI 요약 · 키워드 판 · 리뷰 줄) 머리줄+띠 캡처 — 옛 6가지 항목 후기(reviews.webp)를 바꿈(261013 사장 '리뷰ui가 옛날꺼임')
+    screens: [`${V2}/screens/pros.webp`, `${V2}/screens/reviews-2026.webp`],
   },
 ];
 

@@ -9,12 +9,15 @@ import { prefersReducedMotion, scrollToY } from '../scroll-to';
 import { VALUES, VALUES_HEAD, type ValueCard } from './content';
 import { put } from './motion';
 import CeoSilk from './CeoSilk';
+import CeoReviewPhone from './CeoReviewPhone';
+import { VALUES_CSS } from './valuesStyles';
 
 /*
  * ③ 경영 철학 — 카드 4장이 쌓이는 장면(261009 사장 '가치 · 비전 카드가 쌓이는 sticky 장면').
  * 카드마다 sticky(위 끝이 조금씩 아래 — 겹친 카드 머리가 계단처럼 보인다). 다음 카드가 올라와 덮는 만큼 앞 카드는 0.94 배로 줄며 어두워진다
- * (스크롤 따라, 리렌더 없이). 카드 1~3 = 프리티풀 행사 사진(진행자 · 결혼식 사회 · 연회장), 4 = 앱 실제 화면(진행자 목록 · 6가지 항목 후기) 두 대 · 바탕은 일렁이는 비단(CeoSilk).
+ * (스크롤 따라, 리렌더 없이). 카드 1~3 = 프리티풀 행사 사진(진행자 · 결혼식 사회 · 연회장), 4 = 앱 실제 화면(진행자 목록 · 리뷰 화면(AI 키워드 판 → 리뷰)) 두 대 · 바탕은 일렁이는 비단(CeoSilk).
  * 모서리 5 · 아래쪽 그라데이션 블러(261013 사장).
+ * 카드 4 오른쪽 폰 = AI 키워드 판이 먼저 돌고 리뷰 화면(지금 앱 캡처)으로 내려앉는다(CeoReviewPhone · valuesStyles, 261013 사장) — 카드가 맨 앞일 때.
  * 데스크톱(≥1024)은 왼쪽 제목 칸이 따라오며 지금 맨 위 카드의 번호 · 제목이 진해진다(누르면 그 카드로).
  * 움직임 줄이기면 쌓지 않고 차례로 늘어놓는다.
  */
@@ -22,13 +25,19 @@ import CeoSilk from './CeoSilk';
 const SCALE_STEP = 0.06;
 const DIM_MAX = 0.42;
 
-function PhonePair({ screens }: { screens: string[] }) {
+function PhonePair({ screens, active, still }: { screens: string[]; active: boolean; still: boolean }) {
   return (
     <div className="cx-vc-phones" aria-hidden>
       {screens.map((src, i) => (
         <div key={src} className="cx-vc-phone" style={{ '--i': i } as CSSProperties}>
-          <div className="cx-vc-screen">
-            <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+          {/* cxv-screen = 화면 칸을 판(.cxv)의 기준 칸으로 — 없으면 판이 베젤까지 덮고 둥근 모서리로 잘리지 않는다(261013 검토) */}
+          <div className={i === 1 ? 'cx-vc-screen cxv-screen' : 'cx-vc-screen'}>
+            {/* 오른쪽 폰 = AI 키워드 판 → 리뷰 화면(261013 사장 '리뷰 ui가 나오기 전에 AI 애니메이션 … 나오면서 리뷰 ui로') */}
+            {i === 1 ? (
+              <CeoReviewPhone src={src} active={active} still={still} />
+            ) : (
+              <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+            )}
           </div>
           <span className="cx-vc-island" />
         </div>
@@ -37,13 +46,13 @@ function PhonePair({ screens }: { screens: string[] }) {
   );
 }
 
-function Card({ v, i, t, cardRef, dimRef }: { v: ValueCard; i: number; t: ReturnType<typeof useT>; cardRef: (el: HTMLLIElement | null) => void; dimRef: (el: HTMLDivElement | null) => void }) {
+function Card({ v, i, t, front, still, cardRef, dimRef }: { v: ValueCard; i: number; t: ReturnType<typeof useT>; front: boolean; still: boolean; cardRef: (el: HTMLLIElement | null) => void; dimRef: (el: HTMLDivElement | null) => void }) {
   return (
     <li ref={cardRef} className={`cx-vc ${v.screens ? 'cx-vc-light' : ''}`} style={{ '--i': i } as CSSProperties}>
       {/* 앱 화면 카드(04 기술 기반 혁신) 바탕 = 이사진 소개와 같은 일렁이는 비단(261013 사장 '파란색 말고 이사진 소개 배경처럼') */}
       {v.screens && <CeoSilk className="cx-vc-silk" />}
       {v.photo && <img className="cx-vc-ph" src={v.photo.src} alt="" loading="lazy" decoding="async" draggable={false} style={{ objectPosition: v.photo.pos }} />}
-      {v.screens && <PhonePair screens={v.screens} />}
+      {v.screens && <PhonePair screens={v.screens} active={front} still={still} />}
       {/* 아래쪽 그라데이션 블러(공지사항 카드와 같은 결 — blur 28 · 위로 갈수록 사라짐, 261013) → 그 위 색 막 → 글자 */}
       <div className="cx-vc-blur" aria-hidden />
       <div className="cx-vc-grad" aria-hidden />
@@ -155,6 +164,7 @@ export default function CeoValues() {
 
   return (
     <section className="cx-va" aria-labelledby="cx-va-title">
+      <style dangerouslySetInnerHTML={{ __html: VALUES_CSS }} />
       <div className="cx-wrap cx-va-grid">
         <div className="cx-va-side">
           <FadeUp>
@@ -179,6 +189,8 @@ export default function CeoValues() {
               v={v}
               i={i}
               t={t}
+              front={front === i}
+              still={still}
               cardRef={(el) => { cardRefs.current[i] = el; }}
               dimRef={(el) => { dimRefs.current[i] = el; }}
             />
