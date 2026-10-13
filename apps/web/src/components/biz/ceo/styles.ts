@@ -162,14 +162,23 @@ html{position:relative}
 .cx-va-index button[data-on]{color:#191F28}
 .cx-va-ix{width:24px;font-size:14px;font-variant-numeric:tabular-nums}
 .cx-va-list{margin:0;padding:0 0 6vh;list-style:none}
-.cx-vc{position:sticky;top:calc(var(--hh) + 20px + var(--i) * 12px);height:min(500px,calc(100vh - var(--hh) - 150px));height:min(500px,calc(100svh - var(--hh) - 150px));min-height:400px;margin-bottom:28px;border-radius:28px;overflow:hidden;background:#191F28;transform-origin:50% 0;will-change:transform;isolation:isolate;box-shadow:0 30px 60px -30px rgba(2,32,71,.35)}
+.cx-vc{position:sticky;top:calc(var(--hh) + 20px + var(--i) * 12px);height:min(500px,calc(100vh - var(--hh) - 150px));height:min(500px,calc(100svh - var(--hh) - 150px));min-height:400px;margin-bottom:28px;border-radius:5px;overflow:hidden;background:#191F28;transform-origin:50% 0;will-change:transform;isolation:isolate;box-shadow:0 30px 60px -30px rgba(2,32,71,.35)}
 .cx-vc:last-child{margin-bottom:0}
 @media (min-width:1024px){.cx-vc{top:calc(var(--hh) + 110px + var(--i) * 18px);height:min(560px,calc(100vh - var(--hh) - 190px));margin-bottom:40px}}
 .cx-va-still .cx-vc{position:relative;top:auto}
 .cx-vc-ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cx-vc-grad{position:absolute;inset:0;background:linear-gradient(180deg,rgba(2,9,19,.2) 0%,rgba(2,9,19,0) 26%,rgba(2,9,19,.4) 54%,rgba(2,9,19,.88) 100%);pointer-events:none}
-.cx-vc-blue{background:linear-gradient(155deg,#5AA2FF 0%,#3182F6 46%,#1B5FD0 100%)}
-.cx-vc-blue .cx-vc-grad{background:linear-gradient(180deg,rgba(12,44,120,0) 38%,rgba(12,44,120,.6) 100%)}
+/* 아래쪽 그라데이션 블러 — 공지사항 카드와 같은 값(blur 28 · saturate 150% · 위 0% → 30% 반 → 60% 다), 그 위에 색 막(.cx-vc-grad)(261013 사장 '프리티풀 공지사항처럼') */
+.cx-vc-blur{position:absolute;left:0;right:0;bottom:0;height:62%;-webkit-backdrop-filter:blur(28px) saturate(150%);backdrop-filter:blur(28px) saturate(150%);-webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.5) 30%,#000 60%);mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.5) 30%,#000 60%);pointer-events:none}
+/* 04 앱 화면 카드 = 이사진 소개와 같은 일렁이는 비단(CeoSilk) — 바탕 CSS 는 WebGL 없을 때 · 첫 장 전 정지 그림(이사진 섹션과 같은 그러데이션), 밝은 바탕이라 글자는 어둡게(261013 사장 '파란색 말고') */
+.cx-vc-light{background:radial-gradient(70% 55% at 16% 18%,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 70%),linear-gradient(166deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 43%,rgba(255,255,255,0) 56%),linear-gradient(172deg,rgba(255,255,255,0) 56%,rgba(176,202,250,.55) 68%,rgba(255,255,255,0) 80%),linear-gradient(158deg,#F8FAFF 0%,#EAF1FE 40%,#D7E5FC 72%,#BCD2F8 100%)}
+.cx-vc-silk{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.cx-vc-silk canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity 1.4s ease}
+.cx-vc-silk canvas[data-on]{opacity:1}
+.cx-vc-light .cx-vc-grad{background:linear-gradient(180deg,rgba(246,249,255,0) 42%,rgba(246,249,255,.5) 66%,rgba(246,249,255,.82) 100%)}
+.cx-vc-light .cx-vc-body{color:#191F28}
+.cx-vc-light .cx-vc-d{color:#4E5968}
+.cx-vc-light .cx-vc-num{border-color:rgba(49,130,246,.22);background:rgba(255,255,255,.62);color:#1B64DA}
 .cx-vc-body{position:absolute;left:24px;right:24px;bottom:26px;z-index:1;color:#fff}
 @media (min-width:1024px){.cx-vc-body{left:40px;right:40px;bottom:38px}}
 .cx-vc-num{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.16);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-size:13px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
@@ -379,7 +388,7 @@ html{position:relative}
   .cx-rise,.cx-hint,.cx-hm-card,.cx-hm-pt,.cx-vc-phone{animation:none}
   .cx-hint-line::after{animation:none;transform:none}
   .cx-chip{opacity:1;transform:none;transition:none}
-  .cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
+  .cx-vc-silk canvas,.cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
   .cx-ld[data-arm] .cx-lc{opacity:1;transform:none}
   .cx-sign-line{transform:none}
 }

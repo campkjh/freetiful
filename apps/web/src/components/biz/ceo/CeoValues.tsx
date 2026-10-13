@@ -8,11 +8,13 @@ import { clamp01 } from '../toss/scene';
 import { prefersReducedMotion, scrollToY } from '../scroll-to';
 import { VALUES, VALUES_HEAD, type ValueCard } from './content';
 import { put } from './motion';
+import CeoSilk from './CeoSilk';
 
 /*
  * ③ 경영 철학 — 카드 4장이 쌓이는 장면(261009 사장 '가치 · 비전 카드가 쌓이는 sticky 장면').
  * 카드마다 sticky(위 끝이 조금씩 아래 — 겹친 카드 머리가 계단처럼 보인다). 다음 카드가 올라와 덮는 만큼 앞 카드는 0.94 배로 줄며 어두워진다
- * (스크롤 따라, 리렌더 없이). 카드 1~3 = 프리티풀 행사 사진(진행자 · 결혼식 사회 · 연회장), 4 = 앱 실제 화면(진행자 목록 · 6가지 항목 후기) 두 대.
+ * (스크롤 따라, 리렌더 없이). 카드 1~3 = 프리티풀 행사 사진(진행자 · 결혼식 사회 · 연회장), 4 = 앱 실제 화면(진행자 목록 · 6가지 항목 후기) 두 대 · 바탕은 일렁이는 비단(CeoSilk).
+ * 모서리 5 · 아래쪽 그라데이션 블러(261013 사장).
  * 데스크톱(≥1024)은 왼쪽 제목 칸이 따라오며 지금 맨 위 카드의 번호 · 제목이 진해진다(누르면 그 카드로).
  * 움직임 줄이기면 쌓지 않고 차례로 늘어놓는다.
  */
@@ -37,9 +39,13 @@ function PhonePair({ screens }: { screens: string[] }) {
 
 function Card({ v, i, t, cardRef, dimRef }: { v: ValueCard; i: number; t: ReturnType<typeof useT>; cardRef: (el: HTMLLIElement | null) => void; dimRef: (el: HTMLDivElement | null) => void }) {
   return (
-    <li ref={cardRef} className={`cx-vc ${v.screens ? 'cx-vc-blue' : ''}`} style={{ '--i': i } as CSSProperties}>
+    <li ref={cardRef} className={`cx-vc ${v.screens ? 'cx-vc-light' : ''}`} style={{ '--i': i } as CSSProperties}>
+      {/* 앱 화면 카드(04 기술 기반 혁신) 바탕 = 이사진 소개와 같은 일렁이는 비단(261013 사장 '파란색 말고 이사진 소개 배경처럼') */}
+      {v.screens && <CeoSilk className="cx-vc-silk" />}
       {v.photo && <img className="cx-vc-ph" src={v.photo.src} alt="" loading="lazy" decoding="async" draggable={false} style={{ objectPosition: v.photo.pos }} />}
       {v.screens && <PhonePair screens={v.screens} />}
+      {/* 아래쪽 그라데이션 블러(공지사항 카드와 같은 결 — blur 28 · 위로 갈수록 사라짐, 261013) → 그 위 색 막 → 글자 */}
+      <div className="cx-vc-blur" aria-hidden />
       <div className="cx-vc-grad" aria-hidden />
       <div className="cx-vc-body">
         <span className="cx-vc-num">{v.num}</span>
