@@ -200,7 +200,8 @@ export const VALUES: ValueCard[] = [
 /* ④ 이사진 소개 — 9명(261009 사장: 김도윤 부대표 COO · 차보경 마케팅실장 추가) */
 export const LEADERS_HEAD = {
   eyebrow: 'LEADERSHIP',
-  title: tr('이사진 소개', 'Leadership', '役員紹介', '董事会介绍'),
+  // 261013 사장 '이사진 소개 말고 이사진 및 책임자 소개'
+  title: tr('이사진 및 책임자 소개', 'Executives & Managers', '役員・責任者紹介', '董事及负责人介绍'),
   /** 제목 아래 한 줄(261012 사장 참고 화면의 '작은 회색 + 굵은 한 줄' 자리) — 사람 소개일 뿐 새 사실 · 숫자는 없다 */
   sub: tr('프리티풀을 이끄는 사람들', 'The people behind Freetiful', 'Freetiful を率いる人々', '引领 Freetiful 的人们'),
   prev: tr('이전 이사', 'Previous', '前へ', '上一位'),

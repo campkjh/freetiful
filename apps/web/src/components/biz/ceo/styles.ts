@@ -26,6 +26,8 @@ html{position:relative}
 /* 영문 소제목(CEO MESSAGE · OUR PHILOSOPHY · LEADERSHIP · ORGANIZATION · CEO 인사말) = 쿨그레이 · 얇게(261013 사장 '영문 서브타이틀 색상 쿨그레이로, 글씨 더 얇게') */
 .cx-eyebrow{margin:0;font-size:15px;line-height:1.4;font-weight:400;letter-spacing:-0.01em;color:#8B95A1}
 @media (min-width:768px){.cx-eyebrow{font-size:17px}}
+/* 이사진 및 책임자 소개 — 두 줄일 때 고르게('이사진 및 / 책임자 소개', '소개'만 홀로 남지 않게, 261013) */
+.cx-ld .cx-h2{text-wrap:balance}
 .cx-h2{margin:14px 0 0;font-size:clamp(30px,calc(22px + 2.2vw),56px);line-height:1.3;font-weight:700;letter-spacing:-0.035em;color:#191F28;word-break:keep-all}
 .cx-hw{display:inline-block}
 .cx-rise{animation:cxRise 1s var(--ez) backwards;animation-delay:calc(var(--i,0) * 80ms + 120ms)}
