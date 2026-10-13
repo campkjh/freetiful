@@ -197,12 +197,7 @@ html{position:relative}
 .cx-vc-d{margin:10px 0 0;max-width:32em;font-size:15px;line-height:1.65;color:rgba(255,255,255,.84);word-break:keep-all}
 @media (min-width:1024px){.cx-vc-t{font-size:36px}.cx-vc-d{font-size:17px}}
 .cx-vc-dim{position:absolute;inset:0;z-index:2;background:#0B1220;opacity:0;pointer-events:none}
-.cx-vc-phones{position:absolute;right:-4%;top:-6%;width:74%;height:84%;pointer-events:none}
-.cx-vc-phone{position:absolute;left:calc(6% + var(--i) * 44%);top:calc(16% - var(--i) * 14%);width:46%;aspect-ratio:390/844;padding:5px;border-radius:30px;background:#0E1013;box-shadow:0 40px 60px -24px rgba(5,20,60,.6);transform:rotate(-9deg);animation:cxFloat 7s ease-in-out calc(var(--i) * -3.2s) infinite}
-@keyframes cxFloat{0%,100%{translate:0 0}50%{translate:0 -10px}}
-.cx-vc-screen{width:100%;height:100%;border-radius:25px;overflow:hidden;background:#fff}
-.cx-vc-screen img{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
-.cx-vc-island{position:absolute;left:50%;top:9px;width:30%;height:4.2%;transform:translateX(-50%);border-radius:999px;background:#0E1013}
+/* 카드 04 폰(기기 · 배치 · 상태 표시줄 · 섬)은 valuesStyles.ts 한 곳에서 그린다(261013 사장 '기술 기반 혁신 부분 모바일 아이폰 디자인 너무 이상해 pc도 다듬고 모바일도 다듬어줘') */
 
 /* ④ 이사진 — 일렁이는 유리 · 비단 바탕 + 카드 줄(261012 사장 '이런느낌으로 · 배경을 일렁이는 고급스러운 3d배경 느낌으로')
  * 261012 사장 2차 — 카드 살짝 반투명 · 스크롤 내리면 오른쪽에서 왼쪽으로 흐름 · 왼쪽은 그라데이션으로 사라짐 · 알약 '대표이사(CEO)' · 01 엄청 옅게 · 카드 r 5 */
@@ -395,7 +390,7 @@ html{position:relative}
 .cx-foot{background:rgb(2,14,32)}
 
 @media (prefers-reduced-motion:reduce){
-  .cx-rise,.cx-hint,.cx-hm-card,.cx-hm-pt,.cx-vc-phone{animation:none}
+  .cx-rise,.cx-hint,.cx-hm-card,.cx-hm-pt{animation:none}
   .cx-hint-line::after{animation:none;transform:none}
   .cx-chip{opacity:1;transform:none;transition:none}
   .cx-vc-silk canvas,.cx-space canvas,.cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}

@@ -1,7 +1,7 @@
 'use client';
 
 /* eslint-disable @next/next/no-img-element -- public 정적 행사 사진 · 앱 캡처 */
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { useT } from '@/lib/biz/i18n';
 import { FadeUp } from '@/components/biz/biz-motion';
 import { clamp01 } from '../toss/scene';
@@ -18,6 +18,8 @@ import { VALUES_CSS } from './valuesStyles';
  * (스크롤 따라, 리렌더 없이). 카드 1~3 = 프리티풀 행사 사진(진행자 · 결혼식 사회 · 연회장), 4 = 앱 실제 화면(진행자 목록 · 리뷰 화면(AI 키워드 판 → 리뷰)) 두 대 · 바탕은 일렁이는 비단(CeoSilk).
  * 모서리 5 · 아래쪽 그라데이션 블러(261013 사장).
  * 카드 4 오른쪽 폰 = AI 키워드 판이 먼저 돌고 리뷰 화면(지금 앱 캡처)으로 내려앉는다(CeoReviewPhone · valuesStyles, 261013 사장) — 카드가 맨 앞일 때.
+ * 카드 4 폰 기기 · 배치 다시 그림(261013 사장 '기술 기반 혁신 부분 모바일 아이폰 디자인 너무 이상해 pc도 다듬고 모바일도 다듬어줘') —
+ *  아이폰 15 · 16 Pro 비율 기기, PC = 앞(리뷰) 크게 똑바로 · 뒤(목록) 왼쪽 위 작게 · 둘 다 카드 안 · 글 칸과 안 겹침, 모바일 · 태블릿 = 앞 폰 한 대 가운데.
  * 데스크톱(≥1024)은 왼쪽 제목 칸이 따라오며 지금 맨 위 카드의 번호 · 제목이 진해진다(누르면 그 카드로).
  * 움직임 줄이기면 쌓지 않고 차례로 늘어놓는다.
  */
@@ -40,31 +42,71 @@ function StatusBar() {
   );
 }
 
+/** 카드 04 폰 두 대(261013 사장 '기술 기반 혁신 부분 모바일 아이폰 디자인 너무 이상해 pc도 다듬고 모바일도 다듬어줘').
+ *  기기 = 아이폰 15 · 16 Pro 비율(화면 393×852) — 티타늄 띠 · 검은 베젤 · 동심 모서리 · 다이내믹 아일랜드 · 옆 단추 · 그림자, 크기는 모두 기기 폭 기준(cqw).
+ *  뒤(왼쪽) = 진행자 목록 캡처, 앞(오른쪽) = AI 키워드 판 → 리뷰 화면(CeoReviewPhone). 배치는 valuesStyles(PC 두 대 · 모바일 · 태블릿 앞 폰 한 대) */
 function PhonePair({ screens, active, still }: { screens: string[]; active: boolean; still: boolean }) {
   return (
     <div className="cx-vc-phones" aria-hidden>
-      {screens.map((src, i) => (
-        <div key={src} className="cx-vc-phone" style={{ '--i': i } as CSSProperties}>
-          {/* cxv-screen = 화면 칸을 판(.cxv)의 기준 칸으로 — 없으면 판이 베젤까지 덮고 둥근 모서리로 잘리지 않는다(261013 검토) */}
-          <div className={i === 1 ? 'cx-vc-screen cxv-screen' : 'cx-vc-screen'}>
-            <StatusBar />
-            {/* 오른쪽 폰 = AI 키워드 판 → 리뷰 화면(261013 사장 '리뷰 ui가 나오기 전에 AI 애니메이션 … 나오면서 리뷰 ui로') */}
-            {i === 1 ? (
-              <CeoReviewPhone src={src} active={active} still={still} />
-            ) : (
-              <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
-            )}
+      {screens.map((src, i) => {
+        const front = i === screens.length - 1;
+        return (
+          <div key={src} className="cx-vc-phone" data-k={front ? 'front' : 'back'}>
+            {/* 옆 단추(동작 · 음량 둘 · 전원) — 몸체 뒤에서 살짝 나온다 */}
+            <span className="cx-vc-key cx-vc-key-a" />
+            <span className="cx-vc-key cx-vc-key-u" />
+            <span className="cx-vc-key cx-vc-key-d" />
+            <span className="cx-vc-key cx-vc-key-p" />
+            <div className="cx-vc-dev">
+              {/* cxv-screen = 화면 칸을 판(.cxv)의 기준 칸으로 — 없으면 판이 베젤까지 덮고 둥근 모서리로 잘리지 않는다(261013 검토) */}
+              <div className={front ? 'cx-vc-screen cxv-screen' : 'cx-vc-screen'}>
+                <StatusBar />
+                {/* 앞 폰 = AI 키워드 판 → 리뷰 화면(261013 사장 '리뷰 ui가 나오기 전에 AI 애니메이션 … 나오면서 리뷰 ui로') */}
+                {front ? (
+                  <CeoReviewPhone src={src} active={active} still={still} />
+                ) : (
+                  <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+                )}
+                {/* 섬은 화면 칸 안 — 상태 표시줄과 같은 기준(화면 폭 cqw)이라 시간 · 아이콘 줄 가운데에 맞는다 */}
+                <span className="cx-vc-island" />
+              </div>
+            </div>
           </div>
-          <span className="cx-vc-island" />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
+/** 앱 화면 카드(04) — 글 칸 위 끝 ~ 카드 바닥 거리(--vc-tb, px)를 카드에 적어 둔다(크기가 바뀔 때만 · 매 프레임 재지 않는다).
+ *  폰 크기(모바일 앞 폰 · PC 뒤 폰) · 블러 · 흰 막이 이 값을 봐서, 영어처럼 글이 길어 줄이 늘어도 폰과 글이 겹치지 않는다(261013).
+ *  PC 뒤 폰이 앞 폰의 .55 배보다 작아지면(낮은 창 · 긴 글) 숨긴다(data-solo — 자리는 그대로라 폭을 계속 잴 수 있다). */
+function useTextBlockVar(on: boolean, liRef: RefObject<HTMLLIElement | null>, bodyRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const li = liRef.current;
+    const body = bodyRef.current;
+    if (!on || !li || !body || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = () => {
+      const tb = li.clientHeight - body.offsetTop;
+      if (tb > 0) li.style.setProperty('--vc-tb', `${Math.round(tb)}px`);
+      const phones = li.querySelector<HTMLElement>('.cx-vc-phones');
+      const back = li.querySelector<HTMLElement>('.cx-vc-phone[data-k=back]');
+      const fr = li.querySelector<HTMLElement>('.cx-vc-phone[data-k=front]');
+      if (phones && back && fr) phones.toggleAttribute('data-solo', back.offsetWidth > 0 && back.offsetWidth < fr.offsetWidth * 0.55);
+    };
+    const ro = new ResizeObserver(apply);
+    ro.observe(li);
+    ro.observe(body);
+    return () => ro.disconnect();
+  }, [on, liRef, bodyRef]);
+}
+
 function Card({ v, i, t, front, still, cardRef, dimRef }: { v: ValueCard; i: number; t: ReturnType<typeof useT>; front: boolean; still: boolean; cardRef: (el: HTMLLIElement | null) => void; dimRef: (el: HTMLDivElement | null) => void }) {
+  const liRef = useRef<HTMLLIElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useTextBlockVar(!!v.screens, liRef, bodyRef);
   return (
-    <li ref={cardRef} className={`cx-vc ${v.screens ? 'cx-vc-light' : ''}`} style={{ '--i': i } as CSSProperties}>
+    <li ref={(el) => { liRef.current = el; cardRef(el); }} className={`cx-vc ${v.screens ? 'cx-vc-light' : ''}`} style={{ '--i': i } as CSSProperties}>
       {/* 앱 화면 카드(04 기술 기반 혁신) 바탕 = 이사진 소개와 같은 일렁이는 비단(261013 사장 '파란색 말고 이사진 소개 배경처럼') */}
       {v.screens && <CeoSilk className="cx-vc-silk" />}
       {v.photo && <img className="cx-vc-ph" src={v.photo.src} alt="" loading="lazy" decoding="async" draggable={false} style={{ objectPosition: v.photo.pos }} />}
@@ -72,7 +114,7 @@ function Card({ v, i, t, front, still, cardRef, dimRef }: { v: ValueCard; i: num
       {/* 아래쪽 그라데이션 블러(공지사항 카드와 같은 결 — blur 28 · 위로 갈수록 사라짐, 261013) → 그 위 색 막 → 글자 */}
       <div className="cx-vc-blur" aria-hidden />
       <div className="cx-vc-grad" aria-hidden />
-      <div className="cx-vc-body">
+      <div ref={bodyRef} className="cx-vc-body">
         {/* 카드 안 번호 알약(01 …)은 뺐다(261013 사장 '카드 안에 있는 01 이런 거 없애줘') — 왼쪽 목록 번호는 그대로 */}
         <h3 className="cx-vc-t">{t(v.title)}</h3>
         <p className="cx-vc-d">{t(v.desc)}</p>
