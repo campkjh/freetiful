@@ -11,7 +11,7 @@ import { CEO_NAME, FOOTER as CEO_FOOTER } from '@/components/biz/ceo/content';
 import { SmoothScroll, prefersReducedMotion, useFrame, usePassProgress } from '@/components/biz/toss/scene';
 import { BizFooter, DockIndicator } from '@/components/biz/toss/TossChrome';
 import {
-  BIZ_INQUIRY_PATH, bizSectionAnchor, cameByHistory, isBizInquirySection, scrollToBizSection, setBizNavigator, takePendingBizSection,
+  BIZ_INQUIRY_PATH, bizSectionAnchor, cameByHistory, goBizInquiry, isBizInquirySection, scrollToBizSection, setBizNavigator, takePendingBizSection,
 } from '@/components/biz/scroll-to';
 import SceneIntro from '@/components/biz/toss/SceneIntro';
 import SceneMatch from '@/components/biz/toss/SceneMatch';
@@ -733,7 +733,7 @@ export default function BizPage() {
     try { id = decodeURIComponent(raw); } catch { /* 그대로 */ }
     if (isBizInquirySection(id)) {
       e.preventDefault();
-      router.push(BIZ_INQUIRY_PATH);
+      goBizInquiry((href) => router.push(href)); // PC = 상담 팝업(261013 사장), 폰 = 상담 채팅 화면
       return;
     }
     if (!document.getElementById(id)) return;
@@ -766,6 +766,8 @@ export default function BizPage() {
       ...item,
       onClick: () => {
         if (item.file.startsWith('#')) { scrollToBizSection(item.file.slice(1)); return; } // 네이티브 smooth 는 Lenis 와 섞여 끊긴다
+        // 파트너 제안서 = 상담 — PC 는 팝업으로(261013 사장 'pc버전에서 비즈 문의클릭하면 페이지로 이동하는게 아닌 팝업')
+        if (item.file === BIZ_INQUIRY_PATH) { goBizInquiry((href) => router.push(href)); return; }
         if (!/\.(svg|pdf|png|jpe?g|webp)$/i.test(item.file)) { router.push(item.file); return; }
         setPreviewFile(item.file);
       },

@@ -68,9 +68,27 @@ export function setBizNavigator(fn: ((href: string) => void) | null) {
   bizNavigate = fn;
 }
 
-/** 상담 채팅으로 — push 를 주면 그걸로, 없으면 등록된 이동 함수, 그것도 없으면 주소 이동 */
+/**
+ * PC 상담 팝업(261013 사장 'pc버전에서 비즈 문의클릭하면 페이지로 이동하는게 아닌 팝업이 나오게끔') —
+ * 비즈 레이아웃의 BizInquiryModalHost 가 이 신호를 듣고, PC(폭 1024 이상 + 마우스 · 트랙패드, 터치 태블릿 제외)면 팝업을 열고 신호를 '받았다'(preventDefault)고 표시한다.
+ * 링크(<a href="/biz/inquiry">)는 Host 가 누름을 직접 가로채고, 코드로 가는 길(장면 CTA · 자료실 등)은 goBizInquiry 가 이걸 먼저 부른다.
+ */
+export const BIZ_INQUIRY_OPEN_EVENT = 'biz-inquiry-open';
+
+/** 상담 팝업 열기 — 팝업이 열렸으면 true(폰 폭 · Host 없음 = false → 부른 쪽이 /biz/inquiry 로 이동) */
+export function openBizInquiry(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return !window.dispatchEvent(new CustomEvent(BIZ_INQUIRY_OPEN_EVENT, { cancelable: true }));
+  } catch {
+    return false;
+  }
+}
+
+/** 상담 채팅으로 — PC 면 팝업(261013), 아니면 push 를 주면 그걸로, 없으면 등록된 이동 함수, 그것도 없으면 주소 이동 */
 export function goBizInquiry(push?: (href: string) => void) {
   pendingSection = null;
+  if (openBizInquiry()) return;
   const nav = push || bizNavigate;
   if (nav) nav(BIZ_INQUIRY_PATH);
   else if (typeof window !== 'undefined') window.location.assign(BIZ_INQUIRY_PATH);
@@ -137,4 +155,11 @@ if (typeof window !== 'undefined') {
 /** 방금(ms 안) 뒤로 · 앞으로 가기로 온 화면인지 — 이때는 맨 위로 보내거나 섹션으로 끌고 가지 않는다 */
 export function cameByHistory(ms = 3000) {
   return performance.now() - lastPopAt < ms;
+}
+/**
+ * 방금 popstate 는 화면 이동이 아니었다 — PC 상담 팝업이 쌓은 항목만 오갔음(닫기 · 브라우저 뒤로 = 팝업 닫기 · 앞으로 = 다시 열기, 261013 리뷰).
+ * 그대로 두면 3초 안에 다른 비즈 화면 링크를 눌렀을 때 그 화면이 '뒤로 와서 왔다'로 알고 맨 위로 안 올라간다
+ */
+export function forgetHistoryPop() {
+  lastPopAt = -Infinity;
 }

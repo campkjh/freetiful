@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeE
 import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import BubbleTail, { TAIL_CORNER_CLASS } from '@/components/chat/BubbleTail';
-import { ArrowBackIcon, PlusIcon, DocumentIcon } from '@/components/icons/chat';
+import { ArrowBackIcon, PlusIcon, DocumentIcon, XIcon } from '@/components/icons/chat';
 import { ChevronRightIcon, CheckIcon } from '@/components/icons/mono';
 import { useBizLang, useT, type BizLangCode, type Translations } from '@/lib/biz/i18n';
 import { popItemDelay } from '@/lib/pop-menu';
@@ -33,6 +33,10 @@ import BizInquiryPros, { cleanPicked, isMcInquiry, prefetchBizInquiryPros, warmB
  *    유형 다음에 'pros' 단계: '이런 사회자들이 함께해요 · 원하는 분을 골라 주세요(여러 명 가능)' 말풍선 아래 사회자 카드 가로 줄(BizInquiryPros) → 칩 '선택 완료(N명)' · '아직 모르겠어요'.
  *    고른 사람은 내 말풍선 '희망 사회자: 이름, 이름'으로 쌓이고(눌러서 다시 고르기), 접수 때 message 맨 앞에 '[희망 사회자] 이름(프로필 id), …' 줄로 붙는다
  *    (서버 /api/inquiry 는 그대로 — message 로만). 고르는 중인 사람(pick)도 저장본에 남겨 사회자 상세에 다녀와도 그대로.
+ *  · PC 팝업(261013 사장 'pc버전에서 비즈 문의클릭하면 페이지로 이동하는게 아닌 팝업이 나오게끔') — variant='modal' 이면 BizInquiryModal 의
+ *    가운데 패널 안에 그린다: 뿌리가 화면 전체(fixed)가 아니라 패널 안(absolute) · 키보드 계산 없음 · 머리줄은 '비즈문의' + 오른쪽 닫기(X) ·
+ *    접수 뒤 '비즈 홈으로' 대신 '닫기'. 대화 · 저장본(sessionStorage)은 화면판과 같아 팝업에서 쓰던 걸 /biz/inquiry 에서도 이어서 본다.
+ *    화면판(variant 없음)은 예전과 똑같다.
  */
 
 const STEPS = ['type', 'pros', 'company', 'name', 'phone', 'message', 'file'] as const;
@@ -77,6 +81,8 @@ const EMPTY_ANSWERS: Answers = { type: null, pros: [], prosSkipped: false, compa
 
 const S = {
   back: { ko: '뒤로', en: 'Back', ja: '戻る', zh: '返回' },
+  /** PC 팝업의 닫기(머리줄 X · 접수 뒤 단추, 261013) */
+  close: { ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' },
   /** 머리줄 = 뒤로 + '비즈문의' 한 줄(261013 사장 — 예전 가운데 '프리티풀 비즈 · 상담' + 부제는 뺐다) */
   head: { ko: '비즈문의', en: 'Biz Inquiry', ja: 'ビズお問い合わせ', zh: '企业咨询' },
   title: { ko: '프리티풀 비즈', en: 'Freetiful Business', ja: 'Freetiful ビジネス', zh: 'Freetiful 企业服务' },
@@ -361,7 +367,17 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 
 /* ───────────── 화면 ───────────── */
 
-export default function BizInquiryChat() {
+type BizInquiryChatProps = {
+  /** page = /biz/inquiry 화면 전체(기본) · modal = PC 상담 팝업(BizInquiryModal) 패널 안(261013 사장) */
+  variant?: 'page' | 'modal';
+  /** 팝업 닫기 — 머리줄 X · 접수 뒤 '닫기' · '접수됐을 수 있어요' 뒤 '닫기' */
+  onClose?: () => void;
+  /** 팝업이 지금 보이는지 — 닫혀 숨어 있는 동안(대화는 그대로 둔 채) 비단 바탕(WebGL)을 내려 두고 Esc 도 안 받는다. 화면판은 늘 true */
+  active?: boolean;
+};
+
+export default function BizInquiryChat({ variant = 'page', onClose, active = true }: BizInquiryChatProps = {}) {
+  const modal = variant === 'modal';
   const router = useRouter();
   const t = useT();
   const { lang } = useBizLang();
@@ -488,10 +504,11 @@ export default function BizInquiryChat() {
     writeStore({ msgs, answers, phase, rid: ridRef.current || undefined, pick, editPros: editing === 'pros' || undefined });
   }, [ready, msgs, answers, phase, pick, editing]);
 
-  // 키보드 — 채팅방과 같은 계산: 보이는 영역(visualViewport)만큼 컨테이너 바닥을 올려 입력 줄이 키보드 위에 붙게(iOS · 안드 웹뷰 공통)
+  // 키보드 — 채팅방과 같은 계산: 보이는 영역(visualViewport)만큼 컨테이너 바닥을 올려 입력 줄이 키보드 위에 붙게(iOS · 안드 웹뷰 공통).
+  // PC 팝업은 화면 가운데 패널이라 하지 않는다(261013)
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return undefined;
+    if (!vv || modal) return undefined;
     const update = () => {
       const next = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
       setKeyboardOffset(next);
@@ -506,7 +523,7 @@ export default function BizInquiryChat() {
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
     };
-  }, []);
+  }, [modal]);
 
   // 머리줄 · 입력 줄 높이 — 대화 칸 위아래 여백(칩 줄 · 고치는 중 띠가 붙었다 떨어져도 마지막 말이 안 가리게)
   useEffect(() => {
@@ -797,7 +814,8 @@ export default function BizInquiryChat() {
   const cancelEditRef = useRef(cancelEdit);
   cancelEditRef.current = cancelEdit;
   useEffect(() => {
-    if (editing !== 'type' && editing !== 'pros') return undefined;
+    // 닫혀 숨은 팝업은 Esc 를 받지 않는다(261013)
+    if (!active || (editing !== 'type' && editing !== 'pros')) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
       e.preventDefault();
@@ -805,7 +823,7 @@ export default function BizInquiryChat() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editing]);
+  }, [editing, active]);
 
   /* ── 전송 ── */
 
@@ -913,6 +931,7 @@ export default function BizInquiryChat() {
     void say(['file']);
   };
 
+  const restartRef = useRef<() => void>(() => {});
   const restart = () => {
     seqRef.current++;
     clearStore();
@@ -932,10 +951,21 @@ export default function BizInquiryChat() {
     setPhase('type');
     void say(['greet', 'type']);
   };
+  restartRef.current = restart;
 
   const goBack = () => {
+    // PC 팝업 = 닫기(261013)
+    if (modal) { onClose?.(); return; }
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.replace('/biz');
+  };
+  /** 접수 뒤 · '접수됐을 수 있어요' 뒤 나가기 — 화면판은 비즈 홈으로, PC 팝업은 닫기(이미 비즈 화면 위라서, 261013) */
+  const leave = () => {
+    if (!modal) { router.push('/biz'); return; }
+    onClose?.();
+    // 접수를 마치고 '닫기' = 끝 — 닫힘 움직임(0.22초)이 끝난 뒤 숨은 채로 새로 시작해 둔다. 다음 문의 버튼에 옛 접수증이 다시 뜨지 않게(261013 리뷰).
+    // X · Esc · 바깥으로 닫았거나 '접수됐을 수 있어요'(unsure) 뒤 닫기는 그대로 남긴다(다시 보내기 · 접수증 확인)
+    if (phase === 'done') window.setTimeout(() => restartRef.current(), 260);
   };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -1037,7 +1067,7 @@ export default function BizInquiryChat() {
     chipsKey = `unsure-${msgs.length}`;
     chips = [
       { key: 'resend', label: t(S.retry), onClick: resendUnsure },
-      { key: 'home', label: t(S.home), onClick: () => router.push('/biz') },
+      { key: 'home', label: t(modal ? S.close : S.home), onClick: leave },
     ];
   }
   /** 회사명을 꼭 받아야 하는데 비어 있는 채로 고치는 중 — '취소'를 감춘다(cancelEdit 도 막는다) */
@@ -1055,7 +1085,12 @@ export default function BizInquiryChat() {
   }, [chipsKey]);
 
   return (
-    <div className="biz-inquiry-chat fixed inset-0 z-[40] flex flex-col overflow-hidden bg-white" style={{ bottom: keyboardOffset }}>
+    // PC 팝업은 패널 안을 꽉 채운다(absolute — 패널이 모서리 · 그림자를 그린다, 261013)
+    <div
+      className={modal ? 'biz-inquiry-chat absolute inset-0 flex flex-col overflow-hidden bg-white' : 'biz-inquiry-chat fixed inset-0 z-[40] flex flex-col overflow-hidden bg-white'}
+      style={modal ? undefined : { bottom: keyboardOffset }}
+      data-variant={modal ? 'modal' : undefined}
+    >
       {/* ─── 바탕 = 이사진 소개와 같은 일렁이는 비단(CeoSilk, 261013 사장 '배경은 이사진 소개에 나오는 애니메이션 배경으로') ───
            캔버스 첫 장 전 · WebGL 없을 때는 같은 톤의 CSS 그러데이션 */}
       <div
@@ -1063,14 +1098,15 @@ export default function BizInquiryChat() {
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
         style={{ background: 'radial-gradient(70% 55% at 16% 18%,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 70%),linear-gradient(166deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 43%,rgba(255,255,255,0) 56%),linear-gradient(158deg,#F8FAFF 0%,#EAF1FE 40%,#D7E5FC 72%,#BCD2F8 100%)' }}
       >
-        <CeoSilk className="absolute inset-0 [&_canvas]:block [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:opacity-0 [&_canvas]:transition-opacity [&_canvas]:duration-[1400ms] [&_canvas[data-on]]:opacity-100" />
+        {/* 팝업이 닫혀 숨은 동안엔 내려 둔다(WebGL 이 안 보이는 데서 돌지 않게 — 다시 열면 새 캔버스가 서서히 뜬다, 261013) */}
+        {active && <CeoSilk className="absolute inset-0 [&_canvas]:block [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:opacity-0 [&_canvas]:transition-opacity [&_canvas]:duration-[1400ms] [&_canvas[data-on]]:opacity-100" />}
       </div>
 
       {/* ─── 머리줄 = 뒤로(chevron) + '비즈문의'(261013 사장 — 아래 줄 · 가운데 이름 · 부제 없앰).
            바탕은 흰색 → 투명 그러데이션 + 아래로 사라지는 흐림이라 대화가 머리줄 밑으로 자연스럽게 사라진다 ─── */}
       <div
         ref={headerRef}
-        className="absolute left-0 right-0 top-0 z-30 pb-5 pt-safe"
+        className={modal ? 'absolute left-0 right-0 top-0 z-30 pb-5' : 'absolute left-0 right-0 top-0 z-30 pb-5 pt-safe'}
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.78) 55%, rgba(255,255,255,0) 100%)',
           WebkitBackdropFilter: 'blur(10px)',
@@ -1079,6 +1115,21 @@ export default function BizInquiryChat() {
           maskImage: 'linear-gradient(180deg, #000 0%, #000 62%, transparent 100%)',
         }}
       >
+        {modal ? (
+          // PC 팝업 머리줄 = '비즈문의' + 오른쪽 닫기(X) — 가운데 창에서 '뒤로'(chevron)는 어디로 가는지 헷갈려 닫기로(261013)
+          <div className="relative flex h-14 items-center justify-between gap-2 pl-5 pr-2">
+            <h2 className={`min-w-0 truncate text-[18px] font-bold tracking-[-0.3px] text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>{t(S.head)}</h2>
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label={t(S.close)}
+              data-bzq-close=""
+              className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors hover:bg-black/[0.04] active:bg-black/[0.07]"
+            >
+              <XIcon size={24} />
+            </button>
+          </div>
+        ) : (
         <div className="px-safe">
           <div className="mx-auto w-full max-w-[680px]">
             <div className="relative flex h-14 items-center gap-0.5 px-1">
@@ -1094,12 +1145,14 @@ export default function BizInquiryChat() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* ─── 대화 ─── */}
       <div
         ref={scrollRef}
-        className="relative z-[1] flex-1 overflow-y-auto overflow-x-hidden px-3"
+        // PC 팝업 = 가는 스크롤바(스크롤바가 늘 보이는 윈도우에서 둥근 패널 오른쪽에 15px 회색 막대가 서던 것, 261013 리뷰). 화면판은 그대로
+        className={modal ? 'relative z-[1] flex-1 overflow-y-auto overflow-x-hidden px-3 [scrollbar-color:rgba(0,29,58,0.16)_transparent] [scrollbar-width:thin]' : 'relative z-[1] flex-1 overflow-y-auto overflow-x-hidden px-3'}
         style={{ paddingTop: headerH + 4, paddingBottom: footerH + 16, overscrollBehaviorX: 'contain', overscrollBehaviorY: 'none' }}
       >
         <div className="mx-auto w-full max-w-[680px]">
@@ -1339,7 +1392,8 @@ export default function BizInquiryChat() {
           </div>
         )}
 
-        <div className="pointer-events-auto relative bg-white pb-safe px-safe">
+        {/* PC 팝업은 좁은 패널(440)이라 sm:px-0 인 입력 줄 · 단추가 패널 끝에 붙지 않게 좌우 여백을 준다(안전 영역은 화면판만, 261013) */}
+        <div className={modal ? 'pointer-events-auto relative bg-white px-3 pb-2' : 'pointer-events-auto relative bg-white pb-safe px-safe'}>
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-full h-5 bg-gradient-to-b from-white/0 to-white" />
           {done ? (
             <div className="bzq-fade mx-auto flex w-full max-w-[680px] gap-2 bg-white px-2 pb-1.5 pt-2 sm:px-0">
@@ -1352,10 +1406,10 @@ export default function BizInquiryChat() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push('/biz')}
+                onClick={leave}
                 className="h-14 flex-[1.4] rounded-[17px] bg-[#3182F6] text-[17px] font-bold text-white transition-transform active:scale-[0.98]"
               >
-                {t(S.home)}
+                {t(modal ? S.close : S.home)}
               </button>
             </div>
           ) : (
