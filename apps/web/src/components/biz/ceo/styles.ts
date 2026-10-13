@@ -23,7 +23,8 @@ html{position:relative}
 .cx-wrap{box-sizing:border-box;width:100%;max-width:1188px;margin:0 auto;padding:0 24px}
 @media (min-width:768px){.cx-wrap{max-width:1220px;padding:0 40px}}
 @media (min-width:1024px){.cx-wrap{max-width:1236px;padding:0 48px}}
-.cx-eyebrow{margin:0;font-size:15px;line-height:1.4;font-weight:600;letter-spacing:-0.01em;color:#3182F6}
+/* 영문 소제목(CEO MESSAGE · OUR PHILOSOPHY · LEADERSHIP · ORGANIZATION · CEO 인사말) = 쿨그레이 · 얇게(261013 사장 '영문 서브타이틀 색상 쿨그레이로, 글씨 더 얇게') */
+.cx-eyebrow{margin:0;font-size:15px;line-height:1.4;font-weight:400;letter-spacing:-0.01em;color:#8B95A1}
 @media (min-width:768px){.cx-eyebrow{font-size:17px}}
 .cx-h2{margin:14px 0 0;font-size:clamp(30px,calc(22px + 2.2vw),56px);line-height:1.3;font-weight:700;letter-spacing:-0.035em;color:#191F28;word-break:keep-all}
 .cx-hw{display:inline-block}
@@ -220,7 +221,6 @@ html{position:relative}
 .cx-ld-sub{margin:12px 0 0;font-size:16px;line-height:1.6;font-weight:500;color:#4E5968;word-break:keep-all}
 @media (min-width:768px){.cx-ld-sub{margin-top:16px;font-size:18px}}
 /* 이 섹션만 — 띠가 지나가는 바탕 위 작은 파란 글자는 한 단계 진하게 */
-.cx-ld .cx-eyebrow{color:#1B64DA}
 /* 카드 줄 — 위아래 여백(떠오름 · 그림자)만큼 넓혀 두고 바깥 여백으로 되돌린다.
    데스크톱은 스크립트가 잰 --ext(줄 왼쪽 끝을 제목 칸 쪽으로 넓힘 — 카드가 잘리기 전에 다 녹게) · --lead(첫 카드 자리) */
 .cx-ld-rail{position:relative;margin-top:30px}
