@@ -291,16 +291,17 @@ html{position:relative}
 .cx-lc-in::after{content:'';position:absolute;inset:0;z-index:3;border-radius:inherit;box-shadow:inset 0 0 0 1px var(--ring),inset 0 1px 0 var(--ring);pointer-events:none}
 /* 알약 = 직함(코드) — 가장 긴 것(일 'マーケティングチームリーダー' · 영 'Chief Technology Officer')도 가장 좁은 카드 안에 한 줄 */
 /* 글자 크기 = 카드 폭 × .05(12px 까지) — 낮은 폰 화면에서 카드를 줄여도(최소 210) 한 줄에 든다 */
-.cx-lc-bd{position:absolute;left:16px;top:16px;z-index:2;box-sizing:border-box;display:inline-flex;align-items:center;max-width:calc(100% - 32px);height:28px;padding:0 11px;border-radius:999px;background:rgba(255,255,255,.94);font-size:clamp(10.5px,calc(var(--cw) * .05),12px);line-height:1;font-weight:700;letter-spacing:-0.01em;color:#1B64DA;white-space:nowrap}
-.cx-lc[data-tone=smoke] .cx-lc-bd{background:rgba(10,14,22,.42);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);color:#fff}
-.cx-lc[data-tone=frost] .cx-lc-bd{background:#1F6FE5;color:#fff}
-/* 큰 번호 — 아주 옅은 선만(속 빈 글자), 오른쪽에 세로로 · 알약 줄 아래(긴 직함 알약과 겹치지 않게).
+/* 큰 번호 — 아주 옅은 선만(속 빈 글자), 오른쪽 위에 세로로(261013 알약을 없애 위로 올림).
    선 대비는 세 카드 모두 ≈1.12~1.14:1(261012 검토 — 흰 유리의 파란 선만 또렷하던 것) */
-.cx-lc-no{position:absolute;top:56px;right:8px;z-index:2;writing-mode:vertical-rl;font-size:clamp(54px,4.7vw,72px);line-height:1;font-weight:500;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:transparent;-webkit-text-stroke:1px var(--no);pointer-events:none;user-select:none}
+.cx-lc-no{position:absolute;top:18px;right:8px;z-index:2;writing-mode:vertical-rl;font-size:clamp(54px,4.7vw,72px);line-height:1;font-weight:500;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:transparent;-webkit-text-stroke:1px var(--no);pointer-events:none;user-select:none}
 @supports not (-webkit-text-stroke:1px #000){.cx-lc-no{color:var(--no)}}
 .cx-lc-cap{position:absolute;left:20px;right:20px;bottom:20px;z-index:2;display:block}
 .cx-lc-n{display:block;font-size:24px;line-height:1.3;font-weight:700;letter-spacing:-0.02em}
 @media (min-width:1024px){.cx-lc-n{font-size:26px}}
+/* 이름 아래 '코드 직함' — 코드는 굵게, 직함은 보통(261013 사장 '알약 말고 이름 아래에 CEO 대표이사') */
+.cx-lc-r{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;margin-top:6px;font-size:15px;line-height:1.45;font-weight:500;opacity:.92}
+.cx-lc-code{font-weight:700;letter-spacing:.02em}
+@media (min-width:1024px){.cx-lc-r{font-size:16px}}
 @media (hover:hover) and (pointer:fine){.cx-lc:hover .cx-lc-in{transform:translate3d(0,-8px,0);box-shadow:0 38px 52px -32px rgba(var(--sc),calc(var(--sa) * var(--sh,1)))}}
 /* 왼쪽 띠를 다 지나간 카드는 숨긴다 */
 .cx-lc[data-gone]{visibility:hidden}

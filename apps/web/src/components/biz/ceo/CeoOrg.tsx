@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties,
 import { useT } from '@/lib/biz/i18n';
 import { FadeUp, useInView } from '@/components/biz/biz-motion';
 import { holdBizTabBar, prefersReducedMotion } from '../scroll-to';
-import { LEADERS, ORG_CAPTION, ORG_CEO, ORG_HEAD, ORG_UNITS, type Tr } from './content';
+import { LEADERS, ORG_CAPTION, ORG_CEO, ORG_HEAD, ORG_UNITS, type Tr, titleCode } from './content';
 import { useIsoLayoutEffect } from './motion';
 import { ORG_CSS } from './orgStyles';
 
@@ -14,7 +14,7 @@ import { ORG_CSS } from './orgStyles';
  * 가운데 대표 카드(동그란 얼굴이 왼쪽 위 모서리에 반쯤 걸침 · ⋯ · 이름 · 직함) → 얇은 머리선(대표 카드 아래 작은 꺾쇠) →
  *   사람 카드 격자: 김도윤 부대표(COO) 먼저, 그다음 부문 5(CFO · CTO · CMO · CPO · 마케팅본부장). 1200~ 4칸(마지막 줄 가운데) ·
  *   900~ 3칸 · 그 아래 2칸.
- * 직함 줄 = 이사진 소개 카드 알약(LEADERS.pill — '최고재무책임자(CFO)' · 영어는 직함만), 얼굴 = 이사진 사진을 원으로 잘라(FACE).
+ * 직함 줄 = '코드 직함'(titleCode — 'CFO 최고재무책임자', 본부장은 직함만, 261013), 얼굴 = 이사진 사진을 원으로 잘라(FACE).
  * ⋯ = 진짜 단추 — 그 사람 산하 팀(ORG_UNITS.teams) 말풍선. 대표는 격자와 같은 6칸(부대표 + 부문 5와 산하 팀)을 한눈에.
  *   부대표는 산하 팀 자료가 없어 ⋯ 없음. 말풍선 머리말에 이름을 넣는다(카드 이름 · 직함을 덮어도 누구 것인지 보이게).
  *   바깥 누름 · Esc · 포커스가 빠지면 · 화면 폭이 바뀌면 닫힌다(Esc 는 포커스가 칸 안 · 없음일 때만 ⋯ 로 돌려준다).
@@ -53,7 +53,6 @@ const FACE: Record<string, Face> = {
  * 직함 덮어쓰기(content.ts 는 그대로) — 영어 알약은 C레벨도 코드 없이 'Chief Financial Officer' 인데 부대표만 'Vice President (COO)' 라
  * 괄호가 혼자 튀었다(261012 검수). 영어만 'Vice President & COO', 나머지 언어는 알약 그대로.
  */
-const TITLE_EN: Record<string, string> = { COO: 'Vice President & COO' };
 const FACE_DEFAULT: Face = { x: 0.5, y: 0.3, s: 0.68 };
 
 type Person = {
@@ -69,11 +68,14 @@ type Person = {
 const leaderOf = (badge: string) => LEADERS.find((l) => l.badge === badge);
 function person(badge: string, name: Tr, fallbackTitle: Tr, teams?: Tr[]): Person {
   const l = leaderOf(badge);
-  const pill = l?.pill ?? fallbackTitle;
+  // 직함 = '코드 직함'(이사진 카드와 같은 규칙, 261013 사장 'CEO 대표이사 이런 식으로') — C레벨만 코드
+  const role = l?.role ?? fallbackTitle;
+  const code = titleCode(badge);
+  const title: Tr = code ? { ko: `${code} ${role.ko}`, en: `${code} ${role.en}`, ja: `${code} ${role.ja}`, zh: `${code} ${role.zh}` } : role;
   return {
     id: badge,
     name,
-    title: TITLE_EN[badge] ? { ...pill, en: TITLE_EN[badge] } : pill,
+    title,
     image: l?.image,
     cut: l?.cut,
     face: (l && FACE[l.key]) || FACE_DEFAULT,

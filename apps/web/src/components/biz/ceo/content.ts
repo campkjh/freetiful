@@ -216,21 +216,24 @@ export const LEADERS_HEAD = {
  */
 export type LeaderTone = 'blue' | 'smoke' | 'frost';
 /**
- * pill = 카드 왼쪽 위 알약(261012 사장 'CEO이런거 그냥 대표이사(CEO) 이런 느낌으로') — C레벨은 '직함(코드)', 그 밖(본부장 · 실장 · 팀장)은 직함만.
- *   영어는 직함이 곧 코드 풀이라(Chief Executive Officer = CEO) 직함만, 부대표만 'Vice President (COO)'. 카드 아래는 이름만 둔다.
- * badge = 코드(CEO · COO …) — 조직도와 같은 표기, 알약에는 pill 을 쓴다.
+ * 직함 줄 = 이름 아래 '코드 직함'(261013 사장 '알약은 없애고 이름 아래에 CEO 대표이사 이런 식으로') — C레벨만 코드(CEO · COO …)를 앞에,
+ *   본부장 · 실장 · 팀장은 직함만(HB · DIR · TL 은 내부 구분용이라 안 보인다). 조직도 카드 직함도 같은 규칙(titleCode).
+ * badge = 코드 — 조직도 말풍선 id 등에도 쓴다.
  */
-export type Leader = { key: string; name: Tr; role: Tr; pill: Tr; badge: string; image: string; tone: LeaderTone; cut?: boolean };
+export type Leader = { key: string; name: Tr; role: Tr; badge: string; image: string; tone: LeaderTone; cut?: boolean };
+const C_LEVEL = ['CEO', 'COO', 'CFO', 'CTO', 'CMO', 'CPO'];
+/** 이름 아래 직함 앞에 붙일 코드 — C레벨만, 그 밖은 null */
+export const titleCode = (badge: string): string | null => (C_LEVEL.includes(badge) ? badge : null);
 export const LEADERS: Leader[] = [
-  { key: 'seo-nw', name: CEO_NAME, role: CEO_ROLE, pill: tr('대표이사(CEO)', 'Chief Executive Officer', '代表取締役(CEO)', '代表理事(CEO)'), badge: 'CEO', image: `${IMG}/leader-seo-nw.webp`, tone: 'blue', cut: true },
-  { key: 'kim-dy', name: tr('김도윤', 'Doyun Kim', '金ドユン', '金度允'), role: tr('부대표', 'Vice President', '副代表', '副总裁'), pill: tr('부대표(COO)', 'Vice President (COO)', '副代表(COO)', '副总裁(COO)'), badge: 'COO', image: `${IMG}/leader-kim-dy.webp`, tone: 'frost' },
-  { key: 'kim-mo', name: tr('김명옥', 'Myeongok Kim', '金明玉', '金明玉'), role: tr('최고재무책임자', 'Chief Financial Officer', '最高財務責任者', '首席财务官'), pill: tr('최고재무책임자(CFO)', 'Chief Financial Officer', '最高財務責任者(CFO)', '首席财务官(CFO)'), badge: 'CFO', image: `${IMG}/leader-kim-mo.webp`, tone: 'smoke', cut: true },
-  { key: 'kim-jh', name: tr('김정훈', 'Jeonghun Kim', '金正勳', '金正勋'), role: tr('최고기술책임자', 'Chief Technology Officer', '最高技術責任者', '首席技术官'), pill: tr('최고기술책임자(CTO)', 'Chief Technology Officer', '最高技術責任者(CTO)', '首席技术官(CTO)'), badge: 'CTO', image: `${IMG}/leader-kim-jh.webp`, tone: 'blue', cut: true },
-  { key: 'lim-hr', name: tr('임하람', 'Haram Lim', '林ハラム', '林哈蓝'), role: tr('최고마케팅책임자', 'Chief Marketing Officer', '最高マーケティング責任者', '首席营销官'), pill: tr('최고마케팅책임자(CMO)', 'Chief Marketing Officer', '最高マーケティング責任者(CMO)', '首席营销官(CMO)'), badge: 'CMO', image: `${IMG}/leader-lim-hr.webp`, tone: 'smoke', cut: true },
-  { key: 'kim-sy', name: tr('김수연', 'Suyeon Kim', '金秀妍', '金秀妍'), role: tr('최고인재책임자', 'Chief People Officer', '最高人事責任者', '首席人才官'), pill: tr('최고인재책임자(CPO)', 'Chief People Officer', '最高人事責任者(CPO)', '首席人才官(CPO)'), badge: 'CPO', image: `${IMG}/leader-kim-sy.webp`, tone: 'blue', cut: true },
-  { key: 'park-sy', name: tr('박수용', 'Suyong Park', '朴秀勇', '朴秀勇'), role: tr('마케팅본부장', 'Head of Marketing', 'マーケティング本部長', '营销部门负责人'), pill: tr('마케팅본부장', 'Head of Marketing', 'マーケティング本部長', '营销部门负责人'), badge: 'HB', image: `${IMG}/leader-park-sy.webp`, tone: 'frost' },
-  { key: 'cha-bk', name: tr('차보경', 'Bokyung Cha', '車ボギョン', '车宝京'), role: tr('마케팅실장', 'Marketing Director', 'マーケティング室長', '营销室长'), pill: tr('마케팅실장', 'Marketing Director', 'マーケティング室長', '营销室长'), badge: 'DIR', image: `${IMG}/leader-cha-bk.webp`, tone: 'smoke' },
-  { key: 'hwang-ja', name: tr('황지애', 'Jiae Hwang', '黃志愛', '黄志爱'), role: tr('마케팅팀장', 'Marketing Team Lead', 'マーケティングチームリーダー', '营销团队负责人'), pill: tr('마케팅팀장', 'Marketing Team Lead', 'マーケティングチームリーダー', '营销团队负责人'), badge: 'TL', image: `${IMG}/leader-hwang-ja.webp`, tone: 'frost' },
+  { key: 'seo-nw', name: CEO_NAME, role: CEO_ROLE, badge: 'CEO', image: `${IMG}/leader-seo-nw.webp`, tone: 'blue', cut: true },
+  { key: 'kim-dy', name: tr('김도윤', 'Doyun Kim', '金ドユン', '金度允'), role: tr('부대표', 'Vice President', '副代表', '副总裁'), badge: 'COO', image: `${IMG}/leader-kim-dy.webp`, tone: 'frost' },
+  { key: 'kim-mo', name: tr('김명옥', 'Myeongok Kim', '金明玉', '金明玉'), role: tr('최고재무책임자', 'Chief Financial Officer', '最高財務責任者', '首席财务官'), badge: 'CFO', image: `${IMG}/leader-kim-mo.webp`, tone: 'smoke', cut: true },
+  { key: 'kim-jh', name: tr('김정훈', 'Jeonghun Kim', '金正勳', '金正勋'), role: tr('최고기술책임자', 'Chief Technology Officer', '最高技術責任者', '首席技术官'), badge: 'CTO', image: `${IMG}/leader-kim-jh.webp`, tone: 'blue', cut: true },
+  { key: 'lim-hr', name: tr('임하람', 'Haram Lim', '林ハラム', '林哈蓝'), role: tr('최고마케팅책임자', 'Chief Marketing Officer', '最高マーケティング責任者', '首席营销官'), badge: 'CMO', image: `${IMG}/leader-lim-hr.webp`, tone: 'smoke', cut: true },
+  { key: 'kim-sy', name: tr('김수연', 'Suyeon Kim', '金秀妍', '金秀妍'), role: tr('최고인재책임자', 'Chief People Officer', '最高人事責任者', '首席人才官'), badge: 'CPO', image: `${IMG}/leader-kim-sy.webp`, tone: 'blue', cut: true },
+  { key: 'park-sy', name: tr('박수용', 'Suyong Park', '朴秀勇', '朴秀勇'), role: tr('마케팅본부장', 'Head of Marketing', 'マーケティング本部長', '营销部门负责人'), badge: 'HB', image: `${IMG}/leader-park-sy.webp`, tone: 'frost' },
+  { key: 'cha-bk', name: tr('차보경', 'Bokyung Cha', '車ボギョン', '车宝京'), role: tr('마케팅실장', 'Marketing Director', 'マーケティング室長', '营销室长'), badge: 'DIR', image: `${IMG}/leader-cha-bk.webp`, tone: 'smoke' },
+  { key: 'hwang-ja', name: tr('황지애', 'Jiae Hwang', '黃志愛', '黄志爱'), role: tr('마케팅팀장', 'Marketing Team Lead', 'マーケティングチームリーダー', '营销团队负责人'), badge: 'TL', image: `${IMG}/leader-hwang-ja.webp`, tone: 'frost' },
 ];
 
 /*

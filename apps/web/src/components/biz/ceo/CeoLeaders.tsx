@@ -6,7 +6,7 @@ import { useBizLang, useT } from '@/lib/biz/i18n';
 import { FadeUp } from '@/components/biz/biz-motion';
 import { holdBizTabBar, prefersReducedMotion, scrollToY } from '../scroll-to';
 import CeoSilk from './CeoSilk';
-import { LEADERS, LEADERS_HEAD, type Leader } from './content';
+import { LEADERS, LEADERS_HEAD, type Leader, titleCode } from './content';
 import { flag, put, useIsoLayoutEffect } from './motion';
 
 /*
@@ -141,10 +141,11 @@ function LeaderCard({ p, i, t, on }: { p: Leader; i: number; t: ReturnType<typeo
       <figure className="cx-lc-in">
         <img src={p.image} alt="" loading="lazy" decoding="async" draggable={false} onLoad={(e) => e.currentTarget.setAttribute('data-ld', '')} />
         {/* 알약 = 직함(코드) — 카드 아래는 이름만(같은 직함을 두 번 쓰지 않는다) */}
-        <span className="cx-lc-bd">{t(p.pill)}</span>
         <span className="cx-lc-no" aria-hidden>{pad2(i + 1)}</span>
         <figcaption className="cx-lc-cap">
           <span className="cx-lc-n">{t(p.name)}</span>
+          {/* 이름 아래 '코드 직함'(261013 — 알약 대신) */}
+          <span className="cx-lc-r">{titleCode(p.badge) && <b className="cx-lc-code">{titleCode(p.badge)}</b>}{t(p.role)}</span>
         </figcaption>
       </figure>
     </li>

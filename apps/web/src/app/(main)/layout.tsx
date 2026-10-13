@@ -9,7 +9,6 @@ import PageTransition from '@/components/PageTransition';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { consumeAuthReturnTo, rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
-import VilladegdEventOverlay from '@/components/VilladegdEventOverlay';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import AccountSwitcher, { SavedAccountsQuickList, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
 import BizHeaderButton from '@/components/BizHeaderButton';
@@ -535,7 +534,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute || requestListRoute ? 'bg-white lg:bg-surface-50' : myRoute ? 'bg-[#F4F6FA] lg:bg-surface-50' : 'bg-surface-50'}`}>
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {/* 비즈(/biz…)는 기업 손님이 바로 들어오는 화면 — 웨딩홀 전면 영상(약 6MB)을 덮지 않는다. 여기선 마운트하지 않아 '본 것' 표시도 안 남아 홈에선 그대로 뜬다 */}
-      {!embedded && !/^\/biz(\/|$)/.test(pathname) && <VilladegdEventOverlay />}
+      {/* 빌라드지디 첫 진입 창(VilladegdEventOverlay)은 끔(261013 사장 '첫 진입 시 빌라드지디 랜딩 안 나오게') — 컴포넌트 파일은 남겨 둠 */}
       {/* ─── Desktop Top Navigation (Glass → Pill on scroll) ─────────── */}
       <header className={`${hideNav && !pcHeaderRoute ? 'hidden' : 'hidden lg:block'} sticky top-0 z-50 bg-white border-b border-gray-100`}>
         {/* 가운데 칸 고정(1fr · auto · 1fr) — 웨딩숲에서 오른쪽에 검색창이 붙어도 탭 줄이 옆으로 밀리지 않는다 */}
