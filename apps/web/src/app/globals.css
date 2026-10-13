@@ -278,7 +278,11 @@ img:not([src]) {
 }
 
 .home-pc-floating-app-promo {
-  width: 392px;
+  /* 칸 너비 = App Store · Google Play 단추 두 개 + 사이 간격 — 위 네이버 검색창(width 100%)이 단추 줄과 늘 딱 같은 너비가 되게
+     (261013 사장 '검색창이 어느 비율에선 App Store·Google Play 카드를 넘는다, 딱 맞춰서'). 예전엔 칸 392 · 단추 줄 322/354 로 따로 놀았다 */
+  --home-app-btn-w: 172px;
+  --home-app-btn-gap: 10px;
+  width: calc(var(--home-app-btn-w) * 2 + var(--home-app-btn-gap));
 }
 
 .home-pc-floating-phone {
@@ -467,7 +471,7 @@ img:not([src]) {
   display: flex;
   width: 100%;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--home-app-btn-gap, 10px);
 }
 
 .home-pc-category-icon-shell {
@@ -521,7 +525,8 @@ img:not([src]) {
 .home-app-download-button {
   position: relative;
   display: flex;
-  width: 156px;
+  width: var(--home-app-btn-w, 156px);
+  flex: 0 0 auto;
   min-height: 56px;
   align-items: center;
   gap: 9px;
@@ -731,18 +736,14 @@ img:not([src]) {
   height: 11%;
 }
 
-@media (min-width: 1280px) {
-  .home-pc-floating-app-promo {
-    width: 354px;
-  }
-
+/* 단추 크기 = PC 전부 같은 172(예전 1024~1279 는 156 이라 검색창 글자가 단추 줄 너비 안에 안 들어갔다, 261013) */
+@media (min-width: 1024px) {
   .home-pc-floating-phone {
     width: 138px;
     --phone-preview-scale: 0.318;
   }
 
   .home-app-download-button {
-    width: 172px;
     min-height: 60px;
     gap: 10px;
     border-radius: 20px;
@@ -777,10 +778,6 @@ img:not([src]) {
 }
 
 @media (min-width: 1536px) {
-  .home-pc-floating-app-promo {
-    width: 392px;
-  }
-
   .home-pc-floating-phone {
     width: 156px;
     --phone-preview-scale: 0.36;
