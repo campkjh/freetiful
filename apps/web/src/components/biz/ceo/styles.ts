@@ -46,12 +46,25 @@ html{position:relative}
 .cx-hd-card{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;transform-origin:50% 50%;transition:transform .6s cubic-bezier(.33,1,.68,1),border-radius .6s cubic-bezier(.33,1,.68,1)}
 .cx-hd-card[data-end]{transform:scale(.92);border-radius:40px}
 .cx-hd-win{position:absolute;inset:0;overflow:hidden;will-change:clip-path}
-.cx-navy{position:absolute;inset:0;background:radial-gradient(110% 80% at 72% 28%,#22375A 0%,#12203A 42%,#08111F 100%)}
-.cx-spot{position:absolute;left:0;top:0;width:1000px;height:1000px;border-radius:50%;transform-origin:0 0;background:radial-gradient(closest-side,rgba(110,148,210,.5),rgba(70,104,160,.2) 55%,rgba(30,50,90,0) 100%);will-change:transform;pointer-events:none}
-.cx-wm{position:absolute;left:50%;top:54%;transform:translate3d(-50%,-50%,0);font-size:22vw;font-weight:700;line-height:1;letter-spacing:-0.05em;white-space:nowrap;color:rgba(255,255,255,.05);pointer-events:none;user-select:none;will-change:transform}
+/* 우주 배경(CeoSpace, 261013 사장 '첨부 이미지처럼 우주 배경') — 캔버스 첫 장 전 · WebGL 없을 때는 이 CSS 그림:
+   견본에서 잰 세로 밝기(남흑색 하늘 → 푸른 안개 → 대기선 → 파란 땅) + 달 점 + 빛줄기 띠. 넓은 판(무대 · 768px 이상 16:10 카드) / 폰 카드(세로) 구도가 다르다
+   (셰이더와 같은 조건 · 같은 자리 — 달 = 가로 57.5% · 위 18%, 지름은 판 높이의 3.3%: 무대 = 화면 높이 - 머리줄, 태블릿 카드 = (폭 - 80) × 10/16 · 최대 600).
+   폰 카드 캔버스는 제 층으로(둥근 카드 안에서 매 장 카드째 다시 칠하지 않게 — 390 · 3배 화면 CPU 4배 느림에서 메인 19 → 15%) */
+.cx-space{position:absolute;inset:0;overflow:hidden;pointer-events:none;background-color:#050812;--mr:calc((100vh - var(--hh,64px)) * .0165);--mg:calc((100vh - var(--hh,64px)) * .046);
+  background-image:radial-gradient(circle var(--mr) at 57.5% 18%,#DCDAE0 0,#CDCBD3 45%,#A4A2B1 84%,rgba(16,20,44,0) 100%),radial-gradient(circle var(--mg) at 57.5% 18%,rgba(150,172,226,.14),rgba(150,172,226,0)),linear-gradient(107deg,rgba(200,232,228,0) 73.4%,rgba(200,232,228,.15) 76.6%,rgba(200,232,228,.06) 78.2%,rgba(200,232,228,0) 80.6%),linear-gradient(107deg,rgba(200,232,228,0) 81.2%,rgba(200,232,228,.06) 83.2%,rgba(200,232,228,0) 85.2%),linear-gradient(180deg,#04070F 0%,#05080F 18%,#060918 36%,#0B1025 48%,#11193E 58%,#16214F 63%,#1C3166 69%,#28487F 73.5%,#3B5E97 77%,#64829F 80%,#8597B5 82.4%,#8C9DB7 83%,#6F87AE 84.2%,#43639A 86.5%,#2A4378 90%,#1F305F 95%,#1B2A58 100%)}
+.cx-space[data-v=card]{--mr:clamp(7px,calc(1.03vw - .8px),10px);--mg:clamp(19px,calc(2.85vw - 2px),28px)}
+@media (max-width:767.98px){
+  .cx-space[data-v=card]{background-image:radial-gradient(circle 10px at 19% 17%,#DCDAE0 0,#CDCBD3 45%,#A4A2B1 84%,rgba(16,20,44,0) 100%),radial-gradient(circle 28px at 19% 17%,rgba(150,172,226,.14),rgba(150,172,226,0)),linear-gradient(103deg,rgba(200,232,228,0) 65.8%,rgba(200,232,228,.13) 69.1%,rgba(200,232,228,0) 72.3%),linear-gradient(180deg,#04070F 0%,#060918 22%,#0B1025 36%,#12193F 46%,#19274F 52%,#22396F 57%,#36578F 62%,#6A86A6 67%,#8C9DB7 70%,#6A84AD 71.5%,#40619A 74.5%,#273F72 80%,#1D2D5C 90%,#1A2856 100%)}
+}
+.cx-space canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity .9s ease}
+.cx-space canvas[data-on]{opacity:1}
+.cx-space[data-v=card] canvas{will-change:transform}
 .cx-pt{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;will-change:transform,opacity;user-select:none;-webkit-user-drag:none}
-.cx-floor{position:absolute;left:0;right:0;bottom:0;height:24%;background:linear-gradient(rgba(8,17,31,0),rgba(8,17,31,.5));pointer-events:none}
-.cx-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,11,24,.82) 0%,rgba(5,11,24,.55) 34%,rgba(5,11,24,0) 60%);pointer-events:none}
+/* 바닥 — 누끼 아래 끝이 지구 땅빛(어두운 파랑)에 스미게. 누끼는 화면 아래에서 잘린 흉상이라 받칠 바닥이 없다 — 땅이 견본보다 어두워지지 않게 낮고 옅게(261013 검토) */
+.cx-floor{position:absolute;left:0;right:0;bottom:0;height:14%;background:linear-gradient(rgba(10,16,42,0),rgba(10,16,42,.22));pointer-events:none}
+/* 한마디 뒤 왼쪽 그늘 — 견본처럼 하늘이 어두워 글이 읽히므로 옅게(예전 .82 는 지구 가장자리까지 덮었다, 261013).
+   아래 20% 는 빼서 지구 대기선이 견본처럼 가로 전체에서 고르게 밝다(서명 줄 = 무대 높이 약 64.5% 까지는 그늘 그대로, 261013 검토) */
+.cx-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,6,16,.42) 0%,rgba(3,6,16,.22) 34%,rgba(3,6,16,0) 58%);-webkit-mask-image:linear-gradient(180deg,#000 62%,transparent 80%);mask-image:linear-gradient(180deg,#000 62%,transparent 80%);pointer-events:none}
 .cx-hd-q{position:absolute;top:50%;left:var(--cl);width:calc(var(--cw) * .5);transform:translateY(-50%);z-index:2;color:#fff}
 .cx-hd-qt{margin:0;text-wrap:balance;font-size:clamp(38px,calc(10px + 2.9vw),60px);line-height:1.3;font-weight:700;letter-spacing:-0.03em;word-break:keep-all}
 .cx-qw{display:inline-block;color:rgba(255,255,255,.14);filter:blur(6px);will-change:color,filter}
@@ -66,12 +79,11 @@ html{position:relative}
 .cx-hm-sub{margin:16px 0 0;font-size:16px;line-height:1.6;color:#4E5968}
 .cx-hm-card{position:relative;margin:32px 20px 0;aspect-ratio:3/4;max-height:640px;border-radius:28px;overflow:hidden;isolation:isolate;background:#08111F;animation:cxMask 1.3s var(--ez) .3s backwards}
 @keyframes cxMask{from{clip-path:inset(100% 0 0 0 round 28px)}to{clip-path:inset(0 0 0 0 round 28px)}}
-.cx-hm-spot{position:absolute;left:50%;top:4%;width:120%;aspect-ratio:1/1;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(110,148,210,.5),rgba(70,104,160,.18) 55%,rgba(30,50,90,0) 100%);pointer-events:none}
-.cx-hm-wm{top:42%;font-size:40vw}
 .cx-hm-par{position:absolute;inset:0;will-change:transform}
 .cx-hm-pt{position:absolute;bottom:0;left:50%;height:94%;width:auto;max-width:none;transform:translateX(-50%);transform-origin:50% 100%;animation:cxPortrait 1.6s var(--ez) .3s backwards;user-select:none;-webkit-user-drag:none}
 @keyframes cxPortrait{from{opacity:0;transform:translateX(-50%) translate3d(0,6%,0) scale(1.1)}to{opacity:1;transform:translateX(-50%)}}
-.cx-hm-fade{position:absolute;left:0;right:0;bottom:0;height:58%;background:linear-gradient(rgba(8,17,31,0) 0%,rgba(8,17,31,.62) 46%,rgba(8,17,31,.92) 100%);pointer-events:none}
+/* 카드 아래 그늘 — 지구 대기선이 비치게 옅게(261013) */
+.cx-hm-fade{position:absolute;left:0;right:0;bottom:0;height:52%;background:linear-gradient(rgba(5,9,22,0) 0%,rgba(5,9,22,.38) 42%,rgba(5,9,22,.74) 100%);pointer-events:none}
 .cx-hm-q{position:absolute;left:24px;right:24px;bottom:26px;color:#fff}
 .cx-qmark-sm{height:.42em;margin-bottom:10px;font-size:72px}
 .cx-hm-qt{margin:0;text-wrap:balance;font-size:25px;line-height:1.38;font-weight:700;letter-spacing:-0.03em;word-break:keep-all}
@@ -86,10 +98,8 @@ html{position:relative}
   .cx-hm-h1{font-size:48px;line-height:1.25}
   .cx-hm-sub{font-size:19px}
   .cx-hm-card{margin:48px 40px 0;aspect-ratio:16/10;max-height:none}
-  .cx-hm-spot{left:70%;top:-6%;width:70%}
-  .cx-hm-wm{font-size:22vw;top:50%}
   .cx-hm-pt{left:70%;height:96%}
-  .cx-hm-fade{top:0;height:auto;background:linear-gradient(90deg,rgba(5,11,24,.86) 0%,rgba(5,11,24,.5) 40%,rgba(5,11,24,0) 64%)}
+  .cx-hm-fade{top:0;height:auto;background:linear-gradient(90deg,rgba(3,6,16,.55) 0%,rgba(3,6,16,.3) 40%,rgba(3,6,16,0) 62%);-webkit-mask-image:linear-gradient(180deg,#000 68%,transparent 84%);mask-image:linear-gradient(180deg,#000 68%,transparent 84%)}
   .cx-hm-q{left:44px;right:auto;bottom:auto;top:50%;transform:translateY(-50%);width:44%}
   .cx-hm-qt{font-size:34px}
   .cx-qmark-sm{font-size:96px}
@@ -386,7 +396,7 @@ html{position:relative}
   .cx-rise,.cx-hint,.cx-hm-card,.cx-hm-pt,.cx-vc-phone{animation:none}
   .cx-hint-line::after{animation:none;transform:none}
   .cx-chip{opacity:1;transform:none;transition:none}
-  .cx-vc-silk canvas,.cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
+  .cx-vc-silk canvas,.cx-space canvas,.cx-mqw,.cx-hm-cap,.cx-cl-cta,.cx-sign-line,.cx-hl,.cx-wpill,.cx-lc,.cx-lc-in,.cx-lc-in img,.cx-ld-btn,.cx-ld-silk canvas{transition:none}
   .cx-ld[data-arm] .cx-lc{opacity:1;transform:none}
   .cx-sign-line{transform:none}
 }

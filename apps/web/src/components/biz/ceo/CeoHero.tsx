@@ -4,19 +4,21 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import { ease, lerp, seg, useFrame, usePassProgress, useSceneProgress } from '../toss/scene';
-import { Particles } from '../toss/SceneIntro.parts';
 import { prefersReducedMotion } from '../scroll-to';
+import CeoSpace from './CeoSpace';
 import { CEO_NAME, CEO_ROLE, HERO } from './content';
 import { flag, put, smooth01, splitPhrases, useIsoLayoutEffect, useMode } from './motion';
 
 /*
  * ① CEO 인사말 첫 장면(261009 사장 '대표 사진이 마스크로 열리며 큰 제목 — 고급 비즈 인터랙션으로').
  * 데스크톱(≥1024 · 가로 화면 · 움직임 줄이기 아님): 300vh 부모 + 머리줄 아래 sticky 무대(비즈 홈 장면 엔진 · 리렌더 없이 스타일 직접).
- *   들어오면(시간) 왼쪽 큰 제목이 낱말마다 흐림→또렷, 오른쪽 둥근 창이 아래에서 위로 열리며 남색 무대 위 대표 누끼가 1.1배 → 1배로 내려앉는다.
+ *   들어오면(시간) 왼쪽 큰 제목이 낱말마다 흐림→또렷, 오른쪽 둥근 창이 아래에서 위로 열리며 우주 배경 위 대표 누끼가 1.1배 → 1배로 내려앉는다.
+ *   배경 = 궤도에서 본 밤(CeoSpace — 별 · 달 · 빛줄기 · 지구 가장자리, WebGL 한 장, 261013 사장 '서나웅 뒤 배경은 첨부 이미지처럼 우주 배경으로' —
+ *   예전 남색 무대 · 뒤 조명 · 'Freetiful' 큰 글자 · 떠다니는 흰 점은 뺐다).
  *   스크롤: 창이 화면 가득 커지고(clip-path, 비즈 홈 첫 장면 카드 → 꽉 찬 화면 어법) 누끼는 오른쪽으로 크게, 제목은 왼쪽으로 흐려지며 빠짐 →
  *   왼쪽에 대표 한마디가 낱말마다 밝아짐(비즈 홈 '함께한 순간' 맺음말 어법) → 서명 줄 → 고정이 풀리는 순간 0.92 배 둥근 카드로(무대 장면 끝 어법).
  * 모바일 · 태블릿 · 움직임 줄이기: 고정 없이 제목 + 둥근 카드(아래에서 위로 마스크가 열림) — 카드가 화면에 들어오면 한마디가 낱말마다 밝아지고,
- *   지나가는 동안 누끼 · 배경 글자가 반대로 살짝 흐른다(시차).
+ *   지나가는 동안 누끼는 위로, 우주 배경은 지평선이 살짝 올라오며 흐른다(시차).
  */
 
 const RUN_VH = 300;
@@ -50,8 +52,7 @@ function HeroDesk({ className, active, ids }: { className: string; active: boole
   const hintRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const winRef = useRef<HTMLDivElement>(null);
-  const spotRef = useRef<HTMLDivElement>(null);
-  const wmRef = useRef<HTMLDivElement>(null);
+  const spaceK = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
   const shadeRef = useRef<HTMLDivElement>(null);
   const quoteRef = useRef<HTMLDivElement>(null);
@@ -83,12 +84,8 @@ function HeroDesk({ className, active, ids }: { className: string; active: boole
     const s = hp / g.H;
     put(imgRef.current, 'transform', `translate3d(${(cx - (A * g.H * s) / 2).toFixed(1)}px,${(by - g.H * s).toFixed(1)}px,0) scale(${s.toFixed(4)})`);
     put(imgRef.current, 'opacity', Math.min(1, ie * 1.6).toFixed(3));
-    // 뒤 조명 — 머리 · 어깨 뒤
-    const sd = hp * 1.3;
-    put(spotRef.current, 'transform', `translate3d(${(cx - sd / 2).toFixed(1)}px,${(by - hp * 0.78 - sd / 2).toFixed(1)}px,0) scale(${(sd / 1000).toFixed(4)})`);
-    // 배경 큰 글자 — 칸 가운데에서 화면 가운데로, 스크롤 내내 왼쪽으로 천천히(시차)
-    const wx = lerp((g.sl + g.sr) / 2 - g.W / 2, -g.W * 0.03, e) - p * g.W * 0.06;
-    put(wmRef.current, 'transform', `translate3d(calc(-50% + ${wx.toFixed(1)}px),-50%,0)`);
+    // 우주 배경 — 스크롤 내내 지평선이 살짝 올라온다(시차, 캔버스가 다음 장에서 읽음)
+    spaceK.current = p;
     // 왼쪽 제목 — 창이 덮어 오는 동안 왼쪽으로 흐려지며 빠짐
     const k = ease.out(seg(p, TEXT_OUT[0], TEXT_OUT[1]));
     put(textRef.current, 'opacity', (1 - k).toFixed(3));
@@ -132,7 +129,6 @@ function HeroDesk({ className, active, ids }: { className: string; active: boole
         img.style.height = `${H}px`;
         img.style.width = `${HERO.portrait.aspect * H}px`;
       }
-      if (wmRef.current) wmRef.current.style.fontSize = `${Math.round(W * 0.22)}px`;
       upd.current(P.get());
     };
     layout();
@@ -191,13 +187,10 @@ function HeroDesk({ className, active, ids }: { className: string; active: boole
           {t(HERO.scrollHint)}
         </div>
 
-        {/* 창 — 남색 무대 · 조명 · 큰 글자 · 떠다니는 빛 · 누끼 · 한마디 */}
+        {/* 창 — 우주 배경(무대 전체 크기 · 창은 clip-path 로만 열린다) · 누끼 · 한마디 */}
         <div ref={cardRef} className="cx-hd-card">
           <div ref={winRef} className="cx-hd-win" style={{ clipPath: 'inset(91% 6% 9% 53% round 36px)' }}>
-            <div className="cx-navy" />
-            <div ref={spotRef} className="cx-spot" />
-            <div ref={wmRef} className="cx-wm" aria-hidden>Freetiful</div>
-            <Particles style={{ left: 0, top: 0, width: '100%', height: '100%' }} count={90} />
+            <CeoSpace variant="stage" active={active} motion={spaceK} />
             <img
               ref={imgRef}
               src={HERO.portrait.lg}
@@ -242,7 +235,7 @@ function HeroStack({ className, active, ids }: { className: string; active: bool
   const { lang } = useBizLang();
   const cardRef = useRef<HTMLDivElement>(null);
   const parRef = useRef<HTMLDivElement>(null);
-  const wmRef = useRef<HTMLDivElement>(null);
+  const spaceK = useRef(0.5);
   const qRef = useRef<HTMLDivElement>(null);
   const pass = usePassProgress(cardRef);
   const words = splitPhrases(t(HERO.motto), lang);
@@ -267,11 +260,11 @@ function HeroStack({ className, active, ids }: { className: string; active: bool
     return () => io.disconnect();
   }, [active]);
 
-  // 지나가는 동안 누끼는 위로 · 배경 글자는 옆으로 살짝(시차 — 줄인 움직임이면 그대로)
+  // 지나가는 동안 누끼는 위로 · 우주 배경은 지평선이 살짝 올라오며(시차 — 줄인 움직임이면 그대로)
   useFrame(pass, (p) => {
     if (!active || prefersReducedMotion()) return;
     put(parRef.current, 'transform', `translate3d(0,${((p - 0.5) * -32).toFixed(1)}px,0)`);
-    put(wmRef.current, 'transform', `translate3d(calc(-50% + ${((0.5 - p) * 70).toFixed(1)}px),-50%,0)`);
+    spaceK.current = p;
   });
 
   const title = HERO.title.map((l) => t(l));
@@ -299,10 +292,7 @@ function HeroStack({ className, active, ids }: { className: string; active: bool
       </div>
 
       <div ref={cardRef} className="cx-hm-card">
-        <div className="cx-navy" />
-        <div className="cx-hm-spot" />
-        <div ref={wmRef} className="cx-wm cx-hm-wm" aria-hidden>Freetiful</div>
-        <Particles style={{ left: 0, top: 0, width: '100%', height: '100%' }} count={44} />
+        <CeoSpace variant="card" active={active} motion={spaceK} />
         <div ref={parRef} className="cx-hm-par">
           <img
             src={HERO.portrait.sm}
