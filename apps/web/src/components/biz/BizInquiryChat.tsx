@@ -9,6 +9,7 @@ import { ChevronRightIcon, CheckIcon } from '@/components/icons/mono';
 import { useBizLang, useT, type BizLangCode, type Translations } from '@/lib/biz/i18n';
 import { popItemDelay } from '@/lib/pop-menu';
 import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
+import CeoSilk from '@/components/biz/ceo/CeoSilk';
 import BizInquiryPros, { cleanPicked, isMcInquiry, prefetchBizInquiryPros, warmBizInquiryPros, type McInquiryKind, type PickedPro } from '@/components/biz/BizInquiryPros';
 
 /*
@@ -76,6 +77,8 @@ const EMPTY_ANSWERS: Answers = { type: null, pros: [], prosSkipped: false, compa
 
 const S = {
   back: { ko: '뒤로', en: 'Back', ja: '戻る', zh: '返回' },
+  /** 머리줄 = 뒤로 + '비즈문의' 한 줄(261013 사장 — 예전 가운데 '프리티풀 비즈 · 상담' + 부제는 뺐다) */
+  head: { ko: '비즈문의', en: 'Biz Inquiry', ja: 'ビズお問い合わせ', zh: '企业咨询' },
   title: { ko: '프리티풀 비즈', en: 'Freetiful Business', ja: 'Freetiful ビジネス', zh: 'Freetiful 企业服务' },
   pill: { ko: '상담', en: 'Chat', ja: '相談', zh: '咨询' },
   sub: { ko: '접수 후 영업일 1~2일 내 연락드려요', en: 'We reply within 1–2 business days', ja: '受付後、営業日1~2日以内にご連絡します', zh: '提交后 1~2 个工作日内与您联系' },
@@ -957,7 +960,6 @@ export default function BizInquiryChat() {
   const type = answers.type;
   const answeredSteps = new Set(msgs.filter((m): m is MeMsg => m.from === 'me').map((m) => m.step));
   const flow = flowOf(type);
-  const progress = phase === 'done' ? 100 : Math.round((flow.filter((s) => answeredSteps.has(s)).length / flow.length) * 100);
   const lastFileMsg = [...msgs].reverse().find((m): m is MeMsg => m.from === 'me' && m.step === 'file');
   /** 유형을 사회자 섭외가 아닌 것으로 바꾼 뒤 희망 사회자를 다시 고를 때 — 그 질문을 할 때의 유형으로 줄을 보인다 */
   const lastProsQ = [...msgs].reverse().find((m): m is BotMsg => m.from === 'bot' && m.key === 'pros');
@@ -1054,45 +1056,50 @@ export default function BizInquiryChat() {
 
   return (
     <div className="biz-inquiry-chat fixed inset-0 z-[40] flex flex-col overflow-hidden bg-white" style={{ bottom: keyboardOffset }}>
-      {/* ─── 머리줄(채팅방과 같은 h-14 · 뒤로 · 가운데 이름 + 알약 / 부제) + 진행 막대 ─── */}
-      <div ref={headerRef} className="absolute left-0 right-0 top-0 z-30 bg-white pt-safe">
+      {/* ─── 바탕 = 이사진 소개와 같은 일렁이는 비단(CeoSilk, 261013 사장 '배경은 이사진 소개에 나오는 애니메이션 배경으로') ───
+           캔버스 첫 장 전 · WebGL 없을 때는 같은 톤의 CSS 그러데이션 */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+        style={{ background: 'radial-gradient(70% 55% at 16% 18%,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 70%),linear-gradient(166deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.8) 43%,rgba(255,255,255,0) 56%),linear-gradient(158deg,#F8FAFF 0%,#EAF1FE 40%,#D7E5FC 72%,#BCD2F8 100%)' }}
+      >
+        <CeoSilk className="absolute inset-0 [&_canvas]:block [&_canvas]:h-full [&_canvas]:w-full [&_canvas]:opacity-0 [&_canvas]:transition-opacity [&_canvas]:duration-[1400ms] [&_canvas[data-on]]:opacity-100" />
+      </div>
+
+      {/* ─── 머리줄 = 뒤로(chevron) + '비즈문의'(261013 사장 — 아래 줄 · 가운데 이름 · 부제 없앰).
+           바탕은 흰색 → 투명 그러데이션 + 아래로 사라지는 흐림이라 대화가 머리줄 밑으로 자연스럽게 사라진다 ─── */}
+      <div
+        ref={headerRef}
+        className="absolute left-0 right-0 top-0 z-30 pb-5 pt-safe"
+        style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.78) 55%, rgba(255,255,255,0) 100%)',
+          WebkitBackdropFilter: 'blur(10px)',
+          backdropFilter: 'blur(10px)',
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 62%, transparent 100%)',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 62%, transparent 100%)',
+        }}
+      >
         <div className="px-safe">
           <div className="mx-auto w-full max-w-[680px]">
-            <div className="relative flex h-14 items-center px-1">
+            <div className="relative flex h-14 items-center gap-0.5 px-1">
               <button
                 type="button"
                 onClick={goBack}
                 aria-label={t(S.back)}
-                className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors active:bg-[#F2F3F5]"
+                className="relative z-[1] flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#191F28] transition-colors active:bg-black/5"
               >
                 <ArrowBackIcon size={24} />
               </button>
-              <div className="pointer-events-none absolute left-1/2 top-1/2 flex max-w-[66%] -translate-x-1/2 -translate-y-1/2 flex-col items-center leading-tight">
-                <span className={`flex min-w-0 max-w-full items-center gap-1.5 ${entrance ? 'qd-a-title' : ''}`}>
-                  <span className="truncate text-[17px] font-bold text-[#191F28]">{t(S.title)}</span>
-                  <span className="shrink-0 rounded-full bg-[#E8F3FF] px-2 py-[2px] text-[12.5px] font-bold text-[#3182F6]">{t(S.pill)}</span>
-                </span>
-                <span className={`mt-[3px] max-w-full truncate text-[12.5px] text-[#8B95A1] ${entrance ? 'qd-a-sub' : ''}`}>{t(S.sub)}</span>
-              </div>
+              <h1 className={`min-w-0 truncate text-[18px] font-bold tracking-[-0.3px] text-[#191F28] ${entrance ? 'qd-a-title' : ''}`}>{t(S.head)}</h1>
             </div>
           </div>
-        </div>
-        {/* 진행 막대 — 답한 단계만큼(파트너 신청 RegisterKit 의 N/5 막대와 같은 결) */}
-        <div
-          className="h-[2px] w-full bg-[#F2F4F6]"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress}
-        >
-          <div className="bzq-progress h-full bg-[#3182F6]" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* ─── 대화 ─── */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-3"
+        className="relative z-[1] flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{ paddingTop: headerH + 4, paddingBottom: footerH + 16, overscrollBehaviorX: 'contain', overscrollBehaviorY: 'none' }}
       >
         <div className="mx-auto w-full max-w-[680px]">
@@ -1129,7 +1136,7 @@ export default function BizInquiryChat() {
             if (m.from === 'bot') {
               bubble = (
                 <div
-                  className={`max-w-full whitespace-pre-wrap break-words rounded-[20px] bg-[#F2F3F5] text-[16px] leading-[1.4] text-[#191F28] [overflow-wrap:anywhere]${tailCorner} ${grow}`}
+                  className={`max-w-full whitespace-pre-wrap break-words rounded-[20px] bg-white text-[16px] leading-[1.4] text-[#191F28] shadow-[0_1px_2px_rgba(15,23,42,0.05)] [overflow-wrap:anywhere]${tailCorner} ${grow}`}
                   style={origin}
                 >
                   <div className="px-4 py-[10px]">{t(botTextOf(m.key, m.qt !== undefined ? m.qt : type, m.fail))}</div>
@@ -1182,7 +1189,7 @@ export default function BizInquiryChat() {
                   <div className={`flex min-w-0 max-w-[78%] items-end gap-1.5 ${mine ? 'flex-row-reverse' : ''}`}>
                     <div className={`relative min-w-0 transition-opacity duration-300 ${unused ? 'opacity-40' : ''}`}>
                       {bubble}
-                      {groupEnd && <BubbleTail mine={mine} color={mine ? '#3180F7' : '#F2F3F5'} pop={fresh} />}
+                      {groupEnd && <BubbleTail mine={mine} color={mine ? '#3180F7' : '#FFFFFF'} pop={fresh} />}
                     </div>
                     {showTime && <span className="shrink-0 pb-[3px] text-[12px] tabular-nums text-[#8B95A1]">{fmtTime(m.at, lang)}</span>}
                   </div>
@@ -1273,7 +1280,7 @@ export default function BizInquiryChat() {
           {typing && (
             <div className={`${msgs.length && msgs[msgs.length - 1].from === 'bot' ? 'mt-1' : 'mt-3.5'} flex justify-start`}>
               <span className="mr-2 w-10 shrink-0" aria-hidden="true" />
-              <div className="bzq-fade flex items-center gap-[5px] rounded-[20px] bg-[#F2F3F5] px-4 py-[14px]" role="status" aria-label={t(S.typingAria)}>
+              <div className="bzq-fade flex items-center gap-[5px] rounded-[20px] bg-white px-4 py-[14px] shadow-[0_1px_2px_rgba(15,23,42,0.05)]" role="status" aria-label={t(S.typingAria)}>
                 {[0, 1, 2].map((d) => (
                   <span
                     key={d}
@@ -1443,7 +1450,6 @@ export default function BizInquiryChat() {
         .biz-inquiry-chat .bzq-check { animation: bzqPop .5s cubic-bezier(.2,.9,.3,1) .18s both; }
         .biz-inquiry-chat .bzq-receipt { animation: bzqRise .5s cubic-bezier(.22,.61,.36,1) both; }
         .biz-inquiry-chat .bzq-intro { animation: bzqIntro .5s cubic-bezier(.22,.61,.36,1) both; }
-        .biz-inquiry-chat .bzq-progress { transition: width .5s cubic-bezier(.22,.61,.36,1); }
         @media (hover: hover) { .biz-inquiry-chat .bzq-option:hover { background: #F9FAFB; } }
         /* 일 · 중 — 띄어쓰기가 없어 keep-all 이면 말풍선 밖으로 넘친다(비즈 첫 화면과 같은 처리) */
         .biz-inquiry-chat:lang(ja) *, .biz-inquiry-chat:lang(zh) * { word-break: normal; line-break: strict; }
