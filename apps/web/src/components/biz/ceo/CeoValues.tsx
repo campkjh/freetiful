@@ -25,6 +25,21 @@ import { VALUES_CSS } from './valuesStyles';
 const SCALE_STEP = 0.06;
 const DIM_MAX = 0.42;
 
+/** 아이폰 상태 표시줄(9:41 · 신호 · 와이파이 · 배터리) — 앱 캡처는 상태 표시줄 없이 머리줄부터라 폰처럼 안 보였다(261013 사장 '아이폰 부분에 스테이터스 바가 없음').
+ *  크기는 화면 칸 폭 기준(cqw) — 카드 크기가 바뀌어도 같은 비율. 화면 내용은 이 줄 아래부터(valuesStyles .cxv-sb) */
+function StatusBar() {
+  return (
+    <div className="cxv-sb" aria-hidden>
+      <span className="cxv-sb-t">9:41</span>
+      <span className="cxv-sb-i">
+        <svg viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5.5" width="3" height="6.5" rx="1" /><rect x="10" y="3" width="3" height="9" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>
+        <svg viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.6c2.3 0 4.4.9 6 2.4l1.3-1.3A10.3 10.3 0 0 0 8 .7 10.3 10.3 0 0 0 .7 3.7L2 5a8.4 8.4 0 0 1 6-2.4Z" /><path d="M8 6.3c1.3 0 2.5.5 3.4 1.3l1.3-1.3A6.6 6.6 0 0 0 8 4.4c-1.8 0-3.5.7-4.7 1.9l1.3 1.3c.9-.8 2.1-1.3 3.4-1.3Z" /><path d="M8 9.9 10.1 8a3 3 0 0 0-4.2 0L8 9.9Z" /></svg>
+        <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="currentColor" strokeOpacity=".38" /><rect x="2" y="2" width="19" height="8" rx="2" fill="currentColor" /><path d="M24.5 4v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2Z" fill="currentColor" fillOpacity=".45" /></svg>
+      </span>
+    </div>
+  );
+}
+
 function PhonePair({ screens, active, still }: { screens: string[]; active: boolean; still: boolean }) {
   return (
     <div className="cx-vc-phones" aria-hidden>
@@ -32,6 +47,7 @@ function PhonePair({ screens, active, still }: { screens: string[]; active: bool
         <div key={src} className="cx-vc-phone" style={{ '--i': i } as CSSProperties}>
           {/* cxv-screen = 화면 칸을 판(.cxv)의 기준 칸으로 — 없으면 판이 베젤까지 덮고 둥근 모서리로 잘리지 않는다(261013 검토) */}
           <div className={i === 1 ? 'cx-vc-screen cxv-screen' : 'cx-vc-screen'}>
+            <StatusBar />
             {/* 오른쪽 폰 = AI 키워드 판 → 리뷰 화면(261013 사장 '리뷰 ui가 나오기 전에 AI 애니메이션 … 나오면서 리뷰 ui로') */}
             {i === 1 ? (
               <CeoReviewPhone src={src} active={active} still={still} />

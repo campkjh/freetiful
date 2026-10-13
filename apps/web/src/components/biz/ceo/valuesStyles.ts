@@ -19,6 +19,20 @@
  */
 export const VALUES_CSS = `
 .cxv-screen{position:relative;isolation:isolate}
+/* 아이폰 상태 표시줄(261013 사장 '스테이터스 바가 없음') — 화면 칸 폭 기준 cqw: 높이 12.5%(아이폰 54pt/393pt 근처) · 시간 왼쪽 · 아이콘 오른쪽(섬 양옆),
+   화면 내용(왼쪽 폰 그림 · 오른쪽 폰 판)은 이 줄 아래부터 */
+.cx-vc-screen{position:relative;container-type:inline-size}
+.cxv-sb{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;height:12.5cqw;align-items:center;justify-content:space-between;padding:0 6.6cqw 0 8.6cqw;background:#fff;color:#0B0B0F;font-size:4.1cqw;font-weight:600;line-height:1;letter-spacing:-.01em;pointer-events:none}
+.cxv-sb-t{font-variant-numeric:tabular-nums}
+.cxv-sb-i{display:flex;align-items:center;gap:1.3cqw}
+.cxv-sb-i svg{display:block;width:auto;height:3cqw}
+.cxv-sb-i svg:last-child{height:3.1cqw}
+.cx-vc-screen > img{position:absolute;left:0;right:0;top:12.5cqw;height:calc(100% - 12.5cqw)}
+.cxv-screen .cxv{top:12.5cqw}
+/* 다이내믹 아일랜드를 상태 표시줄 위로(안 그러면 흰 줄에 가려 안 보인다) */
+.cx-vc-island{z-index:4}
+/* 오른쪽 폰을 덜 올려 위 끝(상태 표시줄)이 카드 안에 들어오게 — 예전 16%-14% 는 위가 카드 밖으로 잘렸다(261013) */
+.cx-vc-phone{top:calc(16% - var(--i) * 2%)}
 .cxv{position:absolute;inset:0;overflow:hidden;background:#fff;letter-spacing:normal;--cxv-s:.5;--cxv-h:844px;--cxv-bh:calc(var(--cxv-h) - 156px);--cxv-sc:min(450px,calc(1290px - var(--cxv-bh)));--cxv-ex:cubic-bezier(.45,0,.25,1)}
 .cxv-stage{position:absolute;left:0;top:0;width:390px;height:var(--cxv-h);transform:scale(var(--cxv-s));transform-origin:0 0;background:#fff}
 .cxv:not([data-ready]) .cxv-stage{visibility:hidden}
