@@ -647,33 +647,24 @@ export default function BizInquiryPros({ kind, picked, onToggle, animate }: {
                 text={texts.get(p.id) as CardText}
               />
             ))}
+          {/* 끝 '사회자 더 보기' = 카드 말고 알약 단추(261013 사장 '카드 느낌 말고 그냥 버튼 느낌') — 줄 세로 가운데 */}
           {!loading && (
-            <div className={`bzp-card relative shrink-0 ${playIn ? 'bzp-in' : ''}`} style={{ ['--i' as string]: Math.min(list.length, 7) } as CSSProperties}>
+            <div className={`bzp-more relative shrink-0 self-center ${playIn ? 'bzp-in' : ''}`} style={{ ['--i' as string]: Math.min(list.length, 7) } as CSSProperties}>
               <button
                 type="button"
                 onClick={openMore}
-                className="bzp-hit flex h-full w-full flex-col items-center justify-center gap-3 rounded-[18px] border border-[#EAEDF0] bg-[#F7F8FA] px-3 text-center"
+                aria-label={total > 0 ? `${t(L.more)} · ${t(totalOf(total))}` : t(L.more)}
+                className="bzp-hit inline-flex h-11 items-center gap-1 whitespace-nowrap rounded-full bg-white pl-4 pr-3 text-[14.5px] font-bold tracking-[-0.3px] text-[#191F28] shadow-[0_2px_10px_rgba(15,23,42,0.08),inset_0_0_0_1px_rgba(15,23,42,0.05)]"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#3182F6] shadow-[0_2px_8px_rgba(15,23,42,0.06)]">
-                  <ChevronRightIcon size={20} />
-                </span>
-                <span className="flex flex-col items-center gap-1">
-                  <span className="text-[15px] font-bold leading-[1.35] tracking-[-0.3px] text-[#191F28]">{t(L.more)}</span>
-                  {total > 0 && <span className="text-[12.5px] text-[#8B95A1]">{t(totalOf(total))}</span>}
-                </span>
+                {t(L.more)}
+                <ChevronRightIcon size={16} />
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* 좌우 끝 — 카드가 흰 바탕으로 살짝 사라지게 */}
-      {!failed && (
-        <>
-          <div aria-hidden="true" className="bzp-fade-l pointer-events-none absolute bottom-0 left-0 top-0 w-4" />
-          <div aria-hidden="true" className="bzp-fade-r pointer-events-none absolute bottom-0 right-0 top-0 w-5" />
-        </>
-      )}
+      {/* 좌우 끝 — 흰 덧칠 대신 줄 자체를 마스크로 투명하게(비단 바탕 위에서도 자연스럽게 사라지게, 261013) — .bzp-row mask-image */}
 
       {/* PC(마우스) — 좌우 화살표 */}
       {!failed && !loading && (
@@ -700,9 +691,12 @@ export default function BizInquiryPros({ kind, picked, onToggle, animate }: {
           scroll-padding-left: var(--bzp-inset);
           scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
           -webkit-overflow-scrolling: touch; scrollbar-width: none;
+          -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 24px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 24px), transparent 100%);
         }
         .bzp-row::-webkit-scrollbar { display: none; }
         .bzp-card { width: var(--bzp-w); scroll-snap-align: start; }
+        .bzp-more { scroll-snap-align: end; }
         .bzp-skel {
           height: calc(var(--bzp-w) * 1.25 + 70px);
           background: linear-gradient(100deg, #F2F4F6 30%, #F9FAFB 50%, #F2F4F6 70%) 0 0 / 300% 100%;
@@ -728,8 +722,6 @@ export default function BizInquiryPros({ kind, picked, onToggle, animate }: {
         /* 프로필 단추 — 사진 아래쪽(카드 색으로 녹기 시작하는 자리), 퀵매칭 '포트폴리오'와 같은 유리 알약 */
         .bzp-prof { top: calc(var(--bzp-w) * 1.25 - 42px); z-index: 2; -webkit-tap-highlight-color: transparent; }
         .bzp-prof:active { background-color: rgba(0,0,0,.5) !important; }
-        .bzp-fade-l { background: linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%); }
-        .bzp-fade-r { background: linear-gradient(to left, #fff 0%, rgba(255,255,255,0) 100%); }
         .bzp-nav {
           position: absolute; top: calc(var(--bzp-w) * 0.625 - 14px); z-index: 3;
           display: none; width: 36px; height: 36px; align-items: center; justify-content: center;
