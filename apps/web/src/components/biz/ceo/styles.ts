@@ -178,11 +178,9 @@ html{position:relative}
 .cx-vc-light .cx-vc-grad{background:linear-gradient(180deg,rgba(246,249,255,0) 42%,rgba(246,249,255,.5) 66%,rgba(246,249,255,.82) 100%)}
 .cx-vc-light .cx-vc-body{color:#191F28}
 .cx-vc-light .cx-vc-d{color:#4E5968}
-.cx-vc-light .cx-vc-num{border-color:rgba(49,130,246,.22);background:rgba(255,255,255,.62);color:#1B64DA}
 .cx-vc-body{position:absolute;left:24px;right:24px;bottom:26px;z-index:1;color:#fff}
 @media (min-width:1024px){.cx-vc-body{left:40px;right:40px;bottom:38px}}
-.cx-vc-num{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.16);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font-size:13px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.cx-vc-t{margin:16px 0 0;text-wrap:balance;font-size:26px;line-height:1.3;font-weight:700;letter-spacing:-0.03em;word-break:keep-all}
+.cx-vc-t{margin:0;text-wrap:balance;font-size:26px;line-height:1.3;font-weight:700;letter-spacing:-0.03em;word-break:keep-all}
 .cx-vc-d{margin:10px 0 0;max-width:32em;font-size:15px;line-height:1.65;color:rgba(255,255,255,.84);word-break:keep-all}
 @media (min-width:1024px){.cx-vc-t{font-size:36px}.cx-vc-d{font-size:17px}}
 .cx-vc-dim{position:absolute;inset:0;z-index:2;background:#0B1220;opacity:0;pointer-events:none}

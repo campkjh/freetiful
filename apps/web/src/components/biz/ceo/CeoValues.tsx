@@ -48,7 +48,7 @@ function Card({ v, i, t, cardRef, dimRef }: { v: ValueCard; i: number; t: Return
       <div className="cx-vc-blur" aria-hidden />
       <div className="cx-vc-grad" aria-hidden />
       <div className="cx-vc-body">
-        <span className="cx-vc-num">{v.num}</span>
+        {/* 카드 안 번호 알약(01 …)은 뺐다(261013 사장 '카드 안에 있는 01 이런 거 없애줘') — 왼쪽 목록 번호는 그대로 */}
         <h3 className="cx-vc-t">{t(v.title)}</h3>
         <p className="cx-vc-d">{t(v.desc)}</p>
       </div>
