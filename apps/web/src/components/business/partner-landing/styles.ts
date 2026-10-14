@@ -23,14 +23,13 @@ export const PL_CSS = `
 .pl-intro{position:relative;padding:52% 20px 51%;text-align:center;background:radial-gradient(60% 50% at 50% 50%,#F3F6FF 0%,rgba(243,246,255,0) 100%)}
 .pl-intro-statement{position:relative;z-index:2;margin:12px 0 0;font-size:24px;line-height:1.5;font-weight:700;letter-spacing:-.6px;word-break:keep-all;overflow-wrap:break-word;color:var(--pl-ink)}
 .pl-intro-name{display:block;margin-bottom:6px;font-size:28px;line-height:1.35;letter-spacing:-.8px}
-.pl-intro .pl-lead{position:relative;z-index:2}
-.pl-intro-copy{position:relative;z-index:2;opacity:clamp(0,(var(--pl-s,1) - .55) / .35,1);transform:translate3d(0,calc((1 - var(--pl-s,1)) * 24px),0)}
+.pl-intro-copy{position:relative;z-index:2;opacity:clamp(0,(var(--pl-s,1) - .5) / .4,1);transform:translate3d(0,calc((1 - var(--pl-s,1)) * 24px),0)}
 /* 떠 있는 사진 — 크기는 칸 폭 비율(세로 여백 % 도 폭 기준이라 칸이 커지면 다 같이 커진다).
    펼침: --e(0 가운데에 작게 모임 → 1 제자리) = 스크롤 정도(--pl-s, 스크립트 전엔 1) 에서 사진마다 차례(--o)를 늦춘 값 */
 .pl-float{position:absolute;z-index:1;display:block;padding:0;border:0;background:none;cursor:pointer;
   --e:clamp(0,(var(--pl-s,1) - var(--o,0)) / .85,1);
   transform:translate3d(calc(var(--cx,0px) * (1 - var(--e))),calc(var(--cy,0px) * (1 - var(--e)) + var(--pl-p,0) * var(--k,0) * 1px),0) scale(calc(.42 + .58 * var(--e)));
-  opacity:clamp(0,var(--e) * 1.8,1);will-change:transform,opacity}
+  opacity:clamp(0,var(--e) * 1.8,1);will-change:transform,opacity;transition:transform .28s cubic-bezier(.22,.61,.36,1),opacity .28s ease}
 .pl-float.f0{left:4%;top:6%;width:34%;aspect-ratio:4/5}
 .pl-float.f1{right:4%;top:13%;width:38%;aspect-ratio:4/3}
 .pl-float.f2{left:7%;bottom:9%;width:29%;aspect-ratio:1/1}

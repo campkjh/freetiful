@@ -108,10 +108,13 @@ function useLandingMotion(rootRef: React.RefObject<HTMLDivElement>, deps: unknow
       root.querySelectorAll<HTMLElement>('[data-spread]').forEach((sec) => {
         let sp = 1;
         if (!reduced) {
-          // 칸 위끝이 화면 80% 높이일 때 0(첫 화면에선 가운데에 모여 있다) → 15% 높이까지 올라오면 1, 끝은 부드럽게(ease-out)
+          // 칸 위끝이 화면 85% 높이일 때 0(첫 화면에선 가운데에 모여 있다) → 칸 가운데가 화면 42% 높이에 올 때 1.
+          // 처음·끝이 느린 ease-in-out — 261014 사장 '너무 빨리 뜸'(ease-out 3제곱이라 들어오자마자 거의 다 펼쳐졌다)
           const r = sec.getBoundingClientRect();
-          const raw = Math.max(0, Math.min(1, (vh * 0.8 - r.top) / (vh * 0.65)));
-          sp = 1 - Math.pow(1 - raw, 3);
+          const start = vh * 0.85;
+          const end = vh * 0.42 - r.height / 2;
+          const raw = Math.max(0, Math.min(1, (start - r.top) / Math.max(1, start - end)));
+          sp = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
         }
         sec.style.setProperty('--pl-s', sp.toFixed(3));
       });
@@ -532,8 +535,6 @@ export default function PartnerLanding({
 
   const openPhoto = useCallback((i: number) => { if (i >= 0) onOpenPhoto(i); }, [onOpenPhoto]);
   const ask = useCallback((q: string) => onInquiry(q), [onInquiry]);
-  const mealFact = facts.facts.find((f) => f.key === 'meal');
-  const leadBits = [facts.region, facts.kind, facts.halls.length > 1 ? `홀 ${facts.halls.length}개` : '', mealFact ? `식대 ${mealFact.value}` : ''].filter(Boolean);
   const singleHall = facts.halls.length === 1;
 
   return (
@@ -571,7 +572,6 @@ export default function PartnerLanding({
             <span className="pl-intro-name pl-grad-text">{short}</span>
             사진부터 문의까지,<br />프리티풀에서 한 번에
           </p>
-          {leadBits.length > 0 && <p className="pl-lead">{leadBits.join(' · ')}</p>}
         </div>
       </section>
 
