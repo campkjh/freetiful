@@ -10,7 +10,8 @@
  *   ④ AI 분석 — 사회자 상세와 같은 '소개' 카드(StyleIntroCard) + 보라 동그라미·반짝이 별 키워드 판(KeywordOrb) + 질문 입력줄(글자가 쳐지는 입력줄 → 문의 시트)
  *   ⑤ 매니저 띠 — 사장 제공 그림(manager-band) 위에 제목만(261014 '텍스트 줄여줘')
  *   ⑥ 번갈아 놓인 기능 줄(사진 = 매칭 화면의 사회자 카드 덱처럼 돌아가는 사진 덱 · 미니 지도 · 미니 문의 시트 · 완료 카드) — 화면에 닿으면 좌우에서 들어온다
- *   ⑦ 아이콘 격자(업체 정보) ⑧ 홀 카드 = 홈 웨딩파트너 '사진 색 카드'(PartnerToneCard) 결(261014 사장), 가운데 온 카드가 살짝 떠오름 ⑨ 비교 카드 ⑩ 사진 격자 ⑪ 흐르는 키워드
+ *   ⑦ 아이콘 격자(업체 정보) ⑧ 홀 카드 = 홈 웨딩파트너 '사진 색 카드'(PartnerToneCard) 결(261014 사장), 가운데 온 카드가 살짝 떠오름
+ *   (⑨ '직접 알아볼 때와 프리티풀로 문의할 때' 비교 칸은 261014 사장 '없애줘'로 뺐다) ⑩ 사진 격자 ⑪ 흐르는 키워드
  *   — 위치(페이지의 네이버 지도 칸) — ⑫ 묻고 답하기(펼침) (⑬ 마무리 문의 띠는 261014 사장 '없애줘'로 뺐다 — 아래 고정 '문의하기'가 있다)
  * 업체에는 리뷰가 없어 ④의 칩·문장은 업체 정보에서 뽑는다(partner-facts). 데이터가 없는 칸은 통째로 뺀다.
  * 글자 굵기는 700 을 넘기지 않는다(261014 사장).
@@ -774,30 +775,6 @@ export default function PartnerLanding({
           {facts.sections.map((s) => <LongText key={s.title} title={s.title} text={s.text} />)}
         </section>
       )}
-
-      {/* ⑨ 비교 — 이 업체 하나 기준(여러 업체 동시 문의처럼 읽히지 않게) */}
-      <section className="pl-sec">
-        <SectionHead center={false} eyebrow="Why Freetiful" title={<>직접 알아볼 때와<br />프리티풀로 문의할 때</>} />
-        <div className="pl-vs">
-          <div className="pl-vs-card" data-rv="left">
-            <h3>직접 알아볼 때</h3>
-            <ul>
-              <li><i aria-hidden />업체에 직접 전화·방문해 물어봐요</li>
-              <li><i aria-hidden />가격·일정을 하나하나 확인해요</li>
-              <li><i aria-hidden />답을 기다리며 다시 연락해요</li>
-            </ul>
-          </div>
-          <div className="pl-vs-card is-ours" data-rv="scale" style={{ ['--d' as string]: '.1s' }}>
-            <span className="pl-vs-badge">FREETIFUL</span>
-            <h3>프리티풀로 문의할 때</h3>
-            <ul>
-              <li><TossCheckIcon size={16} />문의 한 번이면 매니저가 대신 확인해요</li>
-              <li><TossCheckIcon size={16} />업체와 함께 확인해 안내해요</li>
-              <li><TossCheckIcon size={16} />남긴 연락처로 연락받아요</li>
-            </ul>
-          </div>
-        </div>
-      </section>
 
       {/* ⑩ 사진 격자 */}
       <section className="pl-sec">
