@@ -4,19 +4,19 @@
  * 웨딩 파트너 상세 — 사진·이름 칸(히어로) 아래 랜딩(261014 사장 '첨부한 사진처럼 똑같이 해줘 인터렉션들도, 히어로는 바꾸지 말고'
  * + 'AI분석 그 사회자 페이지처럼 — 동그라미에 별 나오는 거').
  * 첨부 랜딩(병원 홈페이지 제작사 소개)의 섹션 짜임·움직임을 그대로 따르되, 그림·글은 남의 것을 쓰지 않고 이 업체의 데이터로 채운다.
- *   ① 소개 문장 + 둘레에 떠 있는 사진(평평 · r5, 액자째 둥실 + 스크롤 패럴랙스, 누르면 크게)
+ *   ① 소개 문장 + 둘레에 떠 있는 사진(평평 · r5 · 크게, 굴리면 가운데에 모여 있던 사진이 네 귀퉁이로 촤락 펼쳐진다 · 액자째 둥실, 누르면 크게)
  *   (② 한눈에 보기 · 매니저 카드는 261014 사장 '없애줘'로 뺐다 — 그 정보는 ⑦ 격자로)
  *   ③ 넘겨 보는 카드(가운데 카드만 또렷, 진행 막대 · PC 마우스로 끌기) — 식대·보증 인원 카드는 사장 제공 그림(hall-guests)
  *   ④ AI 분석 — 사회자 상세와 같은 '소개' 카드(StyleIntroCard) + 보라 동그라미·반짝이 별 키워드 판(KeywordOrb) + 질문 입력줄(글자가 쳐지는 입력줄 → 문의 시트)
  *   ⑤ 매니저 띠 — 사장 제공 그림(manager-band) 위에 제목만(261014 '텍스트 줄여줘')
  *   ⑥ 번갈아 놓인 기능 줄(사진 = 매칭 화면의 사회자 카드 덱처럼 돌아가는 사진 덱 · 미니 지도 · 미니 문의 시트 · 완료 카드) — 화면에 닿으면 좌우에서 들어온다
- *   ⑦ 아이콘 격자(업체 정보) ⑧ 요금표형 홀 카드(가운데 온 카드 강조) ⑨ 비교 카드 ⑩ 사진 격자 ⑪ 흐르는 키워드
- *   — 위치(페이지의 네이버 지도 칸) — ⑫ 묻고 답하기(펼침) ⑬ 마무리 띠
+ *   ⑦ 아이콘 격자(업체 정보) ⑧ 홀 카드 = 홈 웨딩파트너 '사진 색 카드'(PartnerToneCard) 결(261014 사장), 가운데 온 카드가 살짝 떠오름 ⑨ 비교 카드 ⑩ 사진 격자 ⑪ 흐르는 키워드
+ *   — 위치(페이지의 네이버 지도 칸) — ⑫ 묻고 답하기(펼침) (⑬ 마무리 문의 띠는 261014 사장 '없애줘'로 뺐다 — 아래 고정 '문의하기'가 있다)
  * 업체에는 리뷰가 없어 ④의 칩·문장은 업체 정보에서 뽑는다(partner-facts). 데이터가 없는 칸은 통째로 뺀다.
  * 글자 굵기는 700 을 넘기지 않는다(261014 사장).
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   TossCameraIcon,
   TossCheckIcon,
@@ -29,7 +29,8 @@ import AiIcon, { AI_STAR_PATH } from '@/components/icons/AiIcon';
 import StyleIntroCard from '@/components/pros/StyleIntroCard';
 import { KeywordOrb, type KeywordOrbText } from '@/components/pros/ReviewKeywordOrb';
 import MatchCardDeck, { type DeckCard } from '@/components/match/MatchCardDeck';
-import { josa, type PartnerFacts } from './partner-facts';
+import { useImageTone } from '@/lib/image-tone';
+import { josa, type PartnerFacts, type PartnerHall } from './partner-facts';
 import { PL_CSS } from './styles';
 
 const WORDMARK = '/images/logo-freetiful-wordmark.svg';
@@ -78,18 +79,41 @@ const FACT_ICON: Record<string, ReactNode> = {
 };
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-/* ─── 등장 · 패럴랙스 · 화면 밖 애니메이션 멈춤 — 스크롤마다 위치만 잰다(관찰자가 늦는 안드 웹뷰에서도 같은 동작) ─── */
+/* ─── 등장 · 패럴랙스 · 펼침 · 화면 밖 애니메이션 멈춤 — 스크롤마다 위치만 잰다(관찰자가 늦는 안드 웹뷰에서도 같은 동작) ─── */
 function useLandingMotion(rootRef: React.RefObject<HTMLDivElement>, deps: unknown[]) {
-  useEffect(() => {
+  // 첫 장면부터 펼침 정도가 맞게(그리기 전에) — 펼쳐진 채 한 번 보였다가 가운데로 튀지 않게
+  useIsoLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const reduced = reducedMotion();
     root.classList.add('is-armed');
     let raf = 0;
+    /* 펼침 — 사진마다 '제자리 → 칸 가운데' 거리(px)를 재 두고(--cx · --cy), 스크롤 정도(--pl-s 0~1)만큼 제자리로 나온다 */
+    const measureSpread = () => {
+      root.querySelectorAll<HTMLElement>('[data-spread]').forEach((sec) => {
+        const W = sec.clientWidth;
+        const H = sec.clientHeight;
+        sec.querySelectorAll<HTMLElement>('.pl-float').forEach((f) => {
+          f.style.setProperty('--cx', `${(W / 2 - (f.offsetLeft + f.offsetWidth / 2)).toFixed(1)}px`);
+          f.style.setProperty('--cy', `${(H / 2 - (f.offsetTop + f.offsetHeight / 2)).toFixed(1)}px`);
+        });
+      });
+    };
     const tick = () => {
       raf = 0;
       const vh = window.innerHeight || 800;
+      root.querySelectorAll<HTMLElement>('[data-spread]').forEach((sec) => {
+        let sp = 1;
+        if (!reduced) {
+          // 칸 위끝이 화면 80% 높이일 때 0(첫 화면에선 가운데에 모여 있다) → 15% 높이까지 올라오면 1, 끝은 부드럽게(ease-out)
+          const r = sec.getBoundingClientRect();
+          const raw = Math.max(0, Math.min(1, (vh * 0.8 - r.top) / (vh * 0.65)));
+          sp = 1 - Math.pow(1 - raw, 3);
+        }
+        sec.style.setProperty('--pl-s', sp.toFixed(3));
+      });
       root.querySelectorAll<HTMLElement>('[data-rv]:not([data-in])').forEach((el) => {
         const r = el.getBoundingClientRect();
         // 화면 아래 12% 안쪽으로 들어오면(또는 이미 지나갔으면) 등장
@@ -112,13 +136,22 @@ function useLandingMotion(rootRef: React.RefObject<HTMLDivElement>, deps: unknow
       }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    const onResize = () => { measureSpread(); onScroll(); };
+    measureSpread();
     tick();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
+    // 글꼴이 늦게 와서 칸 높이가 바뀌어도 다시 잰다
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(onResize);
+      root.querySelectorAll<HTMLElement>('[data-spread]').forEach((sec) => ro!.observe(sec));
+    }
     return () => {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -314,6 +347,55 @@ function LongText({ title, text }: { title: string; text: string }) {
   );
 }
 
+/** 사진 아래쪽을 카드 색으로 녹인다(PartnerToneCard 와 같은 값) */
+const HALL_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 50%, rgba(0,0,0,.4) 78%, transparent 100%)';
+
+/**
+ * ⑧ 홀 카드 — 홈 웨딩파트너 카드(PartnerToneCard)와 같은 '사진 색 카드'(261014 사장 '웨딩홀 홈에 있는 카드처럼').
+ *  바탕·테두리 = 홀 사진에서 뽑은 색(lib/image-tone 'scene'), 16:9 사진 아래쪽이 그 색으로 녹아 이름 칸으로 이어진다.
+ *  이름 17 굵게 · 한 줄 정보(층 | 사진 N장) · 식대 · 조건 줄.
+ */
+function HallCard({ hall, index, active, fallbackImage, onOpen }: { hall: PartnerHall; index: number; active: boolean; fallbackImage?: string; onOpen: (src: string) => void }) {
+  const src = hall.images[0] || fallbackImage || '';
+  const tone = useImageTone(src || null, 'scene');
+  const sub = tone?.sub || '#6B7684';
+  const photoCount = hall.images.length;
+  const meta = [hall.floor, photoCount > 1 ? `사진 ${photoCount}장` : ''].filter(Boolean);
+  return (
+    <div
+      className={`pl-plan${active ? ' is-on' : ''}`}
+      style={{ backgroundColor: tone?.bg || '#F2F4F6', borderColor: tone?.line || '#EAEDF0', ['--tone-sub' as string]: sub }}
+    >
+      {src && (
+        <button type="button" className="pl-plan-ph" onClick={() => onOpen(src)} aria-label={`${hall.name} 사진 크게 보기`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" referrerPolicy="no-referrer" loading={index < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} onError={onImgError} style={{ WebkitMaskImage: HALL_CARD_FADE, maskImage: HALL_CARD_FADE }} />
+        </button>
+      )}
+      <div className="pl-plan-body">
+        <p className="pl-plan-name">{hall.name}</p>
+        {meta.length > 0 && (
+          <p className="pl-plan-meta">
+            {meta.map((m, i) => (
+              <span key={m}>{i > 0 && <i aria-hidden />}{m}</span>
+            ))}
+          </p>
+        )}
+        {hall.price && (
+          <div className="pl-plan-price"><span>{hall.priceLabel}</span><b>{hall.price}</b></div>
+        )}
+        {hall.rows.length > 0 && (
+          <ul>
+            {hall.rows.map((r) => (
+              <li key={r.label}><TossCheckIcon size={16} /><span><b>{r.label}</b> {r.value}</span></li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SectionHead({ eyebrow, title, lead, center = true }: { eyebrow: string; title: ReactNode; lead?: ReactNode; center?: boolean }) {
   return (
     <div className={center ? 'pl-center' : ''} data-rv="">
@@ -324,12 +406,10 @@ function SectionHead({ eyebrow, title, lead, center = true }: { eyebrow: string;
   );
 }
 
+/** 넘겨 보는 카드 — 모두 그림이 있다(261014 사장 '이미지 없는 것들 다 채워줘'): 업체 사진 카드 · 사장 그림 카드(식대 · 보증 인원) */
 type Highlight =
-  | { kind: 'photo'; key: string; label: string; value: string; src: string; index: number }
-  | { kind: 'art'; key: string; label: string; value: string; pos: string }
-  | { kind: 'grad' | 'plain'; key: string; label: string; value: string; icon: ReactNode }
-  | { kind: 'note'; key: string; text: string; label: string }
-  | { kind: 'tags'; key: string; tags: string[] };
+  | { kind: 'photo'; key: string; label: string; value: string; src: string; index: number; tags?: string[] }
+  | { kind: 'art'; key: string; label: string; value: string; pos: string };
 
 export default function PartnerLanding({
   images,
@@ -362,44 +442,40 @@ export default function PartnerLanding({
 
   useLandingMotion(rootRef, [images.length, facts.halls.length]);
 
-  /* ① 떠 있는 사진 — 대표 사진(히어로) 다음 것부터. 모자라면 대표 사진 + 파랑 장식 타일. 평평하게(기울이지 않음) · 크게(261014 '좀 더 키워줘') */
+  /* ① 떠 있는 사진 — 대표 사진(히어로) 다음 것부터. 모자라면 대표 사진 + 파랑 장식 타일. 평평하게(기울이지 않음) · 크게(261014 '좀 더 키워줘' 두 번).
+     자리·크기는 CSS(.pl-float.f0~f3), 여기선 패럴랙스 세기(k) · 둥실 박자(t · dl) · 펼침 차례(o) */
   const floats = useMemo(() => {
-    const SPOTS: Array<{ style: CSSProperties; k: number; t: string; dl: string }> = [
-      { style: { left: '4%', top: 28, width: '27%', aspectRatio: '4 / 5' }, k: -16, t: '6.4s', dl: '0s' },
-      { style: { right: '5%', top: 52, width: '31%', aspectRatio: '4 / 3' }, k: -10, t: '7.2s', dl: '-2s' },
-      { style: { left: '8%', bottom: 40, width: '24%', aspectRatio: '1 / 1' }, k: 10, t: '5.8s', dl: '-1s' },
-      { style: { right: '6%', bottom: 28, width: '28%', aspectRatio: '4 / 5' }, k: 16, t: '6.8s', dl: '-3s' },
+    const SPOTS: Array<{ k: number; t: string; dl: string; o: number }> = [
+      { k: -14, t: '6.4s', dl: '0s', o: 0 },
+      { k: -9, t: '7.2s', dl: '-2s', o: 0.08 },
+      { k: 9, t: '5.8s', dl: '-1s', o: 0.04 },
+      { k: 14, t: '6.8s', dl: '-3s', o: 0.12 },
     ];
     const pool = images.length > 1 ? images.slice(1, 5).map((src, i) => ({ src, index: i + 1 })) : images.slice(0, 1).map((src) => ({ src, index: 0 }));
     return SPOTS.map((spot, i) => ({ ...spot, photo: pool[i] || null }));
   }, [images]);
 
-  /* ③ 넘겨 보는 카드 — 분야 카드는 뺀다(제목이 이미 '{업체 종류} 고를 때'). 식대·보증 인원 = 사장 그림 카드 */
+  /* ③ 넘겨 보는 카드 — 분야 카드는 뺀다(제목이 이미 '{업체 종류} 고를 때'). 식대·보증 인원 = 사장 그림 카드, 나머지는 전부 업체 사진 카드
+     (사진이 모자라면 처음부터 다시 돌려 쓴다 — 그림 없는 카드가 없게) */
   const highlights = useMemo<Highlight[]>(() => {
     const out: Highlight[] = [];
     let photoAt = 0;
-    let plainAt = 0;
+    const nextPhoto = () => {
+      const index = images.length ? photoAt % images.length : 0;
+      photoAt += 1;
+      return { src: images[index] || '/images/default-profile.png', index };
+    };
     facts.facts.filter((f) => f.key !== 'category').forEach((f) => {
       if (f.key === 'meal' || f.key === 'guarantee') {
         out.push({ kind: 'art', key: f.key, label: f.label, value: f.value, pos: f.key === 'meal' ? '50% 58%' : '50% 100%' });
         return;
       }
-      const src = images[photoAt];
-      if (out.length % 2 === 0 && src) {
-        out.push({ kind: 'photo', key: f.key, label: f.label, value: f.value, src, index: photoAt });
-        photoAt += 1;
-      } else {
-        out.push({ kind: plainAt % 2 === 0 ? 'grad' : 'plain', key: f.key, label: f.label, value: f.value, icon: FACT_ICON[f.key] || <TossCheckIcon size={26} /> });
-        plainAt += 1;
-      }
+      out.push({ kind: 'photo', key: f.key, label: f.label, value: f.value, ...nextPhoto() });
     });
-    const noteLabel = facts.source ? `업체 소개 · 정보 제공 ${facts.source}` : '업체 소개';
-    facts.keypoints.slice(0, 2).forEach((k, i) => out.push({ kind: 'note', key: `kp-${i}`, text: k, label: noteLabel }));
-    if (tags.length >= 2) out.push({ kind: 'tags', key: 'tags', tags: tags.slice(0, 6) });
-    // 카드가 적으면(정보가 적은 업체) 남은 사진으로 채운다 — 글자 없는 사진 카드
-    for (let i = photoAt; out.length < 4 && i < images.length; i++) {
-      out.push({ kind: 'photo', key: `ph-${i}`, label: '', value: '', src: images[i], index: i });
-    }
+    // 제휴사 업체 소개문(keypoints) 카드는 261014 사장 '이 카드는 삭제해줘'로 뺐다
+    if (tags.length >= 2) out.push({ kind: 'photo', key: 'tags', label: '이런 키워드로 찾아요', value: '', tags: tags.slice(0, 6), ...nextPhoto() });
+    // 카드가 적으면(정보가 적은 업체) 아직 안 쓴 사진으로 채운다 — 글자 없는 사진 카드
+    while (out.length < 4 && photoAt < images.length) out.push({ kind: 'photo', key: `ph-${photoAt}`, label: '', value: '', ...nextPhoto() });
     return out.slice(0, 8);
   }, [facts, images, tags]);
   const rail = useRail<HTMLDivElement>(highlights.length);
@@ -464,13 +540,13 @@ export default function PartnerLanding({
       <style>{PL_CSS}</style>
 
       {/* ① 소개 문장 + 떠 있는 사진 */}
-      <section className="pl-intro" data-parallax="" data-anim="">
+      <section className="pl-intro" data-parallax="" data-spread="" data-anim="">
         {floats.map((f, i) => (f.photo ? (
           <button
             key={i}
             type="button"
-            className="pl-float"
-            style={{ ...f.style, ['--k' as string]: f.k, ['--t' as string]: f.t, ['--dl' as string]: f.dl }}
+            className={`pl-float f${i}`}
+            style={{ ['--k' as string]: f.k, ['--t' as string]: f.t, ['--dl' as string]: f.dl, ['--o' as string]: f.o }}
             onClick={() => openPhoto(f.photo!.index)}
             aria-label={`사진 ${f.photo.index + 1} 크게 보기`}
           >
@@ -481,13 +557,14 @@ export default function PartnerLanding({
             </span>
           </button>
         ) : (
-          <span key={i} aria-hidden className="pl-float" style={{ ...f.style, ['--k' as string]: f.k, ['--t' as string]: f.t, ['--dl' as string]: f.dl }}>
+          <span key={i} aria-hidden className={`pl-float f${i}`} style={{ ['--k' as string]: f.k, ['--t' as string]: f.t, ['--dl' as string]: f.dl, ['--o' as string]: f.o }}>
             <span className="pl-float-frame is-deco">
               <svg width="30" height="30" viewBox="0 0 24 24"><path d={AI_STAR_PATH} fill="#fff" /></svg>
             </span>
           </span>
         )))}
-        <div data-rv="">
+        {/* 글은 사진이 가운데에서 펼쳐져 나간 뒤에 떠오른다(펼침 정도 --pl-s 로 — 사진이 모여 있을 땐 글과 겹치지 않게) */}
+        <div className="pl-intro-copy">
           <span className="pl-eyebrow">About</span>
           <p className="pl-intro-statement">
             <span className="pl-intro-name pl-grad-text">{short}</span>
@@ -519,7 +596,8 @@ export default function PartnerLanding({
                         <span className="pl-hl-shade" />
                         <span className="pl-hl-body" style={{ textAlign: 'left' }}>
                           <span className="pl-hl-k" style={{ display: 'block' }}>{h.label}</span>
-                          <span className="pl-hl-v" style={{ display: 'block' }}>{h.value}</span>
+                          {h.value && <span className="pl-hl-v" style={{ display: 'block' }}>{h.value}</span>}
+                          {h.tags && <span className="pl-hl-tags is-glass">{h.tags.map((t) => <span key={t}>#{t}</span>)}</span>}
                         </span>
                       </>
                     )}
@@ -539,37 +617,7 @@ export default function PartnerLanding({
                   </div>
                 );
               }
-              if (h.kind === 'note') {
-                return (
-                  <div key={h.key} role="listitem" className={`pl-hl is-plain${dim}`}>
-                    <span className="pl-hl-ic"><TossCheckIcon size={26} /></span>
-                    <div className="pl-hl-body">
-                      <span className="pl-hl-k" style={{ color: '#8B95A1' }}>{h.label}</span>
-                      <p className="pl-hl-quote" style={{ marginTop: 6 }}>{h.text}</p>
-                    </div>
-                  </div>
-                );
-              }
-              if (h.kind === 'tags') {
-                return (
-                  <div key={h.key} role="listitem" className={`pl-hl is-plain${dim}`}>
-                    <span className="pl-hl-ic"><TossCheckIcon size={26} /></span>
-                    <div className="pl-hl-body">
-                      <span className="pl-hl-k" style={{ color: '#8B95A1' }}>이런 키워드로 찾아요</span>
-                      <div className="pl-hl-tags">{h.tags.map((t) => <span key={t}>#{t}</span>)}</div>
-                    </div>
-                  </div>
-                );
-              }
-              return (
-                <div key={h.key} role="listitem" className={`pl-hl ${h.kind === 'grad' ? 'is-grad' : 'is-plain'}${dim}`}>
-                  <span className="pl-hl-ic">{h.icon}</span>
-                  <div className="pl-hl-body">
-                    <span className="pl-hl-k">{h.label}</span>
-                    <span className="pl-hl-v">{h.value}</span>
-                  </div>
-                </div>
-              );
+              return null;
             })}
           </div>
           <div className="pl-progress" aria-hidden><i ref={rail.barRef} /></div>
@@ -707,29 +755,14 @@ export default function PartnerLanding({
           </div>
           <div ref={plans.ref} className={`pl-plans${singleHall ? ' is-single' : ''}`} data-rv="right">
             {facts.halls.map((h, i) => (
-              <div key={`${h.name}-${i}`} className={`pl-plan${i === plans.active && !singleHall ? ' is-on' : ''}`}>
-                {h.images[0] && (
-                  <button type="button" className="pl-plan-ph" onClick={() => openPhoto(images.indexOf(h.images[0]))} aria-label={`${h.name} 사진 크게 보기`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={h.images[0]} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" draggable={false} onError={onImgError} />
-                    {h.images.length > 1 && <em>사진 {h.images.length}장</em>}
-                  </button>
-                )}
-                <div className="pl-plan-body">
-                  {(h.floor || h.named) && <span className="pl-plan-pill">{h.floor || `HALL ${i + 1}`}</span>}
-                  <p className="pl-plan-name">{h.name}</p>
-                  {h.price && (
-                    <div className="pl-plan-price"><span>{h.priceLabel}</span><b>{h.price}</b></div>
-                  )}
-                  {h.rows.length > 0 && (
-                    <ul>
-                      {h.rows.map((r) => (
-                        <li key={r.label}><TossCheckIcon size={16} /><span><b>{r.label}</b> {r.value}</span></li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
+              <HallCard
+                key={`${h.name}-${i}`}
+                hall={h}
+                index={i}
+                active={i === plans.active && !singleHall}
+                fallbackImage={images[0]}
+                onOpen={(src) => openPhoto(images.indexOf(src))}
+              />
             ))}
           </div>
           {!singleHall && <div className="pl-progress" aria-hidden><i ref={plans.barRef} /></div>}
@@ -821,16 +854,6 @@ export default function PartnerLanding({
         </div>
       </section>
 
-      {/* ⑬ 마무리 띠 */}
-      <div className="pl-cta" data-rv="scale" data-anim="">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={WORDMARK} alt="프리티풀" />
-        <h2>{short},<br />지금 문의해 보세요</h2>
-        <p>프리티풀 매니저가 업체와 함께 확인하고 연락드려요</p>
-        <button type="button" className="pl-white-btn" onClick={() => onInquiry()}>
-          문의하기 <TossChevronRightIcon size={18} />
-        </button>
-      </div>
       {(facts.source || facts.halls.length > 0) && (
         <p className="pl-source">{facts.source ? `정보 제공 ${facts.source} · ` : ''}{facts.priceNote}</p>
       )}
