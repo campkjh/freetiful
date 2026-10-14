@@ -48,12 +48,17 @@ export default function StyleIntroCard({
   loading,
   compact = false,
   className = '',
+  title = '이 사회자의 스타일을 소개합니다',
+  waitText = '리뷰를 읽고 있어요…',
 }: {
   summary: StyleSummary | null;
   loading: boolean;
   /** PC 상세 리뷰 옆 좁은 칸 — 글자·여백을 줄이고 문장은 세 줄까지 */
   compact?: boolean;
   className?: string;
+  /** 카드 제목 — 웨딩 파트너 상세(업체 소개)도 같은 카드를 쓴다 */
+  title?: string;
+  waitText?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
@@ -65,7 +70,13 @@ export default function StyleIntroCard({
       if (entry.isIntersecting) { setSeen(true); io.disconnect(); }
     }, { threshold: 0.25 });
     io.observe(el);
-    return () => io.disconnect();
+    // 관찰자가 안 오는 웹뷰(안드)도 굴리면 보이게 — 스크롤 때 자리만 잰다
+    const onScroll = () => {
+      const r = el.getBoundingClientRect();
+      if (r.top < (window.innerHeight || 800) * 0.9 && r.bottom > 0) setSeen(true);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { io.disconnect(); window.removeEventListener('scroll', onScroll); };
     // 카드는 요약을 받기 시작할 때 생긴다 — 그때(loading·summary 가 바뀔 때) 다시 붙여야 보이는 걸 잡는다
   }, [seen, loading, summary]);
 
@@ -82,10 +93,10 @@ export default function StyleIntroCard({
     >
       <div className="flex items-center gap-2">
         <AiIcon size={compact ? 18 : 20} tile={false} spin={loading && !summary} />
-        <p className={`style-intro-title font-bold tracking-[-0.3px] ${compact ? 'text-[15px]' : 'text-[17px]'}`}>이 사회자의 스타일을 소개합니다</p>
+        <p className={`style-intro-title font-bold tracking-[-0.3px] ${compact ? 'text-[15px]' : 'text-[17px]'}`}>{title}</p>
       </div>
       {loading && !summary && (
-        <p className={`style-intro-wait mt-2.5 tracking-[-0.2px] text-[#9A8FAE] ${compact ? 'text-[13px]' : 'text-[14px]'}`}>리뷰를 읽고 있어요…</p>
+        <p className={`style-intro-wait mt-2.5 tracking-[-0.2px] text-[#9A8FAE] ${compact ? 'text-[13px]' : 'text-[14px]'}`}>{waitText}</p>
       )}
       <div className={`style-intro-body${open ? ' is-open' : ''}`}>
         <div className="min-h-0 overflow-hidden">

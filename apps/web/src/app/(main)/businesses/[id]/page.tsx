@@ -51,7 +51,8 @@ import {
 } from '@/lib/wedding-partner-images';
 import { getRelevantBusinessCategories, isBusinessRelevantToAnyCategory, sanitizeBusinessImageUrls } from '@/lib/business-quality';
 import { extractHallInfo } from '@/lib/business-hall-info';
-import HallInfoSections from '@/components/business/HallInfoSections';
+import PartnerLanding from '@/components/business/partner-landing/PartnerLanding';
+import { buildPartnerFacts } from '@/components/business/partner-landing/partner-facts';
 import NaverMap from '@/components/map/NaverMap';
 import { isInKorea, toFiniteNumber, type LatLngLiteral } from '@/lib/naver-map-shared';
 import { naverMapLinkProps, openExternalMapLink } from '@/lib/naver-map-links';
@@ -87,19 +88,6 @@ function readableIntro(html?: string | null) {
 function shortRegion(address?: string | null) {
   const parts = String(address || '').trim().split(/\s+/);
   return parts.slice(0, 2).join(' ');
-}
-
-function hostLabel(url: string) {
-  try {
-    return new URL(url).host.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function instagramHandle(url: string) {
-  const m = url.match(/instagram\.com\/([^/?#]+)/i);
-  return m ? `@${m[1]}` : hostLabel(url);
 }
 
 /* ─── 위치 지도 도우미(261012 사장 '네이버 다이나믹맵 전부 다 적용') ─────────────────── */
@@ -225,7 +213,7 @@ function PhotoViewer({ images, start, name, onClose }: { images: string[]; start
 /* ─── 문의 시트 — 이름·연락처(로그인 정보로 채움) · 문의 종류 칩 · 희망 시기 · 내용 → 관리자 문의함 ─────────── */
 const INQUIRY_KINDS = ['견적 문의', '방문 상담', '일정 확인', '기타'];
 
-function InquirySheet({ open, onClose, biz, category }: { open: boolean; onClose: () => void; biz: BizDetail; category: string }) {
+function InquirySheet({ open, onClose, biz, category, prefill = '' }: { open: boolean; onClose: () => void; biz: BizDetail; category: string; prefill?: string }) {
   const authUser = useAuthStore((s) => s.user) as any;
   const scrimRef = useRef<HTMLDivElement>(null);
   const keyboardInset = useKeyboardInset(open, scrimRef);
@@ -240,9 +228,19 @@ function InquirySheet({ open, onClose, biz, category }: { open: boolean; onClose
   // 닫기는 ref 로, 여닫힘 효과는 open 에만 — 부모가 다시 그려질 때 '보냈어요' 화면이 지워지지 않게
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const prefillRef = useRef(prefill);
+  prefillRef.current = prefill;
+  // 질문으로 채운 내용(손님이 고치지 않았으면 다음 질문으로 바꿔 채운다)
+  const autoMemoRef = useRef('');
   useEffect(() => {
     if (!open) return;
     setDone(false);
+    // 'AI 분석' 질문 입력줄로 열면 그 질문을 내용 칸에 채운다(이미 적은 내용이 있으면 그대로)
+    const next = prefillRef.current;
+    if (next) {
+      setMemo((v) => (!v.trim() || v === autoMemoRef.current ? next : v));
+      autoMemoRef.current = next;
+    }
     const html = document.documentElement;
     const prev = html.style.overflow;
     html.style.overflow = 'hidden';
@@ -352,10 +350,12 @@ export default function BusinessDetailPage() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [inquiryPrefill, setInquiryPrefill] = useState('');
   const [solidHeader, setSolidHeader] = useState(false);
   // 지도 칸이 주소 카드로 내려앉은 좌표(그땐 카드에 '네이버 지도에서 보기'가 있어 '크게 보기' 칩을 뺀다 — 겹침)
   const [mapCardKey, setMapCardKey] = useState<string | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -432,7 +432,24 @@ export default function BusinessDetailPage() {
     const naverQuery = [regionWord, biz.businessName].filter(Boolean).join(' ');
     // 웨딩홀 상세(식대·보증 인원·홀 안내) — 제휴 웨딩홀은 소개 안의 숨은 표시로 들어온다(lib/business-hall-info)
     const hallInfo = extractHallInfo(biz.descriptionHtml);
-    return { images, category, categoryNames, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, hallInfo };
+    // 아래 랜딩(261014)이 쓰는 글자 — 업체 데이터로만(partner-facts)
+    // 지도로 찾을 수 있는 주소인가(저장 좌표가 있거나 번지까지 적힌 주소) — 아니면 '서울/경기' 같은 활동 지역으로 쓴다
+    const hasPlace = !!address && (!!storedLatLng || !!geocodeQuery(biz.address));
+    const partner = buildPartnerFacts({
+      name: biz.businessName,
+      category,
+      categoryNames,
+      businessType: biz.businessType,
+      address,
+      hasPlace,
+      tags,
+      // 이름으로만 뽑은 규칙 태그('…호텔' → 호텔웨딩). 분야 기본 태그 목록(웨딩홀이면 호텔웨딩·채플웨딩까지)과 주소(건물명 '…파크' 오탐)는 쓰지 않는다.
+      // 주관적인 말 · 홀이 아닌 업체의 홀 계열 태그는 partner-facts 가 거른다
+      extraTags: deriveBusinessTagSuggestions({ businessName: biz.businessName }),
+      images,
+      hallInfo,
+    });
+    return { images, category, categoryNames, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, partner, hasPlace };
   }, [biz]);
 
   const tone = useImageTone(view?.images[0], 'scene');
@@ -465,7 +482,7 @@ export default function BusinessDetailPage() {
     );
   }
 
-  const { images, category, categoryNames, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, hallInfo } = view;
+  const { images, category, tags, intro, address, website, kakaoPlace, storedLatLng, naverQuery, partner, hasPlace } = view;
   // 지도 핀 자리 = 저장된 좌표 > 주소로 찾은 좌표
   const point = storedLatLng || geo.point;
   const mapKey = point ? `${point.lat},${point.lng}` : '';
@@ -502,8 +519,21 @@ export default function BusinessDetailPage() {
     }
   };
 
+  // 'AI 분석' 질문 입력줄은 그 질문을 문의 내용에 채워 연다
+  const openInquiry = (prefill?: string) => {
+    setInquiryPrefill(prefill || '');
+    setInquiryOpen(true);
+  };
+  // 기능 줄 '위치 보기' — 머리줄(56) 아래로 지도 칸 제목이 오게
+  const scrollToLocation = () => {
+    const el = locationRef.current;
+    if (!el) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16, behavior: reduced ? 'auto' : 'smooth' });
+  };
+
   const quick = [
-    { key: 'inquiry', label: '문의하기', icon: <TossChatBubbleIcon size={24} />, onClick: () => setInquiryOpen(true) },
+    { key: 'inquiry', label: '문의하기', icon: <TossChatBubbleIcon size={24} />, onClick: () => openInquiry() },
     { key: 'route', label: '길찾기', icon: <TossDirectionIcon size={24} />, href: routeLink.href, onLinkClick: routeLink.onClick },
     biz.instagramUrl
       ? { key: 'insta', label: '인스타그램', icon: <TossCameraIcon size={24} />, href: biz.instagramUrl }
@@ -519,21 +549,6 @@ export default function BusinessDetailPage() {
     onClick?: () => void;
     onLinkClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   }>;
-
-  const gallery = images.slice(0, 9);
-  const more = images.length - gallery.length;
-  const infoRows: Array<{ label: string; value: React.ReactNode }> = [
-    { label: '분야', value: categoryNames.join(' · ') || category },
-    ...(address ? [{ label: '주소', value: address }] : []),
-    ...(biz.instagramUrl ? [{
-      label: '인스타그램',
-      value: <a href={biz.instagramUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#3182F6]">{instagramHandle(biz.instagramUrl)}</a>,
-    }] : []),
-    ...(website ? [{
-      label: '웹사이트',
-      value: <a href={website} target="_blank" rel="noopener noreferrer" className="break-all font-semibold text-[#3182F6]">{hostLabel(website)}</a>,
-    }] : []),
-  ];
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-[calc(96px+env(safe-area-inset-bottom,0px))]">
@@ -622,121 +637,101 @@ export default function BusinessDetailPage() {
         })}
       </div>
 
-      <div className="mx-5 mt-4 h-px bg-[#F2F4F6]" />
-
-      {/* 사진 모아보기 — 웨딩숲 사진 칸 어법(3열 · 3px 틈 · 모서리 16) */}
-      <section className="px-5 pt-6">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">사진 <span className="text-[#3182F6]">{images.length}</span></h2>
-          {images.length > 1 && (
-            <button type="button" onClick={() => setViewerAt(0)} className="flex items-center text-[14px] font-medium text-[#8B95A1]">
-              전체보기 <TossChevronRightIcon size={18} />
-            </button>
-          )}
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-[3px] overflow-hidden rounded-[16px]">
-          {gallery.map((src, i) => (
-            <button key={src + i} type="button" onClick={() => setViewerAt(i)} className="relative aspect-square overflow-hidden bg-[#F2F4F6]" aria-label={`사진 ${i + 1} 크게 보기`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={onImgError} className="absolute inset-0 h-full w-full object-cover" />
-              {i === gallery.length - 1 && more > 0 && (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[17px] font-bold text-white">+{more}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {hallInfo && <HallInfoSections info={hallInfo} images={images} onOpenPhoto={(i) => { if (i >= 0) setViewerAt(i); }} />}
-
-      {/* 위치 — 네이버 지도(261012 사장 '네이버 다이나믹맵 전부 다 적용'): 고정 칸(손가락은 페이지 스크롤), 누르면 네이버 지도 그 자리 핀.
-          인증 실패·로딩 실패면 같은 자리의 네이버 정적 지도 그림 → 그것도 안 되면 주소 카드(빈 칸 없음) */}
-      {address && (
-        <section className="px-5 pt-8">
-          <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">위치</h2>
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <p className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{address}</p>
-            <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center gap-1 rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
-              <TossCopyIcon size={15} />
-              복사
-            </button>
-          </div>
-          {point ? (
-            <NaverMap
-              key={mapKey}
-              className="mt-3 h-[196px] rounded-[16px]"
-              markers={[{ lat: point.lat, lng: point.lng, label: mapPinLabel(biz.businessName) }]}
-              zoom={16}
-              title={biz.businessName}
-              address={address}
-              onFallback={(reason) => { if (reason === 'image' || reason === 'no_center') setMapCardKey(mapKey); }}
-            >
-              {/* 칩은 손가락을 받지 않는다(눌러도 아래 지도 칸 링크로) — 왼쪽 아래는 네이버 로고·'© NAVER Corp.' 자리(약관상 가리면 안 됨)라 오른쪽 아래에.
-                  화면 390px 아래(갤럭시 360·384)에선 칩이 저작권 글자에 닿아 '크게 보기'만(261012 실측) */}
-              {mapCardKey !== mapKey && (
-                <span
-                  aria-hidden
-                  className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center gap-[3px] whitespace-nowrap rounded-[8px] bg-white/95 pl-2.5 pr-1.5 text-[13px] font-semibold tracking-[-0.2px] text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <span><span className="hidden min-[390px]:inline">네이버 지도에서 </span>크게 보기</span>
-                  <TossChevronRightIcon size={15} />
-                </span>
-              )}
-            </NaverMap>
-          ) : geo.status === 'loading' ? (
-            // 주소 → 좌표 찾는 동안(보통 한순간) — 같은 크기 연회색 칸(밀림 없음)
-            <div aria-hidden className="mt-3 h-[196px] animate-pulse rounded-[16px] bg-[#F2F4F6]" />
-          ) : geo.status === 'missing' ? (
-            // 주소로 좌표를 못 찾음 — 같은 높이 주소 카드(핀 + 이름 + 주소 + '네이버 지도에서 보기' → 네이버 장소 검색 '시·군·구 + 이름')
-            <NaverMap
-              className="mt-3 h-[196px] rounded-[16px]"
-              title={biz.businessName}
-              address={address}
-              searchQuery={naverQuery}
-            />
-          ) : null}
-          {/* 브랜드 색 버튼 — 사장 제공 아이콘(public/icons/brand): 카카오 노랑 + 톡 아이콘 / 네이버 초록 + 흰 NAVER 로고 */}
-          <div className={`${showMapBox ? 'mt-2.5' : 'mt-3'} grid grid-cols-2 gap-2`}>
-            <a
-              href={kakaoMap}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={openKakao}
-              className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] bg-[#FBE300] text-[15px] font-bold tracking-[-0.2px] text-[#3B1E1E] transition active:scale-[0.98] active:brightness-95"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/brand/kakao-talk.svg" alt="" className="h-7 w-7" />
-              카카오맵
-            </a>
-            <a
-              {...naverPlaceLink}
-              className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#03C75A] text-[15px] font-bold tracking-[-0.2px] text-white transition active:scale-[0.98] active:brightness-95"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/brand/naver-wordmark.svg" alt="NAVER" className="h-[11px] w-auto" />
-              지도
-            </a>
-          </div>
-        </section>
-      )}
-
-      {/* 업체 정보 */}
-      <section className="px-5 pt-8">
-        <h2 className="text-[19px] font-bold tracking-[-0.4px] text-[#191F28]">업체 정보</h2>
-        <dl className="mt-2">
-          {infoRows.map((row, i) => (
-            <div key={row.label} className={`flex gap-4 py-3.5 ${i ? 'border-t border-[#F2F4F6]' : ''}`}>
-              <dt className="w-[72px] shrink-0 text-[15px] tracking-[-0.2px] text-[#8B95A1]">{row.label}</dt>
-              <dd className="min-w-0 flex-1 break-keep text-[15px] leading-[1.55] tracking-[-0.2px] text-[#191F28]">{row.value}</dd>
+      {/* 아래 = 랜딩(261014 사장 '첨부한 사진처럼 똑같이, 인터렉션들도 · 히어로는 그대로' + 'AI 분석 = 사회자 상세의 동그라미·별')
+          — 소개 문장 · 한눈에 보기 · 넘겨 보는 카드 · AI 분석 · 띠 · 기능 줄 · 아이콘 격자 · 홀 카드 · 비교 · 사진 격자 · 키워드 → 위치 → 묻고 답하기 · 마무리 띠 */}
+      <PartnerLanding
+        images={images}
+        facts={partner}
+        tags={tags}
+        instagramUrl={biz.instagramUrl}
+        website={website}
+        hasLocation={hasPlace}
+        onOpenPhoto={(i) => setViewerAt(i)}
+        onInquiry={openInquiry}
+        onLocate={scrollToLocation}
+        locationSlot={
+          <>
+            {/* 위치 — 네이버 지도(261012 사장 '네이버 다이나믹맵 전부 다 적용'): 고정 칸(손가락은 페이지 스크롤), 누르면 네이버 지도 그 자리 핀.
+                인증 실패·로딩 실패면 같은 자리의 네이버 정적 지도 그림 → 그것도 안 되면 주소 카드(빈 칸 없음) */}
+        {address && (
+          <section ref={locationRef} className="pl-loc px-5">
+            <div className="pl-center">
+              <span className="pl-eyebrow">Location</span>
+              <h2 className="pl-h2">오시는 길</h2>
             </div>
-          ))}
-        </dl>
-      </section>
+            <div className="mt-5 flex items-start justify-between gap-3">
+              <p className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{address}</p>
+              <button type="button" onClick={copyAddress} className="flex h-8 shrink-0 items-center gap-1 rounded-[8px] bg-[#F2F4F6] px-2.5 text-[13px] font-semibold text-[#4E5968] active:bg-[#E5E8EB]">
+                <TossCopyIcon size={15} />
+                복사
+              </button>
+            </div>
+            {point ? (
+              <NaverMap
+                key={mapKey}
+                className="mt-3 h-[196px] rounded-[16px]"
+                markers={[{ lat: point.lat, lng: point.lng, label: mapPinLabel(biz.businessName) }]}
+                zoom={16}
+                title={biz.businessName}
+                address={address}
+                onFallback={(reason) => { if (reason === 'image' || reason === 'no_center') setMapCardKey(mapKey); }}
+              >
+                {/* 칩은 손가락을 받지 않는다(눌러도 아래 지도 칸 링크로) — 왼쪽 아래는 네이버 로고·'© NAVER Corp.' 자리(약관상 가리면 안 됨)라 오른쪽 아래에.
+                    화면 390px 아래(갤럭시 360·384)에선 칩이 저작권 글자에 닿아 '크게 보기'만(261012 실측) */}
+                {mapCardKey !== mapKey && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center gap-[3px] whitespace-nowrap rounded-[8px] bg-white/95 pl-2.5 pr-1.5 text-[13px] font-semibold tracking-[-0.2px] text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <span><span className="hidden min-[390px]:inline">네이버 지도에서 </span>크게 보기</span>
+                    <TossChevronRightIcon size={15} />
+                  </span>
+                )}
+              </NaverMap>
+            ) : geo.status === 'loading' ? (
+              // 주소 → 좌표 찾는 동안(보통 한순간) — 같은 크기 연회색 칸(밀림 없음)
+              <div aria-hidden className="mt-3 h-[196px] animate-pulse rounded-[16px] bg-[#F2F4F6]" />
+            ) : geo.status === 'missing' ? (
+              // 주소로 좌표를 못 찾음 — 같은 높이 주소 카드(핀 + 이름 + 주소 + '네이버 지도에서 보기' → 네이버 장소 검색 '시·군·구 + 이름')
+              <NaverMap
+                className="mt-3 h-[196px] rounded-[16px]"
+                title={biz.businessName}
+                address={address}
+                searchQuery={naverQuery}
+              />
+            ) : null}
+            {/* 브랜드 색 버튼 — 사장 제공 아이콘(public/icons/brand): 카카오 노랑 + 톡 아이콘 / 네이버 초록 + 흰 NAVER 로고 */}
+            <div className={`${showMapBox ? 'mt-2.5' : 'mt-3'} grid grid-cols-2 gap-2`}>
+              <a
+                href={kakaoMap}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openKakao}
+                className="flex h-12 items-center justify-center gap-1.5 rounded-[12px] bg-[#FBE300] text-[15px] font-bold tracking-[-0.2px] text-[#3B1E1E] transition active:scale-[0.98] active:brightness-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/brand/kakao-talk.svg" alt="" className="h-7 w-7" />
+                카카오맵
+              </a>
+              <a
+                {...naverPlaceLink}
+                className="flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#03C75A] text-[15px] font-bold tracking-[-0.2px] text-white transition active:scale-[0.98] active:brightness-95"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/brand/naver-wordmark.svg" alt="NAVER" className="h-[11px] w-auto" />
+                지도
+              </a>
+            </div>
+          </section>
+        )}
+          </>
+        }
+      />
 
       {/* 아래 고정 — 문의하기(전화 버튼은 예전 결정대로 숨김) */}
       <div className="fixed bottom-0 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 bg-white/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3 backdrop-blur-md">
-        <button type="button" className="ft-btn primary w-full" onClick={() => setInquiryOpen(true)}>
+        <button type="button" className="ft-btn primary w-full" onClick={() => openInquiry()}>
           문의하기
         </button>
       </div>
@@ -744,7 +739,7 @@ export default function BusinessDetailPage() {
       {viewerAt !== null && (
         <PhotoViewer images={images} start={viewerAt} name={biz.businessName} onClose={() => setViewerAt(null)} />
       )}
-      <InquirySheet open={inquiryOpen} onClose={() => setInquiryOpen(false)} biz={biz} category={category} />
+      <InquirySheet open={inquiryOpen} onClose={() => setInquiryOpen(false)} biz={biz} category={category} prefill={inquiryPrefill} />
     </div>
   );
 }
