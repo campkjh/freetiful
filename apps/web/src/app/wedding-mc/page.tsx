@@ -544,8 +544,8 @@ export default function WeddingMcLandingPage() {
         />
       ) : (
         <>
-          {/* Header */}
-          <header className="sticky top-0 z-30 bg-white">
+          {/* Header — iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 위를 띄워 흰 바탕이 상태바 뒤까지(토큰 0 이면 그대로) */}
+          <header className="sticky top-0 z-30 bg-white pt-[var(--ft-sat)]">
             <div className="max-w-md mx-auto px-3 h-14 flex items-center justify-between">
               <button
                 type="button"
@@ -1232,7 +1232,8 @@ function SurveyScreen({ onSelect, onBack }: { onSelect: (benefits: string[]) => 
   };
   return (
     <div className="min-h-[100dvh] bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'SF Pro', 'Apple SD Gothic Neo', Pretendard, system-ui, sans-serif" }}>
-      <header className="sticky top-0 z-30 bg-white">
+      {/* iOS 앱은 상태바 칸(--ft-sat)까지 흰 바탕(261014) */}
+      <header className="sticky top-0 z-30 bg-white pt-[var(--ft-sat)]">
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
           <button type="button" onClick={onBack} aria-label="뒤로 가기" className="-ml-1 flex h-10 w-10 items-center justify-center rounded-full text-[#181C24] hover:bg-[#181C24]/5 active:bg-[#181C24]/10">
             <ChevronLeft size={24} strokeWidth={2.2} />
@@ -1852,8 +1853,8 @@ function MatchingScreen({
           </div>
         </div>
       )}
-      {/* 상단 헤더 */}
-      <header className="shrink-0 bg-white">
+      {/* 상단 헤더 — iOS 앱은 상태바 칸(--ft-sat)까지 흰 바탕(261014) */}
+      <header className="shrink-0 bg-white pt-[var(--ft-sat)]">
         <div className="max-w-2xl mx-auto px-3 h-14 flex items-center justify-between">
           <button
             type="button"
@@ -1915,7 +1916,8 @@ function MatchingScreen({
             <div className="px-5 pb-1 text-xs text-[#9DA1AA]">
               사회자를 살펴봐도 매칭은 계속 진행돼요. 답장이 오면 자동으로 채팅으로 이동합니다.
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            {/* 아래 여백 — iOS 앱은 홈 표시줄 칸(--ft-sab)만큼 더(261014, 토큰 0 이면 16 그대로) */}
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-[calc(16px+var(--ft-sab))] space-y-3">
               {deliveries.length === 0 ? (
                 <p className="text-center text-[#9DA1AA] text-sm py-12">아직 매칭된 사회자가 없습니다…</p>
               ) : (

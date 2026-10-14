@@ -566,8 +566,8 @@ export default function ProfilePage() {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
-            {/* 머리 — 퀵매칭 뒤로 화살표 */}
-            <header className="flex h-14 flex-none items-center gap-1 pl-2 pr-5">
+            {/* 머리 — 퀵매칭 뒤로 화살표. iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄운다 */}
+            <header className="flex h-[calc(56px+var(--ft-sat))] flex-none items-center gap-1 pl-2 pr-5 pt-[var(--ft-sat)]">
               <button type="button" onClick={closeYoutubeSearch} aria-label="뒤로가기" className="qd-back">
                 <QdBackIcon />
               </button>

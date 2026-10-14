@@ -11,6 +11,7 @@ import { prosApi } from '@/lib/api/pros.api';
 import { getProfileImageUrl } from '@/lib/default-profile';
 import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import { isAdminUser } from '@/lib/admin-access';
+import StatusBarScrim from '@/components/StatusBarScrim';
 
 /* ════════════════════════════════════════════════════════════════
  * 마이페이지 — 원라인솔루션 '일반바' 마이 탭 구성 그대로 (2026-09-25 사장 지시).
@@ -410,6 +411,8 @@ export default function MyPage() {
       style={{ letterSpacing: '-0.02em' }}
     >
       <style dangerouslySetInnerHTML={{ __html: MY_CSS }} />
+      {/* 머리 없는 화면 — iOS 앱에서만 상태바 칸을 바탕색으로 가린다(앱 밖 높이 0, 261014) */}
+      <StatusBarScrim color="#F4F6FA" />
       <div className="lg:flex lg:items-start lg:gap-6">
         <div className={`lg:transition-[width] lg:duration-300 lg:ease-out ${detailHref ? 'lg:w-[440px] lg:shrink-0' : 'lg:w-full'}`}>
           {/* '마이페이지' 헤더는 없앴다(사장 지시) — 이름 줄이 곧 맨 위. 상태표시줄에 안 먹히게 위 안전여백만 준다 */}

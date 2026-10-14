@@ -1373,8 +1373,8 @@ export default function ChatRoomPage({
           <div className="h-full bg-[#3180F7]/40 animate-[shimmerBar_1.4s_ease-in-out_infinite]" style={{ width: '60%' }} />
         </div>
 
-        {/* Header skeleton */}
-        <div className="absolute left-0 right-0 top-0 z-30 px-3 pt-3 pb-2 pt-safe">
+        {/* Header skeleton — 위 여백 12, iOS 앱(261014 화면 끝까지)은 상태바 높이(--ft-sat)까지 — 진짜 머리(pt-safe)와 같은 자리 */}
+        <div className="absolute left-0 right-0 top-0 z-30 px-3 pb-2 pt-[max(12px,var(--ft-sat))]">
           <div className="flex items-center gap-2 max-w-[680px] mx-auto">
             <button onClick={() => router.back()} className="w-12 h-12 rounded-full bg-white/90 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-gray-200/60 flex items-center justify-center shrink-0">
               <ChevronLeft size={24} className="text-gray-600" />
@@ -1409,8 +1409,8 @@ export default function ChatRoomPage({
           ))}
         </div>
 
-        {/* Input skeleton */}
-        <div className="px-3 pb-4 pb-safe pt-2 bg-white">
+        {/* Input skeleton — 아래 여백 16, iOS 앱(261014)은 홈 표시줄 높이(--ft-sab)까지 — 진짜 입력 줄(pb-safe)과 같은 높이 */}
+        <div className="px-3 pb-[max(16px,var(--ft-sab))] pt-2 bg-white">
           <div className="flex items-center gap-2 bg-white rounded-full px-4 h-12 shadow-sm border border-gray-200/60">
             <div className="w-5 h-5 rounded-full bg-gray-200 animate-pulse" />
             <div className="flex-1 h-3 bg-gray-100 rounded-full animate-pulse" />
@@ -1649,7 +1649,8 @@ export default function ChatRoomPage({
         className="flex-1 overflow-y-auto overflow-x-hidden px-3"
         style={{
           // interactive-widget 미지원 구형 안드로이드 폴백 — 키보드 높이만큼 하단 패딩 추가해 마지막 메시지 가림 방지
-          paddingBottom: showReplySuggest ? 136 : 80,
+          // 입력 줄 pb-safe 가 늘어난 만큼(앱 가장자리 처리 뒤 8→34) 같이 늘린다 — 토큰 0 인 곳은 80/136 그대로(261014)
+          paddingBottom: `calc(${showReplySuggest ? 128 : 72}px + max(8px, var(--ft-sab, 0px)))`,
           overscrollBehaviorX: 'contain',
           overscrollBehaviorY: 'none',
           // 상단 영역(측정) + 공지 바가 있으면 그 높이만큼
@@ -2100,7 +2101,8 @@ export default function ChatRoomPage({
           aria-label="맨 아래로"
           onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
           className="absolute right-4 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.14)] animate-[fadeIn_0.2s_ease]"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+          // 입력 줄 위 6px — 답장 미리보기와 같은 식(앱 밖 72 그대로 · 키보드 뜨면 --ft-sab 0)
+          style={{ bottom: 'calc(64px + max(8px, var(--ft-sab, 0px)))' }}
         >
           <TintIcon src="/icons/chat-kr/arrow-down.svg" color="#191F28" size={22} />
         </button>

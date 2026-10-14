@@ -132,9 +132,10 @@ export default function PersonalInfoPage() {
       </RegisterShell>
 
       {/* 토스트 — 앱 공통 토스트(AppToaster)와 같은 흰 유리 알약, 오류라 빨간 글자. 가운데 정렬은 감싼 칸이 맡는다(framer transform 이 translate 를 덮어써서) */}
+      {/* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 더 내린다 */}
       <AnimatePresence>
         {toast && (
-          <div className="pointer-events-none fixed inset-x-0 top-6 z-50 flex justify-center px-4">
+          <div className="pointer-events-none fixed inset-x-0 top-[calc(24px+var(--ft-sat))] z-50 flex justify-center px-4">
             <motion.div
               initial={{ opacity: 0, y: -16, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}

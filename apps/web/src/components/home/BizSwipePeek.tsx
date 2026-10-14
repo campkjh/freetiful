@@ -19,6 +19,7 @@ const TAB_HOME: Translations = { ko: '프리티풀로', en: 'Freetiful', ja: 'Fr
  * 홈 왼쪽 끝을 오른쪽으로 끌 때 들어오는 비즈 첫 화면 미리보기(261009 사장 '스와이프하면 비즈가 나오게').
  * /biz 모바일 첫 장면과 같은 자리에 그려(머리줄 56 · 카드 위 56 · 양옆 20 · 아래 96 · 모서리 40 · 제목 40px 세 줄)
  * 다 넘긴 뒤 진짜 /biz 로 바뀌어도 화면이 튀지 않게 한다. 그림·글은 비즈 장면과 같은 것(content.ts)을 쓴다.
+ * iOS 앱(261014 화면 끝까지)은 BizHeader · SceneIntro 처럼 위는 상태바 칸(--ft-sat), 아래는 홈 표시줄 칸(--ft-sab)을 더한다(토큰 0 이면 그대로).
  * 홈 첫 진입 안내(BizSwipeHint — 왼쪽에서 살짝 '보잉보잉' 엿보기)도 이 그림을 그대로 쓴다.
  *
  * 머리줄(261009 사장 '햄버거 필요 없고, 홈의 전체·남성사회자처럼 비즈 · 프리티풀로 글자 탭, 그 왼쪽에 영어/한국어 번역 탭, 헤더 투명도 없이') —
@@ -87,7 +88,7 @@ export default function BizSwipePeek() {
     <div className="absolute inset-0 overflow-hidden bg-white">
       <div
         className="absolute overflow-hidden"
-        style={{ top: 56, left: 20, right: 20, bottom: 96, borderRadius: 40, background: loaded ? '#2B3038' : '#F2F4F6', transition: 'background-color 0.25s ease' }}
+        style={{ top: 'calc(56px + var(--ft-sat, 0px))', left: 20, right: 20, bottom: 'calc(96px + var(--ft-sab, 0px))', borderRadius: 40, background: loaded ? '#2B3038' : '#F2F4F6', transition: 'background-color 0.25s ease' }}
       >
         {/* 비즈 첫 장면처럼 화면 기준 120% 로 깔고 카드가 창이 된다 */}
         {/* eslint-disable-next-line @next/next/no-img-element -- 정적 포스터 한 장 */}
@@ -99,7 +100,7 @@ export default function BizSwipePeek() {
           ref={(el) => { if (el && el.complete && el.naturalWidth > 0 && !loaded) setLoaded(true); }}
           className="absolute max-w-none object-cover"
           // 구도 = 비즈 모바일 첫 장면과 같은 값(261009 corporate-mc 히어로 영상 — 폰 세로는 진행자를 따라 자른 세로 편집본) — 넘긴 뒤 진짜 /biz 로 바뀌어도 그림이 안 튄다
-          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - 10vh)', width: '120vw', height: '120vh', objectPosition: hero.pos, ...fade }}
+          style={{ left: 'calc(-20px - 10vw)', top: 'calc(-56px - var(--ft-sat, 0px) - 10vh)', width: '120vw', height: '120vh', objectPosition: hero.pos, ...fade }}
         />
         <div className="absolute inset-x-0 bottom-0 h-1/2" style={{ background: 'linear-gradient(rgba(56,68,82,0), rgb(56,68,82))', ...fade }} />
         <h2
@@ -114,9 +115,9 @@ export default function BizSwipePeek() {
           ))}
         </h2>
       </div>
-      {/* 머리줄 — 불투명 흰 바탕 56 · 왼쪽 로고 · 오른쪽 [KO|EN] [비즈 · 프리티풀로] (그림만) */}
+      {/* 머리줄 — 불투명 흰 바탕 56(+iOS 앱 상태바 칸) · 왼쪽 로고 · 오른쪽 [KO|EN] [비즈 · 프리티풀로] (그림만) */}
       {/* 크기·색은 BizHeader(px-5 · 로고 h-6 · 오른쪽 간격 14) + BizLangPill(30 높이 · 칸 32 · 흰 엄지) 그대로 — 넘긴 뒤 진짜 머리줄로 바뀌어도 안 튄다 */}
-      <div className="absolute inset-x-0 top-0 flex h-14 items-center justify-between bg-white px-5">
+      <div className="absolute inset-x-0 top-0 flex h-[calc(56px+var(--ft-sat))] items-center justify-between bg-white px-5 pt-[var(--ft-sat)]">
         {/* eslint-disable-next-line @next/next/no-img-element -- 비즈 머리줄과 같은 로고 */}
         <img src="/images/logo-prettyful.svg" alt="" draggable={false} className="block h-6 w-auto shrink-0" />
         <div className="flex h-full items-center gap-3.5">

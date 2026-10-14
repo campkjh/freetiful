@@ -279,7 +279,7 @@ export default function FaqPage() {
   };
 
   return (
-    <div data-no-natural-reveal className="min-h-screen bg-white pt-14 text-[#191F28] md:pt-16" style={{ letterSpacing: '-0.02em' }}>
+    <div data-no-natural-reveal className="min-h-screen bg-white pt-[calc(56px+var(--ft-sat))] text-[#191F28] md:pt-[calc(64px+var(--ft-sat))]" style={{ letterSpacing: '-0.02em' }}>
       <BizHeader />
 
       {/* ═══ 큰 제목 ═══ */}
@@ -336,8 +336,8 @@ export default function FaqPage() {
         </FadeUp>
       </section>
 
-      {/* ═══ 묶음 칩 — 내려도 머리줄 아래 붙어 있다 ═══ */}
-      <div ref={chipsRef} className="sticky top-14 z-10 bg-white md:top-16">
+      {/* ═══ 묶음 칩 — 내려도 머리줄 아래 붙어 있다(iOS 앱은 머리줄이 상태바 칸 --ft-sat 만큼 길어 그만큼 아래, 261014) ═══ */}
+      <div ref={chipsRef} className="sticky top-[calc(56px+var(--ft-sat))] z-10 bg-white md:top-[calc(64px+var(--ft-sat))]">
         <div className="mx-auto max-w-[880px]">
           <div role="group" aria-label={t({ ko: '질문 묶음', en: 'Question categories', ja: '質問カテゴリ', zh: '问题分类' })} className="relative flex gap-2 overflow-x-auto px-6 py-3 sm:px-8" style={{ scrollbarWidth: 'none' }}>
             {CATEGORIES.map((c) => {

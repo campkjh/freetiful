@@ -4,7 +4,7 @@
 //  · 261009 사장 '뉴스소식은 공지사항으로 이동하는 게 아니라 따로 프리티풀 뉴스 페이지로, 물론 디자인은 공지사항처럼' →
 //    공지(앱 사용 안내) 대신 웨딩홀 · 기업행사 담당자가 볼 회사 소식(lib/biz/news.ts — 연혁 · 게시된 서비스 소식 · 송년회, 사실만).
 //    카드 · 시트는 공지사항과 같은 뉴스룸 결(components/biz/BizNewsFeed — 카드는 AnnouncementFeed 의 NewsroomCard 를 같이 쓴다).
-//  · 머리줄 = 비즈 공통 BizHeader(불투명 흰 줄 · fixed · 모바일 56 / md 이상 64) — 여기선 그 높이만큼 위를 비운다.
+//  · 머리줄 = 비즈 공통 BizHeader(불투명 흰 줄 · fixed · 모바일 56 / md 이상 64) — 여기선 그 높이만큼 위를 비운다(iOS 앱은 상태바 칸 --ft-sat 더해, 261014).
 //  · 맨 아래 = 비즈 하위 화면 공통 바닥(BizPageFooter — 다른 소개 화면으로 가는 카드).
 //  · 하단 탭바는 biz/layout 이 비즈 모든 화면에 한 번 붙인다 — 여기선 따로 그리지 않는다(맨 아래 가림 여백도 레이아웃 몫).
 import { useEffect, useRef } from 'react';
@@ -43,7 +43,7 @@ export default function BizNewsPage() {
     <div ref={rootRef} className="min-h-screen bg-white text-[#191F28]" style={{ letterSpacing: '-0.02em' }}>
       <BizHeader />
 
-      <main className="pt-14 md:pt-16">
+      <main className="pt-[calc(56px+var(--ft-sat))] md:pt-[calc(64px+var(--ft-sat))]">
         <div className="mx-auto max-w-lg sm:max-w-[1100px]">
           {/* 큰 제목 — 비즈 하위 화면(연혁 · 고객사 · 자주 묻는 질문)과 같은 제목 단계: 파란 작은 라벨 15/18 · 제목 34/60 · 설명 17/20 ·
               같은 여백 · 같은 떠오름(FadeUp). 예전엔 뉴스만 30/54 에 라벨이 없어 화면을 옮기면 제목 크기가 바뀌었다(261009 검증 · 사장 '모든 페이지 일관성 있게') */}

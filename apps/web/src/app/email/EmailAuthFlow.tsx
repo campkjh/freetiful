@@ -7,6 +7,7 @@ import { consumeAuthReturnTo } from '@/lib/auth/oauth';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { clearAddingMarker, readAddingMarker, rememberCurrentAccount } from '@/lib/store/accounts.store';
 import { syncPushRegistration } from '@/lib/utils/push';
+import StatusBarScrim from '@/components/StatusBarScrim';
 
 /* ─────────────────────────────────────────────────────────────
  * 이메일로 시작하기 — 퀵매칭 어법 그대로(261006 사장 '퀵매칭처럼 이메일 회원가입 창으로 넘어가게').
@@ -310,6 +311,8 @@ export default function EmailAuthFlow({ initialMode }: { initialMode: Mode }) {
     <div className="em-root">
       {/* ⚠ <style>{CSS}</style> 는 서버가 ' > 를 엔티티로 바꿔 hydration 이 깨진다(퀵매칭 주석 참고) */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      {/* 머리가 흐름 안 — iOS 앱에서만 상태바 칸 흰 가림판(앱 밖 높이 0, 261014) */}
+      <StatusBarScrim />
       {step === 'done' && done ? (
         <div className="em-page" key="done">
           <Header onBack={() => window.location.replace(destination())} />
@@ -389,7 +392,8 @@ const CSS = `
 .em-a-title{animation:em-fadeup .5s cubic-bezier(.22,.61,.36,1) both;}
 .em-a-sub{animation:em-fadeup .5s cubic-bezier(.22,.61,.36,1) .18s both;}
 .em-a-item{animation:em-slidein .46s cubic-bezier(.22,.61,.36,1) both;}
-.em-header{height:56px;display:flex;align-items:center;padding:0 8px;flex:none;}
+/* 261014 iOS 앱 화면 끝까지: 상태바 칸만큼 위 여백(앱 밖 --ft-sat=0 이라 56 그대로) */
+.em-header{height:calc(56px + var(--ft-sat, 0px));display:flex;align-items:center;padding:var(--ft-sat, 0px) 8px 0;flex:none;}
 .em-header button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;border-radius:20px;cursor:pointer;}
 .em-header button:active{background:var(--divider);}
 .em-progress{flex:1;display:flex;align-items:center;gap:12px;padding:0 20px 0 6px;}

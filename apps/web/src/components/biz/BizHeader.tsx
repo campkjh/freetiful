@@ -14,7 +14,9 @@ import { scrollToY } from './scroll-to';
  *  · 예전엔 화면마다 머리줄이 달랐다 — /biz 는 토스식(투명 → 반투명 유리), ceo · faq · history · clients 는 내리면 떠 있는 반투명 알약으로
  *    줄어드는 옛 머리줄, news 는 흰 줄. 그래서 화면을 옮기며 내리면 모양이 바뀌어 '최신 헤더가 아닌 곳'으로 보였다 → 이 파일 하나만 쓴다.
  *  · 늘 불투명 흰 바탕(투명도 · 블러 없음) — 아래 장면 · 사진이 비쳐 글자가 흐려 보이던 것. 내리면 아래 0.5px 선만 생긴다.
- *  · 높이 모바일 56 · md 이상 64(옛 /biz 머리줄과 같은 값). 화면 쪽은 위 여백 pt-14 md:pt-16 만 맞춘다.
+ *  · 높이 모바일 56 · md 이상 64(옛 /biz 머리줄과 같은 값). 화면 쪽은 위 여백 pt-[calc(56px+var(--ft-sat))] md:pt-[calc(64px+var(--ft-sat))] 만 맞춘다.
+ *  · iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 위를 띄우고(padding-top) 흰 바탕이 상태바 뒤까지 깔린다 — 높이도 그만큼 는다.
+ *    토큰은 앱에서만 env 값, 안드 · 사파리 · 옛 앱은 0 이라 그대로. 머리줄 높이를 재야 하면 [data-biz-header] 의 rect 를 잰다.
  *  · 오른쪽 '비즈 · 프리티풀로' = 홈 HomeSwipeTabs 글자 탭과 같은 결(16px · 고른 탭 굵은 #191F28 · 나머지 semibold #B0B8C1).
  *    비즈 화면에선 '비즈'가 늘 고른 탭, '프리티풀로' = 프리티풀 홈(/main).
  *  · lg 이상엔 가운데 글자 메뉴(뉴스·소식 · 기업소개 · 비즈문의 — 261009 '문의하기'에서 이름만 바꿈) — 그 폭에선 하단 탭바(BizTabBar, lg:hidden)가 없어서.
@@ -88,7 +90,7 @@ export default function BizHeader({ onLogo }: { onLogo?: () => void } = {}) {
     <header
       data-biz-header
       data-no-natural-reveal
-      className="fixed inset-x-0 top-0 z-[60] h-14 bg-white md:h-16"
+      className="fixed inset-x-0 top-0 z-[60] h-[calc(56px+var(--ft-sat))] bg-white pt-[var(--ft-sat)] md:h-[calc(64px+var(--ft-sat))]"
       style={{
         boxShadow: scrolled ? '0 0.5px 0 #E5E8EB' : '0 0.5px 0 rgba(229,232,235,0)',
         transition: 'box-shadow .25s ease',

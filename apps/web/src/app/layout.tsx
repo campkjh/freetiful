@@ -4,6 +4,7 @@ import AppToaster from '@/components/AppToaster';
 import NaturalReveal from '@/components/NaturalReveal';
 import UpdateNotifier from '@/components/UpdateNotifier';
 import PageViewTracker from '@/components/PageViewTracker';
+import NativeSafeAreaSync from '@/components/NativeSafeAreaSync';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 };
 
 // viewport-fit=cover — iOS/Android WebView에서 env(safe-area-inset-*) 활성화
+// ⚠ viewport meta 는 이것 하나뿐(하위 viewport export 는 Next 가 합침). 옛 iOS 앱은 문서 끝에 cover 없는 meta 를 하나 더 붙여 env 가 0(261014)
 // maximumScale/userScalable — Android Chrome에서 핀치 줌으로 vw 계산이 틀어지는 문제 방지
 export const viewport: Viewport = {
   width: 'device-width',
@@ -46,6 +48,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           dangerouslySetInnerHTML={{
             __html: `try{if(window.self!==window.top)document.documentElement.setAttribute('data-embedded','1')}catch(e){document.documentElement.setAttribute('data-embedded','1')}`,
+          }}
+        />
+        {/* iOS 앱 표시(261014 화면 끝까지) — 첫 페인트 전에 html[data-ios-app] 을 단다. 안전영역 토큰(--ft-sat/--ft-sab, globals.css)이
+            이 표시가 있을 때만 env 값이 된다. nativeNavState 핸들러는 페이지 로드 전에 등록돼 있어 여기서 바로 보인다.
+            사파리·안드엔 핸들러가 없어 안 붙는다. 하이드레이션에 지워지면 NativeSafeAreaSync 가 다시 단다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var h=window.webkit&&window.webkit.messageHandlers;if(h&&h.nativeNavState)document.documentElement.setAttribute('data-ios-app','1')}catch(e){}`,
           }}
         />
         <script
@@ -114,6 +124,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
         <Providers>
+          <NativeSafeAreaSync />
           <NaturalReveal />
           {children}
           <AppToaster />

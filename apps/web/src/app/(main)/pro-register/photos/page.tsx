@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { RegisterShell, RgCta } from '../_components/RegisterKit';
+import { useNativeStatusBar } from '@/lib/safe-area';
 
 /* ─── Face Detection ─── */
 async function detectFace(imageSrc: string): Promise<boolean> {
@@ -123,6 +124,8 @@ export default function PhotosPage() {
 
   // Crop state
   const [cropImage, setCropImage] = useState<string | null>(null);
+  // 크롭(검정 바탕)이 열려 있는 동안 상태바 흰 글자(261014 iOS 앱 화면 끝까지)
+  useNativeStatusBar(!!cropImage);
   const [cropFor, setCropFor] = useState<'new' | number>('new');
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -327,7 +330,7 @@ export default function PhotosPage() {
       {/* 저장 공간 오류 토스트 — 앱 공통 토스트(AppToaster)와 같은 흰 유리 알약, 빨간 글자. 가운데 정렬은 감싼 칸이(framer transform 이 translate 를 덮어써서) */}
       <AnimatePresence>
         {faceError && (
-          <div className="pointer-events-none fixed inset-x-0 top-6 z-50 flex justify-center px-4">
+          <div className="pointer-events-none fixed inset-x-0 top-[calc(24px+var(--ft-sat))] z-50 flex justify-center px-4">
             <motion.div
               initial={{ opacity: 0, y: -16, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -352,8 +355,8 @@ export default function PhotosPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black flex flex-col"
           >
-            {/* Crop header */}
-            <div className="shrink-0 flex items-center justify-between px-4 h-[52px] bg-black/80 z-10">
+            {/* Crop header — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 검정이 그 뒤까지 */}
+            <div className="shrink-0 flex items-center justify-between px-4 h-[calc(52px+var(--ft-sat))] pt-[var(--ft-sat)] bg-black/80 z-10">
               <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setCropImage(null); setFaceError(''); }} className="text-white text-[14px] font-medium">
                 취소
               </motion.button>
@@ -403,8 +406,8 @@ export default function PhotosPage() {
               ))}
             </div>
 
-            {/* Zoom slider */}
-            <div className="shrink-0 px-8 py-3 bg-black/80 flex items-center gap-3">
+            {/* Zoom slider — iOS 앱(261014)은 홈 표시줄(--ft-sab)만큼 아래를 띄운다(슬라이더가 홈 제스처와 겹치지 않게) */}
+            <div className="shrink-0 px-8 pt-3 pb-[calc(12px+var(--ft-sab))] bg-black/80 flex items-center gap-3">
               <span className="text-[12px] text-gray-400">-</span>
               <input
                 type="range"
@@ -425,7 +428,7 @@ export default function PhotosPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="absolute bottom-24 left-4 right-4 bg-[#F04452] text-white px-4 py-3 rounded-xl flex items-center gap-2 z-20"
+                  className="absolute bottom-[calc(96px+var(--ft-sab))] left-4 right-4 bg-[#F04452] text-white px-4 py-3 rounded-xl flex items-center gap-2 z-20"
                 >
                   <AlertCircle size={16} />
                   <p className="text-[13px] font-medium">{faceError}</p>

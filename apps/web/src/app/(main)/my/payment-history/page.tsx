@@ -166,7 +166,8 @@ export default function PaymentHistoryPage() {
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-10" style={{ letterSpacing: '-0.02em' }}>
       {/* 헤더 — 채팅 목록처럼 제목 ⌄ 거르기(260928 사장). iOS 옛 앱은 네이티브 헤더가 덮어 숨김 */}
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-1 bg-white pl-2 pr-4" data-native-back-header>
+      {/* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 높이·위 여백을 늘려 흰 바탕이 그 뒤까지 */}
+      <header className="sticky top-0 z-20 flex h-[calc(56px+var(--ft-sat))] items-center gap-1 bg-white pl-2 pr-4 pt-[var(--ft-sat)]" data-native-back-header>
         <button type="button" onClick={() => router.back()} aria-label="뒤로가기" className="qd-back">
           <QdBackIcon />
         </button>

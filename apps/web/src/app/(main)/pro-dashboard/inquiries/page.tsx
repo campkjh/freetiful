@@ -502,8 +502,9 @@ export default function ProRequestsPage() {
 
   return (
     <div className="pro-toss-page pro-fast-render min-h-screen bg-white pb-40 lg:mx-auto lg:max-w-[760px] lg:pb-28">
-      {/* 머리줄 — 제목 '새 요청 ⌄' 을 누르면 알림처럼 종류를 고른다(전체·모두에게·개인요청·보관, 260926 사장 — 탭 대신) */}
-      <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pt-2">
+      {/* 머리줄 — 제목 '새 요청 ⌄' 을 누르면 알림처럼 종류를 고른다(전체·모두에게·개인요청·보관, 260926 사장 — 탭 대신).
+          위 여백 8 + 상태바 높이(iOS 앱만, 261014) */}
+      <div data-native-chatlist-header className="sticky top-0 z-10 bg-white px-4 pt-[calc(8px+var(--ft-sat))]">
         <div className="flex h-14 items-center">
           <TitleFilterMenu<Filter>
             value={filter}

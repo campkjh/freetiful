@@ -7,6 +7,7 @@ import { useInView } from '@/components/biz/biz-motion';
 import { STAGE, type Tr } from './content';
 import { lerp, seg, useFrame, useSceneProgress } from './scene';
 import { goBizInquiry } from '../scroll-to';
+import { useNativeStatusBar } from '@/lib/safe-area';
 import { CTA_SPRING, StageCta, VideoOverlay, createFrameLoader, squirclePath, type FrameLoader } from './SceneStage.parts';
 
 /*
@@ -185,7 +186,7 @@ const CSS = `
 .stg-vo[data-shown]{opacity:1}
 .stg-vo-v{display:block;width:min(1280px,100%,calc((100vh - 144px) * 16 / 9));aspect-ratio:16/9;border-radius:20px;background:#000;transform:scale(.96);transition:transform .5s cubic-bezier(0.22,1,0.36,1)}
 .stg-vo[data-shown] .stg-vo-v{transform:none}
-.stg-vo-x{position:absolute;top:16px;right:16px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;transition:background-color .2s ease}
+.stg-vo-x{position:absolute;top:calc(16px + var(--ft-sat,0px));right:16px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;transition:background-color .2s ease}
 .stg-vo-x:hover{background:rgba(255,255,255,.24)}
 .stg-vo-x:focus-visible{outline:2px solid #fff;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.stg-vo,.stg-vo-v{transition:none}}
@@ -230,6 +231,8 @@ export default function SceneStage() {
   const t = useT();
   const mode = useMode();
   const [video, setVideo] = useState(false);
+  // 영상 오버레이(검은 바탕)가 열린 동안 상태바 흰 글자 — iOS 앱만 반영(261014), 닫기 단추는 상태바 칸(--ft-sat) 아래로
+  useNativeStatusBar(video);
   const router = useRouter();
   const onCta = useCallback((i: number) => {
     if (i === 0) {

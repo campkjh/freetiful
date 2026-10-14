@@ -597,8 +597,9 @@ export default function CommentSheet({
     const vis = !isAndroid.current && vv && H - vv.height > 80 ? Math.min(avail, vv.height) : avail;
     const safeTop = probeRef.current?.offsetHeight || 0;
     const full = Math.max(0, avail - (vis - safeTop));
-    // 70% 높이(영상: 화면 30% 지점). iOS 앱은 웹뷰가 상태바·홈바 안쪽이라 화면 기준 30% 를 맞추려면 26%
-    const ratio = isIosApp.current ? 0.26 : 0.3;
+    // 70% 높이(영상: 화면 30% 지점). 옛 iOS 앱(웹뷰가 상태바·홈바 안쪽 → safeTop 0)은 화면 기준 30% 를 맞추려면 26%.
+    // 화면 끝까지 그리는 새 앱(261014~, safeTop > 0)은 브라우저와 같은 30%
+    const ratio = isIosApp.current && safeTop === 0 ? 0.26 : 0.3;
     const half = Math.max(full, avail - Math.round(vis * (1 - ratio)));
     geo.current = { H, avail, full, half, hidden: avail + 24 };
     setRootH(H);

@@ -6,8 +6,9 @@
 export const CEO_CSS = `
 /* framer useScroll 의 스크롤 칸(<html>)이 static 이면 개발 모드 경고 — 계산은 같다(비즈 홈과 같은 처리) */
 html{position:relative}
-.cx-root{--hh:56px;--ez:cubic-bezier(.22,1,.36,1);letter-spacing:-0.02em;-webkit-font-smoothing:antialiased}
-@media (min-width:768px){.cx-root{--hh:64px}}
+/* --hh = 머리줄(BizHeader) 높이 — iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 더(토큰 0 이면 그대로) */
+.cx-root{--hh:calc(56px + var(--ft-sat,0px));--ez:cubic-bezier(.22,1,.36,1);letter-spacing:-0.02em;-webkit-font-smoothing:antialiased}
+@media (min-width:768px){.cx-root{--hh:calc(64px + var(--ft-sat,0px))}}
 .cx-desk{display:none}
 @media (min-width:1024px) and (min-aspect-ratio:1/1) and (prefers-reduced-motion:no-preference){.cx-desk{display:block}.cx-stack{display:none}}
 

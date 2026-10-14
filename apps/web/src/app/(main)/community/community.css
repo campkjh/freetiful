@@ -853,6 +853,11 @@
 }
 
 .tdet-inputbar { position: fixed; left: 50%; bottom: 0; z-index: 45; width: 100%; max-width: 720px; transform: translateX(-50%); box-sizing: border-box; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid #F2F4F6; }
+/* iOS 앱(261014 화면 끝까지) 키보드가 떠 있는 동안(html[data-kb], NativeSafeAreaSync) — 홈 표시줄 칸은 키보드가 덮으니 빼서
+   입력 줄이 키보드 위로 34px 뜨지 않게. 글쓰기 모달 아래 줄(.cmp-foot·.cmp-gif-powered, CommunityComposeModal <style>)도 같이 */
+html[data-ios-app][data-kb="1"] .tdet-inputbar { padding-bottom: 10px; }
+html[data-ios-app][data-kb="1"] .cmp-foot { padding-bottom: 12px; }
+html[data-ios-app][data-kb="1"] .cmp-gif-powered { padding-bottom: 8px; }
 .tdet-replying { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; padding: 8px 12px; border-radius: 10px; background: #F2F4F6; font-size: 13.5px; color: #4E5968; }
 .tdet-replying b { color: #191F28; font-weight: 700; }
 .tdet-replying button { border: none; background: none; padding: 0; color: #6B7684; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -872,6 +877,7 @@
 .community-panel .tdet-topbar { padding: 0 56px 0 16px; }
 .community-panel .tdet-shell { max-width: none; padding-bottom: 0; }
 .community-panel .tdet-inputbar { position: sticky; left: auto; transform: none; width: auto; max-width: none; margin: 0 -20px; padding-bottom: 12px; }
+html[data-ios-app][data-kb="1"] .community-panel .tdet-inputbar { padding-bottom: 12px; }
 
 @media (max-width: 600px) {
   .tdet-shell { padding-left: 16px; padding-right: 16px; }

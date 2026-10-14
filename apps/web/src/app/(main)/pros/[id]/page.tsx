@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { readSafeTop, useNativeStatusBar } from '@/lib/safe-area';
 import { discoveryApi, getCachedProDetail, getCachedProPreview, type ProListItem } from '@/lib/api/discovery.api';
 import type { PlanTemplate } from '@/lib/api/plan-templates.api';
 import { reviewApi } from '@/lib/api/review.api';
@@ -1271,6 +1272,8 @@ export default function ProDetailPage() {
   const [inquiryTime, setInquiryTime] = useState('');
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
+  // 사진 확대(검정 바탕)가 열려 있는 동안 상태바 흰 글자(261014 iOS 앱 화면 끝까지)
+  useNativeStatusBar(!!imageModal);
   // 서비스 설명 본문(dangerouslySetInnerHTML)의 <img> 클릭 시 확대 모달 — 이벤트 위임.
   const zoomOnImgClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
@@ -1328,7 +1331,9 @@ export default function ProDetailPage() {
       if (ticking) return;
       ticking = true;
       rafId = requestAnimationFrame(() => {
-        const nextScrollY = window.scrollY + 120;
+        // 머리·섹션 탭이 상태바 칸(iOS 앱)만큼 내려가 있다 — 그때그때 읽는다(261014)
+        const safeTop = readSafeTop();
+        const nextScrollY = window.scrollY + 120 + safeTop;
         let current: 'desc' | 'info' | 'reviews' = sections[0]?.id || 'info';
         sections.forEach(({ id, ref }) => {
           if (ref.current && ref.current.offsetTop <= nextScrollY) current = id;
@@ -1338,7 +1343,7 @@ export default function ProDetailPage() {
         // Solid header when gallery's bottom passes the top of viewport
         if (galleryRef.current) {
           const galleryBottom = galleryRef.current.offsetTop + galleryRef.current.offsetHeight;
-          setHeaderSolid(window.scrollY > galleryBottom - 60);
+          setHeaderSolid(window.scrollY > galleryBottom - (60 + safeTop));
         }
         ticking = false;
       });
@@ -1574,7 +1579,7 @@ export default function ProDetailPage() {
     setActiveSection(section);
     const target = section === 'desc' ? descRef.current : section === 'info' ? infoRef.current : reviewsRef.current;
     if (target) {
-      const y = target.getBoundingClientRect().top + window.scrollY - 100;
+      const y = target.getBoundingClientRect().top + window.scrollY - (100 + readSafeTop());
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
@@ -2231,7 +2236,8 @@ export default function ProDetailPage() {
         data-native-back-header
         className={`fixed top-0 left-0 right-0 z-40 flex items-center gap-2 px-3 transition-all duration-300 ${
           /* 스크롤 시 아래 섹션 탭과 붙어 통짜로 보이도록 헤더 하단 보더는 두지 않는다 */
-          headerSolid ? 'bg-white h-[60px] py-0' : 'justify-between pt-3 pb-3 px-4'
+          /* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 흰 바탕이 그 뒤까지 깔린다 — 토큰 0 이면 그대로 */
+          headerSolid ? 'bg-white h-[calc(60px+var(--ft-sat))] pt-[var(--ft-sat)] pb-0' : 'justify-between pt-[calc(12px+var(--ft-sat))] pb-3 px-4'
         }`}
       >
         {/* iframe(홈 미리보기) 안에서는 바깥 닫기 버튼과 겹쳐 어색하므로 숨긴다 */}
@@ -2284,7 +2290,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── Hero Carousel — 네이티브 동일 (좌정렬 + peek + 스와이프 스케일) ─── */}
-      <div className="pt-[74px] overflow-hidden">
+      <div className="pt-[calc(74px+var(--ft-sat))] overflow-hidden">
         <div
           ref={galleryRef as any}
           onScroll={(e) => {
@@ -2386,7 +2392,7 @@ export default function ProDetailPage() {
 
       {/* ─── Section Tabs (Sticky below header) ─── */}
       {/* 섹션 탭 — PC 헤더 네비와 같은 세그먼트(회색 트랙 + 흰 알약이 미끄러진다) */}
-      <div className="sticky top-[60px] z-30 mt-4 bg-white px-4 pb-2 pt-1">
+      <div className="sticky top-[calc(60px+var(--ft-sat))] z-30 mt-4 bg-white px-4 pb-2 pt-1">
         <div className="relative flex gap-1 rounded-2xl bg-[#F2F3F5] p-1">
           <span
             className="absolute bottom-1 top-1 rounded-[13px] bg-white shadow-sm transition-all duration-500"
@@ -2412,7 +2418,7 @@ export default function ProDetailPage() {
 
       {/* ─── 서비스 설명 Section ─── */}
       {(hasDescriptionContent || pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0) && (
-        <div ref={descRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+        <div ref={descRef} className={`px-5 py-6 scroll-mt-[calc(120px+var(--ft-sat))] ${CARD_CLS}`}>
           <Reveal>
             <SectionHead eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-4" />
           </Reveal>
@@ -2540,7 +2546,7 @@ export default function ProDetailPage() {
       {/* ─── Divider ─── */}
 
       {/* ─── 사회자 정보 Section ─── */}
-      <div ref={infoRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+      <div ref={infoRef} className={`px-5 py-6 scroll-mt-[calc(120px+var(--ft-sat))] ${CARD_CLS}`}>
         <SectionHead eyebrow="PROFILE" title="사회자 정보" icon="/icons/pro-detail/mic.svg" className="mb-5" />
 
         <div className="flex items-center gap-4 mb-2">
@@ -2573,7 +2579,7 @@ export default function ProDetailPage() {
       </div>
 
       {/* ─── 리뷰 Section ─── */}
-      <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[120px] ${CARD_CLS}`}>
+      <div ref={reviewsRef} className={`px-5 py-6 scroll-mt-[calc(120px+var(--ft-sat))] ${CARD_CLS}`}>
         <SectionHead eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/eyes.svg" className="mb-4" />
 
         <div className="flex items-center gap-2 mb-3">
@@ -2863,12 +2869,12 @@ export default function ProDetailPage() {
         >
           <button
             onClick={() => setImageModal(null)}
-            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white"
+            className="absolute top-[calc(16px+var(--ft-sat))] right-4 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center text-white"
           >
             <X size={24} />
           </button>
           <ZoomableImage src={imageModal} />
-          <p className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">두 손가락으로 확대 · 두 번 탭</p>
+          <p className="pointer-events-none absolute bottom-[calc(24px+var(--ft-sab))] left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">두 손가락으로 확대 · 두 번 탭</p>
         </div>
       )}
 

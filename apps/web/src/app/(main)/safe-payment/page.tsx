@@ -95,7 +95,8 @@ export default function SafePaymentGuidePage() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-white pb-28" style={{ letterSpacing: '-0.02em' }}>
-        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md">
+        {/* 머리 — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 바탕이 그 뒤까지 */}
+        <div className="sticky top-0 z-20 bg-white/90 pt-[var(--ft-sat)] backdrop-blur-md">
           <div className="mx-auto flex h-14 max-w-[760px] items-center px-2 lg:px-5">
             <button
               type="button"

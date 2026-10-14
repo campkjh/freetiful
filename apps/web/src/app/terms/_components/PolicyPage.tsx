@@ -77,7 +77,8 @@ export function PolicyPage({ slug }: { slug: string }) {
 
   return (
     <div className="min-h-screen bg-white" style={{ letterSpacing: '-0.02em' }}>
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white">
+      {/* 머리 — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 흰 바탕이 그 뒤까지 */}
+      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white pt-[var(--ft-sat)]">
         <div className="flex h-[52px] items-center px-4">
           <button onClick={() => router.back()} className="-ml-1 p-1 transition-transform active:scale-90" aria-label="뒤로가기">
             <ChevronLeft size={24} className="text-gray-900" />

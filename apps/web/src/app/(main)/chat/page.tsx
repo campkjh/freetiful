@@ -897,7 +897,8 @@ export default function ChatListPage() {
 
       {/* ═══ Mobile ═══ */}
       <div data-native-chatlist-root className="lg:hidden bg-white min-h-screen pb-24">
-        <div data-native-chatlist-header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-2">
+        {/* 위 여백 8 + 상태바 높이(iOS 앱만, 그 밖 0) — 흰 바탕이 상태바 뒤까지 칠해진다(261014) */}
+        <div data-native-chatlist-header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-[calc(8px+var(--ft-sat))]">
           <div
             aria-hidden="true"
             className={`pointer-events-none absolute inset-x-0 top-full h-8 bg-gradient-to-b from-white via-white/70 to-white/0 transition-opacity duration-300 ${

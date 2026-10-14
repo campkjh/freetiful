@@ -6,7 +6,8 @@ export default function AppToaster() {
   return (
     <Toaster
       position="top-center"
-      containerStyle={{ top: 24 }}
+      // iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 내린다 — 다른 곳은 토큰 0 이라 24 그대로
+      containerStyle={{ top: 'calc(24px + var(--ft-sat, 0px))' }}
       toastOptions={{
         duration: 2200,
         style: {

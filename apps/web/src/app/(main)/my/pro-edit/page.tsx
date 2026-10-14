@@ -1349,7 +1349,8 @@ export default function ProEditPage() {
       </div>
 
       {/* ─── Toast — 앱 공통 토스트(AppToaster)와 같은 유리 알약, 톡 내려오고 위로 사라진다 ─── */}
-      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[70px] z-[800] flex justify-center px-4">
+      {/* iOS 앱(261014)은 머리줄이 상태바 칸(--ft-sat)만큼 길어 그만큼 더 내린다 */}
+      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[calc(70px+var(--ft-sat))] z-[800] flex justify-center px-4">
         <AnimatePresence>
           {toast && (
             <motion.p
@@ -1429,7 +1430,8 @@ export default function ProEditPage() {
             exit={{ x: '100%', transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
             transition={SHEET_SPRING}
           >
-            <header className="flex h-14 flex-none items-center px-2">
+            {/* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄운다 */}
+            <header className="flex h-[calc(56px+var(--ft-sat))] flex-none items-center px-2 pt-[var(--ft-sat)]">
               <button type="button" onClick={closeYoutubeSearch} aria-label="뒤로가기" className="qd-back">
                 <QdBackIcon />
               </button>

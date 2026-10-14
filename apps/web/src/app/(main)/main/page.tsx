@@ -2146,10 +2146,11 @@ function HomeSwipeTabs() {
 
   return (
     <BodyPortal>
-      {/* 헤더 배경 — 스크롤해도 흐려지지 않는 불투명 흰색(탭이 헤더 줄로 올라가 한 줄 64) */}
+      {/* 헤더 배경 — 스크롤해도 흐려지지 않는 불투명 흰색(탭이 헤더 줄로 올라가 한 줄 64).
+          iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)까지 칠한다 — 헤더 · 탭 · 목록 판 · 빈칸도 같은 양만큼 내린다(토큰 0 이면 그대로) */}
       <div
         className="lg:hidden pointer-events-none fixed inset-x-0 top-0 z-[42] bg-white"
-        style={{ height: 64 }}
+        style={{ height: 'calc(64px + var(--ft-sat, 0px))' }}
       />
       {/* 비즈 — 왼쪽 끝에서 끌어오는 비즈 첫 화면(헤더·하단 탭 위를 덮는다).
           들어오는 화면 오른쪽 끝은 흰색 100% → 0% 로 번져 홈과 이어진다(261009 사장 '검은색 영역 말고 흰색 그라데이션으로 자연스럽게' — 예전 검은 딤·그림자 삭제) */}
@@ -2170,11 +2171,11 @@ function HomeSwipeTabs() {
       {/* 홈 첫 진입 5초 '비즈 페이지가 추가되었어요' — 왼쪽에서 비즈가 보잉보잉 엿보고 딤 + 왼쪽 꼬리 말풍선(261009 사장). 이 기기에서 한 번만 */}
       <BizSwipeHint canStart={canStartBizHint} onOpen={goBizFromHint} />
       {/* 탭 — 헤더 줄(위 12 · 높이 42) 로고와 아이콘 사이 */}
-      <div className="lg:hidden fixed top-[12px] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
+      <div className="lg:hidden fixed top-[calc(12px+var(--ft-sat))] z-[45] h-[42px]" style={{ left: tabSlot.left, right: tabSlot.right }}>{tabBar}</div>
 
       {/* 카테고리 리스트 오버레이 페이저 — 전체(0)=투명(홈 비침), 1~3=리스트 */}
       <div
-        className="lg:hidden fixed inset-x-0 bottom-0 top-[64px] z-[40] overflow-hidden"
+        className="lg:hidden fixed inset-x-0 bottom-0 top-[calc(64px+var(--ft-sat))] z-[40] overflow-hidden"
         style={{ pointerEvents: open ? 'auto' : 'none' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -2194,7 +2195,8 @@ function HomeSwipeTabs() {
             const near = Math.abs(panel - tab) <= 1;
             const list = near ? filterByTab(panel, pros) : [];
             return (
-              <div key={panel} data-home-panel className="h-full w-1/4 shrink-0 overflow-y-auto overscroll-contain bg-white pb-28">
+              // 아래 여백 112 — iOS 앱(261014 화면 끝까지)은 판이 홈 표시줄 칸까지 내려가 그만큼(--ft-sab) 더 띄운다
+              <div key={panel} data-home-panel className="h-full w-1/4 shrink-0 overflow-y-auto overscroll-contain bg-white pb-[calc(112px+var(--ft-sab-static))]">
                 {!near ? null : pros.length === 0 && !loaded ? (
                   // 카드 뼈대(프사 42 · 이름·정보 줄 · 소개 두 줄 · 사진 세 칸)
                   <div aria-hidden="true">
@@ -2936,7 +2938,7 @@ export default function HomePage() {
       <div
         ref={headerRef}
         data-native-home-header
-        className="lg:hidden fixed top-0 left-0 right-0 z-[44] px-[10px] pt-[12px] pb-[10px]"
+        className="lg:hidden fixed top-0 left-0 right-0 z-[44] px-[10px] pt-[calc(12px+var(--ft-sat))] pb-[10px]"
         style={{
           background: 'transparent', // 통합 그라데이션 블러 레이어(HomeSwipeTabs)가 뒤에서 프로스트 처리
         }}
@@ -2973,8 +2975,8 @@ export default function HomePage() {
         </div>
       </div>
       </BodyPortal>
-      {/* Spacer for fixed header — 탭이 헤더 줄로 올라가 한 줄(64) */}
-      <div className="lg:hidden h-[64px]" />
+      {/* Spacer for fixed header — 탭이 헤더 줄로 올라가 한 줄(64) + iOS 앱 상태바 칸(--ft-sat, 261014) */}
+      <div className="lg:hidden h-[calc(64px+var(--ft-sat))]" />
 
       {/* ─── Mobile Home Hero: Category Cards → Category Tabs → Icon Grid → Banner ─ */}
       <div className="lg:hidden">

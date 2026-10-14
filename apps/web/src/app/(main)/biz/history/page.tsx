@@ -156,7 +156,7 @@ export default function HistoryPage() {
     t({ ko: `${Number(m)}월`, en: MONTH_EN[Number(m)] || m, ja: `${Number(m)}月`, zh: `${Number(m)}月` });
 
   return (
-    <div data-no-natural-reveal className="min-h-screen bg-white pt-14 text-[#191F28] md:pt-16" style={{ letterSpacing: '-0.02em' }}>
+    <div data-no-natural-reveal className="min-h-screen bg-white pt-[calc(56px+var(--ft-sat))] text-[#191F28] md:pt-[calc(64px+var(--ft-sat))]" style={{ letterSpacing: '-0.02em' }}>
       <BizHeader />
 
       {/* ═══ 큰 제목 ═══ */}

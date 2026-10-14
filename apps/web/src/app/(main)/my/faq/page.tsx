@@ -119,8 +119,8 @@ export default function FaqPage() {
     <div className="mx-auto min-h-screen max-w-lg bg-white pb-24" style={{ letterSpacing: '-0.02em' }}>
       <MyDetailHeader title="자주 묻는 질문" sub="궁금한 내용을 먼저 찾아보세요" />
 
-      {/* 검색 + 카테고리 — 스크롤해도 따라온다 */}
-      <div className="sticky top-14 z-10 bg-white px-6 pb-2 pt-1">
+      {/* 검색 + 카테고리 — 스크롤해도 따라온다. .qd-header 높이(56+상태바)만큼 아래에 붙는다(261014) */}
+      <div className="sticky top-[calc(56px+var(--ft-sat))] z-10 bg-white px-6 pb-2 pt-1">
         <div className="relative">
           <SearchIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A4ABBA]" />
           <input

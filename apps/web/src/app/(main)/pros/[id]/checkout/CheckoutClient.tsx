@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api/client';
 import { discoveryApi } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { getWeddingPlanTemplate, normalizeWeddingPlanKey } from '@/lib/wedding-plans';
+import StatusBarScrim from '@/components/StatusBarScrim';
 
 const formatKRW = (value: number) => value.toLocaleString('ko-KR') + '원';
 
@@ -178,6 +179,8 @@ export default function CheckoutClient({
 
   return (
     <main className="min-h-[100dvh] bg-white px-5 pb-32 pt-safe">
+      {/* 고정 머리 없음 — iOS 앱에서만 상태바 칸 흰 가림판(앱 밖 높이 0, 261014) */}
+      <StatusBarScrim />
       <div className="mx-auto flex max-w-[480px] flex-col py-4">
         <button
           type="button"
@@ -271,11 +274,12 @@ export default function CheckoutClient({
             </div>
           </section>
 
+          {/* 높이 = pt-3 + 알약 52 + pb-safe — 앱 가장자리 처리 뒤엔 98(80 이면 알약이 홈 표시줄을 덮는다). 토큰 0 인 곳은 80 그대로(261014) */}
           <button
             type="button"
             onClick={startPayment}
             disabled={payLoading || !widgetsReady}
-            className="fixed bottom-0 left-0 right-0 z-40 mx-auto h-[80px] max-w-[480px] bg-white px-5 pb-safe pt-3 disabled:opacity-70"
+            className="fixed bottom-0 left-0 right-0 z-40 mx-auto h-[calc(64px+max(16px,var(--ft-sab)))] max-w-[480px] bg-white px-5 pb-safe pt-3 disabled:opacity-70"
           >
             <span className="flex h-[52px] items-center justify-center rounded-[14px] bg-[#3180F7] text-[16px] font-bold text-white transition-transform active:scale-[0.99]">
               {payLoading ? '결제 진행 중...' : `${formatKRW(displayAmount)} 결제하기`}

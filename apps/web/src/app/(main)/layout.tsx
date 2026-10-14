@@ -685,8 +685,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
       {/* ─── Content ─────────────────────────────────────────────────── */}
       {/* 모바일에서 회사 정보 푸터가 보이는 화면은 푸터가 아래 탭바 자리(여백+끝 흰색 그라데이션)를 맡는다 → 본문 아래 여백은 조금만
-          (예전 pb-24 가 푸터 위에 흰 빈칸 96px 을 더 만들었다, 260926) */}
-      <main className={`${communityRoute || bizFullRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-24 lg:pb-0' : mobileFooterShown ? 'pb-4 lg:pb-12' : 'pb-24 lg:pb-12'}`}>
+          (예전 pb-24 가 푸터 위에 흰 빈칸 96px 을 더 만들었다, 260926)
+          탭 화면 아래 여백 96 + --ft-sab: iOS 앱(261014 화면 끝까지)은 웹뷰가 화면 바닥까지 내려가 네이티브 탭바(80)가 홈 표시줄 칸까지 덮으므로
+          그만큼(34) 더 띄워 지금과 같은 여유를 둔다. 토큰이 0 인 곳(안드·사파리·옛 앱)은 pb-24 와 같은 96. */}
+      <main className={`${communityRoute || bizFullRoute ? '' : 'lg:max-w-7xl lg:mx-auto lg:px-8'} ${hideNav ? '' : communityRoute ? 'pb-[calc(96px+var(--ft-sab-static))] lg:pb-0' : mobileFooterShown ? 'pb-4 lg:pb-12' : 'pb-[calc(96px+var(--ft-sab-static))] lg:pb-12'}`}>
         <div className="lg:max-w-none">
           <PageTransition>{children}</PageTransition>
         </div>

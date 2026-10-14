@@ -150,9 +150,10 @@ export default function CareersPage() {
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
 
       {/* ─── Floating Header ─────────────────────────────────── */}
+      {/* iOS 앱(261014 화면 끝까지)은 위 여백에 상태바 칸(--ft-sat)을 더한다 — 토큰 0 이면 그대로 */}
       <header
         className="fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-700 ease-out"
-        style={{ padding: scrollY > 80 ? '12px 16px 0' : '0' }}
+        style={{ padding: scrollY > 80 ? 'calc(12px + var(--ft-sat, 0px)) 16px 0' : 'var(--ft-sat, 0px) 0 0' }}
       >
         <div
           className={`flex items-center justify-between transition-all duration-700 ease-out ${
@@ -214,7 +215,7 @@ export default function CareersPage() {
       </header>
 
       {/* ═══ Hero ═══════════════════════════════════════════════ */}
-      <section className="relative flex min-h-screen items-center justify-center pt-[60px] overflow-hidden">
+      <section className="relative flex min-h-screen items-center justify-center pt-[calc(60px+var(--ft-sat))] overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-50/80 via-white to-blue-50/50" />
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-violet-100/30 rounded-full blur-[150px]" />

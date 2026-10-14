@@ -73,7 +73,8 @@ export function RegisterShell({
   const router = useRouter();
   return (
     <div className="fixed inset-0 flex flex-col bg-white" style={{ height: '100dvh', letterSpacing: '-0.02em' }}>
-      <header className="flex h-14 flex-none items-center gap-1 pl-2 pr-5">
+      {/* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄운다 — 토큰 0 이면 56 그대로 */}
+      <header className="flex h-[calc(56px+var(--ft-sat))] flex-none items-center gap-1 pl-2 pr-5 pt-[var(--ft-sat)]">
         <button type="button" onClick={onBack || (() => router.back())} aria-label="뒤로가기" className="qd-back">
           <QdBackIcon />
         </button>

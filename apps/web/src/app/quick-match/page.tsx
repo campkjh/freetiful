@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
 import MetaPixel, { META_PIXEL_ID } from '@/components/landing/MetaPixel';
 import { isTestLeadSubmission } from '@/lib/test-lead';
+import StatusBarScrim from '@/components/StatusBarScrim';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -1265,6 +1266,8 @@ export default function QuickMatchPage() {
           클라와 글자가 달라 hydration 이 매번 실패해 문서 전체를 다시 그렸다(운영 React #425) */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <MetaPixel />
+      {/* 머리가 흐름 안이라 스크롤하면 내용이 상태바 밑으로 — iOS 앱에서만 상태바 칸을 흰색으로 가린다(앱 밖 높이 0, 261014) */}
+      <StatusBarScrim />
 
       {step === 'date' && (
         <div className="qm-page" key="date">
@@ -1563,7 +1566,8 @@ const CSS = `
 .qm-a-title{animation:qm-fadeup .5s cubic-bezier(.22,.61,.36,1) both;}
 .qm-a-sub{animation:qm-fadeup .5s cubic-bezier(.22,.61,.36,1) .18s both;}
 .qm-a-item{animation:qm-slidein .46s cubic-bezier(.22,.61,.36,1) both;}
-.qm-header{height:56px;display:flex;align-items:center;padding:0 8px;flex:none;}
+/* 261014 iOS 앱 화면 끝까지: 상태바 칸만큼 위 여백(앱 밖 --ft-sat=0 이라 56 그대로) */
+.qm-header{height:calc(56px + var(--ft-sat, 0px));display:flex;align-items:center;padding:var(--ft-sat, 0px) 8px 0;flex:none;}
 .qm-header button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;border-radius:20px;cursor:pointer;}
 .qm-header button:active{background:var(--divider);}
 .qm-progress{flex:1;display:flex;align-items:center;gap:12px;padding:0 20px 0 6px;}

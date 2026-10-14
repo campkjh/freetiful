@@ -151,7 +151,8 @@ export default function ProfileHandoverPage() {
 
   return (
     <div className="min-h-[100dvh] bg-white">
-      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-4 pb-3 pt-4 backdrop-blur">
+      {/* 머리 — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 더 띄우고 바탕이 그 뒤까지 */}
+      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-4 pb-3 pt-[calc(16px+var(--ft-sat))] backdrop-blur">
         <div className="mb-4 flex items-center gap-3">
           <motion.button
             type="button"

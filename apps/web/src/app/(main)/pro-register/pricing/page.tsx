@@ -110,8 +110,8 @@ export default function PricingPage() {
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
-      {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-3">
+      {/* Header — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 더 띄운다 */}
+      <div className="shrink-0 px-4 pt-[calc(16px+var(--ft-sat))] pb-3">
         <motion.button onClick={() => router.back()} className="mb-3" whileTap={{ scale: 0.9 }}>
           <ChevronLeft size={24} className="text-gray-900" />
         </motion.button>
@@ -338,8 +338,8 @@ export default function PricingPage() {
         </motion.div>
       </div>
 
-      {/* Next Button */}
-      <div className="shrink-0 p-4 pb-8 bg-white">
+      {/* Next Button — 아래 32 그대로, iOS 앱(261014)은 홈 표시줄(--ft-sab) + 16 중 큰 쪽 */}
+      <div className="shrink-0 p-4 pb-[max(32px,calc(16px+var(--ft-sab)))] bg-white">
         <motion.button
           onClick={() => router.push('/pro-register/profile')}
           disabled={!isValid}

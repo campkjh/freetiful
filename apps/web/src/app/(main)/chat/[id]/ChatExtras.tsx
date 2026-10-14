@@ -50,6 +50,7 @@ import { DEFAULT_PICK_CENTER, GeoError, MapPickPanel, fetchReverseAddress, getCu
 import NaverMap from '@/components/map/NaverMap';
 import { MapFetchError, fetchMapJson, isInKorea, naverMapLinkProps } from '@/lib/naver-map';
 import { SearchIcon as MonoSearchIcon } from '@/components/icons/mono';
+import { useNativeStatusBar } from '@/lib/safe-area';
 export type { Message, ChatPartner, SystemPayload };
 
 // ─── Helpers ───
@@ -64,6 +65,8 @@ function ChatImageViewer({ url, onClose }: { url: string; onClose: () => void })
   const openedAt = useRef(0);
   useEffect(() => { openedAt.current = Date.now(); setErrored(false); setLoaded(false); }, [url]);
   const guardedClose = () => { if (Date.now() - openedAt.current > 300) onClose(); };
+  // 검은 바탕이 상태바 뒤까지 깔리니 열려 있는 동안 흰 글자(261014)
+  useNativeStatusBar(true);
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div
@@ -71,7 +74,7 @@ function ChatImageViewer({ url, onClose }: { url: string; onClose: () => void })
       style={{ touchAction: 'none' }}
       onClick={guardedClose}
     >
-      <button onClick={onClose} className="absolute right-4 top-4 z-10 text-white" aria-label="닫기"><X size={28} /></button>
+      <button onClick={onClose} className="absolute right-4 top-[calc(16px+var(--ft-sat))] z-10 text-white" aria-label="닫기"><X size={28} /></button>
       {!errored ? (
         <img
           src={url}
@@ -2593,7 +2596,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
         return (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
-          <div className="pop-menu nt-menu absolute right-3 top-[68px] z-50 overflow-hidden" style={{ transformOrigin: 'top right' }} role="menu">
+          {/* 위치 = 헤더 pt-safe(max(12px, 상태바)) + 56 — 토큰 0 인 곳은 68 그대로(261014) */}
+          <div className="pop-menu nt-menu absolute right-3 top-[calc(max(0.75rem,var(--ft-sat))+56px)] z-50 overflow-hidden" style={{ transformOrigin: 'top right' }} role="menu">
             <button onClick={() => { setShowHeaderMenu(false); if (onOpenSearch) onOpenSearch(); else toast('곧 제공될 예정입니다', { icon: '🔍' }); }} className={itemCls} style={popItemDelay(0)}>
               {ic('search')} 대화 내용 검색
             </button>
@@ -2657,7 +2661,8 @@ export default function ChatExtras(props: ChatExtrasProps) {
             style={{
               left: actionMenu.mine ? undefined : Math.max(12, actionMenu.x),
               right: actionMenu.mine ? Math.max(12, window.innerWidth - actionMenu.x) : undefined,
-              top: Math.max(80, actionMenu.y - 110),
+              // 헤더 밑으로 — 머리(pt-safe 12 → 앱은 상태바 높이)+68. 그리는 중에 CSS 변수를 읽지 않게 CSS max 로(앱 밖 80 그대로, 261014)
+              top: `max(calc(max(0.75rem, var(--ft-sat, 0px)) + 68px), ${actionMenu.y - 110}px)`,
               transformOrigin: actionMenu.mine ? 'right bottom' : 'left bottom',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -2701,9 +2706,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </>
       )}
 
-      {/* ─── 답장 프리뷰 ─── */}
+      {/* ─── 답장 프리뷰 ─── 입력 줄(64 + pb-safe) 바로 위 — 토큰 0 인 곳은 72 그대로(261014) */}
       {replyTo && (
-        <div className="fixed left-0 right-0 bottom-[72px] z-30 px-4 py-2.5 bg-white/90 backdrop-blur border-t border-gray-200/40 flex items-center justify-between animate-[slideUp_0.2s_ease]">
+        <div className="fixed left-0 right-0 bottom-[calc(64px+max(0.5rem,var(--ft-sab)))] z-30 px-4 py-2.5 bg-white/90 backdrop-blur border-t border-gray-200/40 flex items-center justify-between animate-[slideUp_0.2s_ease]">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-1 h-9 rounded-full bg-[#007AFF] shrink-0" />
             <div className="min-w-0">
@@ -2717,9 +2722,9 @@ export default function ChatExtras(props: ChatExtrasProps) {
         </div>
       )}
 
-      {/* ─── 멘션 자동완성 ─── */}
+      {/* ─── 멘션 자동완성 ─── 답장 프리뷰와 같은 높이(261014) */}
       {mentionQuery !== null && filteredMentions.length > 0 && (
-        <div className="fixed left-0 right-0 bottom-[72px] z-30 px-4 pb-2 bg-white/95 backdrop-blur border-t border-gray-200/40 animate-[slideUp_0.2s_ease]">
+        <div className="fixed left-0 right-0 bottom-[calc(64px+max(0.5rem,var(--ft-sab)))] z-30 px-4 pb-2 bg-white/95 backdrop-blur border-t border-gray-200/40 animate-[slideUp_0.2s_ease]">
           <p className="text-[10px] font-bold tracking-wider text-gray-400 pt-2 pb-1">멘션</p>
           <div className="space-y-1">
             {filteredMentions.map((m) => (

@@ -544,8 +544,9 @@ export default function CustomerInquiriesPage() {
 
   return (
     <div className="min-h-screen bg-white pb-28 lg:pb-6">
-      {/* 모바일 머리줄 — 채팅·웨딩숲과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나), 상태 탭까지 같이 붙어 다닌다 */}
-      <header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-2 lg:hidden">
+      {/* 모바일 머리줄 — 채팅·웨딩숲과 같은 결(흰 바탕·제목 20·오른쪽 동작 하나), 상태 탭까지 같이 붙어 다닌다.
+          위 여백 8 + 상태바 높이(iOS 앱만, 261014) */}
+      <header className="sticky top-0 z-20 bg-white px-4 pb-2 pt-[calc(8px+var(--ft-sat))] lg:hidden">
         <div
           aria-hidden="true"
           className={`pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-white via-white/70 to-white/0 transition-opacity duration-300 ${

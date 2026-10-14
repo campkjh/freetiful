@@ -8,6 +8,7 @@ import { clamp01 } from '../toss/scene';
 import { prefersReducedMotion, scrollToY } from '../scroll-to';
 import { VALUES, VALUES_HEAD, type ValueCard } from './content';
 import { put } from './motion';
+import { readSafeTop } from '@/lib/safe-area';
 import CeoSilk from './CeoSilk';
 import CeoReviewPhone from './CeoReviewPhone';
 import { VALUES_CSS } from './valuesStyles';
@@ -208,8 +209,10 @@ export default function CeoValues() {
     const list = listRef.current;
     if (!el || !list) return;
     // 쌓는 판 = 카드가 붙는 자리(sticky top), 늘어놓는 판(움직임 줄이기) = 머리줄 아래 24px
+    // 머리줄 = 56 · md 64 + iOS 앱 상태바 칸(readSafeTop, 261014 — 앱 밖은 0)
     let hh = 56;
     try { if (window.matchMedia('(min-width: 768px)').matches) hh = 64; } catch { /* noop */ }
+    hh += readSafeTop();
     const top = still ? hh + 24 : parseFloat(getComputedStyle(el).top) || 0;
     // 붙기 전 자연 위치 = 목록 위 끝 + 앞 카드들 높이 · 간격(카드가 sticky 라 지금 rect 는 못 믿는다)
     let y = list.getBoundingClientRect().top + window.scrollY + parseFloat(getComputedStyle(list).paddingTop || '0');

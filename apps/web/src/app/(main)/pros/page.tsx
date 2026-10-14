@@ -650,8 +650,8 @@ function ProsListContent() {
       </div>
 
     <div className="min-h-screen bg-white lg:hidden" style={{ letterSpacing: '-0.02em', overscrollBehaviorY: 'contain' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-white">
+      {/* Header — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 흰 바탕이 그 뒤까지 */}
+      <div className="sticky top-0 z-20 bg-white pt-[var(--ft-sat)]">
         <div className="h-[52px] flex items-center px-4 gap-3">
           <button onClick={() => router.back()} className="p-1 -ml-2 shrink-0 active:scale-90 transition-transform">
             <ChevronLeft size={24} className="text-gray-800" />

@@ -20,7 +20,7 @@ import { CEO_CSS } from '@/components/biz/ceo/styles';
  *  ② 인사말: 문단이 스크롤 따라 차오름 · 형광펜 밑줄 · 1,000여 명 숫자 칸 · 서명이 펜으로 쓰듯
  *  ③ 경영 철학: 카드 4장이 쌓임  ④ 이사진 9명: 일렁이는 유리 · 비단 바탕 + 단추 · 끌기로 넘기는 카드 줄(261012)
  *  ⑤ 조직도: 대표 카드 + 가는 선 + 얼굴 원 카드 격자(⋯ = 산하 팀, 261013)  ⑥ 맺음: 인사말 마지막 문장 + 문의하기(/biz/inquiry)
- * 문구 · 사람 · 직함은 예전 화면 그대로(components/biz/ceo/content.ts, 4개 언어). 머리줄 = 비즈 공통 BizHeader(위 여백 pt-14 md:pt-16),
+ * 문구 · 사람 · 직함은 예전 화면 그대로(components/biz/ceo/content.ts, 4개 언어). 머리줄 = 비즈 공통 BizHeader(위 여백 56 · md 64 + iOS 앱 상태바 칸 --ft-sat),
  * 하단 탭바는 비즈 레이아웃이 붙인다(이 화면 = 기업소개 선택).
  */
 export default function CeoPage() {
@@ -31,7 +31,7 @@ export default function CeoPage() {
   return (
     // overflow-x: clip — hidden 이면 이 칸이 스크롤 칸이 돼 sticky 무대가 붙지 않는다
     // 화면 끝까지 — (main) 레이아웃이 비즈 화면은 폭 칸(max-w-7xl · px-8)에 넣지 않는다(layout.tsx bizFullRoute)
-    <div lang={htmlLang} className="cx-root relative min-h-screen overflow-x-clip bg-white pt-14 text-[#191F28] md:pt-16">
+    <div lang={htmlLang} className="cx-root relative min-h-screen overflow-x-clip bg-white pt-[calc(56px+var(--ft-sat))] text-[#191F28] md:pt-[calc(64px+var(--ft-sat))]">
       <style dangerouslySetInnerHTML={{ __html: CEO_CSS }} />
       <SmoothScroll />
       <BizHeader />

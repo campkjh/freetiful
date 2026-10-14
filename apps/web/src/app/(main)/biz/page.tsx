@@ -855,9 +855,10 @@ export default function BizPage() {
       `}} />
 
       {/* ═══ 파일 미리보기 모달 ═══════════════════════════════ */}
+      {/* iOS 앱(261014 화면 끝까지)은 위 · 아래 여백에 상태바 · 홈 표시줄 칸(--ft-sat · --ft-sab)을 더하고 카드 최대 높이에서 뺀다(토큰 0 이면 그대로) */}
       {previewFile && (
-        <div role="dialog" aria-modal="true" aria-label={previewFile.split('/').pop()} data-lenis-prevent className="fixed inset-0 z-[100] flex items-center justify-center overscroll-contain bg-black/50 p-4 backdrop-blur-sm" onClick={() => setPreviewFile(null)}>
-          <div className="relative flex max-h-[90vh] w-full max-w-[900px] animate-[scaleIn_0.2s_ease-out] flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div role="dialog" aria-modal="true" aria-label={previewFile.split('/').pop()} data-lenis-prevent className="fixed inset-0 z-[100] flex items-center justify-center overscroll-contain bg-black/50 px-4 pb-[calc(16px+var(--ft-sab))] pt-[calc(16px+var(--ft-sat))] backdrop-blur-sm" onClick={() => setPreviewFile(null)}>
+          <div className="relative flex max-h-[calc(90vh-var(--ft-sat)-var(--ft-sab))] w-full max-w-[900px] animate-[scaleIn_0.2s_ease-out] flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[#F2F4F6] px-6 py-4">
               <p className="text-[16px] font-bold text-[#191F28]">{previewFile.split('/').pop()}</p>
               <div className="flex items-center gap-2">

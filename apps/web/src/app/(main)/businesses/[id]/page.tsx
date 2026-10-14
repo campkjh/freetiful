@@ -38,6 +38,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useImageTone } from '@/lib/image-tone';
 import { useKeyboardInset } from '@/lib/useKeyboardInset';
+import { readSafeTop, useNativeStatusBar } from '@/lib/safe-area';
 import {
   deriveBusinessTagSuggestions,
   extractBusinessTagsFromHtml,
@@ -183,7 +184,8 @@ function PhotoViewer({ images, start, name, onClose }: { images: string[]; start
     return () => { html.style.overflow = prev; window.removeEventListener('keydown', onKey); };
   }, [start]);
   return (
-    <div className="fixed inset-0 z-[720] flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={`${name} 사진`}>
+    <div className="fixed inset-0 z-[720] flex flex-col bg-black pt-[var(--ft-sat)]" role="dialog" aria-modal="true" aria-label={`${name} 사진`}>
+      {/* iOS 앱(261014)은 위를 상태바 칸(--ft-sat)만큼 띄운다 — 검정 바탕이 상태바 뒤까지 */}
       <div className="flex h-14 shrink-0 items-center justify-between px-3 text-white">
         <span className="pl-2 text-[15px] font-semibold tracking-[-0.2px] text-white/85">{index + 1} / {images.length}</span>
         <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-full active:bg-white/10" aria-label="닫기">
@@ -383,7 +385,8 @@ export default function BusinessDetailPage() {
   useEffect(() => {
     const onScroll = () => {
       const h = heroRef.current?.offsetHeight || 280;
-      setSolidHeader(window.scrollY > h - 64);
+      // 머리줄이 상태바 칸(iOS 앱)만큼 길다 — 그때그때 읽는다(261014)
+      setSolidHeader(window.scrollY > h - (64 + readSafeTop()));
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -457,6 +460,8 @@ export default function BusinessDetailPage() {
   const toneSub = tone?.sub || '#6B7684';
   // 좌표 없는 업체만 주소 → 좌표(지역만 적힌 곳은 묻지 않음)
   const geo = useGeocodedPoint(view && !view.storedLatLng ? geocodeQuery(biz?.address) : '');
+  // 사진이 상태바 뒤에 깔린 동안(투명 머리줄)·사진 크게 보기 동안 상태바 흰 글자(261014 iOS 앱 화면 끝까지)
+  useNativeStatusBar((!!view && !solidHeader) || viewerAt !== null);
 
   if (loading) {
     return (
@@ -529,7 +534,7 @@ export default function BusinessDetailPage() {
     const el = locationRef.current;
     if (!el) return;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16, behavior: reduced ? 'auto' : 'smooth' });
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 16 - readSafeTop(), behavior: reduced ? 'auto' : 'smooth' });
   };
 
   const quick = [
@@ -555,10 +560,11 @@ export default function BusinessDetailPage() {
       {/* 머리줄 — 사진 위에선 투명 + 흰 아이콘(위쪽 옅은 그림자), 사진을 지나면 흰 바탕 + 업체 이름 */}
       <div
         data-native-back-header
-        className="fixed left-1/2 top-0 z-30 w-full max-w-lg -translate-x-1/2 transition-colors duration-200"
+        className="fixed left-1/2 top-0 z-30 w-full max-w-lg -translate-x-1/2 pt-[var(--ft-sat)] transition-colors duration-200"
         style={{ backgroundColor: solidHeader ? 'rgba(255,255,255,0.96)' : 'transparent', backdropFilter: solidHeader ? 'blur(12px)' : undefined, WebkitBackdropFilter: solidHeader ? 'blur(12px)' : undefined }}
       >
-        {!solidHeader && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/35 to-transparent" />}
+        {/* iOS 앱(261014)은 바깥 칸이 상태바 칸(--ft-sat)만큼 위를 띄우고, 그림자·흰 바탕은 그 뒤까지 깔린다 */}
+        {!solidHeader && <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[calc(80px+var(--ft-sat))] bg-gradient-to-b from-black/35 to-transparent" />}
         <div className="relative flex h-14 items-center justify-between px-2">
           <button onClick={() => router.back()} className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${solidHeader ? 'text-[#191F28]' : 'text-white'}`} aria-label="뒤로">
             <TossBackIcon size={28} />
@@ -591,7 +597,7 @@ export default function BusinessDetailPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 transition-[background] duration-500" style={{ background: heroFade(toneBg) }} />
         {images.length > 1 && (
           <span
-            className="pointer-events-none absolute right-4 top-[68px] inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
+            className="pointer-events-none absolute right-4 top-[calc(68px+var(--ft-sat))] inline-flex h-[26px] items-center rounded-full px-2.5 text-[12.5px] font-semibold tracking-[-0.2px] text-white"
             style={{ backgroundColor: 'rgba(0,0,0,0.36)', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
           >
             {heroIndex + 1} / {images.length}

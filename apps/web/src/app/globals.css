@@ -1472,8 +1472,9 @@ body::after {
 
   /* ─── Safe area utilities (iOS WKWebView + Android edge-to-edge WebView) ─ */
 
-  /* Android 제스처바(15~20px) + 1.25rem min 이 겹쳐 과도한 하단 여백 나오던 문제 →
-     iOS 는 safe-area-inset-bottom 이 0 이므로 min 0.5rem 으로도 충분, Android 는 inset 값이 이미 큰 값 나오므로 max 로 채택됨 */
+  /* Android 제스처바(15~20px) + 1.25rem min 이 겹쳐 과도한 하단 여백 나오던 문제 → min 0.5rem 에 max 로 채택.
+     iOS 옛 앱(2.2.1 이하)은 웹뷰가 안전영역 안쪽이라 inset 0 → 0.5rem. 화면 끝까지 그리는 새 앱(261014~)·사파리는
+     홈 표시줄 34px 이 잡혀 바 바탕이 홈 표시줄 뒤까지 칠해진다. Android 는 inset 값이 이미 큰 값 나오므로 max 로 채택됨 */
   .pb-safe {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
@@ -1516,6 +1517,23 @@ body::after {
     padding-right: max(0.75rem, env(safe-area-inset-right));
   }
 }
+
+/* ─── 앱 전용 안전영역 토큰(261014 iOS 앱 화면 끝까지) ─────────────────────────
+   · --ft-sat = 위(상태바·다이내믹 아일랜드), --ft-sab = 아래(홈 표시줄). 기본 0.
+   · iOS 앱 표시(html[data-ios-app] — layout.tsx head 스크립트·NativeSafeAreaSync, 또는 네이티브가 다는
+     html.freetiful-ios-native-nav)가 있을 때만 env 값 → 안드·아이폰 사파리·PWA 는 그대로,
+     옛 앱 빌드(웹뷰가 안전영역 안쪽·viewport-fit 덮임)는 env 가 0 이라 그대로.
+   · 머리: top:0 그대로 + padding-top:var(--ft-sat), 높이 고정 칸은 calc(56px + var(--ft-sat)).
+     Tailwind 는 공백 없이 pt-[var(--ft-sat)] · h-[calc(56px+var(--ft-sat))]. JS 는 lib/safe-area readSafeTop().
+   · @layer 밖에 둔다(유틸리티보다 뒤 — data-kb 덮어쓰기가 이겨야 함).
+   · 키보드가 떠 있는 동안(data-kb, NativeSafeAreaSync) 아래는 키보드가 덮으니 0 — 입력 줄이 키보드 위로 34px 뜨지 않게.
+   · --ft-sab-static = 키보드와 상관없는 아래 값 — 탭 화면 아래 여백 같은 칸(키보드가 뜰 때 문서가 34px 줄어 튀지 않게). */
+:root { --ft-sat: 0px; --ft-sab: 0px; --ft-sab-static: 0px; }
+html[data-ios-app],
+html.freetiful-ios-native-nav { --ft-sat: env(safe-area-inset-top, 0px); --ft-sab: env(safe-area-inset-bottom, 0px); --ft-sab-static: env(safe-area-inset-bottom, 0px); }
+html[data-ios-app][data-kb="1"] { --ft-sab: 0px; }
+html[data-ios-app][data-kb="1"] .pb-safe { padding-bottom: .5rem; }
+html[data-ios-app][data-kb="1"] .ft-sheet { padding-bottom: 24px; }
 
 /* ─── Ranking Badges ─────────────────────────────────────────────────────── */
 
@@ -1624,7 +1642,8 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-account-out { flex: none; padding: 6px 10px; border: 0; border-radius: 10px; background: #fff; color: var(--admin-muted); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .adm-account-out:hover { color: var(--admin-red); }
 .adm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.adm-mtop { position: relative; z-index: 5; display: flex; height: 60px; flex: none; align-items: center; justify-content: space-between; padding: 0 12px 0 18px; background: var(--admin-bg); }
+/* 폰 머리·메뉴 서랍 — iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 위를 띄운다(토큰 0 이면 그대로) */
+.adm-mtop { position: relative; z-index: 5; display: flex; height: calc(60px + var(--ft-sat)); flex: none; align-items: center; justify-content: space-between; padding: var(--ft-sat) 12px 0 18px; background: var(--admin-bg); }
 @media (min-width: 768px) { .adm-mtop { display: none; } }
 .adm-mtop-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: transparent; color: var(--admin-sub); cursor: pointer; }
 .adm-mtop-btn:hover { background: #F2F4F6; }
@@ -1822,7 +1841,7 @@ body:has(.adm-shell) { background-color: #F2F4F6; }
 .adm-content > * > *:nth-child(n + 9) { animation-delay: .68s; }
 .adm-drawer-wrap { position: fixed; inset: 0; z-index: 60; }
 .adm-drawer-dim { position: absolute; inset: 0; background: rgba(0, 0, 0, .36); animation: ftFade .2s ease; }
-.adm-drawer { position: absolute; top: 0; bottom: 0; left: 0; width: 300px; max-width: 86vw; display: flex; flex-direction: column; background: #fff; box-shadow: 0 0 40px rgba(0, 0, 0, .12); animation: admDrawerIn .32s var(--adm-ease) both; }
+.adm-drawer { position: absolute; top: 0; bottom: 0; left: 0; width: 300px; max-width: 86vw; display: flex; flex-direction: column; box-sizing: border-box; padding: var(--ft-sat) 0 var(--ft-sab); background: #fff; box-shadow: 0 0 40px rgba(0, 0, 0, .12); animation: admDrawerIn .32s var(--adm-ease) both; }
 .adm-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3.5px solid #E5E8EB; border-top-color: #3182F6; animation: spin .8s linear infinite; }
 
 /* 떠 있는 머리(261005 사장 '헤더에서 내리면 그라데이션으로 자연스럽게 고급스럽게', '모바일은 헤더를 백그라운드 색상으로')
@@ -3196,7 +3215,8 @@ mark.chat-list-hl, mark.srch-hl { background: none; color: #3182F6; font-weight:
    · 본문(.qd-body)의 직계 칸은 오른쪽→왼쪽으로 순차 슬라이드(퀵매칭 stag: 0.3s + i*0.07s).
    · 카드 = 1.5px 테두리 · 모서리 16(.qd-card), 버튼 = 56px · 모서리 16 · 17px(.qd-cta), 입력 = 60px · 1.5px 테두리(.qd-input).
    · 항목 애니는 fill backwards — 끝나면 빠져서 눌림 효과가 산다. (my/_components/detail-ui.tsx 와 짝) */
-.qd-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 8px; background: #fff; }
+/* iOS 앱(261014 화면 끝까지)은 상태바 칸만큼 키워 흰 바탕이 상태바 뒤까지 — 버튼 줄 56 은 그대로(토큰 0 이면 지금과 같음) */
+.qd-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 4px; height: calc(56px + var(--ft-sat)); padding: var(--ft-sat) 8px 0; background: #fff; }
 .qd-back { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border: 0; background: none; border-radius: 20px; cursor: pointer; transition: background-color .15s; }
 .qd-back:active { background: #F2F4F6; }
 .qd-titlewrap { padding: 8px 24px 22px; }
@@ -3236,7 +3256,8 @@ textarea.qd-input { height: auto; min-height: 140px; padding: 16px 18px; line-he
    · 제목 21 굵게 · 설명 16 회색 · 버튼 56 / 모서리 17 / 17pt(primary 파랑 · secondary 회색 · danger 빨강).
    · 새 모달도 이걸로: <div class="ft-scrim"><div class="ft-sheet"><div class="ft-grab"/>…<div class="ft-actions"><button class="ft-btn secondary">… */
 .ft-scrim { position: fixed; inset: 0; z-index: 700; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .4); animation: ftFade .22s ease; }
-.ft-sheet { position: relative; width: 100%; max-width: 448px; max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; padding: 20px 24px calc(24px + env(safe-area-inset-bottom, 0px)); background: #fff; border-radius: 24px 24px 0 0; text-align: left; animation: ftUp .34s cubic-bezier(.16, 1, .3, 1); }
+/* 최대 높이에서 상태바 칸(--ft-sat, iOS 앱만)을 뺀다 — 긴 시트 윗부분이 다이내믹 아일랜드 밑으로 안 들어가게(261014) */
+.ft-sheet { position: relative; width: 100%; max-width: 448px; max-height: calc(100dvh - 32px - var(--ft-sat)); overflow-y: auto; box-sizing: border-box; padding: 20px 24px calc(24px + env(safe-area-inset-bottom, 0px)); background: #fff; border-radius: 24px 24px 0 0; text-align: left; animation: ftUp .34s cubic-bezier(.16, 1, .3, 1); }
 .ft-sheet.wide { max-width: 560px; }
 .ft-grab { width: 40px; height: 4px; margin: 0 auto 22px; border-radius: 999px; background: #D1D6DB; }
 .ft-title { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.42; letter-spacing: -0.4px; color: #191F28; white-space: pre-line; }

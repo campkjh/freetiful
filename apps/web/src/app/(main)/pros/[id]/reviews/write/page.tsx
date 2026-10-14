@@ -237,8 +237,8 @@ export default function WriteReviewPage() {
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col" style={{ height: '100dvh' }}>
-      {/* Header */}
-      <div className="shrink-0 sticky top-0 z-30 bg-white border-b border-gray-100" data-native-back-header>
+      {/* Header — iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 흰 바탕이 그 뒤까지 */}
+      <div className="shrink-0 sticky top-0 z-30 bg-white border-b border-gray-100 pt-[var(--ft-sat)]" data-native-back-header>
         <div className="flex items-center px-3 h-[52px]">
           <button onClick={() => router.back()} className="p-1.5">
             <ChevronLeft size={24} className="text-gray-900" />
@@ -351,8 +351,8 @@ export default function WriteReviewPage() {
         </div>
       </div>
 
-      {/* Submit Button */}
-      <div className="shrink-0 px-4 pb-8 pt-3 bg-white border-t border-gray-100">
+      {/* Submit Button — 아래 32 그대로, iOS 앱(261014)은 홈 표시줄(--ft-sab) + 16 중 큰 쪽 */}
+      <div className="shrink-0 px-4 pb-[max(32px,calc(16px+var(--ft-sab)))] pt-3 bg-white border-t border-gray-100">
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitting}

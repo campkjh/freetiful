@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Paperclip } from 'luc
 import toast from 'react-hot-toast';
 import GlobalMcNetwork from './GlobalMcNetwork';
 import { captureUtm, readUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
+import { readSafeTop, useNativeStatusBar } from '@/lib/safe-area';
 
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
 const MEDIA_DIR = '/images/corporate-mc';
@@ -120,6 +121,8 @@ export default function CorporateMcPage() {
   const statsSecRef = useRef<HTMLElement>(null); // 성장 지표 다이얼 섹션
   const [scrolled, setScrolled] = useState(false);
   const [darkZone, setDarkZone] = useState(false); // 영상/블랙 섹션이 헤더를 덮는 동안 히어로 헤더 유지
+  // 헤더가 흰 글자(투명 · 어두운 바탕 위)인 동안 상태바도 흰 글자 — iOS 앱만 반영(261014)
+  useNativeStatusBar(!scrolled || darkZone);
   const [fabTipOpen, setFabTipOpen] = useState(true); // 우하단 플로팅 버튼 위 글래스 툴팁 노출 여부
   const [fabOverDark, setFabOverDark] = useState(true); // 플로팅 버튼이 다크 배경 위에 있는지 (흰 배경이면 글자/아이콘 검정)
   const fabWrapRef = useRef<HTMLDivElement>(null);
@@ -252,7 +255,8 @@ export default function CorporateMcPage() {
         }
       }
       // 헤더 다크존: 영상 섹션·블랙 글로벌 섹션·성장지표(우주 배경) 섹션이 헤더 라인을 덮는 동안 히어로 헤더로 전환
-      const HEADER_Y = 56;
+      // 헤더 라인 = 56 + iOS 앱 상태바 칸(readSafeTop, 261014 — 앱 밖은 0)
+      const HEADER_Y = 56 + readSafeTop();
       const dark = [vidRef.current, globalRef.current, statsSecRef.current].some((el) => {
         if (!el) return false;
         const dr = el.getBoundingClientRect();
@@ -409,7 +413,7 @@ export default function CorporateMcPage() {
       <div role="dialog" aria-modal="true" style={{ display: 'none' }} aria-hidden="true" />
 
       {/* 헤더 (히어로/다크섹션 위 투명 → 그 외 스크롤 시 흰 배경) */}
-      <header className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${scrolled && !darkZone ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
+      <header className={`fixed inset-x-0 top-0 z-40 pt-[var(--ft-sat)] transition-colors duration-300 ${scrolled && !darkZone ? 'bg-white/90 backdrop-blur border-b border-[#EEF1F4]' : 'bg-transparent'}`}>
         <div className="mx-auto flex h-14 max-w-md items-center justify-between px-3">
           <button
             type="button"
@@ -456,7 +460,7 @@ export default function CorporateMcPage() {
           </div>
         </div>
         {/* 스크롤 힌트 */}
-        <button onClick={() => window.scrollTo({ top: window.innerHeight - 56, behavior: 'smooth' })} aria-label="아래로" className="cmc-scrollhint absolute bottom-7 left-1/2 z-10 -translate-x-1/2 text-white/70">
+        <button onClick={() => window.scrollTo({ top: window.innerHeight - 56 - readSafeTop(), behavior: 'smooth' })} aria-label="아래로" className="cmc-scrollhint absolute bottom-7 left-1/2 z-10 -translate-x-1/2 text-white/70">
           <ChevronDown size={30} strokeWidth={2} />
         </button>
       </section>

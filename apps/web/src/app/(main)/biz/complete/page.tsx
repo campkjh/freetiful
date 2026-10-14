@@ -39,7 +39,7 @@ export default function BizCompletePage() {
   }, []);
 
   return (
-    <div data-no-natural-reveal className="bg-white pt-14 text-[#191F28] md:pt-16" style={{ letterSpacing: '-0.02em' }}>
+    <div data-no-natural-reveal className="bg-white pt-[calc(56px+var(--ft-sat))] text-[#191F28] md:pt-[calc(64px+var(--ft-sat))]" style={{ letterSpacing: '-0.02em' }}>
       <BizHeader />
 
       <div className="cp-wrap mx-auto flex max-w-[440px] flex-col items-center justify-center px-6 pt-10 text-center">
@@ -103,10 +103,11 @@ export default function BizCompletePage() {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        /* 한 화면 = 머리줄 아래 전부. 아래 여백에 하단 탭바(58 + 안전영역) 몫을 넣어 가운데가 '탭바 위 보이는 칸'의 가운데가 되게 */
-        .cp-wrap{min-height:calc(100svh - 56px);padding-bottom:calc(40px + 58px + max(0.5rem, env(safe-area-inset-bottom)))}
+        /* 한 화면 = 머리줄 아래 전부. 아래 여백에 하단 탭바(58 + 안전영역) 몫을 넣어 가운데가 '탭바 위 보이는 칸'의 가운데가 되게.
+           머리줄이 iOS 앱에서 상태바 칸(--ft-sat)만큼 늘어 그만큼 뺀다(261014, 토큰 0 이면 그대로) */
+        .cp-wrap{min-height:calc(100svh - 56px - var(--ft-sat, 0px));padding-bottom:calc(40px + 58px + max(0.5rem, env(safe-area-inset-bottom)))}
         html[data-platform="android"] .cp-wrap{padding-bottom:calc(40px + 58px + 0.5rem)}
-        @media (min-width:768px){.cp-wrap{min-height:calc(100svh - 64px)}}
+        @media (min-width:768px){.cp-wrap{min-height:calc(100svh - 64px - var(--ft-sat, 0px))}}
         @media (min-width:1024px){.cp-wrap{padding-bottom:40px}}
         .cp-badge{animation:cpPop .6s cubic-bezier(.34,1.56,.64,1) both}
         .cp-check{stroke-dasharray:1;stroke-dashoffset:1;animation:cpDraw .42s cubic-bezier(.65,0,.35,1) .32s forwards}

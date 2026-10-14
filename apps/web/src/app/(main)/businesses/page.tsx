@@ -1022,7 +1022,8 @@ export default function BusinessListPage() {
 
     <div className="bg-white min-h-screen pb-20 lg:hidden" style={{ letterSpacing: '-0.02em' }}>
       {/* ─── 머리줄 — 사회자 목록과 같은 결(뒤로 · 제목 18), 퀵매칭 등장(제목 아래→위) ─── */}
-      <div className="sticky top-0 z-30 bg-white">
+      {/* iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 위를 띄우고 흰 바탕이 그 뒤까지 — 토큰 0 이면 그대로 */}
+      <div className="sticky top-0 z-30 bg-white pt-[var(--ft-sat)]">
         <div className="flex h-[52px] items-center gap-3 px-4">
           <button onClick={() => router.back()} className="-ml-2 shrink-0 p-1 transition-transform active:scale-90" aria-label="뒤로">
             <ChevronLeft size={24} className="text-gray-800" />
@@ -1123,10 +1124,10 @@ export default function BusinessListPage() {
         )}
       </div>
 
-      {/* ─── Scroll to Top ─── */}
+      {/* ─── Scroll to Top ─── 홈 표시줄(--ft-sab, iOS 앱만) 위로 띄운다 */}
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-6 right-4 w-11 h-11 rounded-full bg-white shadow-[0_2px_12px_rgba(0,0,0,0.12)] border border-gray-100 flex items-center justify-center active:scale-90 transition-all z-30"
+        className="fixed bottom-[calc(24px+var(--ft-sab))] right-4 w-11 h-11 rounded-full bg-white shadow-[0_2px_12px_rgba(0,0,0,0.12)] border border-gray-100 flex items-center justify-center active:scale-90 transition-all z-30"
         style={{
           opacity: showScrollTop ? 1 : 0,
           transform: showScrollTop ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.8)',

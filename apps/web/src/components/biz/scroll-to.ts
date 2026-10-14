@@ -99,6 +99,7 @@ export function goBizInquiry(push?: (href: string) => void) {
 /**
  * 섹션 도착 자리 — 섹션 위 끝을 머리줄(BizHeader 모바일 56 · md 이상 64, 불투명 흰색이라 그 밑은 안 보인다) 바로 아래에.
  * 첫 장면(#회사소개)은 맨 위(0) — 장면이 머리줄 자리를 비워 두고 그려져 있다. 옛 문의 섹션 id 는 섹션이 없으니 null
+ * 머리줄 높이는 그때그때 잰다 — iOS 앱(261014 화면 끝까지)은 상태바 칸(--ft-sat)만큼 길다. 못 재면 56 · 64
  */
 export function bizSectionAnchor(id: string): { el: HTMLElement; offset: number } | null {
   if (isBizInquirySection(id)) return null;
@@ -107,6 +108,9 @@ export function bizSectionAnchor(id: string): { el: HTMLElement; offset: number 
   if (id === '회사소개') return { el, offset: 0 };
   let head = 64;
   try { if (window.matchMedia('(max-width: 767px)').matches) head = 56; } catch { /* noop */ }
+  const hdr = document.querySelector<HTMLElement>('[data-biz-header]');
+  const hh = hdr ? hdr.getBoundingClientRect().height : 0;
+  if (hh > 0) head = hh;
   return { el, offset: -head };
 }
 

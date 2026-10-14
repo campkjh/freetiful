@@ -65,8 +65,9 @@ export const SI_CSS = `
 /* 첫 장면 영상 · 포스터 구도(261009) — 폰 세로는 세로 편집본이라 가운데, 그 밖(태블릿 · 가로 폰)은 가로 영상 62% */
 .si-hpos{object-position:${INTRO.heroPos.mob}}
 @media ${HERO_TALL_MQ}{.si-hpos{object-position:${INTRO.heroPos.tall}}}
-.si-mhero{--t:56px;--s:20px;--b:calc(96px + env(safe-area-inset-bottom,0px));--r:40px;height:100vh;height:100svh;min-height:540px}
-@media (min-width:768px){.si-mhero{--t:64px;--s:24px;--b:24px;--r:40px}}
+/* --t = 머리줄(BizHeader) 높이 — iOS 앱(261014 화면 끝까지)은 머리줄이 상태바 칸(--ft-sat)만큼 길다(토큰 0 이면 그대로) */
+.si-mhero{--t:calc(56px + var(--ft-sat,0px));--s:20px;--b:calc(96px + env(safe-area-inset-bottom,0px));--r:40px;height:100vh;height:100svh;min-height:540px}
+@media (min-width:768px){.si-mhero{--t:calc(64px + var(--ft-sat,0px));--s:24px;--b:24px;--r:40px}}
 .si-mclip{clip-path:inset(var(--t) var(--s) var(--b) round var(--r));transition:clip-path 1s cubic-bezier(.33,1,.68,1)}
 .si-mhero[data-x] .si-mclip{clip-path:inset(0px 0px 0px round 0px);transition-duration:.8s}
 .si-mvid{transform:translate3d(-50%,-50%,0) scale(1.2);transition:transform 1s cubic-bezier(.33,1,.68,1)}

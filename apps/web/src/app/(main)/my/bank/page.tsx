@@ -52,9 +52,9 @@ export default function BankPage() {
     <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
       <MyDetailHeader title="계좌 관리" sub="정산받을 계좌를 등록해 주세요" />
 
-      {/* Toast */}
+      {/* Toast — 머리줄(.qd-header) 아래, iOS 앱(261014)은 상태바 칸(--ft-sat)만큼 더 내린다 */}
       {toast && (
-        <div className="fixed top-[70px] left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50">
+        <div className="fixed top-[calc(70px+var(--ft-sat))] left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50">
           <p className="text-[14px] font-bold flex items-center gap-2">
             <Check size={16} className="text-green-400" /> {toast}
           </p>
