@@ -130,7 +130,14 @@ span.pl-float{cursor:default}
 .pl-link{display:inline-flex;align-items:center;gap:1px;margin-top:12px;padding:0;border:0;background:none;font-size:14.5px;font-weight:600;color:var(--pl-blue);cursor:pointer}
 /* PC(512 칸)도 폰과 같이 위 그림 · 아래 글 한 줄 쌓기 — 두 칸 번갈이는 사진 덱이 반 칸에 안 들어가 잘렸다(261014) */
 /* 기능 줄 그림 — 사진 덱(매칭 화면 사회자 카드 덱과 같은 부품 · 누르면 사진 크게) */
-.pl-deck{display:flex;align-items:center;justify-content:center;width:100%;padding:0;border:0;cursor:zoom-in;font:inherit}
+.pl-deck{display:flex;align-items:center;justify-content:center;width:100%;padding:0;border:0;cursor:zoom-in;font:inherit;background:#E9EEF5}
+/* 뒤 배경 = 가운데 사진 흐림(살짝 키워 가장자리 번짐이 칸 밖으로) + 옅은 흰 막으로 카드가 또렷하게 */
+.pl-deck-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.pl-deck-bg img{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(22px) saturate(1.15);transform:scale(1.08)}
+.pl-deck-bg img.is-cur{animation:plDeckBg .9s ease both}
+.pl-deck-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,.12))}
+.pl-deck .match-deck{position:relative;z-index:1}
+@keyframes plDeckBg{from{opacity:0}to{opacity:1}}
 /* 기능 줄 그림 — 실제 네이버 지도(좌표가 있을 때) */
 .pl-step-map{position:absolute;inset:0}
 /* 기능 줄 그림 — 미니 지도(좌표를 아직 못 받았을 때) */

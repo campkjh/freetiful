@@ -7,6 +7,7 @@
 //  · 사회자가 5명보다 적으면 같은 카드를 '보이지 않는 칸'에만 되풀이해 고리를 만든다(보이는 칸엔 같은 얼굴이 두 번 안 나온다).
 //    끝→처음으로 건너뛰는 카드는 늘 안 보이는 칸이라 화면을 가로지르지 않는다.
 //  · 화면 밖이거나 앱이 가려지면 멈추고, '동작 줄이기'면 멈춘 한 장면만.
+//  · onCenter(선택) — 가운데 카드가 바뀔 때마다 알려 준다(웨딩 파트너 상세 '사진으로 먼저 둘러보기'가 뒤 배경을 그 사진 흐림으로 바꾼다, 261014).
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type DeckCard = { id: string; name: string; image: string };
@@ -25,7 +26,7 @@ const SLOTS = [
 
 type Phase = 'run' | 'collapse' | 'back' | 'flip' | 'fan';
 
-export default function MatchCardDeck({ cards }: { cards: DeckCard[] }) {
+export default function MatchCardDeck({ cards, onCenter }: { cards: DeckCard[]; onCenter?: (card: DeckCard) => void }) {
   const n = cards.length;
   // 보이는 반경 — 5명 이상이면 양옆 2칸, 3·4명은 1칸, 2명은 가운데+오른쪽(왼쪽으로 나가며 흐려짐)
   const radius = n >= 5 ? 2 : 1;
@@ -85,6 +86,14 @@ export default function MatchCardDeck({ cards }: { cards: DeckCard[] }) {
     else if (phase === 'fan') t = window.setTimeout(() => setPhase('run'), 560);
     return () => window.clearTimeout(t);
   }, [phase, idx, visible, reduced, n, ringLen]);
+
+  // 가운데 카드 알림 — 부모가 다시 그려질 때마다 효과가 다시 돌지 않게 콜백은 ref 로
+  const onCenterRef = useRef(onCenter);
+  onCenterRef.current = onCenter;
+  const centerCard = ring[idx] || ring[0];
+  useEffect(() => {
+    if (centerCard && onCenterRef.current) onCenterRef.current({ id: centerCard.id, name: centerCard.name, image: centerCard.image });
+  }, [centerCard]);
 
   if (n === 0) return null;
 

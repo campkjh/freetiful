@@ -321,6 +321,28 @@ function LongText({ title, text }: { title: string; text: string }) {
   );
 }
 
+/**
+ * ⑥ '사진으로 먼저 둘러보기' 그림 — 매칭 카드 덱 + 뒤 배경 = 지금 가운데 사진의 흐림(261014 사장 '스와이프되는 이미지의 블러 느낌').
+ *  흐린 사진은 두 장만(이전 · 지금) — 새 사진이 위에서 서서히 나타나며 바뀐다(흐림 필터를 여러 장 깔면 폰이 무겁다).
+ */
+function PhotoDeckArt({ cards, onOpen }: { cards: DeckCard[]; onOpen: () => void }) {
+  const [bg, setBg] = useState<{ cur: string; prev: string | null }>(() => ({ cur: cards[0]?.image || '', prev: null }));
+  const onCenter = useCallback((card: DeckCard) => {
+    setBg((b) => (b.cur === card.image ? b : { cur: card.image, prev: b.cur }));
+  }, []);
+  return (
+    <button type="button" className="pl-row-ui pl-deck" onClick={onOpen} aria-label="사진 크게 보기">
+      <span className="pl-deck-bg" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {bg.prev && <img key={`p-${bg.prev}`} src={bg.prev} alt="" referrerPolicy="no-referrer" decoding="async" />}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {bg.cur && <img key={`c-${bg.cur}`} className="is-cur" src={bg.cur} alt="" referrerPolicy="no-referrer" decoding="async" />}
+      </span>
+      <MatchCardDeck cards={cards} onCenter={onCenter} />
+    </button>
+  );
+}
+
 /** 사진 아래쪽을 카드 색으로 녹인다(PartnerToneCard 와 같은 값) */
 const HALL_CARD_FADE = 'linear-gradient(to bottom, #000 0%, #000 50%, rgba(0,0,0,.4) 78%, transparent 100%)';
 
@@ -619,9 +641,7 @@ export default function PartnerLanding({
         />
         <div className="pl-rows">
           <div className="pl-row" data-rv="left">
-            <button type="button" className="pl-row-ui pl-deck" onClick={() => openPhoto(0)} aria-label="사진 크게 보기">
-              <MatchCardDeck cards={deckCards} />
-            </button>
+            <PhotoDeckArt cards={deckCards} onOpen={() => openPhoto(0)} />
             <div className="pl-row-txt">
               <h3>사진으로 먼저 둘러보기</h3>
               <p>{facts.photoCount > 1 ? `${facts.photoCount}장의 사진을 넘겨 보며 분위기를 먼저 살펴보세요.` : '대표 사진으로 분위기를 먼저 살펴보세요.'}</p>
