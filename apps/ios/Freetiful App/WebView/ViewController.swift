@@ -77,6 +77,9 @@ class ViewController: UIViewController,
     private var isBizScreen = false
     private var bizTab = ""
     private var renderedBizMode = false      // 지금 탭바에 그려 둔 묶음이 비즈인지 — 묶음이 바뀌는 순간만 겹쳐 바꾼다
+    // 상태바 글자색(261014 가장자리 처리) — 웹이 상태바 띠까지 칠하므로 웹이 정한다.
+    //  · 기본 검정(웹은 라이트 전용). 맨 위가 어두운 화면만 웹이 html[data-status-bar="light"] 를 달면 흰 글자(nativeNavState.statusBar)
+    private var statusBarStyle: UIStatusBarStyle = .darkContent
 
     private var didShowFirstPage = false
     private var didFinishFirstLoad = false   // 첫 화면을 한 번이라도 다 받았는지 — 그 전의 실패만 '다시 시도' 화면
@@ -108,6 +111,9 @@ class ViewController: UIViewController,
     }
 
     // MARK: - Life Cycle
+    override var preferredStatusBarStyle: UIStatusBarStyle { statusBarStyle }
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         // 전역 오디오 세션 — 기본 .soloAmbient 는 무음 스위치 ON 이면 인라인 <video> 소리를 죽임
@@ -141,16 +147,23 @@ class ViewController: UIViewController,
 
     // MARK: - WebView Setup
     private func setupWebView() {
-        let metaScript = """
-        var m=document.createElement('meta');
-        m.name='viewport';
-        m.content='width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no';
-        document.head.appendChild(m);
+        // viewport meta 는 붙이지 않는다(261014) — 웹(Next viewport: viewportFit cover · maximumScale 1 · userScalable false)이 낸 하나만 쓴다.
+        //  · 예전엔 viewport-fit 없는 meta 를 문서 끝에 하나 더 붙여 WebKit 이 그걸(마지막 meta) 써서 cover 가 덮이고 env(safe-area-inset-*) = 0 이었다.
+        //  · 바깥 페이지(결제·인증)는 자기 meta 대로 — cover 가 아니면 WebKit 이 알아서 안전영역 안에 둔다(contentInsetAdjustmentBehavior 를 건드리지 않는 이유).
+        //  · 줌 막기는 웹 meta + scrollViewWillBeginZooming 이 한다.
+        let selectScript = """
         document.documentElement.style.webkitUserSelect='none';
         document.documentElement.style.webkitTouchCallout='none';
         """
+        // 앱 표시 — 웹이 첫 화면을 그리기 전에 단다(문서 시작). 웹 CSS 는 html[data-ios-app] 일 때만 --ft-sat/--ft-sab 를 env() 로 켠다.
+        //  · data-ios-edge = 가장자리 처리된 빌드(2.2.2~)에만 있는 표시 — 옛 빌드(안전영역 안쪽 · env 0)와 구분할 때 쓴다.
+        //  · 하이드레이션 중 html 속성이 지워질 수 있어 ensureWebNavHidden 에서도 다시 단다.
+        let appFlagScript = """
+        (function(){var r=document.documentElement;if(!r)return;r.setAttribute('data-ios-app','1');r.setAttribute('data-ios-edge','1');})();
+        """
         let contentController = WKUserContentController()
-        contentController.addUserScript(WKUserScript(source: metaScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        contentController.addUserScript(WKUserScript(source: appFlagScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        contentController.addUserScript(WKUserScript(source: selectScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         contentController.addUserScript(WKUserScript(source: Self.navBridgeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         #if DEBUG
         // 개발용: `simctl launch … -debugJS "…"` — 페이지마다 맨 먼저 실행(첫 화면 팝업 끄기·뱃지 흉내 등). 출시 빌드엔 없음
@@ -189,11 +202,20 @@ class ViewController: UIViewController,
         if #available(iOS 16.4, *) { webView.isInspectable = true }
         #endif
 
+        // iOS 26: 상태바 밑 스크롤 가장자리 흐림(scroll edge effect)을 끈다 — 상태바 띠는 웹 머리 바탕이 칠한다
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            webView.scrollView.topEdgeEffect.isHidden = true
+        }
+        #endif
+
         view.addSubview(webView)
-        // 위아래 안전영역 안쪽 — 웹은 앱 안에서 safe-area-inset 을 0 으로 보고 그려져 있다(globals.css .pb-safe 주석)
+        // 위아래는 화면 가장자리까지(261014 가장자리 처리) — 상태바·홈 인디케이터 띠는 웹이 env()(--ft-sat/--ft-sab)로 칠한다.
+        //  · 좌우는 안전영역 안쪽 그대로 — 가로모드에서 노치 쪽 env(left/right) 가 웹 전체에 퍼지지 않게.
+        //  · scrollView.contentInsetAdjustmentBehavior 는 두지 않는다 — WebKit 이 우리 페이지(cover)는 .never, 바깥 페이지는 .always 로 알아서 바꾼다.
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
         ])
@@ -243,6 +265,9 @@ class ViewController: UIViewController,
       function ensureWebNavHidden() {
         var root = document.documentElement;
         if (!root.classList.contains('freetiful-ios-native-nav')) root.classList.add('freetiful-ios-native-nav');
+        // 앱 표시(문서 시작에 단 것) — 하이드레이션이 지웠으면 다시(261014)
+        if (root.getAttribute('data-ios-app') !== '1') root.setAttribute('data-ios-app', '1');
+        if (root.getAttribute('data-ios-edge') !== '1') root.setAttribute('data-ios-edge', '1');
         if (!document.getElementById('freetiful-ios-native-nav-style')) {
           var style = document.createElement('style');
           style.id = 'freetiful-ios-native-nav-style';
@@ -295,7 +320,9 @@ class ViewController: UIViewController,
           biz: !!bizNav,
           bizTab: bizNav ? (bizNav.getAttribute('data-active-tab') || '') : '',
           hasBlockingOverlay: overlayOpen(),
-          badges: badges
+          badges: badges,
+          // 상태바 글자색 — 웹(useNativeStatusBar)이 html[data-status-bar="light"] 를 달면 흰 글자, 아니면 검정(261014)
+          statusBar: document.documentElement.getAttribute('data-status-bar') === 'light' ? 'light' : 'dark'
         };
       }
 
@@ -338,6 +365,10 @@ class ViewController: UIViewController,
           });
         };
         observe();
+        // html 속성은 위(body 아래만 봄)에 안 잡힌다 — 상태바 글자색 + 앱 표시가 지워지는 것(261014)
+        new MutationObserver(schedule).observe(document.documentElement, {
+          attributes: true, attributeFilter: ['data-status-bar', 'data-ios-app', 'data-ios-edge']
+        });
       }
       // 안전장치 — 탭바가 모달 때문에 숨어 있는 동안엔 1초마다 다시 본다(닫힘을 어떤 식으로 놓쳐도 1초 안에 돌아오게)
       setInterval(function() {
@@ -369,6 +400,12 @@ class ViewController: UIViewController,
                 else if let d = value as? Double { parsed[key] = Int(d) }
             }
             navBadges = parsed
+        }
+        // 상태바 글자색 — 화면이 바뀌면 웹이 다시 알려 와 기본(검정)으로 돌아온다. 값이 없는 옛 웹도 검정
+        let nextStatusBar: UIStatusBarStyle = (state["statusBar"] as? String) == "light" ? .lightContent : .darkContent
+        if nextStatusBar != statusBarStyle {
+            statusBarStyle = nextStatusBar
+            UIView.animate(withDuration: 0.2) { self.setNeedsStatusBarAppearanceUpdate() }
         }
         renderNavigation(animated: true)
     }
@@ -678,6 +715,14 @@ class ViewController: UIViewController,
     }
 
     // MARK: - WKNavigationDelegate
+    // 새 문서로 넘어가면(전체 이동) 상태바를 기본(검은 글자)으로 — 앞 화면의 흰 글자(사진 위 투명 머리 · 뷰어)가
+    // 새 화면 첫 브리지 알림 전까지 남지 않게. 새 화면이 흰 글자를 원하면 브리지가 다시 바꾼다(261014)
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard statusBarStyle != .darkContent else { return }
+        statusBarStyle = .darkContent
+        setNeedsStatusBarAppearanceUpdate()
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         didFinishFirstLoad = true
         loadErrorView?.removeFromSuperview()
