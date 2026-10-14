@@ -854,9 +854,8 @@ export default function PartnerLanding({
         </div>
       </section>
 
-      {(facts.source || facts.halls.length > 0) && (
-        <p className="pl-source">{facts.source ? `정보 제공 ${facts.source} · ` : ''}{facts.priceNote}</p>
-      )}
+      {/* 맨 아래 '정보 제공 … · 가격이 바뀔 수 있어요' 한 줄은 261014 사장 확인으로 뺐다(가격 변동 안내는 묻고 답하기 '식대' 답에 남아 있다) */}
+      <div aria-hidden style={{ height: 28 }} />
     </div>
   );
 }

@@ -274,7 +274,6 @@ span.pl-float{cursor:default}
 .pl-faq-a p{margin:0;padding:0 34px 20px 26px;font-size:15px;line-height:1.68;letter-spacing:-.2px;color:var(--pl-sub);word-break:keep-all;opacity:0;transform:translateY(-6px);transition:opacity .3s,transform .4s}
 .pl-faq-item.is-open .pl-faq-a p{opacity:1;transform:none}
 
-.pl-source{margin:28px 20px 0;font-size:13px;line-height:1.55;color:var(--pl-gray);letter-spacing:-.2px;text-align:center;word-break:keep-all}
 
 /* 화면 밖이면 끝없는 애니메이션을 멈춘다(useLandingMotion 이 화면 근처에서만 data-on) */
 .pl.is-armed [data-anim]:not([data-on]),.pl.is-armed [data-anim]:not([data-on]) *,.pl.is-armed [data-anim]:not([data-on])::before,.pl.is-armed [data-anim]:not([data-on])::after,
