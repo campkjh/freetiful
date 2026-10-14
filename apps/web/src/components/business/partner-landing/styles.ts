@@ -125,21 +125,15 @@ span.pl-float{cursor:default}
 .pl-row{display:grid;border-radius:24px;background:#fff;overflow:hidden}
 .pl-row-ui{position:relative;height:200px;overflow:hidden;background:linear-gradient(160deg,#EAF1FF 0%,#F3F0FF 100%)}
 .pl-row-txt{padding:20px 22px 22px}
-.pl-step{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;background:#fff;color:var(--pl-blue);font-size:12px;font-weight:700;letter-spacing:.2px}
-.pl-row-txt h3{margin:10px 0 0;font-size:19px;line-height:1.42;font-weight:700;letter-spacing:-.45px;word-break:keep-all;overflow-wrap:break-word}
+.pl-row-txt h3{margin:0;font-size:19px;line-height:1.42;font-weight:700;letter-spacing:-.45px;word-break:keep-all;overflow-wrap:break-word}
 .pl-row-txt p{margin:6px 0 0;font-size:14.5px;line-height:1.62;color:var(--pl-mute);letter-spacing:-.2px;word-break:keep-all}
 .pl-link{display:inline-flex;align-items:center;gap:1px;margin-top:12px;padding:0;border:0;background:none;font-size:14.5px;font-weight:600;color:var(--pl-blue);cursor:pointer}
-@container (min-width:440px){
-  .pl-row{grid-template-columns:1fr 1fr;align-items:stretch}
-  .pl-row-ui{height:auto;min-height:220px}
-  .pl-row-txt{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:24px 20px}
-  .pl-row.is-flip .pl-row-ui{order:2}
-  .pl-msheet{width:90%;padding-left:12px;padding-right:12px}
-  .pl-msheet .chips span{padding:0 7px}
-}
+/* PC(512 칸)도 폰과 같이 위 그림 · 아래 글 한 줄 쌓기 — 두 칸 번갈이는 사진 덱이 반 칸에 안 들어가 잘렸다(261014) */
 /* 기능 줄 그림 — 사진 덱(매칭 화면 사회자 카드 덱과 같은 부품 · 누르면 사진 크게) */
 .pl-deck{display:flex;align-items:center;justify-content:center;width:100%;padding:0;border:0;cursor:zoom-in;font:inherit}
-/* 기능 줄 그림 — 미니 지도 */
+/* 기능 줄 그림 — 실제 네이버 지도(좌표가 있을 때) */
+.pl-step-map{position:absolute;inset:0}
+/* 기능 줄 그림 — 미니 지도(좌표를 아직 못 받았을 때) */
 .pl-mmap{position:absolute;inset:0;background-color:#EEF2F6;
   background-image:linear-gradient(0deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%),linear-gradient(90deg,transparent 47%,#fff 47%,#fff 53%,transparent 53%),
   linear-gradient(28deg,transparent 48.5%,#fff 48.5%,#fff 51.5%,transparent 51.5%),linear-gradient(0deg,rgba(255,255,255,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.7) 1px,transparent 1px);
@@ -174,16 +168,6 @@ span.pl-float{cursor:default}
 .pl-noti .t b em{font-style:normal;font-weight:500;color:var(--pl-gray)}
 .pl-noti .t span{display:block;margin-top:2px;font-size:12.5px;line-height:1.45;color:var(--pl-sub);letter-spacing:-.2px;word-break:keep-all;overflow-wrap:break-word}
 @keyframes plNoti{0%{opacity:0;transform:translateY(-16px) scale(.96)}10%,86%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px)}}
-
-/* ⑦ 업체 정보 — 아이콘 격자 */
-/* 세 칸씩, 마지막 줄이 모자라면 가운데로 모은다 */
-.pl-grid{display:flex;flex-wrap:wrap;justify-content:center;row-gap:26px;margin:30px 0 0;padding:0;list-style:none}
-.pl-gi{display:flex;flex-direction:column;align-items:center;width:33.333%;padding:0 4px;text-align:center;min-width:0}
-.pl-gi-ic{width:50px;height:50px;border-radius:17px;background:#F1F5FF;color:var(--pl-blue);display:flex;align-items:center;justify-content:center;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-.pl-gi:hover .pl-gi-ic{transform:translateY(-3px)}
-.pl-gi-k{margin-top:10px;font-size:13px;color:var(--pl-gray);letter-spacing:-.1px}
-.pl-gi-v{margin-top:3px;max-width:100%;padding:0 2px;font-size:14.5px;font-weight:700;line-height:1.45;letter-spacing:-.3px;word-break:keep-all;overflow-wrap:anywhere}
-.pl-gi-v a{color:var(--pl-blue)}
 
 /* ⑧ 홀 안내 — 요금표형 카드 */
 .pl-plans{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 20px;padding:14px 20px 52px;margin:14px 0 -34px;scrollbar-width:none;overscroll-behavior-x:contain}

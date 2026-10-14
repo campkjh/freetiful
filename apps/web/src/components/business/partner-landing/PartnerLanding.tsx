@@ -10,7 +10,7 @@
  *   ④ AI 분석 — 사회자 상세와 같은 '소개' 카드(StyleIntroCard) + 보라 동그라미·반짝이 별 키워드 판(KeywordOrb) + 질문 입력줄(글자가 쳐지는 입력줄 → 문의 시트)
  *   ⑤ 매니저 띠 — 사장 제공 그림(manager-band) 위에 제목만(261014 '텍스트 줄여줘')
  *   ⑥ 번갈아 놓인 기능 줄(사진 = 매칭 화면의 사회자 카드 덱처럼 돌아가는 사진 덱 · 미니 지도 · 미니 문의 시트 · 완료 카드) — 화면에 닿으면 좌우에서 들어온다
- *   ⑦ 아이콘 격자(업체 정보) ⑧ 홀 카드 = 홈 웨딩파트너 '사진 색 카드'(PartnerToneCard) 결(261014 사장), 가운데 온 카드가 살짝 떠오름
+ *   (⑦ 업체 정보 아이콘 격자는 261014 사장 'information 섹션 없애줘'로 뺐다) ⑧ 홀 카드 = 홈 웨딩파트너 '사진 색 카드'(PartnerToneCard) 결(261014 사장), 가운데 온 카드가 살짝 떠오름
  *   (⑨ '직접 알아볼 때와 프리티풀로 문의할 때' 비교 칸은 261014 사장 '없애줘'로 뺐다) ⑩ 사진 격자 ⑪ 흐르는 키워드
  *   — 위치(페이지의 네이버 지도 칸) — ⑫ 묻고 답하기(펼침) (⑬ 마무리 문의 띠는 261014 사장 '없애줘'로 뺐다 — 아래 고정 '문의하기'가 있다)
  * 업체에는 리뷰가 없어 ④의 칩·문장은 업체 정보에서 뽑는다(partner-facts). 데이터가 없는 칸은 통째로 뺀다.
@@ -18,14 +18,8 @@
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  TossCameraIcon,
-  TossCheckIcon,
-  TossChevronRightIcon,
-  TossEarthIcon,
-  TossPinIcon,
-} from '@/components/icons/TossMonoIcons';
-import { CalendarIcon, ClockIcon, CrownIcon, DocumentIcon, PhoneIcon, ReceiptIcon, StoreIcon, UserIcon } from '@/components/icons/mono';
+import { TossCheckIcon, TossChevronRightIcon } from '@/components/icons/TossMonoIcons';
+import { PhoneIcon } from '@/components/icons/mono';
 import AiIcon, { AI_STAR_PATH } from '@/components/icons/AiIcon';
 import StyleIntroCard from '@/components/pros/StyleIntroCard';
 import { KeywordOrb, type KeywordOrbText } from '@/components/pros/ReviewKeywordOrb';
@@ -54,30 +48,6 @@ function onImgError(e: React.SyntheticEvent<HTMLImageElement>) {
 function displayName(name: string) {
   return name.replace(/\s*[(\[][^)\]]*[)\]]\s*/g, ' ').replace(/\s+/g, ' ').trim() || name.trim();
 }
-
-function hostLabel(url: string) {
-  try {
-    return new URL(url).host.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function instagramHandle(url: string) {
-  const m = url.match(/instagram\.com\/([^/?#]+)/i);
-  return m ? `@${m[1]}` : hostLabel(url);
-}
-
-const FACT_ICON: Record<string, ReactNode> = {
-  category: <StoreIcon size={24} />,
-  region: <TossPinIcon size={24} />,
-  meal: <ReceiptIcon size={24} />,
-  menu: <DocumentIcon size={24} />,
-  hallType: <CrownIcon size={24} />,
-  guarantee: <UserIcon size={24} />,
-  halls: <CalendarIcon size={24} />,
-  parking: <ClockIcon size={24} />,
-};
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -419,9 +389,8 @@ export default function PartnerLanding({
   images,
   facts,
   tags,
-  instagramUrl,
-  website,
   hasLocation,
+  stepMap,
   onOpenPhoto,
   onInquiry,
   onLocate,
@@ -430,10 +399,10 @@ export default function PartnerLanding({
   images: string[];
   facts: PartnerFacts;
   tags: string[];
-  instagramUrl?: string | null;
-  website?: string;
   /** 지도로 찾을 수 있는 주소가 있는가(지역만 적힌 곳은 '위치 보고 길찾기' 줄을 뺀다) */
   hasLocation: boolean;
+  /** '위치 보고 길찾기' 줄의 실제 지도(페이지가 그린 네이버 지도 — 좌표가 아직 없으면 null → 그림 지도) */
+  stepMap?: ReactNode;
   onOpenPhoto: (index: number) => void;
   onInquiry: (prefill?: string) => void;
   onLocate: () => void;
@@ -504,17 +473,6 @@ export default function PartnerLanding({
     return [hallName ? `${hallName} 투어를 하고 싶어요` : '홀 투어를 하고 싶어요', '원하는 날짜에 예식이 가능한가요?', '식대에 무엇이 포함되나요?'];
   }, [facts.isHall, facts.halls]);
 
-  /* ⑦ 격자 = 업체 정보 전부 + 인스타 · 웹사이트 */
-  const links: Array<{ key: string; label: string; icon: ReactNode; node: ReactNode }> = [
-    ...(instagramUrl ? [{ key: 'insta', label: '인스타그램', icon: <TossCameraIcon size={24} />, node: <a href={instagramUrl} target="_blank" rel="noopener noreferrer">{instagramHandle(instagramUrl)}</a> }] : []),
-    ...(website ? [{ key: 'web', label: '웹사이트', icon: <TossEarthIcon size={24} />, node: <a href={website} target="_blank" rel="noopener noreferrer">{hostLabel(website)}</a> }] : []),
-  ];
-  const gridCells: Array<{ key: string; label: string; value: ReactNode; icon: ReactNode }> = [
-    // '최소 300명 · 최대 550명' 처럼 가운뎃점으로 이어진 값은 좁은 칸에서 낱말 중간에 꺾이지 않게 줄을 나눈다
-    ...facts.facts.map((f) => ({ key: f.key, label: f.label, value: f.value.split(' · ').map((part, i) => <span key={i} style={{ display: 'block' }}>{part}</span>) as ReactNode, icon: FACT_ICON[f.key] || <TossCheckIcon size={24} /> })),
-    ...links.map((l) => ({ key: l.key, label: l.label, value: l.node, icon: l.icon })),
-  ];
-  const showGrid = gridCells.length > 0;
   /* ⑥ 사진 덱 — 매칭 화면의 사회자 카드 덱(MatchCardDeck)을 업체 사진으로 */
   const deckCards = useMemo<DeckCard[]>(() => images.slice(0, 6).map((src, i) => ({ id: `p${i}`, name: `사진 ${i + 1}`, image: src })), [images]);
 
@@ -665,7 +623,6 @@ export default function PartnerLanding({
               <MatchCardDeck cards={deckCards} />
             </button>
             <div className="pl-row-txt">
-              <span className="pl-step">STEP 1</span>
               <h3>사진으로 먼저 둘러보기</h3>
               <p>{facts.photoCount > 1 ? `${facts.photoCount}장의 사진을 넘겨 보며 분위기를 먼저 살펴보세요.` : '대표 사진으로 분위기를 먼저 살펴보세요.'}</p>
               <button type="button" className="pl-link" onClick={() => openPhoto(0)}>사진 크게 보기 <TossChevronRightIcon size={16} /></button>
@@ -675,11 +632,17 @@ export default function PartnerLanding({
           {hasLocation && (
             <div className="pl-row is-flip" data-rv="right" data-anim="">
               <div className="pl-row-ui">
-                <div className="pl-mmap" aria-hidden />
-                <div className="pl-pin" aria-hidden><b>{short}</b><i /></div>
+                {stepMap ? (
+                  // 실제 네이버 지도(261014 사장 '실제 지도 넣어줘') — 누르면 네이버 길찾기
+                  <div className="pl-step-map">{stepMap}</div>
+                ) : (
+                  <>
+                    <div className="pl-mmap" aria-hidden />
+                    <div className="pl-pin" aria-hidden><b>{short}</b><i /></div>
+                  </>
+                )}
               </div>
               <div className="pl-row-txt">
-                <span className="pl-step">STEP 2</span>
                 <h3>위치 보고 길찾기</h3>
                 <p>{facts.region ? `${facts.region}에 있어요. ` : ''}네이버 지도에서 위치를 확인하고 길찾기까지 할 수 있어요.</p>
                 <button type="button" className="pl-link" onClick={onLocate}>위치 보기 <TossChevronRightIcon size={16} /></button>
@@ -698,7 +661,6 @@ export default function PartnerLanding({
               </div>
             </div>
             <div className="pl-row-txt">
-              <span className="pl-step">STEP {hasLocation ? 3 : 2}</span>
               <h3>궁금한 점 문의 남기기</h3>
               <p>견적 · 방문 상담 · 일정 확인 중 궁금한 것을 고르고 희망 시기를 남겨 주세요.</p>
               <button type="button" className="pl-link" onClick={() => onInquiry()}>문의하기 <TossChevronRightIcon size={16} /></button>
@@ -720,29 +682,12 @@ export default function PartnerLanding({
               </div>
             </div>
             <div className="pl-row-txt">
-              <span className="pl-step">STEP {hasLocation ? 4 : 3}</span>
               <h3>매니저에게 연락받기</h3>
               <p>프리티풀 매니저가 업체와 함께 확인하고, 남겨 주신 연락처로 안내드려요.</p>
             </div>
           </div>
         </div>
       </section>
-
-      {/* ⑦ 업체 정보 — 아이콘 격자(② 카드에 없는 정보만) */}
-      {showGrid && (
-        <section className="pl-sec">
-          <SectionHead eyebrow="Information" title={<>{short}의<br />기본 정보</>} />
-          <ul className="pl-grid">
-            {gridCells.map((c, i) => (
-              <li key={c.key} className="pl-gi" data-rv="" style={{ ['--d' as string]: `${(i % 3) * 0.07}s` }}>
-                <span className="pl-gi-ic">{c.icon}</span>
-                <span className="pl-gi-k">{c.label}</span>
-                <span className="pl-gi-v">{c.value}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* ⑧ 홀 안내 — 요금표형 카드(가운데 온 카드 강조) / 상품 안내 긴 글 */}
       {facts.halls.length > 0 && (

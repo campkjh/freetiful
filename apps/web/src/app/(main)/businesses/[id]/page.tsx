@@ -643,12 +643,33 @@ export default function BusinessDetailPage() {
         images={images}
         facts={partner}
         tags={tags}
-        instagramUrl={biz.instagramUrl}
-        website={website}
         hasLocation={hasPlace}
         onOpenPhoto={(i) => setViewerAt(i)}
         onInquiry={openInquiry}
         onLocate={scrollToLocation}
+        stepMap={point ? (
+          // '위치 보고 길찾기' 줄의 실제 지도 — 고정 지도, 누르면 네이버 길찾기(도착지 = 업체). 왼쪽 아래 네이버 로고·저작권은 가리지 않는다
+          <NaverMap
+            key={`step-${mapKey}`}
+            className="h-full w-full"
+            markers={[{ lat: point.lat, lng: point.lng, label: mapPinLabel(biz.businessName) }]}
+            zoom={16}
+            title={biz.businessName}
+            address={address}
+            href={routeLink.href}
+            onLinkClick={routeLink.onClick}
+            linkLabel="네이버 지도로 길찾기"
+          >
+            <span
+              aria-hidden
+              className="absolute bottom-2.5 right-2.5 inline-flex h-8 items-center gap-[3px] whitespace-nowrap rounded-[8px] bg-white/95 pl-2.5 pr-1.5 text-[13px] font-semibold tracking-[-0.2px] text-[#333D4B] shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+              style={{ pointerEvents: 'none' }}
+            >
+              길찾기
+              <TossChevronRightIcon size={15} />
+            </span>
+          </NaverMap>
+        ) : null}
         locationSlot={
           <>
             {/* 위치 — 네이버 지도(261012 사장 '네이버 다이나믹맵 전부 다 적용'): 고정 칸(손가락은 페이지 스크롤), 누르면 네이버 지도 그 자리 핀.
