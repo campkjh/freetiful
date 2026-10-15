@@ -2367,7 +2367,9 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-top-more.on svg { transform: rotate(180deg); }
 /* 14일 막대(261005 시안) — 연회색 막대 · 고른 막대만 파란 방사 그라데이션 · 위 값 · 아래 날짜 */
 .adm-vbars { display: flex; align-items: stretch; gap: 0; height: 236px; }
-.adm-vbar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.adm-vbar { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.adm-vbar:focus-visible { outline: 2px solid #3180F7; outline-offset: 3px; border-radius: 8px; }
+.admin-shell .adm-vbar:active:not(:disabled) { transform: none; }
 .adm-vbar-plot { position: relative; flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding-top: 22px; }
 .adm-vbar-col { position: relative; display: flex; flex-direction: column; align-items: center; width: min(38.5px, 76%); transform-origin: bottom; animation: admGrow .6s var(--adm-ease) both; }
 .adm-vbar-fill { position: relative; display: block; width: 100%; flex: 1; min-height: 4px; border-radius: 7px; background: #F2F4F6; }
@@ -2378,6 +2380,41 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 .adm-vbar.on .adm-vbar-val { color: #1B64DA; }
 .adm-vbar-label { flex: none; margin-top: 9px; color: #6B7684; font-size: 12px; font-weight: 500; line-height: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .adm-vbar-val { font-size: 10px; } .adm-vbar-label { font-size: 10px; } .adm-vbar:nth-child(odd):not(.on) .adm-vbar-label { visibility: hidden; } }
+
+.adm-revenue-tip { position: fixed; z-index: 100; display: flex; flex-direction: column; width: min(340px, calc(100vw - 24px)); max-height: min(380px, calc(100dvh - 24px)); border: 1px solid rgba(25, 31, 40, .08); border-radius: 16px; background: #fff; box-shadow: 0 12px 48px rgba(25, 31, 40, .16), 0 2px 8px rgba(25, 31, 40, .05); color: #191F28; font-size: 13px; line-height: 1.45; letter-spacing: 0; outline: none; }
+.adm-revenue-tip::after { content: ''; position: absolute; left: var(--revenue-arrow, 20px); width: 12px; height: 12px; background: #fff; transform: translateX(-50%) rotate(45deg); pointer-events: none; }
+.adm-revenue-tip[data-side='above']::after { bottom: -7px; border-right: 1px solid rgba(25, 31, 40, .08); border-bottom: 1px solid rgba(25, 31, 40, .08); }
+.adm-revenue-tip[data-side='below']::after { top: -7px; border-left: 1px solid rgba(25, 31, 40, .08); border-top: 1px solid rgba(25, 31, 40, .08); }
+.adm-revenue-head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 18px 14px; border-bottom: 1px solid #F2F4F6; }
+.adm-revenue-date { margin: 0; color: #6B7684; font-size: 12px; font-weight: 500; }
+.adm-revenue-total { margin: 3px 0 0; color: #3180F7; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.adm-revenue-total > span { margin-left: 3px; font-size: 13px; font-weight: 500; }
+.adm-revenue-count { margin: 5px 0 0; color: #8B95A1; font-size: 12px; }
+.adm-revenue-close { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: #F7F8FA; cursor: pointer; transition: background-color .15s ease; }
+.adm-revenue-close:hover { background: #E5E8EB; }
+.adm-revenue-close:focus-visible, .adm-revenue-empty button:focus-visible, .adm-revenue-retry:focus-visible { outline: 2px solid #3180F7; outline-offset: 2px; }
+.adm-revenue-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #D1D6DB transparent; border-radius: 0 0 16px 16px; }
+.adm-revenue-list { margin: 0; padding: 4px 8px; list-style: none; }
+.adm-revenue-row { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 10px; border-bottom: 1px solid #F7F8FA; animation: admRevenueRow .2s ease-out both; }
+.adm-revenue-row:last-child { border-bottom: 0; }
+.adm-revenue-avatar { display: grid; place-items: center; flex: none; width: 40px; height: 40px; overflow: hidden; border-radius: 50%; background: #EDF4FF; color: #3180F7; font-size: 14px; font-weight: 600; }
+.adm-revenue-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.adm-revenue-person { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.adm-revenue-person > span { overflow: hidden; color: #191F28; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.adm-revenue-person > small { color: #8B95A1; font-size: 12px; }
+.adm-revenue-amount { flex: none; color: #333D4B; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adm-revenue-empty { margin: 0; padding: 28px 16px; text-align: center; color: #8B95A1; font-size: 12px; }
+.adm-revenue-empty p { margin: 0; }
+.adm-revenue-empty button, .adm-revenue-retry { margin-top: 10px; padding: 7px 12px; border: 0; border-radius: 8px; background: #EDF4FF; color: #3180F7; font: inherit; font-weight: 600; cursor: pointer; }
+.adm-revenue-retry { flex: none; margin: 0 18px 12px; }
+.adm-revenue-skeleton { padding: 8px 18px; }
+.adm-revenue-skeleton > div { display: flex; align-items: center; gap: 10px; height: 68px; }
+.adm-revenue-skeleton span { display: block; height: 12px; border-radius: 5px; background: #F2F4F6; animation: ftFade .8s ease-in-out infinite alternate; }
+.adm-revenue-skeleton span:first-child { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.adm-revenue-skeleton span:nth-child(2) { width: 64px; }
+.adm-revenue-skeleton span:last-child { width: 72px; margin-left: auto; }
+@keyframes admRevenueRow { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .adm-revenue-row, .adm-revenue-skeleton span { animation: none; } }
 
 /* 전환 퍼널 카드(261005 사장 '각 단계마다 이 이미지 — 프리티풀 공지사항 카드처럼, 하단에 그라데이션 블러') = 공지 뉴스룸 카드 어법
    · 4:3 · 그림 가득(cover) · 아래 50% 그라데이션 블러(backdrop blur + 위로 옅어지는 마스크) + 카드 자기 색 막(그림 아래쪽 평균 색 알파) · 어두운 글자

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef, useId } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -10,10 +10,12 @@ import { LineChevron, useAdminRefresh } from './_components/adminRefresh';
 import { AdminCollapse } from './_components/AdminCollapse';
 import { AdminMoneyCalendar, type MoneyDay, type MoneySummary } from './_components/AdminMoneyCalendar';
 import { RollingNumber } from './_components/AdminNumber';
+import { AdminRevenueTooltip, type RevenueTooltipTarget } from './_components/AdminRevenueTooltip';
 
 type DailyMetricKey = 'users' | 'matchRequests' | 'payments' | 'chats' | 'messages' | 'revenue';
 
 interface DailyPoint {
+  dateKey: string;
   date: string;
   users: number;
   matchRequests: number;
@@ -151,6 +153,7 @@ const createEmptyDailySeries = () => (
   Array.from({ length: 14 }, (_, idx) => {
     const key = getKstStartDate(13 - idx);
     return {
+      dateKey: key,
       date: key.slice(5).replace('-', '.'),
       users: 0,
       matchRequests: 0,
@@ -373,6 +376,37 @@ function TrendChart({ points }: { points: DailyPoint[] }) {
   // 막대 위 짧은 값 — 매출은 만원 단위
   const short = (v: number) => (m.money ? (v >= 10000 ? `${formatNumber(Math.round(v / 10000))}만` : formatNumber(v)) : formatNumber(v));
   const [hover, setHover] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<RevenueTooltipTarget | null>(null);
+  const tooltipId = useId();
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+  const suppressFocus = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepOpen = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  }, []);
+  const closeTooltip = useCallback((restoreFocus = false) => {
+    keepOpen();
+    setTooltip(null);
+    setHover(null);
+    if (restoreFocus && anchorRef.current && document.activeElement !== anchorRef.current) {
+      suppressFocus.current = true;
+      anchorRef.current.focus({ preventScroll: true });
+    }
+  }, [keepOpen]);
+  const scheduleClose = useCallback(() => {
+    keepOpen();
+    closeTimer.current = setTimeout(() => closeTooltip(), 160);
+  }, [keepOpen, closeTooltip]);
+  useEffect(() => () => keepOpen(), [keepOpen]);
+
+  const showTooltip = (index: number, anchor: HTMLButtonElement) => {
+    keepOpen();
+    setHover(index);
+    anchorRef.current = anchor;
+    const point = points[index];
+    setTooltip(m.money && point.dateKey ? { dateKey: point.dateKey, amount: values[index], anchor } : null);
+  };
   const active = hover ?? points.length - 1;
   return (
     <div className="adm-card">
@@ -386,30 +420,62 @@ function TrendChart({ points }: { points: DailyPoint[] }) {
         </div>
         <div className="adm-seg" role="tablist" aria-label="지표">
           {METRICS.map((x) => (
-            <button key={x.key} type="button" role="tab" aria-selected={x.key === metric} onClick={() => setMetric(x.key)} className={x.key === metric ? 'on' : ''}>
+            <button key={x.key} type="button" role="tab" aria-selected={x.key === metric} onClick={() => { closeTooltip(); setMetric(x.key); }} className={x.key === metric ? 'on' : ''}>
               {x.label}
             </button>
           ))}
         </div>
       </div>
-      <div className="adm-vbars" key={metric} onMouseLeave={() => setHover(null)}>
+      <div className="adm-vbars" key={metric} onMouseLeave={scheduleClose}>
         {points.map((p, i) => {
           const v = values[i];
           const h = Math.max(4, (v / max) * 100);
           const on = i === active;
           return (
-            <div key={`${p.date}-${i}`} className={`adm-vbar ${on ? 'on' : ''}`} onMouseEnter={() => setHover(i)} title={`${p.date} · ${fmt(v)}`}>
-              <div className="adm-vbar-plot">
+            <button
+              key={`${p.date}-${i}`}
+              type="button"
+              className={`adm-vbar ${on ? 'on' : ''}`}
+              aria-label={`${p.date} ${m.label} ${fmt(v)}`}
+              aria-haspopup={m.money ? 'dialog' : undefined}
+              aria-expanded={m.money ? tooltip?.dateKey === p.dateKey : undefined}
+              aria-controls={m.money && tooltip?.dateKey === p.dateKey ? tooltipId : undefined}
+              onMouseEnter={(event) => showTooltip(i, event.currentTarget)}
+              onFocus={(event) => {
+                if (suppressFocus.current) { suppressFocus.current = false; return; }
+                showTooltip(i, event.currentTarget);
+              }}
+              onBlur={scheduleClose}
+              onClick={(event) => showTooltip(i, event.currentTarget)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown' && m.money) {
+                  event.preventDefault();
+                  showTooltip(i, event.currentTarget);
+                  requestAnimationFrame(() => document.getElementById(tooltipId)?.focus());
+                }
+              }}
+              title={m.money ? undefined : `${p.date} · ${fmt(v)}`}
+            >
+              <span className="adm-vbar-plot">
                 <span className="adm-vbar-col" style={{ height: `${h}%`, animationDelay: `${i * 0.035}s` }}>
                   <span className="adm-vbar-val" style={{ animationDelay: `${0.25 + i * 0.035}s` }}>{short(v)}</span>
                   <span className="adm-vbar-fill" />
                 </span>
-              </div>
+              </span>
               <span className="adm-vbar-label">{p.date}</span>
-            </div>
+            </button>
           );
         })}
       </div>
+      <AdminRevenueTooltip
+        id={tooltipId}
+        from={points[0]?.dateKey}
+        to={points[points.length - 1]?.dateKey}
+        target={tooltip}
+        onClose={closeTooltip}
+        onKeepOpen={keepOpen}
+        onScheduleClose={scheduleClose}
+      />
     </div>
   );
 }

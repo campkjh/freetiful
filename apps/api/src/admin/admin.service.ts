@@ -1185,6 +1185,7 @@ export class AdminService {
     const dailyMessageMap = valueMap(dailyMessageRows);
     const dailyRevenueMap = valueMap(dailyRevenueRows);
     const dailySeries = seriesKeys.map((key) => ({
+      dateKey: key,
       date: key.slice(5).replace('-', '.'),
       users: dailyUsersMap.get(key) || 0,
       matchRequests: dailyMatchMap.get(key) || 0,
@@ -2258,6 +2259,69 @@ export class AdminService {
       limit,
       hasMore: page * limit < total,
     };
+  }
+
+  async getRevenueBreakdown(from: string, to: string) {
+    const dayMs = 86_400_000;
+    const kstOffset = 9 * 3_600_000;
+    const parseDay = (value: string) => {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw new BadRequestException('조회 날짜는 YYYY-MM-DD 형식으로 입력해주세요.');
+      }
+      const date = new Date(`${value}T00:00:00.000+09:00`);
+      if (!Number.isFinite(date.getTime()) || new Date(date.getTime() + kstOffset).toISOString().slice(0, 10) !== value) {
+        throw new BadRequestException('올바른 조회 날짜를 입력해주세요.');
+      }
+      return date;
+    };
+    const start = parseDay(from);
+    const lastDay = parseDay(to);
+    const dayCount = Math.round((lastDay.getTime() - start.getTime()) / dayMs) + 1;
+    if (dayCount < 1 || dayCount > 14) throw new BadRequestException('조회 기간은 최대 14일입니다.');
+    const end = new Date(lastDay.getTime() + dayMs);
+
+    // Aggregate before joining profiles so images cannot multiply payment amounts.
+    const rows = await this.prisma.$queryRaw<Array<{
+      date: string; proProfileId: string; amount: bigint; paymentCount: number;
+      name: string | null; imageUrl: string | null;
+    }>>`
+      WITH revenue AS (
+        SELECT to_char((p."createdAt" + INTERVAL '9 hours'), 'YYYY-MM-DD') AS date,
+          p."proProfileId", SUM(p.amount)::bigint AS amount, COUNT(*)::int AS "paymentCount"
+        FROM payments p
+        WHERE p."createdAt" >= ${start} AND p."createdAt" < ${end} AND p.status = 'completed'
+          AND (p.method IS NULL OR p.method <> 'admin_review')
+        GROUP BY 1, 2
+      )
+      SELECT r.*, u.name, COALESCE(NULLIF(pi."imageUrl", ''), NULLIF(u."profileImageUrl", '')) AS "imageUrl"
+      FROM revenue r
+      LEFT JOIN pro_profiles pp ON pp.id = r."proProfileId"
+      LEFT JOIN users u ON u.id = pp."userId"
+      LEFT JOIN LATERAL (
+        SELECT img."imageUrl" FROM pro_profile_images img
+        WHERE img."proProfileId" = pp.id AND img."imageUrl" <> ''
+        ORDER BY img."isPrimary" DESC, img."displayOrder" ASC, img."createdAt" DESC, img.id ASC
+        LIMIT 1
+      ) pi ON TRUE
+      ORDER BY r.date ASC, r.amount DESC, r."proProfileId" ASC
+    `;
+
+    const days = Array.from({ length: dayCount }, (_, index) => ({
+      date: new Date(start.getTime() + kstOffset + index * dayMs).toISOString().slice(0, 10),
+      amount: 0,
+      paymentCount: 0,
+      pros: [] as Array<{ id: string; name: string; imageUrl: string | null; amount: number; paymentCount: number }>,
+    }));
+    const dayMap = new Map(days.map((day) => [day.date, day]));
+    for (const row of rows) {
+      const day = dayMap.get(row.date);
+      if (!day) continue;
+      const amount = Number(row.amount);
+      day.amount += amount;
+      day.paymentCount += row.paymentCount;
+      day.pros.push({ id: row.proProfileId, name: row.name || '사회자 정보 없음', imageUrl: row.imageUrl, amount, paymentCount: row.paymentCount });
+    }
+    return { from, to, days };
   }
 
   // ─── 결제 목록 ───────────────────────────────────────────────────────────

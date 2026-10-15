@@ -237,8 +237,8 @@ export class AdminController {
     const kstOffset = 9 * 60 * 60 * 1000;
     const dayMs = 24 * 60 * 60 * 1000;
     const dailySeries = Array.from({ length: 14 }, (_, idx) => {
-      const key = new Date(now + kstOffset - (13 - idx) * dayMs).toISOString().slice(5, 10).replace('-', '.');
-      return { date: key, users: 0, matchRequests: 0, payments: 0, chats: 0, messages: 0, revenue: 0 };
+      const key = new Date(now + kstOffset - (13 - idx) * dayMs).toISOString().slice(0, 10);
+      return { dateKey: key, date: key.slice(5).replace('-', '.'), users: 0, matchRequests: 0, payments: 0, chats: 0, messages: 0, revenue: 0 };
     });
     const zeroStatus = { pending: 0, completed: 0, cancelled: 0, settled: 0 };
 
@@ -732,6 +732,11 @@ export class AdminController {
   @Get('money-summary')
   async getMoneySummary() {
     return this.adminService.getMoneySummary();
+  }
+
+  @Get('revenue-breakdown')
+  getRevenueBreakdown(@Query('from') from: string, @Query('to') to: string) {
+    return this.adminService.getRevenueBreakdown(from, to);
   }
 
   // 사회자별 응답시간 분석 (상단 그래프)
