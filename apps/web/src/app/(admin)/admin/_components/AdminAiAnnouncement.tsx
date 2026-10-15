@@ -69,7 +69,7 @@ export function AdminAiAnnouncement({ scope, used, onOpen, trigger }: {
       <div className="qm-bubble-body">
         <button type="button" className="adm-ai-hint-open" aria-label="새로운 AI로 오늘 하루 요약 열기" onClick={() => { dismiss(); onOpen(); }} />
         <span className="qm-bubble-ic" aria-hidden="true"><AiIcon size={26} tile={false} /></span>
-        <div role="status"><p className="qm-bubble-title">새로운 AI가 도착했어요</p><p className="qm-bubble-sub">오늘의 매출과 운영 흐름을 한눈에</p></div>
+        <div className="adm-ai-hint-copy" role="status"><p className="qm-bubble-title">새로운 AI가 도착했어요</p><p className="qm-bubble-sub">오늘의 매출과 운영 흐름을 한눈에</p></div>
         <button type="button" className="qm-bubble-x" aria-label="AI 안내 말풍선 닫기" onClick={() => dismiss(true)}><X size={10} /></button>
       </div>
     </div>

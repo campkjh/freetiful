@@ -2482,11 +2482,14 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 /* Flip the shared home bubble toward the orb, then restore only its readable content. */
 .adm-ai-hint-wrap { position: absolute; right: 0; bottom: 74px; width: min(340px,calc(100vw - 32px)); transform: scaleY(-1); }
 .qm-bubble.adm-ai-announcement { position: relative; width: 100%; cursor: default; }
-.adm-ai-announcement .qm-bubble-body { transform: scaleY(-1); padding: 16px 38px 16px 58px; }
+.adm-ai-announcement .qm-bubble-body { display: grid; grid-template-columns: 26px minmax(0,1fr) 20px; align-items: center; gap: 12px; transform: scaleY(-1); padding: 16px 20px; text-align: left; }
+.adm-ai-hint-copy { min-width: 0; }
 .adm-ai-announcement .qm-bubble-title { font-size: 14px; letter-spacing: 0; line-height: 1.5; }
 .adm-ai-announcement .qm-bubble-sub { margin-top: 3px; font-size: 12px; line-height: 1.5; letter-spacing: 0; white-space: normal; }
-.adm-ai-announcement .qm-bubble-ic { left: 20px; width: 26px; height: 26px; margin-top: -13px; }
-.adm-ai-announcement .qm-bubble-x { z-index: 2; }
+.adm-ai-announcement .qm-bubble-ic { position: static; width: 26px; height: 26px; margin: 0; }
+.adm-ai-announcement .qm-bubble-x { position: relative; top: auto; right: auto; z-index: 2; margin: 0; }
+.adm-ai-announcement .qm-bubble-x::before { inset: -12px; }
+.adm-ai-announcement .qm-bubble-x:focus-visible { outline: 2px solid #3180F7; outline-offset: 3px; }
 .adm-ai-hint-open { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; border-radius: 26px; background: transparent; cursor: pointer; }
 .adm-ai-hint-open:focus-visible { outline: 2px solid #3180F7; outline-offset: -3px; }
 .adm-ai-float:has(.adm-ai-announcement) .adm-ai-launch-label { opacity: 0; }
