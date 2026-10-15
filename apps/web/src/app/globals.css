@@ -2479,10 +2479,10 @@ a.adm-stat .adm-stat-value { transition: color .2s ease; }
 @media (max-width: 640px) { .adm-ai-float { right: 8px; bottom: max(8px,env(safe-area-inset-bottom)); } .adm-ai-panel { right: 8px; } }
 @media (prefers-reduced-motion: reduce) { .adm-ai-launch, .adm-ai-launch-label { transition: none; } }
 
-/* Flip the shared home bubble toward the orb, then restore only its readable content. */
+/* Reserve the tail inside the bubble so the flipped content stays centered in its body. */
 .adm-ai-hint-wrap { position: absolute; right: 0; bottom: 74px; width: min(340px,calc(100vw - 32px)); transform: scaleY(-1); }
-.qm-bubble.adm-ai-announcement { position: relative; width: 100%; cursor: default; }
-.adm-ai-announcement .qm-bubble-body { display: grid; grid-template-columns: 26px minmax(0,1fr) 20px; align-items: center; gap: 12px; transform: scaleY(-1); padding: 16px 20px; text-align: left; }
+.qm-bubble.adm-ai-announcement { position: relative; width: 100%; padding-top: 13px; cursor: default; }
+.adm-ai-announcement .qm-bubble-body { display: grid; grid-template-columns: 26px minmax(0,1fr) 20px; align-items: center; gap: 12px; transform: scaleY(-1); margin-top: 0; padding: 16px 20px; text-align: left; }
 .adm-ai-hint-copy { min-width: 0; }
 .adm-ai-announcement .qm-bubble-title { font-size: 14px; letter-spacing: 0; line-height: 1.5; }
 .adm-ai-announcement .qm-bubble-sub { margin-top: 3px; font-size: 12px; line-height: 1.5; letter-spacing: 0; white-space: normal; }
