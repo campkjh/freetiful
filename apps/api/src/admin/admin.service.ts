@@ -20,6 +20,7 @@ import { kstDay, paymentPaidAt, refundVerdict } from '../payment/refund-policy';
 import { randomUUID } from 'crypto';
 import { QuickMatchRosterService, parseDesignated } from '../match/quick-match-roster.service';
 import type { Prisma } from '@prisma/client';
+import { chatLandingSource } from './chat-landing-source';
 
 const REFERRAL_EVENT_CAMPAIGN_KEY = 'friend-invite-cash-2026';
 const REFERRAL_EVENT_REQUIRED_REFERRALS = 4;
@@ -2908,6 +2909,7 @@ export class AdminService {
           proName: r.proProfile?.user?.name || '-',
           fromMatch: !!r.matchRequestId,
           matchType,                                     // multi=모두에게 / single=1:1문의
+          landingSource: chatLandingSource(mr?.rawUserInput),
           eventLabel,                                    // 무슨 행사(행사명/카테고리+예식부)
           eventDate: eventDateVal,                       // 행사일(고객 입력 DB값)
           eventTime: mr?.eventTime || null,              // 행사 시간(고객 입력 DB값)

@@ -24,6 +24,7 @@ interface ConnRow {
   proName: string;
   fromMatch: boolean;
   matchType: 'multi' | 'single';
+  landingSource: { label: string; path: string | null } | null;
   eventLabel: string | null;
   eventDate: string | null;
   eventTime: string | null;
@@ -368,12 +369,13 @@ export default function ChatConnectionsPage() {
         </>}
       >
         <AdminTableScroll>
-          <table className="w-full min-w-[1000px] text-left">
+          <table className="w-full min-w-[1120px] text-left">
             <thead>
               <tr>
                 <th className="px-4 py-3">고객</th>
                 <th className="px-4 py-3">사회자</th>
                 <th className="px-4 py-3">문의유형</th>
+                <th className="px-4 py-3">유입 랜딩</th>
                 <th className="px-4 py-3">행사 정보</th>
                 <th className="px-4 py-3">요청 시각</th>
                 <th className="px-4 py-3">답장 시각</th>
@@ -394,6 +396,13 @@ export default function ChatConnectionsPage() {
                     <span className={`adm-badge ${r.matchType === 'multi' ? 'blue' : 'orange'}`}>
                       {r.matchType === 'multi' ? '모두에게' : '1:1문의'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.landingSource ? (
+                      <span className="adm-cell-main whitespace-nowrap" title={r.landingSource.path || undefined}>
+                        {r.landingSource.label}
+                      </span>
+                    ) : <span className="text-[12px] text-[#8B95A1]">기록 없음</span>}
                   </td>
                   <td className="px-4 py-3">
                     {r.eventDate || r.eventLabel ? (
@@ -430,10 +439,10 @@ export default function ChatConnectionsPage() {
                 </tr>
               ))}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={9} className="adm-empty">연결된 채팅이 없어요</td></tr>
+                <tr><td colSpan={10} className="adm-empty">연결된 채팅이 없어요</td></tr>
               )}
               {loading && (
-                <tr><td colSpan={9} className="px-4 py-4"><div className="adm-skel h-[44px]" /></td></tr>
+                <tr><td colSpan={10} className="px-4 py-4"><div className="adm-skel h-[44px]" /></td></tr>
               )}
             </tbody>
           </table>
