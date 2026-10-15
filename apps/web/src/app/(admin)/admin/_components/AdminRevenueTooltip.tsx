@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { X } from './admin-icons';
 import { adminFetch } from './adminFetch';
+import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
 
 interface RevenuePro {
   id: string;
@@ -154,6 +155,7 @@ export function AdminRevenueTooltip({
 
   if (typeof document === 'undefined') return null;
   const dateLabel = target ? new Date(`${target.dateKey}T00:00:00+09:00`).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' }) : '';
+  const direction = position?.side === 'above' ? -1 : 1;
 
   return createPortal(
     <AnimatePresence>
@@ -170,10 +172,10 @@ export function AdminRevenueTooltip({
           className="adm-revenue-tip"
           data-side={position?.side}
           style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden', '--revenue-arrow': `${position?.arrow ?? 20}px` } as CSSProperties}
-          initial={{ opacity: 0, y: 6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 4, scale: 0.98 }}
-          transition={{ duration: reducedMotion ? 0 : 0.16, ease: [0.22, 1, 0.36, 1] }}
+          initial={reducedMotion ? false : { scaleX: 0.53, scaleY: 0.16, y: -10 * direction }}
+          animate={{ scaleX: [0.53, 0.8, 0.92, 0.99, 1.013, 1.009, 1, 1, 1, 1], scaleY: [0.16, 0.6, 0.85, 1, 1.013, 1.009, 1, 1, 1, 1], y: [-10, -9.5, -8, -5, 1.3, 6.3, 3.3, 0.7, 0.2, 0].map((y) => y * direction) }}
+          exit={{ opacity: 0, y: -6 * direction, scaleX: 0.9, scaleY: 0.7, transition: { duration: reducedMotion ? 0 : 0.18 } }}
+          transition={{ duration: reducedMotion ? 0 : 1, ease: 'linear', times: [0, 0.033, 0.1, 0.15, 0.217, 0.317, 0.45, 0.55, 0.7, 1] }}
           onMouseEnter={onKeepOpen}
           onMouseLeave={onScheduleClose}
           onFocusCapture={onKeepOpen}
@@ -181,6 +183,9 @@ export function AdminRevenueTooltip({
             if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !target.anchor.contains(event.relatedTarget as Node | null)) onScheduleClose();
           }}
         >
+          <span className="adm-revenue-shadow" aria-hidden="true" />
+          <span className="adm-revenue-glass" aria-hidden="true"><QuickMatchBubbleGlass tailX={position?.arrow ?? 40} /></span>
+          <div className="adm-revenue-content">
           <div className="adm-revenue-head">
             <div>
               <p id={`${id}-title`} className="adm-revenue-date">{dateLabel} 매출</p>
@@ -211,6 +216,7 @@ export function AdminRevenueTooltip({
             )}
           </div>
           {day && error && <button type="button" className="adm-revenue-retry" onClick={() => void load(true)} disabled={loading}>최신 내역 다시 불러오기</button>}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>,

@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { attributeLandingLead } from '../landing/landing-attribution';
 import { PrismaService } from '../prisma/prisma.service';
 import { BizTalkService } from '../biztalk/biztalk.service';
 
@@ -11,6 +12,7 @@ function cleanString(value: unknown, maxLength?: number) {
 
 @Injectable()
 export class BusinessInquiryService {
+  private readonly logger = new Logger(BusinessInquiryService.name);
   constructor(
     private prisma: PrismaService,
     private bizTalkService: BizTalkService,
@@ -40,6 +42,12 @@ export class BusinessInquiryService {
       },
     });
 
+    if (data.metadata?.landingPage === 'corporate-mc') {
+      await attributeLandingLead(this.prisma, {
+        page: 'corporate-mc', sessionKey: data.metadata?.landingSessionKey,
+        inquiryId: inquiry.id,
+      }).catch((error) => this.logger.warn(`Landing attribution failed: ${error?.message}`));
+    }
     this.bizTalkService.sendBusinessInquiryToAdmins(inquiry).catch(() => {});
     return inquiry;
   }

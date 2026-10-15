@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { AdminProfilePhoto } from '../_components/AdminProfilePhoto';
 import { Trash2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
@@ -375,10 +376,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        {user.profileImageUrl
-                          ? <img src={user.profileImageUrl} alt={user.name} className="adm-ava" />
-                          : <div className="adm-ava">{user.name?.[0] || '?'}</div>
-                        }
+                        <AdminProfilePhoto src={user.profileImageUrl} name={user.name} />
                         <span className="min-w-0">
                           <span className="adm-cell-main">{user.name}</span>
                           <span className="adm-cell-sub">{user.email}</span>

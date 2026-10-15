@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null;
     const rawRequestId = formData.get('requestId');
     const requestId = typeof rawRequestId === 'string' && /^[\w-]{6,64}$/.test(rawRequestId) ? rawRequestId : '';
+    const landingKey = formData.get('landingSessionKey');
+    const landing = formData.get('landingPage') === 'corporate-mc' && typeof landingKey === 'string' && /^[\w-]{16,80}$/.test(landingKey)
+      ? { landingPage: 'corporate-mc', landingSessionKey: landingKey } : {};
     const inquiryPayload = {
       company,
       name,
@@ -179,7 +182,7 @@ export async function POST(req: NextRequest) {
     try {
       savedInquiry = await saveInquiryToApi(req, {
         ...inquiryPayload,
-        metadata: { ...(attachmentMetadata || {}), ...(requestId ? { requestId } : {}) },
+        metadata: { ...(attachmentMetadata || {}), ...(requestId ? { requestId } : {}), ...landing },
       });
     } catch (error) {
       console.error('Inquiry DB error:', error);

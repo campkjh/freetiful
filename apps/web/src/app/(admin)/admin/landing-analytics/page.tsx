@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
 import { AdminTableScroll } from '../_components/AdminListCard';
@@ -19,7 +19,12 @@ interface Bucket { key: string; visits: number; conversions: number; rate: numbe
 interface PageStat { page: string; visits: number; conversions: number; rate: number; bySource: Bucket[]; byMedium: Bucket[]; byCampaign: Bucket[]; }
 interface DailyRow { date: string; visits: number; conversions: number; }
 interface Analytics { pages: PageStat[]; totalVisits: number; totalConversions: number; daily: DailyRow[]; today: { date: string; visits: number; conversions: number }; }
-interface VisitRow { page: string; source: string | null; medium: string | null; campaign: string | null; referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string; }
+interface VisitRow {
+  id: string; page: string; source: string | null; medium: string | null; campaign: string | null;
+  referrerHost: string | null; referrer: string | null; converted: boolean; createdAt: string;
+  visitor?: { id: string | null; name: string | null; imageUrl: string | null; kind: 'member' | 'contact' | 'anonymous' };
+  requested?: boolean; connected?: boolean | null; paid?: boolean | null;
+}
 type Totals = { visits: number; conversions: number };
 
 /** 제목 자리 큰 글씨 탭 — 고른 것 검정 · 나머지 회색. conv = 그 페이지의 '전환' 이름.
@@ -188,7 +193,7 @@ const Chev = ({ dir }: { dir: 'l' | 'r' }) => (
 );
 
 /** 방문 기록 — 오른쪽 칸(261006 사장 '방문 기록은 우측에'). 날마다 묶어 최근 순: 소스 아이콘 · 매체/캠페인(없으면 리퍼러) · 시각 · 신청 */
-function VisitFeed({ visits, conv, sel }: { visits: VisitRow[] | null; conv: string; sel: PageKey }) {
+function VisitFeed({ visits, conv, sel, error, onRetry }: { visits: VisitRow[] | null; conv: string; sel: PageKey; error: boolean; onRetry: () => void }) {
   const today = KST_TODAY();
   const yest = addDaysYmd(today, -1);
   const groups = useMemo(() => {
@@ -209,7 +214,7 @@ function VisitFeed({ visits, conv, sel }: { visits: VisitRow[] | null; conv: str
         <span className="adm-qm-count">최근 <b>{num(visits?.length || 0)}</b>건</span>
       </div>
       <div className="adm-la-logscroll">
-        {visits == null ? (
+        {error ? <div className="adm-la-empty">방문 기록을 불러오지 못했어요 <button type="button" className="adm-btn weak sm" onClick={onRetry}>다시 불러오기</button></div> : visits == null ? (
           <div className="space-y-3 pt-2">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="adm-skel h-[44px]" />)}</div>
         ) : visits.length === 0 ? (
           <p className="adm-la-empty">방문 기록이 아직 없어요</p>
@@ -219,19 +224,27 @@ function VisitFeed({ visits, conv, sel }: { visits: VisitRow[] | null; conv: str
               {d === today ? '오늘' : d === yest ? '어제' : md(d)}
               <span>{num(rows.length)}건{rows.some((r) => r.converted) ? ` · ${short} ${rows.filter((r) => r.converted).length}` : ''}</span>
             </p>
-            {rows.map((v, i) => {
+            {rows.map((v) => {
               const k = v.source || v.referrerHost || '';
-              const sub = [v.medium, v.campaign].filter(Boolean).join(' · ') || v.referrerHost || '유입 정보 없음';
+              const sub = [k ? srcLabel(k) : '직접/기타', v.medium, v.campaign].filter(Boolean).join(' · ');
+              const requested = v.requested ?? v.converted;
+              const stages = [
+                { value: requested, yes: sel === 'corporate-mc' ? '문의 접수' : '의뢰 완료', no: '의뢰 전', unknown: '의뢰 미확인', tone: 'blue' },
+                { value: v.connected, yes: '사회자 연결', no: '연결 전', unknown: '연결 미확인', tone: 'green' },
+                { value: v.paid, yes: '결제 완료', no: '결제 전', unknown: '결제 미확인', tone: 'blue' },
+              ];
               return (
-                <div key={`${v.createdAt}-${i}`} className="adm-la-logrow" title={v.referrer || undefined}>
+                <div key={v.id || `${v.createdAt}-${sub}`} className="adm-la-logrow">
                   <SrcIcon k={k || '직접/기타'} size={26} />
-                  <span className="min-w-0 flex-1">
-                    <span className="adm-la-logname">{k ? srcLabel(k) : '직접/기타'}</span>
-                    <span className="adm-la-logsub">{sub}</span>
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="adm-la-visitor"><span className="adm-la-logname">{v.visitor?.name || '익명 방문자'}</span>{v.visitor?.kind === 'contact' && <small>문의자</small>}</div>
+                    <span className="adm-la-logsub" title={v.referrer || sub}>{sub}</span>
+                    <div className="adm-la-stages" aria-label="방문 이후 진행 상태">
+                      {stages.map((stage) => <span key={stage.yes} className={`adm-la-stage ${stage.value === true ? stage.tone : 'pending'}`} title={stage.value == null ? '이 방문과 연결된 의뢰·결제 기록을 확인할 수 없어요.' : stage.yes === '사회자 연결' ? '사회자가 응답했거나 채팅방이 생성된 의뢰 기준이에요.' : undefined}>{stage.value === true ? stage.yes : stage.value === false ? stage.no : stage.unknown}</span>)}
+                    </div>
+                  </div>
                   <span className="adm-la-logright">
                     <span className="adm-la-logtime">{kstHm(v.createdAt)}</span>
-                    {v.converted && <span className="adm-badge green">{short}</span>}
                   </span>
                 </div>
               );
@@ -241,7 +254,7 @@ function VisitFeed({ visits, conv, sel }: { visits: VisitRow[] | null; conv: str
       </div>
       <p className="adm-la-logfoot">
         방문 = 기기(세션)·페이지당 1번 · {conv} = 폼 제출 성공 · UTM 이 없으면 리퍼러로 소스를 추정, 둘 다 없으면 직접/기타
-        <br />링크 예시 freetiful.com/{sel}?utm_source=instagram&amp;utm_medium=bio
+        <br />진행 상태는 이 방문에서 접수한 의뢰 기준 · 과거 익명 기록은 이름·연결·결제 상태가 확인되지 않을 수 있어요
       </p>
     </div>
   );
@@ -281,6 +294,8 @@ export default function LandingAnalyticsPage() {
   // ── 상세(기간 고르기) · 고른 날 ──
   const [data, setData] = useState<Analytics | null>(null);
   const [visits, setVisits] = useState<VisitRow[] | null>(null);
+  const [visitsError, setVisitsError] = useState(false);
+  const loadRevision = useRef(0);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<string>('30');
   const [customFrom, setCustomFrom] = useState<string>('');
@@ -303,6 +318,7 @@ export default function LandingAnalyticsPage() {
 
   const load = async (r: string, from = customFrom, to = customTo) => {
     if (sel === 'pages') return;
+    const revision = ++loadRevision.current;
     setLoading(true);
     try {
       let qs = '';
@@ -317,17 +333,27 @@ export default function LandingAnalyticsPage() {
       }
       const [d, v] = await Promise.all([
         adminFetch('GET', withPage(`/api/v1/admin/landing-analytics${qs}`, sel), undefined, { cache: false }),
-        adminFetch('GET', withPage(`/api/v1/admin/landing-analytics/recent?limit=150`, sel), undefined, { cache: false }).catch(() => null),
+        adminFetch('GET', withPage(`/api/v1/admin/landing-analytics/recent?limit=150${qs.replace('?', '&')}`, sel), undefined, { cache: false }).catch(() => null),
       ]);
+      if (revision !== loadRevision.current) return;
       setData(d);
-      setVisits(v && Array.isArray(v.data) ? v.data : []);
+      setVisitsError(!v || !Array.isArray(v.data));
+      setVisits(v && Array.isArray(v.data) ? v.data : null);
     } catch {
+      if (revision !== loadRevision.current) return;
       setData(null);
+      setVisitsError(true);
     } finally {
-      setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   };
-  useEffect(() => { load(range, customFrom, customTo); /* eslint-disable-next-line */ }, [range, customFrom, customTo, sel]);
+  useEffect(() => {
+    setVisits(null);
+    setVisitsError(false);
+    void load(range, customFrom, customTo);
+    return () => { loadRevision.current += 1; };
+    /* eslint-disable-next-line */
+  }, [range, customFrom, customTo, sel]);
 
   const loadToday = useCallback(async () => {
     if (sel === 'pages') return;
@@ -732,7 +758,7 @@ export default function LandingAnalyticsPage() {
       </div>
 
       <aside className="adm-la-side" aria-label="방문 기록">
-        <VisitFeed visits={visits} conv={conv} sel={sel} />
+        <VisitFeed visits={visits} conv={conv} sel={sel} error={visitsError} onRetry={() => void load(range)} />
       </aside>
       </div>
       )}

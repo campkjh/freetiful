@@ -24,6 +24,7 @@ import {
 } from './quick-match.config';
 import { QuickMatchRosterService, type QuickMatchFeatured } from './quick-match-roster.service';
 import { isTestLeadUserId } from './test-lead';
+import { attributeLandingLead, leadLandingPage } from '../landing/landing-attribution';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -239,6 +240,14 @@ export class MatchService {
         // 매칭 제외 사회자 — 다수견적·퀵매칭에선 빼고, 프로필에서 직접 고른 1:1 문의만 그대로 보낸다
         { excludeBlocked: quickMatch || !(data.selectedProProfileIds || []).length },
       );
+    }
+
+    if (!testLead) {
+      await attributeLandingLead(this.prisma, {
+        page: leadLandingPage(data.rawUserInput?.source),
+        sessionKey: data.rawUserInput?.landingSessionKey,
+        userId, matchRequestId: matchRequest.id,
+      }).catch((error) => this.logger.warn(`Landing attribution failed: ${error?.message}`));
     }
 
     this.chatRealtimeService.emitMatchUpdated([userId], {

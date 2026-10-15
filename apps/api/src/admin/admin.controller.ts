@@ -21,6 +21,7 @@ import { AdminCommunityService } from './admin-community.service';
 import { AdminOperatorService } from './admin-operator.service';
 import { AdminAuditService, actorFrom } from './admin-audit.service';
 import { AdminFunnelService } from './admin-funnel.service';
+import { AdminDailyBriefingService } from './admin-daily-briefing.service';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { checkGeminiHealth } from '../ai/ai-health';
 
@@ -39,7 +40,13 @@ export class AdminController {
     private operator: AdminOperatorService,
     private audit: AdminAuditService,
     private funnelService: AdminFunnelService,
+    private dailyBriefing: AdminDailyBriefingService,
   ) {}
+
+  @Get('daily-briefing')
+  briefing() {
+    return this.dailyBriefing.get();
+  }
 
   // 홈 전환 퍼널 — 홈 방문 → 퀵매칭 → 견적 요청 → 대화 → 견적 → 결제(261005)
   @Get('funnel')

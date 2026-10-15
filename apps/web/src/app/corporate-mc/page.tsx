@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
 import GlobalMcNetwork from './GlobalMcNetwork';
-import { captureUtm, readUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
+import { captureUtm, landingSessionKey, readUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 import { readSafeTop, useNativeStatusBar } from '@/lib/safe-area';
 
 // ─── 미디어 슬롯 (드라이브 자산 수급 후 채움 — 없으면 자동 숨김) ───
@@ -384,6 +384,8 @@ export default function CorporateMcPage() {
     fd.append('email', '');
     fd.append('type', '전문 행사 사회자 섭외');
     fd.append('message', messageLines.join('\n'));
+    fd.append('landingPage', 'corporate-mc');
+    fd.append('landingSessionKey', landingSessionKey());
     if (attachment) fd.append('file', attachment);
 
     try {

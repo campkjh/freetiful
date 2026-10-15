@@ -69,6 +69,6 @@ export function customerContactMethod(raw: unknown): string | null {
 export function rawForPro(raw: unknown): unknown {
   const r = asRaw(raw);
   if (!r) return raw;
-  const { phone: _phone, phoneSharedProProfileIds: _shared, ...rest } = r;
+  const { phone: _phone, phoneSharedProProfileIds: _shared, landingSessionKey: _landingSession, ...rest } = r;
   return rest;
 }

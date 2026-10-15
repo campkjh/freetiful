@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Headers, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { LandingService, PageViewInput, VisitInput } from './landing.service';
 import { AdminGuard } from '../common/guards/admin.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 
 // 공개 — 랜딩 방문/전환 기록(익명)
 @ApiTags('landing')
@@ -10,8 +11,9 @@ export class LandingController {
   constructor(private landing: LandingService) {}
 
   @Post('visit')
-  visit(@Body() body: VisitInput) {
-    return this.landing.recordVisit(body || ({} as VisitInput));
+  @UseGuards(OptionalJwtAuthGuard)
+  visit(@Body() body: VisitInput, @Req() req: any) {
+    return this.landing.recordVisit(body || ({} as VisitInput), req.user?.id);
   }
 
   @Post('convert')
@@ -46,8 +48,8 @@ export class AdminLandingController {
   }
 
   @Get('recent')
-  recent(@Query('limit') limit?: string, @Query('page') page?: string) {
-    return this.landing.recentVisits(limit ? Number(limit) : 100, page);
+  recent(@Query('limit') limit?: string, @Query('page') page?: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.landing.recentVisits(limit ? Number(limit) : 100, page, from, to);
   }
 
   /** 페이지별 인사이트(261007) — 기간 안 페이지마다 방문자·조회·체류시간·바로 나감 + 앞 기간 비교 + 흐름 */

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -73,7 +73,8 @@ export class LandingService {
   constructor(private prisma: PrismaService) {}
 
   /** 방문 기록(세션·페이지당 1행, 중복은 upsert 로 무해하게 갱신). */
-  async recordVisit(input: VisitInput) {
+  async recordVisit(input: VisitInput, userId?: string) {
+    if (typeof input.sessionKey !== 'string' || !/^[\w-]{16,80}$/.test(input.sessionKey)) return { ok: false, identified: false };
     // 홈·퀵매칭 방문도 같은 표에(261005 — 홈 '전환 퍼널' 첫 두 단계). 모르는 값은 예전처럼 wedding-mc
     const page = (TRACKED_PAGES as readonly string[]).includes(input.page) ? input.page : 'wedding-mc';
     const sessionKey = clip(input.sessionKey, 80) || 'anon';
@@ -89,14 +90,19 @@ export class LandingService {
     };
     await this.prisma.landingVisit.upsert({
       where: { sessionKey_page: { sessionKey, page } },
-      create: { page, sessionKey, ...data },
+      create: { page, sessionKey, ...data, userId },
       update: {}, // 최초 방문 값 유지(재방문으로 소스 덮어쓰지 않음)
+      select: { id: true },
     });
-    return { ok: true };
+    if (userId) await this.prisma.landingVisit.updateMany({
+      where: { sessionKey, page, userId: null }, data: { userId },
+    });
+    return { ok: true, identified: !!userId };
   }
 
   /** 폼 제출 성공 → 해당 세션 방문을 전환으로 표시. */
   async markConverted(page: string, sessionKey: string) {
+    if (typeof sessionKey !== 'string' || !/^[\w-]{16,80}$/.test(sessionKey)) return { ok: false };
     // 퀵매칭 = 견적 요청을 보내면 전환(261005 — 페이지별 유입 분석에 퀵매칭 칸)
     const p = page === 'corporate-mc' || page === 'quick-match' ? page : 'wedding-mc';
     await this.prisma.landingVisit.updateMany({
@@ -222,25 +228,78 @@ export class LandingService {
   }
 
   // 최근 방문 리스트(어떤 유입으로 들어왔는지) — 어드민 하단 표.
-  async recentVisits(limit = 100, page?: string) {
+  async recentVisits(limit = 100, page?: string, from?: string, to?: string) {
+    const createdAt: Prisma.DateTimeFilter = {};
+    for (const [key, value] of [['gte', from], ['lte', to]] as const) {
+      if (!value) continue;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) throw new BadRequestException('조회 기간을 확인해주세요.');
+      createdAt[key] = date;
+    }
     const rows = await this.prisma.landingVisit.findMany({
-      where: { page: { in: pagesFor(page) } },
-      orderBy: { createdAt: 'desc' },
-      take: Math.max(1, Math.min(300, limit)),
-      select: { page: true, utmSource: true, utmMedium: true, utmCampaign: true, referrer: true, converted: true, convertedAt: true, createdAt: true },
+      where: { page: { in: pagesFor(page) }, createdAt },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: Number.isFinite(limit) ? Math.max(1, Math.min(300, Math.floor(limit))) : 100,
+      select: {
+        id: true, page: true, userId: true, utmSource: true, utmMedium: true, utmCampaign: true,
+        referrer: true, converted: true, createdAt: true,
+        matchRequests: { select: {
+          id: true, user: { select: { id: true, name: true, profileImageUrl: true } },
+          deliveries: { select: { id: true, status: true } },
+          _count: { select: { chatRooms: true } },
+        } },
+        businessInquiries: { select: { name: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
     });
+    const userIds = [...new Set(rows.flatMap((row) => row.userId ? [row.userId] : []))];
+    const visitIds = rows.filter((row) => row.matchRequests.length).map((row) => row.id);
+    const deliveryVisits = new Map(rows.flatMap((row) => row.matchRequests.flatMap((request) => request.deliveries.map((delivery) => [delivery.id, row.id] as const))));
+    const [users, quotes]: [
+      Array<{ id: string; name: string; profileImageUrl: string | null }>,
+      Array<{ id: string; paymentId: string | null; matchDeliveryId: string | null; chatRoom: { matchRequest: { landingVisitId: string | null } | null } | null }>,
+    ] = await Promise.all([
+      userIds.length ? this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, profileImageUrl: true } }) : [],
+      visitIds.length ? this.prisma.quotation.findMany({
+        where: { OR: [
+          { chatRoom: { matchRequest: { landingVisitId: { in: visitIds } } } },
+          { matchDeliveryId: { in: [...deliveryVisits.keys()] } },
+        ] },
+        select: { id: true, paymentId: true, matchDeliveryId: true, chatRoom: { select: { matchRequest: { select: { landingVisitId: true } } } } },
+      }) : [],
+    ]);
+    const payments = quotes.length ? await this.prisma.payment.findMany({
+      where: { status: { in: ['completed', 'escrowed', 'settled'] }, AND: [{ OR: [{ method: null }, { method: { not: 'admin_review' } }] }], OR: [
+        { quotationId: { in: quotes.map((quote) => quote.id) } },
+        { id: { in: quotes.flatMap((quote) => quote.paymentId ? [quote.paymentId] : []) } },
+      ] }, select: { id: true, quotationId: true },
+    }) : [];
+    const paidIds = new Set(payments.map((payment) => payment.id));
+    const paidQuotes = new Set(payments.flatMap((payment) => payment.quotationId ? [payment.quotationId] : []));
+    const paidVisits = new Set(quotes.filter((quote) => paidQuotes.has(quote.id) || (quote.paymentId && paidIds.has(quote.paymentId)))
+      .map((quote) => quote.chatRoom?.matchRequest?.landingVisitId || deliveryVisits.get(quote.matchDeliveryId || '')));
+    const userMap = new Map(users.map((user) => [user.id, user] as const));
     const host = (r?: string | null) => { if (!r) return null; try { return new URL(r).hostname.replace(/^www\./, ''); } catch { return r.slice(0, 40); } };
     return {
-      data: rows.map((r) => ({
-        page: r.page,
-        source: (r.utmSource && r.utmSource.trim()) || null,
-        medium: (r.utmMedium && r.utmMedium.trim()) || null,
-        campaign: (r.utmCampaign && r.utmCampaign.trim()) || null,
-        referrerHost: host(r.referrer),
-        referrer: r.referrer || null,
-        converted: r.converted,
-        createdAt: r.createdAt,
-      })),
+      data: rows.map((r) => {
+        const user = (r.userId ? userMap.get(r.userId) : null) || r.matchRequests[0]?.user;
+        const contact = r.businessInquiries[0];
+        const hasLead = r.matchRequests.length > 0;
+        return {
+          id: r.id,
+          page: r.page,
+          source: (r.utmSource && r.utmSource.trim()) || null,
+          medium: (r.utmMedium && r.utmMedium.trim()) || null,
+          campaign: (r.utmCampaign && r.utmCampaign.trim()) || null,
+          referrerHost: host(r.referrer),
+          referrer: r.referrer || null,
+          converted: r.converted,
+          createdAt: r.createdAt,
+          visitor: { id: user?.id || null, name: user?.name || contact?.name || null, imageUrl: user?.profileImageUrl || null, kind: user ? 'member' : contact ? 'contact' : 'anonymous' },
+          requested: hasLead || !!contact || r.converted,
+          connected: hasLead ? r.matchRequests.some((request) => request._count.chatRooms > 0 || request.deliveries.some((delivery) => delivery.status === 'replied')) : r.converted ? null : false,
+          paid: hasLead ? paidVisits.has(r.id) : r.converted ? null : false,
+        };
+      }),
     };
   }
 

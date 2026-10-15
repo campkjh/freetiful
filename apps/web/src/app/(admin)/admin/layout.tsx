@@ -9,6 +9,7 @@ import { forgetSavedAccount } from '@/lib/store/accounts.store';
 import { isAdminUser } from '@/lib/admin-access';
 import { HeaderBellIcon } from '@/components/icons/HeaderIcons';
 import { AdminIssuePanel } from './_components/AdminIssuePanel';
+import { AdminDailyBriefing } from './_components/AdminDailyBriefing';
 import { AdminDialogHost } from './_components/adminDialog';
 import { adminFetch } from './_components/adminFetch';
 
@@ -476,6 +477,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </main>
           <AdminIssuePanel open={issueOpen} onClose={closeIssues} onUnseen={setIssueCount} />
+          <AdminDailyBriefing hidden={issueOpen || mobileOpen} />
           <AdminDialogHost />
         </div>
       </div>

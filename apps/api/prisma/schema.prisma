@@ -548,6 +548,7 @@ model MatchRequest {
   status             MatchRequestStatus @default(open)
   expiresAt          DateTime?
   createdAt          DateTime           @default(now())
+  landingVisitId     String?
 
   user          User                      @relation(fields: [userId], references: [id])
   category      Category                  @relation(fields: [categoryId], references: [id])
@@ -556,7 +557,9 @@ model MatchRequest {
   personalities MatchRequestPersonality[]
   deliveries    MatchDelivery[]
   chatRooms     ChatRoom[]
+  landingVisit  LandingVisit? @relation(fields: [landingVisitId], references: [id], onDelete: SetNull)
 
+  @@index([landingVisitId])
   @@map("match_requests")
 }
 
@@ -588,11 +591,24 @@ model LandingVisit {
   converted   Boolean   @default(false)
   convertedAt DateTime?
   createdAt   DateTime  @default(now())
+  /// 서버에서 확인한 회원만 연결. 과거 익명 방문은 null 유지.
+  userId      String?
+  matchRequests MatchRequest[]
+  businessInquiries BusinessInquiry[]
 
   @@unique([sessionKey, page])
   @@index([page, createdAt])
   @@index([utmSource])
   @@map("landing_visits")
+}
+
+model AdminDailyBriefing {
+  slotKey     String   @id
+  payload     Json
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  @@map("admin_daily_briefings")
 }
 
 /// 페이지별 인사이트(261007 사장 '페이지별 방문자 수·잔류시간') — 화면을 한 번 열 때마다 1행(관리자·로그인 콜백 화면 빼고).
@@ -1049,7 +1065,10 @@ model BusinessInquiry {
   metadata  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  landingVisitId String?
+  landingVisit LandingVisit? @relation(fields: [landingVisitId], references: [id], onDelete: SetNull)
 
+  @@index([landingVisitId])
   @@index([status, createdAt])
   @@index([createdAt])
   @@map("business_inquiries")

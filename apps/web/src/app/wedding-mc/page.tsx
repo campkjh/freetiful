@@ -9,7 +9,7 @@ import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { startOAuth } from '@/lib/auth/oauth';
-import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
+import { captureUtm, landingSessionKey, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 import GazeGame from './GazeGame';
 import GuestLoginForm from '@/components/GuestLoginForm';
 
@@ -374,6 +374,7 @@ export default function WeddingMcLandingPage() {
       const digits = normalizedPhone.replace(/\D/g, '');
       const rawUserInput = {
         source: 'landing_wedding_mc_v3',
+        landingSessionKey: landingSessionKey(),
         name: name.trim(),
         phone: normalizedPhone,
         addressDetail,

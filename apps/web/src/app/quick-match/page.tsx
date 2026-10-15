@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchApi } from '@/lib/api/match.api';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
-import { captureUtm, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
+import { captureUtm, landingSessionKey, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -1173,6 +1173,7 @@ export default function QuickMatchPage() {
     setSubmitting(true);
     const ssGet = (k: string) => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } };
     const utm = {
+      landingSessionKey: landingSessionKey(),
       utm_source: ssGet('utm_source'), utm_medium: ssGet('utm_medium'), utm_campaign: ssGet('utm_campaign'),
       utm_term: ssGet('utm_term'), utm_content: ssGet('utm_content'), referrer: ssGet('referrer'),
       landing_url: ssGet('landing_url') || window.location.href,

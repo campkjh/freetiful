@@ -6,6 +6,7 @@ import { AdminService } from './admin.service';
 import { AdminCommunityService } from './admin-community.service';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminFunnelService } from './admin-funnel.service';
+import { AdminDailyBriefingService } from './admin-daily-briefing.service';
 import { AdminOperatorService } from './admin-operator.service';
 import { AdminTestMetricsService } from './admin-test-metrics.service';
 import { AdminTestMetricsController } from './admin-test-metrics.controller';
@@ -22,7 +23,7 @@ import { QuickMatchRosterModule } from '../match/quick-match-roster.module';
 @Module({
   imports: [PrismaModule, NotificationModule, ProModule, DiscoveryModule, ImageModule, UsersModule, QuickMatchRosterModule, JwtModule.register({}), ConfigModule],
   controllers: [AdminController, AdminTestMetricsController],
-  providers: [AdminService, AdminCommunityService, AdminAuditService, AdminOperatorService, AdminTestMetricsService, AdminFunnelService, AdminGuard, TestMetricsEnvGuard],
+  providers: [AdminService, AdminCommunityService, AdminAuditService, AdminOperatorService, AdminTestMetricsService, AdminFunnelService, AdminDailyBriefingService, AdminGuard, TestMetricsEnvGuard],
   exports: [AdminService],
 })
 export class AdminModule {}
