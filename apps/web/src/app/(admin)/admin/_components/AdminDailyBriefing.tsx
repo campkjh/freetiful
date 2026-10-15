@@ -8,6 +8,8 @@ import StyleIntroCard from '@/components/pros/StyleIntroCard';
 import { adminFetch } from './adminFetch';
 import { X, RefreshCw } from './admin-icons';
 import { AdminAiOrb } from './AdminAiOrb';
+import { AdminAiAnnouncement } from './AdminAiAnnouncement';
+import { useAuthStore } from '@/lib/store/auth.store';
 
 type Metrics = { revenue: number; payments: number; requests: number; connected: number; visits: number; signups: number; inquiries: number; unresponded: number };
 interface Briefing {
@@ -17,6 +19,7 @@ interface Briefing {
 const timeLabel = (value: string) => new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' });
 
 export function AdminDailyBriefing({ hidden = false }: { hidden?: boolean }) {
+  const adminScope = useAuthStore((state) => state.user?.id || 'admin-key');
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Briefing | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,6 +80,7 @@ export function AdminDailyBriefing({ hidden = false }: { hidden?: boolean }) {
   ] : [];
 
   return createPortal(<div className="adm-ai-float">
+    <AdminAiAnnouncement key={adminScope} scope={adminScope} used={open} onOpen={() => setOpen(true)} trigger={trigger} />
     <AnimatePresence>
       {open && <motion.div ref={panel} id="admin-daily-briefing" role="dialog" aria-modal={false} aria-labelledby="admin-briefing-title" aria-busy={loading} tabIndex={-1} className="adm-ai-panel"
         initial={{ opacity: 0, y: 20, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.96 }} transition={{ duration: reduced ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}>
