@@ -35,7 +35,19 @@ test('the feed and milestone timeline retain unique IDs and chronological order'
   assert.equal(new Set(BIZ_NEWS.map((entry) => entry.id)).size, BIZ_NEWS.length);
   assert.deepEqual(BIZ_NEWS.map((entry) => entry.date), BIZ_NEWS.map((entry) => entry.date).sort().reverse());
   assert.deepEqual(BIZ_NEWS_MILESTONES.map((entry) => entry.date), BIZ_NEWS_MILESTONES.map((entry) => entry.date).sort());
-  for (const id of ['quick-match', 'wedding-forest', 'safe-pay', 'grand-open']) assert.ok(article(id));
+  for (const id of ['kodit', 'partners-300', 'launch', 'founded']) assert.ok(article(id));
+});
+
+test('business news excludes system updates from the feed and article deep links', () => {
+  const excludedIds = [
+    'quick-match', 'wedding-forest', 'wedding-partners', 'safe-pay',
+    'corporate-mc', 'grand-open', 'company-i18n', 'biz-open',
+  ];
+  for (const id of excludedIds) {
+    assert.equal(BIZ_NEWS.find((entry) => entry.id === id), undefined);
+    assert.equal(BIZ_NEWS_MILESTONES.find((entry) => entry.id === id), undefined);
+  }
+  assert.equal(BIZ_NEWS.length, requestedIds.length + 4);
 });
 
 test('event dates, weekdays and times match the supplied schedule', () => {
