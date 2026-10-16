@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useDragControls, type PanInfo } from 'framer-motion';
-import { Check, Play } from 'lucide-react';
+import { Check, ExternalLink, Play } from 'lucide-react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import { NewsroomCard } from '@/components/announcements/AnnouncementFeed';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
@@ -270,6 +270,21 @@ function NewsSheet({
                     </ul>
                   )}
                   {item.body && <p className="mt-4 break-keep text-[16px] leading-[1.75] tracking-[-0.2px] text-[#4E5968]">{t(item.body)}</p>}
+                  {(item.sourceNote || !!item.sources?.length) && (
+                    <section className="mt-6 border-t border-[#E5E8EB] pt-4" aria-label={t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}>
+                      <h3 className="m-0 text-[13px] font-semibold text-[#6B7684]">{t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}</h3>
+                      {item.sourceNote && <p className="mt-2 text-[12px] leading-[1.7] text-[#8B95A1]">{t(item.sourceNote)}</p>}
+                      {!!item.sources?.length && <ul className="m-0 mt-3 list-none space-y-3 p-0">
+                        {item.sources.map((source) => <li key={source.href}>
+                          <a href={source.href} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-start gap-1.5 rounded text-[13px] font-medium leading-[1.6] text-[#3180F7] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3180F7]">
+                            <span className="min-w-0 break-words">{t(source.title)}</span><ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            <span className="sr-only">{t({ ko: '(새 창)', en: '(opens in a new tab)', ja: '（新しいタブ）', zh: '（新标签页）' })}</span>
+                          </a>
+                          {source.note && <p className="mt-1 text-[12px] leading-[1.7] text-[#8B95A1]">{t(source.note)}</p>}
+                        </li>)}
+                      </ul>}
+                    </section>
+                  )}
                   {item.milestone && <Milestones currentId={item.id} onSelect={onSelect} />}
                 </div>
               </div>
@@ -308,6 +323,7 @@ function SheetHero({ item }: { item: BizNewsItem }) {
   };
 
   return (
+    <figure className="m-0">
     <div
       className="relative overflow-hidden rounded-[20px]"
       style={{ aspectRatio: '16 / 10', backgroundColor: item.image.bg, transform: 'translateZ(0)' }}
@@ -355,6 +371,8 @@ function SheetHero({ item }: { item: BizNewsItem }) {
         />
       )}
     </div>
+    {item.image.caption && <figcaption className="mt-2 text-[12px] leading-[1.5] text-[#8B95A1]">{t(item.image.caption)}</figcaption>}
+    </figure>
   );
 }
 
