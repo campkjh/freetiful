@@ -292,8 +292,7 @@ function NewsSheet({
 
               {/* 아래 단추 — 글 칸 위로 흰 그라데이션을 얹어 글이 단추 밑으로 스며들듯 끝난다 */}
               <div className="ft-actions relative !mt-0 pt-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-white before:to-white/0">
-                {/* 이어지는 곳이 있으면 닫기는 좁게(⅓) · 파란 단추를 넓게 — 영어 · 일본어 단추 글이 두 줄로 꺾이지 않게 */}
-                <button type="button" className={`ft-btn secondary ${item.cta ? '!flex-[0_0_32%]' : ''}`} onClick={onClose}>
+                <button type="button" className="ft-btn secondary" onClick={onClose}>
                   {t({ ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' })}
                 </button>
                 {item.cta && (

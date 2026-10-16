@@ -146,3 +146,19 @@ test('news assets exist locally and external references use HTTPS', () => {
     for (const source of item.sources || []) assert.equal(new URL(source.href).protocol, 'https:');
   }
 });
+
+test('the 2025 reception includes both supplied posters and six distinct video stills', () => {
+  const reception = article('reception-2025');
+  assert.equal(reception.video, '/images/KakaoTalk_Video_2026-04-08-21-53-11-1.mp4');
+  assert.equal(reception.photos?.length, 8);
+  const posters = reception.photos!.filter((photo) => !photo.src.includes('/frame-'));
+  assert.deepEqual(posters.map((photo) => path.basename(photo.src)), ['poster.webp', 'program.webp']);
+  for (const poster of posters) assert.equal(poster.width / poster.height, 4 / 5);
+  const frames = reception.photos!.filter((photo) => photo.src.includes('/frame-'));
+  assert.equal(new Set(frames.map((photo) => photo.src)).size, 6);
+  for (const frame of frames) {
+    assert.match(frame.src, /^\/images\/biz-news\/reception-2025\/frame-\d{3}\.webp$/);
+    assert.equal(frame.width / frame.height, 16 / 9);
+    assert.match(frame.caption.ko, /송년회 영상 캡처/);
+  }
+});
