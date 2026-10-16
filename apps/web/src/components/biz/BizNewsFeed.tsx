@@ -8,13 +8,13 @@
  *  · 위에 거르기 칩(전체 · 웨딩홀 · 기업행사 · 회사 소식) — 고른 칩 뒤 검은 알약이 칩 사이를 미끄러져 옮겨 가고(웨딩숲 분류 알약과 같은 손맛),
  *    목록은 새로 차례 등장한다.
  *  · 누르면 뉴스룸형 스프링 시트(ft-sheet) — 제목 · 날짜 · 큰 그림(송년회는 영상) · 핵심 줄 · 본문 · 현장 사진 ·
- *    연혁 기사면 '프리티풀이 걸어온 길'(눌러서 그 기사로 바로 넘어감) · 아래 단추(닫기 + 이어지는 곳). 손잡이를 끌어내려도 닫힌다.
+ *    연혁 기사면 '프리티풀이 걸어온 길'(눌러서 그 기사로 바로 넘어감) · 모바일 아래 단추(닫기 + 이어지는 곳). 손잡이를 끌어내려도 닫힌다.
  *  · 기사 데이터 = lib/biz/news.ts(정적 · 사실만). 주소에 #기사id 를 붙이면 그 기사 시트가 바로 열린다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useDragControls, type PanInfo } from 'framer-motion';
-import { ExternalLink, Play } from 'lucide-react';
+import { ExternalLink, Play, X } from 'lucide-react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import { NewsroomCard } from '@/components/announcements/AnnouncementFeed';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
@@ -236,6 +236,15 @@ function NewsSheet({
               onDragEnd={onDragEnd}
               onClick={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t({ ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' })}
+                title={t({ ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' })}
+                className="absolute right-3 top-3 z-20 hidden h-9 w-9 items-center justify-center rounded-full text-[#6B7684] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3180F7] sm:inline-flex"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
               {/* 손잡이 — 여기서만 끌기 시작(본문은 스크롤이라) */}
               <div
                 className="-mx-6 -mt-5 cursor-grab touch-none px-6 pt-5 active:cursor-grabbing sm:hidden"
@@ -245,7 +254,7 @@ function NewsSheet({
               </div>
 
               <div ref={scrollRef} className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6 pb-2 sm:-mx-7 sm:px-7" style={{ overscrollBehavior: 'contain' }}>
-                <article key={`body-${item.id}-${lang}`} className="mx-auto max-w-[740px] pb-8 pt-2 tracking-[0] sm:pt-8">
+                <article key={`body-${item.id}-${lang}`} className="mx-auto max-w-[740px] pb-8 pt-2 tracking-[0] sm:pb-16 sm:pt-8">
                   <header className="mb-8 sm:mb-10">
                     <h2 id="biz-news-title" className="m-0 break-keep text-[28px] font-bold leading-[1.4] text-[#191F28] sm:text-[40px]">
                       {t(item.title)}
@@ -282,8 +291,9 @@ function NewsSheet({
                 </article>
               </div>
 
-              {/* 아래 단추 — 글 칸 위로 흰 그라데이션을 얹어 글이 단추 밑으로 스며들듯 끝난다 */}
-              <div className="ft-actions relative mx-auto !mt-0 w-full max-w-[740px] shrink-0 pt-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-white before:to-white/0">
+              <div aria-hidden="true" data-testid="news-desktop-fade" className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-20 bg-gradient-to-t from-white via-white/85 to-white/0 sm:block" />
+              {/* 모바일에서만 고정 버튼을 표시하고 본문과의 경계를 부드럽게 잇는다. */}
+              <div className="ft-actions relative mx-auto !mt-0 w-full max-w-[740px] shrink-0 bg-white pt-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-10 before:h-10 before:bg-gradient-to-t before:from-white before:via-white/85 before:to-white/0 sm:!hidden">
                 <button type="button" className="ft-btn secondary" onClick={onClose}>
                   {t({ ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' })}
                 </button>
