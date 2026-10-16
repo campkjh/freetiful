@@ -11,9 +11,9 @@
  *    연혁 기사면 '프리티풀이 걸어온 길'(눌러서 그 기사로 바로 넘어감) · 모바일 아래 단추(닫기 + 이어지는 곳). 손잡이를 끌어내려도 닫힌다.
  *  · 기사 데이터 = lib/biz/news.ts(정적 · 사실만). 주소에 #기사id 를 붙이면 그 기사 시트가 바로 열린다.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, LayoutGroup, MotionConfig, motion, useDragControls, type PanInfo } from 'framer-motion';
+import { AnimatePresence, LayoutGroup, MotionConfig, motion, useDragControls, useReducedMotion, type PanInfo } from 'framer-motion';
 import { ExternalLink, Play, X } from 'lucide-react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import { NewsroomCard } from '@/components/announcements/AnnouncementFeed';
@@ -178,6 +178,7 @@ function NewsSheet({
   const drag = useDragControls();
   const sheetRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   useBodyScrollLock(!!item);
 
   // Esc 로 닫기 · 열리면 시트에 초점(화면 읽기 프로그램이 시트부터 읽게)
@@ -236,6 +237,7 @@ function NewsSheet({
               onDragEnd={onDragEnd}
               onClick={(e) => e.stopPropagation()}
             >
+              <NewsScrollHeader key={`scroll-header-${item.id}-${lang}`} scrollRef={scrollRef} titleRef={titleRef} title={t(item.title)} />
               <button
                 type="button"
                 onClick={onClose}
@@ -256,7 +258,7 @@ function NewsSheet({
               <div ref={scrollRef} className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6 pb-2 sm:-mx-7 sm:px-7" style={{ overscrollBehavior: 'contain' }}>
                 <article key={`body-${item.id}-${lang}`} className="mx-auto max-w-[740px] pb-8 pt-2 tracking-[0] sm:pb-16 sm:pt-8">
                   <header className="mb-8 sm:mb-10">
-                    <h2 id="biz-news-title" className="m-0 break-keep text-[28px] font-bold leading-[1.4] text-[#191F28] sm:text-[40px]">
+                    <h2 ref={titleRef} id="biz-news-title" className="m-0 break-keep text-[28px] font-bold leading-[1.4] text-[#191F28] sm:text-[40px]">
                       {t(item.title)}
                     </h2>
                     <div className="mt-5 flex items-center gap-4 text-[13px] leading-[1.6] text-[#6B7684] sm:mt-6 sm:text-[14px]">
@@ -311,6 +313,47 @@ function NewsSheet({
   );
 }
 
+function NewsScrollHeader({ scrollRef, titleRef, title }: {
+  scrollRef: RefObject<HTMLDivElement>;
+  titleRef: RefObject<HTMLHeadingElement>;
+  title: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const heading = titleRef.current;
+    if (!root || !heading || typeof IntersectionObserver === 'undefined') return;
+    // Only the title crossing the top edge changes state, not every scroll frame.
+    const observer = new IntersectionObserver(([entry]) => {
+      setVisible(!entry.isIntersecting && entry.boundingClientRect.bottom <= (entry.rootBounds?.top ?? 0));
+    }, { root, threshold: 0 });
+    observer.observe(heading);
+    return () => observer.disconnect();
+  }, [scrollRef, titleRef]);
+
+  return <div aria-hidden="true" data-testid="news-scroll-header" data-visible={visible} className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 overflow-hidden">
+    <motion.div className="absolute inset-0" initial={false} animate={{ opacity: visible ? 1 : 0 }} transition={{ duration: reducedMotion ? 0 : 0.3, ease: EASE_OUT }}>
+      <div className="absolute inset-0" style={{
+        background: 'linear-gradient(180deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.86) 58%, rgba(255,255,255,0) 100%)',
+        backdropFilter: 'blur(20px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+        maskImage: 'linear-gradient(#000 0%, #000 54%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(#000 0%, #000 54%, transparent 100%)',
+      }} />
+    </motion.div>
+    <div className="relative mx-auto w-full max-w-[788px] px-6 pt-5 sm:max-w-[796px] sm:px-7">
+      <motion.p className="m-0 line-clamp-2 pr-1 text-[15px] font-semibold leading-[1.5] tracking-[0] text-[#191F28] sm:pr-10 sm:text-[16px]"
+        initial={false}
+        animate={{ opacity: visible ? 1 : 0, y: reducedMotion ? 0 : visible ? 0 : 8, filter: reducedMotion || visible ? 'blur(0px)' : 'blur(7px)' }}
+        transition={{ duration: reducedMotion ? 0 : visible ? 0.44 : 0.2, ease: EASE_OUT }}>
+        {title}
+      </motion.p>
+    </div>
+  </div>;
+}
+
 /** 영상 기사는 재생 단추를 누르기 전엔 영상을 받지 않는다. */
 function SheetHero({ item }: { item: BizNewsItem }) {
   const t = useT();
@@ -325,6 +368,7 @@ function SheetHero({ item }: { item: BizNewsItem }) {
   };
 
   return (
+    <div>
     <figure className="m-0">
     <div
       className="relative overflow-hidden rounded-[8px]"
@@ -372,6 +416,8 @@ function SheetHero({ item }: { item: BizNewsItem }) {
     </div>
     {item.image.caption && <figcaption className="mt-2 text-[12px] leading-[1.5] text-[#8B95A1]">{t(item.image.caption)}</figcaption>}
     </figure>
+    {item.image.description && <p className="mb-0 mt-6 break-keep text-[16px] leading-[1.85] text-[#333D4B]">{t(item.image.description)}</p>}
+    </div>
   );
 }
 
@@ -396,17 +442,23 @@ function NewsMedia({ item }: { item: BizNewsItem }) {
 
   return <div ref={root} className="mt-8 space-y-8 sm:mt-10 sm:space-y-10">
     {!!item.photos?.length && <section aria-label={t({ ko: '행사 현장 사진', en: 'Event photos', ja: 'イベント写真', zh: '活动现场照片' })}>
-      <div className="space-y-8 sm:space-y-10">{item.photos.map((photo) => <figure key={photo.src} className="m-0">
+      <div className="space-y-8 sm:space-y-10">{item.photos.map((photo) => <div key={photo.src}>
+        <figure className="m-0">
         <img src={photo.src} alt={t(photo.caption)} width={photo.width} height={photo.height} loading="lazy" decoding="async" className="block h-auto w-full rounded-[8px]" />
         <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(photo.caption)}</figcaption>
-      </figure>)}</div>
+        </figure>
+        {photo.description && <p className="mb-0 mt-5 break-keep text-[16px] leading-[1.85] text-[#333D4B]">{t(photo.description)}</p>}
+      </div>)}</div>
     </section>}
     {!!item.videos?.length && <section aria-label={t({ ko: '행사 현장 영상', en: 'Event videos', ja: 'イベント動画', zh: '活动现场视频' })}>
-      <div className="space-y-8 sm:space-y-10">{item.videos.map((video) => <figure key={video.src} className="m-0">
+      <div className="space-y-8 sm:space-y-10">{item.videos.map((video) => <div key={video.src}>
+        <figure className="m-0">
         <video src={video.src} poster={video.poster} width={video.width} height={video.height} controls playsInline preload="none" aria-label={t(video.caption)} className="block h-auto w-full rounded-[8px] bg-[#F2F4F6]"
           onPlay={(event) => { const current = event.currentTarget; root.current?.querySelectorAll('video').forEach((other) => { if (other !== current) other.pause(); }); }} />
         <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(video.caption)}</figcaption>
-      </figure>)}</div>
+        </figure>
+        {video.description && <p className="mb-0 mt-5 break-keep text-[16px] leading-[1.85] text-[#333D4B]">{t(video.description)}</p>}
+      </div>)}</div>
     </section>}
   </div>;
 }

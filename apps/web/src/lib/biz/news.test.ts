@@ -162,3 +162,20 @@ test('the 2025 reception includes both supplied posters and six distinct video s
     assert.match(frame.caption.ko, /송년회 영상 캡처/);
   }
 });
+
+test('each supplied event photo and video has its own localized editorial paragraph', () => {
+  const media = ['reception-2025', 'freetiful-show-suseo-2026', 'chouchoumonde-wedding-listening-2026']
+    .flatMap((id) => {
+      const item = article(id);
+      return [item.image, ...(item.photos || []), ...(item.videos || [])];
+    });
+  assert.equal(media.length, 15);
+  for (const lang of ['ko', 'en', 'ja', 'zh'] as const) {
+    const descriptions = media.map((entry) => entry.description?.[lang]);
+    assert.equal(new Set(descriptions).size, media.length);
+    for (const [i, description] of descriptions.entries()) {
+      assert.ok(description && description.length >= 45, `${media[i].src}: ${lang}`);
+      assert.notEqual(description, media[i].caption?.[lang]);
+    }
+  }
+});
