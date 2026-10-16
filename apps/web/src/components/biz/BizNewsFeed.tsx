@@ -7,14 +7,14 @@
  *    그림 가득 · 아래 그라데이션 블러 · '태그 | 날짜' · 굵은 제목 2줄). 모바일 1열 · 넓은 화면 2열, 차례 등장.
  *  · 위에 거르기 칩(전체 · 웨딩홀 · 기업행사 · 회사 소식) — 고른 칩 뒤 검은 알약이 칩 사이를 미끄러져 옮겨 가고(웨딩숲 분류 알약과 같은 손맛),
  *    목록은 새로 차례 등장한다.
- *  · 누르면 공지 시트와 같은 스프링 시트(ft-sheet) — 맨 위 큰 그림(송년회는 영상) · 태그 · 날짜 · 제목 · 요지 · 핵심 줄 · 맺음 ·
+ *  · 누르면 뉴스룸형 스프링 시트(ft-sheet) — 제목 · 날짜 · 큰 그림(송년회는 영상) · 핵심 줄 · 본문 · 현장 사진 ·
  *    연혁 기사면 '프리티풀이 걸어온 길'(눌러서 그 기사로 바로 넘어감) · 아래 단추(닫기 + 이어지는 곳). 손잡이를 끌어내려도 닫힌다.
  *  · 기사 데이터 = lib/biz/news.ts(정적 · 사실만). 주소에 #기사id 를 붙이면 그 기사 시트가 바로 열린다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useDragControls, type PanInfo } from 'framer-motion';
-import { Check, ExternalLink, Play } from 'lucide-react';
+import { ExternalLink, Play } from 'lucide-react';
 import { useBizLang, useT } from '@/lib/biz/i18n';
 import { NewsroomCard } from '@/components/announcements/AnnouncementFeed';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
@@ -219,13 +219,13 @@ function NewsSheet({
               ref={sheetRef}
               tabIndex={-1}
               // 시트 자체는 스크롤하지 않고(overflow hidden) 글 칸만 스크롤 — 아래 단추가 늘 보이게(긴 기사에서 '닫기'를 찾아 끝까지 내리지 않게)
-              className="ft-sheet wide flex flex-col outline-none"
+              className="ft-sheet wide flex !max-w-[860px] flex-col outline-none"
               role="dialog"
               aria-modal="true"
               aria-labelledby="biz-news-title"
               style={{ animation: 'none', overflow: 'hidden' }}
               initial={wide ? { opacity: 0, y: 28, scale: 0.98 } : { y: '100%' }}
-              animate={wide ? { opacity: 1, y: 0, scale: 1 } : { y: 0 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={wide ? { opacity: 0, y: 18, scale: 0.985, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } } : { y: '100%', transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } }}
               transition={{ type: 'spring', stiffness: 380, damping: 36, mass: 0.9 }}
               drag={wide ? false : 'y'}
@@ -245,35 +245,27 @@ function NewsSheet({
               </div>
 
               <div ref={scrollRef} className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6 pb-2 sm:-mx-7 sm:px-7" style={{ overscrollBehavior: 'contain' }}>
-                <SheetHero key={`hero-${item.id}`} item={item} />
-
-                {/* 글 칸 — 퀵매칭 어법대로 한 줄씩 오른쪽 → 왼쪽(.qd-body). 다른 기사로 넘어가면 key 가 바뀌어 다시 돈다 */}
-                <div key={`body-${item.id}-${lang}`} className="qd-body">
-                  <div className="mt-5 flex items-center gap-2 text-[13px] leading-[1.5]">
-                    <span className="inline-flex h-6 items-center rounded-[7px] bg-[#E8F3FF] px-2 font-semibold text-[#3182F6]">{t(BIZ_NEWS_TAG_LABEL[item.tag])}</span>
-                    <span className="font-medium tabular-nums text-[#8B95A1]">{item.date}</span>
-                  </div>
-                  <h2 id="biz-news-title" className="mt-3 break-keep text-[22px] font-bold leading-[1.4] tracking-[-0.5px] text-[#191F28]">
-                    {t(item.title)}
-                  </h2>
-                  <p className="mt-3 break-keep text-[16px] leading-[1.75] tracking-[-0.2px] text-[#4E5968]">{t(item.lead)}</p>
+                <article key={`body-${item.id}-${lang}`} className="mx-auto max-w-[740px] pb-8 pt-2 tracking-[0] sm:pt-8">
+                  <header className="mb-8 sm:mb-10">
+                    <h2 id="biz-news-title" className="m-0 break-keep text-[28px] font-bold leading-[1.4] text-[#191F28] sm:text-[40px]">
+                      {t(item.title)}
+                    </h2>
+                    <div className="mt-5 flex items-center gap-4 text-[13px] leading-[1.6] text-[#6B7684] sm:mt-6 sm:text-[14px]">
+                      <time dateTime={item.date.replaceAll('.', '-')} className="tabular-nums">{item.date}</time>
+                      <span className="border-l border-[#E5E8EB] pl-4">{t(BIZ_NEWS_TAG_LABEL[item.tag])}</span>
+                    </div>
+                  </header>
+                  <SheetHero key={`hero-${item.id}`} item={item} />
                   {item.points && item.points.length > 0 && (
-                    <ul className="m-0 mt-5 list-none space-y-3 rounded-[20px] bg-[#F9FAFB] p-0 px-[18px] py-[18px]">
-                      {item.points.map((p, i) => (
-                        <li key={i} className="flex gap-2.5">
-                          <span aria-hidden="true" className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#3182F6]">
-                            <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                          </span>
-                          <span className="break-keep text-[15px] leading-[1.6] tracking-[-0.2px] text-[#4E5968]">{t(p)}</span>
-                        </li>
-                      ))}
+                    <ul className="mb-0 mt-8 list-disc space-y-2 pl-5 text-[15px] leading-[1.8] text-[#4E5968] marker:text-[#8B95A1] sm:mt-10 sm:text-[16px]">
+                      {item.points.map((p, i) => <li key={i} className="break-keep pl-1">{t(p)}</li>)}
                     </ul>
                   )}
-                  {item.body && <p className="mt-4 break-keep text-[16px] leading-[1.75] tracking-[-0.2px] text-[#4E5968]">{t(item.body)}</p>}
+                  <p className="mb-0 mt-8 break-keep text-[16px] leading-[1.85] text-[#333D4B]">{t(item.lead)}</p>
+                  {item.body && <p className="mb-0 mt-6 break-keep text-[16px] leading-[1.85] text-[#333D4B]">{t(item.body)}</p>}
                   {!!(item.photos?.length || item.videos?.length) && <NewsMedia key={`media-${item.id}`} item={item} />}
                   {(item.sourceNote || !!item.sources?.length) && (
-                    <section className="mt-6 border-t border-[#E5E8EB] pt-4" aria-label={t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}>
-                      <h3 className="m-0 text-[13px] font-semibold text-[#6B7684]">{t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}</h3>
+                    <section className="mt-10 text-[12px] leading-[1.7] text-[#8B95A1]" aria-label={t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}>
                       {item.sourceNote && <p className="mt-2 text-[12px] leading-[1.7] text-[#8B95A1]">{t(item.sourceNote)}</p>}
                       {!!item.sources?.length && <ul className="m-0 mt-3 list-none space-y-3 p-0">
                         {item.sources.map((source) => <li key={source.href}>
@@ -287,11 +279,11 @@ function NewsSheet({
                     </section>
                   )}
                   {item.milestone && <Milestones currentId={item.id} onSelect={onSelect} />}
-                </div>
+                </article>
               </div>
 
               {/* 아래 단추 — 글 칸 위로 흰 그라데이션을 얹어 글이 단추 밑으로 스며들듯 끝난다 */}
-              <div className="ft-actions relative !mt-0 pt-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-white before:to-white/0">
+              <div className="ft-actions relative mx-auto !mt-0 w-full max-w-[740px] shrink-0 pt-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-white before:to-white/0">
                 <button type="button" className="ft-btn secondary" onClick={onClose}>
                   {t({ ko: '닫기', en: 'Close', ja: '閉じる', zh: '关闭' })}
                 </button>
@@ -309,7 +301,7 @@ function NewsSheet({
   );
 }
 
-/** 시트 맨 위 큰 그림 — 살짝 크게 시작해 제자리로 가라앉는다. 영상 기사는 포스터 위 재생 단추(누르기 전엔 영상을 받지 않는다) */
+/** 영상 기사는 재생 단추를 누르기 전엔 영상을 받지 않는다. */
 function SheetHero({ item }: { item: BizNewsItem }) {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -325,7 +317,7 @@ function SheetHero({ item }: { item: BizNewsItem }) {
   return (
     <figure className="m-0">
     <div
-      className="relative overflow-hidden rounded-[20px]"
+      className="relative overflow-hidden rounded-[8px]"
       style={{ aspectRatio: item.image.aspectRatio ?? '16 / 10', backgroundColor: item.image.bg, transform: 'translateZ(0)' }}
     >
       {item.video ? (
@@ -359,15 +351,12 @@ function SheetHero({ item }: { item: BizNewsItem }) {
           )}
         </>
       ) : (
-        <motion.img
+        <img
           src={item.image.src}
           alt={item.image.caption ? t(item.image.caption) : ''}
           draggable={false}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ objectPosition: item.image.position ?? '50% 35%' }}
-          initial={{ scale: 1.08, opacity: 0.4 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.9, ease: EASE_OUT }}
         />
       )}
     </div>
@@ -395,18 +384,16 @@ function NewsMedia({ item }: { item: BizNewsItem }) {
     };
   }, []);
 
-  return <div ref={root} className="mt-7 space-y-7">
+  return <div ref={root} className="mt-8 space-y-8 sm:mt-10 sm:space-y-10">
     {!!item.photos?.length && <section aria-label={t({ ko: '행사 현장 사진', en: 'Event photos', ja: 'イベント写真', zh: '活动现场照片' })}>
-      <h3 className="m-0 mb-3 text-[15px] font-bold text-[#191F28]">{t({ ko: '행사 현장 사진', en: 'Event photos', ja: 'イベント写真', zh: '活动现场照片' })}</h3>
-      <div className="space-y-5">{item.photos.map((photo) => <figure key={photo.src} className="m-0">
-        <img src={photo.src} alt={t(photo.caption)} width={photo.width} height={photo.height} loading="lazy" decoding="async" className="block h-auto w-full rounded-[12px]" />
+      <div className="space-y-8 sm:space-y-10">{item.photos.map((photo) => <figure key={photo.src} className="m-0">
+        <img src={photo.src} alt={t(photo.caption)} width={photo.width} height={photo.height} loading="lazy" decoding="async" className="block h-auto w-full rounded-[8px]" />
         <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(photo.caption)}</figcaption>
       </figure>)}</div>
     </section>}
     {!!item.videos?.length && <section aria-label={t({ ko: '행사 현장 영상', en: 'Event videos', ja: 'イベント動画', zh: '活动现场视频' })}>
-      <h3 className="m-0 mb-3 text-[15px] font-bold text-[#191F28]">{t({ ko: '행사 현장 영상', en: 'Event videos', ja: 'イベント動画', zh: '活动现场视频' })}</h3>
-      <div className="space-y-5">{item.videos.map((video) => <figure key={video.src} className="m-0">
-        <video src={video.src} poster={video.poster} width={video.width} height={video.height} controls playsInline preload="none" aria-label={t(video.caption)} className="block h-auto w-full rounded-[12px] bg-[#F2F4F6]"
+      <div className="space-y-8 sm:space-y-10">{item.videos.map((video) => <figure key={video.src} className="m-0">
+        <video src={video.src} poster={video.poster} width={video.width} height={video.height} controls playsInline preload="none" aria-label={t(video.caption)} className="block h-auto w-full rounded-[8px] bg-[#F2F4F6]"
           onPlay={(event) => { const current = event.currentTarget; root.current?.querySelectorAll('video').forEach((other) => { if (other !== current) other.pause(); }); }} />
         <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(video.caption)}</figcaption>
       </figure>)}</div>
