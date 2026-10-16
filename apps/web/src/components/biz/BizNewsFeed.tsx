@@ -270,6 +270,7 @@ function NewsSheet({
                     </ul>
                   )}
                   {item.body && <p className="mt-4 break-keep text-[16px] leading-[1.75] tracking-[-0.2px] text-[#4E5968]">{t(item.body)}</p>}
+                  {!!(item.photos?.length || item.videos?.length) && <NewsMedia key={`media-${item.id}`} item={item} />}
                   {(item.sourceNote || !!item.sources?.length) && (
                     <section className="mt-6 border-t border-[#E5E8EB] pt-4" aria-label={t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}>
                       <h3 className="m-0 text-[13px] font-semibold text-[#6B7684]">{t({ ko: '자료 및 관련 보도', en: 'Sources and related coverage', ja: '資料・関連報道', zh: '资料与相关报道' })}</h3>
@@ -326,7 +327,7 @@ function SheetHero({ item }: { item: BizNewsItem }) {
     <figure className="m-0">
     <div
       className="relative overflow-hidden rounded-[20px]"
-      style={{ aspectRatio: '16 / 10', backgroundColor: item.image.bg, transform: 'translateZ(0)' }}
+      style={{ aspectRatio: item.image.aspectRatio ?? '16 / 10', backgroundColor: item.image.bg, transform: 'translateZ(0)' }}
     >
       {item.video ? (
         <>
@@ -361,7 +362,7 @@ function SheetHero({ item }: { item: BizNewsItem }) {
       ) : (
         <motion.img
           src={item.image.src}
-          alt=""
+          alt={item.image.caption ? t(item.image.caption) : ''}
           draggable={false}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ objectPosition: item.image.position ?? '50% 35%' }}
@@ -374,6 +375,44 @@ function SheetHero({ item }: { item: BizNewsItem }) {
     {item.image.caption && <figcaption className="mt-2 text-[12px] leading-[1.5] text-[#8B95A1]">{t(item.image.caption)}</figcaption>}
     </figure>
   );
+}
+
+function NewsMedia({ item }: { item: BizNewsItem }) {
+  const t = useT();
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = root.current;
+    const pause = () => element?.querySelectorAll('video').forEach((video) => video.pause());
+    const onVisibility = () => { if (document.hidden) pause(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      element?.querySelectorAll('video').forEach((video) => {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      });
+    };
+  }, []);
+
+  return <div ref={root} className="mt-7 space-y-7">
+    {!!item.photos?.length && <section aria-label={t({ ko: '행사 현장 사진', en: 'Event photos', ja: 'イベント写真', zh: '活动现场照片' })}>
+      <h3 className="m-0 mb-3 text-[15px] font-bold text-[#191F28]">{t({ ko: '행사 현장 사진', en: 'Event photos', ja: 'イベント写真', zh: '活动现场照片' })}</h3>
+      <div className="space-y-5">{item.photos.map((photo) => <figure key={photo.src} className="m-0">
+        <img src={photo.src} alt={t(photo.caption)} width={photo.width} height={photo.height} loading="lazy" decoding="async" className="block h-auto w-full rounded-[12px]" />
+        <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(photo.caption)}</figcaption>
+      </figure>)}</div>
+    </section>}
+    {!!item.videos?.length && <section aria-label={t({ ko: '행사 현장 영상', en: 'Event videos', ja: 'イベント動画', zh: '活动现场视频' })}>
+      <h3 className="m-0 mb-3 text-[15px] font-bold text-[#191F28]">{t({ ko: '행사 현장 영상', en: 'Event videos', ja: 'イベント動画', zh: '活动现场视频' })}</h3>
+      <div className="space-y-5">{item.videos.map((video) => <figure key={video.src} className="m-0">
+        <video src={video.src} poster={video.poster} width={video.width} height={video.height} controls playsInline preload="none" aria-label={t(video.caption)} className="block h-auto w-full rounded-[12px] bg-[#F2F4F6]"
+          onPlay={(event) => { const current = event.currentTarget; root.current?.querySelectorAll('video').forEach((other) => { if (other !== current) other.pause(); }); }} />
+        <figcaption className="mt-2 text-[12px] leading-[1.6] text-[#8B95A1]">{t(video.caption)}</figcaption>
+      </figure>)}</div>
+    </section>}
+  </div>;
 }
 
 /** 연혁 기사 묶음 — 세로 줄 위 점(지금 기사 = 파란 점 · 굵은 글자), 누르면 그 기사로 넘어간다 */

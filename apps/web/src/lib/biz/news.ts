@@ -51,7 +51,9 @@ export type BizNewsItem = {
    * 카드 그림. bg = 그림 아래쪽 색(카드 아래 막 색 — 공지 그림은 lib/notice-art 값), position = 칸 가득 그림의 기준점,
    * veil = 아래 막 짙기(숫자 = 맨 아래, [가운데, 맨 아래]) — 어둡고 복잡한 행사 사진은 글자 줄이 읽히게 올린다(공지 그림은 기본값).
    */
-  image: { src: string; bg: string; position?: string; veil?: number | [number, number]; caption?: Tr };
+  image: { src: string; bg: string; position?: string; veil?: number | [number, number]; caption?: Tr; aspectRatio?: string };
+  photos?: { src: string; caption: Tr; width: number; height: number }[];
+  videos?: { src: string; poster: string; caption: Tr; width: number; height: number }[];
   /** 직접 확인한 관련 자료. 원문을 복제하지 않고 출처와 적용 범위를 표시한다. */
   sources?: { title: Tr; href: string; note?: Tr }[];
   sourceNote?: Tr;
@@ -151,7 +153,15 @@ const NEWS_ITEMS: BizNewsItem[] = [
       tr('프리티풀 담당: 행사 진행', 'Freetiful\'s role: event hosting', 'Freetifulの担当：進行', 'Freetiful 职责：活动主持'),
     ],
     body: tr('예식의 분위기는 의상과 공간, 사회자의 말과 음악이 어우러질 때 구체적으로 다가옵니다. 이번 청음회는 서로 다른 웨딩 요소를 한자리에서 살펴보고 실제 예식의 흐름으로 연결해 보는 프로그램으로 구성됐습니다.', 'A ceremony\'s atmosphere becomes tangible when clothing, space, spoken words and music come together. The event brought wedding elements into one setting and connected them through a ceremony demonstration.', '衣装や空間、司会者の言葉と音楽が重なることで、挙式の雰囲気が具体的になります。さまざまな要素を一度に見て、挙式の流れへつなぐプログラムとなりました。', '当服装、空间、主持人的话语与音乐结合，婚礼氛围便具体可感。本次活动将不同婚礼元素集中展示，并通过仪式演示呈现整体流程。'),
-    image: N('07'),
+    image: {
+      src: '/images/biz-news/wedding-listening-2026/group.webp', bg: '#DBDDD8',
+      position: '50% 55%', veil: PHOTO_VEIL, aspectRatio: '4 / 3',
+      caption: tr('슈슈몽드 웨딩 청음회 참가자 단체 사진', 'Group photo at the Chouchou Monde wedding listening event', 'シュシュモンド・ウェディング試聴会の集合写真', 'Chouchou Monde 婚礼试听会合影'),
+    },
+    videos: [
+      { src: '/images/biz-news/wedding-listening-2026/ceremony-01.mp4', poster: '/images/biz-news/wedding-listening-2026/ceremony-01-poster.webp', width: 1280, height: 720, caption: tr('웨딩 청음회 · 예식 시연 1', 'Wedding listening event · ceremony demonstration 1', 'ウェディング試聴会・挙式実演1', '婚礼试听会：仪式演示1') },
+      { src: '/images/biz-news/wedding-listening-2026/ceremony-02.mp4', poster: '/images/biz-news/wedding-listening-2026/ceremony-02-poster.webp', width: 1280, height: 720, caption: tr('웨딩 청음회 · 예식 시연 2', 'Wedding listening event · ceremony demonstration 2', 'ウェディング試聴会・挙式実演2', '婚礼试听会：仪式演示2') },
+    ],
     sourceNote: COMPANY_SOURCE,
     sources: [
       { title: tr('슈슈몽드 공식 소개', 'Chouchou Monde official venue introduction', 'シュシュモンド公式紹介', 'Chouchou Monde 官方介绍'), href: 'https://www.chouchoumonde.co.kr/About' },
@@ -223,7 +233,15 @@ const NEWS_ITEMS: BizNewsItem[] = [
       tr('프리티풀 담당: 행사 진행', 'Freetiful\'s role: event hosting', 'Freetifulの担当：進行', 'Freetiful 职责：活动主持'),
     ],
     body: tr('행사의 분위기는 장소가 달라지면 또 다른 인상을 만듭니다. 프리티풀쇼 수서는 웨딩 베뉴에서 진행 콘텐츠를 선보인 기록으로, 프리티풀이 하람쇼의 진행을 맡아 현장과 만난 사례입니다. 공간과 사회가 함께 만드는 행사 경험을 소개합니다.', 'A different setting gives an event a different character. The Suseo edition records Freetiful\'s hosting of Haram Show in a wedding venue, bringing event content and its setting together.', '場所が変わるとイベントの印象も変わります。水西のウェディング会場でハラムショーの進行を担当し、空間と司会が交わる体験となりました。', '不同场地会赋予活动不同印象。水西场记录了 Freetiful 在婚礼场地中主持 Haram Show，将节目内容与空间体验相连接。'),
-    image: N('07'),
+    image: {
+      src: '/images/biz-news/freetiful-show-suseo-2026/ceremony.webp', bg: '#DDDCD8',
+      position: '50% 55%', veil: PHOTO_VEIL, aspectRatio: '4 / 3',
+      caption: tr('프리티풀쇼 수서 · 빌라드지디 수서점 예식 시연 현장', 'Freetiful Show Suseo · ceremony demonstration at Villa de GD', 'Freetifulショー水西・ヴィラ・ド・ジディでの挙式実演', 'Freetiful Show 水西：Villa de GD 仪式演示现场'),
+    },
+    photos: [
+      { src: '/images/biz-news/freetiful-show-suseo-2026/stage.webp', width: 1600, height: 1200, caption: tr('무대와 객석이 함께한 프리티풀쇼 수서 현장', 'Stage and audience at Freetiful Show Suseo', 'Freetifulショー水西のステージと客席', 'Freetiful Show 水西的舞台与观众席') },
+      { src: '/images/biz-news/freetiful-show-suseo-2026/audience.webp', width: 1600, height: 1200, caption: tr('빌라드지디 수서점에서 열린 프리티풀쇼', 'Freetiful Show at Villa de GD Suseo', 'ヴィラ・ド・ジディ水西で開かれたFreetifulショー', 'Villa de GD 水西举行的 Freetiful Show') },
+    ],
     sourceNote: COMPANY_SOURCE,
     cta: CTA_EVENT,
   },

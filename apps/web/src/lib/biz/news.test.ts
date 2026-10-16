@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { BIZ_NEWS, BIZ_NEWS_MILESTONES } from './news';
@@ -111,11 +111,37 @@ test('related coverage distinguishes the July event from the August event', () =
   assert.ok(article('reception-2025').sources?.some((source) => source.href === 'https://kcbpaper.kr/post/8Q5iIaAb'));
 });
 
+test('uploaded listening and Suseo media stay with their respective events', () => {
+  const listening = article('chouchoumonde-wedding-listening-2026');
+  const suseo = article('freetiful-show-suseo-2026');
+  assert.equal(listening.image.src, '/images/biz-news/wedding-listening-2026/group.webp');
+  assert.equal(listening.image.aspectRatio, '4 / 3');
+  assert.equal(listening.videos?.length, 2);
+  assert.ok(listening.videos.every((video) => video.src.startsWith('/images/biz-news/wedding-listening-2026/')));
+  assert.equal(suseo.image.src, '/images/biz-news/freetiful-show-suseo-2026/ceremony.webp');
+  assert.equal(suseo.photos?.length, 2);
+  assert.ok(suseo.photos.every((photo) => photo.src.startsWith('/images/biz-news/freetiful-show-suseo-2026/')));
+  assert.doesNotMatch(listening.image.caption!.ko + suseo.image.caption!.ko, /일러스트/);
+});
+
 test('news assets exist locally and external references use HTTPS', () => {
   const publicDir = path.resolve(__dirname, '../../../public');
   for (const item of BIZ_NEWS) {
     assert.ok(existsSync(path.join(publicDir, item.image.src)), item.image.src);
     if (item.video) assert.ok(existsSync(path.join(publicDir, item.video)), item.video);
+    for (const photo of item.photos || []) {
+      assert.ok(existsSync(path.join(publicDir, photo.src)), photo.src);
+      assert.ok(photo.width > 0 && photo.height > 0);
+      for (const lang of ['ko', 'en', 'ja', 'zh'] as const) assert.ok(photo.caption[lang]);
+    }
+    for (const video of item.videos || []) {
+      const file = path.join(publicDir, video.src);
+      assert.ok(existsSync(file), video.src);
+      assert.ok(existsSync(path.join(publicDir, video.poster)), video.poster);
+      assert.ok(statSync(file).size > 0 && statSync(file).size < 5 * 1024 * 1024);
+      assert.ok(video.width > 0 && video.height > 0);
+      for (const lang of ['ko', 'en', 'ja', 'zh'] as const) assert.ok(video.caption[lang]);
+    }
     if (item.image.src.includes('/notices/v2/')) assert.ok(item.image.caption);
     for (const source of item.sources || []) assert.equal(new URL(source.href).protocol, 'https:');
   }
