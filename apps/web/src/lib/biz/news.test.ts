@@ -169,7 +169,7 @@ test('each supplied event photo and video has its own localized editorial paragr
       const item = article(id);
       return [item.image, ...(item.photos || []), ...(item.videos || [])];
     });
-  assert.equal(media.length, 15);
+  assert.equal(media.length, 22); // 청음회 보도자료 사진 7장 추가(261018)
   for (const lang of ['ko', 'en', 'ja', 'zh'] as const) {
     const descriptions = media.map((entry) => entry.description?.[lang]);
     assert.equal(new Set(descriptions).size, media.length);
