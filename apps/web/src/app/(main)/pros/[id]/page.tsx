@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Check, Copy, Link2 } from 'lucide-react';
+import { ChevronLeft, Phone, Share2, Play, ChevronDown, ChevronRight, ArrowUpRight, X, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { readSafeTop, useNativeStatusBar } from '@/lib/safe-area';
@@ -28,96 +28,15 @@ import AiIcon from '@/components/icons/AiIcon';
 import StyleIntroCard, { useProStyleSummary } from '@/components/pros/StyleIntroCard';
 import ReviewKeywordOrb from '@/components/pros/ReviewKeywordOrb';
 import ReviewCommentRow from '@/components/pros/ReviewCommentRow';
+import { useImageTone } from '@/lib/image-tone';
 
 // ─── Brand Color ────────────────────────────────────────────
 const BRAND = '#3180F7';
 
-const proSearchHref = (category?: string, q?: string) => {
-  const params = new URLSearchParams();
-  if (category) params.set('category', category);
-  if (q) params.set('q', q);
-  const query = params.toString();
-  return query ? `/pros?${query}` : '/pros';
-};
-
-const PC_DETAIL_CATEGORY_MENUS = [
-  {
-    label: '업종별',
-    href: '/pros',
-    highlight: true,
-    items: [
-      { label: '전체 사회자', href: '/pros' },
-      { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
-      { label: '행사 MC', href: proSearchHref('사회자', '행사') },
-      { label: '외국어 사회자', href: proSearchHref('외국어사회자') },
-      { label: '쇼호스트', href: proSearchHref('쇼호스트') },
-      { label: '축가·연주', href: proSearchHref('축가·연주') },
-    ],
-  },
-  {
-    label: '전체',
-    href: '/pros',
-    items: [
-      { label: '전체 사회자 보기', href: '/pros' },
-      { label: '인기 사회자 보기', href: proSearchHref('사회자') },
-      { label: '외국어 진행 가능', href: proSearchHref('외국어사회자') },
-    ],
-  },
-  {
-    label: '전문 결혼식 사회자',
-    href: proSearchHref('사회자', '결혼식'),
-    items: [
-      { label: '결혼식 사회자', href: proSearchHref('사회자', '결혼식') },
-      { label: '돌잔치 진행', href: proSearchHref('사회자', '돌잔치') },
-      { label: '외국어 예식 진행', href: proSearchHref('외국어사회자', '결혼식') },
-    ],
-  },
-  {
-    label: '전문 행사 사회자',
-    href: proSearchHref('사회자', '행사'),
-    items: [
-      { label: '행사 MC', href: proSearchHref('사회자', '행사') },
-      { label: '공식행사 진행', href: proSearchHref('사회자', '공식행사') },
-      { label: '레크리에이션', href: proSearchHref('사회자', '레크리에이션') },
-    ],
-  },
-  {
-    label: '기업행사',
-    href: proSearchHref('사회자', '기업행사'),
-    items: [
-      { label: '기업행사 사회자', href: proSearchHref('사회자', '기업행사') },
-      { label: '송년회·시무식', href: proSearchHref('사회자', '송년회') },
-      { label: '기업PT 진행', href: proSearchHref('사회자', '기업PT') },
-    ],
-  },
-  {
-    label: '컨퍼런스',
-    href: proSearchHref('사회자', '컨퍼런스'),
-    items: [
-      { label: '컨퍼런스 사회자', href: proSearchHref('사회자', '컨퍼런스') },
-      { label: '세미나 진행', href: proSearchHref('사회자', '세미나') },
-      { label: '축제·페스티벌', href: proSearchHref('사회자', '축제') },
-    ],
-  },
-  {
-    label: '외국어 사회자',
-    href: proSearchHref('외국어사회자'),
-    items: [
-      { label: '영어 사회자', href: proSearchHref('외국어사회자', '영어') },
-      { label: '일본어 사회자', href: proSearchHref('외국어사회자', '일본어') },
-      { label: '중국어 사회자', href: proSearchHref('외국어사회자', '중국어') },
-    ],
-  },
-  {
-    label: '프리티풀 Biz',
-    href: '/biz',
-    items: [
-      { label: '기업 섭외 문의', href: '/biz' },
-      { label: '도입 사례', href: '/biz/clients' },
-      { label: '자주 묻는 질문', href: '/biz/faq' },
-    ],
-  },
-];
+// PC 상세(261018) — 전체 헤더 72 + 보더 1, 섹션 탭 줄(sticky) 높이 + 여유. 탭 이동·스크롤 따라 켜기가 같은 값을 쓴다
+const PC_TOP = 73;
+const PC_TABS_H = 73;
+const PC_STICKY_OFFSET = PC_TOP + PC_TABS_H + 16;
 
 // ─── Reveal Hook ────────────────────────────────────────────
 function useReveal(threshold = 0.15) {
@@ -931,9 +850,41 @@ function VerifiedBadge({ size = 18 }: { size?: number }) {
  * 별점 아래에 리뷰 카드들이 서로 어긋난 높이로 놓여 천천히 떠다닌다.
  * 카드마다 주기와 시작 지연이 달라야 '두둥실' 느낌이 나서 인덱스로 어긋나게 준다.
  */
-function FloatingReviewCards({ reviews, pro }: { reviews: ProDetailData['reviews']; pro: { id: string; name: string; image?: string } }) {
+function FloatingReviewCards({
+  reviews,
+  pro,
+  layout = 'scroll',
+}: {
+  reviews: ProDetailData['reviews'];
+  pro: { id: string; name: string; image?: string };
+  /** grid = PC 왼쪽 칸(2~3장 나란히, 261018) · scroll = 모바일 옆으로 넘기기(기본) */
+  layout?: 'scroll' | 'grid';
+}) {
   const items = (reviews || []).filter((r) => (r.content || '').trim()).slice(0, 6);
   if (items.length === 0) return null;
+  // PC — 같은 카드·같은 둥실 움직임, 옆 넘기기 대신 2칸(넓으면 3칸) 격자. 위아래 어긋남(14px 계단)도 그대로(261018)
+  if (layout === 'grid') {
+    return (
+      <div className="grid grid-cols-2 items-start gap-3 pb-4 pt-3 xl:grid-cols-3">
+        {items.slice(0, 3).map((r, i) => (
+          <div
+            key={r.id}
+            className={`review-float min-w-0 rounded-[20px] border border-[#EEF0F3] bg-white p-4 ${i === 2 ? 'hidden xl:block' : ''}`}
+            style={{
+              marginTop: (i % 3) * 14,
+              animation: `reviewFloat ${(4.2 + (i % 3) * 0.9).toFixed(1)}s ease-in-out ${(i * 0.35).toFixed(2)}s infinite`,
+            }}
+          >
+            <ReviewCommentRow
+              compact
+              pro={pro}
+              review={{ id: r.id, name: r.name, avatar: r.avatar ?? null, rating: r.rating, createdAt: r.createdAt, date: r.date, content: r.content }}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
   // 카드 속은 목록 리뷰 시트와 같은 댓글형 줄(260926 사장 "리뷰 카드도 모달처럼") — 흰 카드 한 톤, 둥실 떠다니는 움직임은 유지
   return (
     <div className="-mx-5 mt-2.5 overflow-x-auto px-5 pb-2 pt-1 scrollbar-hide">
@@ -978,7 +929,7 @@ function IconTile({ src, size = 26, icon = 24, className = '' }: { src: string; 
   );
 }
 
-// 영문 eyebrow + 진회색 섹션 타이틀 헤더 (size: lg=섹션 19px / sm=서브 섹션 15px)
+// 영문 eyebrow + 진회색 섹션 타이틀 헤더 (size: xl=PC 섹션 22px(261018) / lg=섹션 19px / sm=서브 섹션 15px)
 function SectionHead({
   eyebrow,
   title,
@@ -991,18 +942,48 @@ function SectionHead({
   eyebrow?: string;
   title: ReactNode;
   icon?: string;
-  size?: 'lg' | 'sm';
+  size?: 'xl' | 'lg' | 'sm';
   tileClassName?: string;
   className?: string;
 }) {
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      {icon && <IconTile src={icon} className={tileClassName} />}
+      {icon && <IconTile src={icon} className={tileClassName} {...(size === 'xl' ? { size: 30, icon: 28 } : {})} />}
       <div className="min-w-0 flex-1">
         {/* 영문 eyebrow 는 노출하지 않는다(요청) — prop 은 호출부 호환을 위해 남겨 둔다 */}
-        <h2 className={`font-extrabold leading-tight text-[#191F28] ${size === 'lg' ? 'text-[19px]' : 'text-[15px]'}`}>{title}</h2>
+        <h2 className={`font-bold leading-tight text-[#191F28] ${size === 'xl' ? 'text-[22px]' : size === 'lg' ? 'text-[19px]' : 'text-[15px]'}`}>{title}</h2>
       </div>
     </div>
+  );
+}
+
+/** 사진 양옆을 카드 바탕색으로 녹이는 마스크 — 14% 안쪽은 그대로 */
+const DESK_SINGLE_FADE = 'linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%)';
+
+/**
+ * PC 사진이 1장뿐인 사회자 — 칸 통째 카드(261018). 1/3 폭 카드 한 장 옆이 빈 흰 칸으로 남았다.
+ * 바탕 = 사진에서 뽑은 색(홈·목록 사회자 카드와 같은 useImageTone), 사진은 잘리지 않게 높이에 맞추고 양옆을 바탕에 녹인다
+ */
+function DeskSinglePhoto({ src, alt, onOpen }: { src: string; alt: string; onOpen: () => void }) {
+  const tone = useImageTone(src);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="사진 크게 보기"
+      className="group relative block w-full overflow-hidden rounded-[44px]"
+      style={{ aspectRatio: '16 / 10', backgroundColor: tone?.bg || '#F2F4F6', transition: 'background-color .5s ease' }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- 높이 맞춤 + 마스크(Image fill 은 사진 칸이 카드 전체라 마스크가 어긋난다) */}
+      <img
+        src={src}
+        alt={alt}
+        decoding="async"
+        draggable={false}
+        className="absolute left-1/2 top-0 h-full w-auto max-w-full -translate-x-1/2 object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+        style={{ WebkitMaskImage: DESK_SINGLE_FADE, maskImage: DESK_SINGLE_FADE }}
+      />
+    </button>
   );
 }
 
@@ -1011,7 +992,6 @@ function SectionHead({
 export default function ProDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [headerQuery, setHeaderQuery] = useState('');   // PC 헤더 검색창
   const [pro, setPro] = useState<ProDetailData | null>(null);
   const [apiError, setApiError] = useState(false);
   const [apiLoading, setApiLoading] = useState(true);
@@ -1231,33 +1211,10 @@ export default function ProDetailPage() {
   }, [pro?.id]);
 
   const [activeImage, setActiveImage] = useState(0);
-  // PC 우측 스택 캐러셀 — 모바일 캐러셀(activeImage)은 스크롤로 움직이므로 상태를 분리한다
+  // PC 사진 줄(3장씩) 맨 왼쪽 칸 번호 — 모바일 캐러셀(activeImage)과 따로 둔다. 자동 넘김은 없앴다(261018)
   const [deskImage, setDeskImage] = useState(0);
-  const [deskPaused, setDeskPaused] = useState(false);
   const [activeSection, setActiveSection] = useState<'desc' | 'info' | 'reviews'>('desc');
-
-  // PC 제목 옆 영상 스택
-  const [deskVideo, setDeskVideo] = useState(0);
-  const [deskVideoPaused, setDeskVideoPaused] = useState(false);
-
-  // PC 스택 캐러셀 3초 자동 넘김 (마우스 올리면 멈춤)
-  const deskImageCount = pro?.images?.length ?? 0;
-  useEffect(() => {
-    if (deskPaused || deskImageCount < 2) return;
-    const t = setInterval(() => setDeskImage((i) => (i + 1) % deskImageCount), 3000);
-    return () => clearInterval(t);
-  }, [deskPaused, deskImageCount]);
-
-  // 영상이 여러 개면 순환 — 영상은 충분히 볼 시간이 필요해 20초
-  const deskVideoCount =
-    (pro?.uploadedVideos?.length ?? 0) + (pro?.youtubeVideos?.length ?? 0);
-  useEffect(() => {
-    if (deskVideoPaused || deskVideoCount < 2) return;
-    const t = setInterval(() => setDeskVideo((i) => (i + 1) % deskVideoCount), 20000);
-    return () => clearInterval(t);
-  }, [deskVideoPaused, deskVideoCount]);
   const [headerSolid, setHeaderSolid] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
   const authUser = useAuthStore((s) => s.user);
 
   const [openingChat, setOpeningChat] = useState(false);
@@ -1305,6 +1262,8 @@ export default function ProDetailPage() {
   const reviewsRef = useRef<HTMLDivElement>(null);
 
   const galleryRef = useRef<HTMLDivElement>(null);
+  // PC 사진 줄 — galleryRef 는 모바일 머리(headerSolid)가 보므로 따로(261018)
+  const deskGalleryRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
 
   // 방문 기록 저장
@@ -1333,13 +1292,21 @@ export default function ProDetailPage() {
       rafId = requestAnimationFrame(() => {
         // 머리·섹션 탭이 상태바 칸(iOS 앱)만큼 내려가 있다 — 그때그때 읽는다(261014)
         const safeTop = readSafeTop();
-        const nextScrollY = window.scrollY + 120 + safeTop;
         let current: 'desc' | 'info' | 'reviews' = sections[0]?.id || 'info';
-        sections.forEach(({ id, ref }) => {
-          if (ref.current && ref.current.offsetTop <= nextScrollY) current = id;
-        });
+        if (window.innerWidth >= 1024) {
+          // PC — 모바일 ref 는 display:none 이라 offsetTop 0 → 늘 '리뷰'가 켜지던 버그(261018). PC 섹션은 격자 안이라 rect 로 잰다
+          const probe = window.scrollY + PC_STICKY_OFFSET + 1;
+          sections.forEach(({ id }) => {
+            const el = document.getElementById(`desktop-${id}`);
+            if (el && el.getBoundingClientRect().top + window.scrollY <= probe) current = id;
+          });
+        } else {
+          const nextScrollY = window.scrollY + 120 + safeTop;
+          sections.forEach(({ id, ref }) => {
+            if (ref.current && ref.current.offsetTop <= nextScrollY) current = id;
+          });
+        }
         setActiveSection(current);
-        setScrollY(window.scrollY);
         // Solid header when gallery's bottom passes the top of viewport
         if (galleryRef.current) {
           const galleryBottom = galleryRef.current.offsetTop + galleryRef.current.offsetHeight;
@@ -1588,7 +1555,8 @@ export default function ProDetailPage() {
     setActiveSection(section);
     const target = document.getElementById(`desktop-${section}`);
     if (target) {
-      const y = target.getBoundingClientRect().top + window.scrollY - 176;
+      // 탭 줄 아래 여유까지 — 떨어진 자리에서 누른 탭이 그대로 켜진다(261018)
+      const y = target.getBoundingClientRect().top + window.scrollY - PC_STICKY_OFFSET;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
@@ -1621,6 +1589,7 @@ export default function ProDetailPage() {
   if (apiLoading || !pro) {
     return (
       <div className="bg-white min-h-screen" style={{ letterSpacing: '-0.02em' }}>
+        <div className="lg:hidden">
         {/* Gallery skeleton */}
         <div className="skeleton" style={{ width: '100%', aspectRatio: '1/1', borderRadius: 0 }} />
         {/* Info skeleton */}
@@ -1636,6 +1605,28 @@ export default function ProDetailPage() {
           </div>
           <div className="skeleton mb-2" style={{ width: '100%', height: 100 }} />
           <div className="skeleton mb-2" style={{ width: '100%', height: 100 }} />
+        </div>
+        </div>
+        {/* PC 뼈대 — 새 PC 상세와 같은 격자(사진 3장 줄 + 오른쪽 칸). 예전엔 모바일 뼈대가 1216 정사각으로 늘어났다(261018) */}
+        <div className="hidden pt-[60px] lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-14">
+          <div className="flex min-w-0 gap-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton" style={{ width: 'calc((100% - 24px) / 3)', aspectRatio: '70 / 106', borderRadius: 44 }} />
+            ))}
+          </div>
+          <div className="rounded-[24px] border border-[#EEF0F3] p-6">
+            <div className="flex items-center gap-3">
+              <div className="skeleton" style={{ width: 56, height: 56, borderRadius: 14 }} />
+              <div className="skeleton" style={{ width: '55%', height: 24 }} />
+            </div>
+            <div className="mt-5 flex gap-1.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton" style={{ width: 64, height: 28, borderRadius: 14 }} />
+              ))}
+            </div>
+            <div className="skeleton mt-5" style={{ width: '45%', height: 20 }} />
+            <div className="skeleton mt-5" style={{ width: '100%', height: 56, borderRadius: 16 }} />
+          </div>
         </div>
       </div>
     );
@@ -1653,581 +1644,616 @@ export default function ProDetailPage() {
   ];
   const activeSectionIndex = Math.max(0, detailSectionTabs.findIndex((tab) => tab.id === activeSection));
   const reviewKeywords = buildReviewKeywords(displayReviews);
-  const displayFaqs = pro.faqs.length > 0 ? pro.faqs : [
-    {
-      question: `${pro.categoryName || '사회자'} 섭외는 어떻게 진행되나요?`,
-      answer: '문의하기로 장소와 행사 성격을 알려주시면 사회자가 가능 여부와 견적을 확인해 답변드립니다. 이후 결제와 사전 미팅을 통해 진행 방향을 조율합니다.',
-    },
-    {
-      question: '행사 전 준비 자료는 언제 전달하면 되나요?',
-      answer: '행사 개요, 식순, 요청 멘트, 참고 대본이 있다면 전달해 주세요. 결혼식은 보통 본식 한 달 전후로 사전 질문지를 기반으로 대본을 맞춰갑니다.',
-    },
-    {
-      question: '진행 영상이나 포트폴리오는 어디에서 볼 수 있나요?',
-      answer: pro.youtubeVideos.length > 0
-        ? '상세페이지의 영상 섹션에서 대표 진행 영상을 확인할 수 있습니다.'
-      : '등록된 영상이 없는 경우 문의하기로 참고 포트폴리오를 요청할 수 있습니다.',
-    },
-  ];
   const displayAlsoViewed = pro.alsoViewed.length > 0
     ? pro.alsoViewed
     : mapRecommendedProsToAlsoViewed(pro.recommendedPros);
   const hasReviewMetricOnly = displayReviewCount > 0 && displayReviews.length === 0;
   const metricOnlyReviewMessage = '상세 후기 본문은 아직 등록되지 않았습니다. 등록된 평점과 리뷰 수를 기준으로 표시합니다.';
 
-  return (
-    <div className="bg-white lg:bg-white" style={{ letterSpacing: '-0.02em' }}>
-      <div className="hidden lg:block min-h-screen bg-white pb-24">
-        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
-          <div className="mx-auto flex h-[58px] max-w-[1180px] items-center gap-7 px-8">
-            <Link href="/main" className="flex items-center">
-              <img src="/images/logo-freetiful-wordmark.svg" alt="Freetiful" className="h-7 w-auto" />
-            </Link>
-            {/* 실제 입력 가능한 검색창 — 예전엔 span 으로 흉내만 낸 장식이라 클릭·입력이 안 됐다 */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const q = headerQuery.trim();
-                router.push(q ? `/pros?q=${encodeURIComponent(q)}` : '/pros');
-              }}
-              className="flex h-11 flex-1 max-w-[520px] items-center rounded-full border border-gray-300 px-5 shadow-sm focus-within:border-[#3180F7]"
+  // ─── 모바일·PC 가 같이 쓰는 조각(261018 PC 상세 개편) — 모바일 출력은 예전과 같은 마크업 그대로 ───
+  // 엄선 상위 2% 상자
+  const partnersBox = pro.isPrime ? (
+    <Reveal delay={100}>
+      <div className="mb-6 rounded-2xl border border-[#EEF0F4] bg-[#F7F8FA] p-4">
+        <SectionHead
+          eyebrow="PARTNERS"
+          title={<>프리티풀 엄선 상위 <span className="text-[#3180F7]">2%</span> 사회자가 제공해요</>}
+          icon="/icons/pro-detail/certification.svg"
+          size="sm"
+          tileClassName="bg-white"
+          className="mb-3"
+        />
+        <ul className="space-y-1.5">
+          {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item, i) => (
+            <li
+              key={item}
+              className="flex items-center gap-2 text-[13px] text-[#4E5968] opacity-0"
+              style={{ animation: `slideInLeft 0.6s ease-out ${300 + i * 100}ms forwards` }}
             >
-              <input
-                value={headerQuery}
-                onChange={(e) => setHeaderQuery(e.target.value)}
-                placeholder="어떤 사회자가 필요하세요?"
-                aria-label="사회자 검색"
-                className="flex-1 bg-transparent text-[14px] text-gray-900 outline-none placeholder:text-gray-400"
-              />
-              <button type="submit" aria-label="검색" className="ml-2 shrink-0">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.3" strokeLinecap="round">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M20 20l-3.5-3.5" />
-                </svg>
+              <img src="/icons/pro-detail/check.svg" alt="" width={14} height={14} className="shrink-0" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Reveal>
+  ) : null;
+
+  // 서비스 설명 본문 + 확대 안내 (영상만 있는 사회자는 설명 본문 생략)
+  const descriptionHtmlBlock = hasDescriptionContent ? (
+    <>
+      {/* 설명 전문 표시 — 400px 클램프+더보기 제거(설명 짤림 QA) */}
+      <div className="pro-detail-html text-left text-[15px] leading-[1.8] text-[#333D4B] [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-[#4E5968] [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick}>
+        <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
+      </div>
+
+      {/* Image expand notice */}
+      <div className="mt-8 bg-[#F7F8FA] rounded-2xl py-3 flex items-center justify-center gap-2 text-[13px] text-[#8B95A1]">
+        이미지를 클릭해서 확대 할 수 있어요
+        <ArrowUpRight size={14} />
+      </div>
+    </>
+  ) : null;
+
+  // 사회자 정보 행(모바일 = 구분선 줄 · PC = 타일 3칸)
+  const infoRows = [
+    { icon: '/icons/pro-detail/clock.svg', label: '연락 가능 시간', value: pro.expertStats.contactTime },
+    { icon: '/icons/pro-detail/chat.svg', label: '평균 응답 시간', value: pro.expertStats.responseTime },
+    { icon: '/icons/pro-detail/certification.svg', label: '파트너 인증', value: pro.isPrime ? '인증 완료' : '심사 완료' },
+  ];
+
+  // 사회자 FAQ 펼침 칸(정책 넷) — PC 는 사회자가 등록한 FAQ 를 앞에 더 붙인다
+  const policyPanels = [
+    { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
+    { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
+    { id: 'cancel', label: '취소 및 환불 규정', content: `• 프리티풀 플랫폼 환불 규정을 따라요(입금일·예약 당일 포함 기준)\n• 입금일로부터 4일 이내: 100% 환불\n• 5~7일 이내: 50% 환불\n• 7일 경과 또는 사전미팅 진행 후: 환불 불가\n• 행사일이 입금일로부터 7일 이내면 환불 불가\n• 사회자 사정으로 취소되면 전액 환불 + 규정에 따른 보상` },
+    { id: 'notice', label: '상품정보고시', content: `• 제공자: ${pro.name}\n• 서비스 제공방식: 온/오프라인\n• 결제 후 계약 내용 변경은 상호 협의에 의해서만 가능합니다.` },
+  ];
+
+  // 리뷰 줄 — 목록 리뷰 시트와 같은 댓글형(260926 사장 "리뷰 카드도 모달처럼"). 모바일 = 전부 · PC = 앞 6개
+  const renderReviewRows = (list: ProDetailData['reviews']) => (
+    <div className="-mt-2">
+      {list.map((review, i) => (
+        <ReviewCommentRow
+          key={review.id}
+          first={i === 0}
+          pro={{ id: pro.id, name: pro.name, image: pro.profileImage }}
+          review={{
+            id: review.id,
+            name: review.name,
+            avatar: review.avatar ?? null,
+            rating: review.rating,
+            createdAt: review.createdAt,
+            date: review.date,
+            content: review.content,
+            photos: review.photos,
+            proReply: review.proReply ? { content: review.proReply.content, at: review.proReply.at, date: review.proReply.date } : undefined,
+          }}
+          menu={
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
+                aria-label="리뷰 메뉴"
+                className="-mr-1 -mt-0.5 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-[#F2F4F6]"
+              >
+                <span className="text-[16px] leading-none text-[#8B95A1]">⋯</span>
               </button>
-            </form>
-            <nav className="ml-auto flex items-center gap-6 text-[14px] font-semibold text-gray-900">
-              <Link href="/biz">엔터프라이즈</Link>
-              <Link href="/pro-register/terms">사회자 등록</Link>
-              <button type="button" onClick={() => setLoginModal(true)}>로그인</button>
-            </nav>
-          </div>
-          <div className="border-t border-gray-100">
-            <nav className="mx-auto flex h-[50px] max-w-[1180px] items-center gap-1.5 px-8 text-[14px] font-semibold text-gray-900" aria-label="사회자 카테고리">
-              {PC_DETAIL_CATEGORY_MENUS.map((menu) => (
-                <div key={menu.label} className="home-desktop-category-menu group relative">
-                  <Link
-                    href={menu.href}
-                    className={`flex items-center gap-1 rounded-xl px-3 py-2 transition-all duration-200 hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3180F7]/25 ${
-                      menu.highlight ? 'text-[#3180F7]' : 'text-gray-900'
-                    }`}
-                  >
-                    <span className="whitespace-nowrap">{menu.label}</span>
-                    <ChevronDown size={14} className="home-desktop-category-chevron text-gray-400 transition-transform duration-200 group-hover:rotate-180 group-hover:text-gray-700" />
-                  </Link>
-                  <div className="home-desktop-category-dropdown pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 w-[190px] -translate-x-1/2 translate-y-1 rounded-2xl p-1.5 text-left opacity-0 transition-all duration-200">
-                    {menu.items.map((item) => (
-                      <Link
-                        key={item.label}
-                        href={item.href}
-                        className="block rounded-xl px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 focus-visible:bg-gray-50 focus-visible:outline-none"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </nav>
-          </div>
-        </header>
-
-        <main className="mx-auto max-w-[1180px] px-8 pt-8">
-          <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-10">
-            <div>
-              {/* 제목 + (영상 있으면) 우측 16:9 스택 캐러셀 */}
-              {(() => {
-                // 업로드 영상 먼저, 그 뒤 유튜브
-                const vids: Array<{ kind: 'upload' | 'yt'; src: string; title: string }> = [
-                  ...(pro.uploadedVideos || []).map((v) => ({ kind: 'upload' as const, src: v.url, title: v.title })),
-                  ...(pro.youtubeVideos || []).map((v) => ({ kind: 'yt' as const, src: v.id, title: v.title })),
-                ];
-                const vn = vids.length;
-                const titleBlock = (
-                  <>
-                    <p className="mb-1.5 text-[13px] text-gray-500">
-                      사회자 찾기 &gt; {pro.categoryName || '사회자'} &gt; {pro.name}
-                    </p>
-                    <h1 className="max-w-[780px] text-[34px] font-bold leading-tight text-gray-950">{pro.title}</h1>
-                    <div className="mt-3 flex items-center gap-2">
-                      <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} />
-                      <span className="text-[15px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                      <span className="text-[14px] text-gray-500">({displayReviewCount})</span>
-                    </div>
-                  </>
-                );
-                if (vn === 0) return titleBlock;
-                return (
-                  // 행이 컬럼 맨 위에 오므로 영상 top 이 우측 프로필 사진 top 과 같아진다.
-                  // items-center — 경로+제목 덩어리가 영상 세로 가운데에 놓인다.
-                  // pt-7 = 우측 사진 카드의 겹침 여백과 같은 값 → 영상 top 이 사진 top 과 정확히 맞는다
-                  <div className="flex items-center gap-6 pt-7">
-                    <div className="min-w-0 flex-1">{titleBlock}</div>
-                    {/* pr-7 = 뒤 카드가 오른쪽으로 삐져나올 자리 (사진은 위로, 영상은 옆으로) */}
-                    <div
-                      className="relative w-[400px] shrink-0 pr-7"
-                      onMouseEnter={() => setDeskVideoPaused(true)}
-                      onMouseLeave={() => setDeskVideoPaused(false)}
-                    >
-                      <div className="relative aspect-video w-full">
-                        {vids.map((v, i) => {
-                          const pos = (i - deskVideo + vn) % vn;
-                          const front = pos === 0;
-                          const behind = pos === 1 && vn > 1;
-                          return (
-                            <div
-                              key={`${v.kind}-${v.src}-${i}`}
-                              className="absolute inset-0 overflow-hidden rounded-[48px] bg-black shadow-sm transition-all duration-[650ms]"
-                              style={{
-                                transform: front
-                                  ? 'scale(1) translateX(0)'
-                                  : behind
-                                    ? 'scale(0.93) translateX(30px)'
-                                    : 'scale(0.88) translateX(44px)',
-                                opacity: front || behind ? 1 : 0,
-                                zIndex: front ? 20 : behind ? 10 : 0,
-                                transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-                                pointerEvents: front ? 'auto' : 'none',
-                              }}
-                            >
-                              {v.kind === 'upload' ? (
-                                <video
-                                  src={v.src}
-                                  autoPlay={front}
-                                  muted
-                                  loop
-                                  playsInline
-                                  preload="metadata"
-                                  controls={front}
-                                  className="absolute inset-0 h-full w-full object-cover"
-                                />
-                              ) : (
-                                <iframe
-                                  src={`https://www.youtube.com/embed/${v.src}?autoplay=${front ? 1 : 0}&mute=1&loop=1&playlist=${v.src}&playsinline=1&rel=0&modestbranding=1`}
-                                  title={v.title}
-                                  allow="autoplay; encrypted-media; picture-in-picture"
-                                  allowFullScreen
-                                  className="absolute inset-0 h-full w-full"
-                                />
-                              )}
-                              {behind && <span className="absolute inset-0 bg-black/30" />}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* 주요 경력 — 모바일과 같은 흰 카드 토큰(#EEF0F4 보더 + 진회색 텍스트) */}
-              {pro.career && pro.career.trim().length > 0 && (
-                <div
-                  className="mt-6 max-w-[780px]"
-                  /* NaturalReveal 이 'main ul > li' 를 잡아 animation 을 덮어쓰는 영역 → 제외 유지 */
-                  data-no-natural-reveal
-                >
-                  <CareerSweepList size="lg" lines={pro.career.split(/\n|\//).map((l) => l.trim()).filter(Boolean).slice(0, 6)} />
+              {reviewMenu === review.id && (
+                <div className="pop-menu nt-menu absolute right-0 top-8 z-20" style={{ transformOrigin: 'top right' }}>
+                  {/* 리뷰 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(0)}><img src="/icons/toss/siren.svg" alt="" />신고하기</button>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(1)}><img src="/icons/toss/user-blocked.svg" alt="" />차단하기</button>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(2)}><img src="/icons/toss/copy.svg" alt="" />복사하기</button>
                 </div>
               )}
+            </div>
+          }
+        />
+      ))}
+    </div>
+  );
 
-              <div className="pt-12">
-                <div className="mb-11">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h2 className="text-[21px] font-bold text-gray-950">최근 받은 리뷰</h2>
-                    {displayReviewCount > 0 && <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="text-[13px] font-semibold text-gray-700">전체보기</button>}
-                  </div>
-                  <div className="relative overflow-hidden rounded-lg">
-                    {displayReviews.length > 0 ? (
-                      <div className="grid grid-cols-[286px_minmax(0,1fr)] gap-3">
-                        {/* 리뷰 AI 요약 — '이 사회자의 스타일을 소개합니다'(모바일·목록 리뷰 시트와 같은 카드, 좁은 칸용). 요약이 없으면 평점 칸 */}
-                        {styleSummary.loading || styleSummary.value ? (
-                          <StyleIntroCard summary={styleSummary.value} loading={styleSummary.loading} compact className="h-[164px] overflow-hidden" />
+  // '다른 검증된 사회자' 카드 한 장 — 모바일 = 옆 넘기기 150폭 · PC = 6칸 격자
+  const renderAlsoViewedCard = (item: ProDetailData['alsoViewed'][number], className: string, sizes?: string) => (
+    <Link
+      key={item.id}
+      href={`/pros/${item.id}`}
+      className={className}
+    >
+      <div className="relative overflow-hidden rounded-[16px] bg-[#F2F4F6]" style={{ aspectRatio: '3/4' }}>
+        <Image src={item.image || '/images/default-profile.png'} alt="" fill sizes={sizes} className="object-cover transition-transform duration-500 group-hover:scale-105" />
+      </div>
+      <div className="mt-1.5">
+        <span className="mb-1 inline-flex items-center gap-0.5 rounded-full bg-[#F2F4F6] px-2 py-[3px] text-[11px] font-bold text-[#4E5968]"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
+        <p className="text-[15px] font-semibold leading-tight text-[#191F28]">{item.category || '사회자'} {item.author}</p>
+        {item.rating && (
+          <div className="mt-1 flex items-center gap-1">
+            <StarRating value={parseFloat(item.rating.toFixed(1))} size={13} />
+            <span className="text-[13px] font-bold text-[#191F28]">{item.rating.toFixed(1)}</span>
+            <span className="text-[12px] text-[#8B95A1]">({item.reviewCount})</span>
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+
+  // 진행 영상(업로드 먼저, 그 뒤 유튜브) — 모바일 서비스 설명 맨 위와 같은 순서
+  const videoClips = [
+    ...pro.uploadedVideos.map((v) => ({ key: v.url, kind: 'upload' as const, src: v.url, title: v.title })),
+    ...pro.youtubeVideos.map((v) => ({ key: v.id, kind: 'youtube' as const, src: v.id, title: v.title })),
+  ];
+  // PC 사진 줄 — 3장씩 보이고 1장씩 넘긴다(261018)
+  const deskImages = pro.images.length > 0 ? pro.images : [pro.mainImage];
+  const deskStops = Math.max(1, deskImages.length - 2);
+  // 사진이 3장보다 적으면 1/3 폭 카드 옆이 빈 흰 칸으로 남았다(261018) — 2장 = 반반 4:5, 1장 = 칸 통째 카드(아래 분기)
+  const deskCardStyle = deskImages.length === 2
+    ? { width: 'calc((100% - 12px) / 2)', aspectRatio: '4 / 5' }
+    : { width: 'calc((100% - 24px) / 3)', aspectRatio: '70 / 106' };
+  const deskCardSizes = deskImages.length === 2 ? '(min-width: 1280px) 384px, 284px' : '(min-width: 1280px) 252px, 180px';
+  const scrollDeskGallery = (dir: number) => {
+    const el = deskGalleryRef.current;
+    if (!el) return;
+    const step = (el.clientWidth - 24) / 3 + 12;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+  const floatReviewCount = displayReviews.filter((r) => (r.content || '').trim()).length;
+  // PC '다른 검증된 사회자' 격자 — 두 줄까지, 줄이 꽉 차는 수만(한 줄도 안 되면 있는 만큼)(261018).
+  // lg = 3칸. xl = 8명 이상이거나 딱 4명일 때만 4칸, 그 밖(보통 6명)은 3칸 — 4칸이면 6명 중 2명이 빠졌다
+  const alsoViewedFill = (cols: number) => {
+    const n = Math.min(displayAlsoViewed.length, cols * 2);
+    return n < cols ? n : n - (n % cols);
+  };
+  const alsoViewedXlCols = displayAlsoViewed.length >= 8 || displayAlsoViewed.length === 4 ? 4 : 3;
+  const alsoViewedLgCount = alsoViewedFill(3);
+  const alsoViewedXlCount = alsoViewedFill(alsoViewedXlCols);
+  // PC FAQ — 사회자가 등록한 질문을 정책 칸 앞에. 정책 칸과 제목이 똑같은 것만 뺀다(261018).
+  // 예전 '환불|취소' 낱말 거르기는 '우천으로 취소되면 일정 변경?' 같은 상관없는 질문까지 PC 에서만 숨겨 지웠다(옛 PC 는 전부 보였다).
+  // 환불 규정과 어긋날 수 있는 답은 데이터·사장 결정 전까지 답 아래 '플랫폼 규정 우선' 한 줄만 붙인다
+  const policyLabelKeys = new Set(policyPanels.map((panel) => panel.label.replace(/\s/g, '')));
+  const deskFaqPanels: Array<{ id: string; label: string; content: string; refundNote?: boolean }> = [
+    ...pro.faqs
+      .filter((faq) => !policyLabelKeys.has(faq.question.replace(/[\s?？]/g, '')))
+      .map((faq, i) => ({
+        id: `pfaq-${i}`,
+        label: `Q. ${faq.question}`,
+        content: faq.answer,
+        refundNote: /환불|취소|위약|예약금|계약금/.test(`${faq.question} ${faq.answer}`),
+      })),
+    ...policyPanels,
+  ];
+  // 리뷰 본문 없이 수치만 / 리뷰 없음 안내
+  const reviewStateBlock = hasReviewMetricOnly ? (
+    <div className="rounded-2xl bg-[#F7F8FA] px-4 py-5">
+      <div className="mb-2 flex items-center gap-2">
+        <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
+        <span className="text-[13px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+        <span className="text-[12px] text-[#8B95A1]">({displayReviewCount})</span>
+      </div>
+      <p className="text-[14px] leading-[1.7] text-[#4E5968]">{metricOnlyReviewMessage}</p>
+    </div>
+  ) : displayReviews.length === 0 && (
+    <div className="rounded-2xl bg-[#F7F8FA] px-4 py-8 text-center">
+      <p className="text-[14px] font-semibold text-[#191F28]">아직 표시할 리뷰가 없습니다</p>
+      <p className="mt-1 text-[12px] text-[#8B95A1]">리뷰가 등록되면 이곳에 바로 보여집니다</p>
+    </div>
+  );
+  // 환불 규정 안내 상자(맨 아래)
+  const refundNoticeBox = (
+    <div className="flex items-start gap-3 rounded-[20px] bg-[#F7F8FA] p-4">
+      <img src="/icons/pro-detail/counselor.svg" alt="" width={40} height={40} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-bold text-[#191F28]">환불 규정 안내</p>
+        <p className="mt-1 text-[13px] leading-[1.7] text-[#8B95A1]">
+          예약금은 입금일로부터 4일 이내 100%, 5~7일 이내 50% 환불됩니다. 7일이 지나거나 사전미팅이 진행된 뒤에는
+          환불이 어렵고, 사회자 귀책으로 진행이 취소된 경우에는 전액 환불과 함께 보상이 이뤄집니다.
+        </p>
+        <Link
+          href="/terms/refund"
+          className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-bold text-[#3180F7]"
+        >
+          자세한 환불 규정 보기
+          <ChevronRight size={15} />
+        </Link>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-white lg:bg-white" style={{ letterSpacing: '-0.02em' }}>
+      {/* ─── PC(≥1024) — 지금 톤앤매너(261018 사장 'PC 상세 구버전 → 지금 톤 · 모바일 요소로').
+          전체 헤더 아래 레이아웃 칸(max-w-7xl · px-8) 그대로 — 자기 폭·옆 여백을 따로 두지 않는다(헤더와 줄 맞춤).
+          왼쪽 넓은 칸 = 모바일 순서(사진 줄 · 최근 리뷰 · 경력 · 섹션 탭 · 서비스 설명 · 사회자 정보 · 리뷰 · FAQ),
+          오른쪽 = 이름 · 별점 · 문의 붙박이 칸. ⚠ 왼쪽 칸은 1024 에서도 560↑ 여야 키워드 원이 그림 판(WIDE)으로 그려진다 ─── */}
+      <div className="hidden bg-white pb-24 lg:block">
+        {/* 전체 헤더엔 뒤로가기가 없다 — 조용한 경로 줄 */}
+        <nav aria-label="현재 위치" className="flex items-center gap-1 pb-4 pt-6 text-[14px] text-[#8B95A1]">
+          <Link href="/pros" className="transition-colors hover:text-[#4E5968]">사회자 찾기</Link>
+          <ChevronRight size={14} className="text-[#C9CED6]" />
+          <span>{pro.categoryName || '사회자'}</span>
+          <ChevronRight size={14} className="text-[#C9CED6]" />
+          <span className="font-semibold text-[#4E5968]">{pro.name}</span>
+        </nav>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-10 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-14">
+          <div className="min-w-0">
+            {/* 사진 줄 — 모바일 히어로 카드(44 라운드 · 70:106)를 3장씩. 1장씩 넘기고, 누르면 크게.
+                2장 = 반반 4:5 / 1장 = 칸 통째 사진 색 카드(DeskSinglePhoto) — 빈 흰 칸이 남지 않게(261018) */}
+            {deskImages.length === 1 ? (
+              <DeskSinglePhoto src={deskImages[0]} alt={pro.name} onOpen={() => setImageModal(deskImages[0])} />
+            ) : (
+            <div className="relative">
+              <div
+                ref={deskGalleryRef}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const step = (el.clientWidth - 24) / 3 + 12;
+                  const idx = Math.max(0, Math.min(deskStops - 1, Math.round(el.scrollLeft / step)));
+                  if (idx !== deskImage) setDeskImage(idx);
+                }}
+                className="flex snap-x snap-mandatory gap-3 overflow-x-auto scrollbar-hide"
+                style={{ scrollPaddingLeft: 0 }}
+              >
+                {deskImages.map((src, i) => (
+                  <button
+                    key={`${src}-${i}`}
+                    type="button"
+                    onClick={() => setImageModal(src)}
+                    aria-label={`사진 ${i + 1} 크게 보기`}
+                    className="group relative shrink-0 snap-start overflow-hidden rounded-[44px] bg-[#F2F4F6]"
+                    style={deskCardStyle}
+                  >
+                    <Image
+                      src={src}
+                      alt={i === 0 ? pro.name : ''}
+                      fill
+                      priority={i === 0}
+                      sizes={deskCardSizes}
+                      className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                    />
+                  </button>
+                ))}
+              </div>
+              {deskImages.length > 3 && deskImage > 0 && (
+                <button
+                  type="button"
+                  aria-label="이전 사진"
+                  onClick={() => scrollDeskGallery(-1)}
+                  className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#191F28] shadow-sm backdrop-blur-md transition hover:bg-white active:scale-95"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+              {deskImages.length > 3 && deskImage < deskStops - 1 && (
+                <button
+                  type="button"
+                  aria-label="다음 사진"
+                  onClick={() => scrollDeskGallery(1)}
+                  className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#191F28] shadow-sm backdrop-blur-md transition hover:bg-white active:scale-95"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+            </div>
+            )}
+            {deskImages.length > 3 && (
+              <div className="mt-3 flex justify-center gap-1.5">
+                {Array.from({ length: deskStops }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`사진 ${i + 1}번째부터 보기`}
+                    onClick={() => {
+                      const el = deskGalleryRef.current;
+                      if (el) el.scrollTo({ left: i * ((el.clientWidth - 24) / 3 + 12), behavior: 'smooth' });
+                    }}
+                    className="rounded-full transition-colors duration-300"
+                    style={{ width: 6, height: 6, backgroundColor: i === deskImage ? '#191F28' : '#D5DAE0' }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* 최근 받은 리뷰 — 모바일 둥실 카드 그대로, 옆 넘기기 대신 2~3칸 */}
+            {floatReviewCount > 0 && (
+              <div className="mt-10">
+                <div className="flex items-center justify-between gap-4">
+                  <SectionHead eyebrow="REVIEWS" title="최근 받은 리뷰" icon="/icons/pro-detail/star.svg" />
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/pros/${pro.id}/reviews`)}
+                    className="shrink-0 text-[14px] font-semibold text-[#8B95A1] transition-colors hover:text-[#4E5968]"
+                  >
+                    전체보기
+                  </button>
+                </div>
+                <FloatingReviewCards layout="grid" reviews={displayReviews} pro={{ id: pro.id, name: pro.name, image: pro.profileImage }} />
+              </div>
+            )}
+
+            {/* 주요 경력 — 모바일과 같은 트로피 머리 + 구분선 줄 */}
+            {pro.career && pro.career.trim().length > 0 && (
+              <Reveal>
+                <div className="mt-8">
+                  <SectionHead eyebrow="CAREER" title="주요 경력" icon="/icons/pro-detail/trophy.svg" className="mb-1.5" />
+                  <CareerSweepList lines={pro.career.split(/\n|\//).map((l) => l.trim()).filter(Boolean).slice(0, 6)} />
+                </div>
+              </Reveal>
+            )}
+
+            {/* 기업 로고 */}
+            <div className="mt-6">
+              <CompanyLogoCarousel proId={pro.id} logos={pro.companyLogos} showFallback={pro.showPartnersLogo} />
+            </div>
+
+            {/* 섹션 탭 — 모바일 회색 트랙 + 흰 알약. 전체 헤더 바로 아래 붙는다 */}
+            <div className="sticky z-30 mt-4 bg-white py-3" style={{ top: PC_TOP }}>
+              <div className="relative flex max-w-[480px] gap-1 rounded-2xl bg-[#F2F3F5] p-1">
+                <span
+                  className="absolute bottom-1 top-1 rounded-[13px] bg-white shadow-sm transition-all duration-500"
+                  style={{
+                    left: `calc(4px + ${(activeSectionIndex * 100) / detailSectionTabs.length}% - ${(activeSectionIndex * 8) / detailSectionTabs.length}px)`,
+                    width: `calc(${100 / detailSectionTabs.length}% - ${8 / detailSectionTabs.length}px)`,
+                    transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+                {detailSectionTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => scrollToDesktopSection(tab.id)}
+                    className={`relative flex-1 rounded-[13px] py-2.5 text-[14px] transition-colors duration-300 ${
+                      activeSection === tab.id ? 'font-bold text-[#2B313D]' : 'font-semibold text-[#A4ABBA] hover:text-[#51535C]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 서비스 설명 — 영상 · 엄선 2% 상자 · 본문(모바일과 같은 조각) */}
+            {(hasDescriptionContent || videoClips.length > 0) && (
+              <section id="desktop-desc" className="mt-8">
+                <SectionHead size="xl" eyebrow="ABOUT" title="서비스 설명" icon="/icons/pro-detail/document.svg" className="mb-5" />
+                {videoClips.length > 0 && (
+                  <div className={`mb-6 grid gap-3 ${videoClips.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    {videoClips.map((clip) => (
+                      <div key={clip.key} className="relative overflow-hidden rounded-[20px] bg-black" style={{ aspectRatio: '16 / 9' }}>
+                        {clip.kind === 'upload' ? (
+                          <video src={`${clip.src}#t=0.1`} className="h-full w-full object-cover" controls playsInline preload="metadata" />
+                        ) : playingVideos.has(clip.src) ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${clip.src}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+                            title={clip.title}
+                            className="h-full w-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
                         ) : (
-                          <div className="flex h-[164px] flex-col justify-center rounded-2xl border border-[#EEF0F4] bg-white p-5">
-                            <p className="text-[13px] font-semibold text-[#8B95A1]">고객 평점</p>
-                            <div className="mt-1 flex items-center gap-2">
-                              <StarRating value={pro.rating} size={16} />
-                              <span className="text-[22px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
-                            </div>
-                            <p className="mt-1 text-[13px] text-[#8B95A1]">리뷰 {displayReviewCount}개</p>
-                          </div>
+                          // 유튜브는 눌러야 불러온다 — 숨은 모바일 가지가 이미 iframe 을 다 띄우고 있어 두 벌 상시 로드를 막는다
+                          <button
+                            type="button"
+                            onClick={() => setPlayingVideos((prev) => new Set(prev).add(clip.src))}
+                            className="group relative block h-full w-full"
+                            aria-label={`${clip.title} 재생`}
+                          >
+                            <img src={`https://img.youtube.com/vi/${clip.src}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
+                              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm transition-transform group-hover:scale-105">
+                                <Play size={19} className="ml-0.5 fill-[#191F28] text-[#191F28]" />
+                              </span>
+                            </span>
+                          </button>
                         )}
-                        <div className="recent-reviews-carousel-frame relative overflow-hidden rounded-lg">
-                          <div className="recent-reviews-carousel flex w-max">
-                            {[0, 1].map((loop) => (
-                              <div key={`review-carousel-${loop}`} className="flex shrink-0 gap-3 pr-3">
-                                {displayReviews.slice(0, 5).map((review) => (
-                                  <div key={`${review.id}-${loop}`} className="h-[164px] w-[286px] shrink-0 rounded-lg bg-gray-50 p-5">
-                                    <div className="flex items-center gap-2">
-                                      <StarRating value={review.rating} size={14} />
-                                      <span className="text-[14px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
-                                      <span className="text-[12px] text-gray-400">{review.date}</span>
-                                    </div>
-                                    {(review as typeof review & { scores?: Record<string, number> }).scores && (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).slice(0, 3).map(([key, val]) => (
-                                          <span key={key} className="flex items-center rounded-[5px] bg-white px-1.5 text-[10px] font-medium text-gray-600" style={{ height: 20 }}>
-                                            {key} <span className="ml-1 font-bold text-[#3180F7]">{val}</span>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <p className="mt-2 line-clamp-2 text-[14px] leading-relaxed text-gray-800">{review.content}</p>
-                                    <p className="mt-2 text-[12px] font-semibold text-gray-500">{review.name}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            ))}
-                          </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {partnersBox}
+                {descriptionHtmlBlock}
+              </section>
+            )}
+
+            {/* 사회자 정보 — 프로필 줄 + 타일 3칸(옆 붙박이 칸과 줄 목록이 나란히 겹쳐 보이지 않게) */}
+            <section id="desktop-info" className="mt-14">
+              <SectionHead size="xl" eyebrow="PROFILE" title="사회자 정보" icon="/icons/pro-detail/mic.svg" className="mb-5" />
+              <div className="flex items-center gap-4">
+                <img src={pro.profileImage} alt="" className="h-[60px] w-[60px] rounded-[14px] object-cover" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[16px] font-bold text-[#191F28]">{pro.name}</p>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    <StarRating value={parseFloat(pro.rating.toFixed(1))} size={13} />
+                    <span className="text-[13px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+                    <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                {infoRows.map((row) => (
+                  <div key={row.label} className="rounded-[20px] bg-[#F7F8FA] p-4">
+                    <IconTile src={row.icon} size={28} icon={26} />
+                    <p className="mt-3 text-[13px] text-[#8B95A1]">{row.label}</p>
+                    <p className="mt-0.5 text-[15px] font-bold text-[#191F28]">{row.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 리뷰 — 큰 별점 · AI 스타일 요약 · 키워드 원(상자·옆 여백 없이 칸 통째로) · 리뷰 줄 6개 */}
+            <section id="desktop-reviews" className="mt-14">
+              <SectionHead size="xl" eyebrow="REVIEW" title="리뷰" icon="/icons/pro-detail/eyes.svg" className="mb-4" />
+              <div className="mb-4 flex items-center gap-2">
+                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={22} />
+                <span className="text-[28px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+                <span className="text-[15px] text-[#8B95A1]">({displayReviewCount})</span>
+              </div>
+              <StyleIntroCard summary={styleSummary.value} loading={styleSummary.loading} className="mb-3" />
+              <ReviewKeywordOrb name={pro.name} keywords={reviewKeywords} reviewCount={displayReviewCount} className="mb-8 mt-6" />
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-[18px] font-bold text-[#191F28]">전체 리뷰 {displayReviewCount}건</h3>
+                {displayReviewCount > 0 && (
+                  <button
+                    type="button"
+                    aria-label="리뷰 전체보기"
+                    onClick={() => router.push(`/pros/${pro.id}/reviews`)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[#F2F4F6]"
+                  >
+                    <ChevronRight size={20} className="text-[#8B95A1]" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-6">
+                {reviewStateBlock}
+                {displayReviews.length > 0 && renderReviewRows(displayReviews.slice(0, 6))}
+              </div>
+              {displayReviewCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/pros/${pro.id}/reviews`)}
+                  className="mt-5 w-full rounded-2xl border border-[#E5E8EB] py-3.5 text-[15px] font-semibold text-[#4E5968] transition-all hover:bg-[#F7F8FA] active:scale-[0.99]"
+                >
+                  리뷰 전체보기
+                </button>
+              )}
+            </section>
+
+            {/* 사회자 FAQ — 사회자가 등록한 질문(정책과 겹치지 않는 것) 먼저, 그 뒤 정책 넷 */}
+            <section className="mt-14">
+              <SectionHead size="xl" eyebrow="GUIDE" title="사회자 FAQ" icon="/icons/pro-detail/bulb.svg" className="mb-2" />
+              {deskFaqPanels.map((panel) => {
+                const isOpen = expandedPanel === panel.id;
+                return (
+                  <div key={panel.id} className="border-b border-[#F2F4F6] last:border-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPanel(isOpen ? null : panel.id)}
+                      className="flex w-full items-center justify-between gap-4 py-5 text-left"
+                    >
+                      <span className="text-[16px] font-semibold text-[#191F28]">{panel.label}</span>
+                      <ChevronDown size={20} className={`shrink-0 text-[#8B95A1] transition-transform duration-300 ${isOpen ? 'rotate-180 text-[#3180F7]' : ''}`} />
+                    </button>
+                    {/* 펼침 = 줄 높이 0fr→1fr(261018) — 예전 maxHeight 800 상한은 긴 사회자 답 아랫부분을 잘랐다 */}
+                    <div
+                      className="grid transition-[grid-template-rows,opacity] duration-500"
+                      style={{
+                        gridTemplateRows: isOpen ? '1fr' : '0fr',
+                        opacity: isOpen ? 1 : 0,
+                        transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                      }}
+                    >
+                      <div className="min-h-0 overflow-hidden">
+                        <div className="whitespace-pre-line pb-5 text-[14px] leading-[1.8] text-[#6B7684]">
+                          {panel.content}
+                          {panel.refundNote && (
+                            <p className="mt-2 text-[13px] text-[#8B95A1]">※ 취소·환불은 프리티풀 플랫폼 환불 규정이 우선합니다.</p>
+                          )}
                         </div>
                       </div>
-                    ) : hasReviewMetricOnly ? (
-                      <div className="rounded-lg bg-gray-50 p-5">
-                        <div className="flex items-center gap-2">
-                          <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
-                          <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                          <span className="text-[13px] text-gray-400">({displayReviewCount})</span>
-                        </div>
-                        <p className="mt-3 text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-500">
-                        아직 표시할 리뷰가 없습니다. 리뷰가 등록되면 이곳에 바로 보여집니다.
-                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+
+            <div className="mt-10">{refundNoticeBox}</div>
+
+            {/* 프리티풀의 다른 검증된 사회자 — 왼쪽 칸 맨 끝(261018). 예전엔 두 칸 아래 전체 폭이라 페이지 끝에서 격자가 먼저 끝나
+                오른쪽 붙박이 칸이 헤더 밑으로 잘려 올라가고 섹션 탭만 남았다. 3칸(lg) · 3~4칸(xl), 줄이 꽉 차는 수만 */}
+            {displayAlsoViewed.length > 0 && (
+              <section className="mt-14">
+                <Reveal>
+                  <h2 className="mb-5 text-[22px] font-bold leading-tight text-[#191F28]">프리티풀의 다른 검증된 사회자를 살펴보세요</h2>
+                </Reveal>
+                <div className={`grid grid-cols-3 gap-4 ${alsoViewedXlCols === 4 ? 'xl:grid-cols-4' : ''}`}>
+                  {displayAlsoViewed.slice(0, 8).map((item, i) => renderAlsoViewedCard(
+                    item,
+                    `group min-w-0 ${i < alsoViewedLgCount ? 'block' : 'hidden'} ${i < alsoViewedXlCount ? 'xl:block' : 'xl:hidden'}`,
+                    alsoViewedXlCols === 4 ? '(min-width: 1280px) 184px, 180px' : '(min-width: 1280px) 250px, 180px',
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* 오른쪽 붙박이 칸 — 이름 · 태그 · 별점 · 문의 · 공유 · 연락 안내. 칸은 줄 높이만큼 늘고 속 상자만 붙는다 */}
+          <aside className="relative">
+            <div className="sticky" style={{ top: PC_TOP + 12 }}>
+              <div className="rounded-[24px] border border-[#EEF0F3] bg-white p-6">
+                <div className="flex items-center gap-3">
+                  <img src={pro.profileImage} alt="" className="h-14 w-14 shrink-0 rounded-[14px] object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <h1 className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[22px] font-bold leading-tight text-[#191F28]">
+                      <span>{pro.categoryName || '사회자'} {pro.name}</span>
+                      {pro.isPrime && <VerifiedBadge size={20} />}
+                    </h1>
+                    {pro.isPrime && (
+                      <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[12px] font-bold text-[#4E5968]">
+                        <img src="/images/verified-pro.svg" alt="" width={14} height={14} className="shrink-0" />
+                        인증 사회자
+                      </span>
                     )}
                   </div>
                 </div>
 
-                <div className="sticky top-[108px] z-40 mb-10 flex border-b border-gray-200 bg-white">
-                  {detailSectionTabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => scrollToDesktopSection(tab.id as 'desc' | 'info' | 'reviews')}
-                      className={`mr-7 h-12 border-b-2 text-[15px] font-bold ${activeSection === tab.id ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-500'}`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {hasDescriptionContent && (
-                  <section id="desktop-desc" className="mb-9 rounded-lg border border-gray-200 p-6">
-                    <div className="space-y-5">
-                      <h3 className="text-[19px] font-bold text-gray-950">사회자 소개</h3>
-                      {/* 모바일 본문과 동일한 리치텍스트 유틸 — 없으면 preflight 때문에 문단 여백·불릿이 사라진다 */}
-                      <div className="pro-detail-html text-[15px] leading-[1.85] text-gray-800 [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:cursor-zoom-in [&_a]:text-[#3180F7] [&_a]:underline [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1.5 [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-gray-600 [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold" onClick={zoomOnImgClick} dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
-                    </div>
-                  </section>
+                {Array.isArray(pro.tags) && pro.tags.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {pro.tags.map((t) => (
+                      <span key={t} className="rounded-full bg-[#F2F4F6] px-2.5 py-1 text-[13px] font-semibold text-[#4E5968]">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
-                <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="space-y-5">
-                    <h3 className="text-[19px] font-bold text-gray-950">영상</h3>
-                    <div>
-                      {pro.youtubeVideos.length > 0 || pro.uploadedVideos.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          {pro.youtubeVideos.map((video) => (
-                            <div key={video.id}>
-                              <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
-                                {playingVideos.has(video.id) ? (
-                                  <iframe
-                                    className="h-full w-full"
-                                    src={`https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&modestbranding=1&rel=0&playsinline=1`}
-                                    title={video.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPlayingVideos((prev) => new Set(prev).add(video.id))}
-                                    className="relative block h-full w-full"
-                                    aria-label={`${video.title} 재생`}
-                                  >
-                                    <img src={`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`} alt="" className="h-full w-full object-cover" loading="lazy" />
-                                    <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
-                                        <Play size={19} className="ml-0.5 fill-gray-950 text-gray-950" />
-                                      </span>
-                                    </span>
-                                  </button>
-                                )}
-                              </div>
-                              <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
-                            </div>
-                          ))}
-                          {pro.uploadedVideos.map((video) => (
-                            <div key={video.url}>
-                              <video
-                                src={`${video.url}#t=0.1`}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                className="w-full rounded-xl bg-black object-contain"
-                                style={{ maxHeight: '70vh' }}
-                              />
-                              <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-gray-700">{video.title}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="rounded-lg bg-gray-50 p-6 text-[14px] text-gray-500">등록된 진행 영상이 없습니다. 문의하기로 포트폴리오를 요청할 수 있어요.</div>
-                      )}
-                    </div>
-                  </div>
-                </section>
+                <div className="mt-4 flex items-center gap-2">
+                  <StarRating value={parseFloat(pro.rating.toFixed(1))} size={18} twinkle />
+                  <span className="text-[20px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+                  <button
+                    type="button"
+                    onClick={() => scrollToDesktopSection('reviews')}
+                    className="text-[14px] text-[#8B95A1] underline-offset-2 transition-colors hover:text-[#4E5968] hover:underline"
+                  >
+                    리뷰 {displayReviewCount}개
+                  </button>
+                </div>
 
-                <section id="desktop-info" className="mb-9">
-                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 정보</h2>
-                  {/* 고객이 자주 언급한 키워드 — 사장이 준 그림 그대로(두 줄 제목 · 보라 원 · 체크 칩 넷 · 회색 칩 넷).
-                      ⚠ 칸을 통째로 쓴다 — 옆 280 칸과 나눠 쓰면 폭이 400 남짓이라 폰 판으로 떨어진다(그림 판은 560↑) */}
-                  <div className="mb-5 rounded-lg border border-gray-200 px-6 pb-5 pt-7">
-                    <ReviewKeywordOrb name={pro.name} keywords={reviewKeywords} reviewCount={displayReviewCount} />
-                  </div>
-                  <div>
-                    <div className="rounded-lg border border-gray-200 p-5">
-                      <div className="flex items-center gap-3">
-                        <img src={pro.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
-                        <div>
-                          <p className="text-[16px] font-bold text-gray-950">{pro.name}</p>
-                          <p className="mt-1 text-[13px] text-gray-500">{pro.categoryName || '사회자'} 사회자</p>
-                        </div>
-                      </div>
-                      <div className="mt-5 space-y-3 text-[13px] text-gray-700">
-                        <div className="flex justify-between gap-4"><span>연락 가능 시간</span><strong>{pro.expertStats.contactTime}</strong></div>
-                        <div className="flex justify-between gap-4"><span>평균 응답 시간</span><strong>{pro.expertStats.responseTime}</strong></div>
-                        <div className="flex justify-between gap-4"><span>파트너 인증</span><strong>{pro.isPrime ? '인증 완료' : '심사 완료'}</strong></div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={openingChat}
+                    onClick={handleInquiry}
+                    className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#3180F7] text-[16.5px] font-bold text-white transition-all hover:bg-[#2470E6] active:scale-[0.99] disabled:opacity-70"
+                  >
+                    {openingChat ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/80 border-t-transparent" />
+                        요청 중
+                      </>
+                    ) : (
+                      '이 사회자에게 문의하기'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    aria-label="공유하기"
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F2F4F6] text-[#4E5968] transition hover:bg-[#EAECEF] active:scale-95"
+                  >
+                    <Share2 size={20} />
+                  </button>
+                </div>
 
-                </section>
-
-                <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="space-y-5">
-                    <h3 className="text-[19px] font-bold text-gray-950">대상자</h3>
-                    <ul className="space-y-3 text-[14px] text-gray-800">
-                      {['전문 결혼식 사회자를 찾는 예비부부', '기업행사와 컨퍼런스 진행이 필요한 담당자', '현장 분위기에 맞춘 안정적인 진행을 원하는 고객', '검증된 사회자와 직접 소통하고 싶은 고객'].map((item) => (
-                        <li key={item} className="flex items-start gap-3"><Check size={18} className="mt-0.5 text-gray-500" />{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </section>
-
-                <section className="mb-9">
-                  <h2 className="mb-6 text-[22px] font-bold text-gray-950">사회자 이력</h2>
-                  <div className="rounded-lg border border-gray-200 p-6">
-                    {[
-                      ['경력 사항', (pro.career && pro.career.trim()) || pro.description || `${pro.categoryName || '사회자'} ${pro.name} 사회자`],
-                      ['보유 자격증', pro.isPrime ? '프리티풀 인증 사회자' : '프로필 심사 완료'],
-                      ['학력 전공', pro.categoryName || '전문 진행'],
-                    ].map(([title, body]) => (
-                      <div key={title} className="mb-6 last:mb-0">
-                        <p className="mb-3 text-[15px] font-bold text-gray-950">ㆍ {title}</p>
-                        <div className="whitespace-pre-line rounded-lg bg-gray-50 p-5 text-[14px] leading-relaxed text-gray-700">{body}</div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="space-y-5">
-                    <h3 className="text-[19px] font-bold text-gray-950">FAQ</h3>
-                    <div className="divide-y divide-gray-100">
-                      {displayFaqs.map((faq, index) => (
-                        <details key={`${faq.question}-${index}`} className="group py-4 first:pt-0 last:pb-0">
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-[15px] font-bold text-gray-950">
-                            <span>Q. {faq.question}</span>
-                            <ChevronDown size={18} className="shrink-0 text-gray-400 transition-transform group-open:rotate-180" />
-                          </summary>
-                          <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-gray-700">A. {faq.answer}</p>
-                        </details>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                <section id="desktop-reviews" className="mb-9 rounded-lg border border-gray-200 p-6">
-                  <div className="mb-5 flex items-center justify-between">
-                    <h3 className="text-[19px] font-bold text-gray-950">리뷰</h3>
-                    <div className="flex items-center gap-2">
-                      <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
-                      <span className="text-[14px] font-bold">{pro.rating.toFixed(1)}</span>
-                      <span className="text-[13px] text-gray-500">({displayReviewCount})</span>
-                    </div>
-                  </div>
-                  <div className="space-y-5">
-                    {hasReviewMetricOnly ? (
-                      <div className="rounded-lg bg-gray-50 p-6">
-                        <div className="mb-2 flex items-center gap-2">
-                          <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
-                          <span className="text-[14px] font-bold text-gray-950">{pro.rating.toFixed(1)}</span>
-                          <span className="text-[13px] text-gray-400">({displayReviewCount})</span>
-                        </div>
-                        <p className="text-[14px] leading-relaxed text-gray-600">{metricOnlyReviewMessage}</p>
-                      </div>
-                    ) : displayReviews.length === 0 ? (
-                      <p className="rounded-lg bg-gray-50 p-6 text-center text-[14px] text-gray-500">아직 표시할 리뷰가 없습니다</p>
-                    ) : displayReviews.slice(0, 3).map((review) => (
-                      <div key={review.id} className="border-b border-gray-100 pb-5 last:border-0 last:pb-0">
-                        <div className="mb-2 flex items-center gap-2">
-                          <StarRating value={review.rating} size={13} />
-                          <span className="text-[13px] font-bold text-gray-950">{review.rating.toFixed(1)}</span>
-                          <span className="text-[12px] text-gray-400">{review.date}</span>
-                        </div>
-                        {/* 항목별 점수(발성력·진행력 등) — 모바일에만 있던 걸 PC 에도 */}
-                        {(review as typeof review & { scores?: Record<string, number> }).scores && (
-                          <div className="mb-2 flex flex-wrap gap-1">
-                            {Object.entries((review as typeof review & { scores: Record<string, number> }).scores).map(([key, val]) => (
-                              <span key={key} className="flex items-center rounded-[5px] bg-gray-100 px-1.5 text-[10px] font-medium text-gray-600" style={{ height: 22 }}>
-                                {key} <span className="ml-1 font-bold text-[#3180F7]">{val}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-[14px] leading-relaxed text-gray-800">{review.content}</p>
-                        {review.photos && review.photos.length > 0 && (
-                          <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide">
-                            {review.photos.slice(0, 5).map((photo, index) => (
-                              <img
-                                key={`${review.id}-desktop-photo-${index}`}
-                                src={photo}
-                                alt=""
-                                className="h-[76px] w-[76px] shrink-0 rounded-lg object-cover"
-                                loading="lazy"
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {displayReviewCount > 0 && (
-                    <button onClick={() => router.push(`/pros/${pro.id}/reviews`)} className="mt-5 h-11 w-full rounded-lg border border-gray-200 text-[14px] font-bold text-gray-700 hover:bg-gray-50">
-                      리뷰 전체보기
-                    </button>
-                  )}
-                </section>
-
+                <p className="mt-3 flex items-center justify-center gap-1.5 text-[13px] text-[#8B95A1]">
+                  <img src="/icons/pro-detail/clock.svg" alt="" width={16} height={16} className="shrink-0" />
+                  연락 {pro.expertStats.contactTime} · 평균 응답 {pro.expertStats.responseTime}
+                </p>
               </div>
             </div>
-
-            <aside className="space-y-7">
-              {/* 스택 캐러셀 — 앞 사진 뒤로 다음 사진이 살짝 작게 겹쳐 보이고,
-                  3초마다 뒤 사진이 위로 올라오며 앞으로 나온다.
-                  비율·라운드는 모바일 히어로와 동일(70:106 / 48px). */}
-              {(() => {
-                const imgs = pro.images.length > 0 ? pro.images : [pro.mainImage];
-                const n = imgs.length;
-                const go = (dir: number) => setDeskImage((i) => (i + dir + n) % n);
-                return (
-                  <div
-                    className="relative pt-7"
-                    onMouseEnter={() => setDeskPaused(true)}
-                    onMouseLeave={() => setDeskPaused(false)}
-                  >
-                    <div className="relative aspect-[70/106] w-full">
-                      {imgs.map((src, i) => {
-                        const pos = (i - deskImage + n) % n;   // 0=앞, 1=바로 뒤
-                        const front = pos === 0;
-                        const behind = pos === 1 && n > 1;
-                        return (
-                          <button
-                            key={`${src}-${i}`}
-                            type="button"
-                            aria-hidden={!front}
-                            tabIndex={front ? 0 : -1}
-                            onClick={() => front && setImageModal(src)}
-                            className="absolute inset-0 block overflow-hidden rounded-[48px] border border-gray-200 bg-gray-100 shadow-sm transition-all duration-[650ms]"
-                            style={{
-                              // 뒤 카드는 조금 작게 + 위로 올라가 있어 앞 카드 위로 살짝 보인다
-                              transform: front
-                                ? 'scale(1) translateY(0)'
-                                : behind
-                                  ? 'scale(0.93) translateY(-26px)'
-                                  : 'scale(0.88) translateY(-38px)',
-                              opacity: front || behind ? 1 : 0,
-                              zIndex: front ? 20 : behind ? 10 : 0,
-                              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-                              pointerEvents: front ? 'auto' : 'none',
-                            }}
-                          >
-                            <Image
-                              src={src}
-                              alt={front ? pro.name : ''}
-                              fill
-                              className="object-cover"
-                              sizes="360px"
-                              priority={i === 0}
-                            />
-                            {behind && <span className="absolute inset-0 bg-black/25" />}
-                          </button>
-                        );
-                      })}
-
-                      {/* 하단 딤드 — 예전엔 이름·소개글이 있던 자리, 이제 좌우 버튼이 들어간다 */}
-                      {n > 1 && (
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex items-center justify-between rounded-b-[48px] bg-gradient-to-t from-black/65 to-transparent px-5 pb-6 pt-12">
-                          <button
-                            type="button"
-                            aria-label="이전 사진"
-                            onClick={(e) => { e.stopPropagation(); go(-1); }}
-                            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md transition hover:bg-white/40 active:scale-95"
-                          >
-                            <ChevronLeft size={22} strokeWidth={2.4} />
-                          </button>
-
-                          {/* 화살표 사이 가운데 — 배경 없이 글씨만 */}
-                          <span className="text-[17px] font-bold tabular-nums text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.55)]">
-                            {deskImage + 1} / {n}
-                          </span>
-
-                          <button
-                            type="button"
-                            aria-label="다음 사진"
-                            onClick={(e) => { e.stopPropagation(); go(1); }}
-                            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-md transition hover:bg-white/40 active:scale-95"
-                          >
-                            <ChevronRight size={22} strokeWidth={2.4} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* 감싸던 카드 박스를 없애고 버튼만 남겼다. 공유는 그 옆에 */}
-              <div className="sticky top-[132px] flex items-center gap-2">
-                <button
-                  onClick={handleInquiry}
-                  disabled={openingChat}
-                  className="h-[58px] flex-1 rounded-lg bg-[#3180F7] text-[17px] font-bold text-white transition hover:bg-[#2470E6] disabled:opacity-60"
-                >
-                  {openingChat ? '요청 중...' : '이 사회자에게 문의하기'}
-                </button>
-                <button
-                  onClick={handleShare}
-                  aria-label="공유하기"
-                  className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-lg bg-[#F2F3F5] text-[#51535C] transition hover:bg-[#E9EBEF]"
-                >
-                  <Share2 size={20} />
-                </button>
-              </div>
-            </aside>
-          </div>
-        </main>
+          </aside>
+        </div>
       </div>
 
       <div className="lg:hidden bg-white min-h-screen" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 112px), 128px)' }}>
@@ -2340,7 +2366,7 @@ export default function ProDetailPage() {
         <Reveal>
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2.5">
-              <p className="flex items-center gap-1 text-[18px] font-extrabold text-[#191F28]">
+              <p className="flex items-center gap-1 text-[18px] font-bold text-[#191F28]">
                 {pro.categoryName || '사회자'} {pro.name}
                 {pro.isPrime && <VerifiedBadge size={18} />}
               </p>
@@ -2368,7 +2394,7 @@ export default function ProDetailPage() {
         <Reveal delay={100}>
           <div className="flex items-center gap-2 mt-2 mb-1">
             <StarRating value={parseFloat(pro.rating.toFixed(1))} size={16} twinkle />
-            <span className="text-[18px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+            <span className="text-[18px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
             <span className="text-[13px] text-[#8B95A1]">({displayReviewCount})</span>
           </div>
           <FloatingReviewCards reviews={displayReviews} pro={{ id: pro.id, name: pro.name, image: pro.profileImage }} />
@@ -2425,10 +2451,7 @@ export default function ProDetailPage() {
 
           {/* 서비스 설명 맨 위에 진행 영상 — 여러 편이면 옆으로 넘겨 본다(업로드 먼저) */}
           {(() => {
-            const clips = [
-              ...pro.uploadedVideos.map((v) => ({ key: v.url, kind: 'upload' as const, src: v.url, title: v.title })),
-              ...pro.youtubeVideos.map((v) => ({ key: v.id, kind: 'youtube' as const, src: v.id, title: v.title })),
-            ];
+            const clips = videoClips;
             if (clips.length === 0) return null;
             const single = clips.length === 1;
             return (
@@ -2464,48 +2487,9 @@ export default function ProDetailPage() {
             );
           })()}
 
-        {pro.isPrime && (
-          <Reveal delay={100}>
-            <div className="mb-6 rounded-2xl border border-[#EEF0F4] bg-[#F7F8FA] p-4">
-              <SectionHead
-                eyebrow="PARTNERS"
-                title={<>프리티풀 엄선 상위 <span className="text-[#3180F7]">2%</span> 사회자가 제공해요</>}
-                icon="/icons/pro-detail/certification.svg"
-                size="sm"
-                tileClassName="bg-white"
-                className="mb-3"
-              />
-              <ul className="space-y-1.5">
-                {['포트폴리오와 고객 후기로 검증된 퀄리티', '경력·이력 인증 심사를 통과한 서비스', '다양한 고객의 요청에 맞춘 전문성'].map((item, i) => (
-                  <li
-                    key={item}
-                    className="flex items-center gap-2 text-[13px] text-[#4E5968] opacity-0"
-                    style={{ animation: `slideInLeft 0.6s ease-out ${300 + i * 100}ms forwards` }}
-                  >
-                    <img src="/icons/pro-detail/check.svg" alt="" width={14} height={14} className="shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-        )}
+        {partnersBox}
 
-        {/* Description text (영상만 있는 사회자는 설명 본문 생략) */}
-        {hasDescriptionContent && (
-          <>
-            {/* 설명 전문 표시 — 400px 클램프+더보기 제거(설명 짤림 QA) */}
-            <div className="pro-detail-html text-left text-[15px] leading-[1.8] text-[#333D4B] [&_a]:text-[#3180F7] [&_a]:underline [&_blockquote]:my-4 [&_blockquote]:border-l-4 [&_blockquote]:border-[#3180F7]/30 [&_blockquote]:pl-4 [&_blockquote]:text-[#4E5968] [&_br]:leading-[1.8] [&_h1]:mb-3 [&_h1]:text-[22px] [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h3]:mb-2 [&_h3]:text-[17px] [&_h3]:font-bold [&_img]:my-4 [&_img]:max-w-full [&_img]:rounded-xl [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-5 [&_img]:cursor-zoom-in" onClick={zoomOnImgClick}>
-              <div dangerouslySetInnerHTML={{ __html: pro.descriptionHtml || '' }} />
-            </div>
-
-            {/* Image expand notice */}
-            <div className="mt-8 bg-[#F7F8FA] rounded-2xl py-3 flex items-center justify-center gap-2 text-[13px] text-[#8B95A1]">
-              이미지를 클릭해서 확대 할 수 있어요
-              <ArrowUpRight size={14} />
-            </div>
-          </>
-        )}
+        {descriptionHtmlBlock}
 
         </div>
       )}
@@ -2514,31 +2498,10 @@ export default function ProDetailPage() {
       {displayAlsoViewed.length > 0 && (
         <div className="px-4 pt-8 pb-4">
           <Reveal>
-            <h3 className="mb-4 text-[20px] font-extrabold leading-tight text-[#191F28]">프리티풀의 다른<br />검증된 사회자를 살펴보세요</h3>
+            <h3 className="mb-4 text-[20px] font-bold leading-tight text-[#191F28]">프리티풀의 다른<br />검증된 사회자를 살펴보세요</h3>
           </Reveal>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x pr-4">
-            {displayAlsoViewed.map((item) => (
-              <Link
-                key={item.id}
-                href={`/pros/${item.id}`}
-                className="group w-[150px] shrink-0 snap-start"
-              >
-                <div className="relative overflow-hidden rounded-[16px] bg-[#F2F4F6]" style={{ aspectRatio: '3/4' }}>
-                  <Image src={item.image || '/images/default-profile.png'} alt="" fill className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                </div>
-                <div className="mt-1.5">
-                  <span className="mb-1 inline-flex items-center gap-0.5 rounded-full bg-[#F2F4F6] px-2 py-[3px] text-[11px] font-bold text-[#4E5968]"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Partners</span>
-                  <p className="text-[15px] font-semibold leading-tight text-[#191F28]">{item.category || '사회자'} {item.author}</p>
-                  {item.rating && (
-                    <div className="mt-1 flex items-center gap-1">
-                      <StarRating value={parseFloat(item.rating.toFixed(1))} size={13} />
-                      <span className="text-[13px] font-bold text-[#191F28]">{item.rating.toFixed(1)}</span>
-                      <span className="text-[12px] text-[#8B95A1]">({item.reviewCount})</span>
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
+            {displayAlsoViewed.map((item) => renderAlsoViewedCard(item, 'group w-[150px] shrink-0 snap-start'))}
           </div>
         </div>
       )}
@@ -2552,7 +2515,7 @@ export default function ProDetailPage() {
         <div className="flex items-center gap-4 mb-2">
           <img src={pro.profileImage} alt="" className="w-[60px] h-[60px] rounded-[14px] object-cover" />
           <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-extrabold text-[#191F28]">{pro.name}</p>
+            <p className="text-[15px] font-bold text-[#191F28]">{pro.name}</p>
             <div className="flex items-center gap-1 mt-0.5">
               <StarRating value={parseFloat(pro.rating.toFixed(1))} size={12} />
               <span className="text-[12px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
@@ -2563,11 +2526,7 @@ export default function ProDetailPage() {
 
         {/* 정보 행 — 아이콘 타일 + 라벨/값, 1px 구분선 */}
         <div className="divide-y divide-[#F2F4F6]">
-          {[
-            { icon: '/icons/pro-detail/clock.svg', label: '연락 가능 시간', value: pro.expertStats.contactTime },
-            { icon: '/icons/pro-detail/chat.svg', label: '평균 응답 시간', value: pro.expertStats.responseTime },
-            { icon: '/icons/pro-detail/certification.svg', label: '파트너 인증', value: pro.isPrime ? '인증 완료' : '심사 완료' },
-          ].map((row) => (
+          {infoRows.map((row) => (
             <div key={row.label} className="flex items-center gap-3 py-3">
               <IconTile src={row.icon} />
               <span className="text-[13px] text-[#8B95A1]">{row.label}</span>
@@ -2584,7 +2543,7 @@ export default function ProDetailPage() {
 
         <div className="flex items-center gap-2 mb-3">
           <StarRating value={parseFloat(pro.rating.toFixed(1))} size={20} />
-          <span className="text-[24px] font-extrabold text-[#191F28]">{pro.rating.toFixed(1)}</span>
+          <span className="text-[24px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
           <span className="text-[14px] text-[#8B95A1]">({displayReviewCount})</span>
         </div>
 
@@ -2597,72 +2556,15 @@ export default function ProDetailPage() {
 
         {/* Reviews list */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[16px] font-extrabold text-[#191F28]">전체 리뷰 {displayReviewCount}건</h3>
+          <h3 className="text-[16px] font-bold text-[#191F28]">전체 리뷰 {displayReviewCount}건</h3>
           <button><ChevronRight size={20} className="text-[#8B95A1]" /></button>
         </div>
 
         <div className="space-y-6">
-          {hasReviewMetricOnly ? (
-            <div className="rounded-2xl bg-[#F7F8FA] px-4 py-5">
-              <div className="mb-2 flex items-center gap-2">
-                <StarRating value={parseFloat(pro.rating.toFixed(1))} size={14} />
-                <span className="text-[13px] font-bold text-[#191F28]">{pro.rating.toFixed(1)}</span>
-                <span className="text-[12px] text-[#8B95A1]">({displayReviewCount})</span>
-              </div>
-              <p className="text-[14px] leading-[1.7] text-[#4E5968]">{metricOnlyReviewMessage}</p>
-            </div>
-          ) : displayReviews.length === 0 && (
-            <div className="rounded-2xl bg-[#F7F8FA] px-4 py-8 text-center">
-              <p className="text-[14px] font-semibold text-[#191F28]">아직 표시할 리뷰가 없습니다</p>
-              <p className="mt-1 text-[12px] text-[#8B95A1]">리뷰가 등록되면 이곳에 바로 보여집니다</p>
-            </div>
-          )}
+          {reviewStateBlock}
 
           {/* 리뷰 줄 — 목록 리뷰 시트와 같은 댓글형(260926 사장 "리뷰 카드도 모달처럼") */}
-          {displayReviews.length > 0 && (
-            <div className="-mt-2">
-              {displayReviews.map((review, i) => (
-                <ReviewCommentRow
-                  key={review.id}
-                  first={i === 0}
-                  pro={{ id: pro.id, name: pro.name, image: pro.profileImage }}
-                  review={{
-                    id: review.id,
-                    name: review.name,
-                    avatar: review.avatar ?? null,
-                    rating: review.rating,
-                    createdAt: review.createdAt,
-                    date: review.date,
-                    content: review.content,
-                    photos: review.photos,
-                    proReply: review.proReply ? { content: review.proReply.content, at: review.proReply.at, date: review.proReply.date } : undefined,
-                  }}
-                  menu={
-                    <div className="relative shrink-0">
-                      <button
-                        onClick={() => setReviewMenu(reviewMenu === review.id ? null : review.id)}
-                        aria-label="리뷰 메뉴"
-                        className="-mr-1 -mt-0.5 flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-[#F2F4F6]"
-                      >
-                        <span className="text-[16px] leading-none text-[#8B95A1]">⋯</span>
-                      </button>
-                      {reviewMenu === review.id && (
-                        <div className="pop-menu nt-menu absolute right-0 top-8 z-20" style={{ transformOrigin: 'top right' }}>
-                          {/* 리뷰 ⋮ — 알림 메뉴 어법(왼쪽 토스 컬러 아이콘 · 이름 17 · 모서리 24) */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <button onClick={() => { toast('리뷰를 신고했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(0)}><img src="/icons/toss/siren.svg" alt="" />신고하기</button>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <button onClick={() => { toast('리뷰를 차단했습니다'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(1)}><img src="/icons/toss/user-blocked.svg" alt="" />차단하기</button>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <button onClick={() => { navigator.clipboard.writeText(review.content); toast.success('복사됨'); setReviewMenu(null); }} className="pop-menu-item nt-menu-item" style={popItemDelay(2)}><img src="/icons/toss/copy.svg" alt="" />복사하기</button>
-                        </div>
-                      )}
-                    </div>
-                  }
-                />
-              ))}
-            </div>
-          )}
+          {displayReviews.length > 0 && renderReviewRows(displayReviews)}
         </div>
 
         {displayReviewCount > 0 && (
@@ -2678,12 +2580,7 @@ export default function ProDetailPage() {
       {/* ─── Expandable panels ─── */}
       <div className={`px-5 py-6 ${CARD_CLS}`}>
         <SectionHead eyebrow="GUIDE" title="사회자 FAQ" icon="/icons/pro-detail/bulb.svg" className="mb-1" />
-        {[
-          { id: 'info', label: '서비스 정보', content: `• 카테고리: MC / 아나운서\n• 평균 작업 기간: 20일 이내\n• 커뮤니케이션: 1시간 이내 응답\n• 수정 횟수: 1회 포함\n• 취소·환불 정책: 환불 규정 참고` },
-          { id: 'revision', label: '수정 및 재진행', content: `• 상품 구매 후 수정 횟수는 1회입니다.\n• 수정 요청은 작업 완료 전 요청 가능합니다.\n• 추가 수정이 필요한 경우 별도 협의가 필요합니다.` },
-          { id: 'cancel', label: '취소 및 환불 규정', content: `• 프리티풀 플랫폼 환불 규정을 따라요(입금일·예약 당일 포함 기준)\n• 입금일로부터 4일 이내: 100% 환불\n• 5~7일 이내: 50% 환불\n• 7일 경과 또는 사전미팅 진행 후: 환불 불가\n• 행사일이 입금일로부터 7일 이내면 환불 불가\n• 사회자 사정으로 취소되면 전액 환불 + 규정에 따른 보상` },
-          { id: 'notice', label: '상품정보고시', content: `• 제공자: ${pro.name}\n• 서비스 제공방식: 온/오프라인\n• 결제 후 계약 내용 변경은 상호 협의에 의해서만 가능합니다.` },
-        ].map((panel) => {
+        {policyPanels.map((panel) => {
           const isOpen = expandedPanel === panel.id;
           return (
             <div key={panel.id} className="border-b border-[#F2F4F6] last:border-0">
@@ -2711,23 +2608,7 @@ export default function ProDetailPage() {
 
       {/* ─── 환불 규정 안내 (맨 하단) ─── */}
       <div className="px-5 pb-8 pt-2">
-        <div className="flex items-start gap-3 rounded-[20px] bg-[#F7F8FA] p-4">
-          <img src="/icons/pro-detail/counselor.svg" alt="" width={40} height={40} className="shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold text-[#191F28]">환불 규정 안내</p>
-            <p className="mt-1 text-[13px] leading-[1.7] text-[#8B95A1]">
-              예약금은 입금일로부터 4일 이내 100%, 5~7일 이내 50% 환불됩니다. 7일이 지나거나 사전미팅이 진행된 뒤에는
-              환불이 어렵고, 사회자 귀책으로 진행이 취소된 경우에는 전액 환불과 함께 보상이 이뤄집니다.
-            </p>
-            <Link
-              href="/terms/refund"
-              className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-bold text-[#3180F7]"
-            >
-              자세한 환불 규정 보기
-              <ChevronRight size={15} />
-            </Link>
-          </div>
-        </div>
+        {refundNoticeBox}
       </div>
 
       {/* ─── Bottom Fixed Bar ─── */}
@@ -2874,7 +2755,8 @@ export default function ProDetailPage() {
             <X size={24} />
           </button>
           <ZoomableImage src={imageModal} />
-          <p className="pointer-events-none absolute bottom-[calc(24px+var(--ft-sab))] left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">두 손가락으로 확대 · 두 번 탭</p>
+          {/* 확대 제스처는 터치 전용 — PC 엔 안내를 띄우지 않는다(261018) */}
+          <p className="pointer-events-none absolute bottom-[calc(24px+var(--ft-sab))] left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm lg:hidden">두 손가락으로 확대 · 두 번 탭</p>
         </div>
       )}
 
@@ -3039,10 +2921,6 @@ export default function ProDetailPage() {
           0% { opacity: 0; transform: translateX(-12px); }
           100% { opacity: 1; transform: translateX(0); }
         }
-        @keyframes recentReviewsSlideLTR {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
         .hero-snap {
           scroll-snap-type: x mandatory;
           scroll-padding-left: 18px;
@@ -3050,36 +2928,6 @@ export default function ProDetailPage() {
           scrollbar-width: none;
         }
         .hero-snap::-webkit-scrollbar { display: none; }
-        .recent-reviews-carousel {
-          animation: recentReviewsSlideLTR 34s linear infinite;
-          will-change: transform;
-        }
-        .recent-reviews-carousel:hover {
-          animation-play-state: paused;
-        }
-        .recent-reviews-carousel-frame::before,
-        .recent-reviews-carousel-frame::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          z-index: 12;
-          width: 58px;
-          pointer-events: none;
-        }
-        .recent-reviews-carousel-frame::before {
-          left: 0;
-          background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
-        }
-        .recent-reviews-carousel-frame::after {
-          right: 0;
-          background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0.86) 24%, rgba(255,255,255,0) 100%);
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .recent-reviews-carousel {
-            animation: none;
-          }
-        }
         @keyframes primeShine {
           0%, 100% { box-shadow: 0 0 0 rgba(49,128,247,0); }
           50% { box-shadow: 0 0 16px rgba(49,128,247,0.4); }

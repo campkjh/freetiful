@@ -27,6 +27,11 @@ const BIZ_BUBBLE_TAIL_X = 64;
 const BIZ_BUBBLE_WIDTH = 352;
 const BIZ_BUBBLE_MAX_WIDTH = 460;
 const BIZ_ICON = '/images/icons/biz-folder.png';
+/**
+ * 본문을 이만큼 내리면 접는다 / 내려가 있으면 띄우지 않는다(261018) — 말풍선은 sticky 머리줄에 붙어 스크롤 내내 떠 있어서
+ * 사회자 상세 PC 의 고정 섹션 탭(특히 '리뷰' 탭)을 통째로 덮었다. 맨 위에서만 보이게 — 모든 PC 화면 공통.
+ */
+const BIZ_BUBBLE_SCROLL_FOLD = 40;
 
 export default function BizHeaderButton() {
   const router = useRouter();
@@ -47,7 +52,8 @@ export default function BizHeaderButton() {
     let timer = 0;
     const tick = () => {
       const now = Date.now();
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) quietSince = 0;
+      // 창이 떠 있거나 본문이 내려가 있으면(261018) 조용하지 않은 것으로 — 맨 위로 돌아와 1.2초 지나야 띄운다
+      if (document.querySelector('[role="dialog"][aria-modal="true"]') || window.scrollY > BIZ_BUBBLE_SCROLL_FOLD) quietSince = 0;
       else if (!quietSince) quietSince = now;
       if (now - start >= 850 && quietSince && now - quietSince >= 1200) {
         setPhase((p) => (p === 'hidden' ? 'in' : p));
@@ -87,6 +93,16 @@ export default function BizHeaderButton() {
     if (pathname !== firstPath.current && phase === 'in') fold(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  // 본문을 내리면 접는다(261018) — 30분 숨김은 남기지 않는다(×·이동만 기억)
+  useEffect(() => {
+    if (phase !== 'in') return;
+    const onScroll = () => { if (window.scrollY > BIZ_BUBBLE_SCROLL_FOLD) fold(false); };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   const go = () => {
     fold(true);

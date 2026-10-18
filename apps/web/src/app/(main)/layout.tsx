@@ -213,8 +213,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   // 비즈 모든 화면(261009) — 폭 제한 없이. 공용 흰 머리줄(BizHeader) · 장면 · 맺음 띠가 화면 끝까지 깔리는데 max-w-7xl·px-8 칸에 넣으면
   // PC 양옆에 회색 띠가 비쳤다(예전엔 첫 화면 · lab · news 만). 글 폭은 각 화면이 직접(1100 · 880 등)
   const bizFullRoute = /^\/biz(\/|$)/.test(pathname);
-  // 사회자 목록 · 웨딩파트너 목록 — 모바일은 자기 머리줄(하단 탭 없음) 그대로, PC 는 전체 헤더를 보인다(260928 사장 'PC 목록 화면도 지금 톤앤매너로')
-  const pcHeaderRoute = /^\/(pros|businesses)$/.test(pathname);
   // PC 웨딩숲 검색창(전체 헤더) — 웨딩숲 글 목록이 같은 값으로 찾는다. 웨딩숲을 벗어나면 비운다.
   const communityQuery = useCommunitySearch((s) => s.query);
   const setCommunityQuery = useCommunitySearch((s) => s.setQuery);
@@ -235,6 +233,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     if (inFrame) document.documentElement.setAttribute('data-embedded', '1');
     return () => { if (inFrame) document.documentElement.removeAttribute('data-embedded'); };
   }, []);
+  // 사회자 목록 · 웨딩파트너 목록 — 모바일은 자기 머리줄(하단 탭 없음) 그대로, PC 는 전체 헤더를 보인다(260928 사장 'PC 목록 화면도 지금 톤앤매너로')
+  const pcHeaderRoute = /^\/(pros|businesses)$/.test(pathname)
+    // 사회자 상세도 PC 는 전체 헤더(261018 사장 'PC 상세 지금 톤앤매너로') — /pros/:id/reviews 등 하위 화면은 제외.
+    // iframe(목록 미리보기) 안에서는 띄우지 않는다
+    || (/^\/pros\/[^/]+$/.test(pathname) && !embedded);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifUnread, setNotifUnread] = useState(0);
 
