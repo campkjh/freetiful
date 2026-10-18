@@ -709,11 +709,12 @@ html.wr-lock body {
   opacity: 1;
   transition-duration: 0.05s;
 }
+/* (261018) 가장자리에서 최소 28px — 슬라이드를 누른 채 엄지가 밀리면 가장자리 '뒤로' 제스처로 받아 홈으로 튕기던 것 */
 .wr-ctrl.is-slide {
-  left: calc(var(--sa-l) + var(--u) * 12);
+  left: calc(max(var(--sa-l), 28px) + var(--u) * 12);
 }
 .wr-ctrl.is-jump {
-  right: calc(var(--sa-r) + var(--u) * 12);
+  right: calc(max(var(--sa-r), 28px) + var(--u) * 12);
 }
 .wr-ctrl.is-pulse::after {
   content: '';

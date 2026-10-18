@@ -131,6 +131,9 @@ export async function createWeddingRunGame(parent: HTMLElement, opts: WRCreateOp
     scale: { mode: Phaser.Scale.NONE, width: m0.w, height: m0.h, zoom: 1 / m0.res, autoCenter: Phaser.Scale.NO_CENTER },
     render: { antialias: true, pixelArt: false, roundPixels: false, powerPreference: 'high-performance' },
     fps: { target: 60, smoothStep: true },
+    // (261018) 쓰지 않는 Phaser FX(pre/post) 렌더 타깃을 만들지 않는다 — 화면은 같고 GPU 메모리 약 97MiB 절약(가로 회전 뒤 메모리 부족 재로드 예방)
+    disablePreFX: true,
+    disablePostFX: true,
     // (261011 검증 E2) 그림 하나가 응답 없으면 로더 전체가 멈춰 뒤 구간 그림을 영영 못 받았다 → 시간 제한 + 자체 재시도
     // 동시 받기 6개(기본 32) — 느린 망에서 큰 그림 수십 장이 대역폭을 나눠 가져 전부 시간 제한에 걸리던 것(검증 high), 앞 순서(캐릭터·첫 구간)부터 끝낸다
     loader: { timeout: LOADER_TIMEOUT_MS, maxRetries: LOADER_MAX_RETRIES, maxParallelDownloads: LOADER_PARALLEL },
@@ -156,8 +159,9 @@ export async function createWeddingRunGame(parent: HTMLElement, opts: WRCreateOp
     if (key === lastKey) return;
     lastKey = key;
     try {
-      game.scale.setZoom(1 / m.res);
+      // 크기 먼저, 배율은 그다음(261018) — 반대 순서면 배율이 1 이 되는 단계에서 캔버스 CSS 크기가 옛 값으로 남았다(Phaser ScaleManager)
       game.scale.resize(m.w, m.h);
+      game.scale.setZoom(1 / m.res);
       styleCanvas();
       api?.layout();
     } catch {

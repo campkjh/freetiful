@@ -451,7 +451,8 @@ class ViewController: UIViewController,
         nativeNavBar.setVisible(shouldShow, animated: animated)
         // 탭 화면에선 WKWebView 스와이프 뒤로가기를 끈다 — 탭 전환은 기록을 안 쌓아서(replace)
         // 스와이프하면 엉뚱한 옛 화면으로 가던 것. 상세 화면에선 켠다.
-        webView?.allowsBackForwardNavigationGestures = !isTopLevelTab(currentPath)
+        // 웨딩런(가로 게임)은 왼쪽 가장자리 스와이프 뒤로가기를 끈다(261018) — 슬라이드 단추를 누른 채 밀리면 게임 중 홈으로 튕겼다. 나가기는 게임 안 홈 단추로
+        webView?.allowsBackForwardNavigationGestures = !isTopLevelTab(currentPath) && !currentPath.hasPrefix("/wedding-run")
     }
 
     /// 탭 맨 위 화면 — 여기선 스와이프 뒤로가기를 끈다(앱 탭 전환은 replace 라 되감으면 엉뚱한 옛 화면으로 갔다).

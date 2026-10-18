@@ -66,12 +66,15 @@
         </intent-filter>
     </activity>
 
-    <!-- ✅ 메인 화면 -->
+    <!-- ✅ 메인 화면
+         configChanges(261018): 폰을 돌리거나 다크모드·분할 화면으로 바뀌어도 화면(Activity)·웹뷰를 새로 만들지 않는다 — 웹은 resize 만 받는다.
+         없으면 회전할 때마다 새 웹뷰가 홈(/main)을 열어 웨딩런(가로 게임)에서 돌리자마자 홈으로 튕겼다 -->
     <activity
         android:name=".MainActivity"
         android:exported="true"
         android:theme="@style/Theme.Freetiful"
         android:launchMode="singleTop"
+        android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
         android:windowSoftInputMode="adjustResize">
         <intent-filter>
             <action android:name="android.intent.action.VIEW" />

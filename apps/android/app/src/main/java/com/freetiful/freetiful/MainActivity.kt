@@ -86,9 +86,14 @@ class MainActivity : ComponentActivity() {
         if (origin != null && callback != null) callback.invoke(origin, hasLocationPermission(), false)
     }
 
+    /** 웹 렌더러가 죽어 화면을 다시 만들 때 돌아갈 주소(261018) */
+    private var restoreUrl: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingPushPath = consumePushTarget(intent)
+        // 화면이 다시 만들어진 경우(렌더러 종료 · 시스템이 회수 뒤 복원)는 보던 주소로 — 옛 푸시 intent 가 남아 엉뚱한 경로가 다시 열리지 않게 먼저 본다(261018)
+        pendingPushPath = savedInstanceState?.getString(KEY_LAST_URL)?.let { normalizeInternalPath(it) }
+            ?: consumePushTarget(intent)
         registerBackHandler()
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -296,6 +301,17 @@ class MainActivity : ComponentActivity() {
                                 showLoading()
                             }
 
+                            // 웹 렌더러가 죽으면(메모리 등) 기본은 앱 전체가 꺼진다 — 보던 주소를 기억해 화면만 다시 만든다(261018)
+                            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                                restoreUrl = try { view?.url } catch (_: Exception) { null }
+                                try {
+                                    (view?.parent as? android.view.ViewGroup)?.removeView(view)
+                                    view?.destroy()
+                                } catch (_: Exception) { }
+                                recreate()
+                                return true
+                            }
+
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
                                 // iOS의 WKUserScript와 동등: viewport-fit=cover + 터치 보정
@@ -332,6 +348,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
+    }
+
+    // 화면이 다시 만들어질 때 보던 주소를 남긴다(261018) — onCreate 가 이 주소로 연다
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val url = restoreUrl ?: try { if (::webView.isInitialized) webView.url else null } catch (_: Exception) { null }
+        if (!url.isNullOrBlank()) outState.putString(KEY_LAST_URL, url)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -982,5 +1005,9 @@ class MainActivity : ComponentActivity() {
             android.util.Log.d("ONESIGNAL_ID", "oneSignalLogout")
             runOnUiThread { OneSignal.logout() }
         }
+    }
+
+    companion object {
+        private const val KEY_LAST_URL = "ft_last_url"
     }
 }

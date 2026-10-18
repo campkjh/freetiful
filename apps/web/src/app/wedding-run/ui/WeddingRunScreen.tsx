@@ -47,6 +47,7 @@ import {
 import { STAGE_INFO, clampSegment } from './text';
 import type { WREvent, WRGame } from './types';
 import './wedding-run.css';
+import { WR_ALIVE_KEY } from '@/components/WeddingRunRescue';
 
 type Phase = 'entry' | 'playing' | 'paused' | 'countdown' | 'over';
 type BannerTone = 'event' | 'stage' | 'tutorial';
@@ -550,7 +551,20 @@ export default function WeddingRunScreen({
     });
   }, []);
 
+  // '살아 있음' 시각(261018) — 안드 앱이 회전으로 화면을 새로 만들어 홈을 열면 WeddingRunRescue 가 이 시각을 보고 되돌려 보낸다.
+  // 화면을 정상으로 떠날 때(나가기 단추 · 다른 화면으로 이동)는 지운다
+  useEffect(() => {
+    const mark = () => { try { localStorage.setItem(WR_ALIVE_KEY, String(Date.now())); } catch { /* 저장소 막힘 */ } };
+    mark();
+    const t = window.setInterval(mark, 1000);
+    return () => {
+      window.clearInterval(t);
+      try { localStorage.removeItem(WR_ALIVE_KEY); } catch { /* 저장소 막힘 */ }
+    };
+  }, []);
+
   const goHome = useCallback(() => {
+    try { localStorage.removeItem(WR_ALIVE_KEY); } catch { /* 저장소 막힘 */ }
     abandonRun();
     exitFullscreen();
     if (isAppWebView() && window.history.length > 1) {

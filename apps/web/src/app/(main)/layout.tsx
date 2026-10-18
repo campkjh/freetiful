@@ -12,6 +12,7 @@ import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import GuestLoginForm from '@/components/GuestLoginForm';
 import AccountSwitcher, { SavedAccountsQuickList, noteNativeNavigate, noteTabTap } from '@/components/AccountSwitcher';
 import BizHeaderButton from '@/components/BizHeaderButton';
+import WeddingRunRescue from '@/components/WeddingRunRescue';
 import { WEDDING_PARTNER_CATEGORIES, WEDDING_PARTNER_CATEGORY_ICONS } from '@/lib/business-categories';
 import { LayoutGroup, motion } from 'framer-motion';
 import NotificationDrawer from '@/components/NotificationDrawer';
@@ -535,6 +536,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className={`min-h-screen ${whiteBackground ? 'bg-white' : chatRoute || requestListRoute ? 'bg-white lg:bg-surface-50' : myRoute ? 'bg-[#F4F6FA] lg:bg-surface-50' : 'bg-surface-50'}`}>
+      {/* 안드 앱 회전 튕김 구제(261018) — 웨딩런에서 돌렸다가 홈이 새로 열리면 웨딩런으로 되돌림 */}
+      <WeddingRunRescue />
       {/* 빌라드지디 이벤트 — 앱 초기 진입 시 1회 노출(X로 닫기) */}
       {/* 비즈(/biz…)는 기업 손님이 바로 들어오는 화면 — 웨딩홀 전면 영상(약 6MB)을 덮지 않는다. 여기선 마운트하지 않아 '본 것' 표시도 안 남아 홈에선 그대로 뜬다 */}
       {/* 빌라드지디 첫 진입 창(VilladegdEventOverlay)은 끔(261013 사장 '첫 진입 시 빌라드지디 랜딩 안 나오게') — 컴포넌트 파일은 남겨 둠 */}
