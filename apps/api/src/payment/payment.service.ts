@@ -664,6 +664,8 @@ export class PaymentService {
       where: { id: paymentId },
       include: {
         quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+        // 가상계좌 입금일 — 정산 로그 생성(입금 확인) 시각(paymentPaidAt, 261026)
+        settlementLog: { select: { createdAt: true } },
       },
     });
 

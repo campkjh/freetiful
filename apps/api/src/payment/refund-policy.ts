@@ -4,7 +4,7 @@
  *  · 입금일(결제 완료일, 예약 당일 포함 = 1일째) 기준: 4일 이내 100% · 5~7일 이내 50% · 7일 경과 환불 불가
  *  · 서비스 공급일(행사일)이 입금일로부터 7일 이내(예약 당일 포함)면 환불 불가
  *  · 사전미팅 뒤 불가는 시스템이 모른다 → 고객센터
- *  · 입금일 = 결제 완료 시각. 가상계좌는 입금 확인 때 completed 로 바뀐 시각(updatedAt), 그 밖에는 결제를 만든 시각.
+ *  · 입금일 = 결제 완료 시각. 가상계좌는 입금 확인 시각(정산 로그 생성 시각과 updatedAt 중 이른 쪽 — paymentPaidAt), 그 밖에는 결제를 만든 시각.
  */
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -17,8 +17,21 @@ export const kstDayToYmd = (day: number) => new Date(day * DAY_MS).toISOString()
 export const REFUND_FULL_DAYS = 4;
 export const REFUND_LAST_DAY = 7;
 
-export function paymentPaidAt(p: { method?: string | null; createdAt: Date; updatedAt: Date }): Date {
-  return p.method === '가상계좌' ? p.updatedAt : p.createdAt;
+/**
+ * 입금일. 가상계좌는 updatedAt 만 보면 안 된다(261026) — 정산하기·되돌리기·계정 합치기·어드민 수정이 결제 행을 고칠 때마다
+ * updatedAt 이 그 시각으로 밀려, 정산한 가상계좌 결제의 '결제일'이 정산한 날로 보이고 환불 판정도 늦춰졌다.
+ * 정산 로그는 입금 확인(runPaidSideEffects) 때 한 번 만들어지고 다시 안 바뀌므로, 둘 중 이른 쪽을 쓴다
+ * (둘 다 실제 입금 시각 이후라 이른 쪽이 늘 더 가깝다 — 로그가 없으면 예전처럼 updatedAt).
+ */
+export function paymentPaidAt(p: {
+  method?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  settlementLog?: { createdAt: Date } | null;
+}): Date {
+  if (p.method !== '가상계좌') return p.createdAt;
+  const logAt = p.settlementLog?.createdAt;
+  return logAt && logAt.getTime() < p.updatedAt.getTime() ? logAt : p.updatedAt;
 }
 
 export type RefundVerdict =

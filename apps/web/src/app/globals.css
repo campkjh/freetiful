@@ -2000,6 +2000,32 @@ select.adm-input { -webkit-appearance: none; appearance: none; padding-right: 34
 .adm-sf input::-webkit-search-cancel-button, .adm-sf input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .adm-sf-clear { flex: none; display: grid; place-items: center; width: 24px; height: 24px; margin-left: 4px; padding: 0; border: 0; border-radius: 50%; background: none; color: rgba(0, 25, 54, .31); cursor: pointer; animation: ftFade .15s ease both; transition: color .15s ease; }
 .adm-sf-clear:hover { color: rgba(0, 25, 54, .45); }
+/* 정렬(261026 운영팀 '결제일/예식일 오름·내림차순') — 거르기 줄 [⇅ 결제일 최신순 ⌄] + 툴팁 메뉴, 표 머리 결제일·행사 눌러 바꾸기 */
+.adm-sortbtn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 10px 0 12px; border: 0; border-radius: 12px; background: #F2F4F6; color: #4E5968; font-family: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.adm-sortbtn:hover, .adm-sortbtn.on { background: #E8EBEE; color: #333D4B; }
+.adm-sortbtn:focus-visible { outline: 2px solid #3182F6; outline-offset: 2px; }
+.adm-sortbtn-chev { color: #8B95A1; transition: transform .2s var(--adm-ease); }
+.adm-sortbtn.on .adm-sortbtn-chev { transform: rotate(180deg); }
+.adm-sortpop { position: fixed; z-index: 1200; min-width: 196px; padding: 6px; }
+.adm-sortpop-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; height: 46px; padding: 0 12px 0 14px; border: 0; border-radius: 12px; background: none; color: #333D4B; font-family: inherit; font-size: 16px; font-weight: 500; text-align: left; white-space: nowrap; cursor: pointer; transition: background-color .15s ease; }
+.adm-sortpop-item:hover, .adm-sortpop-item:focus-visible { background: #F2F4F6; outline: none; }
+.adm-sortpop-item.on { color: #3182F6; font-weight: 700; }
+.admin-shell .adm-empty .adm-empty-act { margin-left: 10px; vertical-align: middle; }
+.adm-sortth { display: inline-flex; align-items: center; gap: 3px; margin: 0 -4px; padding: 4px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; cursor: pointer; transition: color .15s ease, background-color .15s ease; }
+.adm-sortth:hover { color: #4E5968; background: #F2F4F6; }
+.adm-sortth.on { color: #191F28; }
+.adm-sortth:focus-visible { outline: 2px solid #3182F6; outline-offset: 1px; }
+.adm-sortth-ic { flex: none; opacity: .45; transition: opacity .15s ease, transform .2s var(--adm-ease); }
+.adm-sortth:hover .adm-sortth-ic { opacity: .8; }
+.adm-sortth-ic.desc, .adm-sortth-ic.asc { opacity: 1; color: #3182F6; }
+.adm-sortth-ic.asc { transform: rotate(180deg); }
+th.r .adm-sortth { flex-direction: row-reverse; }
+/* 폰 — 검색칸과 정렬 단추를 한 줄에(검색칸이 줄어든다) */
+@media (max-width: 640px) {
+  .adm-toolbar.adm-toolbar-search { flex-wrap: nowrap; }
+  .adm-toolbar.adm-toolbar-search .adm-sf { min-width: 0; }
+  .adm-sortbtn { padding: 0 8px 0 10px; font-size: 14px; }
+}
 .adm-filter .adm-sf, .adm-toolbar .adm-sf { min-width: 240px; }
 @media (max-width: 640px) { .adm-sf { min-width: 0; } }
 .adm-count { padding: 0 6px; color: var(--admin-muted); font-size: 14px; white-space: nowrap; }
@@ -2265,6 +2291,13 @@ tr:hover .adm-author-edit, .adm-pd .adm-author-edit, .adm-author-edit:focus-visi
 .admin-shell .adm-table tbody tr:last-child td { border-bottom: 0; }
 .admin-shell .adm-table .r { text-align: right; }
 .admin-shell .adm-table .c { text-align: center; }
+/* 처리 칸(정산하기·빌지) 오른쪽 고정(261026) — 정산 내역에 결제일 칸이 늘어 1280 폭에서 단추가 가로 스크롤 밖으로 밀려났다.
+   표가 넘칠 때(.is-r)만 왼쪽에 옅은 그림자, 끝 그라데이션(::after)은 고정 칸이 대신한다 */
+.admin-shell .adm-table .adm-sticky-r { position: sticky; right: 0; z-index: 2; background: #fff; }
+.adm-tscroll.adm-tscroll-sticky::after { display: none; }
+.adm-tscroll.adm-tscroll-sticky.is-r .adm-sticky-r { box-shadow: -14px 0 14px -12px rgba(0, 29, 58, .16); }
+.admin-shell .adm-table tbody tr:hover > .adm-sticky-r { background: #F9FAFB; }
+.admin-shell .adm-table .adm-refunded { color: var(--admin-red); font-weight: 600; }
 /* 목록 카드(AdminListCard) — 거르기 패널 + 표 = 흰 카드 하나(261005 사장 '테이블이랑 필터링 패널이랑 합쳐줘').
    거르기 줄은 카드 맨 위에 납작하게, 아래 가는 선으로 표와 가른다 */
 .adm-listcard { background: #fff; border-radius: 20px; overflow: hidden; }

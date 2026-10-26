@@ -58,6 +58,9 @@ export class SettlementController {
     @Query('limit') limit?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    // 돋보기 · 결제일/예식일 정렬(261026, payment/admin-list.ts)
+    @Query('search') search?: string,
+    @Query('sort') sort?: string,
   ) {
     return this.svc.adminList({
       status,
@@ -66,6 +69,8 @@ export class SettlementController {
       limit: limit ? +limit : 30,
       startDate,
       endDate,
+      search,
+      sort,
     });
   }
 

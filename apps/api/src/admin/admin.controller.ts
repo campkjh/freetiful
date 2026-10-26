@@ -528,6 +528,9 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    // 돋보기(고객·사회자 이름·연락처·행사·주문번호) · 정렬 paid_desc|paid_asc|event_asc|event_desc (261026)
+    @Query('search') search?: string,
+    @Query('sort') sort?: string,
   ) {
     return this.adminService.getPayments({
       page: page ? Number(page) : 1,
@@ -535,6 +538,8 @@ export class AdminController {
       status,
       startDate,
       endDate,
+      search,
+      sort,
     });
   }
 

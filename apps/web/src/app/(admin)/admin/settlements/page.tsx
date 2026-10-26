@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2 } from '@/app/(admin)/admin/_components/admin-icons';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
@@ -10,12 +10,14 @@ import { AdminTerm } from '../_components/AdminHelpTooltip';
 import { AdminInfiniteScroll, appendUniqueById } from '../_components/AdminInfiniteScroll';
 import { adminFetch } from '../_components/adminFetch';
 import { useAdminRefresh } from '../_components/adminRefresh';
-import { AdminEventCell, AdminPartyCell, formatPhone, type AdminEvent } from '../_components/adminEvent';
+import { AdminEventCell, AdminPartyCell, formatKstDateTime, formatPhone, type AdminEvent } from '../_components/adminEvent';
 import { adminConfirm } from '../_components/adminDialog';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminBillModal } from '../_components/AdminBillModal';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
+import { AdminSortMenu, AdminSortTh, type AdminPaySort } from '../_components/AdminSortMenu';
 
 interface SettlementLogItem {
   id: string;
@@ -32,7 +34,14 @@ interface SettlementLogItem {
   payment: {
     id: string;
     amount: number;
+    method?: string | null;
     createdAt: string;
+    /** 결제일(입금일) — 가상계좌는 입금 확인 시각(서버 paymentPaidAt, 261026). 옛 서버면 없음 → createdAt */
+    paidAt?: string;
+    /** 결제 상태 — 'refunded' 면 정산 로그가 '대기'여도 고객에게 돌려준 돈(261026 경고 표시) */
+    status?: string;
+    refundAmount?: number | null;
+    refundedAt?: string | null;
     user: { id: string; name: string; phone?: string | null };
     /** 결제 시 입력받은 연락처 우선, 없으면 계정 번호 폴백(서버에서 계산) */
     customerPhone?: string | null;
@@ -73,6 +82,28 @@ function eventOf(it: SettlementLogItem): AdminEvent {
   };
 }
 
+/** 결제일 — 옛 서버면 결제 만든 시각 */
+const paidAtOf = (it: SettlementLogItem) => it.payment?.paidAt || it.payment?.createdAt || null;
+
+/** 지금 목록 조건 — 상태 · 조회기간 · 돋보기 · 정렬(261026 운영팀) */
+type SettleFilter = 'all' | 'pending' | 'settled';
+interface SettleQuery {
+  filter: SettleFilter;
+  range: AdminDateRange;
+  search: string;
+  sort: AdminPaySort;
+}
+
+/** 서버 쿼리(목록·엑셀 공용) */
+function settleParams(q: SettleQuery, p: number, limit: number): string {
+  const params = new URLSearchParams({ page: String(p), limit: String(limit), sort: q.sort });
+  if (q.filter !== 'all') params.set('status', q.filter);
+  if (q.range.startDate) params.set('startDate', q.range.startDate);
+  if (q.range.endDate) params.set('endDate', q.range.endDate);
+  if (q.search) params.set('search', q.search);
+  return params.toString();
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -89,37 +120,51 @@ export default function AdminSettlementsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   /** 정산 명세서(빌지) 창 — 정산하기 뒤 바로(fresh), 줄의 '빌지'로 다시 */
   const [bill, setBill] = useState<{ id: string; fresh: boolean } | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('pending');
+  const [query, setQuery] = useState<SettleQuery>({ filter: 'pending', range: { startDate: '', endDate: '' }, search: '', sort: 'paid_desc' });
+  /** 검색칸에 치는 중인 글자 — Enter 를 눌러야 query.search 로 */
+  const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
-  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
+  /** 늦게 온 옛 응답이 새 검색 결과를 덮지 않게 — 마지막 요청만 반영 */
+  const reqSeq = useRef(0);
 
-  async function fetchList(p = page, f = filter, range = dateRange, append = false) {
+  async function fetchList(p: number, q: SettleQuery, append = false) {
+    const seq = ++reqSeq.current;
     if (append) setLoadingMore(true);
-    else setLoading(true);
+    else { setLoading(true); setLoadingMore(false); }
     setLastError(null);
     try {
-      const params = new URLSearchParams({ page: String(p), limit: '30' });
-      if (f !== 'all') params.set('status', f);
-      if (range.startDate) params.set('startDate', range.startDate);
-      if (range.endDate) params.set('endDate', range.endDate);
-      const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${params.toString()}`);
+      const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${settleParams(q, p, 30)}`);
+      if (seq !== reqSeq.current) return;
       const nextItems = data.data || [];
       setItems((prev) => append ? appendUniqueById(prev, nextItems) : nextItems);
       setMeta(data.meta);
       setSummary(data.summary);
       setPage(data.meta?.page || p);
     } catch (e: any) {
+      if (seq !== reqSeq.current) return;
       const err = extractAdminError(e);
       setLastError(err);
       toast.error(`정산 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
-      if (append) setLoadingMore(false);
-      else setLoading(false);
+      if (seq === reqSeq.current) {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
     }
   }
 
-  useEffect(() => { fetchList(1, filter, dateRange); setPage(1); }, [filter]);
+  /** 조건 하나 바꾸고 첫 페이지부터 다시 — 검색칸에 쳐 둔 글자도 같이(Enter 를 안 눌렀어도 목록·건수·엑셀이 칸과 어긋나지 않게) */
+  const applyQuery = (patch: Partial<SettleQuery>) => {
+    const next = { ...query, search: searchInput.trim(), ...patch };
+    if (next.search !== searchInput) setSearchInput(next.search);
+    setQuery(next);
+    setPage(1);
+    fetchList(1, next);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchList(1, query); }, []);
 
   async function handleSettle(id: string) {
     if (!(await adminConfirm('정산 완료로 처리하시겠습니까? 사회자에게 알림이 발송됩니다.'))) return;
@@ -127,7 +172,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/settle`, {});
       toast.success('정산 완료로 처리되었습니다');
-      fetchList(1, filter, dateRange);
+      fetchList(1, query);
       // 바로 빌지를 띄운다 — 사회자에게 카톡으로 이미지 보내기(261005 사장)
       setBill({ id, fresh: true });
     } catch (e: any) {
@@ -144,7 +189,7 @@ export default function AdminSettlementsPage() {
     try {
       await adminFetch('POST', `/api/v1/admin/settlements/${id}/unsettle`, {});
       toast.success('정산이 취소되었습니다');
-      fetchList(1, filter, dateRange);
+      fetchList(1, query);
     } catch (e: any) {
       const err = extractAdminError(e);
       toast.error(`취소 실패: ${err.message}`, { duration: 6000 });
@@ -156,13 +201,12 @@ export default function AdminSettlementsPage() {
   async function handleExport() {
     setExporting(true);
     try {
+      // 화면과 같은 조건·순서(검색·정렬 포함) — 검색칸에 쳐 두고 Enter 를 안 눌렀으면 목록도 그 검색으로 맞춘다
+      const q = { ...query, search: searchInput.trim() };
+      if (q.search !== query.search) applyQuery({});
       const rows = await fetchAllAdminRows<SettlementLogItem>({
         fetchPage: async (p, limit) => {
-          const params = new URLSearchParams({ page: String(p), limit: String(limit) });
-          if (filter !== 'all') params.set('status', filter);
-          if (dateRange.startDate) params.set('startDate', dateRange.startDate);
-          if (dateRange.endDate) params.set('endDate', dateRange.endDate);
-          const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${params.toString()}`, undefined, { cache: false });
+          const data: ListResponse = await adminFetch('GET', `/api/v1/admin/settlements?${settleParams(q, p, limit)}`, undefined, { cache: false });
           return { rows: data.data || [], total: data.meta?.total, hasMore: data.meta?.hasMore };
         },
       });
@@ -180,11 +224,14 @@ export default function AdminSettlementsPage() {
         { header: '행사일', value: (row) => formatExportDate(eventOf(row).date) },
         { header: '행사 시간', value: (row) => eventOf(row).time || '' },
         { header: '행사 장소', value: (row) => eventOf(row).location },
+        { header: '결제일', value: (row) => formatExportDate(paidAtOf(row), true) },
+        { header: '결제 수단', value: (row) => row.payment?.method || '' },
         { header: '금액', value: (row) => row.amount },
         { header: '플랫폼수수료', value: (row) => row.platformFee },
         { header: '정산액', value: (row) => row.netAmount },
         { header: '상태', value: (row) => STATUS_LABELS[row.status] || row.status },
         { header: '정산일', value: (row) => formatExportDate(row.settledAt, true) },
+        { header: '결제 환불', value: (row) => (row.payment?.status === 'refunded' ? Number(row.payment.refundAmount ?? row.payment.amount) : '') },
         { header: '처리자', value: (row) => row.settledBy?.name || '' },
         { header: '메모', value: (row) => row.note || '' },
         { header: '생성일', value: (row) => formatExportDate(row.createdAt, true) },
@@ -198,7 +245,7 @@ export default function AdminSettlementsPage() {
   }
 
   // 머리 오른쪽 새로고침(종 옆)
-  useAdminRefresh(() => fetchList(1, filter, dateRange));
+  useAdminRefresh(() => fetchList(1, query));
 
   return (
     <div className="adm-stack">
@@ -228,46 +275,59 @@ export default function AdminSettlementsPage() {
           목록 — 누가(사회자 → 고객) · 어떤 행사를 언제 어디서 · 얼마 */}
       <AdminListCard
         filter={<>
-          <div className="adm-toolbar">
+          {/* 돋보기 + 정렬(261026 운영팀 '환불·매달 정산 때 고객을 바로 찾고 결제일/예식일 순으로') */}
+          <div className="adm-toolbar adm-toolbar-search">
+            <AdminSearchField
+              className="grow"
+              value={searchInput}
+              onChange={setSearchInput}
+              onSubmit={(v) => applyQuery({ search: v.trim() })}
+              placeholder="고객·사회자 이름, 연락처, 행사로 찾기"
+            />
+            <AdminSortMenu value={query.sort} onChange={(sort) => applyQuery({ sort })} />
+          </div>
+          <div className="adm-toolbar adm-toolbar-sub">
             <AdminRadioGroup
-              value={filter}
+              value={query.filter}
               options={[{ value: 'pending', label: '정산 대기' }, { value: 'all', label: '전체' }, { value: 'settled', label: '정산 완료' }]}
               ariaLabel="정산 상태"
-              onChange={(f) => setFilter(f)}
+              onChange={(filter) => applyQuery({ filter })}
             />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={meta.total} /></b>건</span>
             <AdminExportButton loading={exporting} onClick={handleExport} />
           </div>
-          <AdminDateFilter
-            value={dateRange}
-            onApply={(range) => {
-              setDateRange(range);
-              setPage(1);
-              fetchList(1, filter, range);
-            }}
-          />
+          <AdminDateFilter value={query.range} onApply={(range) => applyQuery({ range })} />
         </>}
       >
-        <AdminTableScroll>
+        <AdminTableScroll className="adm-tscroll-sticky">
           <table className="adm-table">
             <thead>
               <tr>
                 <th>사회자 · 고객</th>
-                <th>행사</th>
+                <AdminSortTh field="event" value={query.sort} onChange={(sort) => applyQuery({ sort })}>행사</AdminSortTh>
+                <AdminSortTh field="paid" value={query.sort} onChange={(sort) => applyQuery({ sort })}>결제일</AdminSortTh>
                 <th className="r">결제 금액</th>
                 <th className="r"><AdminTerm term="정산액">정산액</AdminTerm></th>
                 <th className="c"><AdminTerm term="상태">상태</AdminTerm></th>
-                <th className="c" aria-label="처리" />
+                <th className="c adm-sticky-r" aria-label="처리" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={6}><div className="adm-skel h-[44px]" /></td></tr>
+                  <tr key={i}><td colSpan={7}><div className="adm-skel h-[44px]" /></td></tr>
                 ))
               ) : items.length === 0 ? (
-                <tr><td colSpan={6} className="adm-empty">정산 내역이 없어요</td></tr>
+                <tr><td colSpan={7} className="adm-empty">
+                  {query.search ? `'${query.search}'에 맞는 정산이 없어요` : '정산 내역이 없어요'}
+                  {/* 기본 거르기가 '정산 대기'라 이미 정산된 고객을 찾으면 비어 보인다 — 상태·기간을 풀고 같은 검색어로 */}
+                  {query.search && (query.filter !== 'all' || query.range.startDate || query.range.endDate) && (
+                    <button type="button" className="adm-btn sm adm-empty-act" onClick={() => applyQuery({ filter: 'all', range: { startDate: '', endDate: '' } })}>
+                      전체에서 다시 찾기
+                    </button>
+                  )}
+                </td></tr>
               ) : items.map((it) => {
                 return (
                   <tr key={it.id}>
@@ -275,6 +335,22 @@ export default function AdminSettlementsPage() {
                       <AdminPartyCell pro={it.proProfile?.user?.name} customer={it.payment.user?.name} phone={it.payment.customerPhone || it.payment.user?.phone} />
                     </td>
                     <td className="adm-ev"><AdminEventCell ev={eventOf(it)} /></td>
+                    {/* 결제일(261026 운영팀 '빌지를 눌러야 보이던 결제일을 바로') */}
+                    <td className="whitespace-nowrap">
+                      {(() => {
+                        const at = paidAtOf(it);
+                        if (!at) return <span className="text-[#D1D6DB]">—</span>;
+                        // '10.23 (금)' / '12:30 · 카드' — 두 줄로 칸을 좁혀 1440 폭에서 표가 넘치지 않게
+                        const when = formatKstDateTime(at);
+                        const cut = when.lastIndexOf(' ');
+                        return (
+                          <>
+                            <span className="adm-cell-main adm-paid-at">{when.slice(0, cut)}</span>
+                            <span className="adm-cell-sub">{[when.slice(cut + 1), it.payment?.method].filter(Boolean).join(' · ')}</span>
+                          </>
+                        );
+                      })()}
+                    </td>
                     <td className="r">
                       <span className="adm-money">₩{it.amount.toLocaleString()}</span>
                       <span className="adm-cell-sub">수수료 ₩{(it.platformFee || 0).toLocaleString()}</span>
@@ -283,8 +359,17 @@ export default function AdminSettlementsPage() {
                     <td className="c">
                       <span className={`adm-badge ${STATUS_COLORS[it.status] || ''}`}>{STATUS_LABELS[it.status]}</span>
                       {it.settledAt && <span className="adm-cell-sub">{formatDate(it.settledAt)}</span>}
+                      {/* 환불된 결제 — 환불해도 정산 로그는 그대로 '대기'라, 모르고 정산하기를 누르지 않게(261026) */}
+                      {it.payment?.status === 'refunded' && (
+                        <span
+                          className="adm-cell-sub adm-refunded"
+                          title={`₩${Number(it.payment.refundAmount ?? it.payment.amount).toLocaleString()} 환불${it.payment.refundedAt ? ` · ${formatDate(it.payment.refundedAt)}` : ''}`}
+                        >
+                          결제 환불됨
+                        </span>
+                      )}
                     </td>
-                    <td className="c">
+                    <td className="c adm-sticky-r">
                       <span className="inline-flex gap-1.5">
                         <button type="button" onClick={() => setBill({ id: it.id, fresh: false })} className="adm-btn sm" title="정산 명세서(빌지) · 카카오톡 이미지 공유">
                           빌지
@@ -317,7 +402,7 @@ export default function AdminSettlementsPage() {
           onLoadMore={() => {
             const hasMore = meta.hasMore || items.length < meta.total;
             if (!hasMore || loading || loadingMore) return;
-            fetchList(page + 1, filter, dateRange, true);
+            fetchList(page + 1, query, true);
           }}
         />
       </AdminListCard>

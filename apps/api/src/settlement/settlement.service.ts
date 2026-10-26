@@ -4,6 +4,7 @@ import { NotificationService } from '../notification/notification.service';
 import { SettlementStatus } from '@prisma/client';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { paymentPaidAt } from '../payment/refund-policy';
+import { matchesAdminSearch, needsEventKeys, parseAdminPaySort, parseAdminSearch, sortAndPage } from '../payment/admin-list';
 
 /** 이름 가운데 가리기 — '김하늘' → '김*늘' · '김솔' → '김*' (빌지는 이미지로 카톡 공유되므로 고객 이름을 다 싣지 않는다) */
 export function maskName(raw?: string | null): string {
@@ -119,56 +120,117 @@ export class SettlementService {
   }
 
   /** 관리자 — 전체 정산 로그 목록 */
-  async adminList(params?: { status?: SettlementStatus; proProfileId?: string; page?: number; limit?: number; startDate?: string; endDate?: string }) {
+  async adminList(params?: { status?: SettlementStatus; proProfileId?: string; page?: number; limit?: number; startDate?: string; endDate?: string; search?: string; sort?: string }) {
     const where: any = {};
     if (params?.status) where.status = params.status;
     if (params?.proProfileId) where.proProfileId = params.proProfileId;
     const dateRange = this.buildDateRange(params);
     if (dateRange) where.createdAt = dateRange;
 
-    const limit = params?.limit || 30;
-    const page = params?.page || 1;
+    // 상한 1000 — 어드민 홈 대체 통계(fetchFallbackStats)가 limit=1000 한 번에 받는다
+    const limit = Math.min(Math.max(Number(params?.limit) || 30, 1), 1000);
+    const page = Math.max(1, Number(params?.page) || 1);
 
-    const [rawData, total, aggregates] = await Promise.all([
-      this.prisma.settlementLog.findMany({
-        where,
-        include: {
-          proProfile: {
-            select: {
-              id: true,
-              user: { select: { id: true, name: true, email: true } },
-            },
+    // 돋보기 검색 · 결제일/예식일 정렬(261026) — 계산값이라 키만 받아 거르고·정렬한 뒤 그 페이지 줄만 자세히(payment/admin-list.ts).
+    // 위 요약(대기·완료 건수·금액)도 검색 결과 기준으로 같이 센다.
+    const sort = parseAdminPaySort(params?.sort);
+    const sq = parseAdminSearch(params?.search);
+    const withEvent = needsEventKeys(sort, sq);
+    const keyRows: any[] = await this.prisma.settlementLog.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        netAmount: true,
+        createdAt: true,
+        proProfile: { select: { user: { select: { name: true } } } },
+        payment: {
+          select: {
+            id: true,
+            userId: true,
+            method: true,
+            createdAt: true,
+            updatedAt: true,
+            customerPhone: true,
+            pgTransactionId: true,
+            ...(withEvent ? { quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' as const }, take: 1 } } : {}),
           },
-          payment: {
-            select: {
-              id: true,
-              userId: true,
-              amount: true,
-              createdAt: true,
-              // 결제 당시 입력받은 연락처 — 계정 번호보다 우선한다
-              customerPhone: true,
-              // 어떤 행사였는지(261004 사장 '정산내역에 사회자가 어디서 어떤 고객과 행사를 했는지') — payment-event.ts
-              quotations: {
-                select: PAYMENT_EVENT_QUOTATION_SELECT,
-                orderBy: { createdAt: 'desc' },
-                take: 1,
+        },
+      },
+    });
+    let matched = keyRows;
+    if (sq) {
+      const qUsers = await this.prisma.user.findMany({
+        where: { id: { in: [...new Set(keyRows.map((r) => r.payment.userId))] } },
+        select: { id: true, name: true, phone: true },
+      });
+      const qUserMap = new Map(qUsers.map((u) => [u.id, u]));
+      matched = keyRows.filter((r) => {
+        const u = qUserMap.get(r.payment.userId);
+        const ev = paymentEventOf(r.payment.quotations?.[0]);
+        return matchesAdminSearch(sq, {
+          texts: [u?.name, r.proProfile?.user?.name, ev.title, ev.kind, ev.location],
+          phones: [r.payment.customerPhone, u?.phone],
+          ids: [r.id, r.payment.id, r.payment.pgTransactionId],
+        });
+      });
+    }
+    const total = matched.length;
+    const summary = { pendingCount: 0, pendingAmount: 0, settledCount: 0, settledAmount: 0 };
+    for (const r of matched) {
+      if (r.status === 'pending') { summary.pendingCount += 1; summary.pendingAmount += r.netAmount || 0; }
+      else if (r.status === 'settled') { summary.settledCount += 1; summary.settledAmount += r.netAmount || 0; }
+    }
+    // 결제일 = 결제의 입금일(가상계좌는 이 정산 로그가 만들어진 입금 확인 시각과 updatedAt 중 이른 쪽)
+    const paidAtOf = (r: { createdAt: Date; payment: { method?: string | null; createdAt: Date; updatedAt: Date } }) =>
+      paymentPaidAt({ ...r.payment, settlementLog: { createdAt: r.createdAt } });
+    const pageIds: string[] = sortAndPage(
+      matched,
+      sort,
+      (r) => ({ id: r.id, paidAt: paidAtOf(r), eventDate: withEvent ? paymentEventOf(r.payment.quotations?.[0]).date : null }),
+      page,
+      limit,
+    ).map((r) => r.id);
+
+    const rawRows = pageIds.length
+      ? await this.prisma.settlementLog.findMany({
+          where: { id: { in: pageIds } },
+          include: {
+            proProfile: {
+              select: {
+                id: true,
+                user: { select: { id: true, name: true, email: true } },
               },
             },
+            payment: {
+              select: {
+                id: true,
+                userId: true,
+                amount: true,
+                method: true,
+                createdAt: true,
+                updatedAt: true,
+                // 환불된 결제인지(261026) — 환불해도 정산 로그는 '대기'로 남아 정산하기를 누를 수 있었다 → 화면에 경고
+                status: true,
+                refundAmount: true,
+                refundedAt: true,
+                // 결제 당시 입력받은 연락처 — 계정 번호보다 우선한다
+                customerPhone: true,
+                // 어떤 행사였는지(261004 사장 '정산내역에 사회자가 어디서 어떤 고객과 행사를 했는지') — payment-event.ts
+                quotations: {
+                  select: PAYMENT_EVENT_QUOTATION_SELECT,
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+            settledBy: { select: { id: true, name: true } },
           },
-          settledBy: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: (page - 1) * limit,
-      }),
-      this.prisma.settlementLog.count({ where }),
-      this.prisma.settlementLog.groupBy({
-        by: ['status'],
-        where,
-        _sum: { netAmount: true },
-        _count: true,
-      }),
-    ]);
+        })
+      : [];
+    const rowById = new Map(rawRows.map((r) => [r.id, r]));
+    // 사이에 지워진 줄은 빠진다(정렬 순서는 키 단계 그대로)
+    const rawData = pageIds.map((id) => rowById.get(id)).filter((r): r is (typeof rawRows)[number] => !!r);
 
     // Payment.user 관계가 스키마에 없어서 별도 쿼리로 User 머지
     const userIds = Array.from(new Set(rawData.map((r) => r.payment.userId)));
@@ -183,26 +245,22 @@ export class SettlementService {
     const userMap = new Map(users.map((u) => [u.id, u]));
     const data = rawData.map((r) => {
       const user = userMap.get(r.payment.userId) || null;
+      const { updatedAt: _updatedAt, ...payment } = r.payment;
       return {
         ...r,
         payment: {
-          ...r.payment,
+          ...payment,
           // 화면 호환 — 옛 화면은 quotations[0].title·eventDate 를 읽는다(chatRoom 묶음은 event 로 풀어 주고 뺀다)
           quotations: (r.payment.quotations || []).map(({ chatRoom: _chatRoom, ...rest }) => rest),
           user,
           // 표시용 최종 연락처 — 결제 시 입력값 우선, 없으면(연락처 도입 이전 결제분) 계정 번호로 폴백
           customerPhone: r.payment.customerPhone || user?.phone || null,
           event: paymentEventOf(r.payment.quotations?.[0]),
+          // 결제일(261026 운영팀 '정산 내역에서 결제일이 빌지를 눌러야 보인다')
+          paidAt: paidAtOf(r),
         },
       };
     });
-
-    const summary = {
-      pendingCount: aggregates.find((a) => a.status === 'pending')?._count || 0,
-      pendingAmount: aggregates.find((a) => a.status === 'pending')?._sum.netAmount || 0,
-      settledCount: aggregates.find((a) => a.status === 'settled')?._count || 0,
-      settledAmount: aggregates.find((a) => a.status === 'settled')?._sum.netAmount || 0,
-    };
 
     return { data, meta: { total, page, limit, hasMore: page * limit < total }, summary };
   }
@@ -290,7 +348,8 @@ export class SettlementService {
       platformFee: log.platformFee,
       netAmount: log.netAmount,
       method: log.payment.method || null,
-      paidAt: paymentPaidAt(log.payment),
+      // 가상계좌 입금일 = 이 정산 로그 생성(입금 확인) 시각과 updatedAt 중 이른 쪽(정산하기가 updatedAt 을 밀어서)
+      paidAt: paymentPaidAt({ ...log.payment, settlementLog: { createdAt: log.createdAt } }),
       settledAt: log.settledAt,
       createdAt: log.createdAt,
       ...(viewer.admin ? { note: log.note || null } : {}),

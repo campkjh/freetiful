@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { AdminErrorPanel, extractAdminError, type AdminErrorInfo } from '../_components/ErrorPanel';
 import { AdminDateFilter, type AdminDateRange } from '../_components/AdminDateFilter';
@@ -13,6 +13,8 @@ import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminMoneyCalendar, type MoneySummary } from '../_components/AdminMoneyCalendar';
 import { AdminRadioGroup } from '../_components/AdminRadioGroup';
+import { AdminSearchField } from '../_components/AdminSearchField';
+import { AdminSortMenu, AdminSortTh, type AdminPaySort } from '../_components/AdminSortMenu';
 import {
   AdminEventCell,
   AdminPartyCell,
@@ -106,42 +108,73 @@ function refundText(p: PaymentItem): { badge: string; tone: string; sub: string 
   };
 }
 
+/** 지금 목록 조건 — 상태 · 조회기간 · 돋보기 · 정렬(261026 운영팀 '검색 · 결제일/예식일 정렬') */
+interface PayQuery {
+  status: string;
+  range: AdminDateRange;
+  search: string;
+  sort: AdminPaySort;
+}
+
+/** 서버 쿼리(목록·엑셀 공용) */
+function payParams(q: PayQuery, p: number, limit: number): string {
+  const params: Record<string, string> = { page: String(p), limit: String(limit), sort: q.sort };
+  if (q.status !== '전체') params.status = q.status;
+  if (q.range.startDate) params.startDate = q.range.startDate;
+  if (q.range.endDate) params.endDate = q.range.endDate;
+  if (q.search) params.search = q.search;
+  return new URLSearchParams(params).toString();
+}
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('전체');
+  const [query, setQuery] = useState<PayQuery>({ status: '전체', range: { startDate: '', endDate: '' }, search: '', sort: 'paid_desc' });
+  /** 검색칸에 치는 중인 글자 — Enter 를 눌러야 query.search 로 */
+  const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastError, setLastError] = useState<AdminErrorInfo | null>(null);
-  const [dateRange, setDateRange] = useState<AdminDateRange>({ startDate: '', endDate: '' });
   /** 위 달력(홈과 같은 날마다 결제 완료 — 서버 money-summary). 못 받으면 달력만 안 보인다 */
   const [money, setMoney] = useState<MoneySummary | null | 'error'>(null);
+  /** 늦게 온 옛 응답이 새 검색 결과를 덮지 않게 — 마지막 요청만 반영 */
+  const reqSeq = useRef(0);
   const LIMIT = 20;
 
-  const fetchPayments = async (p = page, st = filterStatus, range = dateRange, append = false) => {
+  const fetchPayments = async (p: number, q: PayQuery, append = false) => {
+    const seq = ++reqSeq.current;
     if (append) setLoadingMore(true);
-    else setLoading(true);
+    else { setLoading(true); setLoadingMore(false); }
     setLastError(null);
     try {
-      const params: any = { page: p, limit: LIMIT };
-      if (st !== '전체') params.status = st;
-      if (range.startDate) params.startDate = range.startDate;
-      if (range.endDate) params.endDate = range.endDate;
-      const data = await adminFetch('GET', `/api/v1/admin/payments?${new URLSearchParams(params).toString()}`);
+      const data = await adminFetch('GET', `/api/v1/admin/payments?${payParams(q, p, LIMIT)}`);
+      if (seq !== reqSeq.current) return;
       const nextPayments = data.data || [];
       setPayments((prev) => append ? appendUniqueById(prev, nextPayments) : nextPayments);
       setTotal(data.total || 0);
       setPage(p);
     } catch (e: any) {
+      if (seq !== reqSeq.current) return;
       const err = extractAdminError(e);
       setLastError(err);
       toast.error(`결제 목록 로드 실패${err.status ? ` (${err.status})` : ''}: ${err.message}`, { duration: 6000 });
     } finally {
-      if (append) setLoadingMore(false);
-      else setLoading(false);
+      if (seq === reqSeq.current) {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
     }
+  };
+
+  /** 조건 하나 바꾸고 첫 페이지부터 다시 — 검색칸에 쳐 둔 글자도 같이(Enter 를 안 눌렀어도 목록·건수·엑셀이 칸과 어긋나지 않게) */
+  const applyQuery = (patch: Partial<PayQuery>) => {
+    const next = { ...query, search: searchInput.trim(), ...patch };
+    if (next.search !== searchInput) setSearchInput(next.search);
+    setQuery(next);
+    setPage(1);
+    fetchPayments(1, next);
   };
 
   const fetchMoney = async () => {
@@ -153,15 +186,13 @@ export default function AdminPaymentsPage() {
     }
   };
 
-  useEffect(() => { fetchPayments(); fetchMoney(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchPayments(1, query); fetchMoney(); }, []);
 
   // 달력 날짜 누름 = 그날 결제만(조회기간 그날~그날). 고른 날을 다시 누르면 전체로
-  const pickedDay = dateRange.startDate && dateRange.startDate === dateRange.endDate ? dateRange.startDate : null;
+  const pickedDay = query.range.startDate && query.range.startDate === query.range.endDate ? query.range.startDate : null;
   const pickDay = (day: string) => {
-    const next = pickedDay === day ? { startDate: '', endDate: '' } : { startDate: day, endDate: day };
-    setDateRange(next);
-    setPage(1);
-    fetchPayments(1, filterStatus, next);
+    applyQuery({ range: pickedDay === day ? { startDate: '', endDate: '' } : { startDate: day, endDate: day } });
   };
   const monthIncome = money && money !== 'error' ? money.daily.filter((d) => d.date.startsWith(money.thisMonth)).reduce((a, d) => a + d.income, 0) : 0;
   const monthNo = money && money !== 'error' ? Number(money.thisMonth.split('-')[1]) : null;
@@ -169,13 +200,12 @@ export default function AdminPaymentsPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
+      // 화면과 같은 조건·순서(검색·정렬 포함) — 검색칸에 쳐 두고 Enter 를 안 눌렀으면 목록도 그 검색으로 맞춘다
+      const q = { ...query, search: searchInput.trim() };
+      if (q.search !== query.search) applyQuery({});
       const rows = await fetchAllAdminRows<PaymentItem>({
         fetchPage: async (p, limit) => {
-          const params: any = { page: p, limit };
-          if (filterStatus !== '전체') params.status = filterStatus;
-          if (dateRange.startDate) params.startDate = dateRange.startDate;
-          if (dateRange.endDate) params.endDate = dateRange.endDate;
-          const data = await adminFetch('GET', `/api/v1/admin/payments?${new URLSearchParams(params).toString()}`, undefined, { cache: false });
+          const data = await adminFetch('GET', `/api/v1/admin/payments?${payParams(q, p, limit)}`, undefined, { cache: false });
           return { rows: data.data || [], total: data.total };
         },
       });
@@ -213,7 +243,7 @@ export default function AdminPaymentsPage() {
   const visibleAmount = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
   // 머리 오른쪽 새로고침(종 옆)
-  useAdminRefresh(() => { fetchPayments(1, filterStatus, dateRange); fetchMoney(); });
+  useAdminRefresh(() => { fetchPayments(1, query); fetchMoney(); });
 
   return (
     <div className="space-y-5">
@@ -243,25 +273,29 @@ export default function AdminPaymentsPage() {
           목록 = 정산 내역과 같은 칸(누가 · 어떤 행사를 언제 어디서) + 결제 며칠째 · 지금 환불되나(261004 사장) */}
       <AdminListCard
         filter={<>
-          <div className="adm-toolbar">
+          {/* 돋보기 + 정렬(261026 운영팀 — 채팅 매칭에서 고객을 찾아 날짜를 알아낸 뒤 결제 조회에서 일일이 찾던 것) */}
+          <div className="adm-toolbar adm-toolbar-search">
+            <AdminSearchField
+              className="grow"
+              value={searchInput}
+              onChange={setSearchInput}
+              onSubmit={(v) => applyQuery({ search: v.trim() })}
+              placeholder="고객·사회자 이름, 연락처, 행사로 찾기"
+            />
+            <AdminSortMenu value={query.sort} onChange={(sort) => applyQuery({ sort })} />
+          </div>
+          <div className="adm-toolbar adm-toolbar-sub">
             <AdminRadioGroup
-              value={filterStatus}
+              value={query.status}
               options={STATUS_OPTIONS}
               ariaLabel="결제 상태"
-              onChange={(st) => { setFilterStatus(st); setPage(1); fetchPayments(1, st, dateRange); }}
+              onChange={(status) => applyQuery({ status })}
             />
             <span className="grow" />
             <span className="adm-count">총 <b><RollingNumber value={total} /></b>건 · <b>₩<RollingNumber value={visibleAmount} /></b></span>
             <AdminExportButton loading={exporting} onClick={handleExport} />
           </div>
-          <AdminDateFilter
-            value={dateRange}
-            onApply={(range) => {
-              setDateRange(range);
-              setPage(1);
-              fetchPayments(1, filterStatus, range);
-            }}
-          />
+          <AdminDateFilter value={query.range} onApply={(range) => applyQuery({ range })} />
         </>}
       >
         <AdminTableScroll>
@@ -269,9 +303,9 @@ export default function AdminPaymentsPage() {
             <thead>
               <tr>
                 <th>사회자 · 고객</th>
-                <th>행사</th>
+                <AdminSortTh field="event" value={query.sort} onChange={(sort) => applyQuery({ sort })}>행사</AdminSortTh>
                 <th className="r">결제 금액</th>
-                <th>결제일</th>
+                <AdminSortTh field="paid" value={query.sort} onChange={(sort) => applyQuery({ sort })}>결제일</AdminSortTh>
                 <th>환불</th>
                 <th className="c"><AdminTerm term="상태">상태</AdminTerm></th>
               </tr>
@@ -282,7 +316,15 @@ export default function AdminPaymentsPage() {
                   <tr key={i}><td colSpan={6}><div className="adm-skel h-[44px]" /></td></tr>
                 ))
               ) : payments.length === 0 ? (
-                <tr><td colSpan={6} className="adm-empty">결제 내역이 없어요</td></tr>
+                <tr><td colSpan={6} className="adm-empty">
+                  {query.search ? `'${query.search}'에 맞는 결제가 없어요` : '결제 내역이 없어요'}
+                  {/* 상태·기간(달력 날짜 포함)에 걸려 비었으면 — 풀고 같은 검색어로 */}
+                  {query.search && (query.status !== '전체' || query.range.startDate || query.range.endDate) && (
+                    <button type="button" className="adm-btn sm adm-empty-act" onClick={() => applyQuery({ status: '전체', range: { startDate: '', endDate: '' } })}>
+                      전체에서 다시 찾기
+                    </button>
+                  )}
+                </td></tr>
               ) : payments.map((payment) => {
                 const refund = refundText(payment);
                 return (
@@ -337,7 +379,7 @@ export default function AdminPaymentsPage() {
           total={total}
           onLoadMore={() => {
             if (!hasMore || loading || loadingMore) return;
-            fetchPayments(page + 1, filterStatus, dateRange, true);
+            fetchPayments(page + 1, query, true);
           }}
         />
       </AdminListCard>

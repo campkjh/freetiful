@@ -17,6 +17,7 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { kstDay, paymentPaidAt, refundVerdict } from '../payment/refund-policy';
+import { matchesAdminSearch, needsEventKeys, parseAdminPaySort, parseAdminSearch, sortAndPage } from '../payment/admin-list';
 import { randomUUID } from 'crypto';
 import { QuickMatchRosterService, parseDesignated } from '../match/quick-match-roster.service';
 import type { Prisma } from '@prisma/client';
@@ -2325,9 +2326,10 @@ export class AdminService {
   }
 
   // ─── 결제 목록 ───────────────────────────────────────────────────────────
-  async getPayments(params: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string }) {
-    const page = params.page || 1;
-    const limit = params.limit || 20;
+  async getPayments(params: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string; search?: string; sort?: string }) {
+    const page = Math.max(1, Number(params.page) || 1);
+    // 상한 1000 — 어드민 홈 대체 통계(fetchFallbackStats)가 limit=1000 한 번에 받는다
+    const limit = Math.min(Math.max(Number(params.limit) || 20, 1), 1000);
     const where: any = {};
     this.applyCreatedAtRange(where, params);
     if (params.status) where.status = params.status;
@@ -2335,20 +2337,66 @@ export class AdminService {
     // 결제 목록·카운트('결제완료' 지표 포함)에서 제외한다.
     where.method = { not: 'admin_review' };
 
-    const [payments, total] = await Promise.all([
-      this.prisma.payment.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          // 어떤 행사였는지 — 정산 내역과 같은 계산(261004 사장 '결제조회도 정산내역이랑 동일하게')
-          quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
-          settlementLog: { select: { status: true, settledAt: true } },
-        },
-      }),
-      this.prisma.payment.count({ where }),
-    ]);
+    // 돋보기 검색 · 결제일/예식일 정렬(261026) — 결제일·예식일은 계산값이라 거르기에 맞는 줄의 키만 받아 거르고·정렬한 뒤
+    // 그 페이지 줄만 자세히 받는다(payment/admin-list.ts).
+    const sort = parseAdminPaySort(params.sort);
+    const sq = parseAdminSearch(params.search);
+    const withEvent = needsEventKeys(sort, sq);
+    const keyRows: any[] = await this.prisma.payment.findMany({
+      where,
+      select: {
+        id: true,
+        userId: true,
+        proProfileId: true,
+        method: true,
+        createdAt: true,
+        updatedAt: true,
+        customerPhone: true,
+        pgTransactionId: true,
+        settlementLog: { select: { createdAt: true } },
+        ...(withEvent ? { quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' as const }, take: 1 } } : {}),
+      },
+    });
+    let matched = keyRows;
+    if (sq) {
+      const [qUsers, qPros] = await Promise.all([
+        this.prisma.user.findMany({ where: { id: { in: [...new Set(keyRows.map((r) => r.userId))] } }, select: { id: true, name: true, phone: true } }),
+        this.prisma.proProfile.findMany({ where: { id: { in: [...new Set(keyRows.map((r) => r.proProfileId))] } }, select: { id: true, user: { select: { name: true } } } }),
+      ]);
+      const qUserMap = new Map(qUsers.map((u) => [u.id, u]));
+      const qProMap = new Map(qPros.map((p) => [p.id, p.user?.name || null]));
+      matched = keyRows.filter((r) => {
+        const u = qUserMap.get(r.userId);
+        const ev = paymentEventOf(r.quotations?.[0]);
+        return matchesAdminSearch(sq, {
+          texts: [u?.name, qProMap.get(r.proProfileId), ev.title, ev.kind, ev.location],
+          phones: [r.customerPhone, u?.phone],
+          ids: [r.id, r.pgTransactionId],
+        });
+      });
+    }
+    const total = matched.length;
+    const pageIds: string[] = sortAndPage(
+      matched,
+      sort,
+      (r) => ({ id: r.id, paidAt: paymentPaidAt(r), eventDate: withEvent ? paymentEventOf(r.quotations?.[0]).date : null }),
+      page,
+      limit,
+    ).map((r) => r.id);
+
+    const pageRows = pageIds.length
+      ? await this.prisma.payment.findMany({
+          where: { id: { in: pageIds } },
+          include: {
+            // 어떤 행사였는지 — 정산 내역과 같은 계산(261004 사장 '결제조회도 정산내역이랑 동일하게')
+            quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
+            settlementLog: { select: { status: true, settledAt: true, createdAt: true } },
+          },
+        })
+      : [];
+    const rowById = new Map(pageRows.map((p) => [p.id, p]));
+    // 사이에 지워진 줄은 빠진다(정렬 순서는 키 단계 그대로)
+    const payments = pageIds.map((id) => rowById.get(id)).filter((p): p is (typeof pageRows)[number] => !!p);
 
     const userIds = [...new Set(payments.map((p) => p.userId))];
     const proIds = [...new Set(payments.map((p) => p.proProfileId))];
