@@ -11,6 +11,13 @@ export const SETTLEABLE_PAYMENT_STATUSES = ['completed', 'escrowed', 'settled'] 
 export const isSettleablePayment = (status?: string | null) =>
   !!status && (SETTLEABLE_PAYMENT_STATUSES as readonly string[]).includes(status);
 
+/**
+ * 사회자·명세서에 보이는 정산 상태 — 환불된 결제의 '대기' 로그(이 수정 전에 환불돼 '대기'로 남은 것)는 '취소'로 본다.
+ * 정산하기(markSettled)도 그런 로그는 막으니, 사회자에게 '곧 받을 돈'으로 보이면 안 된다.
+ */
+export const settlementViewStatus = (status: string, paymentStatus?: string | null) =>
+  status === 'pending' && !isSettleablePayment(paymentStatus) ? 'cancelled' : status;
+
 export const SETTLED_REFUND_BLOCK_MESSAGE =
   '이미 사회자 정산이 끝난 예약이라 앱에서 바로 취소할 수 없어요. 고객센터로 문의해 주세요.';
 

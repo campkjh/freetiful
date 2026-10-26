@@ -12,7 +12,9 @@ export class SettlementController {
 
   // ─── Pro 본인 ────────────────────────────────────────────
 
-  @Get('pro/settlements')
+  // 'pro/settlements' 가 아니라 따로 둔 주소(261026) — 그 주소는 ProController(월별 매출 묶음, 매출 내역 화면)가 먼저 등록돼
+  // 요청이 여기까지 안 왔다(Nest 는 모듈 순서대로 라우트를 등록하고 Express 는 먼저 맞는 쪽이 답한다). 그래서 정산 내역 화면이 늘 엉뚱했다.
+  @Get('pro/settlement-logs')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '프로 본인의 정산 로그 목록' })

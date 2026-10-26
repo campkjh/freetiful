@@ -84,7 +84,10 @@ const byIn = <T extends { id: string }>(rows: T[], where: any) => (where?.id?.in
 const fakePrisma: any = {
   payment: { findMany: async ({ where }: any) => byIn(PAYS, where).filter((p) => !where.status || p.status === where.status).map((p) => ({ settlementLog: null, refundAmount: null, refundReason: null, refundedAt: null, ...p })) },
   user: { findMany: async ({ where }: any) => USERS.filter((u) => where.id.in.includes(u.id)) },
-  proProfile: { findMany: async ({ where }: any) => PROS.filter((p) => where.id.in.includes(p.id)) },
+  proProfile: {
+    findMany: async ({ where }: any) => PROS.filter((p) => where.id.in.includes(p.id)),
+    findUnique: async ({ where }: any) => PROS.find((p) => p.user.id === where.userId) ?? null,
+  },
   settlementLog: {
     findMany: async ({ where }: any) => {
       const logs = PAYS.map((p, i) => ({
@@ -93,7 +96,7 @@ const fakePrisma: any = {
         proProfile: { id: p.proProfileId, user: PROS.find((x) => x.id === p.proProfileId)!.user }, settledBy: null,
         payment: { ...p },
       }));
-      return byIn(logs, where).filter((l) => !where.status || l.status === where.status);
+      return byIn(logs, where).filter((l) => (!where.status || l.status === where.status) && (!where.proProfileId || l.proProfileId === where.proProfileId));
     },
   },
 };
@@ -135,4 +138,22 @@ test('admin settlements: paidAt on each row, search, summary follows the search'
   assert.deepEqual(hit.summary, { pendingCount: 0, pendingAmount: 0, settledCount: 1, settledAmount: 390000 });
   assert.deepEqual((await settle.adminList({ sort: 'event_asc' }) as any).data.map((r: any) => r.id), ['s2', 's1', 's3']);
   assert.equal((await settle.adminList({ status: 'pending' as any, search: '김하늘' }) as any).meta.total, 0);
+});
+
+test('pro own settlement logs (마이 > 정산 내역): refunded payment\'s pending log shows as 취소 and leaves the 정산 예정 total', async () => {
+  // 임하람(x1) = pp1 → s1(완료 결제·대기) · s3(환불 결제인데 로그는 대기로 남음)
+  const mine: any = await settle.getMyLogs('x1');
+  assert.deepEqual(mine.data.map((r: any) => `${r.id}:${r.status}`).sort(), ['s1:pending', 's3:cancelled']);
+  assert.deepEqual(mine.meta, { total: 2, pending: 1, settled: 0, totalAmount: 290000, pendingAmount: 290000, settledAmount: 0 });
+  const s1 = mine.data.find((r: any) => r.id === 's1');
+  assert.equal(s1.customerName, '이나연');
+  assert.equal(s1.event.title, '이나연 결혼식');
+  assert.equal(s1.netAmount, 290000);
+  // 결제 행 통째(연락처·주문번호)는 안 실린다
+  assert.equal(s1.payment, undefined);
+  assert.equal((await settle.getMyLogs('x1', { status: 'pending' as any }) as any).data.map((r: any) => r.id).join(), 's1');
+  // 서지수(x2) = 정산 완료 1건
+  assert.deepEqual((await settle.getMyLogs('x2') as any).meta, { total: 1, pending: 0, settled: 1, totalAmount: 390000, pendingAmount: 0, settledAmount: 390000 });
+  // 사회자 프로필이 없으면 빈 목록
+  assert.equal((await settle.getMyLogs('nobody') as any).data.length, 0);
 });

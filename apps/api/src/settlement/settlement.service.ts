@@ -5,7 +5,7 @@ import { SettlementStatus } from '@prisma/client';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { paymentPaidAt } from '../payment/refund-policy';
 import { matchesAdminSearch, needsEventKeys, parseAdminPaySort, parseAdminSearch, sortAndPage } from '../payment/admin-list';
-import { isSettleablePayment } from './settlement-refund';
+import { isSettleablePayment, settlementViewStatus } from './settlement-refund';
 
 /** 이름 가운데 가리기 — '김하늘' → '김*늘' · '김솔' → '김*' (빌지는 이미지로 카톡 공유되므로 고객 이름을 다 싣지 않는다) */
 export function maskName(raw?: string | null): string {
@@ -54,42 +54,63 @@ export class SettlementService {
     return date;
   }
 
-  /** 프로 본인의 정산 로그 조회 */
+  /**
+   * 프로 본인의 정산 로그 — 마이 > 정산 내역(261026). 줄 = 정산 로그 1건(행사·고객·결제일·받을 돈).
+   *  · 상태는 settlementViewStatus — 환불된 결제의 '대기' 로그(환불 수정 전에 남은 것)는 '취소'로, 정산 예정 합계에서도 빠진다.
+   *  · 결제 행 통째(연락처·주문번호 등)는 싣지 않는다 — 화면에 쓰는 칸만.
+   */
   async getMyLogs(userId: string, params?: { status?: SettlementStatus; page?: number; limit?: number }) {
+    const meta = { total: 0, pending: 0, settled: 0, totalAmount: 0, pendingAmount: 0, settledAmount: 0 };
     const profile = await this.prisma.proProfile.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!profile) return { data: [], meta: { total: 0, pending: 0, settled: 0, totalAmount: 0, pendingAmount: 0, settledAmount: 0 } };
+    if (!profile) return { data: [], meta };
 
-    const where: any = { proProfileId: profile.id };
-    if (params?.status) where.status = params.status;
+    // 사회자 한 명의 로그는 많지 않다 → 상태 판정용 키만 다 받아 요약·거르기·페이지를 정하고, 그 페이지 줄만 자세히
+    const keyRows = await this.prisma.settlementLog.findMany({
+      where: { proProfileId: profile.id },
+      select: { id: true, status: true, netAmount: true, payment: { select: { status: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const keys = keyRows.map((r) => ({ id: r.id, netAmount: r.netAmount || 0, status: settlementViewStatus(r.status, r.payment?.status) }));
+    for (const k of keys) {
+      if (k.status === 'pending') { meta.pending += 1; meta.pendingAmount += k.netAmount; }
+      else if (k.status === 'settled') { meta.settled += 1; meta.settledAmount += k.netAmount; }
+    }
+    meta.totalAmount = meta.pendingAmount + meta.settledAmount;
+    const matched = params?.status ? keys.filter((k) => k.status === params.status) : keys;
+    meta.total = matched.length;
 
-    const [rawData, totalCount, aggregates] = await Promise.all([
-      this.prisma.settlementLog.findMany({
-        where,
-        include: {
-          payment: {
-            include: {
-              quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
+    const limit = Math.min(Math.max(Number(params?.limit) || 50, 1), 100);
+    const page = Math.max(1, Number(params?.page) || 1);
+    const pageKeys = matched.slice((page - 1) * limit, page * limit);
+    const rawRows = pageKeys.length
+      ? await this.prisma.settlementLog.findMany({
+          where: { id: { in: pageKeys.map((k) => k.id) } },
+          select: {
+            id: true,
+            amount: true,
+            platformFee: true,
+            netAmount: true,
+            settledAt: true,
+            createdAt: true,
+            payment: {
+              select: {
+                userId: true,
+                method: true,
+                createdAt: true,
+                updatedAt: true,
+                quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: params?.limit || 50,
-        skip: ((params?.page || 1) - 1) * (params?.limit || 50),
-      }),
-      this.prisma.settlementLog.count({ where }),
-      this.prisma.settlementLog.groupBy({
-        by: ['status'],
-        where: { proProfileId: profile.id },
-        _sum: { netAmount: true },
-        _count: true,
-      }),
-    ]);
+        })
+      : [];
+    const rowById = new Map(rawRows.map((r) => [r.id, r]));
 
     // Payment → user 관계가 스키마에 없어서 별도로 User 조회 후 머지
-    const userIds = Array.from(new Set(rawData.map((r) => r.payment.userId)));
+    const userIds = Array.from(new Set(rawRows.map((r) => r.payment.userId)));
     const users = userIds.length
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
@@ -97,27 +118,25 @@ export class SettlementService {
         })
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
-    const data = rawData.map((r) => ({
-      ...r,
-      payment: { ...r.payment, user: userMap.get(r.payment.userId) || null },
-    }));
+    // 사이에 지워진 줄은 빠진다(순서는 키 단계 = 최신순 그대로)
+    const data = pageKeys.flatMap((k) => {
+      const r = rowById.get(k.id);
+      if (!r) return [];
+      return [{
+        id: r.id,
+        status: k.status,
+        amount: r.amount,
+        platformFee: r.platformFee,
+        netAmount: r.netAmount,
+        settledAt: r.settledAt,
+        createdAt: r.createdAt,
+        customerName: userMap.get(r.payment.userId)?.name || null,
+        event: paymentEventOf(r.payment.quotations?.[0]),
+        paidAt: paymentPaidAt({ ...r.payment, settlementLog: { createdAt: r.createdAt } }),
+      }];
+    });
 
-    const pendingAgg = aggregates.find((a) => a.status === 'pending');
-    const settledAgg = aggregates.find((a) => a.status === 'settled');
-    const pendingAmount = pendingAgg?._sum.netAmount || 0;
-    const settledAmount = settledAgg?._sum.netAmount || 0;
-
-    return {
-      data,
-      meta: {
-        total: totalCount,
-        pending: pendingAgg?._count || 0,
-        settled: settledAgg?._count || 0,
-        totalAmount: pendingAmount + settledAmount,
-        pendingAmount,
-        settledAmount,
-      },
-    };
+    return { data, meta };
   }
 
   /** 관리자 — 전체 정산 로그 목록 */
@@ -346,6 +365,7 @@ export class SettlementService {
             userId: true,
             amount: true,
             method: true,
+            status: true,
             createdAt: true,
             updatedAt: true,
             quotations: { select: PAYMENT_EVENT_QUOTATION_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
@@ -361,7 +381,8 @@ export class SettlementService {
       id: log.id,
       /** 명세서 번호 — 정산 id 앞 10자리 */
       no: log.id.replace(/-/g, '').slice(0, 10).toUpperCase(),
-      status: log.status,
+      // 환불된 결제의 '대기' 로그는 '취소'로(정산 내역 목록과 같게)
+      status: settlementViewStatus(log.status, log.payment.status),
       proName: log.proProfile?.user?.name || '사회자',
       customerName: maskName(customer?.name),
       event: paymentEventOf(log.payment.quotations?.[0]),
