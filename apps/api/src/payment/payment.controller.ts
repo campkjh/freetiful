@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
@@ -51,11 +52,12 @@ export class PaymentController {
     return this.paymentService.confirmPayment(req.user.id, body);
   }
 
-  /** 토스 웹훅 — 가상계좌 입금 완료/취소 확정 (토스 서버가 인증 없이 호출하므로 Public) */
+  /** 토스 웹훅 — 가상계좌 입금 완료/취소 확정 (토스 서버가 인증 없이 호출하므로 Public. 상태는 서비스가 토스 조회로 확인) */
   @Post('webhook')
   @ApiOperation({ summary: '토스 웹훅 (가상계좌 입금 완료/취소)' })
-  handleWebhook(@Body() body: any) {
-    return this.paymentService.handleTossWebhook(body);
+  handleWebhook(@Body() body: any, @Headers('x-forwarded-for') forwardedFor?: string) {
+    // 거부 로그에 남길 보낸 곳(Railway 프록시 뒤라 x-forwarded-for 첫 칸)
+    return this.paymentService.handleTossWebhook(body, forwardedFor?.split(',')[0]?.trim());
   }
 
   /** 결제 내역 목록 */

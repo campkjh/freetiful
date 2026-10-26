@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ServiceUnavailableException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,9 @@ import { REFUND_BLOCK_MESSAGE, paymentPaidAt, refundVerdict } from './refund-pol
 import { SETTLED_REFUND_BLOCK_MESSAGE, claimRefund } from '../settlement/settlement-refund';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+
+/** 토스 결제 조회가 장애(네트워크·5xx·키 오류·429)로 답을 못 준 경우 — 웹훅을 503 으로 돌려 토스가 다시 보내게 한다 */
+class TossLookupUnavailableError extends Error {}
 
 @Injectable()
 export class PaymentService {
@@ -463,26 +467,60 @@ export class PaymentService {
     return { chatRoomId };
   }
 
+  /** 웹훅 본문의 orderId·paymentKey — 문자열(토스 규격 최대 200자)만 받는다 */
+  private webhookKey(value: unknown): string | undefined {
+    return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : undefined;
+  }
+
+  /**
+   * 토스 결제 조회 — GET /v1/payments/{paymentKey} 또는 /v1/payments/orders/{orderId}.
+   * 토스에 그런 결제가 없으면(4xx) null, 토스가 답을 못 주면(네트워크·5xx·401 키 오류·429) TossLookupUnavailableError.
+   */
+  private async fetchTossPayment(by: { paymentKey: string } | { orderId: string }): Promise<any | null> {
+    const path = 'paymentKey' in by
+      ? encodeURIComponent(by.paymentKey)
+      : `orders/${encodeURIComponent(by.orderId)}`;
+    try {
+      const res = await axios.get(`${this.tossBaseUrl}/${path}`, {
+        headers: { Authorization: this.getAuthHeader() },
+        // 토스는 웹훅 응답을 10초 안에 받아야 한다
+        timeout: 5000,
+      });
+      return res.data ?? null;
+    } catch (e: any) {
+      const code = Number(e?.response?.status);
+      if (code >= 400 && code < 500 && code !== 401 && code !== 429) return null;
+      throw new TossLookupUnavailableError(
+        `토스 결제 조회 실패 http=${code || 'network'} ${e?.response?.data?.code || e?.message || ''}`,
+      );
+    }
+  }
+
   /**
    * 토스 웹훅 수신 — 가상계좌 입금 완료/취소를 확정한다.
-   * PAYMENT_STATUS_CHANGED / DEPOSIT_CALLBACK 이벤트 처리.
-   * (인증 헤더 없이 토스가 호출하므로 컨트롤러에서 Public. orderId/paymentKey 로 결제를 재조회해 신뢰.)
+   * PAYMENT_STATUS_CHANGED({ eventType, data: Payment }) / DEPOSIT_CALLBACK({ status, orderId, secret, ... } 납작, paymentKey 없음).
+   *
+   * ⚠️ 인증 없이 누구나 부를 수 있는 주소다(토스가 인증 헤더 없이 부름). 예전엔 본문 status 를 그대로 믿어
+   *  위조 {status:'DONE'} 한 줄로 미입금 결제가 completed·정산 대기가 됐다(261026).
+   *  이제 본문은 '이 결제 다시 봐 달라'는 초인종으로만 쓰고, 우리 DB 에 적힌 키로 토스 결제 조회를 해서
+   *  토스가 말하는 상태·금액으로만 바꾼다. 무시·위조는 200(재시도 없음·단서 없음), 토스 조회 장애만 503(토스가 다시 보냄).
    */
-  async handleTossWebhook(body: any): Promise<{ ok: boolean }> {
+  async handleTossWebhook(body: any, source?: string): Promise<{ ok: boolean }> {
     try {
       const eventType = String(body?.eventType || '');
       const payload = body?.data || body || {};
-      const status = String(payload?.status || '');
-      const orderId = payload?.orderId as string | undefined;
-      const paymentKey = payload?.paymentKey as string | undefined;
+      const claimed = String(payload?.status || '');
+      const orderId = this.webhookKey(payload?.orderId);
+      const paymentKey = this.webhookKey(payload?.paymentKey);
+      const tag = `event=${eventType} status=${claimed} orderId=${orderId} paymentKey=${paymentKey} from=${source}`;
 
-      this.logger.log(`토스 웹훅 수신 event=${eventType} status=${status} orderId=${orderId}`);
+      this.logger.log(`토스 웹훅 수신 ${tag}`);
 
       if (!orderId && !paymentKey) return { ok: true };
 
       // order 생성 시 pgTransactionId=orderId, confirm 후엔 pgTransactionId=paymentKey 로 갱신됨.
       // 두 값 중 매칭되는 결제를 찾는다.
-      const payment = await this.prisma.payment.findFirst({
+      let payment = await this.prisma.payment.findFirst({
         where: {
           OR: [
             orderId ? { pgTransactionId: orderId } : undefined,
@@ -490,39 +528,92 @@ export class PaymentService {
           ].filter(Boolean) as any[],
         },
       });
+      // DEPOSIT_CALLBACK 엔 orderId 만 오는데 입금대기 결제는 confirm 때 pgTransactionId 가 paymentKey 로 바뀌어 있다
+      // → 토스에 orderId 로 물어 paymentKey 를 받아 다시 찾는다.
+      let toss: any = null;
+      if (!payment && orderId) {
+        toss = await this.fetchTossPayment({ orderId });
+        if (toss?.paymentKey) {
+          payment = await this.prisma.payment.findUnique({ where: { pgTransactionId: String(toss.paymentKey) } });
+        }
+      }
       if (!payment) {
-        this.logger.warn(`웹훅 대상 결제 없음 orderId=${orderId} paymentKey=${paymentKey}`);
+        this.logger.warn(`웹훅 대상 결제 없음 ${tag}`);
         return { ok: true };
       }
 
-      // 입금 완료 → 결제 완료 확정 (아직 completed 가 아닐 때만)
-      if (status === 'DONE') {
-        if (payment.status === 'completed' || payment.status === 'settled' || payment.status === 'escrowed') {
-          return { ok: true }; // 이미 처리됨 (웹훅 중복 수신 방어)
+      // 웹훅으로 바뀔 수 있는 건 결제 전(pending)·입금대기(waiting_for_deposit)뿐.
+      // 완료·환불·실패·정산은 끝난 상태 → 중복 수신이든 위조든 토스에 묻지도 않고 200.
+      const fromStatus = payment.status;
+      if (fromStatus !== 'pending' && fromStatus !== 'waiting_for_deposit') return { ok: true };
+
+      // 우리 DB 에 적힌 키로 묻는다(본문 키가 아니라). 그 키가 본문 orderId 칸으로 왔으면 orderId, 아니면 paymentKey.
+      const ourKey = payment.pgTransactionId as string;
+      const ourKeyIsOrderId = !toss && ourKey === orderId;
+      if (!toss) {
+        toss = await this.fetchTossPayment(ourKeyIsOrderId ? { orderId: ourKey } : { paymentKey: ourKey });
+      }
+      const tossStatus = String(toss?.status || '');
+      const reject = (reason: string) => {
+        this.logger.warn(`토스 웹훅 거부(${reason}) payment=${payment!.id} db=${fromStatus} toss=${tossStatus || '-'} ${tag}`);
+        return { ok: true };
+      };
+      if (!toss) return reject('토스에 없는 결제');
+      const sameKey = ourKeyIsOrderId ? toss.orderId === ourKey : toss.paymentKey === ourKey;
+      // 본문에 실린 키는 토스가 돌려준 결제의 키와 같아야 한다(남의 키를 섞은 본문 거르기)
+      const bodyAgrees = (!orderId || toss.orderId === orderId) && (!paymentKey || toss.paymentKey === paymentKey);
+      if (!sameKey || !bodyAgrees) return reject('키 불일치');
+
+      // 입금 완료 → 결제 완료 확정
+      if (tossStatus === 'DONE') {
+        if (Number(toss.totalAmount) !== payment.amount) {
+          return reject(`금액 불일치 toss=${toss.totalAmount} db=${payment.amount}`);
         }
-        await this.prisma.payment.update({
-          where: { id: payment.id },
-          data: { status: 'completed' },
+        // 같은 입금에 DEPOSIT_CALLBACK·PAYMENT_STATUS_CHANGED 가 겹쳐 오거나 재시도가 겹쳐도
+        // 상태 조건부 갱신에 이긴 한 번만 부수효과를 돌린다.
+        const won = await this.prisma.payment.updateMany({
+          where: { id: payment.id, status: fromStatus },
+          data: {
+            status: 'completed',
+            // 결제 전(pending)에서 바로 오면 아직 orderId 라 환불(cancel)에 쓸 paymentKey 로 바꿔 둔다
+            pgTransactionId: String(toss.paymentKey),
+            method: payment.method || this.formatEasyPayMethod(toss),
+          },
         });
-        await this.runPaidSideEffects(payment as any, payment.amount);
-        this.logger.log(`가상계좌 입금완료 → 결제완료 확정 payment=${payment.id}`);
+        if (won.count === 0) return { ok: true };
+        // 채팅 '결제한 서비스' 카드의 주문번호 = 토스 orderId (입금대기 결제는 pgTransactionId 가 paymentKey 라)
+        await this.runPaidSideEffects({ ...payment, pgTransactionId: String(toss.orderId) }, payment.amount);
+        this.logger.log(`토스 확인 입금완료 → 결제완료 확정 payment=${payment.id} from=${fromStatus}`);
         return { ok: true };
       }
 
-      // 입금 취소/만료 → 실패 처리 (미완료 상태였을 때만)
-      if (status === 'CANCELED' || status === 'EXPIRED' || status === 'PARTIAL_CANCELED') {
-        if (payment.status === 'waiting_for_deposit' || payment.status === 'pending') {
-          await this.prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: 'failed' },
-          });
-          this.logger.log(`가상계좌 입금 취소/만료 → 실패 payment=${payment.id} status=${status}`);
+      // 입금 취소/만료 → 실패 처리. 입금 전 결제라 정산 로그가 없고, 정산하기도 failed 는 거절한다.
+      // (refunded 로 바꾸게 되면 settlement-refund.ts cancelSettlementForRefund 를 같은 트랜잭션에서 먼저 부를 것)
+      if (tossStatus === 'CANCELED' || tossStatus === 'EXPIRED' || tossStatus === 'PARTIAL_CANCELED') {
+        await this.prisma.payment.updateMany({
+          where: { id: payment.id, status: fromStatus },
+          data: { status: 'failed' },
+        });
+        this.logger.log(`토스 확인 입금 취소/만료 → 실패 payment=${payment.id} status=${tossStatus}`);
+        return { ok: true };
+      }
+
+      // 토스는 아직 입금대기 등인데 본문은 다른 상태를 말한다
+      if (claimed && claimed !== tossStatus) {
+        // 본문 secret 이 토스가 아는 그 결제의 secret 과 같으면 진짜 토스 웹훅(가상계좌만 있음, 고객에겐 안 감)
+        // → 조회가 웹훅을 못 따라온 것이니 503 으로 다시 받는다. 나머지는 위조 의심.
+        if (typeof payload?.secret === 'string' && toss.secret && payload.secret === toss.secret) {
+          throw new TossLookupUnavailableError(`토스 조회가 웹훅보다 늦음 payment=${payment.id} body=${claimed} toss=${tossStatus}`);
         }
-        return { ok: true };
+        return reject('본문 상태가 토스와 다름');
       }
-
       return { ok: true };
     } catch (e) {
+      if (e instanceof TossLookupUnavailableError) {
+        // 실제 입금일 수 있으니 200 으로 삼키지 않는다 — 503 이면 토스가 1·4·16분… 간격으로 다시 보낸다
+        this.logger.error(`토스 웹훅 보류(토스 조회 장애, 503): ${e.message}`);
+        throw new ServiceUnavailableException();
+      }
       this.logger.error(`토스 웹훅 처리 실패: ${e}`);
       // 토스에 200 을 돌려주지 않으면 재시도 폭주 → 로깅만 하고 ok 반환.
       return { ok: true };
