@@ -12,6 +12,7 @@ import { ChatService } from '../chat/chat.service';
 import { ChatRealtimeService } from '../chat/chat-realtime.service';
 import { MessageTypeEnum } from '../chat/dto/chat.dto';
 import { REFUND_BLOCK_MESSAGE, paymentPaidAt, refundVerdict } from './refund-policy';
+import { SETTLED_REFUND_BLOCK_MESSAGE, claimRefund } from '../settlement/settlement-refund';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 
@@ -665,7 +666,7 @@ export class PaymentService {
       include: {
         quotations: { orderBy: { createdAt: 'desc' }, take: 1 },
         // 가상계좌 입금일 — 정산 로그 생성(입금 확인) 시각(paymentPaidAt, 261026)
-        settlementLog: { select: { createdAt: true } },
+        settlementLog: { select: { createdAt: true, status: true } },
       },
     });
 
@@ -681,6 +682,11 @@ export class PaymentService {
       throw new BadRequestException('완료된 결제만 취소할 수 있습니다.');
     }
 
+    // 이미 사회자에게 정산(지급)된 예약 — 앱에서 돌려주면 고객·사회자 양쪽으로 돈이 나간다(261026 사장: 고객센터로)
+    if (payment.settlementLog?.status === 'settled') {
+      throw new BadRequestException(SETTLED_REFUND_BLOCK_MESSAGE);
+    }
+
     // 환불 = 「플랫폼 환불 규정」 제1조(260928 기준 통일 — 예전엔 행사일 D-day 14/7/1일 기준이라 결제 몇 달 뒤에도 전액 환불됐다).
     //  규칙 본문은 refund-policy.ts 한 곳(어드민 결제 조회의 '환불 가능 기간' 표시도 같은 함수를 쓴다).
     //  · 사회자 귀책 보상·고객 사정 위약금(규정 제2·3조)은 고객센터가 규정대로 처리한다.
@@ -693,6 +699,12 @@ export class PaymentService {
     }
     const refundRate = verdict.rate;
     const refundAmount = refundRate === 100 ? amount : Math.round(amount * 0.5);
+
+    // DB 에서 먼저 환불을 잡는다 — 정산 로그 취소(부분 환불도 사회자 정산 없음) + 결제 refunded 를 한 트랜잭션으로.
+    //  그 사이 정산하기가 끝났거나 두 번 눌렀으면 여기서 멈춰 PG 취소를 부르지 않는다(settlement-refund.ts)
+    const claim = await claimRefund(this.prisma, payment.id, { refundAmount, refundReason: reason, refundedAt: new Date() });
+    if (claim === 'settled') throw new BadRequestException(SETTLED_REFUND_BLOCK_MESSAGE);
+    if (claim === 'not_completed') throw new BadRequestException('완료된 결제만 취소할 수 있습니다.');
 
     // 토스 결제 취소 API (부분 환불 지원)
     if (payment.pgTransactionId) {
@@ -714,15 +726,7 @@ export class PaymentService {
       }
     }
 
-    const updatedPayment = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'refunded',
-        refundAmount,
-        refundReason: reason,
-        refundedAt: new Date(),
-      },
-    });
+    const updatedPayment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
 
     if (payment.quotationId) {
       await this.prisma.quotation.update({
@@ -794,6 +798,14 @@ export class PaymentService {
       return payment;
     }
 
+    // 정산 로그 취소 + 결제 refunded 를 먼저 한 트랜잭션으로(cancelPayment 와 같음). 이미 사회자에게 정산됐으면 자동 환불하지 않는다 → 고객센터
+    const claim = await claimRefund(this.prisma, payment.id, { refundAmount: payment.amount, refundReason: reason, refundedAt: new Date() });
+    if (claim === 'settled') {
+      this.logger.warn(`시스템 환불 보류 — 이미 정산된 결제 ${payment.id}`);
+      return payment;
+    }
+    if (claim === 'not_completed') return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+
     // 토스 결제 취소 (PG 거래 ID 가 있을 때만)
     if (payment.pgTransactionId) {
       try {
@@ -813,15 +825,7 @@ export class PaymentService {
       }
     }
 
-    const updatedPayment = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'refunded',
-        refundAmount: payment.amount,
-        refundReason: reason,
-        refundedAt: new Date(),
-      },
-    });
+    const updatedPayment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
 
     if (payment.quotationId) {
       await this.prisma.quotation.update({

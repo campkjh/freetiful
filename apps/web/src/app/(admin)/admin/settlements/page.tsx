@@ -86,7 +86,7 @@ function eventOf(it: SettlementLogItem): AdminEvent {
 const paidAtOf = (it: SettlementLogItem) => it.payment?.paidAt || it.payment?.createdAt || null;
 
 /** 지금 목록 조건 — 상태 · 조회기간 · 돋보기 · 정렬(261026 운영팀) */
-type SettleFilter = 'all' | 'pending' | 'settled';
+type SettleFilter = 'all' | 'pending' | 'settled' | 'cancelled';
 interface SettleQuery {
   filter: SettleFilter;
   range: AdminDateRange;
@@ -289,7 +289,7 @@ export default function AdminSettlementsPage() {
           <div className="adm-toolbar adm-toolbar-sub">
             <AdminRadioGroup
               value={query.filter}
-              options={[{ value: 'pending', label: '정산 대기' }, { value: 'all', label: '전체' }, { value: 'settled', label: '정산 완료' }]}
+              options={[{ value: 'pending', label: '정산 대기' }, { value: 'all', label: '전체' }, { value: 'settled', label: '정산 완료' }, { value: 'cancelled', label: '취소' }]}
               ariaLabel="정산 상태"
               onChange={(filter) => applyQuery({ filter })}
             />
@@ -359,7 +359,7 @@ export default function AdminSettlementsPage() {
                     <td className="c">
                       <span className={`adm-badge ${STATUS_COLORS[it.status] || ''}`}>{STATUS_LABELS[it.status]}</span>
                       {it.settledAt && <span className="adm-cell-sub">{formatDate(it.settledAt)}</span>}
-                      {/* 환불된 결제 — 환불해도 정산 로그는 그대로 '대기'라, 모르고 정산하기를 누르지 않게(261026) */}
+                      {/* 환불된 결제 — 이제 환불하면 정산 로그가 '취소'로 바뀐다. 정산 뒤 고객센터 환불(회수 필요)·수정 전 환불 건을 알아보게(261026) */}
                       {it.payment?.status === 'refunded' && (
                         <span
                           className="adm-cell-sub adm-refunded"
@@ -374,12 +374,13 @@ export default function AdminSettlementsPage() {
                         <button type="button" onClick={() => setBill({ id: it.id, fresh: false })} className="adm-btn sm" title="정산 명세서(빌지) · 카카오톡 이미지 공유">
                           빌지
                         </button>
-                        {it.status === 'pending' ? (
+                        {/* 환불된 결제는 정산하기 없음(서버도 막는다) · 취소된 로그는 되돌리기 없음 */}
+                        {it.status === 'pending' ? (it.payment?.status !== 'refunded' && (
                           <button type="button" onClick={() => handleSettle(it.id)} disabled={processingId === it.id} className="adm-btn primary sm">
                             {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
                             정산하기
                           </button>
-                        ) : (
+                        )) : it.status === 'settled' && (
                           <button type="button" onClick={() => handleUnsettle(it.id)} disabled={processingId === it.id} className="adm-btn sm">
                             {processingId === it.id ? <Loader2 size={13} className="animate-spin" /> : null}
                             되돌리기

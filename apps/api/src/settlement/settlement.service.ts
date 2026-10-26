@@ -5,6 +5,7 @@ import { SettlementStatus } from '@prisma/client';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { paymentPaidAt } from '../payment/refund-policy';
 import { matchesAdminSearch, needsEventKeys, parseAdminPaySort, parseAdminSearch, sortAndPage } from '../payment/admin-list';
+import { isSettleablePayment } from './settlement-refund';
 
 /** 이름 가운데 가리기 — '김하늘' → '김*늘' · '김솔' → '김*' (빌지는 이미지로 카톡 공유되므로 고객 이름을 다 싣지 않는다) */
 export function maskName(raw?: string | null): string {
@@ -149,6 +150,7 @@ export class SettlementService {
             id: true,
             userId: true,
             method: true,
+            status: true,
             createdAt: true,
             updatedAt: true,
             customerPhone: true,
@@ -178,7 +180,11 @@ export class SettlementService {
     const total = matched.length;
     const summary = { pendingCount: 0, pendingAmount: 0, settledCount: 0, settledAmount: 0 };
     for (const r of matched) {
-      if (r.status === 'pending') { summary.pendingCount += 1; summary.pendingAmount += r.netAmount || 0; }
+      // 정산 대기 합계는 보낼 돈만 — 환불된 결제(이 수정 전 환불이라 로그가 '대기'로 남은 것)는 뺀다(261026)
+      if (r.status === 'pending') {
+        if (!isSettleablePayment(r.payment.status)) continue;
+        summary.pendingCount += 1; summary.pendingAmount += r.netAmount || 0;
+      }
       else if (r.status === 'settled') { summary.settledCount += 1; summary.settledAmount += r.netAmount || 0; }
     }
     // 결제일 = 결제의 입금일(가상계좌는 이 정산 로그가 만들어진 입금 확인 시각과 updatedAt 중 이른 쪽)
@@ -271,29 +277,44 @@ export class SettlementService {
       where: { id },
       include: {
         proProfile: { select: { userId: true, user: { select: { name: true } } } },
+        payment: { select: { status: true } },
       },
     });
     if (!log) throw new NotFoundException('정산 로그를 찾을 수 없습니다');
     if (log.status === 'settled') {
       throw new BadRequestException('이미 정산 완료된 내역입니다');
     }
+    if (log.status === 'cancelled') {
+      throw new BadRequestException('취소된 정산 내역입니다(결제 환불)');
+    }
+    // 고객에게 돌려준 결제는 정산하지 않는다 — 50% 부분 환불도(261026 사장: 남은 50%는 플랫폼 몫)
+    if (!isSettleablePayment(log.payment?.status)) {
+      throw new BadRequestException(
+        log.payment?.status === 'refunded' ? '고객에게 환불된 결제라 정산할 수 없습니다' : '결제가 완료되지 않아 정산할 수 없습니다',
+      );
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const upd = await tx.settlementLog.update({
-        where: { id },
+      // 대기일 때만 바꾼다 — 같은 순간 고객 환불이 정산 로그를 먼저 취소했으면 0건(환불은 로그 → 결제 순으로 잠근다, settlement-refund.ts)
+      const settledAt = new Date();
+      const claimed = await tx.settlementLog.updateMany({
+        where: { id, status: 'pending' },
         data: {
           status: 'settled',
-          settledAt: new Date(),
+          settledAt,
           settledByUserId: adminUserId,
           note: note || undefined,
         },
       });
+      if (claimed.count === 0) {
+        throw new BadRequestException('방금 환불되었거나 정산된 내역입니다. 새로고침해 주세요.');
+      }
       // Payment.settledAt 도 동기화
       await tx.payment.update({
         where: { id: log.paymentId },
-        data: { settledAt: upd.settledAt },
+        data: { settledAt },
       });
-      return upd;
+      return tx.settlementLog.findUniqueOrThrow({ where: { id } });
     });
 
     // 전문가에게 알림 — 누르면 정산 명세서(빌지, 이미지로 카톡 공유 가능 — 261005 사장)
@@ -358,12 +379,16 @@ export class SettlementService {
 
   /** 관리자가 정산을 취소 (실수 복구) */
   async unmarkSettled(id: string) {
-    const log = await this.prisma.settlementLog.findUnique({ where: { id } });
+    const log = await this.prisma.settlementLog.findUnique({ where: { id }, include: { payment: { select: { status: true } } } });
     if (!log) throw new NotFoundException('정산 로그를 찾을 수 없습니다');
+    // 정산 완료만 되돌린다 — 환불로 취소된 로그를 '대기'로 되살리지 않게(261026)
+    if (log.status !== 'settled') throw new BadRequestException('정산 완료된 내역만 되돌릴 수 있습니다');
+    // 정산 뒤 고객센터가 환불한 결제를 되돌리면(사회자에게서 회수) '대기'가 아니라 '취소' — 환불된 결제가 다시 정산 대기에 오르지 않게
+    const status = isSettleablePayment(log.payment?.status) ? 'pending' : 'cancelled';
     return this.prisma.$transaction(async (tx) => {
       const upd = await tx.settlementLog.update({
         where: { id },
-        data: { status: 'pending', settledAt: null, settledByUserId: null },
+        data: { status, settledAt: null, settledByUserId: null },
       });
       await tx.payment.update({
         where: { id: log.paymentId },

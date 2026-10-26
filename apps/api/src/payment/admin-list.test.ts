@@ -128,7 +128,8 @@ test('admin settlements: paidAt on each row, search, summary follows the search'
   assert.deepEqual(all.data.map((r: any) => r.id), ['s3', 's2', 's1']);
   assert.equal(new Date(all.data[1].payment.paidAt).toISOString(), '2026-10-03T05:00:00.000Z');
   assert.equal(all.data[1].payment.updatedAt, undefined);
-  assert.deepEqual(all.summary, { pendingCount: 2, pendingAmount: 780000, settledCount: 1, settledAmount: 390000 });
+  // p3 은 환불된 결제(수정 전 환불이라 로그가 '대기'로 남은 줄) — 목록엔 나오지만 정산 대기 합계에선 빠진다
+  assert.deepEqual(all.summary, { pendingCount: 1, pendingAmount: 290000, settledCount: 1, settledAmount: 390000 });
   const hit: any = await settle.adminList({ search: '김하늘' });
   assert.deepEqual(hit.data.map((r: any) => r.id), ['s2']);
   assert.deepEqual(hit.summary, { pendingCount: 0, pendingAmount: 0, settledCount: 1, settledAmount: 390000 });

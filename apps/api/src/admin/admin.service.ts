@@ -18,6 +18,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { PAYMENT_EVENT_QUOTATION_SELECT, paymentEventOf } from '../payment/payment-event';
 import { kstDay, paymentPaidAt, refundVerdict } from '../payment/refund-policy';
 import { matchesAdminSearch, needsEventKeys, parseAdminPaySort, parseAdminSearch, sortAndPage } from '../payment/admin-list';
+import { SETTLEABLE_PAYMENT_STATUSES, cancelSettlementForRefund, restoreSettlementAfterRefundUndo } from '../settlement/settlement-refund';
 import { randomUUID } from 'crypto';
 import { QuickMatchRosterService, parseDesignated } from '../match/quick-match-roster.service';
 import type { Prisma } from '@prisma/client';
@@ -1102,8 +1103,9 @@ export class AdminService {
       safe('thisMonthRevenue', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: { gte: thisMonthStart } }, _sum: { amount: true } }), zeroAmountAggregate),
       safe('revenue30d', this.prisma.payment.aggregate({ where: { status: 'completed', createdAt: thirtyDayRange }, _sum: { amount: true } }), zeroAmountAggregate),
       safe('totalRevenue', this.prisma.payment.aggregate({ where: { status: 'completed' }, _sum: { amount: true } }), zeroAmountAggregate),
-      safe('settlementStatuses', this.prisma.settlementLog.groupBy({ by: ['status'], _count: true }), emptyRows),
-      safe('pendingSettlementAmount', this.prisma.settlementLog.aggregate({ where: { status: 'pending' }, _sum: { netAmount: true } }), zeroSettlementAggregate),
+      // 정산 대기 = 결제가 아직 플랫폼에 있는 것만(261026 — 이 수정 전에 환불돼 '대기'로 남은 로그는 보낼 돈이 아니다)
+      safe('settlementStatuses', this.prisma.settlementLog.groupBy({ by: ['status'], where: { NOT: { status: 'pending', payment: { status: { notIn: [...SETTLEABLE_PAYMENT_STATUSES] } } } }, _count: true }), emptyRows),
+      safe('pendingSettlementAmount', this.prisma.settlementLog.aggregate({ where: { status: 'pending', payment: { status: { in: [...SETTLEABLE_PAYMENT_STATUSES] } } }, _sum: { netAmount: true } }), zeroSettlementAggregate),
       safe('settledSettlementAmount', this.prisma.settlementLog.aggregate({ where: { status: 'settled' }, _sum: { netAmount: true } }), zeroSettlementAggregate),
       safe('totalNotifications', this.prisma.notification.count(), 0),
       safe('unreadNotifications', this.prisma.notification.count({ where: { isRead: false } }), 0),
@@ -2691,6 +2693,15 @@ export class AdminService {
     if (data.refundedAt !== undefined) allowed.refundedAt = data.refundedAt ? new Date(data.refundedAt) : null;
     if (data.escrowReleasedAt !== undefined) allowed.escrowReleasedAt = data.escrowReleasedAt ? new Date(data.escrowReleasedAt) : null;
     if (data.settledAt !== undefined) allowed.settledAt = data.settledAt ? new Date(data.settledAt) : null;
+    // 결제 상태를 바꾸면 정산 로그도 같은 트랜잭션에서(261026) — 환불(전액·부분 모두 사회자 정산 없음, 사장) = 대기 로그 취소,
+    //  환불 표시를 되돌려 다시 '완료' = 환불로 취소된 로그를 다시 대기. 이미 정산(지급)된 로그는 그대로 둔다(회수는 고객센터가 판단).
+    if (allowed.status === 'refunded' || allowed.status === 'completed') {
+      return this.prisma.$transaction(async (tx) => {
+        if (allowed.status === 'refunded') await cancelSettlementForRefund(tx, id);
+        else await restoreSettlementAfterRefundUndo(tx, id);
+        return tx.payment.update({ where: { id }, data: allowed });
+      });
+    }
     return this.prisma.payment.update({ where: { id }, data: allowed });
   }
 
