@@ -1,0 +1,1061 @@
+.page {
+  --bg: #f7f4ef;
+  --ink: #161616;
+  --muted: #6b6560;
+  --line: #e4ded5;
+  --wine: #7a1f2b;
+  --head: 72px;
+}
+.page :global(*) {
+  box-sizing: border-box;
+  margin: 0;
+}
+.page {
+  scroll-behavior: smooth;
+}
+.page {
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    Pretendard,
+    -apple-system,
+    sans-serif;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+.page :global(img) {
+  display: block;
+  width: 100%;
+}
+.page :global(a) {
+  color: inherit;
+  text-decoration: none;
+}
+.page :global(section[id]) {
+  scroll-margin-top: var(--head);
+}
+.page :global(.wrap) {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: 0 22px;
+}
+.page :global(.eyebrow) {
+  color: var(--wine);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.page :global(h1),
+.page :global(h2) {
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+.page :global(h2) {
+  font-size: 42px;
+  margin-top: 12px;
+}
+.page :global(.lead) {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+.page :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 30px;
+  border: 0;
+  border-radius: 40px;
+  background: var(--wine);
+  color: #fff;
+  font:
+    700 17px Pretendard,
+    sans-serif;
+  cursor: pointer;
+}
+.page :global(.btn:active) {
+  transform: scale(0.98);
+}
+
+/* 헤더 */
+.page :global(.top) {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: var(--head);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  background: var(--bg);
+}
+.page :global(.logo) {
+  font:
+    22px Georgia,
+    serif;
+  letter-spacing: 0;
+}
+.page :global(.top nav) {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.page :global(.top nav .ask) {
+  padding: 10px 18px;
+  border: 1px solid var(--wine);
+  border-radius: 30px;
+  color: var(--wine);
+}
+
+/* 첫 화면: 컬러 배경 + 검은 창 사진 벽 (로이스튜디오 v12 구조) */
+.page :global(.w-hero) {
+  position: relative;
+  min-height: calc(100svh - var(--head));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5svh;
+  padding: 3svh 5vw 7svh;
+  background: linear-gradient(
+    120deg,
+    #ff8a65,
+    #f06292,
+    #ba68c8,
+    #4fc3f7,
+    #aed581,
+    #ffd54f
+  );
+  background-size: 400% 400%;
+  animation: w-bg 20s ease infinite;
+}
+@keyframes w-bg {
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.page :global(.w-window) {
+  width: min(1100px, 100%);
+  height: calc(100svh - var(--head) - 12.5svh - 50px);
+  display: flex;
+  flex-direction: column;
+  background: #0b0b0b;
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.page :global(.w-title) {
+  color: #111;
+  font-size: 34px;
+  text-align: center;
+}
+.page :global(.w-title br) {
+  display: none;
+}
+.page :global(.w-bar) {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  color: #8a8a8a;
+  font:
+    11px Georgia,
+    serif;
+  letter-spacing: 0;
+}
+.page :global(.w-bar i) {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+.page :global(.w-bar i:nth-child(2)) {
+  background: #febc2e;
+}
+.page :global(.w-bar i:nth-child(3)) {
+  background: #28c840;
+}
+.page :global(.w-bar span) {
+  margin: auto;
+  padding-right: 50px;
+}
+.page :global(.w-wall) {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 0 8px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent);
+}
+.page :global(.w-col) {
+  animation: w-up var(--d) linear infinite;
+  will-change: transform;
+}
+.page :global(.w-col.down) {
+  animation-direction: reverse;
+}
+.page :global(.w-col img) {
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background: #1c1c1c;
+}
+@keyframes w-up {
+  to {
+    transform: translateY(-50%);
+  }
+}
+.page :global(.w-scroll) {
+  position: absolute;
+  bottom: 2.5svh;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 22px;
+  animation: w-bob 1.8s ease-in-out infinite;
+}
+@keyframes w-bob {
+  50% {
+    transform: translate(-50%, 6px);
+  }
+}
+
+/* 소개 */
+.page :global(.intro) {
+  padding-block: 110px 100px;
+  text-align: center;
+}
+.page :global(.intro h2) {
+  font-size: 48px;
+}
+.page :global(.intro .btn) {
+  margin-top: 36px;
+}
+.page :global(.intro small) {
+  display: block;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* 9,000회 */
+.page :global(.count) {
+  padding: 110px 0;
+  background: #111;
+  color: #fff;
+  text-align: center;
+}
+.page :global(.count .num) {
+  font-size: 150px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.page :global(.count .num em) {
+  font-style: normal;
+  color: #f06292;
+}
+.page :global(.count .label) {
+  margin-top: 14px;
+  color: #bdb6ae;
+  font-size: 17px;
+}
+.page :global(.count h2) {
+  margin-top: 64px;
+}
+.page :global(.count .lead) {
+  color: #a8a19a;
+}
+.page :global(.count h2 + .lead) {
+  margin-top: 14px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 600;
+}
+.page :global(.count .lead + .lead) {
+  margin-top: 28px;
+}
+.page :global(.m-br) {
+  display: none;
+}
+
+/* 레퍼런스 */
+.page :global(.venue) {
+  padding-block: 110px;
+}
+.page :global(.kinds) {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 44px;
+}
+.page :global(.kinds figure) {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 3/4;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #222;
+}
+.page :global(.kinds img) {
+  height: 100%;
+  object-fit: cover;
+}
+.page :global(.kinds figcaption) {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 70px 20px 20px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: #fff;
+}
+.page :global(.kinds b) {
+  display: block;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+.page :global(.kinds span) {
+  display: block;
+  margin-top: 6px;
+  color: #e8e2da;
+  font-size: 14px;
+}
+.page :global(.halls) {
+  margin-top: 36px;
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 10%,
+    #000 90%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 10%,
+    #000 90%,
+    transparent
+  );
+}
+.page :global(.halls-track) {
+  display: flex;
+  width: max-content;
+  animation: halls 40s linear infinite;
+}
+.page :global(.halls-track span) {
+  padding: 0 20px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.page :global(.halls-track span::before) {
+  content: "·";
+  margin-right: 20px;
+  color: var(--wine);
+}
+@keyframes halls {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* 맞춤 진행 */
+.page :global(.custom) {
+  padding: 110px 0;
+  background: #efe9e0;
+}
+.page :global(.tags) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 34px;
+}
+.page :global(.tags span) {
+  padding: 12px 18px;
+  border-radius: 30px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* 신청 → 메시지 */
+.page :global(.how) {
+  padding-block: 110px;
+}
+.page :global(.steps) {
+  list-style: none;
+  margin-top: 36px;
+  padding: 0;
+  border-top: 1px solid var(--ink);
+}
+.page :global(.steps li) {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.page :global(.steps span) {
+  color: var(--wine);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.page :global(.steps b) {
+  font-size: 19px;
+  letter-spacing: 0;
+}
+.page :global(.steps p) {
+  grid-column: 2;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* 라인업 */
+.page :global(.lineup) {
+  padding: 20px 0 110px;
+}
+.page :global(.rail) {
+  margin-top: 34px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 14%,
+    #000 86%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 14%,
+    #000 86%,
+    transparent
+  );
+}
+.page :global(.rail-track) {
+  display: flex;
+  gap: 14px;
+  width: max-content;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  will-change: transform;
+}
+.page :global(.rail-track.dragging) {
+  cursor: grabbing;
+}
+.page :global(.rail img) {
+  flex: none;
+  width: clamp(150px, 21vw, 320px);
+  aspect-ratio: 9/16;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* 폼 */
+.page :global(.apply) {
+  padding: 100px 0 120px;
+  background: #111;
+  color: #fff;
+}
+.page :global(.apply .wrap) {
+  max-width: 560px;
+}
+.page :global(.apply .lead) {
+  color: #a8a19a;
+}
+.page :global(.flow) {
+  margin-top: 36px;
+}
+.page :global(.bar) {
+  height: 4px;
+  border-radius: 4px;
+  background: #2a2a2a;
+  overflow: hidden;
+}
+.page :global(.bar span) {
+  display: block;
+  width: 33.3%;
+  height: 100%;
+  background: #f06292;
+  transition: width 0.3s;
+}
+.page :global(.step-no) {
+  margin-top: 10px;
+  color: #8a847e;
+  font-size: 13px;
+}
+.page :global(form) {
+  margin-top: 18px;
+}
+.page :global(fieldset) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.page :global(.stage) {
+  display: grid;
+}
+.page :global(.stage > fieldset) {
+  grid-area: 1 / 1;
+  align-self: start;
+}
+.page :global(.stage > fieldset[hidden]) {
+  display: grid;
+  visibility: hidden;
+}
+.page :global(legend) {
+  margin-bottom: 22px;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.page :global(.nav) {
+  display: flex;
+  gap: 10px;
+  margin-top: 30px;
+}
+.page :global(.ghost) {
+  flex: none;
+  height: 60px;
+  padding: 0 22px;
+  border: 1px solid #333;
+  border-radius: 40px;
+  background: none;
+  color: #fff;
+  font:
+    600 16px Pretendard,
+    sans-serif;
+  cursor: pointer;
+}
+.page :global(.match) {
+  margin-top: 36px;
+  padding: 40px 28px;
+  border-radius: 18px;
+  background: #1b1b1b;
+  text-align: center;
+}
+.page :global(.reel) {
+  width: 132px;
+  aspect-ratio: 9/16;
+  margin: 0 auto 26px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #2a2a2a;
+  box-shadow: 0 0 0 3px #f06292;
+}
+.page :global(.reel img) {
+  height: 100%;
+  object-fit: cover;
+}
+.page :global(.match b) {
+  font-size: 21px;
+}
+.page :global(.match ul) {
+  list-style: none;
+  max-width: 290px;
+  margin: 20px auto 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  color: #bdb6ae;
+  font-size: 15px;
+  text-align: left;
+}
+.page :global(.match li::before) {
+  content: "✓ ";
+  color: #f06292;
+  font-weight: 800;
+}
+.page :global(.field > label),
+.page :global(.field > p) {
+  display: block;
+  margin-bottom: 9px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.page :global(.field > label i),
+.page :global(.field > p i) {
+  color: #f06292;
+  font-style: normal;
+}
+.page :global(.in) {
+  width: 100%;
+  height: 54px;
+  padding: 0 16px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #1b1b1b;
+  color: #fff;
+  font:
+    16px Pretendard,
+    sans-serif;
+  color-scheme: dark;
+}
+.page :global(textarea.in) {
+  height: 110px;
+  padding: 14px 16px;
+  resize: vertical;
+}
+.page :global(.in:focus) {
+  outline: 2px solid #f06292;
+  border-color: transparent;
+}
+.page :global(.chips) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.page :global(.chips label),
+.page :global(.check) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.page :global(.chips label) {
+  position: relative;
+}
+.page :global(.chips input) {
+  position: absolute;
+  opacity: 0;
+}
+.page :global(.chips span) {
+  padding: 12px 16px;
+  border: 1px solid #333;
+  border-radius: 30px;
+  font-size: 15px;
+}
+.page :global(.chips input:checked + span) {
+  border-color: #f06292;
+  background: #f06292;
+  color: #111;
+  font-weight: 700;
+}
+.page :global(.chips input:focus-visible + span) {
+  outline: 2px solid #fff;
+}
+.page :global(.cal-head) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 17px;
+}
+.page :global(.cal-head button) {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+}
+.page :global(.cal-head button:disabled) {
+  color: #3a3a3a;
+  cursor: default;
+}
+.page :global(.cal-grid) {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+.page :global(.cal-grid .dow) {
+  padding: 6px 0;
+  color: #8a847e;
+  font-size: 13px;
+}
+.page :global(.cal-grid button) {
+  justify-self: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
+  font:
+    16px Pretendard,
+    sans-serif;
+  cursor: pointer;
+}
+.page :global(.cal-grid button:disabled) {
+  color: #4a4a4a;
+  cursor: default;
+}
+.page :global(.cal-grid button[aria-pressed="true"]) {
+  background: #f06292;
+  color: #111;
+  font-weight: 800;
+}
+.page :global(.cal[hidden]),
+.page :global(#time[hidden]) {
+  display: none;
+}
+.page :global(.picker) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+.page :global(.picker:disabled),
+.page :global(select.in:disabled) {
+  opacity: 0.45;
+  cursor: default;
+}
+.page :global(.picker.empty #date-text) {
+  color: #8a847e;
+}
+.page :global(.picker-wrap) {
+  position: relative;
+}
+.page :global(.cal) {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  padding: 6px 8px 8px;
+  border: 1px solid #ece8e2;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+.page :global(.time-row) {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 8px;
+}
+.page :global(select.in) {
+  appearance: none;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6b6560 50%),
+    linear-gradient(135deg, #6b6560 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.page :global(.chips.trio) {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.page :global(.chips.trio span) {
+  width: 100%;
+  padding-inline: 6px;
+  text-align: center;
+}
+.page :global(.check) {
+  margin-top: 10px;
+  color: #bdb6ae;
+  font-size: 14px;
+}
+.page :global(.check input) {
+  width: 18px;
+  height: 18px;
+  accent-color: #f06292;
+}
+.page :global(details) {
+  color: #8a847e;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.page :global(details summary) {
+  cursor: pointer;
+}
+.page :global(form .btn) {
+  flex: 1;
+  height: 60px;
+  background: #f06292;
+  color: #111;
+}
+.page :global(.done) {
+  margin-top: 36px;
+  padding: 40px 28px;
+  border-radius: 18px;
+  background: #1b1b1b;
+  text-align: center;
+}
+.page :global(.done b) {
+  display: block;
+  font-size: 24px;
+}
+.page :global(.done p) {
+  margin-top: 12px;
+  color: #bdb6ae;
+  line-height: 1.7;
+}
+/* 폼 카드: 어두운 섹션 위에 흰 신청서 카드로 띄운다 */
+.page :global(.flow),
+.page :global(.match),
+.page :global(.done) {
+  background: #fff;
+  color: var(--ink);
+  border-radius: 20px;
+  padding: 28px 22px 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+.page :global(.flow .bar) {
+  background: #ece8e2;
+}
+.page :global(.flow .bar span) {
+  background: var(--wine);
+}
+.page :global(.flow .step-no),
+.page :global(.flow .check),
+.page :global(.flow details),
+.page :global(.match ul),
+.page :global(.done p) {
+  color: var(--muted);
+}
+.page :global(.flow .in) {
+  background: #f4f2ef;
+  border-color: transparent;
+  color: var(--ink);
+  color-scheme: light;
+}
+.page :global(.flow .in:focus) {
+  outline-color: var(--wine);
+}
+.page :global(.flow .chips span) {
+  border-color: transparent;
+  background: #f4f2ef;
+}
+.page :global(.flow .chips input:checked + span) {
+  border-color: var(--wine);
+  background: var(--wine);
+  color: #fff;
+}
+.page :global(.flow .chips input:focus-visible + span) {
+  outline-color: var(--wine);
+}
+.page :global(.flow .check input) {
+  accent-color: var(--wine);
+}
+.page :global(.flow .cal-head button),
+.page :global(.flow .cal-grid button) {
+  color: var(--ink);
+}
+.page :global(.flow .cal-head button:disabled),
+.page :global(.flow .cal-grid button:disabled) {
+  color: #cfc9c2;
+}
+.page :global(.flow .cal-grid button[aria-pressed="true"]) {
+  background: var(--wine);
+  color: #fff;
+}
+.page :global(.flow .ghost) {
+  border-color: #e4ded5;
+  color: var(--ink);
+}
+.page :global(.flow form .btn) {
+  background: var(--wine);
+  color: #fff;
+}
+.page :global(.flow .trust) {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.page :global(.match li::before) {
+  color: var(--wine);
+}
+.page :global(.match),
+.page :global(.done) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.page :global(.match[hidden]),
+.page :global(.done[hidden]) {
+  display: none;
+}
+.page :global(.reel) {
+  box-shadow: 0 0 0 3px var(--wine);
+}
+.page :global(footer) {
+  padding: 34px 22px 44px;
+  background: #111;
+  color: #8a847e;
+  font-size: 13px;
+  text-align: center;
+  border-top: 1px solid #222;
+}
+
+@media (max-width: 760px) {
+  .page {
+    --head: 64px;
+  }
+  .page :global(.logo) {
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+  .page :global(.top nav) {
+    gap: 12px;
+    font-size: 14px;
+  }
+  .page :global(.top nav .ask) {
+    padding: 9px 14px;
+  }
+  .page :global(.w-hero) {
+    gap: 2.5svh;
+    padding: 3svh 4vw 8svh;
+  }
+  .page :global(.w-title) {
+    font-size: 28px;
+  }
+  .page :global(.w-title br),
+  .page :global(.m-br) {
+    display: inline;
+  }
+  .page :global(.flow) {
+    padding: 22px 18px 20px;
+  }
+  .page :global(.apply) {
+    padding: 44px 0 80px;
+  }
+  .page :global(.flow),
+  .page :global(.match),
+  .page :global(.done) {
+    margin-top: 24px;
+  }
+  .page :global(fieldset) {
+    gap: 14px;
+  }
+  .page :global(.nav) {
+    margin-top: 20px;
+  }
+  .page :global(legend) {
+    margin-bottom: 14px;
+    font-size: 20px;
+  }
+  .page :global(.cal-grid) {
+    row-gap: 0;
+  }
+  .page :global(.cal-grid .dow) {
+    padding: 2px 0 4px;
+  }
+  .page :global(.cal-grid button) {
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
+  .page :global(.w-window) {
+    height: calc(100svh - var(--head) - 14svh - 80px);
+    border-radius: 10px;
+  }
+  .page :global(.w-wall) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    padding: 0 5px;
+  }
+  .page :global(.w-col img) {
+    margin-bottom: 5px;
+  }
+  .page :global(.intro),
+  .page :global(.venue),
+  .page :global(.how) {
+    padding-block: 80px;
+  }
+  .page :global(.count),
+  .page :global(.custom) {
+    padding: 80px 0;
+  }
+  .page :global(.lead) {
+    font-size: 16px;
+  }
+  .page :global(.kinds) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 34px;
+  }
+  .page :global(.kinds figure) {
+    aspect-ratio: 16/10;
+  }
+  .page :global(.lineup) {
+    padding-bottom: 80px;
+  }
+  .page :global(.rail img) {
+    width: 140px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    scroll-behavior: auto;
+  }
+  .page :global(.w-hero),
+  .page :global(.w-col),
+  .page :global(.w-scroll),
+  .page :global(.halls-track) {
+    animation: none;
+  }
+}
+
+.page {
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+.page :global(.cal-head button) {
+  display: grid;
+  place-items: center;
+}
+.page :global(.w-col img) {
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+.page :global(.form-error) {
+  color: #a82336;
+}
+.page :global(button:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.page :global(.form-error) {
+  color: #a82336;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+@media (max-width: 760px) {
+  .page :global(h2) {
+    font-size: 28px;
+  }
+  .page :global(.intro h2) {
+    font-size: 30px;
+  }
+  .page :global(.count .num) {
+    font-size: 72px;
+  }
+  .page :global(.kinds b) {
+    font-size: 21px;
+  }
+}

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import MetaPixel, { META_PIXEL_ID } from '@/components/landing/MetaPixel';
 import { isTestLeadSubmission } from '@/lib/test-lead';
 import StatusBarScrim from '@/components/StatusBarScrim';
+import { readWeddingQuickMatchPrefill, WEDDING_QUICK_MATCH_KEY, WEDDING_REGIONS, WEDDING_LEAD_SHEET_URL, type WeddingQuickMatchPrefill } from '@/lib/wedding-quick-match';
 
 /* ─────────────────────────────────────────────────────────────
  * 퀵매칭 — 토스 톤앤매너. 한 화면당 한 질문, 단일선택 자동 진행.
@@ -955,8 +956,7 @@ function NoteCard({ note }: { note: Note }) {
 /** 포트폴리오(상세)에 갔다 뒤로 오면 보던 결과 그대로 — 갈 때 sessionStorage 에 적고, 돌아와 한 번 쓰고 지운다(30분 지나면 버림) */
 const QM_RETURN_KEY = 'qm-return-v1';
 /** 랜딩 리드 구글 시트(Apps Script, 시트에 붙어 있어 저장소엔 없음) — wedding-mc 와 같은 주소 */
-const QUICK_SHEET_URL =
-  'https://script.google.com/macros/s/AKfycbwGOi4e1J2Q1w8x-5UEe-czB3uy6mET90xBhP9OG82fl4jRPEyYdBfqJkmDZuYJMFuc/exec';
+const QUICK_SHEET_URL = WEDDING_LEAD_SHEET_URL;
 const QM_RETURN_TTL = 30 * 60 * 1000;
 /** 테스트 계정 로그인이 신청 중에 풀렸다는 표시(이 탭 세션) — 풀린 뒤 다시 누르면 비로그인(번호) 경로로 실제 사회자에게 가므로 막는다 */
 const QM_TEST_LOCK_KEY = 'qm-test-lock';
@@ -979,8 +979,12 @@ function ssFlag(key: string, on?: boolean) {
   return false;
 }
 
-export default function QuickMatchPage() {
-  const [step, setStep] = useState<Step>('date');
+export default function QuickMatchPage({ searchParams }: { searchParams?: { from?: string } }) {
+  const fromWedding = searchParams?.from === 'wedding_mc';
+  const [handoff, setHandoff] = useState<WeddingQuickMatchPrefill | null>(null);
+  const [handoffChecked, setHandoffChecked] = useState(false);
+  const submitLock = useRef(false);
+  const [step, setStep] = useState<Step>(fromWedding ? 'searching' : 'date');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [regionKey, setRegionKey] = useState('');
@@ -1036,6 +1040,19 @@ export default function QuickMatchPage() {
   // 유입 값 보존 + 방문 1건(기기 세션당 1번) — 어드민 홈 '전환 퍼널' 2단계(261005)
   // 점검용 테스트 계정 방문은 퍼널에 안 센다(persist 는 localStorage 라 마운트 때 이미 복원돼 있다)
   useEffect(() => { captureUtm(); if (!storeTestHint()) trackLandingVisit('quick-match'); }, []);
+  useLayoutEffect(() => {
+    setHandoffChecked(true);
+    if (new URLSearchParams(window.location.search).get('from') !== 'wedding_mc') return;
+    let draft: WeddingQuickMatchPrefill | null = null;
+    try { draft = readWeddingQuickMatchPrefill(sessionStorage); } catch {}
+    if (!draft) { setStep('date'); return; }
+    setHandoff(draft);
+    setDate(draft.date); setTime(draft.time); setPhone(draft.phone);
+    setRegionKey(WEDDING_REGIONS.find((r) => r.code === draft.region)!.key);
+    setGender(draft.gender); setContact('문자'); setDtOpen(false);
+    startFiredRef.current = true;
+    setStep('searching');
+  }, []);
   // 날짜·시간을 아직 안 골랐으면 단계에 들어오자마자 시트를 띄운다(제목이 먼저 보이게 한 박자 뒤) — 따로 누를 필요 없이
   useEffect(() => {
     if (step !== 'date' || (date && time)) return;
@@ -1109,12 +1126,13 @@ export default function QuickMatchPage() {
 
   useEffect(() => {
     if (step !== 'searching') return;
+    if (!handoffChecked) return;
     // 시간표(링·목록·문구)는 QmSearching 이 맡고, 끝나면 onDone 으로 결과 화면에 넘긴다
     // 새로 찾으면 처음부터(상세에서 돌아와 되살린 카드 자리는 버린다). ⚠ [step] 효과로 지우면 되살리기 직후 첫 화면 효과가 0 으로 덮었다
     setRerolled(false); setSelected(new Set()); setPoolReady(false); setRestoreIndex(0);
     loadPros((gender || 'any') as any);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, handoffChecked]);
 
   // 첫 화면 = 지정 사회자 전원, 리롤 = 나머지 5명(지정 명단을 못 받았으면 나머지 5명씩)
   const hasFeatured = pool.featured.length > 0;
@@ -1153,15 +1171,26 @@ export default function QuickMatchPage() {
     router.push(`/pros/${p.id}`);
   }
   /** 고른 사회자로 다음 단계 — 번호가 가는 신청이면 연락 방식, 아니면 프리티풀 채팅으로 번호 입력 */
-  function goAfterSelect() {
+  function goAfterSelect(ids = [...selected]) {
+    if (handoff) {
+      const method = phoneShared ? '문자' : '프리티풀 채팅';
+      setContact(method);
+      void submit(method, ids);
+      return;
+    }
     if (phoneShared) { setStep('contact'); return; }
     setContact('프리티풀 채팅');
     setStep('phone');
   }
 
-  async function submit() {
+  function backToPreferences() {
+    if (handoff) router.push('/wedding-mc#apply');
+    else back('gender');
+  }
+
+  async function submit(method = contact, ids = [...selected]) {
     const digits = phone.replace(/\D/g, '');
-    if (digits.length < 10 || selected.size === 0 || !contact) return;
+    if (digits.length < 10 || ids.length === 0 || !method || submitLock.current) return;
     // 서버는 Authorization 토큰으로만 테스트 계정을 알아본다 — 토큰 없이 보내면 비로그인(번호) 경로라 실제 사회자에게 간다.
     // 테스트 계정인데 토큰이 없거나, 이 탭에서 신청 중에 테스트 계정 로그인이 풀렸으면 보내지 않는다.
     const before = useAuthStore.getState();
@@ -1170,6 +1199,7 @@ export default function QuickMatchPage() {
       window.alert('테스트 계정 로그인이 풀려 있어요.\n지금 신청하면 실제 사회자에게 가요. 다시 로그인한 뒤 신청해 주세요.');
       return;
     }
+    submitLock.current = true;
     setSubmitting(true);
     const ssGet = (k: string) => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } };
     const utm = {
@@ -1179,7 +1209,7 @@ export default function QuickMatchPage() {
       landing_url: ssGet('landing_url') || window.location.href,
     };
     const region = [group?.label, venue.trim()].filter(Boolean).join(' ');
-    const payload = { phone: digits, categoryId: '결혼식사회자', type: 'single' as const, selectedProProfileIds: [...selected], eventDate: date || undefined, eventTime: time || undefined, eventLocation: region || undefined, rawUserInput: { source: 'landing_quick_match', eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: contact, phone: digits, selectedCount: selected.size, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } };
+    const payload = { name: handoff?.name, phone: digits, categoryId: '결혼식사회자', type: 'single' as const, selectedProProfileIds: ids, eventDate: date || undefined, eventTime: time || undefined, eventLocation: region || undefined, rawUserInput: { source: 'landing_quick_match', ...(handoff ? { originLanding: 'wedding-mc', dateUndecided: handoff.dateUndecided, consented: true } : {}), eventDate: date, eventTime: time, region: group?.label, venue: venue.trim(), mood: [...moods].join(', '), part, genderPref: gender, contactMethod: method, phone: digits, selectedCount: ids.length, quickBatch: phoneShared ? 'featured' : 'reroll', ...utm } };
     try {
       let res: any;
       try {
@@ -1206,7 +1236,7 @@ export default function QuickMatchPage() {
       if (!suppressed && !testHint) {
         const fbq = (window as any).fbq;
         // Lead 는 'track'(init 된 픽셀 전부) — 사이트 픽셀(루트 GTM)은 예전부터 퀵매칭 Lead 를 받아 왔고, 이 랜딩 픽셀에도 함께 간다
-        if (typeof fbq === 'function') fbq('track', 'Lead', { content_name: 'Quick Match Request', content_category: 'quick-match', currency: 'KRW' });
+        if (!handoff?.leadTracked && typeof fbq === 'function') fbq('track', 'Lead', { content_name: 'Quick Match Request', content_category: 'quick-match', currency: 'KRW' });
         // 페이지별 유입 분석 — 이 세션의 퀵매칭 방문을 '견적 요청'으로(261005)
         trackLandingConversion('quick-match');
       }
@@ -1216,10 +1246,10 @@ export default function QuickMatchPage() {
       // (스크립트가 benefits 를 ', ' 로 이으므로 한 항목 안의 여러 값은 '/' 로 잇는다).
       // formType 은 corporate-mc 가 아니므로 '랜딩_결혼' 시트로 간다. 서버가 테스트로 받은 신청도 시트 연결 확인용으로 남기되 이름·출처에 [테스트] 표시.
       const proName = new Map([...pool.featured, ...pool.rest].map((p) => [p.id, p.name] as const));
-      const pickedNames = [...selected].map((id) => proName.get(id)).filter(Boolean).join('/');
+      const pickedNames = ids.map((id) => proName.get(id)).filter(Boolean).join('/');
       const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : gender === 'any' ? '상관없음' : '';
-      const who = (useAuthStore.getState().user?.name || before.user?.name || '').trim() || `고객${digits.slice(-4)}`;
-      fetch(QUICK_SHEET_URL, {
+      const who = (handoff?.name || useAuthStore.getState().user?.name || before.user?.name || '').trim() || `고객${digits.slice(-4)}`;
+      if (!handoff?.sheetSubmitted) fetch(QUICK_SHEET_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1234,8 +1264,8 @@ export default function QuickMatchPage() {
             moods.size ? `분위기: ${[...moods].join('/')}` : '',
             part ? `진행: ${part}` : '',
             genderLabel ? `성별: ${genderLabel}` : '',
-            contact ? `연락: ${contact}` : '',
-            `사회자 ${selected.size}명${pickedNames ? `: ${pickedNames}` : ''}`,
+            method ? `연락: ${method}` : '',
+            `사회자 ${ids.length}명${pickedNames ? `: ${pickedNames}` : ''}`,
           ].filter(Boolean),
           source: suppressed ? 'quick-match-test' : 'quick-match',
           ...utm,
@@ -1245,18 +1275,19 @@ export default function QuickMatchPage() {
           mood: [...moods].join('/'),
           eventPart: part,
           genderPref: genderLabel,
-          contactMethod: contact,
+          contactMethod: method,
           selectedPros: pickedNames,
-          selectedCount: selected.size,
+          selectedCount: ids.length,
           phoneShared: phoneShared ? 'Y' : 'N',
           matchRequestId: res?.matchRequest?.id || '',
           isTest: suppressed ? 'Y' : 'N',
         }),
       }).catch(() => undefined);
+      if (handoff) { try { sessionStorage.removeItem(WEDDING_QUICK_MATCH_KEY); } catch {} }
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
-    finally { setSubmitting(false); }
+    finally { submitLock.current = false; setSubmitting(false); setSelectingAll(false); }
   }
 
   const phoneDigits = phone.replace(/\D/g, '');
@@ -1401,13 +1432,13 @@ export default function QuickMatchPage() {
       )}
 
       {step === 'searching' && (
-        <QmSearching pool={pool} ready={poolReady} failed={loadErr} onDone={() => setStep('results')} onBack={() => back('gender')} />
+        <QmSearching pool={pool} ready={poolReady} failed={loadErr} onDone={() => setStep('results')} onBack={backToPreferences} />
       )}
 
       {step === 'results' && (
         <div className="qm-page" key="results">
           {/* 다른 사회자 보기(리롤)는 머리 오른쪽, 'N명 선택됨' 줄은 없앰(261002 사장) — 고른 수는 아래 버튼('N명 선택 완료')이 말한다 */}
-          <Header onBack={() => back('gender')} progress={progressOf('results')}
+          <Header onBack={backToPreferences} progress={progressOf('results')}
             right={<button type="button" className="qm-hreroll" onClick={reroll} disabled={!canReroll || selectingAll}><Ic name="refresh" size={15} color="currentColor" />{rerolled ? '다시 찾기 완료' : '다른 사회자 보기'}</button>} />
           <main className="qm-main tight">
             <h1 className="qm-h1 qm-a-title">조건에 가장 잘 맞는<br />사회자 <b className="blue">{displayed.length || 5}명</b>을 찾았어요</h1>
@@ -1422,14 +1453,14 @@ export default function QuickMatchPage() {
                 initialIndex={restoreIndex} onOpenPro={openPro}
                 runAll={selectAllRun}
                 onSelectOne={(id) => setSelected((prev) => new Set(prev).add(id))}
-                onRunAllDone={() => { setSelectAllRun(false); goAfterSelect(); }} />
+                onRunAllDone={() => { setSelectAllRun(false); goAfterSelect(displayed.map((p) => p.id)); }} />
             )}
           </main>
           <div className="qm-ctawrap qm-btnrow">
-            <button type="button" className="qm-cta ghost" onClick={() => back('gender')} disabled={selectingAll}>이전으로</button>
+            <button type="button" className="qm-cta ghost" onClick={backToPreferences} disabled={selectingAll || submitting}>이전으로</button>
             {/* 몇 명을 골랐으면 그 사람들에게만('N명 선택 완료'), 안 골랐으면 전체선택(260927 사장 — 골라도 전체선택만 돼 있던 것) */}
-            <button type="button" className="qm-cta" onClick={selected.size > 0 ? goAfterSelect : selectAllAndGo} disabled={selectingAll}>
-              {selectingAll ? '선택 중…' : selected.size > 0 ? `${selected.size}명 선택 완료` : '전체선택'}
+            <button type="button" className="qm-cta" onClick={() => selected.size > 0 ? goAfterSelect() : selectAllAndGo()} disabled={selectingAll || submitting || loadErr || displayed.length === 0}>
+              {submitting ? '신청 중…' : selectingAll ? '선택 중…' : selected.size > 0 ? `${selected.size}명 선택 완료` : '전체선택'}
             </button>
           </div>
         </div>
@@ -1477,7 +1508,7 @@ export default function QuickMatchPage() {
           </main>
           <div className="qm-phone-bottom">
             <div className="qm-cta-pad">
-              <button type="button" className="qm-cta" disabled={phoneDigits.length < 10 || submitting} onClick={submit}>{submitting ? '신청 중…' : '매칭 신청하기'}</button>
+              <button type="button" className="qm-cta" disabled={phoneDigits.length < 10 || submitting} onClick={() => void submit()}>{submitting ? '신청 중…' : '매칭 신청하기'}</button>
             </div>
             <div className="qm-keypad">
               {KEYS.map((k, i) => (
@@ -1501,7 +1532,7 @@ export default function QuickMatchPage() {
               ? <p className="qm-done-sub">테스트 신청이라 <b className="blue">사회자에게는 전달하지 않았어요.</b><br />실제 고객이라면 선택한 {selected.size}명에게 전달돼요.</p>
               : <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>}
             <div className="qm-summary">
-              <div><span>예식 일시</span><b>{[date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
+              <div><span>예식 일시</span><b>{handoff?.dateUndecided ? '미정' : [date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
               <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
               <div><span>분위기</span><b>{[...moods].join(', ') || '-'}</b></div>
               <div><span>연락방식</span><b>{contact}</b></div>
