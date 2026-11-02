@@ -1246,10 +1246,19 @@ export default function QuickMatchPage({ searchParams }: { searchParams?: { from
       // (스크립트가 benefits 를 ', ' 로 이으므로 한 항목 안의 여러 값은 '/' 로 잇는다).
       // formType 은 corporate-mc 가 아니므로 '랜딩_결혼' 시트로 간다. 서버가 테스트로 받은 신청도 시트 연결 확인용으로 남기되 이름·출처에 [테스트] 표시.
       const proName = new Map([...pool.featured, ...pool.rest].map((p) => [p.id, p.name] as const));
-      const pickedNames = ids.map((id) => proName.get(id)).filter(Boolean).join('/');
+      const pickedList = ids.map((id) => proName.get(id)).filter((n): n is string => !!n);
+      const pickedNames = pickedList.join('/');
       const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : gender === 'any' ? '상관없음' : '';
       const who = (handoff?.name || useAuthStore.getState().user?.name || before.user?.name || '').trim() || `고객${digits.slice(-4)}`;
-      if (!handoff?.sheetSubmitted) fetch(QUICK_SHEET_URL, {
+      // 웨딩MC 랜딩에서 넘어온 신청은 랜딩이 이미 한 행을 썼다 → 새 행 대신 그 행 관심혜택 칸에 고른 사회자 이름만(261102 'action: selectMc').
+      // 번호는 랜딩이 시트에 쓴 글자 그대로(handoff.phone) — 스크립트가 이 번호로 행을 찾는다. 테스트 신청은 랜딩 행도 [테스트] 라 그 행만 고쳐진다
+      if (handoff?.sheetSubmitted) fetch(QUICK_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'selectMc', phone: handoff.phone, mcNames: pickedList, isTest: suppressed ? 'Y' : 'N' }),
+      }).catch(() => undefined);
+      else fetch(QUICK_SHEET_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
