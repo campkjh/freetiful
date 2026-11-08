@@ -16,12 +16,6 @@ export default function ReceptionProgramPage() {
         <div className="rc-info rc-rise" style={{ '--i': 1 } as React.CSSProperties}>
           <p className="rc-info-date">{RECEPTION_INFO.date}<span>{RECEPTION_INFO.time}</span></p>
           <p className="rc-info-place">{RECEPTION_INFO.place}</p>
-          <p className="rc-dress">
-            <span className="rc-dress-label">Dress Code</span>
-            <span className="rc-dress-navy">Navy</span>
-            <span className="rc-dress-amp">&amp;</span>
-            <span className="rc-dress-pink">Baby Pink</span>
-          </p>
         </div>
       </header>
 

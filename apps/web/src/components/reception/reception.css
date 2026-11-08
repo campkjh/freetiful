@@ -24,7 +24,7 @@
 .rc-theme *, .rc-theme *::before, .rc-theme *::after { box-sizing: border-box; }
 .rc-theme button { -webkit-tap-highlight-color: transparent; }
 .rc-theme :focus-visible { outline: 2px solid var(--rc-gold); outline-offset: 2px; }
-.rc-serif, .rc-eyebrow, .rc-part-eyebrow, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span, .rc-dress {
+.rc-serif, .rc-eyebrow, .rc-part-eyebrow, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span {
   font-family: var(--rc-serif), 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
 }
 /* 세리프 숫자는 반듯하게(기본 old-style 은 3·9 가 아래로 처진다) */
@@ -118,14 +118,6 @@
 .rc-info-date { font-size: 15px; font-weight: 700; color: #F6E3AE; }
 .rc-info-date span { margin-left: 8px; color: #fff; }
 .rc-info-place { margin-top: 4px !important; font-size: 14px; color: var(--rc-ice); }
-.rc-dress {
-  display: inline-flex !important; align-items: baseline; gap: 6px; margin-top: 12px !important; padding: 6px 16px; border-radius: 999px;
-  border: 1px solid rgba(240, 207, 124, 0.45); background: rgba(5, 16, 70, 0.45); font-size: 17px; font-style: italic;
-}
-.rc-dress-label { margin-right: 4px; font-size: 14px; color: #EBD69E; }
-.rc-dress-navy { color: #fff; font-weight: 700; }
-.rc-dress-amp { color: #EBD69E; }
-.rc-dress-pink { color: var(--rc-pink); font-weight: 700; }
 .rc-program-list { display: grid; gap: 30px; max-width: 520px; margin: 30px auto 0; }
 .rc-part-head { display: flex; flex-direction: column; align-items: center; margin: 0 0 10px; }
 .rc-part-eyebrow { font-size: 16px; font-style: italic; font-weight: 600; letter-spacing: 0.18em; color: #EBD69E; }
