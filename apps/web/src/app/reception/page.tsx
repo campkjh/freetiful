@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { RECEPTION_INFO, RECEPTION_PROGRAM } from '@/lib/reception/event';
 
-// 식순 — 사장 견본 그림(금빛 제목 · 흰 글씨 순서 · 반짝이는 금빛 구분선) 그대로를 글자로 다시 짰다(화면 폭마다 또렷하게).
-// 1부 · 2부 사이는 견본처럼 빈 칸으로만 나눈다. 순서마다 아래에서 차례로 떠오른다(rc-rise, --i).
+// 식순 — 사장 견본 그림(금빛 제목 · 반짝이는 금빛 구분선)의 톤으로 사장 식순표(1부 · 2부 · 시각)를 시간표로 짰다.
+// 1부 · 2부 머리 아래 금빛 세로줄, 시각이 있는 순서는 큰 점 · 이어지는 순서는 작은 점. 줄마다 아래에서 차례로 떠오른다(rc-rise, --i).
+const PART_LABEL = { 1: 'Part I', 2: 'Part II' } as const;
+
 export default function ReceptionProgramPage() {
-  const parts = [1, 2].map((part) => RECEPTION_PROGRAM.filter((p) => p.part === part));
-  let i = 0;
+  const parts = ([1, 2] as const).map((part) => ({ part, items: RECEPTION_PROGRAM.filter((p) => p.part === part) }));
+  let i = 2;
   return (
     <div className="rc-page rc-program">
       <header className="rc-hero">
@@ -23,22 +25,37 @@ export default function ReceptionProgramPage() {
       </header>
 
       <section aria-label="식순" className="rc-program-list">
-        {parts.map((items, pi) => (
-          <ol key={pi} className="rc-program-part" start={pi === 0 ? 1 : RECEPTION_PROGRAM.filter((p) => p.part === 1).length + 1}>
-            {items.map((item) => {
-              const n = i++;
-              return (
-                <li key={item.title} className="rc-program-row rc-rise" style={{ '--i': n + 2 } as React.CSSProperties}>
-                  <span className="rc-program-title">{item.title}</span>
-                  <img src="/reception/divider.webp" alt="" aria-hidden="true" className="rc-divider" width={830} height={99} />
+        {parts.map(({ part, items }) => (
+          <div key={part} className="rc-program-part">
+            <h2 className="rc-part-head rc-rise" style={{ '--i': i++ } as React.CSSProperties}>
+              <span className="rc-part-eyebrow">{PART_LABEL[part]}</span>
+              <span className="rc-part-title">{part}부</span>
+              <img src="/reception/divider.webp" alt="" aria-hidden="true" className="rc-divider" width={830} height={99} />
+            </h2>
+            <ol className="rc-glass rc-timeline">
+              {items.map((item, k) => (
+                <li key={k} className={`rc-tl-row rc-rise ${item.time ? 'timed' : ''}`} style={{ '--i': i++ } as React.CSSProperties}>
+                  <span className="rc-tl-time">{item.time ? <time>{item.time}</time> : null}</span>
+                  <div className="rc-tl-body">
+                    <p className="rc-tl-title">
+                      {item.title}
+                      {item.tag && <span className="rc-tl-tag">{item.tag}</span>}
+                    </p>
+                    {item.note && <p className="rc-tl-note">{item.note}</p>}
+                    {item.sub && (
+                      <ul className="rc-tl-sub">
+                        {item.sub.map((s) => <li key={s}>{s}</li>)}
+                      </ul>
+                    )}
+                  </div>
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+            </ol>
+          </div>
         ))}
       </section>
 
-      <div className="rc-program-cta rc-rise" style={{ '--i': RECEPTION_PROGRAM.length + 3 } as React.CSSProperties}>
+      <div className="rc-program-cta rc-rise" style={{ '--i': i } as React.CSSProperties}>
         <Link href="/reception/seat" className="rc-btn-gold">내 자리 확인하기</Link>
         <Link href="/reception/event" className="rc-btn-line">포토 이벤트 참여하기</Link>
       </div>

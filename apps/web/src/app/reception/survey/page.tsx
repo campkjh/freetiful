@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { NameGateModal } from '@/components/reception/NameGate';
 import { CheckIcon, StarIcon } from '@/components/reception/ReceptionIcons';
 import { receptionApi, type SurveyAnswers } from '@/lib/reception/api';
-import { RECEPTION_PROGRAM } from '@/lib/reception/event';
+import { RECEPTION_SURVEY_PICKS } from '@/lib/reception/event';
 import { readGuest, useReceptionGuest } from '@/lib/reception/guest';
 
 const RATING_LABEL = ['', '아쉬웠어요', '그저 그랬어요', '괜찮았어요', '좋았어요', '최고였어요'];
@@ -103,9 +103,9 @@ export default function ReceptionSurveyPage() {
       <section className="rc-glass rc-q rc-rise" style={{ '--i': 2 } as React.CSSProperties}>
         <h2 className="rc-q-title"><span>Q2</span>가장 좋았던 순서는?</h2>
         <div className="rc-choices">
-          {RECEPTION_PROGRAM.map((p) => (
-            <button key={p.title} type="button" className={`rc-choice ${best === p.title ? 'on' : ''}`} aria-pressed={best === p.title} onClick={() => setBest(best === p.title ? '' : p.title)}>
-              {p.title}
+          {RECEPTION_SURVEY_PICKS.map((t) => (
+            <button key={t} type="button" className={`rc-choice ${best === t ? 'on' : ''}`} aria-pressed={best === t} onClick={() => setBest(best === t ? '' : t)}>
+              {t}
             </button>
           ))}
         </div>

@@ -9,16 +9,41 @@ export const RECEPTION_INFO = {
   place: '청담 리베라호텔 3F 베르사이유 홀',
 } as const;
 
-/** 식순 — 사장 제공 식순 그림 순서 그대로(1부 · 2부) */
-export const RECEPTION_PROGRAM: ReadonlyArray<{ part: 1 | 2; title: string }> = [
-  { part: 1, title: '등록 및 입장' },
-  { part: 1, title: '오프닝 축하공연' },
-  { part: 1, title: '공식 행사 및 시상식' },
-  { part: 1, title: '네트워킹 만찬' },
-  { part: 2, title: '2부 오프닝 축하공연' },
-  { part: 2, title: '베스트드레서 어워즈' },
-  { part: 2, title: '레크리에이션 및 경품 추첨' },
+export interface ReceptionProgramItem {
+  part: 1 | 2;
+  /** 표에 시각이 적힌 순서만 — 나머지는 앞 순서에 이어서 진행 */
+  time?: string;
+  title: string;
+  /** 제목 옆 작은 꼬리표('2곡') */
+  tag?: string;
+  /** 제목 아래 한 줄 설명 */
+  note?: string;
+  /** 딸린 순서 */
+  sub?: readonly string[];
+}
+
+/** 식순 — 사장 식순표(261108) 그대로: 1부 · 2부, 표의 빈 줄만 뺐다 */
+export const RECEPTION_PROGRAM: ReadonlyArray<ReceptionProgramItem> = [
+  { part: 1, time: '18:20', title: '축하공연', tag: '2곡' },
+  { part: 1, time: '18:30', title: '개식사' },
+  { part: 1, title: '내빈소개' },
+  { part: 1, title: '축사', tag: '2명' },
+  { part: 1, title: '프리티풀 대표 인사' },
+  { part: 1, title: '협회 대표 인사' },
+  { part: 1, title: '협회 성과보고 및 운영진 인사' },
+  { part: 1, title: '프리티풀 성과보고 및 운영진 인사' },
+  { part: 1, time: '19:00', title: '시상식' },
+  { part: 1, time: '19:10', title: '단체 촬영' },
+  { part: 1, time: '19:15~', title: '자유 네트워킹 겸 식사' },
+  { part: 2, time: '19:40', title: '축하공연', tag: '3곡' },
+  { part: 2, time: '19:50', title: '레크리에이션', sub: ['네트워킹 가능한 게임', '외빈 대상으로 한 레크리에이션'] },
+  { part: 2, time: '20:05', title: '베스트드레서 어워즈' },
+  { part: 2, time: '20:20', title: '경품추첨', note: '큰손 대표님들이 간단히 회사 소개 후 직접 추첨' },
+  { part: 2, time: '20:30', title: '종료' },
 ];
+
+/** 설문 '가장 좋았던 순서' — 식순 중 손님이 고를 만한 것만(인사·종료 등은 뺌) */
+export const RECEPTION_SURVEY_PICKS = ['1부 축하공연', '시상식', '자유 네트워킹 겸 식사', '2부 축하공연', '레크리에이션', '베스트드레서 어워즈', '경품추첨'] as const;
 
 /* ─── 자리 ─────────────────────────────────────────────
  * 홀 = 무대 아래 원탁 15개(한 줄 3개 × 5줄) · 테이블당 10석.

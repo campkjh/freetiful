@@ -24,7 +24,7 @@
 .rc-theme *, .rc-theme *::before, .rc-theme *::after { box-sizing: border-box; }
 .rc-theme button { -webkit-tap-highlight-color: transparent; }
 .rc-theme :focus-visible { outline: 2px solid var(--rc-gold); outline-offset: 2px; }
-.rc-serif, .rc-eyebrow, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span, .rc-dress {
+.rc-serif, .rc-eyebrow, .rc-part-eyebrow, .rc-tl-time, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span, .rc-dress {
   font-family: var(--rc-serif), 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
 }
 /* 세리프 숫자는 반듯하게(기본 old-style 은 3·9 가 아래로 처진다) */
@@ -133,15 +133,44 @@
 .rc-dress-navy { color: #fff; font-weight: 700; }
 .rc-dress-amp { color: #EBD69E; }
 .rc-dress-pink { color: var(--rc-pink); font-weight: 700; }
-.rc-program-list { margin-top: 26px; }
-.rc-program-part { margin: 0; padding: 0; list-style: none; }
-.rc-program-part + .rc-program-part { margin-top: 34px; }
-.rc-program-row { display: flex; flex-direction: column; align-items: center; }
-.rc-program-title {
-  padding: 10px 8px 0; text-align: center; color: #fff; font-size: clamp(22px, 6.6vw, 30px); font-weight: 700; letter-spacing: -0.01em; line-height: 1.3;
+.rc-program-list { display: grid; gap: 30px; max-width: 520px; margin: 30px auto 0; }
+.rc-part-head { display: flex; flex-direction: column; align-items: center; margin: 0 0 10px; }
+.rc-part-eyebrow { font-size: 16px; font-style: italic; font-weight: 600; letter-spacing: 0.18em; color: #EBD69E; }
+.rc-part-title {
+  margin-top: -2px; color: #fff; font-size: 30px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.2;
   text-shadow: 0 0 18px rgba(150, 180, 255, 0.55), 0 2px 6px rgba(0, 8, 50, 0.5);
 }
-.rc-divider { display: block; width: min(88%, 420px); height: auto; margin-top: 2px; animation: rc-shimmer 3.6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 0.3s); }
+.rc-divider { display: block; width: min(64%, 300px); height: auto; margin-top: 2px; animation: rc-shimmer 3.6s ease-in-out infinite; }
+/* 시간표 — 시각 칸 | 금빛 세로줄(칸 사이 가운데) | 순서 */
+.rc-timeline { --tl-time: 54px; --tl-gap: 24px; position: relative; margin: 0; padding: 6px 16px 6px 12px; list-style: none; }
+.rc-timeline::before {
+  content: ''; position: absolute; top: 26px; bottom: 26px; left: calc(12px + var(--tl-time) + var(--tl-gap) / 2); width: 1px;
+  background: linear-gradient(180deg, rgba(246, 220, 147, 0.15), rgba(246, 220, 147, 0.55) 12%, rgba(246, 220, 147, 0.55) 88%, rgba(246, 220, 147, 0.15));
+}
+.rc-tl-row { display: grid; grid-template-columns: var(--tl-time) 1fr; column-gap: var(--tl-gap); }
+.rc-tl-time {
+  padding: 13px 0; text-align: right; color: var(--rc-gold); font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums; font-feature-settings: 'lnum' 1, 'tnum' 1;
+}
+.rc-tl-body { position: relative; min-width: 0; padding: 13px 0; }
+.rc-tl-row + .rc-tl-row .rc-tl-body { border-top: 1px solid rgba(240, 207, 124, 0.13); }
+.rc-tl-body::before {
+  content: ''; position: absolute; top: 22px; left: calc(var(--tl-gap) / -2 - 2.5px); width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(246, 220, 147, 0.7);
+}
+.rc-tl-row.timed .rc-tl-body::before {
+  top: 20px; left: calc(var(--tl-gap) / -2 - 4.5px); width: 9px; height: 9px;
+  background: radial-gradient(circle at 35% 35%, #FFF6D8, #E1B65A); box-shadow: 0 0 0 3px rgba(246, 220, 147, 0.16), 0 0 10px rgba(246, 220, 147, 0.75);
+}
+.rc-tl-title { margin: 0; color: #fff; font-size: clamp(15px, 4.3vw, 17px); font-weight: 700; line-height: 22px; letter-spacing: -0.01em; word-break: keep-all; }
+.rc-tl-tag {
+  display: inline-block; margin-left: 7px; padding: 0 7px; border: 1px solid rgba(246, 220, 147, 0.5); border-radius: 999px;
+  color: var(--rc-gold); font-size: 12px; font-weight: 700; line-height: 18px; vertical-align: 2px;
+}
+.rc-tl-note { margin: 4px 0 0; color: var(--rc-ice-dim); font-size: 13.5px; line-height: 1.45; word-break: keep-all; text-wrap: balance; }
+.rc-tl-sub { margin: 6px 0 0; padding: 0; list-style: none; }
+.rc-tl-sub li { position: relative; padding-left: 13px; color: var(--rc-ice); font-size: 14.5px; line-height: 1.6; word-break: keep-all; }
+.rc-tl-sub li::before { content: ''; position: absolute; left: 2px; top: 0.8em; width: 5px; height: 1px; background: var(--rc-gold); }
 .rc-program-cta { display: flex; flex-direction: column; gap: 10px; max-width: 340px; margin: 36px auto 0; }
 
 /* ─── 이름 입력 ─── */
