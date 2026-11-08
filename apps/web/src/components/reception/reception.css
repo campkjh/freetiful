@@ -206,6 +206,14 @@
 .rc-name-title { margin: 0; font-size: 22px; font-weight: 700; }
 .rc-name-hint { margin: 8px 0 18px; font-size: 13.5px; line-height: 1.5; color: var(--rc-ice-dim); }
 .rc-name-card .rc-btn-gold { width: 100%; margin-top: 12px; }
+.rc-name-wait { min-height: 230px; }
+/* 카카오 가입 — 카카오 공식 노랑·검정 글자(브랜드 규정), 다른 버튼과 같은 54 알약 */
+.rc-btn-kakao {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 54px; margin-top: 4px; padding: 0 26px;
+  border: 0; border-radius: 27px; background: #FEE500; color: rgba(0, 0, 0, 0.85);
+  font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; cursor: pointer; transition: transform 0.12s ease;
+}
+.rc-btn-kakao:active { transform: scale(0.97); }
 .rc-name-close { position: absolute; top: 10px; right: 10px; }
 
 /* ─── 자리 — 상자 없이 배경 위에. 원탁 + 의자(등받이 바깥, --rot 로 테이블을 보게 돌림) ─── */
