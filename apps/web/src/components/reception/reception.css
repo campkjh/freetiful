@@ -24,7 +24,7 @@
 .rc-theme *, .rc-theme *::before, .rc-theme *::after { box-sizing: border-box; }
 .rc-theme button { -webkit-tap-highlight-color: transparent; }
 .rc-theme :focus-visible { outline: 2px solid var(--rc-gold); outline-offset: 2px; }
-.rc-serif, .rc-eyebrow, .rc-part-eyebrow, .rc-tl-time, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span, .rc-dress {
+.rc-serif, .rc-eyebrow, .rc-part-eyebrow, .rc-seat-table, .rc-table-no, .rc-rank-no, .rc-stage, .rc-tile-mine, .rc-q-title span, .rc-dress {
   font-family: var(--rc-serif), 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
 }
 /* 세리프 숫자는 반듯하게(기본 old-style 은 3·9 가 아래로 처진다) */
@@ -149,23 +149,16 @@
   text-shadow: 0 0 18px rgba(150, 180, 255, 0.55), 0 2px 6px rgba(0, 8, 50, 0.5);
 }
 .rc-divider { display: block; width: min(64%, 300px); height: auto; margin-top: 2px; animation: rc-shimmer 3.6s ease-in-out infinite; }
-/* 식순 카드 — 순서마다 한 장: 시각 | 순서(시각과 제목 첫 줄을 같은 높이로) */
-.rc-program-cards { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.rc-pcard {
-  display: grid; grid-template-columns: 56px 1fr; align-items: start; column-gap: 14px; padding: 15px 16px 15px 8px; border-radius: 18px;
-  border: 1px solid rgba(240, 207, 124, 0.22);
-  background: linear-gradient(180deg, rgba(20, 46, 152, 0.62), rgba(7, 20, 86, 0.62));
-  box-shadow: 0 10px 26px rgba(2, 8, 40, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.rc-pcard.timed { border-color: rgba(240, 207, 124, 0.4); }
+/* 식순 — 상자 없이 배경 위에 줄로: 시각(Pretendard, 숫자 폭 고정) | 순서, 줄 사이 옅은 금빛 선 */
+.rc-program-rows { margin: 0; padding: 0; list-style: none; }
+.rc-prow { display: grid; grid-template-columns: 52px 1fr; align-items: start; column-gap: 14px; padding: 14px 4px; border-bottom: 1px solid rgba(240, 207, 124, 0.2); }
+.rc-prow:first-child { border-top: 1px solid rgba(240, 207, 124, 0.2); }
 .rc-tl-time {
-  align-self: stretch; display: flex; align-items: flex-start; justify-content: center; border-right: 1px solid rgba(240, 207, 124, 0.24);
-  color: var(--rc-gold); font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;
-  font-variant-numeric: lining-nums tabular-nums; font-feature-settings: 'lnum' 1, 'tnum' 1;
+  color: var(--rc-gold); font-size: 15px; font-weight: 600; line-height: 22px; letter-spacing: -0.01em; white-space: nowrap;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0, 8, 50, 0.45);
 }
-.rc-tl-dot { width: 5px; height: 5px; margin-top: 8.5px; border-radius: 50%; background: rgba(246, 220, 147, 0.65); }
 .rc-tl-body { min-width: 0; }
-.rc-tl-title { margin: 0; color: #fff; font-size: clamp(15px, 4.3vw, 17px); font-weight: 700; line-height: 22px; letter-spacing: -0.01em; word-break: keep-all; }
+.rc-tl-title { margin: 0; color: #fff; font-size: clamp(15px, 4.3vw, 17px); font-weight: 700; line-height: 22px; letter-spacing: -0.01em; word-break: keep-all; text-shadow: 0 1px 8px rgba(0, 8, 50, 0.5); }
 .rc-tl-tag {
   display: inline-block; margin-left: 7px; padding: 0 7px; border: 1px solid rgba(246, 220, 147, 0.5); border-radius: 999px;
   color: var(--rc-gold); font-size: 12px; font-weight: 700; line-height: 18px; vertical-align: 2px;
