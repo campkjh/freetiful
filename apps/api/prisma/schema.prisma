@@ -1686,3 +1686,17 @@ model ReceptionSurvey {
   @@unique([eventKey, deviceId])
   @@map("reception_surveys")
 }
+
+/// 송년회 손님 — 자리 탭에서 이름을 넣은 기기(261108 사장 '어드민에서 누가 참여했는지'). 이름을 바꾸면 덮어쓰고, 다시 들어올 때마다 lastSeenAt.
+model ReceptionGuest {
+  id         String   @id @default(uuid())
+  eventKey   String
+  deviceId   String
+  name       String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([eventKey, deviceId])
+  @@index([eventKey, createdAt])
+  @@map("reception_guests")
+}

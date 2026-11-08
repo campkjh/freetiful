@@ -66,6 +66,13 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
       { href: '/admin/wedding-run', label: '웨딩런 기록', icon: 'trophy', desc: '자동 보류된 판을 확인하고 랭킹에 반영하거나 보류를 유지해요' },
     ],
   },
+  {
+    label: '행사',
+    items: [
+      // (261108 사장) 송년회 /reception — 누가 참여했는지 · 누가 설문에 응답했는지
+      { href: '/admin/reception', label: '송년회 참여자', icon: 'calendar-days', desc: '송년회 화면에 이름을 넣은 사람과 베스트드레서 사진·좋아요·설문 참여를 봐요' },
+    ],
+  },
 ];
 
 /** 메뉴에서 뺀 화면 — 주소로 들어오면 머리 제목만 붙여 준다 */
@@ -104,6 +111,10 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
     { href: '/admin/operator/profiles', label: '운영 프로필' },
     { href: '/admin/operator/metrics', label: '반응 수치' },
     { href: '/admin/operator/history', label: '변경 이력' },
+  ],
+  [
+    { href: '/admin/reception', label: '참여자' },
+    { href: '/admin/reception/survey', label: '설문 응답' },
   ],
 ];
 

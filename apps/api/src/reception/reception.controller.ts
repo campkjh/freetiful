@@ -66,6 +66,12 @@ export class ReceptionController {
     return this.reception.vote(this.event(eventKey), this.device(device), id, body.kind, body?.on !== false);
   }
 
+  @Put('guest')
+  @ApiOperation({ summary: '손님 남기기 — 자리 탭에서 넣은 이름(기기당 1줄, 다시 오면 마지막 접속 시각만 갱신). 어드민 참여자 목록용' })
+  guest(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string }) {
+    return this.reception.touchGuest(this.event(eventKey), this.device(device), body?.name);
+  }
+
   @Get('survey')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '내 설문 답(없으면 null)' })

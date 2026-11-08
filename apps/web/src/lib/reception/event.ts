@@ -3,6 +3,9 @@
 
 export const RECEPTION_EVENT_KEY = 'wmak-2026';
 
+/** 행사 날(KST) — 이날 식순 탭이 지금 순서를 짚는다(ProgramTimeline) */
+export const RECEPTION_DAY = '2026-11-23';
+
 export const RECEPTION_INFO = {
   date: '2026년 11월 23일 (월)',
   time: '17:30 – 21:00',

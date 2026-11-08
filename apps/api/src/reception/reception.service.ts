@@ -12,6 +12,7 @@ import {
   cleanName,
   compareRank,
   parseSurvey,
+  type SurveyAnswers,
 } from './reception.rules';
 
 export interface ReceptionPhotoView {
@@ -227,5 +228,102 @@ export class ReceptionService {
       update: { name, answers: answers as any },
     });
     return this.getSurvey(eventKey, deviceId);
+  }
+  /** 손님 남기기 — 자리 탭에서 이름을 넣거나, 이름 있는 손님이 송년회 화면을 열 때(웹 ReceptionShell). 이름은 마지막 것으로 */
+  async touchGuest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown) {
+    const name = cleanName(rawName);
+    if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
+    await this.prisma.receptionGuest.upsert({
+      where: { eventKey_deviceId: { eventKey, deviceId } },
+      create: { eventKey, deviceId, name },
+      update: { name, lastSeenAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  /**
+   * 어드민 — 참여자 · 설문(261108 사장 '누가 참여했는지 누가 설문조사에 응답했는지').
+   * 참여자 = 이름을 넣은 기기 ∪ 사진 올린 기기 ∪ 누른 기기 ∪ 설문 낸 기기(손님 표가 생기기 전에 참여한 사람도 빠지지 않게).
+   * 이름 = 손님 표 > 설문 > 사진 순. 같은 이름이 기기 둘이면 두 줄(기기가 곧 사람).
+   */
+  async adminOverview(eventKey: ReceptionEventKey) {
+    const [guests, rows, votes, surveys] = await Promise.all([
+      this.prisma.receptionGuest.findMany({ where: { eventKey }, select: { deviceId: true, name: true, createdAt: true, lastSeenAt: true } }),
+      this.feedRows(eventKey),
+      this.prisma.receptionVote.groupBy({ by: ['voterDeviceId', 'kind'], where: { eventKey }, _count: { _all: true }, _min: { createdAt: true } }),
+      this.prisma.receptionSurvey.findMany({ where: { eventKey }, orderBy: { updatedAt: 'desc' }, select: { deviceId: true, name: true, answers: true, createdAt: true, updatedAt: true } }),
+    ]);
+
+    type P = {
+      deviceId: string;
+      name: string | null;
+      firstAt: Date;
+      lastAt: Date;
+      photo: { thumbUrl: string; imageUrl: string; likes: number; empathies: number; rank: number; createdAt: string } | null;
+      likesUsed: number;
+      empathiesUsed: number;
+      surveyAt: string | null;
+    };
+    const people = new Map<string, P>();
+    const get = (deviceId: string, at: Date) => {
+      let p = people.get(deviceId);
+      if (!p) {
+        p = { deviceId, name: null, firstAt: at, lastAt: at, photo: null, likesUsed: 0, empathiesUsed: 0, surveyAt: null };
+        people.set(deviceId, p);
+      }
+      if (at < p.firstAt) p.firstAt = at;
+      if (at > p.lastAt) p.lastAt = at;
+      return p;
+    };
+    for (const v of votes) {
+      const p = get(v.voterDeviceId, v._min.createdAt || new Date());
+      if (v.kind === 'like') p.likesUsed = v._count._all;
+      else if (v.kind === 'empathy') p.empathiesUsed = v._count._all;
+    }
+    for (const r of rows) {
+      const p = get(r.deviceId, r.createdAt);
+      p.name = r.name;
+      p.photo = { thumbUrl: r.thumbUrl, imageUrl: r.imageUrl, likes: r.likes, empathies: r.empathies, rank: r.rank, createdAt: r.createdAt.toISOString() };
+    }
+    for (const s of surveys) {
+      const p = get(s.deviceId, s.createdAt);
+      if (s.updatedAt > p.lastAt) p.lastAt = s.updatedAt;
+      p.name = s.name;
+      p.surveyAt = s.updatedAt.toISOString();
+    }
+    for (const g of guests) {
+      const p = get(g.deviceId, g.createdAt);
+      if (g.lastSeenAt > p.lastAt) p.lastAt = g.lastSeenAt;
+      p.name = g.name;
+    }
+
+    const participants = [...people.values()]
+      .sort((a, b) => b.lastAt.getTime() - a.lastAt.getTime())
+      .map((p) => ({ ...p, firstAt: p.firstAt.toISOString(), lastAt: p.lastAt.toISOString() }));
+
+    const answers = surveys.map((s) => s.answers as unknown as Partial<SurveyAnswers>);
+    const ratings = answers.map((a) => Number(a.rating)).filter((n) => n >= 1 && n <= 5);
+    const again = { yes: 0, maybe: 0, no: 0 };
+    const best: Record<string, number> = {};
+    for (const a of answers) {
+      if (a.again === 'yes' || a.again === 'maybe' || a.again === 'no') again[a.again] += 1;
+      if (a.best) best[a.best] = (best[a.best] || 0) + 1;
+    }
+
+    return {
+      eventKey,
+      summary: {
+        participants: participants.length,
+        named: participants.filter((p) => p.name).length,
+        photos: rows.length,
+        voters: participants.filter((p) => p.likesUsed + p.empathiesUsed > 0).length,
+        surveys: surveys.length,
+        avgRating: ratings.length ? Math.round((ratings.reduce((x, y) => x + y, 0) / ratings.length) * 10) / 10 : null,
+        again,
+        best: Object.entries(best).sort((a, b) => b[1] - a[1]).map(([title, count]) => ({ title, count })),
+      },
+      participants,
+      surveys: surveys.map((s) => ({ deviceId: s.deviceId, name: s.name, answers: s.answers, createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() })),
+    };
   }
 }

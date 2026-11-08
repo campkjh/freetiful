@@ -63,6 +63,8 @@ export const receptionApi = {
   remove: (deviceId: string, id: string) => call<ReceptionFeed>(`/photos/${encodeURIComponent(id)}`, deviceId, { method: 'DELETE' }),
   vote: (deviceId: string, id: string, kind: VoteKind, on: boolean) =>
     call<ReceptionFeed>(`/photos/${encodeURIComponent(id)}/votes`, deviceId, { method: 'POST', body: JSON.stringify({ kind, on }) }),
+  /** 손님 남기기(어드민 참여자 목록) — 이름이 있는 기기만, 화면을 열 때 한 번 */
+  guest: (deviceId: string, name: string) => call<{ ok: boolean }>('/guest', deviceId, { method: 'PUT', body: JSON.stringify({ name }) }),
   survey: (deviceId: string) => call<{ survey: { name: string; answers: SurveyAnswers; updatedAt: string } | null }>('/survey', deviceId),
   saveSurvey: (deviceId: string, name: string, answers: SurveyAnswers) =>
     call<{ survey: { name: string; answers: SurveyAnswers; updatedAt: string } | null }>('/survey', deviceId, { method: 'PUT', body: JSON.stringify({ name, answers }) }),
