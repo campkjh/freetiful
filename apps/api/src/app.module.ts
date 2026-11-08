@@ -30,6 +30,7 @@ import { AutoReplyModule } from './auto-reply/auto-reply.module';
 import { LandingModule } from './landing/landing.module';
 import { CommunityModule } from './community/community.module';
 import { GameModule } from './game/game.module';
+import { ReceptionModule } from './reception/reception.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -65,6 +66,7 @@ import { HealthController } from './health.controller';
     LandingModule,
     CommunityModule,
     GameModule, // 웨딩런 미니게임(261011)
+    ReceptionModule, // 송년회 /reception 이벤트·설문(261108)
   ],
   controllers: [HealthController],
 })

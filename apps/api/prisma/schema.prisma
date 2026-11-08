@@ -1633,3 +1633,56 @@ model WeddingRunBest {
   @@index([playerKey])
   @@map("wedding_run_bests")
 }
+
+/// 송년회(261108 사장 'Freetiful & WMAK 2026 Year-End RECEPTION' 웹 /reception) — 이벤트 탭 사진 한 장.
+/// 손님 = 기기(deviceId, 브라우저가 만든 UUID) + 입력한 이름. 한 기기 = 살아 있는 사진 1장(지우면 다시 올림).
+model ReceptionPhoto {
+  id        String          @id @default(uuid())
+  /// 행사 구분 — 지금은 'wmak-2026' 하나(apps/api/src/reception/reception.rules.ts)
+  eventKey  String
+  deviceId  String
+  name      String
+  imageUrl  String
+  thumbUrl  String
+  width     Int
+  height    Int
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  /// 본인이 지운 시각 — 지우면 받은 표(reception_votes)는 같이 지워 투표한 사람에게 돌려준다
+  deletedAt DateTime?       @db.Timestamptz(3)
+  votes     ReceptionVote[]
+
+  @@index([eventKey, deletedAt, createdAt])
+  @@index([eventKey, deviceId])
+  @@map("reception_photos")
+}
+
+/// 송년회 사진 좋아요·공감 — 한 사람(기기)이 좋아요 10개 · 공감 10개까지(사진 한 장에 종류별 1개). 사진이 받는 수는 무제한.
+model ReceptionVote {
+  id            String         @id @default(uuid())
+  eventKey      String
+  photoId       String
+  voterDeviceId String
+  /// 'like' | 'empathy'
+  kind          String
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+  photo         ReceptionPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, voterDeviceId, kind])
+  @@index([eventKey, voterDeviceId, kind])
+  @@index([eventKey, photoId])
+  @@map("reception_votes")
+}
+
+/// 송년회 설문조사 — 기기당 1건(다시 내면 덮어씀)
+model ReceptionSurvey {
+  id        String   @id @default(uuid())
+  eventKey  String
+  deviceId  String
+  name      String
+  answers   Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([eventKey, deviceId])
+  @@map("reception_surveys")
+}

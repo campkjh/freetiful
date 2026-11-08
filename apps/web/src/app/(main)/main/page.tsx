@@ -2304,7 +2304,8 @@ export default function HomePage() {
       },
       {
         id: 'reception-2026', kind: 'banner', imageUrl: '/images/popups/reception-2026.webp', aspect: 887 / 1774,
-        ctaLabel: '확인했어요', alt: 'Freetiful & WMAK 2026 송년회 — 11월 23일 월요일 17:30~21:00, 청담 리베라호텔 3F 베르사이유 홀. 드레스코드: 네이비와 베이비핑크',
+        // 누르면 송년회 화면(식순 · 자리 · 이벤트 · 설문) — 261108 사장 '배너 클릭하면 식순 페이지'
+        ctaLabel: '식순 · 내 자리 보기', linkUrl: '/reception', alt: 'Freetiful & WMAK 2026 송년회 — 11월 23일 월요일 17:30~21:00, 청담 리베라호텔 3F 베르사이유 홀. 드레스코드: 네이비와 베이비핑크',
       },
     ];
     const visiblePromos = orderHomePromos(promos).filter((promo) => !hidden(promo.id));
@@ -2352,6 +2353,8 @@ export default function HomePage() {
       return;
     }
     if (selectedPromo.linkUrl) {
+      // 우리 화면(/로 시작)은 새로 불러오지 않고 바로 넘어간다
+      if (selectedPromo.linkUrl.startsWith('/')) { router.push(selectedPromo.linkUrl); return; }
       try { window.location.href = selectedPromo.linkUrl; } catch {}
     }
   };
