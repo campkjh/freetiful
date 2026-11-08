@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { NameGateModal } from '@/components/reception/NameGate';
 import PhotoViewer from '@/components/reception/PhotoViewer';
 import RankingList from '@/components/reception/RankingList';
-import { CloseIcon, CrownIcon, EventIcon, HeartIcon, PlusIcon, ThumbIcon } from '@/components/reception/ReceptionIcons';
+import { CloseIcon, EventIcon, HeartIcon, PlusIcon, RankMedal, ThumbIcon } from '@/components/reception/ReceptionIcons';
 import { receptionApi, shrinkPhoto, type ReceptionFeed, type ReceptionPhoto, type VoteKind } from '@/lib/reception/api';
 import { readGuest, useReceptionGuest } from '@/lib/reception/guest';
 
@@ -173,7 +173,7 @@ export default function ReceptionEventPage() {
               <span className="rc-chip"><ThumbIcon size={15} />좋아요 <b>{feed?.me.likesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>
               <span className="rc-chip empathy"><HeartIcon size={15} />공감 <b>{feed?.me.empathiesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>
               <button type="button" className="rc-chip rc-chip-btn rc-rank-open" onClick={() => setRankOpen(true)}>
-                <CrownIcon size={15} />순위
+                <RankMedal rank={1} size={16} label="" />순위
               </button>
             </div>
             {guest?.name && <p className="rc-event-me">{guest.name} 님으로 참여 중</p>}
@@ -199,12 +199,12 @@ export default function ReceptionEventPage() {
           {feed && photos.length > 0 && (
             <ul className="rc-grid">
               {photos.map((p) => {
-                const crown = p.empathies > 0 && p.rank <= 3;
+                const medal = p.empathies > 0 && p.rank <= 3;
                 return (
                   <li key={p.id}>
                     <button type="button" className={`rc-tile ${p.mine ? 'mine' : ''}`} onClick={() => openPhoto(p, 'feed')} aria-label={`${p.name} 님의 사진, 공감 ${p.empathies}, 좋아요 ${p.likes}`}>
                       <img src={p.thumbUrl} alt="" loading="lazy" decoding="async" />
-                      {crown && <span className={`rc-rank-crown r${p.rank}`}><CrownIcon size={14} /></span>}
+                      {medal && <RankMedal rank={p.rank as 1 | 2 | 3} size={28} className="rc-rank-medal" />}
                       {p.mine && <span className="rc-tile-mine">MY</span>}
                       <span className="rc-tile-meta">
                         <span className={`rc-tile-emp ${p.empathized ? 'on' : ''}`}><HeartIcon size={14} />{p.empathies}</span>
@@ -220,20 +220,20 @@ export default function ReceptionEventPage() {
         </div>
 
         <aside className="rc-glass rc-rank-side" aria-label="공감 순위">
-          <h2 className="rc-rank-head"><CrownIcon size={18} />공감 순위</h2>
+          <h2 className="rc-rank-head"><RankMedal rank={1} size={22} label="" />공감 순위</h2>
           <RankingList photos={photos} onOpen={(p) => openPhoto(p, 'rank')} />
         </aside>
       </div>
 
       {/* 폰: 오른쪽 가장자리 손잡이 → 옆에서 나오는 순위 서랍 */}
       <button type="button" className="rc-rank-handle" onClick={() => setRankOpen(true)} aria-label="공감 순위 보기">
-        <CrownIcon size={16} /><span>순위</span>
+        <RankMedal rank={1} size={18} label="" /><span>순위</span>
       </button>
       {rankOpen && typeof document !== 'undefined' && createPortal(
         <div className="rc-theme rc-drawer-wrap" onClick={() => setRankOpen(false)}>
           <aside className="rc-drawer" role="dialog" aria-modal="true" aria-label="공감 순위" onClick={(e) => e.stopPropagation()}>
             <header className="rc-drawer-head">
-              <h2 className="rc-rank-head"><CrownIcon size={18} />공감 순위</h2>
+              <h2 className="rc-rank-head"><RankMedal rank={1} size={22} label="" />공감 순위</h2>
               <button type="button" className="rc-icon-btn" onClick={() => setRankOpen(false)} aria-label="닫기"><CloseIcon size={20} /></button>
             </header>
             <RankingList photos={photos} onOpen={(p) => openPhoto(p, 'rank')} />

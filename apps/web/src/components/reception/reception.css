@@ -243,8 +243,8 @@
 .rc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 0 -16px; padding: 0; list-style: none; }
 .rc-grid > li { min-width: 0; }
 .rc-tile { position: relative; display: block; width: 100%; aspect-ratio: 3 / 4; padding: 0; border: 0; overflow: hidden; background: rgba(10, 28, 110, 0.6); cursor: pointer; }
-.rc-tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s var(--rc-ease); }
-.rc-tile:active img { transform: scale(0.97); }
+.rc-tile > img:first-child { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s var(--rc-ease); }
+.rc-tile:active > img:first-child { transform: scale(0.97); }
 .rc-tile::after { content: ''; position: absolute; inset: auto 0 0 0; height: 46%; background: linear-gradient(180deg, transparent, rgba(2, 8, 40, 0.7)); pointer-events: none; }
 .rc-tile.mine::before { content: ''; position: absolute; inset: 0; z-index: 2; border: 2px solid #F1D58C; pointer-events: none; }
 .rc-tile-meta {
@@ -261,10 +261,7 @@
 }
 .rc-tile-mine { position: absolute; top: 6px; right: 6px; z-index: 3; padding: 2px 7px; border-radius: 8px; background: linear-gradient(180deg, #FFF1C4, #E1B65A); color: var(--rc-ink); font-size: 12px; font-weight: 700; }
 .rc-tile-skel { background: linear-gradient(100deg, rgba(20, 44, 150, 0.5) 30%, rgba(70, 100, 210, 0.55) 50%, rgba(20, 44, 150, 0.5) 70%); background-size: 300% 100%; animation: rc-skel 1.4s linear infinite; }
-.rc-rank-crown, .rc-rank-no.r1, .rc-rank-no.r2, .rc-rank-no.r3 { color: var(--rc-ink); background: linear-gradient(180deg, #FFF1C4, #E1B65A); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
-.rc-rank-crown { position: absolute; top: 6px; left: 6px; z-index: 3; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 13px; }
-.rc-rank-crown.r2, .rc-rank-no.r2 { color: #283350; background: linear-gradient(180deg, #F4F7FF, #AEB9D0); }
-.rc-rank-crown.r3, .rc-rank-no.r3 { color: #3E2412; background: linear-gradient(180deg, #FFD9C2, #C98A5E); }
+.rc-rank-medal { position: absolute; top: 5px; left: 5px; z-index: 3; filter: drop-shadow(0 2px 4px rgba(0, 0, 10, 0.45)); }
 .rc-empty { padding: 36px 20px; text-align: center; color: rgba(225, 233, 255, 0.85); font-size: 15px; line-height: 1.6; }
 .rc-empty p { margin: 0 0 12px; }
 .rc-empty-ic { display: inline-grid; place-items: center; width: 60px; height: 60px; margin-bottom: 12px; border-radius: 30px; background: rgba(246, 220, 147, 0.12); color: var(--rc-gold); }
@@ -280,7 +277,7 @@
 
 /* 순위 — 넓은 화면은 오른쪽 칸, 폰은 가장자리 손잡이 → 서랍 */
 .rc-rank-side { display: none; }
-.rc-rank-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--rc-gold); font-size: 18px; font-weight: 700; }
+.rc-rank-head { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--rc-gold); font-size: 18px; font-weight: 700; }
 .rc-rank-handle {
   position: fixed; right: 0; top: 42%; z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 12px 7px 12px 9px; border: 1px solid rgba(246, 220, 147, 0.5); border-right: 0; border-radius: 14px 0 0 14px;
@@ -329,7 +326,7 @@
 .rc-viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(var(--rc-safe-top) + 10px) 14px 8px 18px; }
 .rc-viewer-who { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }
 .rc-viewer-who b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.rc-viewer-who .rc-rank-crown { position: static; flex: none; }
+.rc-viewer-who img { flex: none; }
 .rc-viewer-rank { flex: none; padding: 2px 8px; border: 1px solid rgba(246, 220, 147, 0.45); border-radius: 8px; color: var(--rc-gold); font-size: 12.5px; }
 .rc-viewer-stage { position: relative; display: flex; flex: 1; min-height: 0; align-items: center; justify-content: center; padding: 6px 12px; }
 .rc-viewer-img { display: block; max-width: 100%; max-height: 100%; border-radius: 14px; object-fit: contain; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); animation: rc-fade 0.25s ease; }
