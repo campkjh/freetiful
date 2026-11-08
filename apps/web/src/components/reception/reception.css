@@ -177,47 +177,49 @@
 .rc-name-card .rc-btn-gold { width: 100%; margin-top: 12px; }
 .rc-name-close { position: absolute; top: 10px; right: 10px; }
 
-/* ─── 자리 ─── */
-.rc-seat-card { padding: 22px 20px 20px; text-align: center; }
+/* ─── 자리 — 상자 없이 배경 위에. 원탁 + 의자(등받이 바깥, --rot 로 테이블을 보게 돌림) ─── */
+.rc-seat-card { padding: 10px 4px 0; text-align: center; }
 .rc-seat-card p { margin: 0; }
+.rc-seat-card .rc-divider { margin: 14px auto 0; }
 .rc-seat-who { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 10px; font-size: 15px; color: rgba(230, 236, 255, 0.9); }
 .rc-seat-who b { font-size: 17px; color: #fff; }
 .rc-seat-table { margin: 12px 0 6px !important; font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; }
-.rc-seat-detail { font-size: 17px; font-weight: 700; }
+.rc-seat-detail { font-size: 17px; font-weight: 700; text-shadow: 0 1px 8px rgba(0, 8, 50, 0.5); }
 .rc-seat-note { margin-top: 8px !important; font-size: 12.5px; color: rgba(220, 230, 255, 0.6); }
-.rc-hall { margin-top: 14px; padding: 18px 14px 14px; }
+.rc-hall { margin-top: 18px; }
 .rc-stage {
   display: grid; place-items: center; height: 40px; border-radius: 12px; border: 1px solid rgba(246, 220, 147, 0.5);
   background: linear-gradient(180deg, rgba(246, 220, 147, 0.28), rgba(246, 220, 147, 0.08)); box-shadow: 0 0 30px rgba(246, 220, 147, 0.15);
   color: var(--rc-gold); font-size: 15px; font-weight: 700; letter-spacing: 0.4em;
 }
-.rc-tables { display: grid; gap: 16px 8px; justify-items: center; padding: 24px 4px 8px; }
-.rc-table { position: relative; width: min(100%, 96px); aspect-ratio: 1; scroll-margin: 120px; }
+.rc-tables { display: grid; gap: 14px 6px; justify-items: center; padding: 22px 0 8px; }
+.rc-table { position: relative; width: min(100%, 108px); aspect-ratio: 1; scroll-margin: 120px; }
 .rc-table-top {
-  position: absolute; inset: 19%; display: grid; place-items: center; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, rgba(120, 150, 255, 0.38), rgba(10, 28, 110, 0.62));
-  border: 1px solid rgba(190, 205, 255, 0.35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  position: absolute; inset: 25%; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(120, 150, 255, 0.42), rgba(10, 28, 110, 0.72));
+  border: 1px solid rgba(190, 205, 255, 0.4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 14px rgba(0, 8, 50, 0.35);
 }
-.rc-table-no { font-size: 21px; font-weight: 700; color: rgba(230, 236, 255, 0.9); }
+.rc-table-no { font-size: 19px; font-weight: 700; color: rgba(230, 236, 255, 0.9); }
 .rc-seat {
-  position: absolute; width: 11%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
-  background: rgba(200, 215, 255, 0.3); border: 1px solid rgba(220, 230, 255, 0.35);
+  position: absolute; width: 19%; aspect-ratio: 1; color: rgba(205, 218, 255, 0.6);
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
 }
+.rc-seat svg { display: block; width: 100%; height: 100%; fill: currentColor; overflow: visible; }
+.rc-chair-seat { opacity: 0.6; }
 .rc-table.mine .rc-table-top {
   border-color: #FFE7A6; background: radial-gradient(circle at 35% 30%, #FFF2C6, #E9C46E 55%, #B8862F);
   animation: rc-glow 2.2s ease-in-out infinite;
 }
 .rc-table.mine .rc-table-no { color: var(--rc-ink); }
-.rc-table.mine .rc-seat { background: rgba(246, 220, 147, 0.45); border-color: rgba(246, 220, 147, 0.75); }
-.rc-seat.me { z-index: 2; width: 19%; background: var(--rc-pink) !important; border: 2px solid #fff !important; box-shadow: 0 0 12px rgba(247, 195, 210, 0.95); }
+.rc-table.mine .rc-seat { color: rgba(246, 220, 147, 0.85); }
+.rc-seat.me { z-index: 2; width: 25%; color: var(--rc-pink) !important; filter: drop-shadow(0 0 5px rgba(247, 195, 210, 0.95)); }
+.rc-seat.me .rc-chair-seat { opacity: 1; }
 .rc-seat.me::after {
-  content: ''; position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; border-radius: 50%;
+  content: ''; position: absolute; left: 50%; top: 50%; width: 120%; height: 120%; border-radius: 50%;
   border: 2px solid var(--rc-pink); animation: rc-ping 1.6s ease-out infinite;
 }
 .rc-entrance { display: flex; justify-content: center; margin-top: 8px; }
 .rc-entrance span { padding: 6px 18px 0; border-top: 2px solid rgba(220, 230, 255, 0.35); font-size: 12px; color: rgba(220, 230, 255, 0.7); }
-.rc-legend { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 4px 0 0; font-size: 12px; color: rgba(220, 230, 255, 0.75); }
-.rc-legend-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rc-pink); box-shadow: 0 0 8px rgba(247, 195, 210, 0.9); }
 
 /* ─── 이벤트 ─── */
 .rc-page.rc-event-page { max-width: 1120px; }
