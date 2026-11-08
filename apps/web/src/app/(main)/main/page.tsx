@@ -11,6 +11,7 @@ import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons
 import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
+import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
 import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
@@ -59,8 +60,6 @@ import { getCachedUnreadCount, notificationApi } from '@/lib/api/notification.ap
 const OFFICIAL_OPEN_MODAL_SESSION_KEY = 'freetiful-official-open-modal-20260506';
 const OFFICIAL_OPEN_MODAL_DISMISSED_UNTIL_KEY = 'freetiful-official-open-modal-dismissed-until-20260506';
 const OFFICIAL_OPEN_MODAL_HIDE_MS = 365 * 24 * 60 * 60 * 1000; // '다시 보지 않기'(260929 — 예전 '3일 동안 안보기')
-// 홈 진입 팝업을 이 세션에서 이미 닫았는지 — 탭 안에서 홈을 다시 방문해도 재노출 안 되게
-const POPUP_SEEN_KEY = 'freetiful-popup-seen-session';
 const OFFICIAL_OPEN_MODAL_IMAGE = '/images/freetiful-open-20260506.png';
 
 /* ─── 홈 애니메이션은 세션 첫 진입 때만 실행 ───────────────────── */
@@ -2247,8 +2246,12 @@ export default function HomePage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [apiPros, setApiPros] = useState<ProData[] | null>(null);
   const [showOfficialOpenModal, setShowOfficialOpenModal] = useState(false);
-  // 홈 첫 진입 팝업(260929 — 오늘의집 카드 결) — 모두에게 가입 5천원 한 장(관리자 팝업 배너는 더 안 씀)
-  const [popupBanner, setPopupBanner] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null }) | null>(null);
+  // 가입 이벤트 다음 장에 송년회 안내. 숨김 설정은 각 팝업별로 유지한다.
+  const [popupBanners, setPopupBanners] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null })[]>([]);
+  const [popupBannerIndex, setPopupBannerIndex] = useState(0);
+  const popupBanner = popupBanners[popupBannerIndex] ?? null;
+  const popupBannersRef = useRef(popupBanners);
+  popupBannersRef.current = popupBanners;
   const authHydrated = useAuthStore((s) => s.hasHydrated);
   const [simpleRequestOpen, setSimpleRequestOpen] = useState(false);
   const [simpleRequestType, setSimpleRequestType] = useState<'wedding' | 'event'>('wedding');
@@ -2257,7 +2260,7 @@ export default function HomePage() {
   // 홈 방문 1건(기기 세션당 1번, 익명) — 어드민 홈 '전환 퍼널' 1단계(261005)
   useEffect(() => { captureUtm(); trackLandingVisit('home'); }, []);
 
-  // 홈 진입 팝업 — 가입 5천원 한 장(예전엔 어드민 배너 placement=popup). '다시 보지 않기'는 팝업 id 별로 기억.
+  // 홈 진입 팝업 — 가입 5천원 → 송년회. '다시 보지 않기'는 팝업 id 별로 기억.
   // 예전 iOS 앱(네이티브 홈이 있던 2.1.x — 네이티브 홈 브리지 nativeHomeRows 가 있음)에선 띄우지 않는다: 네이티브 홈에 가려 안 보이고
   // 네이티브가 자체 팝업을 띄운다. 웹 화면만 쓰는 iOS 앱(260927~)은 웹 팝업 그대로 — 탭바는 모달이 닫히면 다시 나온다.
   useEffect(() => {
@@ -2268,7 +2271,7 @@ export default function HomePage() {
     if (isLegacyNativeHome) return;
     // 한 번 닫았으면 이 세션에선 다시 띄우지 않는다.
     // (홈 → 마이/채팅 → 홈 으로 되돌아올 때마다 이 effect 가 다시 돌아 계속 뜨던 문제)
-    try { if (sessionStorage.getItem(POPUP_SEEN_KEY) === '1') return; } catch {}
+    try { if (sessionStorage.getItem(homePopupSessionKey()) === '1') return; } catch {}
     let cancelled = false;
     let stopWaiting = () => {};
     const hidden = (id: string) => {
@@ -2277,10 +2280,11 @@ export default function HomePage() {
         return !!until && Date.now() < until;
       } catch { return false; }
     };
-    const schedule = (next: NonNullable<typeof popupBanner>) => {
+    const schedule = (next: typeof popupBanners) => {
       const show = () => {
         if (cancelled) return;
-        setPopupBanner(next);
+        setPopupBanners(next);
+        setPopupBannerIndex(0);
         setShowOfficialOpenModal(true);
       };
       // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
@@ -2292,35 +2296,63 @@ export default function HomePage() {
         show();
       }
     };
-    // 오픈 팝업 = 가입 5천원 한 장(사장 제공 세로 그림 887×1774, 원본 비율) — 로그인 여부와 상관없이 모두에게(260929 사장 '오픈팝업 이거 써, 지금 거 말고').
-    // 예전 관리자 팝업 배너(placement=popup, 친구 초대)는 더 이상 띄우지 않는다. 로그인한 사람은 띠 단추가 친구 초대로 간다.
-    if (!hidden('signup-5000')) {
-      const loggedIn = !!useAuthStore.getState().user;
-      schedule({
+    const loggedIn = !!useAuthStore.getState().user;
+    const promos: typeof popupBanners = [
+      {
         id: 'signup-5000', kind: 'signup', imageUrl: '/images/popups/signup-5000.webp', aspect: 887 / 1774,
         ctaLabel: loggedIn ? '친구 초대하러 가기' : '가입하고 5,000원 받기', alt: '가입만 하면 5,000원 입금',
-      });
-    }
+      },
+      {
+        id: 'reception-2026', kind: 'banner', imageUrl: '/images/popups/reception-2026.webp', aspect: 887 / 1774,
+        ctaLabel: '확인했어요', alt: 'Freetiful & WMAK 2026 송년회 — 11월 23일 월요일 17:30~21:00, 청담 리베라호텔 3F 베르사이유 홀. 드레스코드: 네이비와 베이비핑크',
+      },
+    ];
+    const visiblePromos = orderHomePromos(promos).filter((promo) => !hidden(promo.id));
+    if (visiblePromos.length) schedule(visiblePromos);
     return () => { cancelled = true; stopWaiting(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHydrated]);
 
+  // Keep an already-open popup correct at midnight, including tabs returning from sleep.
+  useEffect(() => {
+    let phase = homePopupSessionKey();
+    let timer: ReturnType<typeof setTimeout>;
+    const sync = () => {
+      const now = Date.now();
+      const nextPhase = homePopupSessionKey(now);
+      if (nextPhase !== phase) {
+        phase = nextPhase;
+        const next = orderHomePromos(popupBannersRef.current, now);
+        setPopupBanners(next);
+        setPopupBannerIndex(0);
+        if (!next.length) setShowOfficialOpenModal(false);
+      }
+      clearTimeout(timer);
+      const boundary = nextHomePromoBoundary(now);
+      if (boundary) timer = setTimeout(sync, Math.min(2_147_483_647, boundary - now + 25));
+    };
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', sync); };
+  }, []);
+
   /** 닫기(어떤 경로든) — 이 세션에선 다시 띄우지 않도록 표시 */
   const closeOfficialOpenModal = () => {
-    try { sessionStorage.setItem(POPUP_SEEN_KEY, '1'); } catch {}
+    try { sessionStorage.setItem(homePopupSessionKey(), '1'); } catch {}
     setShowOfficialOpenModal(false);
   };
 
-  const openPopupTarget = () => {
-    if (!popupBanner) return;
+  const openPopupTarget = (index = popupBannerIndex) => {
+    const selectedPromo = popupBanners[index];
+    if (!selectedPromo) return;
     closeOfficialOpenModal();
-    if (popupBanner.kind === 'signup') {
+    if (selectedPromo.kind === 'signup') {
       if (useAuthStore.getState().user) router.push('/my/invite');
       else window.dispatchEvent(new Event('freetiful:show-login'));
       return;
     }
-    if (popupBanner.linkUrl) {
-      try { window.location.href = popupBanner.linkUrl; } catch {}
+    if (selectedPromo.linkUrl) {
+      try { window.location.href = selectedPromo.linkUrl; } catch {}
     }
   };
 
@@ -2330,7 +2362,7 @@ export default function HomePage() {
         localStorage.setItem(`freetiful-popup-hide:${popupBanner.id}`, String(Date.now() + OFFICIAL_OPEN_MODAL_HIDE_MS));
       }
     } catch {}
-    setShowOfficialOpenModal(false);
+    closeOfficialOpenModal();
   };
 
   useEffect(() => {
@@ -2831,7 +2863,9 @@ export default function HomePage() {
 
       {/* 홈 첫 진입 팝업 — 오늘의집 카드 결(모서리 5 · 아래 붙은 띠 단추 · 카드 밖 '다시 보지 않기'/'닫기'), 고급 등장(260929 사장) */}
       <HomePromoPopup
-        promo={popupBanner}
+        promos={popupBanners}
+        activeIndex={popupBannerIndex}
+        onChange={setPopupBannerIndex}
         open={showOfficialOpenModal && !!popupBanner}
         onCta={openPopupTarget}
         onClose={() => closeOfficialOpenModal()}
