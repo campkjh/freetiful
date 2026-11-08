@@ -167,9 +167,9 @@ export default function ReceptionEventPage() {
       <div className="rc-event-layout">
         <div className="rc-event-main">
           <header className="rc-event-head rc-rise">
-            <p className="rc-eyebrow">Photo Event</p>
-            <h1 className="rc-event-title">오늘의 한 컷</h1>
-            <p className="rc-event-desc">사진을 한 장 올리고, 마음에 드는 사진에 좋아요·공감을 눌러 주세요. 공감을 많이 받은 순서대로 순위가 매겨져요.</p>
+            <p className="rc-eyebrow">Best Dresser Awards</p>
+            <h1 className="rc-event-title">베스트드레서 어워즈</h1>
+            <p className="rc-event-desc">오늘의 룩을 사진 한 장으로 올리고, 마음에 드는 룩에 좋아요·공감을 눌러 주세요. 공감을 많이 받은 순서대로 순위가 매겨져요.</p>
             <div className="rc-event-bar">
               <span className="rc-chip"><ThumbIcon size={15} />좋아요 <b>{feed?.me.likesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>
               <span className="rc-chip empathy"><HeartIcon size={15} />공감 <b>{feed?.me.empathiesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>

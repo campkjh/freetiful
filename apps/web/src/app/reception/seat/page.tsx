@@ -69,7 +69,7 @@ export default function ReceptionSeatPage() {
         <NameGateInline
           initial={name}
           cta="내 자리 확인"
-          hint="입력한 성함으로 자리를 찾아 드려요. 포토 이벤트·설문에도 이 이름이 쓰여요."
+          hint="입력한 성함으로 자리를 찾아 드려요. 베스트드레서 어워즈·설문에도 이 이름이 쓰여요."
           onDone={() => setEditing(false)}
           onClose={name ? () => setEditing(false) : undefined}
         />

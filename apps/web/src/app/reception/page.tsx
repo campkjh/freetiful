@@ -58,7 +58,7 @@ export default function ReceptionProgramPage() {
 
       <div className="rc-program-cta rc-rise" style={{ '--i': i } as React.CSSProperties}>
         <Link href="/reception/seat" className="rc-btn-gold">내 자리 확인하기</Link>
-        <Link href="/reception/event" className="rc-btn-line">포토 이벤트 참여하기</Link>
+        <Link href="/reception/event" className="rc-btn-line">베스트드레서 어워즈 참여하기</Link>
       </div>
     </div>
   );

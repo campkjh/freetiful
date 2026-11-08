@@ -6,7 +6,7 @@ import '@/components/reception/reception.css';
 // 송년회(261108 사장 '처음 진입 배너 누르면 식순 페이지 — 네비게이션바(식순, 자리, 이벤트, 설문조사)').
 // 홈 진입 팝업 '송년회' 장 → /reception. 탭마다 주소가 따로라(/reception/seat 등) 현장 QR 로 바로 보낼 수 있다.
 const TITLE = 'Freetiful & WMAK 2026 Year-End RECEPTION';
-const DESC = '프리티풀 × 한국여성사회자협회 송년회 — 2026년 11월 23일(월) 17:30, 청담 리베라호텔 3F 베르사이유 홀. 식순 · 내 자리 · 포토 이벤트 · 설문조사';
+const DESC = '프리티풀 × 한국여성사회자협회 송년회 — 2026년 11월 23일(월) 17:30, 청담 리베라호텔 3F 베르사이유 홀. 식순 · 내 자리 · 베스트드레서 어워즈 · 설문조사';
 
 const serif = Cormorant_Garamond({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--rc-serif', display: 'swap' });
 
