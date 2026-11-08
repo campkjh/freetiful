@@ -2,7 +2,8 @@
 
 // 순위 — 공감을 가장 많이 받은 사람이 맨 위(같으면 좋아요 → 먼저 올린 순, 서버 reception.rules.ts compareRank).
 import type { ReceptionPhoto } from '@/lib/reception/api';
-import { HeartIcon, RankMedal, ThumbIcon } from './ReceptionIcons';
+import RankCrown from './RankCrown';
+import { HeartIcon, ThumbIcon } from './ReceptionIcons';
 
 export default function RankingList({ photos, onOpen }: { photos: ReceptionPhoto[]; onOpen: (p: ReceptionPhoto) => void }) {
   const ranked = [...photos].sort((a, b) => a.rank - b.rank);
@@ -15,7 +16,7 @@ export default function RankingList({ photos, onOpen }: { photos: ReceptionPhoto
           <li key={p.id}>
             <button type="button" className={`rc-rank-row ${p.mine ? 'mine' : ''}`} onClick={() => onOpen(p)}>
               <span className="rc-rank-no">
-                {medal ? <RankMedal rank={p.rank as 1 | 2 | 3} size={30} /> : p.rank}
+                {medal ? <RankCrown rank={p.rank as 1 | 2 | 3} size={20} /> : p.rank}
               </span>
               <img src={p.thumbUrl} alt="" className="rc-rank-thumb" loading="lazy" />
               <span className="rc-rank-name">{p.name}{p.mine && <em>나</em>}</span>

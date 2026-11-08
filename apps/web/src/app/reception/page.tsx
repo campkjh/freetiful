@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { RECEPTION_INFO, RECEPTION_PROGRAM } from '@/lib/reception/event';
 
-// 식순 — 사장 견본 그림(금빛 제목 · 반짝이는 금빛 구분선)의 톤으로 사장 식순표(1부 · 2부 · 시각)를 시간표로 짰다.
-// 1부 · 2부 머리 아래 금빛 세로줄, 시각이 있는 순서는 큰 점 · 이어지는 순서는 작은 점. 줄마다 아래에서 차례로 떠오른다(rc-rise, --i).
+// 식순 — 사장 견본 그림(금빛 제목 · 반짝이는 금빛 구분선)의 톤으로 사장 식순표(1부 · 2부 · 시각)를 짰다.
+// 순서마다 카드 한 장(사장 '묶지 말고 카드로'): 왼쪽 시각 | 순서 — 시각 없는 순서는 작은 금빛 점. 카드마다 아래에서 차례로 떠오른다(rc-rise, --i).
 const PART_LABEL = { 1: 'Part I', 2: 'Part II' } as const;
 
 export default function ReceptionProgramPage() {
@@ -32,10 +32,10 @@ export default function ReceptionProgramPage() {
               <span className="rc-part-title">{part}부</span>
               <img src="/reception/divider.webp" alt="" aria-hidden="true" className="rc-divider" width={830} height={99} />
             </h2>
-            <ol className="rc-glass rc-timeline">
+            <ol className="rc-program-cards">
               {items.map((item, k) => (
-                <li key={k} className={`rc-tl-row rc-rise ${item.time ? 'timed' : ''}`} style={{ '--i': i++ } as React.CSSProperties}>
-                  <span className="rc-tl-time">{item.time ? <time>{item.time}</time> : null}</span>
+                <li key={k} className={`rc-pcard rc-rise ${item.time ? 'timed' : ''}`} style={{ '--i': i++ } as React.CSSProperties}>
+                  <span className="rc-tl-time">{item.time ? <time>{item.time}</time> : <i className="rc-tl-dot" aria-hidden="true" />}</span>
                   <div className="rc-tl-body">
                     <p className="rc-tl-title">
                       {item.title}

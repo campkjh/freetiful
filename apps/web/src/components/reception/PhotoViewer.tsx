@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReceptionPhoto, VoteKind } from '@/lib/reception/api';
-import { CloseIcon, HeartIcon, RankMedal, ThumbIcon } from './ReceptionIcons';
+import RankCrown from './RankCrown';
+import { CloseIcon, HeartIcon, ThumbIcon } from './ReceptionIcons';
 
 export default function PhotoViewer({
   photos,
@@ -50,7 +51,7 @@ export default function PhotoViewer({
     <div className="rc-theme rc-viewer" role="dialog" aria-modal="true" aria-label={`${p.name} 님의 사진`}>
       <header className="rc-viewer-head">
         <div className="rc-viewer-who">
-          {ranked && <RankMedal rank={p.rank as 1 | 2 | 3} size={24} />}
+          {ranked && <RankCrown rank={p.rank as 1 | 2 | 3} size={20} />}
           <b>{p.name}</b>
           <span className="rc-viewer-rank">공감 {p.rank}위</span>
         </div>

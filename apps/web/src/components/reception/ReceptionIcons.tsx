@@ -56,9 +56,13 @@ export function ThumbIcon({ size = 24, className }: IconProps) {
   );
 }
 
-/** 1·2·3위 메달 — 워크키퍼(rocketdan public/titles gold·silver·bronze.svg) 그대로, 색 있는 그림이라 <img>. label='' 이면 꾸밈 */
-export function RankMedal({ rank, size = 24, className, label }: { rank: 1 | 2 | 3; size?: number; className?: string; label?: string }) {
-  return <img src={`/reception/rank-${rank}.svg`} width={size} height={size} alt={label ?? `${rank}위`} aria-hidden={label === '' || undefined} className={className} draggable={false} />;
+/** icon-arrow-back-ios-mono — 원본은 오른쪽에 붙어 있어 viewBox 를 옮겨 가운데로 */
+export function BackIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="5 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M20.8 20.6996C20.5 20.6996 20.2 20.5996 20 20.2996L12.5 12.7996C12 12.2996 12 11.5996 12.5 11.0996L20 3.59961C20.5 3.09961 21.2 3.09961 21.7 3.59961C22.2 4.09961 22.2 4.79961 21.7 5.29961L14.9 11.9996L21.6 18.6996C22.1 19.1996 22.1 19.8996 21.6 20.3996C21.4 20.5996 21.1 20.6996 20.8 20.6996Z" fill="currentColor"/>
+    </svg>
+  );
 }
 
 /** icon-plus-mono */

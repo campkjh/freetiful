@@ -2,11 +2,12 @@
 
 // 송년회 공용 틀 — 사장 견본 톤(로열 블루 · 크리스털 · 금빛 세리프): 배경 그림 고정 + 아래 떠 있는 탭(식순 · 자리 · 이벤트 · 설문조사).
 // 탭 아이콘 = 사장 제공 토스 단색 아이콘(ReceptionIcons). 고른 탭은 금빛 + 뒤에 은은한 알약이 미끄러져 따라간다.
+// 왼쪽 위 '‹ 프리티풀' = 송년회 밖(홈)으로 나가는 유일한 길 — 앱(iOS 웹 껍데기)엔 브라우저 뒤로가기가 없다(261108 사장 '빠져나올 수가 없음').
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { EventIcon, ProgramIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
+import { BackIcon, EventIcon, ProgramIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
 
 const TABS = [
   { href: '/reception', label: '식순', Icon: ProgramIcon },
@@ -27,6 +28,10 @@ export default function ReceptionShell({ children, fontClassName }: { children: 
   return (
     <div className={`rc-theme rc-root ${fontClassName}`}>
       <div className="rc-bg" aria-hidden="true" />
+      <Link href="/main" className="rc-exit" aria-label="프리티풀 홈으로 나가기">
+        <BackIcon size={16} />
+        <span>프리티풀</span>
+      </Link>
       <main className="rc-main">{children}</main>
       <nav className="rc-nav" aria-label="송년회 메뉴">
         {TABS.map((t) => {
