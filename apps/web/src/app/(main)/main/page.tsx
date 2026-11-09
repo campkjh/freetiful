@@ -11,6 +11,7 @@ import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons
 import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
+import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
 import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
@@ -965,6 +966,7 @@ const HOME_TOP_BANNERS: { id: string; image?: string; pcImage: string; alt: stri
       bottom: '19%',
     } },
   { id: 'signup-5000', image: '/images/banners/home-top-signup-5000-8x3.webp', pcImage: '/images/banners/pc-hero-signup-5000.webp', alt: '가입만 하면 5,000원 입금 — 신규 가입 완료 시 5천원 지급', action: 'signup', pcCta: 'signup' },
+  { id: 'reception-2026', image: '/images/banners/home-top-reception-2026-bg.webp', pcImage: '/images/banners/pc-hero-reception-2026-bg.webp', alt: 'Freetiful & WMAK 2026 송년회 — 11월 23일 월요일 17:30~21:00, 청담 리베라호텔 3F 베르사이유 홀. 식순 · 내 자리 보기', href: '/reception' },
   { id: 'ceramique', image: '/images/banners/home-top-ceramique-bg.webp', pcImage: '/images/banners/pc-hero-ceramique.webp', title: ['아름다움의 새로운 기준,', '세라미크에서', '경험하세요.'], alt: '아름다움의 새로운 기준, 세라미크에서 경험하세요' },
 ];
 
@@ -1013,7 +1015,9 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
   const router = useRouter();
   const authUser = useAuthStore((st) => st.user);
   const skipAnim = useHomeAnimationSkip();
-  const banners = pc ? HOME_TOP_BANNERS : HOME_TOP_BANNERS.filter((b) => !b.pcOnly);
+  const [bannerTime, setBannerTime] = useState(0);
+  const banners = orderHomePromos(pc ? HOME_TOP_BANNERS : HOME_TOP_BANNERS.filter((b) => !b.pcOnly), bannerTime);
+  const campaignPhase = homePopupSessionKey(bannerTime);
   const count = banners.length;
   const [idx, setIdx] = useState(0);
   const [drag, setDrag] = useState(0);
@@ -1024,6 +1028,25 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
   const [leaving, setLeaving] = useState<number | null>(null);
   const [turn, setTurn] = useState(0);
   const leaveTimerRef = useRef(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const sync = () => {
+      const now = Date.now();
+      setBannerTime(now);
+      clearTimeout(timer);
+      const boundary = nextHomePromoBoundary(now);
+      if (boundary) timer = setTimeout(sync, Math.min(2_147_483_647, boundary - now + 25));
+    };
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', sync); };
+  }, []);
+  useEffect(() => {
+    idxRef.current = 0;
+    setIdx(0);
+    setLeaving(null);
+    setTurn((value) => value + 1);
+  }, [campaignPhase]);
   const go = (delta: number) => {
     const from = idxRef.current;
     const to = (from + delta + count) % count;
@@ -1116,7 +1139,9 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={pc ? b.pcImage : b.image ?? b.pcImage} alt={b.alt} width={1200} height={pc ? 900 : 450} loading={i < 2 ? 'eager' : 'lazy'} decoding="async" draggable={false} className="h-full w-full object-cover" />
-              {b.title && (
+              {b.id === 'reception-2026' ? (
+                <ReceptionBannerCopy key={i === idx ? `reception-${turn}` : 'reception-off'} pc={pc} active={i === idx} leaving={i === leaving} />
+              ) : b.title && (
                 <>
                   {/* 왼쪽(PC 는 왼쪽 위)만 옅게 어둡게 — 밝은 사진에서도 흰 제목이 읽히게(퀵매칭·웨딩숲 카드와 같은 결).
                       tone 'light'(웨딩런) = 반대로 옅게 밝게 — 색 제목이 뒤 그림(서울 하늘·벚꽃)에 묻히지 않게 */}

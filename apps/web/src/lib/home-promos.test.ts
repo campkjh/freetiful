@@ -37,3 +37,10 @@ test('midnight schedule and session dismissal keys follow the same Korea-time bo
   assert.notEqual(homePopupSessionKey(RECEPTION_START - 1), homePopupSessionKey(RECEPTION_START));
   assert.notEqual(homePopupSessionKey(RECEPTION_START), homePopupSessionKey(RECEPTION_END));
 });
+
+test('home carousel keeps reception after signup before the event and preserves other slides', () => {
+  const carousel = [{ id: 'villadegd' }, { id: 'biz' }, { id: 'signup-5000' }, { id: 'reception-2026' }, { id: 'ceramique' }];
+  assert.deepEqual(orderHomePromos(carousel, RECEPTION_START - 1).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'reception-2026', 'ceramique']);
+  assert.deepEqual(orderHomePromos(carousel, RECEPTION_START).map(p => p.id), ['reception-2026', 'villadegd', 'biz', 'signup-5000', 'ceramique']);
+  assert.deepEqual(orderHomePromos(carousel, RECEPTION_END).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
+});
