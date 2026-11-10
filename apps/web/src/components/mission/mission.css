@@ -149,8 +149,14 @@
 .ms-ov.is-home .ms-ov-wash { background: linear-gradient(180deg, rgba(242, 244, 246, 0) 0%, rgba(242, 244, 246, .14) 22%, rgba(242, 244, 246, .38) 38%, rgba(242, 244, 246, .72) 50%, rgba(242, 244, 246, .94) 58%, #F2F4F6 63%); }
 .ms-ov.is-home .ms-ov-col { justify-content: flex-end; padding-top: 0; }
 .ms-ov.is-home .ms-ov-stack { flex: none; }
-.ms-ov.is-home .ms-ov-btn { margin-top: 47px; }
+.ms-ov.is-home > .ms-ov-col > .ms-ov-btn, .ms-ov.is-home .ms-ov-btns { margin-top: 47px; }
 .ms-ov-btn:active { background: #CCDDF6; scale: .96; }
+/* 단추 두 개 — [확인](연한 파랑) + [진행상황](파랑), 오른쪽이 살짝 늦게 올라온다 */
+.ms-ov-btns { flex: none; display: flex; gap: 8px; width: 100%; margin-top: 24px; }
+.ms-ov-btns .ms-ov-btn { flex: 1; width: auto; margin-top: 0; }
+.ms-ov-btn.primary { background: #3182F6; color: #fff; }
+.ms-ov-btn.primary:active { background: #1B64DA; }
+.ms-ov[data-phase='roll'] .ms-ov-btns .ms-ov-btn.primary { animation-delay: .42s; }
 
 @media (prefers-reduced-motion: reduce) {
   .ms-page *, .ms-ov * { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; transition-delay: 0s !important; }

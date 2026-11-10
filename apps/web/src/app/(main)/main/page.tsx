@@ -2964,8 +2964,9 @@ export default function HomePage() {
           postDone={homeCheckin.postDone}
           quoteDone={homeCheckin.quoteDone}
           sub={homeCheckin.mode === 'guest' ? '가입하면 5,000원 미션 시작' : undefined}
-          cta={homeCheckin.mode === 'guest' ? '가입하고 시작하기' : '확인했어요'}
-          onDone={() => {
+          cta="확인"
+          progressLabel={homeCheckin.mode === 'guest' ? '가입하고 시작하기' : '진행상황'}
+          onDone={(choice) => {
             const mode = homeCheckin.mode;
             // 이 세션엔 이미지 팝업을 이어서 띄우지 않고, 비로그인·관리자 미리보기는 오늘 다시 안 띄운다
             try {
@@ -2973,7 +2974,8 @@ export default function HomePage() {
               if (mode !== 'member') localStorage.setItem(`freetiful-mission-ov:${authUser?.id || 'guest'}`, homeCheckin.today);
             } catch {}
             setHomeCheckin(null);
-            if (mode !== 'preview') router.push('/my/mission');
+            // [확인] = 홈에 그대로 · [진행상황](비로그인은 [가입하고 시작하기]) = 미션 화면(비로그인은 로그인 창 뒤 거기로)
+            if (choice === 'progress') router.push('/my/mission');
           }}
         />
       )}

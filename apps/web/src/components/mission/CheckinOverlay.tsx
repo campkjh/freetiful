@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { IcCheck, IcDoc, IcPencil } from './icons';
 
-export default function CheckinOverlay({ prevCount, count, required = 2, postDone, quoteDone, onDone, variant = 'page', sub, cta = '확인했어요' }: {
+export default function CheckinOverlay({ prevCount, count, required = 2, postDone, quoteDone, onDone, variant = 'page', sub, cta = '확인했어요', progressLabel }: {
   prevCount: number;
   /** 오늘까지 출석한 날 수(오늘 포함) */
   count: number;
@@ -19,12 +19,15 @@ export default function CheckinOverlay({ prevCount, count, required = 2, postDon
   required?: number;
   postDone: boolean;
   quoteDone: boolean;
-  onDone: () => void;
+  /** 누른 단추 — ok(확인) · progress(진행상황) */
+  onDone: (choice: 'ok' | 'progress') => void;
   /** page = 미션 화면(바탕 통째로) · home = 홈 위(녹화 그대로 그라데이션으로 씻기고 아래에 붙음) */
   variant?: 'page' | 'home';
   /** 숫자 아래 글(없으면 판에 맞춘 기본) · 버튼 글 */
   sub?: string;
   cta?: string;
+  /** 있으면 아래 단추 두 개 — [확인] + [진행상황](261110 사장 '확인 진행상황 버튼 두 개 하단에') */
+  progressLabel?: string;
 }) {
   const [phase, setPhase] = useState<'in' | 'roll' | 'out'>('in');
   const doneRef = useRef(false);
@@ -48,11 +51,11 @@ export default function CheckinOverlay({ prevCount, count, required = 2, postDon
     ];
   }, [count, required, postDone, quoteDone]);
 
-  const close = () => {
+  const close = (choice: 'ok' | 'progress' = 'ok') => {
     if (phase !== 'roll' || doneRef.current) return;
     doneRef.current = true;
     setPhase('out');
-    setTimeout(onDone, 220);
+    setTimeout(() => onDone(choice), 220);
   };
 
   let grow = 0; // 점 → 동그라미 차례(오늘 다음 칸부터 40ms씩)
@@ -93,7 +96,14 @@ export default function CheckinOverlay({ prevCount, count, required = 2, postDon
             })}
           </div>
         </div>
-        <button type="button" className="ms-ov-btn" onClick={close}>{cta}</button>
+        {progressLabel ? (
+          <div className="ms-ov-btns">
+            <button type="button" className="ms-ov-btn" onClick={() => close('ok')}>{cta}</button>
+            <button type="button" className="ms-ov-btn primary" onClick={() => close('progress')}>{progressLabel}</button>
+          </div>
+        ) : (
+          <button type="button" className="ms-ov-btn" onClick={() => close()}>{cta}</button>
+        )}
       </div>
     </div>
   );
