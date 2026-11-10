@@ -12,7 +12,8 @@ import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
-import { missionApi, WELCOME_MISSION_START, type WelcomeMissionStatus } from '@/lib/api/mission.api';
+import { missionApi, WELCOME_MISSION_START } from '@/lib/api/mission.api';
+import { isAdminUser } from '@/lib/admin-access';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
 import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
@@ -2277,8 +2278,11 @@ export default function HomePage() {
   const [popupBanners, setPopupBanners] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null })[]>([]);
   const [popupBannerIndex, setPopupBannerIndex] = useState(0);
   const popupBanner = popupBanners[popupBannerIndex] ?? null;
-  // 신규 가입 5,000원 미션 출석 오버레이(261110) — 대상이면 이미지 팝업 대신 이것
-  const [homeCheckin, setHomeCheckin] = useState<WelcomeMissionStatus | null>(null);
+  // 신규 가입 5,000원 미션 출석 오버레이(261110) — 처음 팝업(이미지)을 닫으면 이어서 뜬다
+  type HomeCheckin = { mode: 'member' | 'guest' | 'preview'; count: number; days: string[]; today: string };
+  const [homeCheckin, setHomeCheckin] = useState<HomeCheckin | null>(null);
+  const pendingCheckin = useRef<HomeCheckin | null>(null);
+  const popupFlow = useRef<'none' | 'open' | 'closed'>('none');
   const popupBannersRef = useRef(popupBanners);
   popupBannersRef.current = popupBanners;
   const authHydrated = useAuthStore((s) => s.hasHydrated);
@@ -2321,6 +2325,7 @@ export default function HomePage() {
       }
     };
     const schedule = (next: typeof popupBanners) => whenFree(() => {
+      popupFlow.current = 'open';
       setPopupBanners(next);
       setPopupBannerIndex(0);
       setShowOfficialOpenModal(true);
@@ -2338,30 +2343,44 @@ export default function HomePage() {
       },
     ];
     const visiblePromos = orderHomePromos(promos).filter((promo) => !hidden(promo.id));
-    const showPromos = () => { if (visiblePromos.length) schedule(visiblePromos); };
-    // 신규 가입 미션(261110 사장 '홈에 첫 유저가 접속하면 미션 뜨게 — 그 그라데이션 모달로') — 11/10 이후 가입자가 그날 처음 홈에 오면
-    // 출석 1번(서버 checkin, 하루 1행) + 녹화 그대로의 출석 오버레이. [확인했어요] → 미션 화면. 신청한 뒤(확인 중·입금)엔 안 띄운다.
-    // 같은 날 두 번째부터는 요청도 안 보낸다(기기에 오늘 날짜 기억).
+    // 신규 가입 미션 출석 오버레이(녹화 그대로의 그라데이션) — 처음 팝업을 닫으면 이어서(261110 사장 '처음 팝업 뜨는 거 종료하면 나오게').
+    //  · 신규 가입자(11/10~, 신청 전): 그날 첫 홈 방문에 출석 1번(서버 checkin) + 진짜 N일째 → [확인했어요] → /my/mission.
+    //  · 비로그인: 가입 유도(기록 없음) → [가입하고 시작하기] → /my/mission(로그인 창이 뜨고 끝나면 거기로).
+    //  · 관리자(총괄운영자 포함): 신규 가입자가 보는 화면 미리보기(기록 없음) — 옛 계정이라 실제로는 대상이 아니다.
+    //  · 그 밖의 옛 회원·신청 끝난 사람: 안 띄움. 같은 기기·계정에 하루 한 번.
     const me = useAuthStore.getState().user;
-    const maybeNew = !!me && me.role !== 'admin' && (!me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
     const kstToday = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
-    const checkinKey = me ? `freetiful-mission-checkin:${me.id}` : '';
-    let checkedHere = false;
-    try { const v = checkinKey ? localStorage.getItem(checkinKey) : null; checkedHere = v === kstToday || v === 'no'; } catch {}
-    if (maybeNew && !checkedHere) {
-      missionApi.checkin()
-        .then(({ justCheckedIn, ...st }) => {
-          if (cancelled) return;
-          try { localStorage.setItem(checkinKey, st.eligible ? st.today : 'no'); } catch {} // 대상 아님(옛 가입)이면 다시 묻지 않는다
-          if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected')) {
-            window.setTimeout(() => whenFree(() => setHomeCheckin(st)), 600);
-          } else {
-            showPromos();
-          }
-        })
-        .catch(() => { if (!cancelled) showPromos(); });
-    } else {
-      showPromos();
+    const ovKey = `freetiful-mission-ov:${me?.id || 'guest'}`;
+    let ovSeen = false;
+    try { ovSeen = localStorage.getItem(ovKey) === kstToday; } catch {}
+    pendingCheckin.current = null;
+    popupFlow.current = 'none';
+    const offer = (c: HomeCheckin) => {
+      if (cancelled) return;
+      // 팝업이 떠 있거나 뜰 차례면 닫힐 때(closeOfficialOpenModal) 띄운다
+      if (popupFlow.current === 'open' || (popupFlow.current === 'none' && visiblePromos.length)) { pendingCheckin.current = c; return; }
+      window.setTimeout(() => whenFree(() => setHomeCheckin(c)), 600);
+    };
+    if (visiblePromos.length) schedule(visiblePromos);
+    const admin = isAdminUser(me);
+    const maybeNew = !!me && !admin && me.role !== 'admin' && (!me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
+    if (maybeNew) {
+      const checkinKey = `freetiful-mission-checkin:${me.id}`;
+      let checkedHere = false;
+      try { const v = localStorage.getItem(checkinKey); checkedHere = v === kstToday || v === 'no'; } catch {}
+      if (!checkedHere) {
+        missionApi.checkin()
+          .then(({ justCheckedIn, ...st }) => {
+            if (cancelled) return;
+            try { localStorage.setItem(checkinKey, st.eligible ? st.today : 'no'); } catch {} // 대상 아님(옛 가입)이면 다시 묻지 않는다
+            if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected')) {
+              offer({ mode: 'member', count: st.attendance.count, days: st.attendance.days, today: st.today });
+            }
+          })
+          .catch(() => {});
+      }
+    } else if (!ovSeen && (!me || admin)) {
+      offer({ mode: me ? 'preview' : 'guest', count: 1, days: [kstToday], today: kstToday });
     }
     return () => { cancelled = true; stopWaiting(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2391,15 +2410,20 @@ export default function HomePage() {
   }, []);
 
   /** 닫기(어떤 경로든) — 이 세션에선 다시 띄우지 않도록 표시 */
-  const closeOfficialOpenModal = () => {
+  const closeOfficialOpenModal = (thenMission = true) => {
     try { sessionStorage.setItem(homePopupSessionKey(), '1'); } catch {}
     setShowOfficialOpenModal(false);
+    popupFlow.current = 'closed';
+    // 미션 출석 오버레이가 기다리고 있으면 팝업이 다 사라진 뒤 이어서(누른 단추로 다른 화면에 가는 경우는 빼고)
+    const next = pendingCheckin.current;
+    pendingCheckin.current = null;
+    if (next && thenMission) window.setTimeout(() => setHomeCheckin(next), 420);
   };
 
   const openPopupTarget = (index = popupBannerIndex) => {
     const selectedPromo = popupBanners[index];
     if (!selectedPromo) return;
-    closeOfficialOpenModal();
+    closeOfficialOpenModal(false);
     if (selectedPromo.kind === 'signup') {
       if (useAuthStore.getState().user) router.push('/my/invite');
       else window.dispatchEvent(new Event('freetiful:show-login'));
@@ -2930,15 +2954,21 @@ export default function HomePage() {
       {homeCheckin && (
         <CheckinOverlay
           variant="home"
-          prevCount={Math.max(0, homeCheckin.attendance.count - 1)}
-          count={homeCheckin.attendance.count}
-          days={homeCheckin.attendance.days}
+          prevCount={Math.max(0, homeCheckin.count - 1)}
+          count={homeCheckin.count}
+          days={homeCheckin.days}
           today={homeCheckin.today}
+          sub={homeCheckin.mode === 'guest' ? '가입하면 5,000원 미션 시작' : undefined}
+          cta={homeCheckin.mode === 'guest' ? '가입하고 시작하기' : '확인했어요'}
           onDone={() => {
-            // 이 세션엔 이미지 팝업을 이어서 띄우지 않는다
-            try { sessionStorage.setItem(homePopupSessionKey(), '1'); } catch {}
+            const mode = homeCheckin.mode;
+            // 이 세션엔 이미지 팝업을 이어서 띄우지 않고, 비로그인·관리자 미리보기는 오늘 다시 안 띄운다
+            try {
+              sessionStorage.setItem(homePopupSessionKey(), '1');
+              if (mode !== 'member') localStorage.setItem(`freetiful-mission-ov:${authUser?.id || 'guest'}`, homeCheckin.today);
+            } catch {}
             setHomeCheckin(null);
-            router.push('/my/mission');
+            if (mode !== 'preview') router.push('/my/mission');
           }}
         />
       )}

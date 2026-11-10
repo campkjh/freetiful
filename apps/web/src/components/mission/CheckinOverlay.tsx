@@ -17,7 +17,7 @@ const dayNum = (d: string) => {
 };
 const fromNum = (n: number) => new Date(n * 86400000);
 
-export default function CheckinOverlay({ prevCount, count, days, today, onDone, variant = 'page' }: {
+export default function CheckinOverlay({ prevCount, count, days, today, onDone, variant = 'page', sub, cta = '확인했어요' }: {
   prevCount: number;
   count: number;
   /** 출석한 날들(KST YYYY-MM-DD, 오늘 포함) */
@@ -26,6 +26,9 @@ export default function CheckinOverlay({ prevCount, count, days, today, onDone, 
   onDone: () => void;
   /** page = 미션 화면(바탕 통째로) · home = 홈 위(녹화 그대로 그라데이션으로 씻기고 아래에 붙음) */
   variant?: 'page' | 'home';
+  /** 숫자 아래 글(없으면 판에 맞춘 기본) · 버튼 글 */
+  sub?: string;
+  cta?: string;
 }) {
   const [phase, setPhase] = useState<'in' | 'roll' | 'out'>('in');
   const doneRef = useRef(false);
@@ -69,7 +72,7 @@ export default function CheckinOverlay({ prevCount, count, days, today, onDone, 
               </span>
               <span className="ms-ov-unit">일째</span>
             </div>
-            <p className="ms-ov-sub">{variant === 'home' ? '5,000원 미션 출석 완료' : '출석 체크 완료'}</p>
+            <p className="ms-ov-sub">{sub ?? (variant === 'home' ? '5,000원 미션 출석 완료' : '출석 체크 완료')}</p>
           </div>
           <div className="ms-ov-week">
             {week.map((d) => {
@@ -92,7 +95,7 @@ export default function CheckinOverlay({ prevCount, count, days, today, onDone, 
             })}
           </div>
         </div>
-        <button type="button" className="ms-ov-btn" onClick={close}>확인했어요</button>
+        <button type="button" className="ms-ov-btn" onClick={close}>{cta}</button>
       </div>
     </div>
   );
