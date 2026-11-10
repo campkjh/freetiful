@@ -146,6 +146,8 @@ interface CommunityPostDetail {
   isMine?: boolean;
   isEdited?: boolean;
   likers?: TossLiker[];
+  /** 내 글이 신규가입 미션으로 인정받은 글 — 삭제 불가(261110) */
+  missionLocked?: boolean;
 }
 
 // O / X 는 글자가 아니라 도형으로 그린다(목록 카드와 같은 모양).
@@ -352,7 +354,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "수정에 실패했습니다.");
+      if (!response.ok) throw new Error((typeof data.message === "string" && data.message) || data.error || "수정에 실패했습니다.");
       setEditing(false);
       await loadDetail();
     } catch (error) {
@@ -389,7 +391,7 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
         credentials: "include",
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "삭제에 실패했습니다.");
+      if (!response.ok) throw new Error((typeof data.message === "string" && data.message) || data.error || "삭제에 실패했습니다.");
       // 삭제된 글이 목록에서 사라지도록 캐시 무효화.
       clientCache.clearPrefix("community-");
       router.push("/community");
@@ -769,7 +771,9 @@ export default function CommunityPostDetailClient({ postId }: CommunityPostDetai
                       style={popItemDelay(1)}
                       onClick={() => {
                         setOwnerMenuOpen(false);
-                        setShowDeleteConfirm(true);
+                        // 신규가입 미션으로 인정받은 글은 지울 수 없다(서버도 막음)
+                        if (post.missionLocked) showToast("이벤트 리워드를 받은 글은 삭제할 수 없어요");
+                        else setShowDeleteConfirm(true);
                       }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}

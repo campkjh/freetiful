@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { missionApi, type WelcomeMissionStatus } from '@/lib/api/mission.api';
+import { missionApi, WELCOME_MISSION_OPEN_TO_ALL, type WelcomeMissionStatus } from '@/lib/api/mission.api';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
 import MissionClaimSheet from '@/components/mission/MissionClaimSheet';
 import { IcBack, IcChevron, IcHelp } from '@/components/mission/icons';
@@ -133,7 +133,7 @@ export default function WelcomeMissionPage() {
                 <img className="ms-row-icon" src={TOSS('pencil')} alt="" />
                 <span className="ms-row-text">
                   <span className="ms-row-title">웨딩숲에 글 1번 쓰기</span>
-                  <span className="ms-row-desc">가입 후 쓴 공개 글이면 돼요</span>
+                  <span className="ms-row-desc">{st.post.minChars ?? 30}자 이상 쓴 공개 글이면 돼요</span>
                 </span>
                 {postDone ? <span className="ms-row-right done">완료</span> : <span className="ms-row-right go">쓰러 가기<IcChevron /></span>}
               </button>
@@ -184,9 +184,10 @@ export default function WelcomeMissionPage() {
           <div ref={notesRef} className="ms-card ms-notes ms-rise" style={{ ['--d' as string]: '0.33s', scrollMarginTop: 72 }}>
             <h3>유의사항</h3>
             <ul>
-              <li>2026년 11월 10일부터 가입한 회원만 참여할 수 있어요.</li>
+              {!WELCOME_MISSION_OPEN_TO_ALL && <li>2026년 11월 10일부터 가입한 회원만 참여할 수 있어요.</li>}
               <li>출석은 이 화면에 들어온 날 하루 한 번 기록돼요. 서로 다른 날 2번이면 돼요.</li>
-              <li>웨딩숲 글은 가입 후 쓴 글 중 공개된 글만 인정돼요.</li>
+              <li>웨딩숲 글은 {WELCOME_MISSION_OPEN_TO_ALL ? '미션 시작 후' : '가입 후'} 쓴 공개 글 중 {st.post.minChars ?? 30}자 이상인 글만 인정돼요. 같은 글자를 되풀이한 글은 인정되지 않아요.</li>
+              <li>미션으로 인정된 글은 삭제할 수 없어요.</li>
               <li>{isPro ? '견적은 가입 후 채팅에서 보낸 견적서만 인정돼요.' : '견적은 가입 후 보낸 견적 요청만 인정돼요.'}</li>
               <li>상금은 한 계정에 한 번, 같은 연락처·계좌로도 한 번만 받을 수 있어요.</li>
               <li>신청하면 운영팀이 확인한 뒤 입력한 계좌로 보내드려요.</li>

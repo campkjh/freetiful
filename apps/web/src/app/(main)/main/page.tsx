@@ -12,7 +12,7 @@ import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
-import { missionApi, missionLocalKey, WELCOME_MISSION_START } from '@/lib/api/mission.api';
+import { missionApi, missionLocalKey, WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START } from '@/lib/api/mission.api';
 import { isAdminUser } from '@/lib/admin-access';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
@@ -2364,8 +2364,9 @@ export default function HomePage() {
       window.setTimeout(() => whenFree(() => setHomeCheckin(c)), 600);
     };
     if (visiblePromos.length) schedule(visiblePromos);
-    const admin = isAdminUser(me);
-    const maybeNew = !!me && !admin && me.role !== 'admin' && (!me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
+    // 테스트 기간(전원 참여)엔 총괄운영자도 실제로 참여 — 미리보기는 역할 admin 계정만
+    const admin = me?.role === 'admin' || (!WELCOME_MISSION_OPEN_TO_ALL && isAdminUser(me));
+    const maybeNew = !!me && !admin && (WELCOME_MISSION_OPEN_TO_ALL || !me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
     if (maybeNew) {
       const checkinKey = missionLocalKey('checkin', me.id);
       let checkedHere = false;
