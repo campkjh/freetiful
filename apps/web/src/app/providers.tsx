@@ -9,6 +9,7 @@ import {
   syncPushRegistration,
 } from '@/lib/utils/push';
 import { apiClient } from '@/lib/api/client';
+import MissionTaskHost from '@/components/mission/MissionTaskHost';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -55,6 +56,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <MissionTaskHost />
     </QueryClientProvider>
   );
 }
