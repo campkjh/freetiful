@@ -11,6 +11,8 @@ import { HeaderBellIcon, HeaderSearchIcon } from '@/components/icons/HeaderIcons
 import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
+import CheckinOverlay from '@/components/mission/CheckinOverlay';
+import { missionApi, WELCOME_MISSION_START, type WelcomeMissionStatus } from '@/lib/api/mission.api';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
 import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
@@ -2275,6 +2277,8 @@ export default function HomePage() {
   const [popupBanners, setPopupBanners] = useState<(HomePromo & { kind: 'signup' | 'banner'; linkUrl?: string | null })[]>([]);
   const [popupBannerIndex, setPopupBannerIndex] = useState(0);
   const popupBanner = popupBanners[popupBannerIndex] ?? null;
+  // 신규 가입 5,000원 미션 출석 오버레이(261110) — 대상이면 이미지 팝업 대신 이것
+  const [homeCheckin, setHomeCheckin] = useState<WelcomeMissionStatus | null>(null);
   const popupBannersRef = useRef(popupBanners);
   popupBannersRef.current = popupBanners;
   const authHydrated = useAuthStore((s) => s.hasHydrated);
@@ -2305,22 +2309,22 @@ export default function HomePage() {
         return !!until && Date.now() < until;
       } catch { return false; }
     };
-    const schedule = (next: typeof popupBanners) => {
-      const show = () => {
-        if (cancelled) return;
-        setPopupBanners(next);
-        setPopupBannerIndex(0);
-        setShowOfficialOpenModal(true);
-      };
-      // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
+    // 빌라드지디 첫 화면이 떠 있으면 그게 닫힌 뒤에 — 두 창이 한꺼번에 겹쳐 뜨지 않게(260927, 예전 iOS 네이티브 앱과 같은 순서)
+    const whenFree = (show: () => void) => {
+      const run = () => { if (!cancelled) show(); };
       if (document.querySelector('[role="dialog"][aria-label="빌라드지디"]')) {
-        const onClosed = () => { stopWaiting(); window.setTimeout(show, 350); };
+        const onClosed = () => { stopWaiting(); window.setTimeout(run, 350); };
         window.addEventListener('freetiful:villadegd-closed', onClosed);
         stopWaiting = () => window.removeEventListener('freetiful:villadegd-closed', onClosed);
       } else {
-        show();
+        run();
       }
     };
+    const schedule = (next: typeof popupBanners) => whenFree(() => {
+      setPopupBanners(next);
+      setPopupBannerIndex(0);
+      setShowOfficialOpenModal(true);
+    });
     const loggedIn = !!useAuthStore.getState().user;
     const promos: typeof popupBanners = [
       {
@@ -2334,7 +2338,31 @@ export default function HomePage() {
       },
     ];
     const visiblePromos = orderHomePromos(promos).filter((promo) => !hidden(promo.id));
-    if (visiblePromos.length) schedule(visiblePromos);
+    const showPromos = () => { if (visiblePromos.length) schedule(visiblePromos); };
+    // 신규 가입 미션(261110 사장 '홈에 첫 유저가 접속하면 미션 뜨게 — 그 그라데이션 모달로') — 11/10 이후 가입자가 그날 처음 홈에 오면
+    // 출석 1번(서버 checkin, 하루 1행) + 녹화 그대로의 출석 오버레이. [확인했어요] → 미션 화면. 신청한 뒤(확인 중·입금)엔 안 띄운다.
+    // 같은 날 두 번째부터는 요청도 안 보낸다(기기에 오늘 날짜 기억).
+    const me = useAuthStore.getState().user;
+    const maybeNew = !!me && me.role !== 'admin' && (!me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
+    const kstToday = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+    const checkinKey = me ? `freetiful-mission-checkin:${me.id}` : '';
+    let checkedHere = false;
+    try { const v = checkinKey ? localStorage.getItem(checkinKey) : null; checkedHere = v === kstToday || v === 'no'; } catch {}
+    if (maybeNew && !checkedHere) {
+      missionApi.checkin()
+        .then(({ justCheckedIn, ...st }) => {
+          if (cancelled) return;
+          try { localStorage.setItem(checkinKey, st.eligible ? st.today : 'no'); } catch {} // 대상 아님(옛 가입)이면 다시 묻지 않는다
+          if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected')) {
+            window.setTimeout(() => whenFree(() => setHomeCheckin(st)), 600);
+          } else {
+            showPromos();
+          }
+        })
+        .catch(() => { if (!cancelled) showPromos(); });
+    } else {
+      showPromos();
+    }
     return () => { cancelled = true; stopWaiting(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authHydrated]);
@@ -2899,6 +2927,21 @@ export default function HomePage() {
         onClose={() => closeOfficialOpenModal()}
         onHideForever={hideOfficialOpenModalFor3Days}
       />
+      {homeCheckin && (
+        <CheckinOverlay
+          variant="home"
+          prevCount={Math.max(0, homeCheckin.attendance.count - 1)}
+          count={homeCheckin.attendance.count}
+          days={homeCheckin.attendance.days}
+          today={homeCheckin.today}
+          onDone={() => {
+            // 이 세션엔 이미지 팝업을 이어서 띄우지 않는다
+            try { sessionStorage.setItem(homePopupSessionKey(), '1'); } catch {}
+            setHomeCheckin(null);
+            router.push('/my/mission');
+          }}
+        />
+      )}
 
       {/* PC 우하단 앱 홍보 — 폰 목업(iframe)은 제거했다. hidden lg:flex 로 PC 에서만 보인다 */}
       <div className="home-pc-floating-app-promo pointer-events-none fixed bottom-7 right-4 z-20 hidden flex-col items-end gap-3 lg:flex xl:bottom-8 xl:right-8">

@@ -3,6 +3,7 @@
 /* 신규 가입 5,000원 미션(261110 사장 '출석체크 2번 + 웨딩숲 1회 작성 + 견적 1회 전송 → 연락처·계좌번호·예금주·은행명 넣으면 5,000원').
  *  · 인터랙션 = 사장 녹화(토스 출석 화면) 프레임 분석 그대로(components/mission), 색은 프리티풀 파랑. 산 그림·길 노드는 사장 지시로 뺐다.
  *  · 들어오면 출석 1번(서버 POST checkin, 하루 1번). 오늘 처음이면 출석 오버레이 → [확인했어요] → 본문 차례 등장.
+ *    홈도 그날 첫 방문에 출석 + 같은 오버레이(홈 판, main/page.tsx)를 띄우고 여기로 보낸다 — 그때는 이미 출석이라 본문만 등장.
  *  · 판정·중복 막기는 전부 서버(apps/api/src/mission). 지급은 운영팀이 어드민 /admin/welcome-mission 에서 손으로. */
 import '@/components/mission/mission.css';
 import { useEffect, useRef, useState } from 'react';

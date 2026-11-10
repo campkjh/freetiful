@@ -5,6 +5,7 @@
 //  roll(0.8s~): 옛 숫자 작아지며 사라지고 새 숫자 통통 등장 · '일째' 초록 · 오늘 칸 링 → 초록으로 차며 후광 · 점들이 동그라미로 차례로 커짐
 //              · 묶음 28pt 위로 · [확인했어요] 26pt 아래에서.
 //  out: 0.2s 사라지고 onDone → 본문 차례 등장.
+import './mission.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { IcCheck } from './icons';
@@ -16,13 +17,15 @@ const dayNum = (d: string) => {
 };
 const fromNum = (n: number) => new Date(n * 86400000);
 
-export default function CheckinOverlay({ prevCount, count, days, today, onDone }: {
+export default function CheckinOverlay({ prevCount, count, days, today, onDone, variant = 'page' }: {
   prevCount: number;
   count: number;
   /** 출석한 날들(KST YYYY-MM-DD, 오늘 포함) */
   days: string[];
   today: string;
   onDone: () => void;
+  /** page = 미션 화면(바탕 통째로) · home = 홈 위(녹화 그대로 그라데이션으로 씻기고 아래에 붙음) */
+  variant?: 'page' | 'home';
 }) {
   const [phase, setPhase] = useState<'in' | 'roll' | 'out'>('in');
   const doneRef = useRef(false);
@@ -54,7 +57,7 @@ export default function CheckinOverlay({ prevCount, count, days, today, onDone }
 
   let grow = 0; // 점 → 동그라미 차례(오늘 다음 칸부터 40ms씩)
   return (
-    <div className="ms-ov" data-phase={phase} role="dialog" aria-modal="true" aria-label={`출석 체크 ${count}일째`}>
+    <div className={`ms-ov${variant === 'home' ? ' is-home' : ''}`} data-phase={phase} role="dialog" aria-modal="true" aria-label={`출석 체크 ${count}일째`}>
       <div className="ms-ov-wash" />
       <div className="ms-ov-col">
         <div className="ms-ov-stack">
@@ -66,7 +69,7 @@ export default function CheckinOverlay({ prevCount, count, days, today, onDone }
               </span>
               <span className="ms-ov-unit">일째</span>
             </div>
-            <p className="ms-ov-sub">출석 체크 완료</p>
+            <p className="ms-ov-sub">{variant === 'home' ? '5,000원 미션 출석 완료' : '출석 체크 완료'}</p>
           </div>
           <div className="ms-ov-week">
             {week.map((d) => {
