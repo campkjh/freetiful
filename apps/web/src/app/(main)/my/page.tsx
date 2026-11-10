@@ -12,6 +12,7 @@ import { getProfileImageUrl } from '@/lib/default-profile';
 import { useTabEntrance } from '@/lib/hooks/useTabEntrance';
 import { isAdminUser } from '@/lib/admin-access';
 import StatusBarScrim from '@/components/StatusBarScrim';
+import { isWelcomeMissionUser } from '@/lib/api/mission.api';
 
 /* ════════════════════════════════════════════════════════════════
  * 마이페이지 — 원라인솔루션 '일반바' 마이 탭 구성 그대로 (2026-09-25 사장 지시).
@@ -116,6 +117,8 @@ export default function MyPage() {
   const router = useRouter();
   const [proProfileStatus, setProProfileStatus] = useState<'draft' | 'pending' | 'approved' | 'rejected' | null>(() => readStoredProProfileStatus());
   const [proRegistrationPending, setProRegistrationPending] = useState(() => readStoredProProfileStatus() === 'pending');
+  // 신규 가입 5,000원 미션(261110) — 가입일은 서버 프로필 기준(옛 로그인 저장값엔 createdAt 이 없을 수 있다)
+  const [joinedAt, setJoinedAt] = useState<string | null>(null);
 
   // 등장 애니(퀵매칭)는 탭을 눌러 들어올 때만 — 하위 화면에서 뒤로 오거나 떠난 지 30초 안에 다시 오면 생략(새요청·웨딩숲·채팅과 같은 규칙)
   const skipAnim = !useTabEntrance('my');
@@ -153,6 +156,7 @@ export default function MyPage() {
         if (cancelled) return;
         const status = (profileUser?.proProfile?.status || null) as 'draft' | 'pending' | 'approved' | 'rejected' | null;
         const serverRole = profileUser?.role || authUser.role || 'general';
+        setJoinedAt(profileUser?.createdAt || null);
 
         setProProfileStatus(status);
         setProRegistrationPending(status === 'pending');
@@ -299,6 +303,13 @@ export default function MyPage() {
       ? [{
           title: '운영',
           rows: [{ k: 'admin', icon: 'setting', title: '관리자 페이지', desc: '회원 · 결제 · 정산 관리', onClick: () => router.push('/admin') }],
+        }]
+      : []),
+    // 신규 가입 미션 — 261110 이후 가입자만(관리자 제외). 판정은 서버가 다시 한다.
+    ...(isWelcomeMissionUser({ createdAt: joinedAt || authUser?.createdAt, role: authUser?.role })
+      ? [{
+          title: '혜택',
+          rows: [{ k: 'welcome-mission', icon: 'coin', title: '신규 가입 미션', desc: '출석 · 글 · 견적하면', badge: '5,000원', href: '/my/mission' }],
         }]
       : []),
     {

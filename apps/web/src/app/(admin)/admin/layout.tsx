@@ -71,6 +71,8 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
     items: [
       // (261108 사장) 송년회 /reception — 누가 참여했는지 · 누가 설문에 응답했는지
       { href: '/admin/reception', label: '송년회 참여자', icon: 'calendar-days', desc: '송년회 화면에 이름을 넣은 사람과 베스트드레서 사진·좋아요·설문 참여를 봐요' },
+      // (261110 사장) 신규 가입 5,000원 미션 — 출석 2번 · 웨딩숲 글 · 견적을 마친 사람의 계좌 신청
+      { href: '/admin/welcome-mission', label: '신규 가입 미션', icon: 'gift', desc: '미션을 마친 신규 가입자의 5,000원 신청을 보고, 보낸 뒤 표시해요' },
     ],
   },
 ];

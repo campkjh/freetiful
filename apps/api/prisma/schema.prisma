@@ -1700,3 +1700,36 @@ model ReceptionGuest {
   @@index([eventKey, createdAt])
   @@map("reception_guests")
 }
+
+/// 출석 — 하루(KST) 한 번(261110 사장 '신규가입자 5,000원 미션 — 출석체크 2번'). day = 'YYYY-MM-DD'(KST). 미션 화면을 열면 그날 출석이 찍힌다.
+model UserAttendance {
+  id        String   @id @default(uuid())
+  userId    String
+  day       String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([userId, day])
+  @@map("user_attendances")
+}
+
+/// 신규가입 5,000원 미션 지급 신청(261110) — 출석 2 · 웨딩숲 글 1 · 견적 1 을 다 하면 연락처 · 계좌를 받아 운영자가 직접 보낸다(계정당 1번).
+model WelcomeMissionClaim {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  rewardAmount  Int       @default(5000)
+  phone         String
+  bankName      String
+  accountNumber String
+  accountHolder String
+  /// pending(신청) | paid(보냄) | rejected(반려 — 다시 신청 가능)
+  status        String    @default("pending")
+  adminNote     String?
+  paidAt        DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@index([accountNumber])
+  @@map("welcome_mission_claims")
+}

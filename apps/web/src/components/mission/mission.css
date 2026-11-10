@@ -1,0 +1,165 @@
+/* 신규 가입 5,000원 미션(/my/mission, 261110) — 사장 녹화(토스 출석 화면) 프레임 분석값 그대로, 색은 프리티풀 파랑.
+ *  · 단위는 녹화 기기(440pt 폭) 기준 pt = px. 산 그림은 사장 지시로 뺐다('산 ui는 필요없음').
+ *  · 첫 진입: 출석 오버레이(.ms-ov) in(0.6s) → 0.8s 뒤 roll(숫자 굴림·오늘 칸 채움·버튼) → [확인했어요] → out → 본문 차례 등장(.ms-page.is-shown).
+ *  · 그 날 이미 출석했으면 오버레이 없이 본문만 등장. */
+
+.ms-page { position: relative; max-width: 480px; min-height: 100dvh; margin: 0 auto; padding-top: calc(56px + var(--ft-sat)); box-sizing: border-box; background: #F2F4F6; overflow-x: hidden; color: #191F28; }
+
+/* ── 머리(뒤로 · 유의사항) — 하늘 위에 떠 있고 오버레이보다 위 ── */
+.ms-head { position: fixed; top: 0; left: 50%; z-index: 60; display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 480px; height: calc(56px + var(--ft-sat)); padding: var(--ft-sat) 8px 0; box-sizing: border-box; background: #F2F4F6; transform: translateX(-50%); }
+.ms-head-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; border-radius: 22px; background: none; color: #191F28; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.ms-head-btn:active { background: #E5E8EB; }
+.ms-head-btn.help { color: #B0B8C1; }
+
+/* ── 위 수치(미션 n/3 · 5,000원) ── */
+.ms-top { padding: 12px 24px 22px; }
+.ms-stats-sub { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: -.2px; color: #4E5968; }
+.ms-stats-big { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 0; }
+.ms-stats-big b { font-size: 44px; font-weight: 700; letter-spacing: -1.2px; line-height: 1.15; color: #191F28; font-variant-numeric: tabular-nums; }
+.ms-stats-big span { font-size: 19px; font-weight: 600; color: #8B95A1; }
+.ms-top-desc { margin: 6px 0 0; font-size: 15px; color: #8B95A1; }
+
+/* ── 아래 카드들 ── */
+.ms-body { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 0 16px calc(32px + var(--ft-sab-static) + env(safe-area-inset-bottom, 0px)); }
+.ms-rise { opacity: 0; transform: translateY(60px); }
+.ms-page.is-shown .ms-rise { animation: msRise .5s cubic-bezier(.16, 1, .3, 1) var(--d, 0s) forwards; }
+@keyframes msRise { to { opacity: 1; transform: none; } }
+.ms-card { border-radius: 22px; background: #fff; }
+
+/* 출석 카드(연속 방문 줄) */
+.ms-att { display: flex; align-items: center; gap: 18px; height: 62px; padding: 0 20px; }
+.ms-att-title { flex: none; margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.3px; color: #333D4B; white-space: nowrap; }
+.ms-att-title b { color: #3182F6; font-weight: 700; }
+.ms-att-track { position: relative; flex: 1; display: flex; align-items: center; height: 22px; }
+.ms-att-bar { position: absolute; left: 0; top: 50%; height: 12px; border-radius: 6px; background: #90C2FF; transform: translateY(-50%); width: 0; transition: width .7s cubic-bezier(.33, 1, .68, 1) .45s; }
+.ms-att-dots { position: absolute; top: 50%; right: 0; display: flex; justify-content: space-between; transform: translateY(-50%); }
+.ms-att-dots i { width: 6px; height: 6px; border-radius: 50%; background: #E5E8EB; }
+.ms-att-icon { position: absolute; top: 50%; width: 26px; height: 26px; margin-left: -13px; color: #3182F6; transform: translateY(-50%); transition: left .7s cubic-bezier(.33, 1, .68, 1) .45s; }
+
+/* 미션 줄 카드 */
+.ms-rows { padding: 6px 0; }
+.ms-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 10px 20px; border: 0; background: none; text-align: left; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.ms-row + .ms-row { border-top: 1px solid #F2F4F6; }
+.ms-row:active:not(:disabled) { background: #F9FAFB; }
+.ms-row:disabled { cursor: default; }
+.ms-row-icon { flex: none; width: 24px; height: 24px; }
+.ms-row-text { flex: 1; min-width: 0; }
+.ms-row-title { display: block; font-size: 17px; font-weight: 500; letter-spacing: -.3px; color: #333D4B; }
+.ms-row-desc { display: block; margin-top: 2px; font-size: 13px; color: #8B95A1; }
+.ms-row-right { flex: none; display: flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 600; color: #191F28; font-variant-numeric: tabular-nums; }
+.ms-row-right.done { color: #3182F6; }
+.ms-row-right.go { color: #4E5968; font-weight: 500; font-size: 15px; }
+.ms-row-right svg { width: 18px; height: 18px; color: #B0B8C1; }
+
+/* 보상 카드 */
+.ms-reward { padding: 26px 22px 22px; }
+.ms-reward-title { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.5px; line-height: 1.4; color: #191F28; }
+.ms-reward-title em { font-style: normal; color: #3182F6; }
+.ms-reward-sub { margin: 6px 0 0; font-size: 15px; color: #8B95A1; }
+.ms-reward .ft-btn { width: 100%; margin-top: 20px; }
+.ms-claim-box { margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: #F9FAFB; }
+.ms-claim-state { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 700; color: #191F28; }
+.ms-claim-state i { width: 8px; height: 8px; border-radius: 50%; background: #FF9F2E; }
+.ms-claim-state.paid i { background: #3182F6; }
+.ms-claim-state.rejected i { background: #F04452; }
+.ms-claim-meta { margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: #6B7684; white-space: pre-line; }
+
+/* 유의사항 */
+.ms-notes { padding: 22px 22px 20px; }
+.ms-notes h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: #4E5968; }
+.ms-notes ul { margin: 0; padding: 0; list-style: none; }
+.ms-notes li { position: relative; padding-left: 12px; font-size: 13.5px; line-height: 1.65; color: #8B95A1; }
+.ms-notes li + li { margin-top: 4px; }
+.ms-notes li::before { content: ''; position: absolute; left: 2px; top: .72em; width: 3px; height: 3px; border-radius: 50%; background: #B0B8C1; }
+
+.ms-closed { padding: 26px 22px; text-align: center; }
+.ms-closed p { margin: 0; font-size: 16px; line-height: 1.6; color: #6B7684; white-space: pre-line; }
+
+/* ── 출석 오버레이 ── */
+.ms-ov { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; pointer-events: auto; }
+.ms-ov-wash { position: absolute; inset: 0; background: #F2F4F6; opacity: 0; transition: opacity .22s ease; }
+.ms-ov[data-phase='in'] .ms-ov-wash, .ms-ov[data-phase='roll'] .ms-ov-wash { opacity: 1; }
+.ms-ov-col { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 480px; height: 100%; padding: calc(56px + var(--ft-sat)) 20px calc(20px + max(var(--ft-sab), env(safe-area-inset-bottom, 0px))); box-sizing: border-box; }
+.ms-ov[data-phase='out'] .ms-ov-col { opacity: 0; transition: opacity .2s ease; }
+
+/* 숫자 + 칸 묶음 — roll 때 28pt 위로 */
+.ms-ov-stack { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translateY(28px); transition: transform .55s cubic-bezier(.22, 1, .36, 1); }
+.ms-ov[data-phase='roll'] .ms-ov-stack, .ms-ov[data-phase='out'] .ms-ov-stack { transform: none; }
+
+.ms-ov-count { display: flex; flex-direction: column; align-items: center; opacity: 0; transform: translateY(22px); }
+.ms-ov[data-phase] .ms-ov-count { animation: msUp .38s cubic-bezier(.16, 1, .3, 1) .05s forwards; }
+.ms-ov-num { display: flex; align-items: baseline; height: 72px; }
+.ms-ov-digits { display: inline-grid; align-items: end; justify-items: center; font-size: 62px; font-weight: 700; line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.ms-ov-digits > span { grid-area: 1 / 1; transform-origin: 50% 80%; }
+.ms-ov-digits .old { color: #A7B0BA; }
+.ms-ov-digits .new { color: #3182F6; opacity: 0; transform: scale(.2); }
+.ms-ov[data-phase='roll'] .ms-ov-digits .old, .ms-ov[data-phase='out'] .ms-ov-digits .old { animation: msDigitOut .3s cubic-bezier(.4, 0, 1, 1) forwards; }
+.ms-ov[data-phase='roll'] .ms-ov-digits .new, .ms-ov[data-phase='out'] .ms-ov-digits .new { animation: msDigitIn .5s cubic-bezier(.34, 1.56, .64, 1) .12s forwards; }
+@keyframes msDigitOut { to { opacity: 0; transform: scale(.3) translateY(-6px); } }
+@keyframes msDigitIn { 0% { opacity: 0; transform: scale(.2); } 40% { opacity: 1; } 100% { opacity: 1; transform: scale(1); } }
+.ms-ov-unit { margin-left: 4px; font-size: 36px; font-weight: 700; letter-spacing: -1px; color: #A7B0BA; transition: color .3s ease .15s; }
+.ms-ov[data-phase='roll'] .ms-ov-unit, .ms-ov[data-phase='out'] .ms-ov-unit { color: #90C2FF; }
+.ms-ov-sub { margin: 6px 0 0; font-size: 17px; font-weight: 600; letter-spacing: -.3px; color: #A7ADB5; }
+
+/* 7칸 */
+.ms-ov-week { display: flex; gap: 10px; margin-top: 30px; opacity: 0; transform: translateY(70px); }
+.ms-ov[data-phase] .ms-ov-week { animation: msUp .48s cubic-bezier(.16, 1, .3, 1) .08s forwards; }
+@keyframes msUp { to { opacity: 1; transform: none; } }
+.ms-day { display: flex; flex-direction: column; align-items: center; gap: 13px; width: 36px; }
+.ms-day-slot { position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; }
+.ms-day-dot { position: absolute; inset: 0; margin: auto; width: 8px; height: 8px; border-radius: 50%; background: #E1E6EC; transition: width .32s cubic-bezier(.34, 1.4, .64, 1) var(--d, 0s), height .32s cubic-bezier(.34, 1.4, .64, 1) var(--d, 0s), background-color .2s ease var(--d, 0s); }
+.ms-ov[data-phase='roll'] .ms-day-dot, .ms-ov[data-phase='out'] .ms-day-dot { width: 36px; height: 36px; background: #E2E9F3; }
+.ms-day-label { font-size: 14px; font-weight: 500; color: #ADB3BB; transition: color .25s ease; }
+/* 이미 출석한 날 */
+.ms-day.is-done .ms-day-dot { width: 36px; height: 36px; background: #3182F6; }
+.ms-day.is-done .ms-day-ic { color: #fff; opacity: 1; }
+.ms-day-ic { position: relative; z-index: 2; width: 20px; height: 20px; opacity: 0; }
+/* 오늘 — 회색 동그라미 → 민트 링이 돈다 → 초록으로 차며 후광 */
+.ms-day.is-today .ms-day-dot { width: 36px; height: 36px; background: #E2E8EF; }
+.ms-day.is-today .ms-day-ic { opacity: 1; color: #B3BECB; }
+.ms-day-ring { position: absolute; inset: -3px; z-index: 1; width: 42px; height: 42px; opacity: 0; transform: rotate(-90deg); }
+.ms-day-ring circle { fill: none; stroke: #3182F6; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 113; stroke-dashoffset: 113; }
+.ms-day-fill { position: absolute; inset: 0; z-index: 1; border-radius: 50%; background: #3182F6; opacity: 0; transform: scale(.6); }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-dot, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-dot { background: #D6E8FF; }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ring, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-ring { animation: msRing .5s ease-out forwards; }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ring circle, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-ring circle { animation: msRingDraw .42s cubic-bezier(.4, 0, .2, 1) forwards; }
+@keyframes msRing { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes msRingDraw { to { stroke-dashoffset: 0; } }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-fill, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-fill { animation: msFill .46s cubic-bezier(.34, 1.56, .64, 1) .38s forwards; }
+@keyframes msFill { 0% { opacity: 1; transform: scale(.6); box-shadow: 0 0 0 0 rgba(169, 206, 255, 0); } 60% { box-shadow: 0 0 0 6px rgba(169, 206, 255, .9), 0 0 22px 8px rgba(49, 130, 246, .35); } 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px #CFE2FF, 0 0 18px 6px rgba(49, 130, 246, .28); } }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-ic { color: #fff; transition: color .1s linear .5s; }
+.ms-day-ic path { stroke-dasharray: 24; stroke-dashoffset: 0; }
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic path { animation: msCheck .34s cubic-bezier(.65, 0, .35, 1) .55s both; }
+@keyframes msCheck { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+.ms-day.is-today .ms-day-label { color: #1B64DA; font-weight: 700; }
+
+/* 확인했어요 */
+.ms-ov-btn { flex: none; width: 100%; height: 56px; margin-top: 24px; border: 0; border-radius: 16px; background: #DCE9FB; color: #1B64DA; font-family: inherit; font-size: 17px; font-weight: 700; letter-spacing: -.3px; cursor: pointer; opacity: 0; transform: translateY(26px); pointer-events: none; -webkit-tap-highlight-color: transparent; transition: background-color .12s ease, scale .12s ease; }
+.ms-ov[data-phase='roll'] .ms-ov-btn { pointer-events: auto; animation: msUp .45s cubic-bezier(.16, 1, .3, 1) .35s forwards; }
+.ms-ov[data-phase='out'] .ms-ov-btn { opacity: 1; transform: none; }
+.ms-ov-btn:active { background: #CCDDF6; scale: .96; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-page *, .ms-ov * { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+}
+
+/* ── 받기 시트 ── */
+.ms-form { display: flex; flex-direction: column; gap: 18px; margin-top: 22px; }
+.ms-field { display: flex; flex-direction: column; gap: 8px; }
+.ms-field > span { font-size: 14px; font-weight: 600; color: #6B7684; }
+.ms-field em { font-style: normal; font-size: 13px; color: #F04452; }
+.ms-banks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ms-banks button { height: 44px; padding: 0 4px; border: 1.5px solid #E5E8EB; border-radius: 12px; background: #fff; font-family: inherit; font-size: 14px; font-weight: 500; color: #4E5968; white-space: nowrap; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, color .15s ease, transform .1s ease; }
+.ms-banks button:active { transform: scale(.97); }
+.ms-banks button.more { border-color: transparent; background: #F2F4F6; color: #6B7684; }
+.ms-banks button.on { border-color: #3182F6; background: #EEF5FF; color: #1B64DA; font-weight: 700; }
+.ms-agree { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; border-radius: 16px; background: #F9FAFB; }
+.ms-agree label { display: flex; align-items: center; gap: 10px; font-size: 15px; color: #333D4B; cursor: pointer; }
+.ms-agree input { width: 20px; height: 20px; accent-color: #3182F6; }
+.ms-agree b { color: #3182F6; font-weight: 700; }
+.ms-agree > button { flex: none; border: 0; background: none; font-family: inherit; font-size: 14px; color: #8B95A1; text-decoration: underline; cursor: pointer; }
+.ms-terms { margin-top: -8px; padding: 12px 16px; border-radius: 14px; background: #F9FAFB; font-size: 13px; line-height: 1.6; color: #6B7684; }
+.ms-terms p { margin: 0; }
+.ms-terms p + p { margin-top: 4px; }
+.ms-terms b { margin-right: 6px; color: #4E5968; }
+.ms-err { margin: 0; font-size: 14px; color: #F04452; }

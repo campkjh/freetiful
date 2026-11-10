@@ -31,6 +31,7 @@ import { LandingModule } from './landing/landing.module';
 import { CommunityModule } from './community/community.module';
 import { GameModule } from './game/game.module';
 import { ReceptionModule } from './reception/reception.module';
+import { WelcomeMissionModule } from './mission/welcome-mission.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -67,6 +68,7 @@ import { HealthController } from './health.controller';
     CommunityModule,
     GameModule, // 웨딩런 미니게임(261011)
     ReceptionModule, // 송년회 /reception 이벤트·설문(261108)
+    WelcomeMissionModule, // 신규가입 5,000원 미션 /mission(261110)
   ],
   controllers: [HealthController],
 })
