@@ -102,10 +102,15 @@
 .ms-ov-sub { margin: 6px 0 0; font-size: 17px; font-weight: 600; letter-spacing: -.3px; color: #A7ADB5; }
 
 /* 7칸 */
-.ms-ov-week { display: flex; gap: 10px; margin-top: 30px; opacity: 0; transform: translateY(70px); }
+.ms-ov-week { display: flex; gap: 26px; margin-top: 30px; opacity: 0; transform: translateY(70px); }
 .ms-ov[data-phase] .ms-ov-week { animation: msUp .48s cubic-bezier(.16, 1, .3, 1) .08s forwards; }
 @keyframes msUp { to { opacity: 1; transform: none; } }
 .ms-day { display: flex; flex-direction: column; align-items: center; gap: 13px; width: 36px; }
+.ms-day-label { white-space: nowrap; }
+/* 글쓰기·견적 칸 — 아직이면 동그라미가 커진 뒤 흐린 아이콘, 했으면 파란 칸 */
+.ms-day.is-task .ms-day-ic { color: #B3BECB; opacity: 0; transition: opacity .2s ease calc(var(--d, 0s) + .18s); }
+.ms-ov[data-phase='roll'] .ms-day.is-task .ms-day-ic, .ms-ov[data-phase='out'] .ms-day.is-task .ms-day-ic { opacity: 1; }
+.ms-day.is-task.is-done .ms-day-ic { color: #fff; opacity: 1; }
 .ms-day-slot { position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; }
 .ms-day-dot { position: absolute; inset: 0; margin: auto; width: 8px; height: 8px; border-radius: 50%; background: #E1E6EC; transition: width .32s cubic-bezier(.34, 1.4, .64, 1) var(--d, 0s), height .32s cubic-bezier(.34, 1.4, .64, 1) var(--d, 0s), background-color .2s ease var(--d, 0s); }
 .ms-ov[data-phase='roll'] .ms-day-dot, .ms-ov[data-phase='out'] .ms-day-dot { width: 36px; height: 36px; background: #E2E9F3; }
@@ -128,7 +133,7 @@
 .ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-fill, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-fill { animation: msFill .46s cubic-bezier(.34, 1.56, .64, 1) .38s forwards; }
 @keyframes msFill { 0% { opacity: 1; transform: scale(.6); box-shadow: 0 0 0 0 rgba(169, 206, 255, 0); } 60% { box-shadow: 0 0 0 6px rgba(169, 206, 255, .9), 0 0 22px 8px rgba(49, 130, 246, .35); } 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px #CFE2FF, 0 0 18px 6px rgba(49, 130, 246, .28); } }
 .ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-ic { color: #fff; transition: color .1s linear .5s; }
-.ms-day-ic path { stroke-dasharray: 24; stroke-dashoffset: 0; }
+.ms-day:not(.is-task) .ms-day-ic path { stroke-dasharray: 24; stroke-dashoffset: 0; }
 .ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic path { animation: msCheck .34s cubic-bezier(.65, 0, .35, 1) .55s both; }
 @keyframes msCheck { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
 .ms-day.is-today .ms-day-label { color: #1B64DA; font-weight: 700; }

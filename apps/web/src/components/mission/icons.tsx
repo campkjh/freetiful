@@ -5,6 +5,12 @@ const base = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strok
 export const IcCheck = ({ className }: P) => (
   <svg {...base} strokeWidth={2.8} className={className}><path d="M5.5 12.5l4.2 4.2 8.8-9.2" /></svg>
 );
+export const IcPencil = ({ className }: P) => (
+  <svg {...base} className={className}><path d="M14.6 5.4l4 4L9 19H5v-4z" /><path d="M12.6 7.4l4 4" /></svg>
+);
+export const IcDoc = ({ className }: P) => (
+  <svg {...base} className={className}><path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1-1.5z" /><path d="M9.5 12h5M9.5 15.5h5" /></svg>
+);
 export const IcChevron = ({ className }: P) => (
   <svg {...base} className={className}><path d="M9.5 6l6 6-6 6" /></svg>
 );

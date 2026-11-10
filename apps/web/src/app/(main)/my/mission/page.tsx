@@ -41,7 +41,8 @@ export default function WelcomeMissionPage() {
     req.current
       .then(({ justCheckedIn, ...s }) => {
         setSt(s);
-        if (justCheckedIn && s.eligible) setOverlay({ prev: Math.max(0, s.attendance.count - 1), count: s.attendance.count });
+        // 출석 칸(1·2일차)이 남아 있을 때만 — 3일째부터는 채울 칸이 없어 본문만
+        if (justCheckedIn && s.eligible && s.attendance.count <= s.attendance.required) setOverlay({ prev: Math.max(0, s.attendance.count - 1), count: s.attendance.count });
         else setShown(true);
       })
       .catch(() => setErr('미션을 불러오지 못했어요. 잠시 뒤 다시 들어와 주세요.'));
@@ -199,8 +200,9 @@ export default function WelcomeMissionPage() {
         <CheckinOverlay
           prevCount={overlay.prev}
           count={overlay.count}
-          days={st.attendance.days}
-          today={st.today}
+          required={st.attendance.required}
+          postDone={postDone}
+          quoteDone={quoteDone}
           onDone={() => {
             setOverlay(null);
             setShown(true);

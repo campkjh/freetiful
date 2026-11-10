@@ -2279,7 +2279,7 @@ export default function HomePage() {
   const [popupBannerIndex, setPopupBannerIndex] = useState(0);
   const popupBanner = popupBanners[popupBannerIndex] ?? null;
   // 신규 가입 5,000원 미션 출석 오버레이(261110) — 처음 팝업(이미지)을 닫으면 이어서 뜬다
-  type HomeCheckin = { mode: 'member' | 'guest' | 'preview'; count: number; days: string[]; today: string };
+  type HomeCheckin = { mode: 'member' | 'guest' | 'preview'; count: number; required: number; postDone: boolean; quoteDone: boolean; today: string };
   const [homeCheckin, setHomeCheckin] = useState<HomeCheckin | null>(null);
   const pendingCheckin = useRef<HomeCheckin | null>(null);
   const popupFlow = useRef<'none' | 'open' | 'closed'>('none');
@@ -2373,14 +2373,18 @@ export default function HomePage() {
           .then(({ justCheckedIn, ...st }) => {
             if (cancelled) return;
             try { localStorage.setItem(checkinKey, st.eligible ? st.today : 'no'); } catch {} // 대상 아님(옛 가입)이면 다시 묻지 않는다
-            if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected')) {
-              offer({ mode: 'member', count: st.attendance.count, days: st.attendance.days, today: st.today });
+            // 출석 칸(1·2일차)이 남아 있을 때만 — 3일째부터는 채울 칸이 없다
+            if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected') && st.attendance.count <= st.attendance.required) {
+              offer({
+                mode: 'member', count: st.attendance.count, required: st.attendance.required, today: st.today,
+                postDone: st.post.count >= st.post.required, quoteDone: st.quote.count >= st.quote.required,
+              });
             }
           })
           .catch(() => {});
       }
     } else if (!ovSeen && (!me || admin)) {
-      offer({ mode: me ? 'preview' : 'guest', count: 1, days: [kstToday], today: kstToday });
+      offer({ mode: me ? 'preview' : 'guest', count: 1, required: 2, postDone: false, quoteDone: false, today: kstToday });
     }
     return () => { cancelled = true; stopWaiting(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2956,8 +2960,9 @@ export default function HomePage() {
           variant="home"
           prevCount={Math.max(0, homeCheckin.count - 1)}
           count={homeCheckin.count}
-          days={homeCheckin.days}
-          today={homeCheckin.today}
+          required={homeCheckin.required}
+          postDone={homeCheckin.postDone}
+          quoteDone={homeCheckin.quoteDone}
           sub={homeCheckin.mode === 'guest' ? '가입하면 5,000원 미션 시작' : undefined}
           cta={homeCheckin.mode === 'guest' ? '가입하고 시작하기' : '확인했어요'}
           onDone={() => {
