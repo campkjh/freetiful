@@ -5,10 +5,13 @@ import {
   WELCOME_MISSION_REQUIRED,
   WELCOME_MISSION_REWARD,
   WELCOME_MISSION_START,
+  WELCOME_POST_MIN_CHARS,
+  isWelcomeMissionPost,
   isWelcomeMissionUser,
   kstDay,
   maskAccount,
   parseWelcomeClaim,
+  welcomeMissionSince,
 } from './welcome-mission.rules';
 
 const CLAIM_STATUSES = ['pending', 'paid', 'rejected'] as const;
@@ -35,14 +38,15 @@ export class WelcomeMissionService {
   async status(userId: string) {
     const u = await this.user(userId);
     const eligible = isWelcomeMissionUser(u);
-    const since = u.createdAt > WELCOME_MISSION_START ? u.createdAt : WELCOME_MISSION_START;
-    const [days, posts, requests, quotations, claim] = await Promise.all([
+    const since = welcomeMissionSince(u.createdAt);
+    const [days, postRows, requests, quotations, claim] = await Promise.all([
       this.prisma.userAttendance.findMany({ where: { userId }, orderBy: { day: 'asc' }, select: { day: true } }),
-      this.prisma.communityPost.count({ where: { userId, isActive: true, isBlinded: false, createdAt: { gte: since } } }),
+      this.prisma.communityPost.findMany({ where: { userId, isActive: true, isBlinded: false, createdAt: { gte: since } }, select: { content: true } }),
       this.prisma.matchRequest.count({ where: { userId, createdAt: { gte: since } } }),
       this.prisma.quotation.count({ where: { proProfile: { userId }, createdAt: { gte: since } } }),
       this.prisma.welcomeMissionClaim.findUnique({ where: { userId } }),
     ]);
+    const posts = postRows.filter((p) => isWelcomeMissionPost(p.content)).length;
     const today = kstDay();
     const attendance = days.map((d) => d.day);
     const done = {
@@ -57,7 +61,7 @@ export class WelcomeMissionService {
       today,
       role: u.role,
       attendance: { days: attendance, count: attendance.length, required: WELCOME_MISSION_REQUIRED.attendance, checkedToday: attendance.includes(today) },
-      post: { count: posts, required: WELCOME_MISSION_REQUIRED.post },
+      post: { count: posts, required: WELCOME_MISSION_REQUIRED.post, minChars: WELCOME_POST_MIN_CHARS },
       quote: { count: requests + quotations, required: WELCOME_MISSION_REQUIRED.quote },
       completed: done.attendance && done.post && done.quote,
       claim: claim

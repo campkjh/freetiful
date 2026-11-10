@@ -28,6 +28,7 @@ import {
 import { AVATAR_ANIMALS, EXTRA_ANIMALS, MODIFIERS, animalAvatarUrl, communityNickname, memberCommunityDisplay } from './community-nickname';
 import { MEMBER_NICKNAME_BLOCK, OPERATOR_NAME_BLOCK, OPERATOR_ROLE_LABEL, looksLikeMemberNickname, memberNicknameProblem } from './community-operator';
 import { isTestMetricsEnabled } from '../common/app-env';
+import { isWelcomeMissionPost, isWelcomeMissionUser, welcomeMissionSince } from '../mission/welcome-mission.rules';
 
 /**
  * 웨딩숲 닉네임을 직접 정할 수 있는 계정(260928 사장 지정). 이메일은 개인정보라 웹 번들에 싣지 않고 서버에서만 본다.
@@ -1008,12 +1009,16 @@ export class CommunityService implements OnModuleInit {
 
     const comments = await this.buildCommentTree(id, opts.sort, opts.viewerId, post.userId);
 
+    // 내 글이 미션으로 인정받은 글이면 화면이 '삭제하기' 대신 안내를 띄운다
+    const missionLocked = !!opts.viewerId && post.userId === opts.viewerId && (await this.welcomeMissionPostId(opts.viewerId)) === id;
+
     return {
       post: {
         ...built,
         likedByMe: !!built.myReaction,
         reactionCounts: counts,
         pinnedCommentId: post.pinnedComment?.commentId || null,
+        missionLocked,
       },
       comments,
     };
@@ -1098,13 +1103,32 @@ export class CommunityService implements OnModuleInit {
     return post;
   }
 
+  /** 신규가입 미션으로 인정받은 글(인정된 글 중 가장 먼저 쓴 것) — 쓴 사람은 지우거나 인정 안 되는 내용으로 못 고친다(261110 사장 '이벤트로 받은 리워드 글은 삭제 불가능') */
+  private async welcomeMissionPostId(userId: string) {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, role: true, deletedAt: true, isActive: true } });
+    if (!u || !isWelcomeMissionUser(u)) return null;
+    const posts = await this.prisma.communityPost.findMany({
+      where: { userId, isActive: true, isBlinded: false, createdAt: { gte: welcomeMissionSince(u.createdAt) } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, content: true },
+    });
+    return posts.find((p) => isWelcomeMissionPost(p.content))?.id ?? null;
+  }
+
   async updatePost(
     id: string,
     userId: string,
     isAdmin: boolean,
     body: { title?: string; content?: string; imageUrls?: string[] },
   ) {
-    await this.assertPostOwnerOrAdmin(id, userId, isAdmin);
+    const post = await this.assertPostOwnerOrAdmin(id, userId, isAdmin);
+    if (
+      typeof body.content === 'string' &&
+      post.userId === userId &&
+      !isWelcomeMissionPost(body.content) &&
+      (await this.welcomeMissionPostId(userId)) === id
+    )
+      throw new BadRequestException('이벤트 리워드를 받은 글이라 30자 이상 내용은 남겨 주세요.');
     const data: any = {};
     if (typeof body.title === 'string') data.title = body.title.trim();
     if (typeof body.content === 'string') data.content = body.content.trim();
@@ -1123,7 +1147,10 @@ export class CommunityService implements OnModuleInit {
   }
 
   async deletePost(id: string, userId: string, isAdmin: boolean) {
-    await this.assertPostOwnerOrAdmin(id, userId, isAdmin);
+    const post = await this.assertPostOwnerOrAdmin(id, userId, isAdmin);
+    // 관리자가 남의 글을 지우는 건 그대로(신고 처리) — 막는 건 쓴 사람 본인이 지울 때
+    if (post.userId === userId && (await this.welcomeMissionPostId(userId)) === id)
+      throw new ForbiddenException('이벤트 리워드를 받은 글은 삭제할 수 없어요.');
     await this.prisma.communityPost.delete({ where: { id } });
     return { success: true };
   }
