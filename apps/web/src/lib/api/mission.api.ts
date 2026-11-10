@@ -40,6 +40,10 @@ export const missionApi = {
   claim: (form: WelcomeClaimForm) => apiClient.post<WelcomeMissionStatus>(`${BASE}/claim`, form).then((r) => r.data),
 };
 
+/** 기기에 남기는 미션 표시(오늘 오버레이 봄 · 오늘 출석 물어봄 · 첫 글/견적 축하함) 키 — 번호를 올리면 모든 기기에서 처음처럼 다시 뜬다(261110 사장 '다시 다 초기화') */
+const MISSION_LOCAL_VER = 2;
+export const missionLocalKey = (name: 'ov' | 'checkin' | 'task', rest: string) => `freetiful-mission-${name}:v${MISSION_LOCAL_VER}:${rest}`;
+
 /** 마이 메뉴에 미션 줄을 보일지 — 서버 판정(isWelcomeMissionUser)과 같은 기준 */
 export const WELCOME_MISSION_START = Date.parse('2026-11-10T00:00:00+09:00');
 export function isWelcomeMissionUser(u: { createdAt?: string | null; role?: string | null } | null | undefined) {

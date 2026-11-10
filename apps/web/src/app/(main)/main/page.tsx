@@ -12,7 +12,7 @@ import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
-import { missionApi, WELCOME_MISSION_START } from '@/lib/api/mission.api';
+import { missionApi, missionLocalKey, WELCOME_MISSION_START } from '@/lib/api/mission.api';
 import { isAdminUser } from '@/lib/admin-access';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
@@ -2352,7 +2352,7 @@ export default function HomePage() {
     //  · 그 밖의 옛 회원·신청 끝난 사람: 안 띄움. 같은 기기·계정에 하루 한 번.
     const me = useAuthStore.getState().user;
     const kstToday = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
-    const ovKey = `freetiful-mission-ov:${me?.id || 'guest'}`;
+    const ovKey = missionLocalKey('ov', me?.id || 'guest');
     let ovSeen = false;
     try { ovSeen = localStorage.getItem(ovKey) === kstToday; } catch {}
     pendingCheckin.current = null;
@@ -2367,7 +2367,7 @@ export default function HomePage() {
     const admin = isAdminUser(me);
     const maybeNew = !!me && !admin && me.role !== 'admin' && (!me.createdAt || Date.parse(me.createdAt) >= WELCOME_MISSION_START);
     if (maybeNew) {
-      const checkinKey = `freetiful-mission-checkin:${me.id}`;
+      const checkinKey = missionLocalKey('checkin', me.id);
       let checkedHere = false;
       try { const v = localStorage.getItem(checkinKey); checkedHere = v === kstToday || v === 'no'; } catch {}
       if (!checkedHere) {
@@ -2973,7 +2973,7 @@ export default function HomePage() {
             // 이 세션엔 이미지 팝업을 이어서 띄우지 않고, 비로그인·관리자 미리보기는 오늘 다시 안 띄운다
             try {
               sessionStorage.setItem(homePopupSessionKey(), '1');
-              if (mode !== 'member') localStorage.setItem(`freetiful-mission-ov:${authUser?.id || 'guest'}`, homeCheckin.today);
+              if (mode !== 'member') localStorage.setItem(missionLocalKey('ov', authUser?.id || 'guest'), homeCheckin.today);
             } catch {}
             setHomeCheckin(null);
             // [확인] = 홈에 그대로 · [진행상황](비로그인은 [가입하고 시작하기]) = 미션 화면(비로그인은 로그인 창 뒤 거기로)
