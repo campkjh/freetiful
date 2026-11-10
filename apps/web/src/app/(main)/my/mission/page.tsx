@@ -76,7 +76,7 @@ export default function WelcomeMissionPage() {
     <div className={`ms-page${shown ? ' is-shown' : ''}`}>
       <header className="ms-head" data-native-back-header>
         <button type="button" className="ms-head-btn" aria-label="뒤로가기" onClick={() => (window.history.length > 1 ? router.back() : router.push('/my'))}>
-          <IcBack className="h-[26px] w-[26px]" />
+          <IcBack className="h-6 w-6" />
         </button>
         <button type="button" className="ms-head-btn help" aria-label="유의사항" onClick={() => notesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
           <IcHelp className="h-[26px] w-[26px]" />

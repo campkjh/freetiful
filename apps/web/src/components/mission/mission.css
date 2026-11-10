@@ -133,9 +133,9 @@
 .ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-fill, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-fill { animation: msFill .46s cubic-bezier(.34, 1.56, .64, 1) .38s forwards; }
 @keyframes msFill { 0% { opacity: 1; transform: scale(.6); box-shadow: 0 0 0 0 rgba(169, 206, 255, 0); } 60% { box-shadow: 0 0 0 6px rgba(169, 206, 255, .9), 0 0 22px 8px rgba(49, 130, 246, .35); } 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px #CFE2FF, 0 0 18px 6px rgba(49, 130, 246, .28); } }
 .ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic, .ms-ov[data-phase='out'] .ms-day.is-today .ms-day-ic { color: #fff; transition: color .1s linear .5s; }
-.ms-day:not(.is-task) .ms-day-ic path { stroke-dasharray: 24; stroke-dashoffset: 0; }
-.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic path { animation: msCheck .34s cubic-bezier(.65, 0, .35, 1) .55s both; }
-@keyframes msCheck { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+/* 체크는 채움 아이콘(흑백 세트)이라 선 긋기 대신 왼쪽→오른쪽으로 드러낸다 */
+.ms-ov[data-phase='roll'] .ms-day.is-today .ms-day-ic { animation: msCheck .34s cubic-bezier(.65, 0, .35, 1) .55s both; }
+@keyframes msCheck { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .ms-day.is-today .ms-day-label { color: #1B64DA; font-weight: 700; }
 
 /* 확인했어요 */
