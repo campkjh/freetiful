@@ -5,9 +5,9 @@ import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos, RECEPTION_
 const promos = [{ id: 'signup-5000' }, { id: 'reception-2026' }];
 const ids = (now: number) => orderHomePromos(promos, now).map((p) => p.id);
 
-test('signup stays first until November 22 ends in Korea', () => {
-  assert.deepEqual(ids(Date.parse('2026-11-08T21:00:00+09:00')), ['signup-5000', 'reception-2026']);
-  assert.deepEqual(ids(RECEPTION_START - 1), ['signup-5000', 'reception-2026']);
+test('reception is hidden until November 23 starts in Korea', () => {
+  assert.deepEqual(ids(Date.parse('2026-11-08T21:00:00+09:00')), ['signup-5000']);
+  assert.deepEqual(ids(RECEPTION_START - 1), ['signup-5000']);
 });
 
 test('reception is first for exactly November 23 in Korea', () => {
@@ -40,7 +40,7 @@ test('midnight schedule and session dismissal keys follow the same Korea-time bo
 
 test('home carousel keeps reception after signup before the event and preserves other slides', () => {
   const carousel = [{ id: 'villadegd' }, { id: 'biz' }, { id: 'signup-5000' }, { id: 'reception-2026' }, { id: 'ceramique' }];
-  assert.deepEqual(orderHomePromos(carousel, RECEPTION_START - 1).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'reception-2026', 'ceramique']);
+  assert.deepEqual(orderHomePromos(carousel, RECEPTION_START - 1).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
   assert.deepEqual(orderHomePromos(carousel, RECEPTION_START).map(p => p.id), ['reception-2026', 'villadegd', 'biz', 'signup-5000', 'ceramique']);
   assert.deepEqual(orderHomePromos(carousel, RECEPTION_END).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
 });
