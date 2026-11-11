@@ -1,11 +1,12 @@
 'use client';
 
-// 첫 글·첫 견적 오버레이를 그리는 곳 — 루트(providers)에 하나. 이벤트는 lib/mission-task.ts 가 쏜다.
+// 첫 글·첫 견적 오버레이를 그리는 곳 — 루트(providers)에 하나. 글 · 견적 신호(lib/mission-sent) → lib/mission-task.ts 판정 → 이벤트.
 // 오버레이는 홈과 같은 그라데이션 판(CheckinOverlay variant='home'), 숫자 = 미션 칸 완료 수(N/4), 채워지는 칸 = 이번 칸.
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MISSION_TASK_EVENT, type MissionTaskDetail } from '@/lib/mission-task';
+import { MISSION_TASK_EVENT, celebrateMissionTask, type MissionTaskDetail } from '@/lib/mission-task';
+import { MISSION_SENT_EVENT, type MissionSentKind } from '@/lib/mission-sent';
 
 const CheckinOverlay = dynamic(() => import('./CheckinOverlay'), { ssr: false });
 
@@ -15,8 +16,14 @@ export default function MissionTaskHost() {
 
   useEffect(() => {
     const on = (e: Event) => setTask((cur) => cur ?? (e as CustomEvent<MissionTaskDetail>).detail);
+    // 글 · 견적이 서버에 들어감(apiClient · cfetch 길목) → 첫 번째인지 확인 → 맞으면 위 이벤트가 온다
+    const sent = (e: Event) => celebrateMissionTask((e as CustomEvent<MissionSentKind>).detail);
     window.addEventListener(MISSION_TASK_EVENT, on);
-    return () => window.removeEventListener(MISSION_TASK_EVENT, on);
+    window.addEventListener(MISSION_SENT_EVENT, sent);
+    return () => {
+      window.removeEventListener(MISSION_TASK_EVENT, on);
+      window.removeEventListener(MISSION_SENT_EVENT, sent);
+    };
   }, []);
 
   if (!task) return null;

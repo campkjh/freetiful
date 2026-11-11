@@ -35,7 +35,6 @@ import {
 } from '@/components/icons/chat';
 import toast from 'react-hot-toast';
 import { quotationApi } from '@/lib/api/quotation.api';
-import { celebrateMissionTask } from '@/lib/mission-task';
 import { chatApi } from '@/lib/api/chat.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { useChatStore } from '@/lib/store/chat.store';
@@ -2445,7 +2444,6 @@ export default function ChatExtras(props: ChatExtrasProps) {
         chatRoomId: roomId && !roomId.startsWith('pending-') ? roomId : undefined,
       } as any);
       const quotationId = (created as any)?.id;
-      celebrateMissionTask('quote'); // 신규가입 미션 — 사회자 첫 견적서면 견적 칸이 채워지는 오버레이
 
       // 2) 견적 카드 system payload 구성
       const myProImage = useAuthStore.getState().user?.profileImageUrl || null;

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth.store';
+import { noteMissionSent } from '../mission-sent';
 
 // Same-origin 사용 — Next.js rewrites가 /api/* → NEXT_PUBLIC_API_URL (Railway)로 프록시.
 // 이렇게 하면 CORS 없이 freetiful.com 내부에서 모든 API 호출 가능.
@@ -43,8 +44,14 @@ function promptLoginForExpiredSession(error?: unknown) {
   } catch {}
 }
 
+// 견적 요청(일반 · 퀵) · 견적서 보내기 — 어느 화면에서 보냈든 신규가입 미션 견적 칸을 확인(lib/mission-sent)
+const MISSION_QUOTE_POST = /^\/api\/v1\/(match\/(request|quick-request)|quotation)$/;
+
 apiClient.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res.config.method === 'post' && MISSION_QUOTE_POST.test(res.config.url || '')) noteMissionSent('quote');
+    return res;
+  },
   async (error) => {
     const original = error.config;
     if (error.response?.status !== 401 || original._retry) return Promise.reject(error);

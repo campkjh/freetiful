@@ -6,7 +6,6 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientCache } from "@/lib/clientCache";
 import { markWroteToday } from "@/lib/writeNudge";
-import { celebrateMissionTask } from "@/lib/mission-task";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
 
 interface CategoryGroup {
@@ -232,8 +231,6 @@ export default function CommunityWriteClient() {
       clientCache.clearPrefix("community-");
       // 오늘 글을 썼으니 "하루에 한번 글 쓰기" 말풍선은 내일 다시.
       markWroteToday();
-      // 신규가입 미션 — 첫 글이면 목록 위에 글쓰기 칸이 채워지는 오버레이
-      celebrateMissionTask("post");
       router.replace("/community");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "게시글을 저장하지 못했습니다.");

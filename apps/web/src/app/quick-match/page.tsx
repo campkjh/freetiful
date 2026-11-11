@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchApi } from '@/lib/api/match.api';
-import { celebrateMissionTask } from '@/lib/mission-task';
 import { discoveryApi, type ProListItem } from '@/lib/api/discovery.api';
 import { captureUtm, landingSessionKey, trackLandingVisit, trackLandingConversion } from '@/lib/landing-track';
 import ProToneCard, { type ProToneCardData } from '@/components/pros/ProToneCard';
@@ -1295,7 +1294,6 @@ export default function QuickMatchPage({ searchParams }: { searchParams?: { from
       }).catch(() => undefined);
       if (handoff) { try { sessionStorage.removeItem(WEDDING_QUICK_MATCH_KEY); } catch {} }
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      celebrateMissionTask('quote'); // 신규가입 미션 — 첫 견적이면 견적 칸이 채워지는 오버레이
       setStep('done');
     } catch (e: any) { window.alert(`신청에 실패했어요. 잠시 후 다시 시도해 주세요. ${e?.response?.data?.message || ''}`); }
     finally { submitLock.current = false; setSubmitting(false); setSelectingAll(false); }

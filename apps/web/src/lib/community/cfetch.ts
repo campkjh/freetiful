@@ -7,6 +7,7 @@
 // - /api/auth/me 응답을 스타디가 기대하는 { user: {...nickname, avatar} } 형태로 정규화
 import { useAuthStore } from '@/lib/store/auth.store';
 import { communityNickname } from './nickname';
+import { noteMissionSent } from '@/lib/mission-sent';
 
 const PATH_MAP: [RegExp, string][] = [
   [/^\/api\/community\//, '/api/v1/community/'],
@@ -29,6 +30,8 @@ export async function cfetch(input: string, init: RequestInit = {}): Promise<Res
   if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
 
   const res = await fetch(url, { ...init, headers });
+  // 웨딩숲 글 올리기(글쓰기 페이지 · 피드 글쓰기 칸 · 작성 모달 모두 여기로) — 신규가입 미션 글쓰기 칸 확인
+  if (res.ok && url === '/api/v1/community/posts' && (init.method || 'GET').toUpperCase() === 'POST') noteMissionSent('post');
 
   // /api/auth/me: freetiful User → { user: {..., nickname, avatar} }
   if (/^\/api\/auth\/me\b/.test(input)) {

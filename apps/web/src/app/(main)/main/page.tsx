@@ -29,7 +29,6 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { apiClient } from '@/lib/api/client';
 import { matchApi } from '@/lib/api/match.api';
-import { celebrateMissionTask } from '@/lib/mission-task';
 import {
   WEDDING_PARTNER_CATEGORIES,
   WEDDING_PARTNER_CATEGORY_ICONS,
@@ -1756,7 +1755,6 @@ function SimpleMatchRequestModal({
       toast.success('모든 사회자에게 요청을 보냈습니다.');
       onClose();
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      celebrateMissionTask('quote'); // 신규가입 미션 — 첫 견적이면 견적 칸이 채워지는 오버레이
     } catch (error: any) {
       toast.error(error?.response?.data?.message || '요청 전송에 실패했습니다.');
     } finally {

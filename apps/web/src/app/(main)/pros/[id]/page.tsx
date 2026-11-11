@@ -21,7 +21,6 @@ import {
   normalizeWeddingPlanKey,
 } from '@/lib/wedding-plans';
 import { matchApi } from '@/lib/api/match.api';
-import { celebrateMissionTask } from '@/lib/mission-task';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { requestNativeLoginSheet } from '@/lib/auth/native-login';
 import GuestLoginForm from '@/components/GuestLoginForm';
@@ -1427,7 +1426,6 @@ export default function ProDetailPage() {
       setConfirmInquiryOpen(false);
       toast.success('문의요청이 완료되었습니다.');
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-      celebrateMissionTask('quote'); // 신규가입 미션 — 첫 견적이면 견적 칸이 채워지는 오버레이
       return 'ok';
     } catch (error: any) {
       if (error?.response?.status === 401) {
@@ -1497,7 +1495,6 @@ export default function ProDetailPage() {
             rawUserInput,
           });
           window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-          celebrateMissionTask('quote');
           return 'ok';
         }
         // 비로그인 — 간이 회원가입 + 문의 + 자동 로그인 유지
@@ -1521,7 +1518,6 @@ export default function ProDetailPage() {
           useAuthStore.getState().setAuth(res.user, res.accessToken, res.refreshToken);
         }
         window.dispatchEvent(new Event('freetiful:match-requests-changed'));
-        celebrateMissionTask('quote');
         return 'ok:signed';
       } catch (e: any) {
         return 'fail:' + (e?.response?.data?.message || e?.message || '문의 전송에 실패했습니다.');
