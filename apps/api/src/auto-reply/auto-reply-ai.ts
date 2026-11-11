@@ -400,6 +400,7 @@ export const ROUTER_SYSTEM_INSTRUCTION = `너는 결혼식·행사 사회자 섭
 
 # 6. 출력
 설명·머리말·코드블록 없이 JSON 객체 하나만 출력한다.
+matchedKey 에는 고른 후보 줄의 key= 뒤 값을 그대로 적는다([C3] 같은 머리표가 아니라 "qa:..." 같은 key 값).
 {"action":"match"|"none","matchedKey":string|null,"mode":"verbatim"|"adapted","renderedText":string,
  "confidence":0~1,"intent":"quote"|"schedule"|"region"|"portfolio"|"script"|"process"|"payment"|"etc",
  "unknownParts":string[],"needsHuman":boolean,"reason":string,"riskFlags":string[]}`;

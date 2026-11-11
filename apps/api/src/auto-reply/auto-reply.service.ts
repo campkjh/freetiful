@@ -523,26 +523,32 @@ export class AutoReplyService {
           return held || this.holdForHuman(persona, used, risks, `human:${routed.intent}`, routed.unknownParts);
         }
         // P2 후보 집합에 없는 키 = 환각이거나 인젝션 성공. candidateKeys 는 DB 에서 만든다.
-        const row = routed.matchedKey && candidateKeys.has(routed.matchedKey)
-          ? rows.find((r) => stableKeyOf(r) === routed.matchedKey) || null
-          : null;
+        //    key 대신 후보 머리표('C8' · '[C8]')로 답하는 일이 잦다(261111 조동호 방 '2부까지 견적 동일?' 이 이걸로 버려짐) —
+        //    머리표는 우리가 붙인 순번이라 renderCandidates 와 같은 순서로 되짚는다.
+        const label = /^\[?C(\d+)\]?$/i.exec((routed.matchedKey || '').trim());
+        const labeled = label ? rows.slice(0, 9)[Number(label[1]) - 1] || null : null;
+        const row = labeled
+          || (routed.matchedKey && candidateKeys.has(routed.matchedKey)
+            ? rows.find((r) => stableKeyOf(r) === routed.matchedKey) || null
+            : null);
         if (!row) {
+          // 버리지 않고 아래 폴백(사회자 답 낱말 맞추기 — AI 를 안 켠 사회자와 같은 길)으로 내려간다
           this.logger.warn(`AI 가 없는 후보를 지목 key=${routed.matchedKey} room=${ctx.roomId}`);
+        } else if (this.ai.passesConfidence(routed.confidence)) {
+          // P5 본문 확정 — 기본은 사회자 원문 그대로
+          const baseText = fillName(row.answer, ctx.customerName);
+          let text = baseText;
+          if (routed.mode === 'adapted' && persona.aiAdaptEnabled && routed.renderedText) {
+            const bad = validateAdapted(routed.renderedText, baseText);
+            // 실패하면 폐기가 아니라 원문으로 강등한다. 사회자 원문은 언제나 안전하다.
+            if (!bad) text = routed.renderedText;
+            else this.logger.warn(`adapted 강등(${bad}) room=${ctx.roomId}`);
+          }
+          return finish(row, `ai:${routed.intent}`, { text, unknownParts: routed.unknownParts });
+        } else {
+          // P3 문턱 미달이면 보내지 않는다
           return null;
         }
-        // P3 문턱 미달이면 보내지 않는다
-        if (!this.ai.passesConfidence(routed.confidence)) return null;
-
-        // P5 본문 확정 — 기본은 사회자 원문 그대로
-        const baseText = fillName(row.answer, ctx.customerName);
-        let text = baseText;
-        if (routed.mode === 'adapted' && persona.aiAdaptEnabled && routed.renderedText) {
-          const bad = validateAdapted(routed.renderedText, baseText);
-          // 실패하면 폐기가 아니라 원문으로 강등한다. 사회자 원문은 언제나 안전하다.
-          if (!bad) text = routed.renderedText;
-          else this.logger.warn(`adapted 강등(${bad}) room=${ctx.roomId}`);
-        }
-        return finish(row, `ai:${routed.intent}`, { text, unknownParts: routed.unknownParts });
       }
     }
 
