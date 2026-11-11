@@ -197,6 +197,8 @@ export class MatchService {
           // 어드민에서 "왜 사회자에게 안 갔는지" 알 수 있게 남긴다
           ...(testLead ? { suppressedAsTestLead: true } : {}),
           phoneSharedProProfileIds,
+          // 퀵매칭은 사회자 전원에게 가므로(261111) 고객이 고른 사람을 따로 남긴다 — 사회자 새요청 '개인요청/모두에게' 표시 근거
+          ...(quickMatch ? { quickPickedProProfileIds: Array.from(new Set(data.selectedProProfileIds || [])).filter(Boolean) } : {}),
         }),
         styles: styleOptionIds.length
           ? {
@@ -229,16 +231,20 @@ export class MatchService {
       );
     } else {
       // 선택한 전문가가 있으면 해당 전문가에게만, 없으면 카테고리 일치 전문가에게 fan-out.
+      // 퀵매칭은 고른 사람만이 아니라 사회자 전원에게(261111 사장 '모든 사회자가 매칭되게, 모두에게 알림') — 고른 사람이 자동 승인 앞줄.
       // 전달 레코드가 만들어진 뒤 성공 응답을 보내야 전문가 홈/새요청에 즉시 보인다.
       await this.fanoutMatchRequestToPros(
         matchRequest.id,
         category.id,
         category.name,
-        data.selectedProProfileIds,
+        quickMatch ? undefined : data.selectedProProfileIds,
         customerName,
         userId,
         // 매칭 제외 사회자 — 다수견적·퀵매칭에선 빼고, 프로필에서 직접 고른 1:1 문의만 그대로 보낸다
-        { excludeBlocked: quickMatch || !(data.selectedProProfileIds || []).length },
+        {
+          excludeBlocked: quickMatch || !(data.selectedProProfileIds || []).length,
+          firstProProfileIds: quickMatch ? data.selectedProProfileIds : undefined,
+        },
       );
     }
 
@@ -412,7 +418,7 @@ export class MatchService {
     selectedProProfileIds?: string[],
     customerName?: string,
     customerUserId?: string,
-    opts: { excludeBlocked?: boolean } = {},
+    opts: { excludeBlocked?: boolean; firstProProfileIds?: string[] } = {},
   ) {
     let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
@@ -466,9 +472,11 @@ export class MatchService {
     }
 
     // 1) MatchDelivery 일괄 생성 — N개의 RTT 를 1번으로 압축
-    const validTargets = deliveryTargets.filter(
-      (pc) => !!pc.userId && !(opts.excludeBlocked && MATCH_EXCLUDED_PRO_IDS.has(pc.proProfileId)),
-    );
+    // 고객이 고른 사회자를 앞줄로 — 아래 자동 승인이 이 순서로 방을 연다(퀵매칭)
+    const firstRank = new Map((opts.firstProProfileIds || []).map((id, i) => [id, i] as [string, number]));
+    const validTargets = deliveryTargets
+      .filter((pc) => !!pc.userId && !(opts.excludeBlocked && MATCH_EXCLUDED_PRO_IDS.has(pc.proProfileId)))
+      .sort((a, b) => (firstRank.get(a.proProfileId) ?? Infinity) - (firstRank.get(b.proProfileId) ?? Infinity));
     if (validTargets.length === 0) return;
 
     await this.prisma.matchDelivery.createMany({
@@ -808,7 +816,10 @@ export class MatchService {
       // 퀵매칭 지정 사회자에게 간 요청만 고객 번호·연락 방식(260927 사장)
       const customerPhone = sharedCustomerPhone(raw, d.proProfileId);
       const phone = customerPhone ? { customerPhone, contactMethod: customerContactMethod(raw) } : {};
-      return { ...d, aiReplying: flag, ...phone, matchRequest: { ...d.matchRequest, rawUserInput: slim } };
+      // 퀵매칭(전원 발송, 261111)에서 고객이 안 고른 사회자에겐 '모두에게' 요청으로 보인다
+      const picked = (raw as Record<string, unknown>).quickPickedProProfileIds;
+      const type = Array.isArray(picked) && !picked.includes(d.proProfileId) ? 'multi' : d.matchRequest.type;
+      return { ...d, aiReplying: flag, ...phone, matchRequest: { ...d.matchRequest, type, rawUserInput: slim } };
     });
   }
 
@@ -949,7 +960,10 @@ export class MatchService {
 
       // 거절 알림 → 고객에게. 단, '모두에게'(multi) 요청은 여러 사회자에게 뿌려진 것이라
       // 한 명이 거절해도 고객에게 푸시하지 않는다. '1:1문의'(single) 거절일 때만 기존처럼 알림.
-      if (customerId && delivery.matchRequest?.type === 'single') {
+      // 퀵매칭은 전원에게 가므로(261111) 고객이 고른 사회자의 거절만 알린다
+      const picked = (delivery.matchRequest?.rawUserInput as Record<string, unknown> | null)?.quickPickedProProfileIds;
+      const pickedThisPro = !Array.isArray(picked) || picked.includes(delivery.proProfileId);
+      if (customerId && delivery.matchRequest?.type === 'single' && pickedThisPro) {
         this.notificationService.createNotification(
           customerId,
           'system' as any,

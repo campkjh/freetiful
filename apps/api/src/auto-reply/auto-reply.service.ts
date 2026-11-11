@@ -1,6 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { QuickMatchRosterService } from '../match/quick-match-roster.service';
 import { AutoReplyAiService } from './auto-reply-ai.service';
 import { AUTO_REPLY_TOPICS, TOPIC_BY_ID, isTopicRowId, topicNeedsFollowUp, topicOfRowId, type TopicId } from './auto-reply-topics';
 import { LEARNED_KIND, LEARNED_PROFILE_KIND, type LearnedProfile } from './auto-reply-learn.service';
@@ -125,16 +124,7 @@ export interface DecidedReply {
 @Injectable()
 export class AutoReplyService {
   private readonly logger = new Logger(AutoReplyService.name);
-  constructor(private prisma: PrismaService, private ai: AutoReplyAiService, private roster: QuickMatchRosterService) {}
-
-  /** 퀵매칭 지정 사회자인가 — AI 기본 켜기·플랫폼 기본 답이 이 사람들에게만(261005 사장 '지정 사회자만 먼저'). 못 읽으면 아님 */
-  private async isDesignated(proProfileId: string) {
-    try {
-      return (await this.roster.roster()).ids.has(proProfileId);
-    } catch {
-      return false;
-    }
-  }
+  constructor(private prisma: PrismaService, private ai: AutoReplyAiService) {}
 
   private async proProfileIdOf(userId: string) {
     const pro = await this.prisma.proProfile.findFirst({
@@ -169,8 +159,9 @@ export class AutoReplyService {
     return {
       greeting: greetingRow?.answer ?? '',
       greetingEnabled: greetingRow ? greetingRow.isEnabled : true,
-      defaultGreeting: defaultGreeting(user?.name),
-      autoApprove: Boolean(autoApproveRow?.isEnabled),
+      defaultGreeting: (await this.learnedProfile(proProfileId))?.greeting || defaultGreeting(user?.name),
+      // 행이 없으면 켜짐 — 261111 사장 '사회자 전원 일방적으로 다 켜'. 끄면 isEnabled false 행이 남는다(saveMine)
+      autoApprove: autoApproveRow ? autoApproveRow.isEnabled : true,
       quoteReply: quoteRow?.answer ?? '',
       quoteAmount: quoteRow?.amount ?? null,
       quoteEnabled: quoteRow ? quoteRow.isEnabled : true,
@@ -246,13 +237,12 @@ export class AutoReplyService {
     ]);
 
     // autoapprove 는 body 에 키가 있을 때만 반영한다(없으면 기존 설정 유지)
+    // 끈 것도 행(isEnabled false)으로 남긴다 — 행이 없으면 켜짐이라(261111), 지우기만 하면 끈 사회자가 다시 켜진다
     if ('autoApprove' in (body as any)) {
       await this.prisma.proAutoReply.deleteMany({ where: { proProfileId, kind: 'autoapprove' } });
-      if (autoApprove) {
-        await this.prisma.proAutoReply.create({
-          data: { proProfileId, kind: 'autoapprove', answer: 'on', isEnabled: true, displayOrder: 0 },
-        });
-      }
+      await this.prisma.proAutoReply.create({
+        data: { proProfileId, kind: 'autoapprove', answer: autoApprove ? 'on' : 'off', isEnabled: autoApprove, displayOrder: 0 },
+      });
     }
 
     return this.getMine(userId);
@@ -303,11 +293,11 @@ export class AutoReplyService {
     });
   }
 
-  /** AI·자동응답이 고를 후보 — 사회자 답 + (퀵매칭 지정 사회자면) 주제 답(학습한 그 사람 말투 > 플랫폼 기본)을 뒤에 */
+  /** AI·자동응답이 고를 후보 — 사회자 답 + 주제 답(학습한 그 사람 말투 > 플랫폼 기본)을 뒤에.
+   *  주제 답은 처음엔 퀵매칭 지정 사회자만이었다가 261111 사장 '사회자 전원 다 켜'로 모두에게 */
   private async candidateRows(proProfileId: string): Promise<AutoReplyRow[]> {
-    const [own, designated] = await Promise.all([this.ownRows(proProfileId), this.isDesignated(proProfileId)]);
-    if (!designated) return own;
-    return [...own, ...(await this.topicRows(proProfileId))];
+    const [own, topics] = await Promise.all([this.ownRows(proProfileId), this.topicRows(proProfileId)]);
+    return [...own, ...topics];
   }
 
   /** 주제마다 한 줄 — 학습 답 우선. parts·region 은 기본 답이 없어 학습했을 때만 */
@@ -692,9 +682,9 @@ export class AutoReplyService {
     const learned = pRow ? null : await this.learnedProfile(proProfileId);
     const learnedEmoji: Persona['emoji'] | null = learned ? (learned.emoji === 'many' ? 'many' : learned.emoji === 'some' ? 'some' : 'none') : null;
     return {
-      // ★ 행이 없으면 꺼짐 — 예외: 퀵매칭 지정 사회자는 행이 없으면 켜짐(261005 사장 결정 '지정 사회자만 먼저').
-      //   (row ? row.isEnabled : true) 를 모두에게 쓰면 안 켠 사회자가 조용히 켜진다. 사회자가 직접 끄면 행(isEnabled false)이 생겨 꺼진 채 유지.
-      aiEnabled: aiRow ? aiRow.isEnabled : await this.isDesignated(proProfileId),
+      // ★ 행이 없으면 켜짐 — 261005 엔 지정 사회자만이었고, 261111 사장 '사회자 전원 일방적으로 다 켜'로 모두.
+      //   사회자가 직접 끄면 행(isEnabled false)이 생겨 꺼진 채 유지.
+      aiEnabled: aiRow ? aiRow.isEnabled : true,
       aiAdaptEnabled: (aiRow?.keywords || '').includes('adapt:on'),
       personaText: pRow?.answer && pRow.answer !== '-' ? pRow.answer : learned?.tone || '',
       tone: (meta.get('tone') as Persona['tone']) || DEFAULT_PERSONA.tone,
@@ -907,13 +897,13 @@ export class AutoReplyService {
     };
   }
 
-  /** 자동 승인 — 켜 두면 섭외 요청이 오는 즉시 방을 열고 인사말을 보낸다 */
+  /** 자동 승인 — 켜 두면 섭외 요청이 오는 즉시 방을 열고 인사말을 보낸다. 행이 없으면 켜짐(261111 사장 '전원 다 켜') */
   async autoApproveEnabled(proProfileId: string) {
     const row = await this.prisma.proAutoReply.findFirst({
       where: { proProfileId, kind: 'autoapprove' },
       select: { isEnabled: true },
     });
-    return Boolean(row?.isEnabled);
+    return row ? row.isEnabled : true;
   }
 
   /** 방이 열릴 때 내보낼 인사말 — 꺼져 있으면 null */
@@ -924,6 +914,7 @@ export class AutoReplyService {
     });
     if (row && !row.isEnabled) return null;
     const text = row?.answer?.trim();
-    return text || defaultGreeting(proName);
+    // 직접 쓴 인사말 > 그 사람이 실제로 방 열 때 하던 말을 학습한 인사(261111) > 기본 인사
+    return text || (await this.learnedProfile(proProfileId))?.greeting || defaultGreeting(proName);
   }
 }

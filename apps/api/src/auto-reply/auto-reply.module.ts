@@ -6,13 +6,12 @@ import { AutoReplyAdminController } from './auto-reply-admin.controller';
 import { AutoReplyService } from './auto-reply.service';
 import { AutoReplyAiService } from './auto-reply-ai.service';
 import { AutoReplyLearnService } from './auto-reply-learn.service';
-import { QuickMatchRosterModule } from '../match/quick-match-roster.module';
 import { AdminGuard } from '../common/guards/admin.guard';
 
 @Module({
-  // 퀵매칭 지정 사회자 명단(같은 인스턴스·같은 기억) — AI 기본 켜기·주제 답·말투 학습 대상(261005·261006)
+  // AI 기본 켜기·주제 답·말투 학습은 261111 부터 사회자 전원이라 퀵매칭 지정 명단(QuickMatchRosterModule)을 안 쓴다
   // JwtModule·ConfigModule = 어드민 학습 API 의 AdminGuard 용(어드민 모듈과 같은 구성)
-  imports: [QuickMatchRosterModule, JwtModule.register({}), ConfigModule],
+  imports: [JwtModule.register({}), ConfigModule],
   controllers: [AutoReplyController, AutoReplyAdminController],
   providers: [AutoReplyService, AutoReplyAiService, AutoReplyLearnService, AdminGuard],
   exports: [AutoReplyService],

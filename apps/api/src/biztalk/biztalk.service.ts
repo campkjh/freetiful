@@ -94,6 +94,8 @@ function formatTime(value?: Date | string | null) {
   return `${hh}:${mm}`;
 }
 
+const CHAT_TALK_GAP_MS = 10 * 60_000;
+
 @Injectable()
 export class BizTalkService implements OnModuleInit {
   private readonly logger = new Logger(BizTalkService.name);
@@ -320,9 +322,24 @@ export class BizTalkService implements OnModuleInit {
       return { sent: false, reason: 'no_template_mapping' };
     }
 
+    // 고객 채팅 알림톡('OO님의 메시지')은 10분에 한 번 — 퀵매칭 전원 자동 승인(261111)이면 사회자 수십 명의 인사가 한꺼번에 가서
+    // 고객 카톡에 같은 알림톡이 수십 개 쌓이고(비용·스팸 신고로 채널 차단 위험) 앱 푸시는 따로 간다. 견적서 도착 등 다른 알림톡은 그대로.
+    if (templateKey === 'GENERAL_NEW_MESSAGE' && compactText(payload.title).includes('님의 메시지')) {
+      const now = Date.now();
+      const last = this.chatTalkSentAt.get(user.id) || 0;
+      if (now - last < CHAT_TALK_GAP_MS) return { sent: false, reason: 'chat_talk_throttled' };
+      this.chatTalkSentAt.set(user.id, now);
+      if (this.chatTalkSentAt.size > 5000) {
+        for (const [id, at] of this.chatTalkSentAt) if (now - at >= CHAT_TALK_GAP_MS) this.chatTalkSentAt.delete(id);
+      }
+    }
+
     const ctx = await this.buildContext(payload, user);
     return this.sendTemplateToPhone(user.phone, templateKey, ctx);
   }
+
+  /** 고객별 마지막 채팅 알림톡 시각(서버 기억 — 재시작하면 비워진다) */
+  private readonly chatTalkSentAt = new Map<string, number>();
 
   async sendBusinessInquiryToAdmins(inquiry: {
     id?: string;

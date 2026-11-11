@@ -2054,8 +2054,10 @@ export class ChatService implements OnModuleInit {
         ? String(metadata.placeName).trim().slice(0, 40)
         : '';
       const preview = placeName ? `장소: ${placeName}` : previewByType[dto.type] || (finalContent || '').slice(0, 40);
+      // 자동응답·자동 인사는 문단마다 행이 따로라 첫 문단만 알린다 — 퀵매칭 전원 자동 승인(261111)이면 고객 한 명에게 방이 수십 개 열린다
+      const autoReplyTail = Number((dto.metadata as any)?.autoReplyPart ?? 0) > 0;
       for (const receiverId of receiverIds) {
-        if (mutedReceiverIds.has(receiverId)) continue;
+        if (mutedReceiverIds.has(receiverId) || autoReplyTail) continue;
         this.notificationService.createNotification(
           receiverId,
           'chat' as any,

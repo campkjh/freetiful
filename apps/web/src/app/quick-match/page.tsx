@@ -1538,8 +1538,8 @@ export default function QuickMatchPage({ searchParams }: { searchParams?: { from
             <span className="qm-done-ic"><Ic name="check" size={40} color="#fff" /></span>
             <h2 className="qm-h2 center">매칭 신청이<br />완료되었어요</h2>
             {doneSuppressed
-              ? <p className="qm-done-sub">테스트 신청이라 <b className="blue">사회자에게는 전달하지 않았어요.</b><br />실제 고객이라면 선택한 {selected.size}명에게 전달돼요.</p>
-              : <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>의 사회자에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>}
+              ? <p className="qm-done-sub">테스트 신청이라 <b className="blue">사회자에게는 전달하지 않았어요.</b><br />실제 고객이라면 선택한 {selected.size}명을 포함해 사회자 모두에게 전달돼요.</p>
+              : <p className="qm-done-sub">선택하신 <b className="blue">{selected.size}명</b>을 포함해 프리티풀 사회자 모두에게 신청이 전달됐어요.<br />{contact}(으)로 곧 연락드릴게요.</p>}
             <div className="qm-summary">
               <div><span>예식 일시</span><b>{handoff?.dateUndecided ? '미정' : [date ? formatKDate(date) : '', formatKTime(time)].filter(Boolean).join(' ') || '-'}</b></div>
               <div><span>지역</span><b>{[group?.label, venue.trim()].filter(Boolean).join(' ') || '-'}</b></div>
