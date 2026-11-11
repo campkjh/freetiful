@@ -6,6 +6,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientCache } from "@/lib/clientCache";
 import { markWroteToday } from "@/lib/writeNudge";
+import { MissionPostMeter, MissionRulesSheet, useMissionFirstPost } from "@/components/mission/MissionFirstPost";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
 
 interface CategoryGroup {
@@ -63,6 +64,8 @@ export default function CommunityWriteClient() {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  // 첫 웨딩숲 글(미션 글쓰기 칸이 빈 사람) — 입력칸 누르면 규칙 시트, 아래 30자 게이지
+  const mission = useMissionFirstPost();
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -324,11 +327,14 @@ export default function CommunityWriteClient() {
             <textarea
               value={content}
               onChange={(event) => setContent(event.target.value)}
+              onFocus={mission.onInputFocus}
               placeholder="내용"
               rows={8}
               style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
             />
+            <MissionPostMeter mission={mission} content={content} />
           </label>
+          <MissionRulesSheet mission={mission} />
 
           {postType === "poll" && (
             <div style={{ display: "grid", gap: 8 }}>

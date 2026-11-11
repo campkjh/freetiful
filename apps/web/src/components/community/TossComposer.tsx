@@ -5,6 +5,7 @@
 //  · 카테고리·태그는 AI 가 본문을 읽고 자동으로 채운다(POST /community/suggest). 직접 바꾸거나 뺄 수 있다.
 //  · 떠 있던 '게시글 +' 버튼은 없앴다 — 글쓰기 입구는 이 칸 하나(작성 모달은 ?compose=1 딥링크로만 남음).
 import { ChangeEvent, type CSSProperties, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { MissionPostMeter, MissionRulesSheet, useMissionFirstPost } from "@/components/mission/MissionFirstPost";
 import { cfetch } from "@/lib/community/cfetch";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { communityNickname } from "@/lib/community/nickname";
@@ -89,6 +90,8 @@ export default function TossComposer({
   const [identityOpen, setIdentityOpen] = useState(false);
   // 허용 계정이 고른 '올릴 이름'(운영진 에디터) — 고르면 머리·사진도 그 이름으로(260930)
   const activeEditor = useActiveEditor(identity);
+  // 첫 웨딩숲 글(미션 글쓰기 칸이 빈 사람) — 입력칸 누르면 규칙 시트, 아래 30자 게이지. 운영진 이름으로 쓸 땐 내 미션이 아니라 뺀다
+  const mission = useMissionFirstPost();
   const shown = activeEditor ? { name: activeEditor.name, avatar: activeEditor.avatar } : me;
 
   const authUser = useAuthStore((s) => s.user);
@@ -473,7 +476,10 @@ export default function TossComposer({
                 el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
               }}
               onKeyDown={onInputKeyDown}
+              onFocus={activeEditor ? undefined : mission.onInputFocus}
             />
+            {!activeEditor && <MissionPostMeter mission={mission} content={content} />}
+            <MissionRulesSheet mission={mission} />
 
             {busyImages > 0 && (
               <div className="tcomp-images">

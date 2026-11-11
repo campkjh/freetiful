@@ -42,7 +42,7 @@ export const missionApi = {
 
 /** 기기에 남기는 미션 표시(오늘 오버레이 봄 · 오늘 출석 물어봄 · 첫 글/견적 축하함) 키 — 번호를 올리면 모든 기기에서 처음처럼 다시 뜬다(261110 사장 '다시 다 초기화') */
 const MISSION_LOCAL_VER = 3;
-export const missionLocalKey = (name: 'ov' | 'checkin' | 'task', rest: string) => `freetiful-mission-${name}:v${MISSION_LOCAL_VER}:${rest}`;
+export const missionLocalKey = (name: 'ov' | 'checkin' | 'task' | 'rules', rest: string) => `freetiful-mission-${name}:v${MISSION_LOCAL_VER}:${rest}`;
 
 /** 테스트 기간 — 가입일 상관없이 관리자(역할 admin) 빼고 전원, 총괄운영자도 실제 참여(261110 사장 '11월10일 이후가 아니라 전부 다, 테스트로'). 끝낼 땐 false — 서버 welcome-mission.rules.ts 도 같이 */
 export const WELCOME_MISSION_OPEN_TO_ALL = true;
@@ -55,4 +55,25 @@ export function isWelcomeMissionUser(u: { createdAt?: string | null; role?: stri
   if (!u.createdAt) return false;
   const t = Date.parse(u.createdAt);
   return Number.isFinite(t) && t >= WELCOME_MISSION_START;
+}
+
+/**
+ * 웨딩숲 미션 글 판정 — 서버 welcome-mission.rules.ts `isWelcomeMissionPost` 와 같은 계산(바꿀 땐 둘 다).
+ * 쓰는 동안 글자 수 게이지(빨강→주황→초록)에 쓴다: length = 인정되는 글자 수(띄어쓰기 포함, 문장부호 · 낱자 · 이모지 · 같은 글자 반복 뺌), spam = 장난 글.
+ */
+export function missionPostCheck(content: string, minChars = 30) {
+  const text = (content || '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[ㄱ-ㅎㅏ-ㅣ]/g, '')
+    .replace(/[\p{P}\p{S}\p{M}\p{C}]/gu, '')
+    .replace(/(\S)\1{2,}/gu, '$1$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const length = Array.from(text).length;
+  if (length < minChars) return { length, ok: false, spam: false };
+  const head = Array.from(text.replace(/ /g, '')).slice(0, 100);
+  const kinds = new Set(head).size;
+  const pairs = new Set(head.slice(1).map((c, i) => head[i] + c)).size;
+  const ok = kinds >= 12 && kinds / head.length >= 0.3 && pairs / (head.length - 1) >= 0.5;
+  return { length, ok, spam: !ok };
 }

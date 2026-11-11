@@ -5,6 +5,7 @@ import { cfetch } from "@/lib/community/cfetch";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clientCache } from "@/lib/clientCache";
+import { MissionPostMeter, MissionRulesSheet, useMissionFirstPost } from "@/components/mission/MissionFirstPost";
 import { markWroteToday } from "@/lib/writeNudge";
 import { uploadCommunityImage, revokeUploadPreview } from "@/lib/communityUpload";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
@@ -90,6 +91,8 @@ export default function CommunityComposeModal({
   const [groupId, setGroupId] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [content, setContent] = useState(initialContent ?? "");
+  // 첫 웨딩숲 글(미션 글쓰기 칸이 빈 사람) — 입력칸 누르면 규칙 시트, 아래 30자 게이지
+  const mission = useMissionFirstPost();
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -560,9 +563,12 @@ export default function CommunityComposeModal({
               placeholder="새로운 소식이 있나요?"
               value={content}
               onChange={(e) => { setContent(e.target.value); autoGrow(); }}
+              onFocus={mission.onInputFocus}
               rows={1}
               autoFocus
             />
+            <MissionPostMeter mission={mission} content={content} />
+            <MissionRulesSheet mission={mission} />
 
             {images.length > 0 && (
               <div className="cmp-images">
