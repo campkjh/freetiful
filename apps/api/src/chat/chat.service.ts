@@ -1465,30 +1465,31 @@ export class ChatService implements OnModuleInit {
    * 자동 승인 — 섭외 요청이 오면 사회자 대신 방을 열고 인사말까지 보낸다.
    * 사회자가 '자동 승인' 을 켠 경우에만 돈다. 실패해도 요청 전달 자체는 그대로 간다.
    */
-  async autoAcceptDelivery(proUserId: string, customerUserId: string, matchRequestId: string) {
+  /** 방을 열었으면 true — 요청 하나에 몇 명이 열었는지 match.service 가 센다(261111 퀵매칭 3명) */
+  async autoAcceptDelivery(proUserId: string, customerUserId: string, matchRequestId: string): Promise<boolean> {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: proUserId },
       select: { id: true, user: { select: { name: true } } },
     });
-    if (!proProfile) return;
-    if (!(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return;
+    if (!proProfile) return false;
+    if (!(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return false;
 
     // 요청이 이미 매칭/취소/만료로 닫혔으면(고객이 다른 사회자와 결제 등) 자동 인사를 보내지 않는다.
     const mr = await this.prisma.matchRequest.findUnique({
       where: { id: matchRequestId },
       select: { status: true },
     });
-    if (mr && mr.status !== 'open') return;
+    if (mr && mr.status !== 'open') return false;
     // 고객이 이 사회자에게 보낸 요청만 취소했으면(사회자 옆 '요청 취소') 방·인사를 만들지 않는다
     const cancelled = await this.prisma.matchDelivery.findFirst({
       where: { matchRequestId, proProfileId: proProfile.id, status: 'cancelled' },
       select: { id: true },
     });
-    if (cancelled) return;
+    if (cancelled) return false;
 
     const room = await this.createRoomAsPro(proUserId, { customerUserId, matchRequestId } as any);
     const roomId = (room as any)?.id;
-    if (!roomId) return;
+    if (!roomId) return false;
 
     const greeting = await this.autoReplyService.greetingFor(proProfile.id, proProfile.user?.name);
     if (greeting) {
@@ -1498,6 +1499,7 @@ export class ChatService implements OnModuleInit {
         await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
       });
     }
+    return true;
   }
 
   /**

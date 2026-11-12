@@ -71,6 +71,9 @@ function uniqueStrings(values: Array<string | null | undefined>) {
 /** 사회자 새요청 목록이 rawUserInput 에서 읽는 키(웹 pro-dashboard/inquiries·pro-requests-prefetch, iOS NativeHomeData) */
 const PRO_LIST_RAW_KEYS = ['categoryName', 'eventType', 'date', 'timeStart', 'location', 'eventPart', 'note'] as const;
 
+/** 요청 하나에 자동 승인으로 방을 여는 사회자 수(261112 사장 '3명 정도') */
+const AUTO_OPEN_PER_REQUEST = 3;
+
 @Injectable()
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
@@ -472,11 +475,9 @@ export class MatchService {
     }
 
     // 1) MatchDelivery 일괄 생성 — N개의 RTT 를 1번으로 압축
-    // 고객이 고른 사회자를 앞줄로 — 아래 자동 승인이 이 순서로 방을 연다(퀵매칭)
-    const firstRank = new Map((opts.firstProProfileIds || []).map((id, i) => [id, i] as [string, number]));
-    const validTargets = deliveryTargets
-      .filter((pc) => !!pc.userId && !(opts.excludeBlocked && MATCH_EXCLUDED_PRO_IDS.has(pc.proProfileId)))
-      .sort((a, b) => (firstRank.get(a.proProfileId) ?? Infinity) - (firstRank.get(b.proProfileId) ?? Infinity));
+    const validTargets = deliveryTargets.filter(
+      (pc) => !!pc.userId && !(opts.excludeBlocked && MATCH_EXCLUDED_PRO_IDS.has(pc.proProfileId)),
+    );
     if (validTargets.length === 0) return;
 
     await this.prisma.matchDelivery.createMany({
@@ -507,11 +508,23 @@ export class MatchService {
     });
 
     // 자동 승인을 켠 사회자는 기다리지 않고 바로 방을 열고 인사말을 보낸다.
-    // 한 번에 몰리지 않게 하나씩 순서대로 — 다수문의는 사회자 수가 많다.
+    // 요청 하나에 AUTO_OPEN_PER_REQUEST(3)명만 — 261112 사장 '퀵매칭하면 랜덤으로 3명 정도가 AI 답장, 추천·선택한 사회자 위주'.
+    //   (전원에게 열면 고객 한 명에게 방이 수십 개 열린다.) 나머지 사회자는 알림만 받고 직접 수락하면 방이 열린다.
+    //   뽑는 차례 = 고객이 고른 사회자 → 퀵매칭 추천(지정) 사회자 → 나머지, 묶음 안에선 무작위.
+    // 한 번에 몰리지 않게 하나씩 순서대로.
     setImmediate(() => {
       void (async () => {
         if (!customerUserId) return;
-        for (const target of validTargets) {
+        const picked = new Set(opts.firstProProfileIds || []);
+        const featured = await this.quickRoster.roster().then((r) => r.ids).catch(() => new Set<string>());
+        const tier = (id: string) => (picked.has(id) ? 0 : featured.has(id) ? 1 : 2);
+        const queue = validTargets
+          .map((target) => ({ target, key: tier(target.proProfileId) + Math.random() }))
+          .sort((a, b) => a.key - b.key)
+          .map((row) => row.target);
+        let opened = 0;
+        for (const target of queue) {
+          if (opened >= AUTO_OPEN_PER_REQUEST) break;
           // 고객이 루프 도중에 어느 사회자와 결제/매칭되면(요청이 'open' 이 아니게 되면),
           // 남은 사회자에게는 자동 인사(=고객에게 가는 알림)를 더 이상 보내지 않는다.
           const cur = await this.prisma.matchRequest.findUnique({
@@ -520,7 +533,7 @@ export class MatchService {
           });
           if (cur?.status !== 'open') break;
           try {
-            await this.chatService.autoAcceptDelivery(target.userId, customerUserId, matchRequestId);
+            if (await this.chatService.autoAcceptDelivery(target.userId, customerUserId, matchRequestId)) opened += 1;
           } catch {
             // 한 명이 실패해도 나머지는 계속
           }
