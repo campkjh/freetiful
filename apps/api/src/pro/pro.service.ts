@@ -846,30 +846,20 @@ export class ProService implements OnModuleInit {
     // 프로 등록/수정 과정에서 User.name 을 덮어쓰면 일반 모드로 돌아와도 이름이 바뀌는 버그 발생
     if (data.phone !== undefined) {
       const phone = data.phone == null ? null : data.phone.trim() || null;
-      // 번호는 계정마다 하나(unique) — 다른 계정이 쓰는 번호면 500 대신 이유를 알린다
-      // (261112 박주은: 운영팀이 만든 사회자 계정과 같은 번호로 새 구글 계정이 신청 → 제출이 Internal server error 로만 떨어짐)
-      if (phone) {
-        const taken = await this.prisma.user.findFirst({
-          where: { phone, NOT: { id: userId } },
-          select: { id: true, email: true, proProfile: { select: { id: true } } },
+      // 번호는 계정마다 하나(unique) — 다른 계정이 이미 쓰는 번호면 번호만 건너뛰고 신청은 그대로 받는다(261112 사장 '그냥 되게끔').
+      //   박주은: 운영팀이 만든 사회자 계정과 같은 번호로 새 구글 계정이 신청 → user.update 가 unique 에 걸려 제출이 전부 500 이었다.
+      //   기존 프로필을 자동으로 인수하진 않는다(claimProfileHandover 는 받은 요청·리뷰를 지운다) — 어드민 심사에서 정리.
+      const taken = phone
+        ? await this.prisma.user.findFirst({ where: { phone, NOT: { id: userId } }, select: { id: true } })
+        : null;
+      if (taken) {
+        console.warn(`[pro/register] 번호가 다른 계정(${taken.id.slice(0, 8)})에 있어 번호 저장은 건너뜀 user=${userId.slice(0, 8)}`);
+      } else {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { phone },
         });
-        if (taken) {
-          // 운영팀이 미리 만든 사회자 프로필(@freetiful.com 계정)이면 '기존 프로필 인수'로 내 계정에 붙이면 된다(claimProfileHandover 와 같은 판정)
-          const email = taken.email || '';
-          if (taken.proProfile && (email.endsWith('@freetiful.com') || email.endsWith('@freetiful.internal'))) {
-            throw new ConflictException({
-              statusCode: 409,
-              code: 'PHONE_TAKEN_HANDOVER',
-              message: '이 번호로 운영팀이 미리 만들어 둔 사회자 프로필이 있어요. 기존 프로필 인수에서 이름으로 찾아 내 계정에 연결해 주세요.',
-            });
-          }
-          throw new ConflictException('이 휴대폰 번호로 이미 가입된 계정이 있어요. 그 계정으로 로그인해 주시거나 고객센터로 문의해 주세요.');
-        }
       }
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { phone },
-      });
     }
 
     const fields = {
