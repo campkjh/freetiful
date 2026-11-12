@@ -28,6 +28,7 @@ import AiIcon from '@/components/icons/AiIcon';
 import StyleIntroCard, { useProStyleSummary } from '@/components/pros/StyleIntroCard';
 import ReviewKeywordOrb from '@/components/pros/ReviewKeywordOrb';
 import ReviewCommentRow from '@/components/pros/ReviewCommentRow';
+import InquirySheet from '@/components/pros/InquirySheet';
 import { useImageTone } from '@/lib/image-tone';
 
 // ─── Brand Color ────────────────────────────────────────────
@@ -1224,9 +1225,6 @@ export default function ProDetailPage() {
     try { setInFrame(window.self !== window.top); } catch { setInFrame(true); }
   }, []);
   const [confirmInquiryOpen, setConfirmInquiryOpen] = useState(false);
-  const [inquiryLocation, setInquiryLocation] = useState('');
-  const [inquiryDate, setInquiryDate] = useState('');
-  const [inquiryTime, setInquiryTime] = useState('');
   const [expandedPanel, setExpandedPanel] = useState<string | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
   // 사진 확대(검정 바탕)가 열려 있는 동안 상태바 흰 글자(261014 iOS 앱 화면 끝까지)
@@ -1249,13 +1247,6 @@ export default function ProDetailPage() {
   useEffect(() => {
     if (authUser) setLoginModal(false);
   }, [authUser]);
-
-  useEffect(() => {
-    if (!confirmInquiryOpen) return;
-    setInquiryLocation('');
-    setInquiryDate('');
-    setInquiryTime('');
-  }, [confirmInquiryOpen, pro?.id]);
 
   const descRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -1389,21 +1380,18 @@ export default function ProDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pro]);
 
-  const submitInquiryRequest = async (override?: { location: string; date: string; time: string }): Promise<string> => {
+  // 1:1 문의 — 날짜·시간·장소는 비워도 된다(채팅에서 정함). 서버가 그 자리에서 방을 열고 사회자 인사를 보내며 roomId 를 준다(261112).
+  const submitInquiryRequest = async (value: { location: string; date: string; time: string }): Promise<string> => {
     if (!pro || !authUser || openingChat) return 'fail:준비 중입니다. 잠시 후 다시 시도해주세요.';
-    const trimmedLocation = (override?.location ?? inquiryLocation).trim();
-    const eventDate = override?.date ?? inquiryDate;
-    const eventTime = override?.time ?? inquiryTime;
-    if (!trimmedLocation || !eventDate || !eventTime) {
-      toast.error('행사 장소와 일시를 입력해주세요.');
-      return 'fail:행사 장소와 일시를 입력해주세요.';
-    }
+    const trimmedLocation = value.location.trim() || '추후 협의';
+    const eventDate = value.date;
+    const eventTime = value.time || '협의';
     setOpeningChat(true);
     try {
       const categoryName = pro.categoryName || '사회자';
-      await matchApi.createRequest({
+      const created: any = await matchApi.createRequest({
         categoryId: categoryName,
-        eventDate: eventDate,
+        eventDate: eventDate || undefined,
         eventTime: eventTime,
         eventLocation: trimmedLocation,
         type: 'single',
@@ -1424,8 +1412,10 @@ export default function ProDetailPage() {
         },
       });
       setConfirmInquiryOpen(false);
-      toast.success('문의요청이 완료되었습니다.');
       window.dispatchEvent(new Event('freetiful:match-requests-changed'));
+      const roomId = created?.roomId || created?.data?.roomId;
+      if (roomId) router.push(`/chat/${roomId}`);
+      else toast.success('문의요청이 완료되었습니다.');
       return 'ok';
     } catch (error: any) {
       if (error?.response?.status === 401) {
@@ -2653,92 +2643,16 @@ export default function ProDetailPage() {
       </div>
       </div>
 
-      {/* 문의 요청 시트 — 공통 모달(웨딩숲 톤 · 버튼 56/17/17) */}
+      {/* 1:1 문의 시트 — 보내면 바로 채팅방으로(components/pros/InquirySheet) */}
       {confirmInquiryOpen && (
-        <div
-          className="ft-scrim"
-          onClick={() => {
-            if (!openingChat) setConfirmInquiryOpen(false);
-          }}
-        >
-          <div
-            className="ft-sheet"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="ft-grab" aria-hidden="true" />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="ft-title">문의 요청하기</h3>
-                <p className="ft-desc">
-                  {pro.name} 사회자에게 전달할 행사 장소와 일시를 입력해주세요.
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={openingChat}
-                onClick={() => setConfirmInquiryOpen(false)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F2F4F6] text-[#8B95A1] transition active:scale-95 disabled:opacity-60"
-                aria-label="닫기"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              <label className="block">
-                <span className="mb-1.5 block text-[12px] font-bold text-[#6B7684]">행사 장소</span>
-                <input
-                  value={inquiryLocation}
-                  onChange={(event) => setInquiryLocation(event.target.value)}
-                  placeholder="예: 서울 중구 퇴계로"
-                  disabled={openingChat}
-                  className="ft-input disabled:bg-[#F8FAFC]"
-                />
-              </label>
-              <div>
-                <span className="mb-1.5 block text-[12px] font-bold text-[#6B7684]">행사일시</span>
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  <input
-                    type="date"
-                    value={inquiryDate}
-                    onChange={(event) => setInquiryDate(event.target.value)}
-                    disabled={openingChat}
-                    className="ft-input inquiry-datetime-input min-w-0 disabled:bg-[#F8FAFC]"
-                  />
-                  <input
-                    type="time"
-                    value={inquiryTime}
-                    onChange={(event) => setInquiryTime(event.target.value)}
-                    disabled={openingChat}
-                    className="ft-input inquiry-datetime-input min-w-0 disabled:bg-[#F8FAFC]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="ft-actions">
-              <button
-                type="button"
-                disabled={openingChat}
-                onClick={() => setConfirmInquiryOpen(false)}
-                className="ft-btn secondary"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                disabled={openingChat}
-                onClick={() => submitInquiryRequest()}
-                className="ft-btn primary"
-              >
-                {openingChat && <span className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />}
-                요청하기
-              </button>
-            </div>
-          </div>
-        </div>
+        <InquirySheet
+          proName={pro.name}
+          proImage={pro.profileImage || pro.images[0]}
+          proIntro={(pro.career || '').split('\n').map((line) => line.trim()).find(Boolean) || pro.categoryName || '사회자'}
+          sending={openingChat}
+          onClose={() => setConfirmInquiryOpen(false)}
+          onSubmit={(value) => { void submitInquiryRequest(value); }}
+        />
       )}
 
       {/* ─── Image Modal (확대) ─── */}

@@ -1465,33 +1465,46 @@ export class ChatService implements OnModuleInit {
    * 자동 승인 — 섭외 요청이 오면 사회자 대신 방을 열고 인사말까지 보낸다.
    * 사회자가 '자동 승인' 을 켠 경우에만 돈다. 실패해도 요청 전달 자체는 그대로 간다.
    */
-  /** 방을 열었으면 true — 요청 하나에 몇 명이 열었는지 match.service 가 센다(261111 퀵매칭 3명) */
-  async autoAcceptDelivery(proUserId: string, customerUserId: string, matchRequestId: string): Promise<boolean> {
+  /**
+   * 연 방의 id(못 열었으면 null) — 요청 하나에 몇 명이 열었는지 match.service 가 센다(261111 퀵매칭 3명).
+   * force = 사회자 상세의 1:1 문의 — 자동 승인 스위치와 상관없이 연다(고객이 이 사회자를 직접 골랐다, 261112).
+   */
+  async autoAcceptDelivery(
+    proUserId: string,
+    customerUserId: string,
+    matchRequestId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<string | null> {
     const proProfile = await this.prisma.proProfile.findUnique({
       where: { userId: proUserId },
       select: { id: true, user: { select: { name: true } } },
     });
-    if (!proProfile) return false;
-    if (!(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return false;
+    if (!proProfile) return null;
+    if (!opts.force && !(await this.autoReplyService.autoApproveEnabled(proProfile.id))) return null;
 
     // 요청이 이미 매칭/취소/만료로 닫혔으면(고객이 다른 사회자와 결제 등) 자동 인사를 보내지 않는다.
     const mr = await this.prisma.matchRequest.findUnique({
       where: { id: matchRequestId },
       select: { status: true },
     });
-    if (mr && mr.status !== 'open') return false;
+    if (mr && mr.status !== 'open') return null;
     // 고객이 이 사회자에게 보낸 요청만 취소했으면(사회자 옆 '요청 취소') 방·인사를 만들지 않는다
     const cancelled = await this.prisma.matchDelivery.findFirst({
       where: { matchRequestId, proProfileId: proProfile.id, status: 'cancelled' },
       select: { id: true },
     });
-    if (cancelled) return false;
+    if (cancelled) return null;
 
     const room = await this.createRoomAsPro(proUserId, { customerUserId, matchRequestId } as any);
     const roomId = (room as any)?.id;
-    if (!roomId) return false;
+    if (!roomId) return null;
 
-    const greeting = await this.autoReplyService.greetingFor(proProfile.id, proProfile.user?.name);
+    // 이미 이 사회자와 이야기하던 방이 다시 열린 것이면(같은 고객이 또 문의) 인사를 또 하지 않는다
+    const spoke = await this.prisma.message.findFirst({
+      where: { roomId, senderId: proUserId, type: { not: 'system' as any } },
+      select: { id: true },
+    });
+    const greeting = spoke ? null : await this.autoReplyService.greetingFor(proProfile.id, proProfile.user?.name);
     if (greeting) {
       // 사람 속도로 치면 인사말 하나에 수십 초 — 기다리면 여러 사회자에게 차례로 도는 자동 승인 루프가 몇 분씩 밀린다.
       // 방은 여기서 순서대로 열고, 인사말은 그 방의 자동응답 줄에 세워 둔다(고객 첫 말과 섞이지 않게).
@@ -1499,7 +1512,7 @@ export class ChatService implements OnModuleInit {
         await this.sendAsHuman(roomId, proUserId, greeting, { autoReply: true, autoReplyId: 'greeting' });
       });
     }
-    return true;
+    return roomId;
   }
 
   /**
@@ -1527,7 +1540,7 @@ export class ChatService implements OnModuleInit {
   /** 자동응답을 치는 사이 사회자가 직접 말했는지 — 그러면 남은 자동응답은 멈춘다 */
   private async proSpokeSince(roomId: string, proUserId: string, since: Date) {
     const rows = await this.prisma.message.findMany({
-      where: { roomId, senderId: proUserId, createdAt: { gte: since } },
+      where: { roomId, senderId: proUserId, type: { not: 'system' as any }, createdAt: { gte: since } },
       select: { metadata: true },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -1563,11 +1576,14 @@ export class ChatService implements OnModuleInit {
     meta: Record<string, unknown>,
   ) {
     // 빈 줄로 나뉜 문단은 따로 보낸다(한 덩어리로 오면 붙여넣기처럼 보인다)
-    const chunks = text
+    // 문단은 4개까지 따로 — 넘치는 문단은 버리지 않고 4번째에 붙인다(예전 slice(0,4) 는 긴 답의 끝을 잘라 '중간에 끊김')
+    const paragraphs = text
       .split(/\n{2,}/)
       .map((chunk) => chunk.trim())
-      .filter(Boolean)
-      .slice(0, 4);
+      .filter(Boolean);
+    const chunks = paragraphs.length > 4
+      ? [...paragraphs.slice(0, 3), paragraphs.slice(3).join('\n\n')]
+      : paragraphs;
     const memberIds = await this.getRoomMemberIds(roomId);
     const startedAt = new Date();
 
@@ -1668,8 +1684,10 @@ export class ChatService implements OnModuleInit {
         // 사회자가 직접 대화 중이면 끼어들지 않는다.
         // Prisma 의 JSON NOT 필터는 metadata 에 autoReply 키가 아예 없을 때(웹 클라가 보내는
         // 일반 메시지) NULL 이 되어 조건에서 빠질 수 있어, JS 에서 직접 가른다.
+        // 방을 열 때 사회자 이름으로 들어가는 안내('…먼저 연락드렸습니다', type system)는 사람 말이 아니다 —
+        //   이걸 세면 방이 열리고 3분 동안(고객이 가장 많이 묻는 때) AI 가 한마디도 안 했다(261112 '중간에 끊김').
         const recentPro = await this.prisma.message.findMany({
-          where: { roomId, senderId: proUserId, createdAt: { gte: new Date(Date.now() - 3 * 60_000) } },
+          where: { roomId, senderId: proUserId, type: { not: 'system' as any }, createdAt: { gte: new Date(Date.now() - 3 * 60_000) } },
           select: { metadata: true },
           orderBy: { createdAt: 'desc' },
           take: 5,

@@ -226,6 +226,13 @@ export class MatchService {
       },
     });
 
+    // 사회자 상세에서 한 사람에게 보낸 1:1 문의 — 기다리지 않고 그 자리에서 방을 열고 사회자 인사를 보낸다.
+    //   응답에 roomId 를 실어 화면이 바로 채팅방으로 간다(261112 사장 '1:1문의 하면 채팅방으로 바로 이동, 사회자가 바로 채팅').
+    //   사회자가 자동 승인을 꺼 뒀어도 연다 — 고객이 이 사회자를 직접 골라 말을 건 것이라서.
+    const directIds = Array.from(new Set(data.selectedProProfileIds || [])).filter(Boolean);
+    const directInquiry = !testLead && !quickMatch && data.type === 'single' && directIds.length === 1;
+    let roomId: string | null = null;
+
     // 테스트 의뢰는 사회자에게 내보내지 않는다 — MatchDelivery 를 안 만들면
     // 알림(새로운 섭외 요청)도, 사회자 문의목록 노출도 함께 막힌다.
     if (testLead) {
@@ -247,8 +254,20 @@ export class MatchService {
         {
           excludeBlocked: quickMatch || !(data.selectedProProfileIds || []).length,
           firstProProfileIds: quickMatch ? data.selectedProProfileIds : undefined,
+          skipAutoOpen: directInquiry,
         },
       );
+      if (directInquiry) {
+        const target = await this.prisma.proProfile.findUnique({ where: { id: directIds[0] }, select: { userId: true } });
+        if (target?.userId && target.userId !== userId) {
+          roomId = await this.chatService
+            .autoAcceptDelivery(target.userId, userId, matchRequest.id, { force: true })
+            .catch((error) => {
+              this.logger.warn(`[match] 1:1 문의 방 열기 실패 (matchRequestId=${matchRequest.id}): ${error?.message || error}`);
+              return null;
+            });
+        }
+      }
     }
 
     if (!testLead) {
@@ -264,7 +283,7 @@ export class MatchService {
       matchRequestId: matchRequest.id,
     });
 
-    return matchRequest;
+    return { ...matchRequest, roomId };
   }
 
   private async resolveCategory(categoryInput: string, rawUserInput?: any) {
@@ -421,7 +440,7 @@ export class MatchService {
     selectedProProfileIds?: string[],
     customerName?: string,
     customerUserId?: string,
-    opts: { excludeBlocked?: boolean; firstProProfileIds?: string[] } = {},
+    opts: { excludeBlocked?: boolean; firstProProfileIds?: string[]; skipAutoOpen?: boolean } = {},
   ) {
     let deliveryTargets: Array<{ proProfileId: string; userId: string }> = [];
 
@@ -514,7 +533,7 @@ export class MatchService {
     // 한 번에 몰리지 않게 하나씩 순서대로.
     setImmediate(() => {
       void (async () => {
-        if (!customerUserId) return;
+        if (!customerUserId || opts.skipAutoOpen) return;
         const picked = new Set(opts.firstProProfileIds || []);
         const featured = await this.quickRoster.roster().then((r) => r.ids).catch(() => new Set<string>());
         const tier = (id: string) => (picked.has(id) ? 0 : featured.has(id) ? 1 : 2);
