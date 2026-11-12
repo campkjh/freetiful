@@ -845,9 +845,30 @@ export class ProService implements OnModuleInit {
     // 전화번호만 업데이트 가능. 이름은 User.name (가입 시 설정) 을 그대로 사용 —
     // 프로 등록/수정 과정에서 User.name 을 덮어쓰면 일반 모드로 돌아와도 이름이 바뀌는 버그 발생
     if (data.phone !== undefined) {
+      const phone = data.phone == null ? null : data.phone.trim() || null;
+      // 번호는 계정마다 하나(unique) — 다른 계정이 쓰는 번호면 500 대신 이유를 알린다
+      // (261112 박주은: 운영팀이 만든 사회자 계정과 같은 번호로 새 구글 계정이 신청 → 제출이 Internal server error 로만 떨어짐)
+      if (phone) {
+        const taken = await this.prisma.user.findFirst({
+          where: { phone, NOT: { id: userId } },
+          select: { id: true, email: true, proProfile: { select: { id: true } } },
+        });
+        if (taken) {
+          // 운영팀이 미리 만든 사회자 프로필(@freetiful.com 계정)이면 '기존 프로필 인수'로 내 계정에 붙이면 된다(claimProfileHandover 와 같은 판정)
+          const email = taken.email || '';
+          if (taken.proProfile && (email.endsWith('@freetiful.com') || email.endsWith('@freetiful.internal'))) {
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'PHONE_TAKEN_HANDOVER',
+              message: '이 번호로 운영팀이 미리 만들어 둔 사회자 프로필이 있어요. 기존 프로필 인수에서 이름으로 찾아 내 계정에 연결해 주세요.',
+            });
+          }
+          throw new ConflictException('이 휴대폰 번호로 이미 가입된 계정이 있어요. 그 계정으로 로그인해 주시거나 고객센터로 문의해 주세요.');
+        }
+      }
       await this.prisma.user.update({
         where: { id: userId },
-        data: { phone: data.phone == null ? null : data.phone.trim() || null },
+        data: { phone },
       });
     }
 

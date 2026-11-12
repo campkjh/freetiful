@@ -793,6 +793,12 @@ export default function ProfilePage() {
                   } else {
                     const msg = submitError?.response?.data?.message || submitError?.message || '서버 저장 중 오류가 발생했습니다.';
                     toast.error(`신청 실패: ${msg}`, { duration: 4000 });
+                    // 운영팀이 만든 프로필과 번호가 같으면 그 프로필을 인수하는 화면으로(261112 박주은)
+                    if (submitError?.response?.data?.code === 'PHONE_TAKEN_HANDOVER') {
+                      const { useAuthStore } = await import('@/lib/store/auth.store');
+                      const myName = useAuthStore.getState().user?.name || '';
+                      router.push(`/pro-register/handover${myName ? `?q=${encodeURIComponent(myName)}` : ''}`);
+                    }
                   }
                 }}
                 className="ft-btn primary mt-6 w-full"

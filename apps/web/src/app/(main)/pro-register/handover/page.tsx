@@ -93,6 +93,14 @@ export default function ProfileHandoverPage() {
 
   const trimmedSearch = useMemo(() => search.trim(), [search]);
 
+  // 신청서 제출이 '운영팀 프로필과 같은 번호'로 막혀 넘어온 경우 이름으로 바로 찾아 둔다(?q=)
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('q');
+      if (q) setSearch(q.slice(0, 30));
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (!hasHydrated) return;
     if (!authUser) {
