@@ -129,7 +129,7 @@ export default function WelcomeMissionPage() {
                 </span>
                 <span className={`ms-row-right${attDone ? ' done' : ''}`}>{attDone ? '완료' : `${att.count}/${att.required}`}</span>
               </div>
-              <button type="button" className="ms-row" disabled={postDone} onClick={() => router.push('/community/write')}>
+              <button type="button" className="ms-row" disabled={postDone} onClick={() => router.push('/community?compose=1')}>
                 <img className="ms-row-icon" src={TOSS('pencil')} alt="" />
                 <span className="ms-row-text">
                   <span className="ms-row-title">웨딩숲에 글 1번 쓰기</span>
