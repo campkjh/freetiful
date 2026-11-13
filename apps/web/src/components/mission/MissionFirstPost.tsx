@@ -3,7 +3,7 @@
 // 첫 웨딩숲 글(신규가입 미션 글쓰기 칸이 아직 빈 사람) 쓰는 동안 — 261111 사장
 //  '첫 글 쓸 때 글쓰기 인풋을 쓸 때 리워드 지급 룰이 나오는 모달 · 첫 글 쓸 때만 30자, 조금만 더 써주세요! 다 왔어요 — 빨강 주황 초록 느낌'.
 //  · useMissionFirstPost: 서버 미션 상태로 '첫 글 대상'인지 본다. 입력칸을 처음 누르면(계정 · 기기마다 하루 한 번) 규칙 시트 → 닫으면 입력칸으로 돌아간다.
-//  · <MissionPostMeter>: 입력칸 아래 글자 수 게이지 — 서버와 같은 계산(missionPostCheck), 빨강 → 주황 → 초록.
+//  · <MissionPostMeter>: 입력칸 아래 글자 수 줄 — 서버와 같은 계산(missionPostCheck), 빨강 → 주황 → 초록(261113 바탕 없이 선·글자 색만).
 //  · <MissionRulesSheet>: .ft-* 시트(웨딩숲 톤) · framer 스프링 · 뒤 잠금 — 작성 모달(z 1200) 위에 뜨게 body 로 portal.
 import { useCallback, useEffect, useRef, useState, type FocusEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -86,40 +86,100 @@ export function useMissionFirstPost(): MissionFirstPost {
   return { active: !!info, reward: info?.reward ?? 5000, minChars: info?.minChars ?? 30, rulesOpen, onInputFocus, closeRules };
 }
 
-/** 입력칸 아래 글자 수 게이지 — 첫 글 대상일 때만 */
+/** 입력칸 아래 글자 수 줄 — 첫 글 대상일 때만 */
 export function MissionPostMeter({ mission, content, className }: { mission: MissionFirstPost; content: string; className?: string }) {
   if (!mission.active) return null;
-  const { minChars } = mission;
+  return <MeterLine minChars={mission.minChars} content={content} className={className} />;
+}
+
+// 261113 사장 '글이 너무 많고 바탕 없애고 글자 색·선으로만, 인터랙션' — 바탕 상자 없이 얇은 선이 차오르고 밑에 짧은 한 줄.
+//  · 쓰는 동안: '미션까지 N자' — 남은 숫자만 톡 바뀐다. 선·글자 색 = 빨강 → 주황(절반) → 초록(완료).
+//  · 다 채우는 순간: 선에 빛이 한 번 지나가고 굵어졌다 돌아오며, 체크가 튀어나온다(폰은 짧게 진동).
+const METER_SPRING: Transition = { type: 'spring', stiffness: 260, damping: 30 };
+
+function MeterLine({ minChars, content, className }: { minChars: number; content: string; className?: string }) {
   const { length, ok, spam } = missionPostCheck(content, minChars);
-  const p = Math.min(1, length / minChars);
-  const reward = `${mission.reward.toLocaleString('ko-KR')}원`;
-  const tone = spam ? 'red' : ok ? 'green' : p >= 0.5 ? 'orange' : 'red';
-  const text = spam
-    ? '같은 글자를 되풀이한 글은 인정되지 않아요'
-    : ok
-      ? '다 왔어요! 이대로 올리면 글쓰기 미션 완료'
-      : length === 0
-        ? `${minChars}자 이상 쓰면 ${reward} 미션 글쓰기 완료`
-        : p >= 0.8
-          ? '거의 다 왔어요! 조금만 더 써 주세요'
-          : p >= 0.5
-            ? '조금만 더 써 주세요!'
-            : `${minChars}자 이상 써야 미션이 인정돼요`;
+  const p = spam ? 1 : Math.min(1, length / minChars);
+  const done = ok && !spam;
+  const tone = spam ? 'red' : done ? 'green' : p >= 0.5 ? 'orange' : 'red';
+  const left = Math.max(1, minChars - length);
+
+  const [burst, setBurst] = useState(0);
+  const wasDone = useRef(done);
+  useEffect(() => {
+    if (done && !wasDone.current) {
+      setBurst((n) => n + 1);
+      try { navigator.vibrate?.(12); } catch {}
+    }
+    wasDone.current = done;
+  }, [done]);
+
   return (
-    <div className={`ms-meter is-${tone}${className ? ` ${className}` : ''}`} role="status" aria-live="polite">
-      <div className="ms-meter-head">
-        <span className="ms-meter-text" key={text}>
-          {ok && !spam && <IcCheck className="ms-meter-ic" />}
-          {text}
-        </span>
-        <span className="ms-meter-count">
-          {Math.min(length, 999)}/{minChars}자
-        </span>
+    <MotionConfig reducedMotion="user">
+      <div className={`ms-line is-${tone}${className ? ` ${className}` : ''}`} role="status" aria-live="polite">
+        <motion.div
+          className="ms-line-track"
+          animate={burst ? { scaleY: [1, 2.2, 1] } : undefined}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          key={`track-${burst}`}
+        >
+          <motion.div className="ms-line-fill" initial={false} animate={{ scaleX: p }} transition={METER_SPRING} />
+          {burst > 0 && (
+            <motion.i
+              key={burst}
+              className="ms-line-shine"
+              initial={{ x: '-100%' }}
+              animate={{ x: '260%' }}
+              transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+            />
+          )}
+        </motion.div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.p
+            key={spam ? 'spam' : done ? 'done' : 'left'}
+            className="ms-line-text"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {spam ? (
+              '같은 글자 반복은 인정되지 않아요'
+            ) : done ? (
+              <>
+                <motion.span
+                  className="ms-line-ic"
+                  initial={{ scale: 0, rotate: -30 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 520, damping: 18, delay: 0.05 }}
+                >
+                  <IcCheck />
+                </motion.span>
+                미션 완료
+              </>
+            ) : (
+              <>
+                미션까지{' '}
+                <span className="ms-line-num">
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.b
+                      key={left}
+                      initial={{ y: -8, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 8, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 34 }}
+                    >
+                      {left}
+                    </motion.b>
+                  </AnimatePresence>
+                </span>
+                자
+              </>
+            )}
+          </motion.p>
+        </AnimatePresence>
       </div>
-      <div className="ms-meter-track">
-        <div className="ms-meter-fill" style={{ transform: `scaleX(${spam ? 1 : p})` }} />
-      </div>
-    </div>
+    </MotionConfig>
   );
 }
 

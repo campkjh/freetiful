@@ -1,14 +1,16 @@
-/* 첫 웨딩숲 글 미션 — 입력칸 아래 글자 수 게이지(빨강 → 주황 → 초록) · 규칙 시트 목록 (261111 사장) */
-.ms-meter { --ms-tone: #F04452; margin-top: 10px; padding: 11px 14px 12px; border-radius: 14px; background: #FFEEF0; text-align: left; transition: background-color .3s ease; }
-.ms-meter.is-orange { --ms-tone: #F57800; background: #FFF3E3; }
-.ms-meter.is-green { --ms-tone: #03B26C; background: #E6F8EF; }
-.ms-meter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ms-meter-text { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.4; letter-spacing: -0.2px; color: var(--ms-tone); transition: color .3s ease; animation: msMeterIn .28s cubic-bezier(.22, 1, .36, 1); }
-.ms-meter-ic { width: 16px; height: 16px; flex: none; }
-.ms-meter-count { flex: none; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ms-tone); opacity: .85; transition: color .3s ease; }
-.ms-meter-track { height: 6px; margin-top: 8px; border-radius: 999px; background: rgba(0, 0, 0, .06); overflow: hidden; }
-.ms-meter-fill { width: 100%; height: 100%; border-radius: inherit; background: var(--ms-tone); transform-origin: left center; transition: transform .35s cubic-bezier(.22, 1, .36, 1), background-color .3s ease; }
-@keyframes msMeterIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* 첫 웨딩숲 글 미션 — 입력칸 아래 글자 수 줄(빨강 → 주황 → 초록) · 규칙 시트 목록 (261111 사장)
+   261113: 바탕 상자 없이 얇은 선 + 짧은 한 줄(글자 색만). */
+.ms-line { --ms-tone: #F04452; margin-top: 12px; text-align: left; }
+.ms-line.is-orange { --ms-tone: #F57800; }
+.ms-line.is-green { --ms-tone: #03B26C; }
+.ms-line-track { position: relative; height: 2px; border-radius: 999px; background: #F2F4F6; overflow: hidden; transform-origin: center; }
+.ms-line-fill { position: absolute; inset: 0; border-radius: inherit; background: var(--ms-tone); transform-origin: left center; transition: background-color .3s ease; }
+.ms-line-shine { position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)); pointer-events: none; }
+.ms-line-text { display: flex; align-items: center; white-space: pre; margin: 8px 0 0; font-size: 13px; font-weight: 600; line-height: 18px; letter-spacing: -0.2px; color: var(--ms-tone); transition: color .3s ease; }
+.ms-line-num { position: relative; display: inline-flex; min-width: 1ch; justify-content: center; overflow: hidden; font-variant-numeric: tabular-nums; }
+.ms-line-num b { display: inline-block; font-weight: 700; }
+.ms-line-ic { display: inline-flex; width: 16px; height: 16px; margin-right: 3px; }
+.ms-line-ic svg { width: 100%; height: 100%; }
 
 .ms-rules { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 14px; }
 .ms-rules li { display: flex; gap: 12px; font-size: 15px; line-height: 1.55; letter-spacing: -0.2px; color: #333D4B; }
