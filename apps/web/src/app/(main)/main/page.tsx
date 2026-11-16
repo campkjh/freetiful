@@ -15,7 +15,7 @@ import CheckinOverlay from '@/components/mission/CheckinOverlay';
 import { missionApi, missionLocalKey, WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START } from '@/lib/api/mission.api';
 import { isAdminUser } from '@/lib/admin-access';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
-import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos } from '@/lib/home-promos';
+import { homePopupSessionKey, nextHomePromoBoundary, orderHomeBanners, orderHomePromos } from '@/lib/home-promos';
 import { QuickMatchBubbleGlass } from '@/components/home/TossBubble';
 import { PartnerCategoryIcon } from '@/components/icons/partner';
 import { RankMedal } from '@/components/icons/color';
@@ -1019,7 +1019,7 @@ function HomeTopBanner({ variant = 'mobile' }: { variant?: 'mobile' | 'pc' }) {
   const authUser = useAuthStore((st) => st.user);
   const skipAnim = useHomeAnimationSkip();
   const [bannerTime, setBannerTime] = useState(0);
-  const banners = orderHomePromos(pc ? HOME_TOP_BANNERS : HOME_TOP_BANNERS.filter((b) => !b.pcOnly), bannerTime);
+  const banners = orderHomeBanners(pc ? HOME_TOP_BANNERS : HOME_TOP_BANNERS.filter((b) => !b.pcOnly), bannerTime);
   const campaignPhase = homePopupSessionKey(bannerTime);
   const count = banners.length;
   const [idx, setIdx] = useState(0);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { homePopupSessionKey, nextHomePromoBoundary, orderHomePromos, RECEPTION_END, RECEPTION_START } from './home-promos';
+import { homePopupSessionKey, nextHomePromoBoundary, orderHomeBanners, orderHomePromos, RECEPTION_END, RECEPTION_START } from './home-promos';
 
 const promos = [{ id: 'signup-5000' }, { id: 'reception-2026' }];
 const ids = (now: number) => orderHomePromos(promos, now).map((p) => p.id);
@@ -38,9 +38,23 @@ test('midnight schedule and session dismissal keys follow the same Korea-time bo
   assert.notEqual(homePopupSessionKey(RECEPTION_START), homePopupSessionKey(RECEPTION_END));
 });
 
-test('home carousel keeps reception after signup before the event and preserves other slides', () => {
+test('first popup list hides reception outside November 23 and preserves other items', () => {
   const carousel = [{ id: 'villadegd' }, { id: 'biz' }, { id: 'signup-5000' }, { id: 'reception-2026' }, { id: 'ceramique' }];
   assert.deepEqual(orderHomePromos(carousel, RECEPTION_START - 1).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
   assert.deepEqual(orderHomePromos(carousel, RECEPTION_START).map(p => p.id), ['reception-2026', 'villadegd', 'biz', 'signup-5000', 'ceramique']);
   assert.deepEqual(orderHomePromos(carousel, RECEPTION_END).map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
+});
+
+test('home top carousel shows reception in place before the event, first on the day, gone after', () => {
+  const carousel = [{ id: 'villadegd' }, { id: 'biz' }, { id: 'signup-5000' }, { id: 'reception-2026' }, { id: 'ceramique' }];
+  const order = (now: number) => orderHomeBanners(carousel, now).map(p => p.id);
+  for (const now of [0, Date.parse('2026-11-16T12:00:00+09:00'), RECEPTION_START - 1]) {
+    assert.deepEqual(order(now), ['villadegd', 'biz', 'signup-5000', 'reception-2026', 'ceramique']);
+  }
+  assert.deepEqual(order(RECEPTION_START), ['reception-2026', 'villadegd', 'biz', 'signup-5000', 'ceramique']);
+  assert.deepEqual(order(RECEPTION_END - 1), ['reception-2026', 'villadegd', 'biz', 'signup-5000', 'ceramique']);
+  for (const now of [RECEPTION_END, Date.parse('2027-11-23T12:00:00+09:00')]) {
+    assert.deepEqual(order(now), ['villadegd', 'biz', 'signup-5000', 'ceramique']);
+  }
+  assert.deepEqual(carousel.map(p => p.id), ['villadegd', 'biz', 'signup-5000', 'reception-2026', 'ceramique']);
 });
