@@ -49,12 +49,12 @@ export const RECEPTION_PROGRAM: ReadonlyArray<ReceptionProgramItem> = [
 export const RECEPTION_SURVEY_PICKS = ['1부 축하공연', '시상식', '자유 네트워킹 겸 식사', '2부 축하공연', '레크리에이션', '베스트드레서 어워즈', '경품추첨'] as const;
 
 /* ─── 자리 ─────────────────────────────────────────────
- * 홀 = 무대 아래 원탁 15개(한 줄 3개 × 5줄) · 테이블당 10석.
+ * 홀 = 받은 도면 그대로(261116) — 무대 아래 원탁 19개 · 테이블당 8석. 테이블 위치·번호는 lib/reception/hall.ts.
+ * 좌석 번호 = 무대 쪽(위)이 1번, 시계 방향.
  * 지금은 사장 '일단 자리는 임의로' — 이름으로 정한 임시 자리. 실제 배정표가 오면 SEAT_ASSIGNMENTS 에
  * '이름(띄어쓰기 없이)': [테이블, 좌석] 으로 채우면 그 사람은 그 자리로 나온다. */
-export const TABLE_COUNT = 15;
-export const TABLES_PER_ROW = 3;
-export const SEATS_PER_TABLE = 10;
+export const TABLE_COUNT = 19;
+export const SEATS_PER_TABLE = 8;
 
 export const SEAT_ASSIGNMENTS: Record<string, readonly [table: number, seat: number]> = {};
 
