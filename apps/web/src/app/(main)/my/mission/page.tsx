@@ -14,8 +14,9 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { missionApi, WELCOME_MISSION_OPEN_TO_ALL, type WelcomeMissionStatus } from '@/lib/api/mission.api';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
 import MissionClaimSheet from '@/components/mission/MissionClaimSheet';
-import { IcBack, IcChevron, IcHelp, IcLock } from '@/components/mission/icons';
-import { maybeRevealSecret, revealSecret, SECRET_INSTAGRAM, SECRET_PRIZE } from '@/lib/secret-mission';
+import { IcBack, IcChevron, IcHelp } from '@/components/mission/icons';
+import { revealSecret, secretReady } from '@/lib/secret-mission';
+import { NewsroomCard } from '@/components/announcements/AnnouncementFeed';
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 const kstDate = (iso: string | null | undefined) => {
@@ -24,6 +25,8 @@ const kstDate = (iso: string | null | undefined) => {
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
 };
 const TOSS = (n: string) => `/icons/toss/${n}.svg`;
+/** 시크릿 미션 카드 그림 — 사장 제공 그림(선물 상자 · 립스틱 · 블러셔)을 4:3 바탕(#E4E7FA)에 앉힌 것. bg = 그림 아래쪽 색(아래 흐림 막과 이어지게) */
+const SECRET_ART = { src: '/images/mission/secret-mission.webp', bg: '#E4E7FA', cover: true, position: '50% 50%' };
 
 export default function WelcomeMissionPage() {
   const router = useRouter();
@@ -50,14 +53,18 @@ export default function WelcomeMissionPage() {
       .catch(() => setErr('미션을 불러오지 못했어요. 잠시 뒤 다시 들어와 주세요.'));
   }, [hasHydrated, user]);
 
-  // 시크릿 미션 열림 모달(261118) — 본문이 나오기 시작하면. 하루 한 번 · 응모하면 안 뜸. ?reveal=1 = 기록 없이 미리보기
+  // 시크릿 미션 열림 모달(261118) — 본문이 나오기 시작하면. 이 화면은 들어올 때마다, 응모할 때까지 계속
+  // (사장 '이벤트페이지 들어가면 이행할 때까지 계속 뜨게'). 한 번 들어와서 [나중에] 하면 그 방문엔 다시 안 뜬다. ?reveal=1 = 응모했어도 미리보기
   const revealed = useRef(false);
+  const revealTimer = useRef(0);
   useEffect(() => {
     if (!shown || !st || revealed.current) return;
     revealed.current = true;
-    if (new URLSearchParams(window.location.search).get('reveal') === '1') window.setTimeout(revealSecret, 300);
-    else maybeRevealSecret(st, 300);
+    const preview = new URLSearchParams(window.location.search).get('reveal') === '1';
+    if (preview || secretReady(st)) revealTimer.current = window.setTimeout(revealSecret, 300);
   }, [shown, st]);
+  // 300ms 안에 다른 화면으로 나가면 그 화면에 뜨지 않게
+  useEffect(() => () => window.clearTimeout(revealTimer.current), []);
 
   const isPro = st?.role === 'pro';
   const att = st?.attendance;
@@ -191,29 +198,31 @@ export default function WelcomeMissionPage() {
           </>
         )}
 
+        {/* 신규 미션 — 시크릿 미션(261118). 카드 = 공지사항 뉴스룸 카드 그대로(사장 '프리티풀 공지 느낌 카드'), 그림 = 사장 제공(선물 상자 + 화장품) */}
         {st?.eligible && st.completed && (() => {
           const entry = st.secret?.entry ?? null;
+          const done = entry && entry.status !== 'rejected';
+          const label = !entry ? '참여하기' : entry.status === 'won' ? '당첨' : entry.status === 'entered' ? '응모 완료' : '다시 응모해 주세요';
+          const title = entry?.status === 'won'
+            ? '축하해요! 화장품 세트에 당첨됐어요'
+            : entry?.status === 'entered'
+              ? '응모 완료! 추첨 결과는 알림으로 알려드릴게요'
+              : '인스타 스토리 올리고 4만원 상당 화장품 세트 받아요';
           return (
-            <div className="ms-card ms-secret ms-rise" style={{ ['--d' as string]: '0.3s' }}>
-              <span className="ms-secret-tag"><IcLock />시크릿 미션</span>
-              <h2 className="ms-secret-title">인스타 스토리 올리고{'\n'}<em>화장품 세트</em> 받아요</h2>
-              <p className="ms-secret-sub">스토리에 @{SECRET_INSTAGRAM} 을 태그하면 추첨으로 {SECRET_PRIZE}를 드려요</p>
-              {entry && (
-                <p className={`ms-secret-state ${entry.status}`}>
-                  <b>{entry.status === 'won' ? '당첨됐어요!' : entry.status === 'entered' ? '응모 완료' : '다시 응모해 주세요'}</b>
-                  {entry.status === 'won'
-                    ? '화장품 세트를 보내드릴게요. 받으실 곳은 따로 연락드려요.'
-                    : entry.status === 'entered'
-                      ? `@${entry.instagramId} · 추첨 결과는 알림으로 알려드릴게요`
-                      : entry.adminNote || `스토리에서 @${SECRET_INSTAGRAM} 태그를 찾지 못했어요.`}
-                </p>
-              )}
-              {(!entry || entry.status === 'rejected') && (
-                <button type="button" className="ft-btn primary" onClick={() => router.push('/my/mission/secret')}>
-                  {entry ? '다시 응모하기' : '참여하기'}
-                </button>
-              )}
-            </div>
+            <section className="ms-secret ms-rise" style={{ ['--d' as string]: '0.3s' }} aria-label="신규 미션">
+              <h2 className="ms-secret-head">신규 미션</h2>
+              <NewsroomCard
+                art={SECRET_ART}
+                pinned
+                pinnedLabel={label}
+                tag="시크릿 미션"
+                date="추첨 이벤트"
+                title={title}
+                index={0}
+                delay={0}
+                onOpen={() => router.push(done ? '/my/mission/secret/done' : '/my/mission/secret')}
+              />
+            </section>
           );
         })()}
 

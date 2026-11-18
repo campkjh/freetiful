@@ -1,7 +1,7 @@
 'use client';
 
-/* 시크릿 미션 응모(261118) — 5,000원 미션을 마친 사람이 인스타 스토리(@freetiful_ 태그) 캡처 + 아이디로 응모. 경품 = 4만원 상당 화장품 세트(추첨).
- *  · 캡처를 눌러 크게 보고 인스타 아이디로 스토리를 확인 → 추첨 뒤 [당첨] → 사용자에게 당첨 알림. 태그가 없으면 [반려](사유) → 사용자가 다시 응모.
+/* 시크릿 미션 응모(261118) — 5,000원 미션을 마친 사람이 인스타 스토리에 @freetiful_ 을 태그하고 인스타 아이디로 응모(캡처 없음). 경품 = 4만원 상당 화장품 세트(추첨).
+ *  · 아이디를 눌러 인스타에서 스토리 · 태그를 확인 → 추첨 뒤 [당첨] → 사용자에게 당첨 알림. 태그가 없으면 [반려](사유) → 사용자가 다시 응모.
  *  · API: GET/PATCH /api/v1/admin/mission/welcome/secret(apps/api/src/mission). */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RollingNumber } from '../../_components/AdminNumber';
@@ -18,8 +18,8 @@ interface Entry {
   userId: string;
   user: { id: string; name: string | null; email: string | null; phone: string | null; role: string } | null;
   instagramId: string;
-  imageUrl: string;
-  thumbUrl: string;
+  imageUrl: string | null;
+  thumbUrl: string | null;
   status: Status;
   adminNote: string | null;
   wonAt: string | null;
@@ -147,7 +147,6 @@ export default function SecretMissionAdminPage() {
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>캡처</th>
                   <th>인스타그램</th>
                   <th>회원</th>
                   <th>연락처</th>
@@ -159,12 +158,6 @@ export default function SecretMissionAdminPage() {
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id}>
-                    <td>
-                      <a href={c.imageUrl} target="_blank" rel="noreferrer" title="크게 보기">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={c.thumbUrl} alt="" width={36} height={64} style={{ borderRadius: 6, objectFit: 'cover', background: '#f2f4f6' }} />
-                      </a>
-                    </td>
                     <td className="whitespace-nowrap">
                       <a href={`https://instagram.com/${encodeURIComponent(c.instagramId)}`} target="_blank" rel="noreferrer" className="font-semibold underline decoration-dotted">@{c.instagramId}</a>
                     </td>

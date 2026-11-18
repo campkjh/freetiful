@@ -45,15 +45,8 @@ export const missionApi = {
   status: () => apiClient.get<WelcomeMissionStatus>(BASE).then((r) => r.data),
   checkin: () => apiClient.post<WelcomeMissionStatus & { justCheckedIn: boolean }>(`${BASE}/checkin`).then((r) => r.data),
   claim: (form: WelcomeClaimForm) => apiClient.post<WelcomeMissionStatus>(`${BASE}/claim`, form).then((r) => r.data),
-  /** 시크릿 미션 응모 — 인스타 아이디 + 스토리 캡처(올리기 전에 줄여서) */
-  enterSecret: (instagramId: string, file: Blob) => {
-    const form = new FormData();
-    form.append('instagramId', instagramId);
-    form.append('file', file, 'story.jpg');
-    return apiClient
-      .post<WelcomeMissionStatus>(`${BASE}/secret`, form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })
-      .then((r) => r.data);
-  },
+  /** 시크릿 미션 응모 — 인스타 아이디만(261118) */
+  enterSecret: (instagramId: string) => apiClient.post<WelcomeMissionStatus>(`${BASE}/secret`, { instagramId }).then((r) => r.data),
 };
 
 /** 기기에 남기는 미션 표시(오늘 오버레이 봄 · 오늘 출석 물어봄 · 첫 글/견적 축하함) 키 — 번호를 올리면 모든 기기에서 처음처럼 다시 뜬다(261110 사장 '다시 다 초기화') */

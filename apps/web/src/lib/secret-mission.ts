@@ -1,6 +1,7 @@
 // 시크릿 미션(261118) 열림 모달을 띄우는 신호 — 루트의 MissionTaskHost 가 받아서 그린다(SecretMissionReveal).
-// 5,000원 미션을 다 하는 순간(첫 글 · 첫 견적 오버레이, 홈 · 미션 화면 출석 2일차)과 미션 화면에 들어올 때 부른다.
-// 같은 기기에서 하루 한 번만(응모하면 더 안 뜬다). ?reveal=1 은 기록 없이 바로 띄우는 미리보기.
+// 5,000원 미션을 다 하는 순간(첫 글 · 첫 견적 오버레이 · 홈 출석 2일차)엔 maybeRevealSecret = 기기에서 하루 한 번.
+// 미션 화면(이벤트 화면)은 들어올 때마다 revealSecret — 응모할 때까지 계속(261118 사장 '이벤트페이지 들어가면 이행할 때까지 계속 뜨게').
+// 응모(반려 빼고)하면 어디서도 안 뜬다. 미션 화면 ?reveal=1 = 응모 여부와 상관없이 미리보기.
 import { missionLocalKey, type WelcomeMissionStatus } from '@/lib/api/mission.api';
 import { useAuthStore } from '@/lib/store/auth.store';
 
