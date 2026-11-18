@@ -7,6 +7,8 @@
 
     <!-- ✅ 기존 권한 유지 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 261118 웹 진동(navigator.vibrate · 시크릿 미션 모달) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- 📍 채팅 '현재 위치 보내기'(웹 navigator.geolocation) — 앱을 쓰는 동안만. 백그라운드 위치는 받지 않는다

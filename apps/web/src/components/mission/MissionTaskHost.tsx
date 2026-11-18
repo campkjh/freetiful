@@ -2,16 +2,47 @@
 
 // 첫 글·첫 견적 오버레이를 그리는 곳 — 루트(providers)에 하나. 글 · 견적 신호(lib/mission-sent) → lib/mission-task.ts 판정 → 이벤트.
 // 오버레이는 홈과 같은 그라데이션 판(CheckinOverlay variant='home'), 숫자 = 미션 칸 완료 수(N/4), 채워지는 칸 = 이번 칸.
+// 시크릿 미션 열림 모달(SecretMissionReveal, 261118)도 여기서 그린다 — lib/secret-mission 신호(SECRET_REVEAL_EVENT)를 받아서.
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { MISSION_TASK_EVENT, celebrateMissionTask, type MissionTaskDetail } from '@/lib/mission-task';
 import { MISSION_SENT_EVENT, type MissionSentKind } from '@/lib/mission-sent';
+import { SECRET_REVEAL_EVENT, maybeRevealSecret } from '@/lib/secret-mission';
 
 const CheckinOverlay = dynamic(() => import('./CheckinOverlay'), { ssr: false });
+const SecretMissionReveal = dynamic(() => import('./SecretMissionReveal'), { ssr: false });
+
+/** 시크릿 미션 모달 — 신호가 오면 띄우고, 다른 화면으로 넘어가면 닫는다 */
+function SecretRevealHost() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const at = useRef(pathname);
+  useEffect(() => {
+    const on = () => {
+      at.current = window.location.pathname;
+      setOpen(true);
+    };
+    window.addEventListener(SECRET_REVEAL_EVENT, on);
+    return () => window.removeEventListener(SECRET_REVEAL_EVENT, on);
+  }, []);
+  useEffect(() => {
+    if (open && pathname !== at.current) setOpen(false);
+  }, [pathname, open]);
+  if (!open) return null;
+  return (
+    <SecretMissionReveal
+      onClose={() => setOpen(false)}
+      onGo={() => {
+        setOpen(false);
+        router.push('/my/mission/secret');
+      }}
+    />
+  );
+}
 
 export default function MissionTaskHost() {
-  const router = useRouter();
   const [task, setTask] = useState<MissionTaskDetail | null>(null);
 
   useEffect(() => {
@@ -26,7 +57,16 @@ export default function MissionTaskHost() {
     };
   }, []);
 
-  if (!task) return null;
+  return (
+    <>
+      <SecretRevealHost />
+      {task && <TaskOverlay task={task} onDone={() => setTask(null)} />}
+    </>
+  );
+}
+
+function TaskOverlay({ task, onDone }: { task: MissionTaskDetail; onDone: () => void }) {
+  const router = useRouter();
   const { kind, status: st } = task;
   const att = st.attendance;
   const postDone = st.post.count >= st.post.required;
@@ -50,8 +90,10 @@ export default function MissionTaskHost() {
       cta="확인"
       progressLabel={st.completed ? `${reward} 받기` : '진행상황'}
       onDone={(choice) => {
-        setTask(null);
+        onDone();
+        // [N원 받기] = 미션 화면(거기서 시크릿 미션 모달이 뜬다) · [확인] = 이 자리에서 바로
         if (choice === 'progress') router.push('/my/mission');
+        else if (st.completed) maybeRevealSecret(st, 250);
       }}
     />
   );

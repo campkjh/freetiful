@@ -962,6 +962,18 @@ class MainActivity : ComponentActivity() {
          *  · supportsExternalSchemes: tel:·mailto:·카카오톡 등 앱 주소를 앱이 직접 그 앱으로 넘긴다.
          *    있으면 웹의 2.0.6 우회(전화=intent://번호, 이메일=주소 복사)를 건너뛰고 평범한 링크를 써도 된다.
          */
+        /** (261118) 웹 lib/haptics.ts — 시크릿 미션 모달 진동. webView 는 isHapticFeedbackEnabled=false 라 창(decorView)에서, 시스템 햅틱 설정은 따른다 */
+        @JavascriptInterface fun haptic(kind: String?) {
+            runOnUiThread {
+                val c = when {
+                    android.os.Build.VERSION.SDK_INT >= 30 && kind == "success" -> android.view.HapticFeedbackConstants.CONFIRM
+                    android.os.Build.VERSION.SDK_INT >= 27 && kind != "medium" -> android.view.HapticFeedbackConstants.KEYBOARD_PRESS
+                    else -> android.view.HapticFeedbackConstants.VIRTUAL_KEY
+                }
+                window.decorView.performHapticFeedback(c)
+            }
+        }
+
         @JavascriptInterface fun supportsGeolocation(): Boolean = true
         @JavascriptInterface fun supportsExternalSchemes(): Boolean = true
 

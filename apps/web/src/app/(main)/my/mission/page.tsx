@@ -6,6 +6,7 @@
  *    홈도 그날 첫 방문에 출석 + 같은 오버레이(홈 판, main/page.tsx)를 띄우고 여기로 보낸다 — 그때는 이미 출석이라 본문만 등장.
  *  · 판정·중복 막기는 전부 서버(apps/api/src/mission). 지급은 운영팀이 어드민 /admin/welcome-mission 에서 손으로. */
 import '@/components/mission/mission.css';
+import '@/components/mission/secret-mission.css';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -13,7 +14,8 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { missionApi, WELCOME_MISSION_OPEN_TO_ALL, type WelcomeMissionStatus } from '@/lib/api/mission.api';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
 import MissionClaimSheet from '@/components/mission/MissionClaimSheet';
-import { IcBack, IcChevron, IcHelp } from '@/components/mission/icons';
+import { IcBack, IcChevron, IcHelp, IcLock } from '@/components/mission/icons';
+import { maybeRevealSecret, revealSecret, SECRET_INSTAGRAM, SECRET_PRIZE } from '@/lib/secret-mission';
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 const kstDate = (iso: string | null | undefined) => {
@@ -47,6 +49,15 @@ export default function WelcomeMissionPage() {
       })
       .catch(() => setErr('미션을 불러오지 못했어요. 잠시 뒤 다시 들어와 주세요.'));
   }, [hasHydrated, user]);
+
+  // 시크릿 미션 열림 모달(261118) — 본문이 나오기 시작하면. 하루 한 번 · 응모하면 안 뜸. ?reveal=1 = 기록 없이 미리보기
+  const revealed = useRef(false);
+  useEffect(() => {
+    if (!shown || !st || revealed.current) return;
+    revealed.current = true;
+    if (new URLSearchParams(window.location.search).get('reveal') === '1') window.setTimeout(revealSecret, 300);
+    else maybeRevealSecret(st, 300);
+  }, [shown, st]);
 
   const isPro = st?.role === 'pro';
   const att = st?.attendance;
@@ -179,6 +190,32 @@ export default function WelcomeMissionPage() {
             </div>
           </>
         )}
+
+        {st?.eligible && st.completed && (() => {
+          const entry = st.secret?.entry ?? null;
+          return (
+            <div className="ms-card ms-secret ms-rise" style={{ ['--d' as string]: '0.3s' }}>
+              <span className="ms-secret-tag"><IcLock />시크릿 미션</span>
+              <h2 className="ms-secret-title">인스타 스토리 올리고{'\n'}<em>화장품 세트</em> 받아요</h2>
+              <p className="ms-secret-sub">스토리에 @{SECRET_INSTAGRAM} 을 태그하면 추첨으로 {SECRET_PRIZE}를 드려요</p>
+              {entry && (
+                <p className={`ms-secret-state ${entry.status}`}>
+                  <b>{entry.status === 'won' ? '당첨됐어요!' : entry.status === 'entered' ? '응모 완료' : '다시 응모해 주세요'}</b>
+                  {entry.status === 'won'
+                    ? '화장품 세트를 보내드릴게요. 받으실 곳은 따로 연락드려요.'
+                    : entry.status === 'entered'
+                      ? `@${entry.instagramId} · 추첨 결과는 알림으로 알려드릴게요`
+                      : entry.adminNote || `스토리에서 @${SECRET_INSTAGRAM} 태그를 찾지 못했어요.`}
+                </p>
+              )}
+              {(!entry || entry.status === 'rejected') && (
+                <button type="button" className="ft-btn primary" onClick={() => router.push('/my/mission/secret')}>
+                  {entry ? '다시 응모하기' : '참여하기'}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {st && (
           <div ref={notesRef} className="ms-card ms-notes ms-rise" style={{ ['--d' as string]: '0.33s', scrollMarginTop: 72 }}>

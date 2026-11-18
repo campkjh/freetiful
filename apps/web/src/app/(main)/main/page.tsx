@@ -12,7 +12,8 @@ import ProQuickView from '@/components/ProQuickView';
 import BannerPhotoStrip, { type BannerStrip } from '@/components/home/BannerPhotoStrip';
 import HomePromoPopup, { type HomePromo } from '@/components/home/HomePromoPopup';
 import CheckinOverlay from '@/components/mission/CheckinOverlay';
-import { missionApi, missionLocalKey, WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START } from '@/lib/api/mission.api';
+import { missionApi, missionLocalKey, WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START, type WelcomeMissionStatus } from '@/lib/api/mission.api';
+import { maybeRevealSecret } from '@/lib/secret-mission';
 import { isAdminUser } from '@/lib/admin-access';
 import ReceptionBannerCopy from '@/components/home/ReceptionBannerCopy';
 import { homePopupSessionKey, nextHomePromoBoundary, orderHomeBanners, orderHomePromos } from '@/lib/home-promos';
@@ -2279,7 +2280,7 @@ export default function HomePage() {
   const [popupBannerIndex, setPopupBannerIndex] = useState(0);
   const popupBanner = popupBanners[popupBannerIndex] ?? null;
   // 신규 가입 5,000원 미션 출석 오버레이(261110) — 처음 팝업(이미지)을 닫으면 이어서 뜬다
-  type HomeCheckin = { mode: 'member' | 'guest' | 'preview'; count: number; required: number; postDone: boolean; quoteDone: boolean; today: string };
+  type HomeCheckin = { mode: 'member' | 'guest' | 'preview'; count: number; required: number; postDone: boolean; quoteDone: boolean; today: string; status?: WelcomeMissionStatus };
   const [homeCheckin, setHomeCheckin] = useState<HomeCheckin | null>(null);
   const pendingCheckin = useRef<HomeCheckin | null>(null);
   const popupFlow = useRef<'none' | 'open' | 'closed'>('none');
@@ -2378,7 +2379,7 @@ export default function HomePage() {
             if (justCheckedIn && st.eligible && (!st.claim || st.claim.status === 'rejected') && st.attendance.count <= st.attendance.required) {
               offer({
                 mode: 'member', count: st.attendance.count, required: st.attendance.required, today: st.today,
-                postDone: st.post.count >= st.post.required, quoteDone: st.quote.count >= st.quote.required,
+                postDone: st.post.count >= st.post.required, quoteDone: st.quote.count >= st.quote.required, status: st,
               });
             }
           })
@@ -2976,7 +2977,9 @@ export default function HomePage() {
             } catch {}
             setHomeCheckin(null);
             // [확인] = 홈에 그대로 · [진행상황](비로그인은 [가입하고 시작하기]) = 미션 화면(비로그인은 로그인 창 뒤 거기로)
+            // 이 출석으로 5,000원 미션을 다 했으면 시크릿 미션 모달(261118) — [확인]이면 여기서, [진행상황]이면 미션 화면에서
             if (choice === 'progress') router.push('/my/mission');
+            else if (homeCheckin.status?.completed) maybeRevealSecret(homeCheckin.status, 250);
           }}
         />
       )}

@@ -172,9 +172,9 @@ class ViewController: UIViewController,
         }
         #endif
 
-        // JS → iOS 브릿지 — 로그인·푸시·탭바 상태만 남긴다
+        // JS → iOS 브릿지 — 로그인·푸시·탭바 상태 + 햅틱(261118 시크릿 미션 모달 진동, 웹 lib/haptics.ts)
         ["kakaoLogin", "naverLogin", "googleLogin", "appleLogin", "socialLogout", "showNativeLogin",
-         "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState"].forEach {
+         "oneSignalLogin", "pushLogin", "setOneSignalExternalId", "nativeNavState", "haptic"].forEach {
             contentController.add(self, name: $0)
         }
 
@@ -861,6 +861,16 @@ class ViewController: UIViewController,
         case "appleLogin":  startAppleLogin()
         case "socialLogout": socialLogout()
         case "nativeNavState": handleNavState(message.body)
+        case "haptic":
+            // 웹 haptic('success' | 'light' | 'medium')
+            let kind = message.body as? String ?? "light"
+            DispatchQueue.main.async {
+                switch kind {
+                case "success": UINotificationFeedbackGenerator().notificationOccurred(.success)
+                case "medium": UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                default: UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            }
         case "oneSignalLogin", "pushLogin", "setOneSignalExternalId":
             // 웹(자동로그인·세션복원 포함)에서 userId 전달 → OneSignal external_id 매핑
             if let userId = message.body as? String, !userId.isEmpty {

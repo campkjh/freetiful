@@ -118,6 +118,10 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
     { href: '/admin/reception', label: '참여자' },
     { href: '/admin/reception/survey', label: '설문 응답' },
   ],
+  [
+    { href: '/admin/welcome-mission', label: '5,000원 신청' },
+    { href: '/admin/welcome-mission/secret', label: '시크릿 미션' },
+  ],
 ];
 
 const ALL_ITEMS = NAV.flatMap((s) => s.items);
