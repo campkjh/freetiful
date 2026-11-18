@@ -1,7 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import * as sharp from 'sharp';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { ImageService } from '../image/image.service';
 import {
+  SECRET_ENTRY_STATUSES,
+  SECRET_MISSION_INSTAGRAM,
+  SECRET_MISSION_PRIZE,
+  SECRET_PHOTO_MAX_BYTES,
+  SECRET_PHOTO_MIMES,
   WELCOME_MISSION_REQUIRED,
   WELCOME_MISSION_REWARD,
   WELCOME_MISSION_START,
@@ -10,6 +17,7 @@ import {
   isWelcomeMissionUser,
   kstDay,
   maskAccount,
+  parseInstagramId,
   parseWelcomeClaim,
   welcomeMissionSince,
 } from './welcome-mission.rules';
@@ -23,6 +31,7 @@ export class WelcomeMissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
+    private readonly images: ImageService,
   ) {}
 
   private async user(userId: string) {
@@ -39,12 +48,13 @@ export class WelcomeMissionService {
     const u = await this.user(userId);
     const eligible = isWelcomeMissionUser(u);
     const since = welcomeMissionSince(u.createdAt);
-    const [days, postRows, requests, quotations, claim] = await Promise.all([
+    const [days, postRows, requests, quotations, claim, secret] = await Promise.all([
       this.prisma.userAttendance.findMany({ where: { userId }, orderBy: { day: 'asc' }, select: { day: true } }),
       this.prisma.communityPost.findMany({ where: { userId, isActive: true, isBlinded: false, createdAt: { gte: since } }, select: { content: true } }),
       this.prisma.matchRequest.count({ where: { userId, createdAt: { gte: since } } }),
       this.prisma.quotation.count({ where: { proProfile: { userId }, createdAt: { gte: since } } }),
       this.prisma.welcomeMissionClaim.findUnique({ where: { userId } }),
+      this.prisma.welcomeSecretEntry.findUnique({ where: { userId } }),
     ]);
     const posts = postRows.filter((p) => isWelcomeMissionPost(p.content)).length;
     const today = kstDay();
@@ -54,6 +64,7 @@ export class WelcomeMissionService {
       post: posts >= WELCOME_MISSION_REQUIRED.post,
       quote: requests + quotations >= WELCOME_MISSION_REQUIRED.quote,
     };
+    const completed = done.attendance && done.post && done.quote;
     return {
       eligible,
       reward: WELCOME_MISSION_REWARD,
@@ -63,7 +74,7 @@ export class WelcomeMissionService {
       attendance: { days: attendance, count: attendance.length, required: WELCOME_MISSION_REQUIRED.attendance, checkedToday: attendance.includes(today) },
       post: { count: posts, required: WELCOME_MISSION_REQUIRED.post, minChars: WELCOME_POST_MIN_CHARS },
       quote: { count: requests + quotations, required: WELCOME_MISSION_REQUIRED.quote },
-      completed: done.attendance && done.post && done.quote,
+      completed,
       claim: claim
         ? {
             status: claim.status,
@@ -75,10 +86,65 @@ export class WelcomeMissionService {
             adminNote: claim.status === 'rejected' ? claim.adminNote : null,
           }
         : null,
+      /** 시크릿 미션(261118) — 5,000원 미션을 다 하면 열린다 */
+      secret: {
+        open: eligible && completed,
+        prize: SECRET_MISSION_PRIZE,
+        instagram: SECRET_MISSION_INSTAGRAM,
+        entry: secret
+          ? {
+              status: secret.status as (typeof SECRET_ENTRY_STATUSES)[number],
+              instagramId: secret.instagramId,
+              createdAt: secret.createdAt.toISOString(),
+              adminNote: secret.status === 'rejected' ? secret.adminNote : null,
+            }
+          : null,
+      },
       /** 지급 신청 칸 미리 채우기 */
       phone: u.phone || '',
       name: u.name || '',
     };
+  }
+
+  /** 시크릿 미션 응모 — 인스타 아이디 + 스토리 캡처. 계정당 1번(반려면 다시) */
+  async enterSecret(userId: string, rawInstagramId: unknown, file?: Express.Multer.File) {
+    const st = await this.status(userId);
+    if (!st.eligible) throw new ForbiddenException('신규 가입 미션 참여자만 응모할 수 있어요.');
+    if (!st.completed) throw new BadRequestException('5,000원 미션을 모두 마치면 참여할 수 있어요.');
+    if (st.secret.entry && st.secret.entry.status !== 'rejected') throw new BadRequestException('이미 응모했어요.');
+    const input = parseInstagramId(rawInstagramId);
+    if (typeof input === 'string') throw new BadRequestException(input);
+    if (!file?.buffer?.length) throw new BadRequestException('스토리 캡처를 올려 주세요.');
+    if (!SECRET_PHOTO_MIMES.includes(file.mimetype)) throw new BadRequestException('JPG · PNG · WebP · HEIC 사진만 올릴 수 있어요.');
+    if (file.size > SECRET_PHOTO_MAX_BYTES) throw new BadRequestException('사진이 너무 커요(15MB까지).');
+
+    let full: Buffer;
+    let thumb: Buffer;
+    try {
+      // rotate() = EXIF 방향대로. 스토리 캡처는 세로(9:16) — 원본은 긴 변 1920, 목록 칸은 위쪽 기준 270×480
+      full = await sharp(file.buffer).rotate().resize(1920, 1920, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+      thumb = await sharp(file.buffer).rotate().resize(270, 480, { fit: 'cover', position: 'top' }).webp({ quality: 72 }).toBuffer();
+    } catch (e: any) {
+      this.logger.warn(`secret mission photo decode failed: ${e?.message || e}`);
+      throw new BadRequestException('이 사진은 열 수 없어요. 다른 사진으로 올려 주세요.');
+    }
+    const [imageUrl, thumbUrl] = await Promise.all([
+      this.images.saveRawMedia(full, 'image/webp', 'secret-mission.webp'),
+      this.images.saveRawMedia(thumb, 'image/webp', 'secret-mission-thumb.webp'),
+    ]);
+    const data = { instagramId: input.instagramId, imageUrl, thumbUrl };
+    await this.prisma.welcomeSecretEntry.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: { ...data, status: 'entered', adminNote: null, wonAt: null },
+    });
+    this.notifications
+      .createNotification(userId, 'system' as any, '시크릿 미션 응모 완료', `${SECRET_MISSION_PRIZE} 추첨 결과는 알림으로 알려 드릴게요.`, {
+        type: 'welcome_secret_entered',
+        url: '/my/mission',
+      })
+      .catch(() => undefined);
+    return this.status(userId);
   }
 
   /** 오늘 출석 — 미션 화면을 열 때. 처음 찍힌 날이면 justCheckedIn(화면이 'N일째' 연출을 띄운다) */
@@ -172,6 +238,62 @@ export class WelcomeMissionService {
         createdAt: c.createdAt.toISOString(),
       })),
     };
+  }
+
+  /** 어드민 — 시크릿 미션 응모 목록(최신순 500) */
+  async adminSecretList(params: { status?: string; q?: string }) {
+    const status = SECRET_ENTRY_STATUSES.includes(params.status as any) ? params.status : undefined;
+    const q = params.q?.trim().replace(/^@+/, '');
+    const entries = await this.prisma.welcomeSecretEntry.findMany({
+      where: { ...(status ? { status } : {}), ...(q ? { instagramId: { contains: q.toLowerCase() } } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: entries.map((e) => e.userId) } },
+      select: { id: true, name: true, email: true, phone: true, role: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    const counts = await this.prisma.welcomeSecretEntry.groupBy({ by: ['status'], _count: { _all: true } });
+    const n = (s: string) => counts.find((c) => c.status === s)?._count._all ?? 0;
+    return {
+      summary: { total: n('entered') + n('won') + n('rejected'), entered: n('entered'), won: n('won'), rejected: n('rejected') },
+      entries: entries.map((e) => ({
+        id: e.id,
+        userId: e.userId,
+        user: byId.get(e.userId) ?? null,
+        instagramId: e.instagramId,
+        imageUrl: e.imageUrl,
+        thumbUrl: e.thumbUrl,
+        status: e.status,
+        adminNote: e.adminNote,
+        wonAt: e.wonAt?.toISOString() ?? null,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  /** 어드민 — 당첨 · 반려 · 되돌리기. 당첨/반려로 바뀔 때만 알림 */
+  async adminSecretUpdate(id: string, body: { status?: string; adminNote?: string }) {
+    const status = body.status;
+    if (!SECRET_ENTRY_STATUSES.includes(status as any)) throw new BadRequestException('상태가 올바르지 않아요.');
+    const prev = await this.prisma.welcomeSecretEntry.findUnique({ where: { id } });
+    if (!prev) throw new NotFoundException('응모를 찾을 수 없어요.');
+    const adminNote = typeof body.adminNote === 'string' ? body.adminNote.trim().slice(0, 300) || null : prev.adminNote;
+    const entry = await this.prisma.welcomeSecretEntry.update({
+      where: { id },
+      data: { status, adminNote, wonAt: status === 'won' ? prev.wonAt ?? new Date() : null },
+    });
+    if (prev.status !== status && (status === 'won' || status === 'rejected')) {
+      const [title, text, url] =
+        status === 'won'
+          ? ['시크릿 미션에 당첨됐어요', `축하해요! ${SECRET_MISSION_PRIZE}를 보내 드릴게요. 받으실 곳은 따로 연락드릴게요.`, '/my/mission']
+          : ['시크릿 미션 응모를 다시 확인해 주세요', entry.adminNote || `스토리에서 @${SECRET_MISSION_INSTAGRAM} 태그를 찾지 못했어요. 다시 올려 주세요.`, '/my/mission/secret'];
+      this.notifications
+        .createNotification(entry.userId, 'system' as any, title, text, { type: `welcome_secret_${status}`, entryId: entry.id, url })
+        .catch((e) => this.logger.warn(`notify failed: ${e?.message}`));
+    }
+    return { ok: true, status: entry.status, wonAt: entry.wonAt?.toISOString() ?? null };
   }
 
   async adminUpdate(id: string, body: { status?: string; adminNote?: string }) {

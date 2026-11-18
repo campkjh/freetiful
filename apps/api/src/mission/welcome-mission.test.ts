@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START, isWelcomeMissionPost, isWelcomeMissionUser, kstDay, maskAccount, parseWelcomeClaim } from './welcome-mission.rules';
+import { WELCOME_MISSION_OPEN_TO_ALL, WELCOME_MISSION_START, isWelcomeMissionPost, isWelcomeMissionUser, kstDay, maskAccount, parseInstagramId, parseWelcomeClaim } from './welcome-mission.rules';
 
 test('KST 날짜 — 자정 경계', () => {
   assert.equal(kstDay(new Date('2026-11-10T14:59:59Z')), '2026-11-10');
@@ -44,4 +44,17 @@ test('지급 신청 입력', () => {
   assert.equal(parseWelcomeClaim({ phone: '01012345678', bankName: '국민', accountNumber: '1234', accountHolder: '김' }), '계좌번호를 확인해 주세요.');
   assert.equal(parseWelcomeClaim({ phone: '01012345678', bankName: '국민', accountNumber: '12345678', accountHolder: ' ' }), '예금주를 입력해 주세요.');
   assert.equal(maskAccount('12345678901'), '••••••8901');
+});
+
+test('시크릿 미션 — 인스타 아이디 정리', () => {
+  assert.deepEqual(parseInstagramId('@Freetiful_'), { instagramId: 'freetiful_' });
+  assert.deepEqual(parseInstagramId('  wedding.mc_01 '), { instagramId: 'wedding.mc_01' });
+  assert.deepEqual(parseInstagramId('https://www.instagram.com/my.id/?hl=ko'), { instagramId: 'my.id' });
+  assert.deepEqual(parseInstagramId('instagram.com/abc'), { instagramId: 'abc' });
+  assert.equal(parseInstagramId(''), '인스타그램 아이디를 입력해 주세요.');
+  assert.equal(parseInstagramId(undefined), '인스타그램 아이디를 입력해 주세요.');
+  assert.equal(parseInstagramId('한글아이디'), '인스타그램 아이디를 확인해 주세요.');
+  assert.equal(parseInstagramId('.abc'), '인스타그램 아이디를 확인해 주세요.');
+  assert.equal(parseInstagramId('ab..c'), '인스타그램 아이디를 확인해 주세요.');
+  assert.equal(parseInstagramId('a'.repeat(31)), '인스타그램 아이디를 확인해 주세요.');
 });

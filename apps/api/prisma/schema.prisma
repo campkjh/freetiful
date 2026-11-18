@@ -1733,3 +1733,21 @@ model WelcomeMissionClaim {
   @@index([accountNumber])
   @@map("welcome_mission_claims")
 }
+
+/// 시크릿 미션 응모(261118 사장 '5000원 미션 완료하면 신규 미션 — 인스타 스토리에 프리티풀 태그해서 올리면 추첨으로 4만원 상당 화장품 세트') — 인스타 아이디 + 스토리 캡처, 계정당 1번(반려면 다시).
+model WelcomeSecretEntry {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  instagramId String
+  imageUrl    String
+  thumbUrl    String
+  /// entered(응모) | won(당첨) | rejected(반려 — 다시 응모 가능)
+  status      String    @default("entered")
+  adminNote   String?
+  wonAt       DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@map("welcome_secret_entries")
+}

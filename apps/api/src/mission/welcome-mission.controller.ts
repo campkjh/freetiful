@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { WelcomeMissionService } from './welcome-mission.service';
+import { SECRET_PHOTO_MAX_BYTES } from './welcome-mission.rules';
 
 /** 신규가입 5,000원 미션(261110) — 웹 /mission */
 @ApiTags('mission')
@@ -31,6 +33,14 @@ export class WelcomeMissionController {
   claim(@Req() req: Request, @Body() body: unknown) {
     return this.mission.claim((req.user as any).id, body);
   }
+
+  @Post('secret')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: SECRET_PHOTO_MAX_BYTES } }))
+  @ApiOperation({ summary: '시크릿 미션 응모(261118) — multipart file(스토리 캡처) + instagramId' })
+  enterSecret(@Req() req: Request, @Body() body: { instagramId?: string }, @UploadedFile() file?: Express.Multer.File) {
+    return this.mission.enterSecret((req.user as any).id, body?.instagramId, file);
+  }
 }
 
 /** 어드민 — 신규가입 미션 지급 신청 확인 · 보냄 처리 */
@@ -49,5 +59,16 @@ export class WelcomeMissionAdminController {
   @Patch('claims/:id')
   update(@Param('id') id: string, @Body() body: { status?: string; adminNote?: string }) {
     return this.mission.adminUpdate(id, body);
+  }
+
+  @Get('secret')
+  @Header('Cache-Control', 'private, no-store')
+  secretList(@Query('status') status?: string, @Query('q') q?: string) {
+    return this.mission.adminSecretList({ status, q });
+  }
+
+  @Patch('secret/:id')
+  secretUpdate(@Param('id') id: string, @Body() body: { status?: string; adminNote?: string }) {
+    return this.mission.adminSecretUpdate(id, body);
   }
 }
