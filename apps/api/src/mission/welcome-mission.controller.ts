@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { WelcomeMissionService } from './welcome-mission.service';
-import { SECRET_PHOTO_MAX_BYTES } from './welcome-mission.rules';
 
 /** 신규가입 5,000원 미션(261110) — 웹 /mission */
 @ApiTags('mission')
@@ -35,11 +34,12 @@ export class WelcomeMissionController {
   }
 
   @Post('secret')
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: SECRET_PHOTO_MAX_BYTES } }))
-  @ApiOperation({ summary: '시크릿 미션 응모(261118) — multipart file(스토리 캡처) + instagramId' })
-  enterSecret(@Req() req: Request, @Body() body: { instagramId?: string }, @UploadedFile() file?: Express.Multer.File) {
-    return this.mission.enterSecret((req.user as any).id, body?.instagramId, file);
+  // 첫 배포(캡처 받던 때) 화면이 열린 채 남은 기기는 multipart(instagramId + file)로 보낸다 — 그 글 칸을 읽으려고 multer 만 남겨 둔다(파일은 버림).
+  // JSON 요청엔 multer 가 끼지 않는다. 옛 화면이 다 사라지면 지워도 된다.
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024, files: 1 } }))
+  @ApiOperation({ summary: '시크릿 미션 응모(261118) — 인스타 아이디만 { instagramId }' })
+  enterSecret(@Req() req: Request, @Body() body: { instagramId?: string }) {
+    return this.mission.enterSecret((req.user as any).id, body?.instagramId);
   }
 }
 

@@ -1,14 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import * as sharp from 'sharp';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
-import { ImageService } from '../image/image.service';
 import {
   SECRET_ENTRY_STATUSES,
   SECRET_MISSION_INSTAGRAM,
   SECRET_MISSION_PRIZE,
-  SECRET_PHOTO_MAX_BYTES,
-  SECRET_PHOTO_MIMES,
   WELCOME_MISSION_REQUIRED,
   WELCOME_MISSION_REWARD,
   WELCOME_MISSION_START,
@@ -31,7 +27,6 @@ export class WelcomeMissionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
-    private readonly images: ImageService,
   ) {}
 
   private async user(userId: string) {
@@ -106,37 +101,23 @@ export class WelcomeMissionService {
     };
   }
 
-  /** 시크릿 미션 응모 — 인스타 아이디 + 스토리 캡처. 계정당 1번(반려면 다시) */
-  async enterSecret(userId: string, rawInstagramId: unknown, file?: Express.Multer.File) {
+  /** 시크릿 미션 응모 — 인스타 아이디만(261118). 계정당 1번(반려면 다시), 같은 아이디로 다른 계정은 안 됨(반려된 응모는 빼고) */
+  async enterSecret(userId: string, rawInstagramId: unknown) {
     const st = await this.status(userId);
     if (!st.eligible) throw new ForbiddenException('신규 가입 미션 참여자만 응모할 수 있어요.');
     if (!st.completed) throw new BadRequestException('5,000원 미션을 모두 마치면 참여할 수 있어요.');
     if (st.secret.entry && st.secret.entry.status !== 'rejected') throw new BadRequestException('이미 응모했어요.');
     const input = parseInstagramId(rawInstagramId);
     if (typeof input === 'string') throw new BadRequestException(input);
-    if (!file?.buffer?.length) throw new BadRequestException('스토리 캡처를 올려 주세요.');
-    if (!SECRET_PHOTO_MIMES.includes(file.mimetype)) throw new BadRequestException('JPG · PNG · WebP · HEIC 사진만 올릴 수 있어요.');
-    if (file.size > SECRET_PHOTO_MAX_BYTES) throw new BadRequestException('사진이 너무 커요(15MB까지).');
-
-    let full: Buffer;
-    let thumb: Buffer;
-    try {
-      // rotate() = EXIF 방향대로. 스토리 캡처는 세로(9:16) — 원본은 긴 변 1920, 목록 칸은 위쪽 기준 270×480
-      full = await sharp(file.buffer).rotate().resize(1920, 1920, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
-      thumb = await sharp(file.buffer).rotate().resize(270, 480, { fit: 'cover', position: 'top' }).webp({ quality: 72 }).toBuffer();
-    } catch (e: any) {
-      this.logger.warn(`secret mission photo decode failed: ${e?.message || e}`);
-      throw new BadRequestException('이 사진은 열 수 없어요. 다른 사진으로 올려 주세요.');
-    }
-    const [imageUrl, thumbUrl] = await Promise.all([
-      this.images.saveRawMedia(full, 'image/webp', 'secret-mission.webp'),
-      this.images.saveRawMedia(thumb, 'image/webp', 'secret-mission-thumb.webp'),
-    ]);
-    const data = { instagramId: input.instagramId, imageUrl, thumbUrl };
+    const dup = await this.prisma.welcomeSecretEntry.findFirst({
+      where: { userId: { not: userId }, instagramId: input.instagramId, status: { not: 'rejected' } },
+      select: { id: true },
+    });
+    if (dup) throw new BadRequestException('이미 다른 계정으로 응모한 인스타그램 아이디예요.');
     await this.prisma.welcomeSecretEntry.upsert({
       where: { userId },
-      create: { userId, ...data },
-      update: { ...data, status: 'entered', adminNote: null, wonAt: null },
+      create: { userId, instagramId: input.instagramId },
+      update: { instagramId: input.instagramId, imageUrl: null, thumbUrl: null, status: 'entered', adminNote: null, wonAt: null },
     });
     this.notifications
       .createNotification(userId, 'system' as any, '시크릿 미션 응모 완료', `${SECRET_MISSION_PRIZE} 추첨 결과는 알림으로 알려 드릴게요.`, {
@@ -288,7 +269,7 @@ export class WelcomeMissionService {
       const [title, text, url] =
         status === 'won'
           ? ['시크릿 미션에 당첨됐어요', `축하해요! ${SECRET_MISSION_PRIZE}를 보내 드릴게요. 받으실 곳은 따로 연락드릴게요.`, '/my/mission']
-          : ['시크릿 미션 응모를 다시 확인해 주세요', entry.adminNote || `스토리에서 @${SECRET_MISSION_INSTAGRAM} 태그를 찾지 못했어요. 다시 올려 주세요.`, '/my/mission/secret'];
+          : ['시크릿 미션 응모를 다시 확인해 주세요', entry.adminNote || `스토리에서 @${SECRET_MISSION_INSTAGRAM} 태그를 찾지 못했어요. 스토리를 올리고 다시 응모해 주세요.`, '/my/mission/secret'];
       this.notifications
         .createNotification(entry.userId, 'system' as any, title, text, { type: `welcome_secret_${status}`, entryId: entry.id, url })
         .catch((e) => this.logger.warn(`notify failed: ${e?.message}`));

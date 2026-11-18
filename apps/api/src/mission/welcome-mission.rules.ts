@@ -78,14 +78,13 @@ export const maskAccount = (n: string) => (n.length <= 4 ? n : `${'•'.repeat(M
 
 /* ─── 시크릿 미션(261118 사장 '5000원 미션완료하면 신규미션 — 인스타그램 스토리에 프리티풀을 태그해서 올려주면 추첨을 통해 4만원 상당의 화장품 세트') ───
  *  · 열림 = 5,000원 미션(출석 2 · 글 1 · 견적 1)을 다 한 계정. 5,000원 신청 여부와는 상관없다.
- *  · 응모 = 인스타 아이디 + 스토리 캡처 1장(계정당 1번, 반려되면 다시). 추첨 · 당첨 표시는 운영팀이 어드민에서. */
+ *  · 응모 = 인스타 아이디만(261118 사장 '캡처사진 필요없고 그냥 인스타아이디만') — 계정당 1번, 반려되면 다시. 같은 아이디로 다른 계정이 또 응모할 수 없다.
+ *    스토리 · 태그 확인과 추첨 · 당첨 표시는 운영팀이 어드민에서. */
 export const SECRET_MISSION_PRIZE = '4만원 상당 화장품 세트';
 /** 태그할 프리티풀 인스타 계정(웹 /biz 와 같은 계정) */
 export const SECRET_MISSION_INSTAGRAM = 'freetiful_';
 /** entered(응모) | won(당첨) | rejected(반려 — 다시 응모 가능) */
 export const SECRET_ENTRY_STATUSES = ['entered', 'won', 'rejected'] as const;
-export const SECRET_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
-export const SECRET_PHOTO_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 /** 인스타 아이디 — '@아이디' · 프로필 주소를 붙여 넣어도 아이디만. 영문 소문자 · 숫자 · 마침표 · 밑줄 30자(인스타 규칙) — 틀리면 이유 문자열 */
 export function parseInstagramId(v: unknown): { instagramId: string } | string {
