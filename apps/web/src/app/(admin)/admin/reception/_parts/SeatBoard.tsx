@@ -48,7 +48,9 @@ import {
   CHART_TABLE_R,
   CHART_TABLES,
   CHART_TITLE,
+  CHART_LOOSE_IN_MAX,
   CHART_W,
+  chartLooseSize,
   chartNameSize,
 } from '@/lib/reception/seat-chart';
 import './seat-board.css';
@@ -157,13 +159,14 @@ interface DragState {
   armLeft: boolean;
   armRight: boolean;
   accX: number;
-  /** 배정표 이름 칸에서 들었음(복제 칸을 그림 모양으로) · 그때 그림 1px 의 화면 px */
+  /** 배정표 이름 칸에서 들었음(복제 칸을 그림 모양으로) · 그때 그림 1px 의 화면 px · 원래 이름 글자 크기(px) */
   chart: boolean;
   u: number;
+  fs: number;
 }
 
-/** add.seat — undefined = 첫 빈 좌석을 골라 둠 */
-type Sheet = { kind: 'person'; key: string } | { kind: 'add'; table: number; seat?: number | null };
+/** add.seat — undefined = 첫 빈 좌석을 골라 둠 · loose = 원탁 안에 다 못 그린 좌석 없는 사람 목록 */
+type Sheet = { kind: 'person'; key: string } | { kind: 'add'; table: number; seat?: number | null } | { kind: 'loose'; table: number };
 
 /** 서버 cleanName 과 같게 — 제어 문자 제거 · 겹친 띄어쓰기 하나로 · 1~20자 */
 function cleanName(v: string): string | null {
@@ -674,20 +677,22 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
     if (!drag.current) swallowClick.current = false; // 새 누르기 — 지난 끌기의 click 막기는 끝
     if (latest.current.locked || key.startsWith('tmp:') || drag.current) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const chartChip = e.currentTarget.closest<HTMLElement>('.sc-box, .sc-loose');
-    // 배정표 이름 칸에서 들면 칸 전체를 들어 올린다(한 칸 둘이면 그 줄만)
-    const el = chartChip && chartChip.classList.contains('sc-box') && chartChip.querySelectorAll('[data-sb-chip]').length === 1 ? chartChip : e.currentTarget;
-    const r = el.getBoundingClientRect();
+    const el = e.currentTarget;
+    const chartHost = el.closest<HTMLElement>('.sc-box, .sc-loose');
+    // 배정표 이름 칸에서 들면 복제 칸은 칸 크기로(한 칸 둘이면 그 줄만) — 재기만 칸으로 하고, 포인터 캡처는 이름 단추 자신에
+    // (칸 div 가 캡처하면 마우스 click 이 칸으로 가서 이름 단추 onClick = 사람 창이 안 열린다, fix 261123 검토)
+    const measure = chartHost && chartHost.classList.contains('sc-box') && chartHost.querySelectorAll('[data-sb-chip]').length === 1 ? chartHost : el;
+    const r = measure.getBoundingClientRect();
     const touch = e.pointerType !== 'mouse';
     const cw = canvasRef.current?.getBoundingClientRect().width ?? 0;
     const d: DragState = {
-      pointerId: e.pointerId, key, el: e.currentTarget,
+      pointerId: e.pointerId, key, el,
       sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY,
       ox: e.clientX - r.left, oy: e.clientY - r.top, w: r.width,
       active: false, plan: null,
       touch, timer: 0, ly: e.clientY, armTop: false, armBottom: false, last: 0, acc: 0,
       lx: e.clientX, armLeft: false, armRight: false, accX: 0,
-      chart: !!chartChip, u: cw > 0 ? cw / CHART_W : 0.4,
+      chart: !!chartHost, u: cw > 0 ? cw / CHART_W : 0.4, fs: parseFloat(getComputedStyle(el).fontSize) || 14,
     };
     drag.current = d;
     if (touch) {
@@ -812,16 +817,16 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
     );
   };
 
-  /** 배정표 이름 — 칸 안(no = 한 칸 둘일 때 1 · 2) 또는 칸 없는 글자(좌석 없음) */
-  const chartChip = (line: Line, no: number, lines: number) => {
+  /** 배정표 이름 — 칸 안(no = 한 칸 둘일 때 1 · 2) 또는 칸 없는 글자(좌석 없음). fs = 글자 크기(그림 px) */
+  const chartChip = (line: Line, no: number, fs: number) => {
     const { p } = line;
     const temp = p.key.startsWith('tmp:');
     return (
       <button
         key={p.key}
         type="button"
-        className={`sc-chip s-${line.stage}${dragKey === p.key ? ' is-lifted' : ''}${temp ? ' is-temp' : ''}`}
-        style={{ fontSize: U(chartNameSize(p.name, lines)) }}
+        className={`sc-chip s-${line.stage}${dragKey === p.key ? ' is-lifted' : ''}${zone(`chip:${p.key}`)}${temp ? ' is-temp' : ''}`}
+        style={{ fontSize: U(fs) }}
         data-sb-chip={p.key}
         data-sb-listed={p.listed ? '1' : '0'}
         onPointerDown={(e) => onChipDown(e, p.key)}
@@ -930,7 +935,25 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
                     >
                       {ct.n}
                     </button>
-                    {!out && t.loose.length > 0 && <div className="sc-loose sc-loose-in">{t.loose.map((l) => chartChip(l, 0, 2))}</div>}
+                    {!out && t.loose.length > 0 && (
+                      // 원 안은 번호 밑 두 줄까지 — 그 아래는 아래 칸 자리(가려져 못 누름). 넘치면 한 명 + '외 N명'(누르면 목록 창)
+                      <div className="sc-loose sc-loose-in">
+                        {(t.loose.length > CHART_LOOSE_IN_MAX ? t.loose.slice(0, CHART_LOOSE_IN_MAX - 1) : t.loose).map((l) => chartChip(l, 0, chartLooseSize(l.p.name)))}
+                        {t.loose.length > CHART_LOOSE_IN_MAX && (
+                          <button
+                            type="button"
+                            className="sc-more"
+                            style={{ fontSize: U(20) }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSheet({ kind: 'loose', table: ct.n });
+                            }}
+                          >
+                            외 {t.loose.length - (CHART_LOOSE_IN_MAX - 1)}명
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {out && t.loose.length > 0 && (
                     <div
@@ -939,7 +962,7 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
                       data-table={ct.n}
                       style={out.align === 'left' ? { left: U(ct.x + out.dx), top: U(ct.y + out.dy) } : { right: U(CHART_W - (ct.x + out.dx)), top: U(ct.y + out.dy) }}
                     >
-                      {t.loose.map((l) => chartChip(l, 0, 1))}
+                      {t.loose.map((l) => chartChip(l, 0, chartNameSize(l.p.name, 1, 200)))}
                     </div>
                   )}
                   {SEATS.map((s) => {
@@ -947,10 +970,10 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
                     const list = t.seats[s - 1];
                     const cx = ct.x + g.dx;
                     const left = g.side === 'c' ? cx : g.side === 'l' ? cx - CHART_BOX.w / 2 : cx + CHART_BOX.w / 2;
-                    // 위 칸은 위로, 아래 칸은 아래로 늘어난다(한 칸 둘 — 옆 칸에 안 겹치게)
-                    const grow = s === 1 ? ' grow-up' : s === 5 ? ' grow-down' : '';
+                    // 한 칸 둘이면 옆 칸에 안 닿는 쪽으로 늘어난다(seat-chart.ts grow) · 폭은 옆 원탁 칸에 안 닿게 maxW 까지
+                    const grow = g.grow ? ` grow-${g.grow}` : '';
                     const cls = `sc-box side-${g.side}${grow}${list.length ? '' : ' empty'}${list.length > 1 ? ' multi' : ''}${boxZone(ct.n, s, list)}`;
-                    const style = { left: U(left), top: U(ct.y + g.dy) };
+                    const style = { left: U(left), top: U(ct.y + g.dy), maxWidth: U(g.maxW) };
                     if (!list.length) {
                       return (
                         <button
@@ -968,7 +991,7 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
                     }
                     return (
                       <div key={s} className={cls} style={style} data-sb-drop="seat" data-table={ct.n} data-seat={s}>
-                        {list.map((l, i) => chartChip(l, list.length > 1 ? i + 1 : 0, list.length))}
+                        {list.map((l, i) => chartChip(l, list.length > 1 ? i + 1 : 0, chartNameSize(l.p.name, list.length, g.maxW, list.length > 1)))}
                       </div>
                     );
                   })}
@@ -998,7 +1021,8 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
             aria-hidden
           >
             {d.chart ? (
-              <div className={`sc-ghost-box sc-chip s-${dragLine.stage}`} style={{ fontSize: U(chartNameSize(dragLine.p.name)) }}>
+              // 원래 이름과 같은 글자 크기 · 글자가 길면 칸이 따라 넓어짐(min = 든 칸 폭)
+              <div className={`sc-ghost-box sc-chip s-${dragLine.stage}`} style={{ fontSize: `${d.fs}px` }}>
                 <span className="sc-hl">{dragLine.p.name}</span>
               </div>
             ) : (
@@ -1023,6 +1047,15 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
           onRename={doRename}
           onPlace={doPlace}
           onRemove={doRemove}
+        />
+      )}
+      {sheet?.kind === 'loose' && (
+        <LooseSheet
+          table={sheet.table}
+          lines={board.tables[sheet.table - 1]?.loose ?? []}
+          nowMs={nowMs}
+          onClose={closeSheet}
+          onPick={(key) => setSheet({ kind: 'person', key })}
         />
       )}
       {sheet?.kind === 'add' && (
@@ -1215,6 +1248,31 @@ function PersonSheet({
   );
 }
 
+/** 원탁 안에 다 못 그린 좌석 없는 사람 목록 — 누르면 그 사람 창 */
+function LooseSheet({ table, lines, nowMs, onClose, onPick }: { table: number; lines: Line[]; nowMs: number; onClose: () => void; onPick: (key: string) => void }) {
+  return (
+    <SheetFrame label={`${table}번 테이블 좌석 없는 사람`} title={`${table}번 테이블 · 좌석 없음 ${lines.length}명`} onClose={onClose}>
+      <div className="sb-sheet-sec sb-loose-list">
+        {lines.length === 0 && <p className="adm-modal-note">지금은 좌석 없는 사람이 없어요.</p>}
+        {lines.map((l) => {
+          const tag = stageTagText(l.p, l.stage, nowMs);
+          return (
+            <button key={l.p.key} type="button" className="sb-loose-row" onClick={() => onPick(l.p.key)}>
+              <b>{l.p.name}</b>
+              <span className={`sb-tag s-${l.stage}`}>{tag || '아직 안 왔어요'}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="adm-modal-note">이름을 누르면 이름 고치기 · 자리 옮기기 창이 열려요.</p>
+      <div className="adm-modal-actions">
+        <span className="grow" />
+        <button type="button" className="adm-btn" onClick={onClose}>닫기</button>
+      </div>
+    </SheetFrame>
+  );
+}
+
 function AddSheet({
   table,
   seat: seatIn,
@@ -1242,12 +1300,14 @@ function AddSheet({
   const sameElsewhere = !!key && !sameHere && rows.some((r) => r.listed && r.table !== table && receptionNameKey(r.name) === key);
   const err = name.trim() && !clean ? `이름은 ${NAME_MAX}자까지예요.` : sameHere ? sameNameText(table, clean || name) : null;
   const can = !!clean && !sameHere && !locked;
+  // 누른 빈 칸이 그 사이 다른 화면에서 찼을 수 있다(2초 폴링) — 같이 앉게 된다고 알린다
+  const seatTaken = seat != null ? rows.filter((r) => r.listed && r.table === table && r.seat === seat).map((r) => r.name) : [];
   const submit = () => {
     if (can && clean) onAdd(table, clean, seat);
   };
 
   return (
-    <SheetFrame label={`${table}번 테이블에 사람 추가`} title={`${table}번 테이블${seatIn != null ? ` ${seatIn}번 자리` : ''}에 사람 추가`} onClose={onClose}>
+    <SheetFrame label={`${table}번 테이블에 사람 추가`} title={`${table}번 테이블${seat != null ? ` ${seat}번 자리` : ''}에 사람 추가`} onClose={onClose}>
       <div className="sb-sheet-sec">
         <label className="adm-label" htmlFor="sb-add-name">이름</label>
         <input
@@ -1274,6 +1334,11 @@ function AddSheet({
       <div className="sb-sheet-sec">
         <label className="adm-label" htmlFor="sb-add-seat">좌석</label>
         <SeatSelect id="sb-add-seat" rows={rows} table={table} value={seat} onChange={setSeat} />
+        {seatTaken.length > 0 && (
+          <p className="adm-modal-note">
+            {seat}번 자리에 이미 {seatTaken.join(', ')} 님이 있어요 — 넣으면 같은 자리에 같이 앉아요.
+          </p>
+        )}
       </div>
       <p className="adm-modal-note">넣으면 바로 손님 앱에서 이 이름으로 자리를 찾을 수 있어요.</p>
       <div className="adm-modal-actions">

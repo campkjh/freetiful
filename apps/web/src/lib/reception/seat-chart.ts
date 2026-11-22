@@ -30,18 +30,20 @@ export const CHART_TABLES: ReadonlyArray<{ n: number; x: number; y: number }> = 
 ];
 
 /**
- * 좌석 s 이름 칸 중심(원탁 중심에서) + 칸이 넓어질 때 붙는 쪽.
+ * 좌석 s 이름 칸 중심(원탁 중심에서) + 칸이 넓어질 때 붙는 쪽 + 한 칸 둘일 때 늘어나는 쪽 + 최대 폭.
  * side 'c' = 가운데 기준(위 · 아래) · 'l' = 왼쪽 끝 고정(오른쪽 칸들, 오른쪽으로 늘어남) · 'r' = 오른쪽 끝 고정(왼쪽 칸들)
+ * grow = 두 줄이 되면 늘어나는 쪽(옆 칸에 안 닿게 — 위 칸 1 은 위로, 아래 칸 5 는 아래로, 2·8 은 아래로, 4·6 은 위로, 3·7 은 가운데)
+ * maxW = 옆 원탁 칸에 안 닿는 최대 폭(줄 간격 347 기준: 3·7 끼리 남는 폭 253 → 124, 2·8 / 4·6 끼리 277 → 136, 1·5 는 위아래가 비어 160)
  */
-export const CHART_SEATS: Readonly<Record<number, { dx: number; dy: number; side: 'c' | 'l' | 'r' }>> = {
-  1: { dx: 0, dy: -122, side: 'c' },
-  2: { dx: 95, dy: -72, side: 'l' },
-  3: { dx: 107, dy: 0, side: 'l' },
-  4: { dx: 95, dy: 72, side: 'l' },
-  5: { dx: 0, dy: 122, side: 'c' },
-  6: { dx: -95, dy: 72, side: 'r' },
-  7: { dx: -107, dy: 0, side: 'r' },
-  8: { dx: -95, dy: -72, side: 'r' },
+export const CHART_SEATS: Readonly<Record<number, { dx: number; dy: number; side: 'c' | 'l' | 'r'; grow: 'up' | 'down' | null; maxW: number }>> = {
+  1: { dx: 0, dy: -122, side: 'c', grow: 'up', maxW: 160 },
+  2: { dx: 95, dy: -72, side: 'l', grow: 'down', maxW: 136 },
+  3: { dx: 107, dy: 0, side: 'l', grow: null, maxW: 124 },
+  4: { dx: 95, dy: 72, side: 'l', grow: 'up', maxW: 136 },
+  5: { dx: 0, dy: 122, side: 'c', grow: 'down', maxW: 160 },
+  6: { dx: -95, dy: 72, side: 'r', grow: 'up', maxW: 136 },
+  7: { dx: -107, dy: 0, side: 'r', grow: null, maxW: 124 },
+  8: { dx: -95, dy: -72, side: 'r', grow: 'down', maxW: 136 },
 };
 
 /**
@@ -53,10 +55,18 @@ export const CHART_LOOSE_OUT: Readonly<Record<number, { dx: number; dy: number; 
   12: { dx: 144, dy: 216, align: 'right' },
 };
 
-/** 이름 글자 크기(원본 픽셀) — 그림 = 29, 한 칸 둘이면 24. 긴 이름은 줄이되 22 아래로는 안 줄이고 칸을 바깥쪽으로 늘린다
- *  (6자 '김현우사회자'도 옆 원탁 칸에 안 닿음 — 12번 왼쪽 아래 칸 왼쪽 끝 2425 > 11번 오른쪽 아래 칸 오른쪽 끝 2417) */
-export function chartNameSize(name: string, lines = 1): number {
-  const n = Math.max([...name].length, 1);
+/**
+ * 이름 글자 크기(원본 픽셀) — 그림 = 29, 한 칸 둘이면 24. 칸 최대 폭(maxW, 좌우 여백 · 테두리 18 빼고)에 들어가게 줄이되 16 아래로는 안 줄인다
+ * (그보다 길면 말줄임). prefix = 앞에 붙는 '1.' 같은 번호(한 글자로 셈).
+ */
+export function chartNameSize(name: string, lines = 1, maxW = 136, prefix = false): number {
+  const n = Math.max([...name].length + (prefix ? 1 : 0), 1);
   const base = lines > 1 ? 24 : 29;
-  return Math.max(22, Math.min(base, 104 / n));
+  return Math.max(16, Math.min(base, (maxW - 18) / n));
+}
+
+/** 원탁 안 좌석 없는 이름 — 번호 밑 두 줄까지(그 아래는 아래 칸 · 옆 칸 자리), 폭 ±34 안(대각선 칸 안쪽 끝 ±35) */
+export const CHART_LOOSE_IN_MAX = 2;
+export function chartLooseSize(name: string): number {
+  return Math.max(14, Math.min(22, 60 / Math.max([...name].length, 1)));
 }

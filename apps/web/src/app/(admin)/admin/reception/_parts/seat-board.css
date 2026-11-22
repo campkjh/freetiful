@@ -26,24 +26,40 @@
 .sc-round { position: absolute; box-sizing: border-box; border: calc(var(--u) * 2) solid #C4C7CE; border-radius: 50%; background: #F2F3F7; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease, border-color .15s ease; }
 .sc-round.is-over { border-color: var(--admin-blue); background: var(--admin-blue-weak); }
 .sc-round.is-bad { border-color: var(--admin-red); background: var(--admin-red-weak); }
-.sc-num { position: absolute; top: 50%; left: 50%; margin: 0; padding: calc(var(--u) * 6) calc(var(--u) * 14); border: 0; border-radius: calc(var(--u) * 10); background: none; color: #253447; font-family: inherit; font-size: calc(var(--u) * 38); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; transform: translate(-50%, -50%); -webkit-tap-highlight-color: transparent; }
+.sc-num { position: absolute; top: 50%; left: 50%; margin: 0; padding: calc(var(--u) * 6) calc(var(--u) * 14); border: 0; border-radius: calc(var(--u) * 10); background: none; color: #253447; font-family: inherit; font-size: calc(var(--u) * 38); font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; translate: -50% -50%; -webkit-tap-highlight-color: transparent; }
+/* 어드민 공통 글줄 높이(.admin-shell button · span 1.45, 0-1-1)보다 세게 — 그림 칸 높이가 어긋나지 않게 */
+.sb .sc-num { line-height: 1; }
+.sb .sc-chip, .sb .sc-chip span, .sb .sc-more, .sb-ghost .sc-chip, .sb-ghost .sc-chip span { line-height: 1.2; }
 .sc-num:focus-visible { outline: 2px solid var(--admin-blue); }
 /* 좌석 없는 사람 — 칸 없이 글자만(그림의 '김정덕') */
 .sc-loose { position: absolute; display: flex; flex-direction: column; gap: calc(var(--u) * 2); }
-.sc-loose-in { top: calc(50% + var(--u) * 26); left: 50%; align-items: center; max-width: calc(var(--u) * 150); transform: translateX(-50%); }
-.sc-loose-out { min-width: calc(var(--u) * 120); padding: calc(var(--u) * 4); border-radius: calc(var(--u) * 8); transform: translateY(-50%); transition: background-color .15s ease, box-shadow .15s ease; }
+/* 원 안 = 번호 밑 두 줄(번호 아래 22 ~ 아래 칸 위 98 사이) · 폭 ±34(대각선 칸 안쪽 끝 ±35) — 넘치면 한 명 + '외 N명' */
+.sc-loose-in { top: calc(50% + var(--u) * 22); left: 50%; align-items: center; width: calc(var(--u) * 68); translate: -50% 0; }
+.sc-loose-in .sc-chip { max-width: 100%; }
+.sc-more { margin: 0; padding: 0 calc(var(--u) * 6); border: 0; border-radius: calc(var(--u) * 6); background: #fff; box-shadow: inset 0 0 0 calc(var(--u) * 1.5) #9EA6B1; color: #4E5968; font-family: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* 바깥(5 · 12) = 그림의 '김정덕' 줄 위끝에 맞추고 아래로 늘어난다(위로 늘면 원탁 아래 칸에 닿음) */
+.sc-loose-out { min-width: calc(var(--u) * 120); padding: calc(var(--u) * 4); border-radius: calc(var(--u) * 8); translate: 0 calc(var(--u) * -21); transition: background-color .15s ease, box-shadow .15s ease; }
 .sc-loose-out.left { align-items: flex-start; }
 .sc-loose-out.right { align-items: flex-end; }
 .sc-loose-out.is-over { background: var(--admin-blue-weak); box-shadow: inset 0 0 0 2px var(--admin-blue); }
 .sc-loose-out.is-bad { background: var(--admin-red-weak); box-shadow: inset 0 0 0 2px var(--admin-red); }
 .sc-loose .sc-chip { padding: 0 calc(var(--u) * 4); }
+/* 좌석 없는 사람 위에 놓기 = 맞바꾸기 — 그 이름을 강조(칸이 없으니 이름 자체에) */
+.sc-loose .sc-chip.is-over { background: var(--admin-blue-weak); box-shadow: inset 0 0 0 2px var(--admin-blue); }
+.sc-loose .sc-chip.is-bad { background: var(--admin-red-weak); box-shadow: inset 0 0 0 2px var(--admin-red); }
 /* 이름 칸 — 위 · 아래 칸은 가운데 기준, 오른쪽 칸은 왼쪽 끝 · 왼쪽 칸은 오른쪽 끝 고정(긴 이름이면 바깥으로 늘어남) */
 .sc-box { position: absolute; display: flex; flex-direction: column; align-items: stretch; justify-content: center; box-sizing: border-box; min-width: calc(var(--u) * 120); min-height: calc(var(--u) * 48); margin: 0; padding: 0; border: calc(var(--u) * 2) solid #9EA6B1; border-radius: calc(var(--u) * 8); background: #fff; box-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 5) rgba(20, 28, 40, .26); font-family: inherit; transition: border-color .15s ease, background-color .15s ease; }
-.sc-box.side-c { transform: translate(-50%, -50%); }
-.sc-box.side-l { transform: translate(0, -50%); }
-.sc-box.side-r { transform: translate(-100%, -50%); }
-.sc-box.side-c.grow-up { transform: translate(-50%, calc(-100% + var(--u) * 24)); }
-.sc-box.side-c.grow-down { transform: translate(-50%, calc(var(--u) * -24)); }
+/* 자리 잡기는 transform 이 아니라 translate 속성 — 어드민 공통 '누르면 0.97배'(.admin-shell button:active { transform }, 0-3-1)가
+   transform 을 덮어써 빈 칸이 눌리는 순간 튀어 나가 click 이 안 되던 것(fix 261123 검토). 둘은 따로 겹쳐 적용된다 */
+.sc-box.side-c { translate: -50% -50%; }
+.sc-box.side-l { translate: 0 -50%; }
+.sc-box.side-r { translate: -100% -50%; }
+.sc-box.side-c.grow-up { translate: -50% calc(-100% + var(--u) * 24); }
+.sc-box.side-c.grow-down { translate: -50% calc(var(--u) * -24); }
+.sc-box.side-l.grow-up { translate: 0 calc(-100% + var(--u) * 24); }
+.sc-box.side-l.grow-down { translate: 0 calc(var(--u) * -24); }
+.sc-box.side-r.grow-up { translate: -100% calc(-100% + var(--u) * 24); }
+.sc-box.side-r.grow-down { translate: -100% calc(var(--u) * -24); }
 .sc-box.empty { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .sc-box.empty:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: 1px; }
 .sc-box.multi { padding: calc(var(--u) * 2) 0; }
@@ -52,13 +68,13 @@
 /* 끄는 동안 빈 칸이 놓을 곳으로 보이게 */
 .sb.is-dragging .sc-box.empty:not(.is-over):not(.is-bad) { border-color: #6B7684; }
 /* 이름(칸 안 · 칸 없는 글자) — 끌기 손잡이 */
-.sc-chip { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; min-width: 0; margin: 0; padding: 0 calc(var(--u) * 8); border: 0; border-radius: calc(var(--u) * 6); background: none; color: #1F2329; font-family: inherit; font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap; cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: opacity .15s ease; }
+.sc-chip { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; min-width: 0; overflow: hidden; margin: 0; padding: 0 calc(var(--u) * 8); border: 0; border-radius: calc(var(--u) * 6); background: none; color: #1F2329; font-family: inherit; font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap; cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: opacity .15s ease; }
 .sc-chip:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: -2px; }
 .sc-chip.is-lifted { opacity: .3; }
 .sc-chip.is-temp { cursor: default; opacity: .6; }
 .sc-no-mark { margin-right: .1em; }
 /* 형광펜 = 참여 단계(그림의 하늘색 형광펜 = 도착) */
-.sc-hl { padding: 0 .08em; transition: background-color .3s ease; }
+.sc-hl { min-width: 0; overflow: hidden; padding: 0 .08em; text-overflow: ellipsis; white-space: nowrap; transition: background-color .3s ease; }
 .s-arrived > .sc-hl, .sc-hl.s-arrived { background: #00FFFF; }
 .s-quiz > .sc-hl, .sc-hl.s-quiz { background: #FFEB3B; }
 .s-mission > .sc-hl, .sc-hl.s-mission { background: #FFBF80; }
@@ -73,7 +89,7 @@
 .sc-legend .sc-hl { padding: 1px 6px; border: 1px solid #9EA6B1; border-radius: 4px; color: #1F2329; font-size: 12px; font-weight: 500; }
 .sc-legend .sc-hl.s-none { background: #fff; }
 /* 손가락 따라 떠다니는 이름 칸(body 포털 — --u 는 SeatBoard 가 px 로 넣음) */
-.sb-ghost .sc-ghost-box { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: calc(var(--u) * 48); border: calc(var(--u) * 2) solid #9EA6B1; border-radius: calc(var(--u) * 8); background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .18); cursor: grabbing; transform: scale(1.06); transform-origin: center; }
+.sb-ghost .sc-ghost-box { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: max-content; min-width: 100%; min-height: calc(var(--u) * 48); padding: 0 calc(var(--u) * 10); border: calc(var(--u) * 2) solid #9EA6B1; border-radius: calc(var(--u) * 8); background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .18); cursor: grabbing; transform: scale(1.06); transform-origin: center; }
 .sb-ghost.sb-reduce .sc-ghost-box { transform: none; }
 
 /* ── 사람 칩 ── */
@@ -123,6 +139,10 @@ body.sb-dragging, body.sb-dragging * { cursor: grabbing !important; user-select:
 .sb-sheet-row > .adm-btn { flex: none; }
 .sb-sheet-err { margin: 8px 0 0; color: var(--admin-red); font-size: 13px; font-weight: 600; }
 .sb-sheet-foot { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--admin-divider); }
+/* 원탁 안에 다 못 그린 좌석 없는 사람 목록 창 */
+.sb-loose-list { display: flex; flex-direction: column; gap: 6px; }
+.sb-loose-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 0 14px; border: 0; border-radius: 14px; background: #F7F8FA; color: var(--admin-ink); font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; }
+.sb-loose-row b { font-weight: 700; }
 .sb-tag { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: #F2F4F6; color: var(--admin-muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .sb-tag.s-arrived { background: #DCEBFF; color: #2B6FD6; }
 .sb-tag.s-quiz { background: #FCEBB0; color: #A86B00; }
@@ -138,7 +158,7 @@ body.sb-dragging, body.sb-dragging * { cursor: grabbing !important; user-select:
 }
 
 /* ── 움직임 줄이기 ── */
-.sb-reduce .sb-chip, .sb-reduce .sc-round, .sb-reduce .sc-box, .sb-reduce .sc-chip, .sb-reduce .sc-hl, .sb-reduce .sc-loose-out { transition: none; }
+.sb-reduce .sb-chip, .sb-reduce .sc-round, .sb-reduce .sc-box, .sb-reduce .sc-chip, .sb-reduce .sc-hl, .sb-reduce .sc-loose-out, .sb-reduce .sc-more { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .sb-chip, .sc-round, .sc-box, .sc-chip, .sc-hl, .sc-loose-out { transition: none; }
   .sb-ghost .sb-chip, .sb-ghost .sc-ghost-box { transform: none; }
