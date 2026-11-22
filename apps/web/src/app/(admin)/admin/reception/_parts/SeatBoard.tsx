@@ -2,24 +2,29 @@
 
 /* 송년회 테이블 배치(261122 사장 '이거 참여자 리스트에서 테이블배치로 보기로 해주고 이거 드래그엔 드롭으로 자리 위치 바꿀 수 있게끔 해줘
  * 그러면 실시간으로 자리가 바뀌게끔 또한 이름도 수정할 수 있게 해주고' + '인원도 추가할 수 있게 해줘').
- *  · 테이블 1~18 카드 — 좌석 칸 1~8(같은 좌석에 둘이면 한 칸에 둘) + '좌석 없음' 칸 + [+ 추가]. 머리 = 도착/전체.
- *    사람 칩 색 = personStage 단계 색(참여자 표 태그와 같은 규칙 — 도착 하늘 · 퀴즈 노랑 · 미션 주황 · 베스트드레서 보라 · 설문 초록 · 당첨 분홍),
- *    안 온 사람은 회색 테두리만. 칩 안에 이름 + 작은 태그(stageTagText).
- *  · 명단 밖 손님(응모권만 있음)은 맨 아래 '명단 밖' 줄 — 테이블로 끌어 넣으면 명단에 추가(op add · 그 응모권이 새 줄에 붙음).
+ *  · 261123 사장 '좌석배치 그 도면있잖아 그거처럼 100%완전히 구현해줘' — 화면 = 사장이 만든 좌석 배정표 그림 그대로
+ *    (제목 칸 · 무대 · 원탁 18개 · 원탁마다 이름 칸 8개, 좌표 = lib/reception/seat-chart.ts 그림 픽셀). 그림 전체가 폭에 맞고
+ *    [크게]면 옆으로 밀어 본다(폰 · 좁은 화면은 최소 폭 1080px 로 옆 스크롤). 크기는 모두 그림 픽셀 × --u(= 그림 폭 / 2802).
+ *    이름 칸 = 좌석(1 무대 쪽 위부터 시계 방향) · 빈 칸 = 흰 칸 그대로(누르면 그 자리에 사람 추가) · 한 좌석 둘이면 한 칸에 '1.이름 2.이름'.
+ *    원탁(회색 원) = 그 테이블 '좌석 없이'(놓기) · 누르면 그 테이블에 사람 추가. 좌석 없는 사람은 그림의 '김정덕'처럼 칸 없이 글자만 —
+ *    양 끝 원탁(5 · 12)은 바깥 아래, 나머지는 원 안 번호 밑.
+ *    이름 형광펜 = 참여 단계 색(그림의 하늘색 형광펜 = 도착 · 퀴즈 노랑 · 미션 주황 · 베스트드레서 보라 · 설문 초록 · 당첨 분홍), 안 온 사람은 형광펜 없음.
+ *  · 명단 밖 손님(응모권만 있음)은 그림 아래 '명단 밖' 줄 — 이름 칸으로 끌어 놓으면 명단에 추가(op add · 그 응모권이 새 줄에 붙음).
  *  · 끌어 놓기 = Pointer Events 직접(HTML5 drag 는 아이패드 사파리 터치에서 안 됨 — 터치 · 마우스 둘 다 이 길 하나).
  *    마우스 = 누르고 6px 넘게 움직이면 끌기. 터치 · 펜 = 280ms 동안 10px 안에서 꾹 누르면 들림 — 그 전에 움직이면 끌기는 접고 판 스크롤(칩도
  *    touch-action: manipulation, 들린 뒤에만 touchmove 를 막음). 그 전에 떼면 탭(이름 고치기 · 자리 옮기기 · 빼기 창), 꾹 눌렀다 제자리에서 떼도 창.
- *    손가락을 따라 떠다니는 복제 칩(body 포털), 놓을 곳 강조 + 무엇이 될지 한 줄, Esc · pointercancel 이면 취소.
- *    화면 위·아래 가장자리 띠에서 자동 스크롤 — 띠 경계 0 부터 깊이의 제곱 · 지난 시간 기준 속도, 띠 안에서 들었으면 더 가장자리로 가야 켜짐.
+ *    손가락을 따라 떠다니는 복제 칸(body 포털), 놓을 곳 강조 + 무엇이 될지 한 줄, Esc · pointercancel 이면 취소.
+ *    화면 위·아래(그림이 옆으로 넘치면 그림 왼쪽·오른쪽도) 가장자리 띠에서 자동 스크롤 — 띠 경계 0 부터 깊이의 제곱 · 지난 시간 기준 속도,
+ *    띠 안에서 들었으면 더 가장자리로 가야 켜짐.
  *    동명이인끼리는 못 맞바꾼다(바꿔도 명단이 그대로 — 서버도 거절).
- *    다른 사람 칩 위 = 자리 맞바꾸기(swap) · 좌석 칸 = 그 좌석으로(move, 있던 사람과 같이 앉기도 됨) · 좌석 없음 칸 / 카드 빈 곳 = 그 테이블 좌석 없이(move).
+ *    다른 사람 이름 위 = 자리 맞바꾸기(swap) · 빈 이름 칸 = 그 좌석으로(move) · 원탁 = 그 테이블 좌석 없이(move).
  *  · 놓는 순간 화면에 먼저 반영(낙관) → refreshAfter(서버 POST seats/edit → 참여자 판 fresh) → 실패면 되돌리고 알림.
  *    저장 중엔 2초 폴링 값 위에 낙관 값을 덮어 그린다(덮개는 '그 사람을 그 자리로' 같은 절대값이라 서버가 이미 반영한 폴링에 또 덮어도 그대로).
  *    끄는 동안엔 판을 멈춰 둔다 — 폴링이 칩을 옮겨 손가락 밑이 바뀌지 않게.
  *  · 손님 앱은 15초마다 자기 자리를 다시 받는다(useReceptionMe) — 서버 명단만 바뀌면 손님 자리도 따라 바뀐다.
  *  · 같은 테이블에 같은 이름은 못 둔다(서버 parseSeatRows) — 놓기 전에 빨간 강조 + 이유, 놓으면 알림만(요청 안 보냄).
  *  · 글자 굵기 최대 700 · 그라데이션 · 글로우 없음 · 움직임 줄이기면 전환 없음. */
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { adminAlert, adminConfirm } from '../../_components/adminDialog';
 import {
@@ -34,6 +39,18 @@ import {
 } from '../../_components/receptionAdmin';
 import { seatsEdit, type SeatEditOp } from '../../_components/receptionSeatsApi';
 import { SEATS_PER_TABLE, TABLE_COUNT } from '@/lib/reception/event';
+import {
+  CHART_BOX,
+  CHART_H,
+  CHART_LOOSE_OUT,
+  CHART_SEATS,
+  CHART_STAGE,
+  CHART_TABLE_R,
+  CHART_TABLES,
+  CHART_TITLE,
+  CHART_W,
+  chartNameSize,
+} from '@/lib/reception/seat-chart';
 import './seat-board.css';
 
 export interface SeatBoardProps {
@@ -64,6 +81,15 @@ const EDGE_MAX_SPEED = 1.4;
 const NAME_MAX = 20;
 const TABLES = Array.from({ length: TABLE_COUNT }, (_, i) => i + 1);
 const SEATS = Array.from({ length: SEATS_PER_TABLE }, (_, i) => i + 1);
+/** 배정표 크기 — 맞춤(폭에 맞게) · 크게(옆으로 밀기) */
+const ZOOMS = [
+  { z: 1, label: '전체' },
+  { z: 1.5, label: '크게' },
+  { z: 2, label: '더 크게' },
+] as const;
+const ZOOM_KEY = 'rcp-board-zoom';
+/** 그림 픽셀 n → CSS 길이(--u = 그림 폭 / 2802) */
+const U = (n: number) => `calc(var(--u) * ${Math.round(n * 10) / 10})`;
 
 interface Line {
   p: PersonRow;
@@ -126,9 +152,18 @@ interface DragState {
   armBottom: boolean;
   last: number;
   acc: number;
+  /** 배정표가 옆으로 넘칠 때 — 왼쪽 · 오른쪽 띠 */
+  lx: number;
+  armLeft: boolean;
+  armRight: boolean;
+  accX: number;
+  /** 배정표 이름 칸에서 들었음(복제 칸을 그림 모양으로) · 그때 그림 1px 의 화면 px */
+  chart: boolean;
+  u: number;
 }
 
-type Sheet = { kind: 'person'; key: string } | { kind: 'add'; table: number };
+/** add.seat — undefined = 첫 빈 좌석을 골라 둠 */
+type Sheet = { kind: 'person'; key: string } | { kind: 'add'; table: number; seat?: number | null };
 
 /** 서버 cleanName 과 같게 — 제어 문자 제거 · 겹친 띄어쓰기 하나로 · 1~20자 */
 function cleanName(v: string): string | null {
@@ -272,12 +307,16 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [over, setOver] = useState<{ id: string; hint: string; bad: boolean } | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [zoom, setZoomState] = useState<number>(1);
 
   const seq = useRef(0);
   const drag = useRef<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const scroller = useRef<HTMLElement | null>(null);
+  /** 배정표 옆 스크롤 칸 · 그림 */
+  const chartScroll = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const raf = useRef(0);
   /** 끌기 · 접은 누르기 뒤 같은 칩에 따라오는 click 은 창을 열지 않는다(다음 pointerdown 에서 풂) */
   const swallowClick = useRef(false);
@@ -293,6 +332,31 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
   useEffect(() => {
     setPending((cur) => (cur?.landed ? null : cur));
   }, [people]);
+
+  // 배정표 크기 — 이 기기에 기억(그리기는 서버와 같게 1 로 시작, 붙은 뒤 읽음)
+  useEffect(() => {
+    try {
+      const v = Number(window.localStorage.getItem(ZOOM_KEY));
+      if (ZOOMS.some((o) => o.z === v)) setZoomState(v);
+    } catch {
+      /* 저장소를 못 쓰면 전체 */
+    }
+  }, []);
+  const setZoom = (z: number) => {
+    const el = chartScroll.current;
+    // 보던 가운데를 그대로 두고 키운다
+    const mid = el && el.scrollWidth > 0 ? (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth : 0.5;
+    setZoomState(z);
+    try {
+      window.localStorage.setItem(ZOOM_KEY, String(z));
+    } catch {
+      /* 저장소를 못 쓰면 이번만 */
+    }
+    requestAnimationFrame(() => {
+      const e2 = chartScroll.current;
+      if (e2) e2.scrollLeft = Math.max(0, mid * e2.scrollWidth - e2.clientWidth / 2);
+    });
+  };
 
   const board = useMemo(() => {
     const tables = TABLES.map((table) => ({ table, seats: SEATS.map(() => [] as Line[]), loose: [] as Line[], total: 0, arrived: 0 }));
@@ -319,9 +383,15 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
       else t.loose.push(line);
     }
     const byName = (a: Line, b: Line) => a.p.name.localeCompare(b.p.name, 'ko') || (a.p.key < b.p.key ? -1 : a.p.key > b.p.key ? 1 : 0);
+    // 한 좌석 둘(그림 '1.이연주 2.문혜정') — 먼저 온 사람이 1번, 둘 다 안 왔으면 이름 순
+    const byArrival = (a: Line, b: Line) => {
+      const x = a.p.arrivedAt ? Date.parse(a.p.arrivedAt) : Infinity;
+      const y = b.p.arrivedAt ? Date.parse(b.p.arrivedAt) : Infinity;
+      return x !== y ? (x < y ? -1 : 1) : byName(a, b);
+    };
     for (const t of tables) {
-      t.seats.forEach((s) => s.sort(byName));
-      t.loose.sort(byName);
+      t.seats.forEach((s) => s.sort(byArrival));
+      t.loose.sort(byArrival);
     }
     out.sort((a, b) => (a.p.ticket?.number ?? Infinity) - (b.p.ticket?.number ?? Infinity) || byName(a, b));
     return { tables, out, byKey, listed, arrived };
@@ -416,6 +486,7 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
     let v = 0;
     if (d.armTop && d.y < top + EDGE_PX) v = -edgeSpeed((top + EDGE_PX - d.y) / EDGE_PX);
     else if (d.armBottom && d.y > bottom - EDGE_PX) v = edgeSpeed((d.y - (bottom - EDGE_PX)) / EDGE_PX);
+    let moved = false;
     if (v) {
       d.acc += v * dt;
       const step = Math.trunc(d.acc);
@@ -424,10 +495,36 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
         const before = sc ? sc.scrollTop : window.scrollY;
         if (sc) sc.scrollTop += step;
         else window.scrollBy(0, step);
-        if ((sc ? sc.scrollTop : window.scrollY) !== before) updateOver(d);
+        if ((sc ? sc.scrollTop : window.scrollY) !== before) moved = true;
         else d.acc = 0; // 끝까지 감
       }
     } else d.acc = 0;
+    // 배정표가 옆으로 넘칠 때(크게 · 좁은 화면) — 그림 왼쪽 · 오른쪽 띠, 손가락이 그림 높이 안일 때만
+    const hs = chartScroll.current;
+    let vx = 0;
+    if (hs && hs.scrollWidth > hs.clientWidth + 1) {
+      const r = hs.getBoundingClientRect();
+      const left = Math.max(r.left, 0);
+      const right = Math.min(r.right, window.innerWidth);
+      if (!d.armLeft && (d.x >= left + EDGE_PX || d.x <= d.lx - EDGE_REARM_PX)) d.armLeft = true;
+      if (!d.armRight && (d.x <= right - EDGE_PX || d.x >= d.lx + EDGE_REARM_PX)) d.armRight = true;
+      if (d.y >= r.top && d.y <= r.bottom) {
+        if (d.armLeft && d.x < left + EDGE_PX) vx = -edgeSpeed((left + EDGE_PX - d.x) / EDGE_PX);
+        else if (d.armRight && d.x > right - EDGE_PX) vx = edgeSpeed((d.x - (right - EDGE_PX)) / EDGE_PX);
+      }
+    }
+    if (hs && vx) {
+      d.accX += vx * dt;
+      const step = Math.trunc(d.accX);
+      if (step) {
+        d.accX -= step;
+        const before = hs.scrollLeft;
+        hs.scrollLeft += step;
+        if (hs.scrollLeft !== before) moved = true;
+        else d.accX = 0;
+      }
+    } else d.accX = 0;
+    if (moved) updateOver(d);
     raf.current = requestAnimationFrame(tick);
   };
 
@@ -440,6 +537,11 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
     d.armBottom = d.y <= bottom - EDGE_PX;
     d.last = performance.now();
     d.acc = 0;
+    const hr = chartScroll.current?.getBoundingClientRect();
+    d.lx = d.x;
+    d.armLeft = !hr || d.x >= Math.max(hr.left, 0) + EDGE_PX;
+    d.armRight = !hr || d.x <= Math.min(hr.right, window.innerWidth) - EDGE_PX;
+    d.accX = 0;
     setFrozen(latest.current.rows);
     setDragKey(d.key);
     document.body.classList.add('sb-dragging');
@@ -572,15 +674,20 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
     if (!drag.current) swallowClick.current = false; // 새 누르기 — 지난 끌기의 click 막기는 끝
     if (latest.current.locked || key.startsWith('tmp:') || drag.current) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const el = e.currentTarget;
+    const chartChip = e.currentTarget.closest<HTMLElement>('.sc-box, .sc-loose');
+    // 배정표 이름 칸에서 들면 칸 전체를 들어 올린다(한 칸 둘이면 그 줄만)
+    const el = chartChip && chartChip.classList.contains('sc-box') && chartChip.querySelectorAll('[data-sb-chip]').length === 1 ? chartChip : e.currentTarget;
     const r = el.getBoundingClientRect();
     const touch = e.pointerType !== 'mouse';
+    const cw = canvasRef.current?.getBoundingClientRect().width ?? 0;
     const d: DragState = {
-      pointerId: e.pointerId, key, el,
+      pointerId: e.pointerId, key, el: e.currentTarget,
       sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY,
       ox: e.clientX - r.left, oy: e.clientY - r.top, w: r.width,
       active: false, plan: null,
       touch, timer: 0, ly: e.clientY, armTop: false, armBottom: false, last: 0, acc: 0,
+      lx: e.clientX, armLeft: false, armRight: false, accX: 0,
+      chart: !!chartChip, u: cw > 0 ? cw / CHART_W : 0.4,
     };
     drag.current = d;
     if (touch) {
@@ -671,10 +778,22 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
 
   const zone = (id: string) => (over?.id === id ? (over.bad ? ' is-bad' : ' is-over') : '');
 
+  /** 그 테이블에 사람 추가 창(seat undefined = 첫 빈 좌석) */
+  const openAdd = (table: number, seat?: number | null) => {
+    if (latest.current.locked) return;
+    setSheet({ kind: 'add', table, seat });
+  };
+
+  const chipLabel = (line: Line) => {
+    const { p } = line;
+    const place = p.listed && p.table != null ? ` · ${seatText(p.table, p.seat)}` : ' · 명단 밖';
+    return `${p.name}${line.tag ? ` · ${line.tag}` : ''}${place} — 눌러서 고치기, 끌어서 자리 옮기기`;
+  };
+
+  /** 명단 밖 줄 칩(기존 모양) */
   const chip = (line: Line) => {
     const { p } = line;
     const temp = p.key.startsWith('tmp:');
-    const place = p.listed && p.table != null ? ` · ${seatText(p.table, p.seat)}` : ' · 명단 밖';
     return (
       <button
         key={p.key}
@@ -685,12 +804,48 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
         onPointerDown={(e) => onChipDown(e, p.key)}
         onClick={(e) => onChipClick(e, p.key)}
         onContextMenu={(e) => e.preventDefault()}
-        aria-label={`${p.name}${line.tag ? ` · ${line.tag}` : ''}${place} — 눌러서 고치기, 끌어서 자리 옮기기`}
+        aria-label={chipLabel(line)}
       >
         <span className="sb-chip-name">{p.name}</span>
         {line.tag && <span className="sb-chip-tag">{line.tag}</span>}
       </button>
     );
+  };
+
+  /** 배정표 이름 — 칸 안(no = 한 칸 둘일 때 1 · 2) 또는 칸 없는 글자(좌석 없음) */
+  const chartChip = (line: Line, no: number, lines: number) => {
+    const { p } = line;
+    const temp = p.key.startsWith('tmp:');
+    return (
+      <button
+        key={p.key}
+        type="button"
+        className={`sc-chip s-${line.stage}${dragKey === p.key ? ' is-lifted' : ''}${temp ? ' is-temp' : ''}`}
+        style={{ fontSize: U(chartNameSize(p.name, lines)) }}
+        data-sb-chip={p.key}
+        data-sb-listed={p.listed ? '1' : '0'}
+        onPointerDown={(e) => onChipDown(e, p.key)}
+        onClick={(e) => {
+          e.stopPropagation(); // 원탁(누르면 추가) 위 글자
+          onChipClick(e, p.key);
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+        title={line.tag ? `${p.name} · ${line.tag}` : p.name}
+        aria-label={chipLabel(line)}
+      >
+        <span className="sc-hl">
+          {no > 0 && <span className="sc-no-mark">{no}.</span>}
+          {p.name}
+        </span>
+      </button>
+    );
+  };
+
+  /** 이름 칸 강조 — 칸 자체(빈 칸 = 그 좌석으로) 또는 칸 안 사람(맞바꾸기) */
+  const boxZone = (table: number, seat: number, list: Line[]) => {
+    const hit = list.find((l) => over?.id === `chip:${l.p.key}`);
+    if (hit && over) return over.bad ? ' is-bad' : ' is-over';
+    return zone(`seat:${table}:${seat}`);
   };
 
   const dragLine = dragKey ? board.byKey.get(dragKey) : undefined;
@@ -705,52 +860,130 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
             테이블 배치
             {saving && <span className="adm-badge blue">저장 중</span>}
           </p>
-          <p className="sb-sub">이름을 꾹 눌러 끌어 놓으면 바로 자리가 바뀌어요(마우스는 바로 끌기) · 다른 사람 위에 놓으면 서로 바꿔요 · 누르면 이름 고치기 · 손님 화면엔 15초 안에 반영돼요</p>
+          <p className="sb-sub">
+            이름을 꾹 눌러 다른 칸에 끌어 놓으면 바로 자리가 바뀌어요(마우스는 바로 끌기) · 사람 위에 놓으면 서로 바꿔요 · 원탁에 놓으면 좌석 없이 ·
+            이름을 누르면 고치기 · 빈 칸이나 원탁을 누르면 사람 추가 · 손님 화면엔 15초 안에 반영돼요
+          </p>
         </div>
-        <span className="adm-count">
-          명단 <b>{board.listed}</b>명 · 도착 <b>{board.arrived}</b>명
-        </span>
+        <div className="sb-head-side">
+          <span className="adm-count">
+            명단 <b>{board.listed}</b>명 · 도착 <b>{board.arrived}</b>명
+          </span>
+          <div className="adm-seg sb-zoom" role="radiogroup" aria-label="배정표 크기">
+            {ZOOMS.map((o) => (
+              <button key={o.z} type="button" role="radio" aria-checked={zoom === o.z} className={zoom === o.z ? 'on' : ''} onClick={() => setZoom(o.z)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sc-legend" aria-label="이름 형광펜 색">
+          <span className="sc-legend-item"><span className="sc-hl s-none">이름</span>아직 안 옴</span>
+          <span className="sc-legend-item"><span className="sc-hl s-arrived">이름</span>도착</span>
+          <span className="sc-legend-item"><span className="sc-hl s-quiz">이름</span>퀴즈</span>
+          <span className="sc-legend-item"><span className="sc-hl s-mission">이름</span>미션</span>
+          <span className="sc-legend-item"><span className="sc-hl s-dresser">이름</span>베스트드레서</span>
+          <span className="sc-legend-item"><span className="sc-hl s-survey">이름</span>설문</span>
+          <span className="sc-legend-item"><span className="sc-hl s-win">이름</span>당첨</span>
+        </div>
       </div>
 
-      <div className="sb-grid">
-        {board.tables.map((t) => (
-          <section key={t.table} className={`sb-table${zone(`table:${t.table}`)}`} data-sb-drop="table" data-table={t.table} aria-label={`${t.table}번 테이블 ${t.total}명`}>
-            <header className="sb-table-head">
-              <b className="sb-table-name">{t.table}번 테이블</b>
-              <span className="sb-table-count">
-                <b>{t.arrived}</b>/{t.total}명
-              </span>
-            </header>
-            <div className="sb-seats">
-              {t.seats.map((list, i) => (
-                <div
-                  key={i}
-                  className={`sb-seat${list.length ? '' : ' empty'}${zone(`seat:${t.table}:${i + 1}`)}`}
-                  data-sb-drop="seat"
-                  data-table={t.table}
-                  data-seat={i + 1}
-                >
-                  <span className="sb-seat-no">{i + 1}</span>
-                  <div className="sb-seat-people">{list.map(chip)}</div>
+      <div className="sc-wrap">
+        <div className="sc-scroll" ref={chartScroll}>
+          <div
+            ref={canvasRef}
+            className="sc-canvas"
+            style={{ width: `${zoom * 100}%`, minWidth: `${Math.round(1080 * zoom)}px`, aspectRatio: `${CHART_W} / ${CHART_H}` }}
+            role="group"
+            aria-label={`좌석 배정표 — 원탁 ${TABLE_COUNT}개 · 명단 ${board.listed}명`}
+          >
+            <div className="sc-title" style={{ left: U(CHART_TITLE.x), top: U(CHART_TITLE.y), width: U(CHART_TITLE.w), height: U(CHART_TITLE.h) }} aria-hidden>
+              <span>{CHART_TITLE.text}</span>
+              <span>{CHART_TITLE.en}</span>
+            </div>
+            <div className="sc-stage" style={{ left: U(CHART_STAGE.x), top: U(CHART_STAGE.y), width: U(CHART_STAGE.w), height: U(CHART_STAGE.h) }} aria-hidden>
+              무대
+            </div>
+
+            {CHART_TABLES.map((ct) => {
+              const t = board.tables[ct.n - 1];
+              if (!t) return null;
+              const out = CHART_LOOSE_OUT[ct.n];
+              return (
+                <div key={ct.n} className="sc-table" role="group" aria-label={`${ct.n}번 테이블 ${t.arrived}/${t.total}명 도착`}>
+                  {/* 원탁 = 좌석 없이 놓는 곳 · 누르면 사람 추가 */}
+                  <div
+                    className={`sc-round${zone(`noseat:${ct.n}`)}`}
+                    data-sb-drop="noseat"
+                    data-table={ct.n}
+                    style={{ left: U(ct.x - CHART_TABLE_R), top: U(ct.y - CHART_TABLE_R), width: U(CHART_TABLE_R * 2), height: U(CHART_TABLE_R * 2) }}
+                    onClick={() => openAdd(ct.n)}
+                  >
+                    <button
+                      type="button"
+                      className="sc-num"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openAdd(ct.n);
+                      }}
+                      aria-label={`${ct.n}번 테이블 — ${t.arrived}/${t.total}명 도착 · 눌러서 사람 추가`}
+                    >
+                      {ct.n}
+                    </button>
+                    {!out && t.loose.length > 0 && <div className="sc-loose sc-loose-in">{t.loose.map((l) => chartChip(l, 0, 2))}</div>}
+                  </div>
+                  {out && t.loose.length > 0 && (
+                    <div
+                      className={`sc-loose sc-loose-out ${out.align}${zone(`noseat:${ct.n}`)}`}
+                      data-sb-drop="noseat"
+                      data-table={ct.n}
+                      style={out.align === 'left' ? { left: U(ct.x + out.dx), top: U(ct.y + out.dy) } : { right: U(CHART_W - (ct.x + out.dx)), top: U(ct.y + out.dy) }}
+                    >
+                      {t.loose.map((l) => chartChip(l, 0, 1))}
+                    </div>
+                  )}
+                  {SEATS.map((s) => {
+                    const g = CHART_SEATS[s];
+                    const list = t.seats[s - 1];
+                    const cx = ct.x + g.dx;
+                    const left = g.side === 'c' ? cx : g.side === 'l' ? cx - CHART_BOX.w / 2 : cx + CHART_BOX.w / 2;
+                    // 위 칸은 위로, 아래 칸은 아래로 늘어난다(한 칸 둘 — 옆 칸에 안 겹치게)
+                    const grow = s === 1 ? ' grow-up' : s === 5 ? ' grow-down' : '';
+                    const cls = `sc-box side-${g.side}${grow}${list.length ? '' : ' empty'}${list.length > 1 ? ' multi' : ''}${boxZone(ct.n, s, list)}`;
+                    const style = { left: U(left), top: U(ct.y + g.dy) };
+                    if (!list.length) {
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          className={cls}
+                          style={style}
+                          data-sb-drop="seat"
+                          data-table={ct.n}
+                          data-seat={s}
+                          onClick={() => openAdd(ct.n, s)}
+                          aria-label={`${ct.n}번 테이블 ${s}번 자리 비어 있음 — 눌러서 사람 추가`}
+                        />
+                      );
+                    }
+                    return (
+                      <div key={s} className={cls} style={style} data-sb-drop="seat" data-table={ct.n} data-seat={s}>
+                        {list.map((l, i) => chartChip(l, list.length > 1 ? i + 1 : 0, list.length))}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-            <div className={`sb-loose${t.loose.length ? '' : ' empty'}${zone(`noseat:${t.table}`)}`} data-sb-drop="noseat" data-table={t.table}>
-              <span className="sb-loose-label">좌석 없음</span>
-              {t.loose.map(chip)}
-            </div>
-            <button type="button" className="sb-add" disabled={locked} onClick={() => setSheet({ kind: 'add', table: t.table })}>
-              + 추가
-            </button>
-          </section>
-        ))}
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {board.out.length > 0 && (
         <section className="sb-out" aria-label="명단 밖 손님">
           <p className="sb-out-title">
             명단 밖 <b>{board.out.length}</b>명
-            <span>테이블로 끌어 놓으면 명단에 들어가요</span>
+            <span>배정표 이름 칸으로 끌어 놓으면 명단에 들어가요</span>
           </p>
           <div className="sb-out-chips">{board.out.map(chip)}</div>
         </section>
@@ -761,13 +994,19 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
           <div
             ref={ghostRef}
             className={`admin-shell sb-ghost${reduce ? ' sb-reduce' : ''}`}
-            style={{ width: d.w, transform: `translate3d(${Math.round(d.x - d.ox)}px, ${Math.round(d.y - d.oy)}px, 0)` }}
+            style={{ width: d.w, transform: `translate3d(${Math.round(d.x - d.ox)}px, ${Math.round(d.y - d.oy)}px, 0)`, '--u': `${d.u}px` } as CSSProperties}
             aria-hidden
           >
-            <div className={`sb-chip s-${dragLine.stage}`}>
-              <span className="sb-chip-name">{dragLine.p.name}</span>
-              {dragLine.tag && <span className="sb-chip-tag">{dragLine.tag}</span>}
-            </div>
+            {d.chart ? (
+              <div className={`sc-ghost-box sc-chip s-${dragLine.stage}`} style={{ fontSize: U(chartNameSize(dragLine.p.name)) }}>
+                <span className="sc-hl">{dragLine.p.name}</span>
+              </div>
+            ) : (
+              <div className={`sb-chip s-${dragLine.stage}`}>
+                <span className="sb-chip-name">{dragLine.p.name}</span>
+                {dragLine.tag && <span className="sb-chip-tag">{dragLine.tag}</span>}
+              </div>
+            )}
             {over && <span className={`sb-ghost-hint${over.bad ? ' bad' : ''}`}>{over.hint}</span>}
           </div>,
           document.body,
@@ -786,7 +1025,9 @@ export function SeatBoard({ people, nowMs, reduce, refreshAfter, busy = false }:
           onRemove={doRemove}
         />
       )}
-      {sheet?.kind === 'add' && <AddSheet key={`add:${sheet.table}`} table={sheet.table} rows={rows} locked={locked} onClose={closeSheet} onAdd={doAdd} />}
+      {sheet?.kind === 'add' && (
+        <AddSheet key={`add:${sheet.table}:${sheet.seat ?? ''}`} table={sheet.table} seat={sheet.seat} rows={rows} locked={locked} onClose={closeSheet} onAdd={doAdd} />
+      )}
     </div>
   );
 }
@@ -976,20 +1217,25 @@ function PersonSheet({
 
 function AddSheet({
   table,
+  seat: seatIn,
   rows,
   locked,
   onClose,
   onAdd,
 }: {
   table: number;
+  /** 누른 빈 칸 좌석(undefined = 첫 빈 좌석) */
+  seat?: number | null;
   rows: PersonRow[];
   locked: boolean;
   onClose: () => void;
   onAdd: (table: number, name: string, seat: number | null) => void;
 }) {
   const [name, setName] = useState('');
-  // 첫 빈 좌석을 미리 골라 둔다(다 찼으면 좌석 없음)
-  const [seat, setSeat] = useState<number | null>(() => SEATS.find((n) => !rows.some((r) => r.listed && r.table === table && r.seat === n)) ?? null);
+  // 누른 빈 칸 좌석 · 아니면 첫 빈 좌석을 미리 골라 둔다(다 찼으면 좌석 없음)
+  const [seat, setSeat] = useState<number | null>(() =>
+    seatIn !== undefined ? seatIn : (SEATS.find((n) => !rows.some((r) => r.listed && r.table === table && r.seat === n)) ?? null),
+  );
   const clean = cleanName(name);
   const key = clean ? receptionNameKey(clean) : '';
   const sameHere = !!key && rows.some((r) => r.listed && r.table === table && receptionNameKey(r.name) === key);
@@ -1001,7 +1247,7 @@ function AddSheet({
   };
 
   return (
-    <SheetFrame label={`${table}번 테이블에 사람 추가`} title={`${table}번 테이블에 사람 추가`} onClose={onClose}>
+    <SheetFrame label={`${table}번 테이블에 사람 추가`} title={`${table}번 테이블${seatIn != null ? ` ${seatIn}번 자리` : ''}에 사람 추가`} onClose={onClose}>
       <div className="sb-sheet-sec">
         <label className="adm-label" htmlFor="sb-add-name">이름</label>
         <input

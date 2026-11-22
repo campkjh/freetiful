@@ -1,6 +1,6 @@
 /* ═══ 송년회 테이블 배치(261122) — _parts/SeatBoard.tsx ═══════════════════════════════════════
-   · 테이블 카드 격자: 폰 1열 · 태블릿 세로 2열 · 가로 3열 · 넓은 화면 4열(카드 최소 220px, 4열 상한 = minmax 의 max() 꼼수).
-   · 칩 색 = 참여자 표 태그(.rcp-tag)와 같은 단계 색 — 바탕은 태그 바탕, 글자는 태그 글자. 안 온 사람(s-none)은 흰 바탕 + 회색 테두리만.
+   · 261123: 테이블 카드 격자 → 사장 좌석 배정표 그림 그대로(.sc-*). 명단 밖 줄 칩(.sb-chip)만 예전 모양.
+   · 명단 밖 칩 색 = 참여자 표 태그(.rcp-tag)와 같은 단계 색 — 바탕은 태그 바탕, 글자는 태그 글자. 안 온 사람(s-none)은 흰 바탕 + 회색 테두리만.
    · 끌기: 칩은 touch-action: manipulation — 칩에서 시작한 손짓도 판 스크롤이 된다(터치는 꾹 눌러야 들림, 들린 뒤엔 SeatBoard 가
      touchmove 를 막는다). 복제 칩(.sb-ghost)과 창(.sb-sheet-root)은 body 포털이라
      .admin-shell 을 같이 달아 색 토큰을 받는다.
@@ -14,36 +14,67 @@
 .sb-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--admin-ink); font-size: 16px; font-weight: 700; }
 .sb-sub { margin: 0; color: var(--admin-ph); font-size: 13px; line-height: 1.5; word-break: keep-all; }
 
-/* ── 테이블 카드 격자 ── */
-.sb-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(max(220px, calc((100% - 36px) / 4)), 1fr)); align-items: start; }
-.sb-table { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 12px 12px; border-radius: 20px; background: #fff; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .15s ease, background-color .15s ease; }
-.sb-table.is-over { background: #F7FBFF; box-shadow: inset 0 0 0 2px var(--admin-blue); }
-.sb-table.is-bad { box-shadow: inset 0 0 0 2px var(--admin-red); }
-.sb-table-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px; }
-.sb-table-name { color: var(--admin-ink); font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-.sb-table-count { color: var(--admin-ph); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sb-table-count b { color: var(--admin-blue); font-weight: 700; }
-
-/* 좌석 1~8 — 두 줄 */
-.sb-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.sb-seat { display: flex; gap: 4px; min-width: 0; min-height: 52px; padding: 5px 5px 5px 3px; border-radius: 14px; background: #F7F8FA; transition: background-color .15s ease, box-shadow .15s ease; }
-.sb-seat-no { flex: none; width: 18px; padding-top: 11px; color: var(--admin-dis); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
-.sb-seat-people { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
-/* 좌석 없음 칸 — 비어 있으면 낮게 */
-.sb-loose { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-height: 40px; padding: 5px 8px; border: 1.5px dashed #E5E8EB; border-radius: 14px; transition: background-color .15s ease, border-color .15s ease; }
-.sb-loose-label { flex: none; margin-right: 2px; color: var(--admin-ph); font-size: 12px; font-weight: 600; }
-.sb-loose .sb-chip { width: auto; max-width: 100%; }
-/* 놓을 곳 강조(파랑) · 같은 이름이 있어 못 놓는 곳(빨강) */
-.sb-seat.is-over, .sb-loose.is-over { background: var(--admin-blue-weak); box-shadow: inset 0 0 0 2px var(--admin-blue); }
-.sb-loose.is-over { border-color: transparent; }
-.sb-seat.is-bad, .sb-loose.is-bad { background: var(--admin-red-weak); box-shadow: inset 0 0 0 2px var(--admin-red); }
-.sb-loose.is-bad { border-color: transparent; }
-/* 끄는 동안 빈 좌석이 보이게 */
-.sb.is-dragging .sb-seat.empty:not(.is-over):not(.is-bad) { box-shadow: inset 0 0 0 1.5px #D1D6DB; }
-
-.sb-add { height: 44px; border: 0; border-radius: 12px; background: #F2F4F6; color: var(--admin-sub); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
-.sb-add:hover:not(:disabled) { background: #E8EBEE; }
-.sb-add:disabled { cursor: default; opacity: .5; }
+/* ── 좌석 배정표 그림(261123 사장 '좌석배치 그 도면 … 100%완전히') — 좌표 = lib/reception/seat-chart.ts 그림 픽셀 ──
+   크기는 모두 그림 픽셀 × --u(= 그림 폭 / 2802, 그림이 container 라 cqw). 색 = 그림에서 딴 값:
+   제목 칸 흰 바탕 + 그림자 · 무대 #E8EBF0 · 원탁 #F2F3F7 + 테두리 #C4C7CE · 이름 칸 흰 바탕 + 테두리 #9EA6B1 + 아래 그림자 · 글자 #253447. */
+.sc-wrap { overflow: hidden; border-radius: 20px; background: #fff; }
+.sc-scroll { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.sc-canvas { --u: calc(100cqw / 2802); position: relative; container-type: inline-size; margin: 0 auto; background: #fff; color: #1F2329; }
+.sc-title { position: absolute; display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 44); box-sizing: border-box; border-radius: calc(var(--u) * 16); background: #fff; box-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 7) rgba(20, 28, 40, .26), 0 0 0 calc(var(--u) * 1.5) rgba(20, 28, 40, .07); color: #253447; font-size: calc(var(--u) * 60); font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; pointer-events: none; }
+.sc-stage { position: absolute; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: calc(var(--u) * 10); background: #E8EBF0; box-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 5) rgba(20, 28, 40, .26); color: #2A3746; font-size: calc(var(--u) * 34); font-weight: 700; pointer-events: none; }
+.sc-table { display: contents; }
+.sc-round { position: absolute; box-sizing: border-box; border: calc(var(--u) * 2) solid #C4C7CE; border-radius: 50%; background: #F2F3F7; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease, border-color .15s ease; }
+.sc-round.is-over { border-color: var(--admin-blue); background: var(--admin-blue-weak); }
+.sc-round.is-bad { border-color: var(--admin-red); background: var(--admin-red-weak); }
+.sc-num { position: absolute; top: 50%; left: 50%; margin: 0; padding: calc(var(--u) * 6) calc(var(--u) * 14); border: 0; border-radius: calc(var(--u) * 10); background: none; color: #253447; font-family: inherit; font-size: calc(var(--u) * 38); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; transform: translate(-50%, -50%); -webkit-tap-highlight-color: transparent; }
+.sc-num:focus-visible { outline: 2px solid var(--admin-blue); }
+/* 좌석 없는 사람 — 칸 없이 글자만(그림의 '김정덕') */
+.sc-loose { position: absolute; display: flex; flex-direction: column; gap: calc(var(--u) * 2); }
+.sc-loose-in { top: calc(50% + var(--u) * 26); left: 50%; align-items: center; max-width: calc(var(--u) * 150); transform: translateX(-50%); }
+.sc-loose-out { min-width: calc(var(--u) * 120); padding: calc(var(--u) * 4); border-radius: calc(var(--u) * 8); transform: translateY(-50%); transition: background-color .15s ease, box-shadow .15s ease; }
+.sc-loose-out.left { align-items: flex-start; }
+.sc-loose-out.right { align-items: flex-end; }
+.sc-loose-out.is-over { background: var(--admin-blue-weak); box-shadow: inset 0 0 0 2px var(--admin-blue); }
+.sc-loose-out.is-bad { background: var(--admin-red-weak); box-shadow: inset 0 0 0 2px var(--admin-red); }
+.sc-loose .sc-chip { padding: 0 calc(var(--u) * 4); }
+/* 이름 칸 — 위 · 아래 칸은 가운데 기준, 오른쪽 칸은 왼쪽 끝 · 왼쪽 칸은 오른쪽 끝 고정(긴 이름이면 바깥으로 늘어남) */
+.sc-box { position: absolute; display: flex; flex-direction: column; align-items: stretch; justify-content: center; box-sizing: border-box; min-width: calc(var(--u) * 120); min-height: calc(var(--u) * 48); margin: 0; padding: 0; border: calc(var(--u) * 2) solid #9EA6B1; border-radius: calc(var(--u) * 8); background: #fff; box-shadow: 0 calc(var(--u) * 3) calc(var(--u) * 5) rgba(20, 28, 40, .26); font-family: inherit; transition: border-color .15s ease, background-color .15s ease; }
+.sc-box.side-c { transform: translate(-50%, -50%); }
+.sc-box.side-l { transform: translate(0, -50%); }
+.sc-box.side-r { transform: translate(-100%, -50%); }
+.sc-box.side-c.grow-up { transform: translate(-50%, calc(-100% + var(--u) * 24)); }
+.sc-box.side-c.grow-down { transform: translate(-50%, calc(var(--u) * -24)); }
+.sc-box.empty { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sc-box.empty:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: 1px; }
+.sc-box.multi { padding: calc(var(--u) * 2) 0; }
+.sc-box.is-over { border-color: var(--admin-blue); background: var(--admin-blue-weak); }
+.sc-box.is-bad { border-color: var(--admin-red); background: var(--admin-red-weak); }
+/* 끄는 동안 빈 칸이 놓을 곳으로 보이게 */
+.sb.is-dragging .sc-box.empty:not(.is-over):not(.is-bad) { border-color: #6B7684; }
+/* 이름(칸 안 · 칸 없는 글자) — 끌기 손잡이 */
+.sc-chip { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; min-width: 0; margin: 0; padding: 0 calc(var(--u) * 8); border: 0; border-radius: calc(var(--u) * 6); background: none; color: #1F2329; font-family: inherit; font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap; cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: opacity .15s ease; }
+.sc-chip:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: -2px; }
+.sc-chip.is-lifted { opacity: .3; }
+.sc-chip.is-temp { cursor: default; opacity: .6; }
+.sc-no-mark { margin-right: .1em; }
+/* 형광펜 = 참여 단계(그림의 하늘색 형광펜 = 도착) */
+.sc-hl { padding: 0 .08em; transition: background-color .3s ease; }
+.s-arrived > .sc-hl, .sc-hl.s-arrived { background: #00FFFF; }
+.s-quiz > .sc-hl, .sc-hl.s-quiz { background: #FFEB3B; }
+.s-mission > .sc-hl, .sc-hl.s-mission { background: #FFBF80; }
+.s-dresser > .sc-hl, .sc-hl.s-dresser { background: #DCC6FF; }
+.s-survey > .sc-hl, .sc-hl.s-survey { background: #9EF0B4; }
+.s-win > .sc-hl, .sc-hl.s-win { background: #FFB3CF; }
+/* 범례 */
+.sb-head-side { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.sb-zoom button { min-width: 52px; }
+.sc-legend { display: flex; flex-wrap: wrap; flex-basis: 100%; align-items: center; gap: 6px 14px; color: var(--admin-muted); font-size: 13px; font-weight: 600; }
+.sc-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.sc-legend .sc-hl { padding: 1px 6px; border: 1px solid #9EA6B1; border-radius: 4px; color: #1F2329; font-size: 12px; font-weight: 500; }
+.sc-legend .sc-hl.s-none { background: #fff; }
+/* 손가락 따라 떠다니는 이름 칸(body 포털 — --u 는 SeatBoard 가 px 로 넣음) */
+.sb-ghost .sc-ghost-box { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: calc(var(--u) * 48); border: calc(var(--u) * 2) solid #9EA6B1; border-radius: calc(var(--u) * 8); background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .18); cursor: grabbing; transform: scale(1.06); transform-origin: center; }
+.sb-ghost.sb-reduce .sc-ghost-box { transform: none; }
 
 /* ── 사람 칩 ── */
 .sb-chip { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 1px; width: 100%; min-width: 0; min-height: 42px; margin: 0; padding: 5px 9px; border: 1.5px solid transparent; border-radius: 11px; background: #fff; color: var(--admin-sub); font-family: inherit; text-align: left; cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: background-color .3s ease, color .3s ease, border-color .3s ease, opacity .15s ease; }
@@ -107,8 +138,8 @@ body.sb-dragging, body.sb-dragging * { cursor: grabbing !important; user-select:
 }
 
 /* ── 움직임 줄이기 ── */
-.sb-reduce .sb-table, .sb-reduce .sb-seat, .sb-reduce .sb-loose, .sb-reduce .sb-chip, .sb-reduce .sb-add { transition: none; }
+.sb-reduce .sb-chip, .sb-reduce .sc-round, .sb-reduce .sc-box, .sb-reduce .sc-chip, .sb-reduce .sc-hl, .sb-reduce .sc-loose-out { transition: none; }
 @media (prefers-reduced-motion: reduce) {
-  .sb-table, .sb-seat, .sb-loose, .sb-chip, .sb-add { transition: none; }
-  .sb-ghost .sb-chip { transform: none; }
+  .sb-chip, .sc-round, .sc-box, .sc-chip, .sc-hl, .sc-loose-out { transition: none; }
+  .sb-ghost .sb-chip, .sb-ghost .sc-ghost-box { transform: none; }
 }
