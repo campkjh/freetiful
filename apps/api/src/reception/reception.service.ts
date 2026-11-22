@@ -229,14 +229,17 @@ export class ReceptionService {
     });
     return this.getSurvey(eventKey, deviceId);
   }
-  /** 손님 남기기 — 자리 탭에서 이름을 넣거나, 이름 있는 손님이 송년회 화면을 열 때(웹 ReceptionShell). 이름은 마지막 것으로 */
-  async touchGuest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown) {
+  /**
+   * 손님 남기기 — 자리 탭에서 이름을 넣거나, 이름 있는 손님이 송년회 화면을 열 때(웹 ReceptionShell). 이름은 마지막 것으로.
+   * userId = 로그인한 프리티풀 계정(261122 당첨 푸시용). 없으면(null) 있던 계정을 지우지 않는다 — 토큰이 빠진 요청 한 번에 연결이 끊기지 않게
+   */
+  async touchGuest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown, userId: string | null = null) {
     const name = cleanName(rawName);
     if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
     await this.prisma.receptionGuest.upsert({
       where: { eventKey_deviceId: { eventKey, deviceId } },
-      create: { eventKey, deviceId, name },
-      update: { name, lastSeenAt: new Date() },
+      create: { eventKey, deviceId, name, userId },
+      update: { name, lastSeenAt: new Date(), ...(userId ? { userId } : {}) },
     });
     return { ok: true };
   }

@@ -102,7 +102,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
   }),
   q({
     id: 'r3q2', round: 3, no: 2, kind: 'text', points: 100,
-    prompt: '이 사진은 어디 웨딩홀일까요?',
+    prompt: '이 웨딩홀은 어디일까요?', // 261122 사장 '이 웨딩홀은 어디일까요? 하고 3초 뒤에 이미지가 작아지면서 문제화면으로'
     image: '/reception/quiz/weddinghall.webp',
     placeholder: '웨딩홀 이름',
     answer: '슈슈몽드', accept: ['슈슈몽드', '슈슈몽드웨딩홀', '슈슈몽드웨딩', 'chouchoumonde'], answerLabel: '슈슈몽드',

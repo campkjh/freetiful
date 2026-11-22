@@ -1693,6 +1693,8 @@ model ReceptionGuest {
   eventKey   String
   deviceId   String
   name       String
+  /// 손님 프리티풀 계정 — 당첨 푸시용, 로그인 안 했으면 null(261122 사장 '당첨이 되면 푸시 알람이 가게끔')
+  userId     String?
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
   lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
 
@@ -1735,6 +1737,8 @@ model ReceptionTicket {
   name       String
   /// 처음 받은 기기
   deviceId   String
+  /// 손님 프리티풀 계정 — 당첨 푸시용, 로그인 안 했으면 null(받은 기기의 계정이 우선)
+  userId     String?
   createdAt  DateTime        @default(now()) @db.Timestamptz(3)
   lastSeenAt DateTime        @default(now()) @db.Timestamptz(3)
   draws      ReceptionDraw[]

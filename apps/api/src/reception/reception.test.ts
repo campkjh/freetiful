@@ -9,6 +9,7 @@ import {
   baseNameKey,
   cleanName,
   cleanPrize,
+  DRAW_PRIZES,
   compareRank,
   nameKey,
   parseDeviceId,
@@ -409,7 +410,15 @@ function fakeLivePrisma() {
   const tickets: any[] = [];
   const draws: any[] = [];
   const seats: any[] = [];
+  /** 손님 표 쓰기(upsert 부른 횟수 = 길이) */
   const guests: any[] = [];
+  /** 손님 표 지금 줄(eventKey:deviceId → 줄) — upsert 의 create/update 를 그대로 적용 */
+  const guestRows = new Map<string, any>();
+  const guestMatch = (g: any, where: any): boolean =>
+    (!where.eventKey || g.eventKey === where.eventKey) &&
+    (!where.deviceId || g.deviceId === where.deviceId) &&
+    (!where.userId?.not || g.userId != null);
+  const byLastSeen = (a: any, b: any) => b.lastSeenAt - a.lastSeenAt;
   const state = new Map<string, any>();
   let failNextCreate = 0;
   let n = 0;
@@ -430,7 +439,18 @@ function fakeLivePrisma() {
     return [{ value: state.get(k) }];
   };
   const prisma: any = {
-    receptionGuest: { upsert: async ({ create }: any) => { guests.push(create); return create; } },
+    receptionGuest: {
+      upsert: async (args: any) => {
+        guests.push(args);
+        const k = `${args.where.eventKey_deviceId.eventKey}:${args.where.eventKey_deviceId.deviceId}`;
+        const prev = guestRows.get(k);
+        const row = prev ? Object.assign(prev, args.update) : { userId: null, createdAt: new Date(), lastSeenAt: new Date(), ...args.create };
+        guestRows.set(k, row);
+        return row;
+      },
+      findFirst: async ({ where }: any) => [...guestRows.values()].filter((g) => guestMatch(g, where)).sort(byLastSeen)[0] ?? null,
+      findMany: async ({ where }: any) => [...guestRows.values()].filter((g) => guestMatch(g, where)).sort(byLastSeen),
+    },
     receptionSeat: { findMany: async ({ where }: any) => seats.filter((s) => s.eventKey === where.eventKey).map((s) => ({ ...s })) },
     receptionState: {
       findUnique: async ({ where }: any) => {
@@ -484,6 +504,8 @@ function fakeLivePrisma() {
     },
     receptionDraw: {
       findMany: async ({ where }: any) => draws.filter((d) => d.eventKey === where.eventKey).sort((a, b) => b.createdAt - a.createdAt),
+      findFirst: async ({ where }: any) =>
+        draws.find((d) => d.id === where.id && d.eventKey === where.eventKey && (where.cancelledAt !== null || !d.cancelledAt)) ?? null,
       create: async ({ data }: any) => { const d = { id: `d${++n}`, createdAt: new Date(Date.now() + n), cancelledAt: null, ...data }; draws.push(d); return d; },
       updateMany: async ({ where, data }: any) => {
         const d = draws.find((x) => x.id === where.id && x.eventKey === where.eventKey && !x.cancelledAt);
@@ -498,15 +520,32 @@ function fakeLivePrisma() {
         ? arg({ ...prisma, $executeRaw: async (s: TemplateStringsArray, ...v: any[]) => (stateRaw(s, ...v) ? 1 : 0), $queryRaw: async (s: TemplateStringsArray, ...v: any[]) => stateRaw(s, ...v) ?? [] })
         : Promise.all(arg),
   };
-  return { prisma, tickets, draws, seats, guests, state, failCreates: (k: number) => { failNextCreate = k; } };
+  return { prisma, tickets, draws, seats, guests, guestRows, state, failCreates: (k: number) => { failNextCreate = k; } };
 }
 
-function liveService(prisma: any) {
+/** 알림 서비스 흉내 — createNotification 부른 것을 남긴다(fail 이면 던짐) */
+function fakeNotifications(fail = false) {
+  const calls: Array<{ userId: string; type: string; title: string; body: string; data: any }> = [];
+  return {
+    calls,
+    createNotification: (userId: string, type: string, title: string, body: string, data: any) => {
+      calls.push({ userId, type, title, body, data });
+      if (fail) throw new Error('push down');
+      return Promise.resolve({ id: `n${calls.length}` });
+    },
+  };
+}
+
+function liveService(prisma: any, notifications: any = fakeNotifications(), warns: string[] = [], drawPushDelayMs = 0) {
   const reception = Object.assign(Object.create(ReceptionService.prototype), { prisma, feedCache: new Map(), logger: { warn() {} } });
   return Object.assign(Object.create(ReceptionLiveService.prototype), {
-    prisma, reception, seatCache: new Map(), modeCache: new Map(), touched: new Map(), logger: { warn() {} },
+    prisma, reception, notifications, seatCache: new Map(), modeCache: new Map(), touched: new Map(), drawPushDelayMs,
+    logger: { warn: (m: string) => { warns.push(m); }, log() {}, error() {} },
   }) as ReceptionLiveService;
 }
+
+/** 추첨 뒤 늦춰(테스트는 0ms) 보내는 푸시가 끝나게 — 가짜 prisma 는 전부 마이크로태스크 */
+const settle = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
 test('손님 자리·응모권 — 닫힘이면 안 나옴 · 이름당 한 장 · 번호 겹치면 다시 · 명단 자리', async () => {
   const f = fakeLivePrisma();
@@ -678,8 +717,9 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   f.state.set(`${EK}:tickets`, { mode: 'open' });
   for (const [name, device] of [['가', D1], ['나', D2], ['다', D3]]) await svc.guest(EK, device, name);
   await assert.rejects(svc.draw(EK, ''), /경품 이름/);
+  const P0 = DRAW_PRIZES[0].name;
 
-  const first = await svc.draw(EK, '횡성한우세트');
+  const first = await svc.draw(EK, P0);
   assert.equal(first.board.eligible, 2);
   assert.equal(first.board.tickets, 3);
   assert.equal(first.board.prizes[0].drawn, 1);
@@ -690,10 +730,10 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   await svc.cancelDraw(EK, first.draw.id); // 두 번 눌러도 그대로
   await assert.rejects(svc.cancelDraw(EK, 'nope'), /찾을 수 없어요/);
 
-  const second = await svc.draw(EK, '횡성한우세트');
+  const second = await svc.draw(EK, P0);
   const third = await svc.draw(EK, '체스타필드 정장 세트');
   assert.equal(new Set([first.draw.number, second.draw.number, third.draw.number]).size, 3);
-  await assert.rejects(svc.draw(EK, '횡성한우세트'), /뽑을 응모권이 없어요/);
+  await assert.rejects(svc.draw(EK, P0), /뽑을 응모권이 없어요/);
   assert.equal(third.board.eligible, 0);
 
   // 응모권 지우면 추첨 기록도 같이
@@ -734,6 +774,196 @@ test('응모권 — 한 기기 한 장(이름만 바꿔도 같은 것) · 지운
   const unblocked = await svc.unblockTicket(EK, '이 하나');
   assert.deepEqual(unblocked.blocked, []);
   assert.equal((await svc.guest(EK, D2, '이하나')).ticket!.number, 2);
+});
+
+// ───────────── 3차(261122) — 응모권 계정 연결 · 당첨 푸시 ─────────────
+
+test('계정 연결 — 손님 표·응모권에 userId · null 로 안 지움 · 받은 기기만 바꿈 · 빈 칸은 다른 기기도 채움', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  const g = (d: string) => f.guestRows.get(`${EK}:${d}`);
+
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+  assert.equal(g(D1).userId, 'u1');
+  assert.equal(f.tickets[0].userId, 'u1');
+
+  // 토큰 없는 요청 — 1분 묶음이 지나도(touched 비움) 계정은 그대로
+  (svc as any).touched.clear();
+  f.tickets[0].lastSeenAt = new Date(0);
+  await svc.guest(EK, D1, '김솔');
+  assert.equal(g(D1).userId, 'u1');
+  assert.equal(f.tickets[0].userId, 'u1');
+  assert.ok(f.tickets[0].lastSeenAt.getTime() > 0); // lastSeenAt 은 그대로 갱신
+
+  // 다른 기기·같은 이름·다른 계정 — 손님 표는 그 기기 계정, 응모권은 받은 기기 계정 그대로
+  await svc.guest(EK, D2, '김 솔', undefined, 'u2');
+  assert.equal(g(D2).userId, 'u2');
+  assert.equal(f.tickets[0].userId, 'u1');
+  // 받은 기기에서 다른 계정으로 — 그 계정으로 바뀜
+  await svc.guest(EK, D1, '김솔', undefined, 'u3');
+  assert.equal(f.tickets[0].userId, 'u3');
+  assert.equal(g(D1).userId, 'u3');
+
+  // 로그인 없이 받은 응모권(계정 빈 칸)은 같은 이름으로 들어온 다른 기기 계정이 채운다
+  const t2 = await svc.guest(EK, D3, '이하나');
+  assert.equal(t2.ticket!.number, 2);
+  assert.equal(f.tickets[1].userId, null);
+  await svc.guest(EK, D2, '이하나', undefined, 'u2');
+  assert.equal(f.tickets[1].userId, 'u2');
+  assert.equal(f.tickets.length, 2);
+});
+
+test('계정 연결 — 1분 묶음이 처음 온 계정을 삼키지 않음', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'closed' });
+  await svc.guest(EK, D1, '박병준');
+  assert.equal(f.guests.length, 1);
+  assert.equal(f.guestRows.get(`${EK}:${D1}`).userId, null);
+  // 바로 다음 요청에 계정이 처음 옴 → 묶지 않고 쓴다
+  await svc.guest(EK, D1, '박병준', undefined, 'u9');
+  assert.equal(f.guests.length, 2);
+  assert.equal(f.guestRows.get(`${EK}:${D1}`).userId, 'u9');
+  // 같은 계정 · 계정 없는 요청은 1분 안이면 건너뜀
+  await svc.guest(EK, D1, '박병준', undefined, 'u9');
+  await svc.guest(EK, D1, '박병준');
+  assert.equal(f.guests.length, 2);
+  assert.equal(f.guestRows.get(`${EK}:${D1}`).userId, 'u9');
+  // 다른 계정이면 다시 쓴다
+  await svc.guest(EK, D1, '박병준', undefined, 'u10');
+  assert.equal(f.guests.length, 3);
+  assert.equal(f.guestRows.get(`${EK}:${D1}`).userId, 'u10');
+});
+
+test('당첨 푸시 — 커밋 뒤 당첨자 계정에 한 번 · 이벤트 탭으로 · 무효는 안 보냄 · 계정 없으면 안 보냄', async () => {
+  const f = fakeLivePrisma();
+  const n = fakeNotifications();
+  const warns: string[] = [];
+  const svc = liveService(f.prisma, n, warns);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+
+  const won = await svc.draw(EK, '횡성한우세트');
+  await settle();
+  assert.equal(n.calls.length, 1);
+  const c = n.calls[0];
+  assert.equal(c.userId, 'u1');
+  assert.equal(c.type, 'system');
+  assert.equal(c.data.url, '/reception/event');
+  assert.deepEqual([c.data.type, c.data.drawId, c.data.eventKey], ['reception_draw', won.draw.id, EK]);
+  assert.match(c.body, /횡성한우세트에 당첨됐어요/);
+  // 알림톡 템플릿에 걸리는 말이 없다(biztalk resolveTemplate)
+  assert.doesNotMatch(`${c.title} ${c.body}`, /채팅|님의 메시지|견적|섭외|예약이 확정|결제가 완료|오늘 행사가/);
+  await svc.cancelDraw(EK, won.draw.id);
+  await settle();
+  assert.equal(n.calls.length, 1);
+
+  // 계정 없는 응모권 · 손님 표에도 계정 없음 → 안 보내고 기록만
+  await svc.guest(EK, D2, '이하나');
+  const none = await svc.draw(EK, '체스타필드 정장 세트');
+  await settle();
+  assert.equal(none.draw.name, '이하나');
+  assert.equal(n.calls.length, 1);
+  assert.ok(warns.some((w) => w.includes('no account')));
+});
+
+test('당첨 푸시 — 응모권 계정이 비면 받은 기기 손님 표 → 같은 이름 손님 표(하나로 모일 때만) · 경품 이름에 알림톡 말이 섞이면 뺌', async () => {
+  const f = fakeLivePrisma();
+  const n = fakeNotifications();
+  const svc = liveService(f.prisma, n);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+
+  // 받은 기기 손님 표의 계정
+  await svc.guest(EK, D1, '가');
+  f.guestRows.get(`${EK}:${D1}`).userId = 'ud';
+  await svc.draw(EK, '채팅 상품권');
+  await settle();
+  assert.deepEqual(n.calls.map((x) => x.userId), ['ud']);
+  assert.doesNotMatch(n.calls[0].body, /채팅/);
+
+  // 같은 이름 손님 표(다른 기기) — 계정이 하나면 그 계정
+  f.tickets.push({ id: 'tx', eventKey: EK, number: 50, nameKey: '나', name: '나', deviceId: 'gone', userId: null, createdAt: new Date(), lastSeenAt: new Date() });
+  await svc.guest(EK, D2, '나 ', undefined, 'un');
+  f.tickets.find((t) => t.id === 'tx').userId = null; // 응모권엔 계정이 안 붙은 경우
+  await svc.draw(EK, '경품');
+  await settle();
+  assert.deepEqual(n.calls.map((x) => x.userId), ['ud', 'un']);
+
+  // 같은 이름 계정이 둘이면(다른 사람일 수 있음) 안 보냄
+  f.tickets.push({ id: 'ty', eventKey: EK, number: 51, nameKey: '다', name: '다', deviceId: 'gone', userId: null, createdAt: new Date(), lastSeenAt: new Date() });
+  f.guestRows.set(`${EK}:a`, { eventKey: EK, deviceId: 'a', name: '다', userId: 'ua', lastSeenAt: new Date() });
+  f.guestRows.set(`${EK}:b`, { eventKey: EK, deviceId: 'b', name: '다', userId: 'ub', lastSeenAt: new Date() });
+  await svc.draw(EK, '경품');
+  await settle();
+  assert.equal(n.calls.length, 2);
+});
+
+test('당첨 푸시 — 무대 발표 뒤로 늦춰 보냄 · 그 사이 무효로 돌리면 안 보냄', async () => {
+  const f = fakeLivePrisma();
+  const n = fakeNotifications();
+  const svc = liveService(f.prisma, n, [], 30);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+  await svc.guest(EK, D2, '이하나', undefined, 'u2');
+  const first = await svc.draw(EK, '횡성한우세트');
+  assert.equal(n.calls.length, 0); // 추첨 응답은 푸시를 기다리지 않는다
+  await svc.cancelDraw(EK, first.draw.id);
+  const second = await svc.draw(EK, '횡성한우세트');
+  await settle(80);
+  assert.deepEqual(n.calls.map((x) => x.data.drawId), [second.draw.id]);
+});
+
+test('당첨 푸시 — 알림이 터져도 추첨은 그대로 성공', async () => {
+  const f = fakeLivePrisma();
+  const n = fakeNotifications(true);
+  const warns: string[] = [];
+  const svc = liveService(f.prisma, n, warns);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+  const won = await svc.draw(EK, '횡성한우세트');
+  await settle();
+  assert.equal(won.draw.name, '김솔');
+  assert.equal(won.board.draws.length, 1);
+  assert.equal(n.calls.length, 1);
+  assert.ok(warns.some((w) => w.includes('push failed')));
+});
+
+test('계정 연결 — 공용 폰에서 다른 이름(다른 사람)은 받은 사람 응모권 계정을 바꾸지 않음(빈 칸만 채움)', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+  // 같은 폰에 다른 사람이 자기 계정·자기 이름으로 — 기기 한 장 규칙상 보이는 건 김솔 응모권이지만 계정은 그대로
+  const shown = await svc.guest(EK, D1, '이하나', undefined, 'u2');
+  assert.equal(shown.ticket!.number, 1);
+  assert.equal(f.tickets.length, 1);
+  assert.equal(f.tickets[0].userId, 'u1');
+  // 계정 빈 응모권이면 채운다(로그인 없이 받고 이름을 고쳐 넣은 본인일 수 있음)
+  f.tickets[0].userId = null;
+  await svc.guest(EK, D1, '이하나', undefined, 'u2');
+  assert.equal(f.tickets[0].userId, 'u2');
+});
+
+test('당첨 푸시 — 알림 서비스가 주입 안 돼도(모듈 imports 누락) 추첨은 그대로 · 기록만', async () => {
+  const f = fakeLivePrisma();
+  const warns: string[] = [];
+  const svc = liveService(f.prisma, undefined, warns);
+  (svc as any).notifications = undefined;
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  await svc.guest(EK, D1, '김솔', undefined, 'u1');
+  const won = await svc.draw(EK, '횡성한우세트');
+  await settle();
+  assert.equal(won.draw.name, '김솔');
+  assert.ok(warns.some((w) => w.includes('NotificationService missing')));
 });
 
 test('어드민 답 고치기 — 판정만 바꿀 땐 답·낸 사람 안 씀 · 없던 줄은 안 지움 · 답 바뀌면 판정 버림', async () => {

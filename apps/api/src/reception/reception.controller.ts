@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, Post, Put, Query, Request, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { ReceptionService } from './reception.service';
 import { ReceptionLiveService } from './reception-live.service';
 import { ReceptionQuizService } from './reception-quiz.service';
@@ -9,6 +10,7 @@ import { PHOTO_MAX_BYTES, ReceptionEventKey, isReceptionEvent, isVoteKind, parse
 /**
  * 송년회(261108 사장 'Freetiful & WMAK 2026 Year-End RECEPTION') — 웹 /reception 의 이벤트·설문 탭.
  * 로그인 없음: 손님 = 머리글 X-RC-Device(브라우저가 만든 UUID) + 본문 name(자리 탭에서 입력한 이름). 401 은 내지 않는다.
+ * (261122 3차) PUT guest 만 로그인 토큰을 '있으면' 읽어 손님 표·응모권에 프리티풀 계정을 붙인다(당첨 푸시) — 없거나 틀린 토큰도 그대로 통과.
  * 본문은 인터페이스로 받아 서비스가 직접 검사한다(전역 ValidationPipe 의 forbidNonWhitelisted 를 피해 — game.dto.ts 와 같은 이유).
  */
 @ApiTags('reception')
@@ -73,13 +75,21 @@ export class ReceptionController {
   }
 
   @Put('guest')
+  // 로그인했으면 계정을 붙이고(당첨 푸시 받을 사람), 안 했거나 토큰이 틀려도 401 없이 그대로 — game.controller.ts 와 같은 쓰임
+  @UseGuards(OptionalJwtAuthGuard)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary:
-      '손님 남기기 + 내 자리·응모권 — 자리 탭에서 넣은 이름(기기당 1줄). 명단 자리, 발급 열림이면 럭키드로우 응모권(이름당 1장)·당첨. 응답 ok 는 예전 그대로. 동명이인이면 pick = 손님이 고른 테이블',
+      '손님 남기기 + 내 자리·응모권 — 자리 탭에서 넣은 이름(기기당 1줄). 명단 자리, 발급 열림이면 럭키드로우 응모권(이름당 1장)·당첨. 응답 ok 는 예전 그대로. 동명이인이면 pick = 손님이 고른 테이블. 로그인 토큰이 있으면 계정을 붙여 당첨 때 푸시',
   })
-  guest(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string; pick?: number }) {
-    return this.live.guest(this.event(eventKey), this.device(device), body?.name, body?.pick);
+  guest(
+    @Request() req: any,
+    @Param('eventKey') eventKey: string,
+    @Headers('x-rc-device') device: string,
+    @Body() body: { name?: string; pick?: number },
+  ) {
+    const userId = typeof req?.user?.id === 'string' && req.user.id ? (req.user.id as string) : null;
+    return this.live.guest(this.event(eventKey), this.device(device), body?.name, body?.pick, userId);
   }
 
   @Get('quiz')

@@ -1,14 +1,17 @@
-import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { ReceptionService } from './reception.service';
 import { ReceptionLiveService } from './reception-live.service';
 import { ReceptionQuizService } from './reception-quiz.service';
+import { ReceptionPeopleService } from './reception-people.service';
 import { ReceptionEventKey, isReceptionEvent } from './reception.rules';
 
 /**
  * 어드민 — 송년회 참여자 · 설문 응답(261108 사장 'campkjh@nate.com 어드민에서 누가 참여했는지 누가 설문조사에 응답했는지'). AdminGuard = 총괄운영자 id 포함
  * + 2차(261122): 입장 현황(응모권) · 자리 명단 · 퀴즈 진행 · 럭키드로우. 새 경로는 ':eventKey/…' 로 두 칸 이상이라 ':eventKey' 하나와 겹치지 않는다.
+ * + 3차(261122 사장 '참여자는 자리를 준 명단 전부 · 앱에 이름을 넣으면 실시간으로 맨 위'): 참여자 판(:eventKey/people). 어드민 '입장 현황' 탭은 없어지고
+ *   발급 모드 · 응모권 지우기 · 지운 이름 풀기는 참여자 판으로 옮겼다(경로는 그대로, live 도 럭키드로우 화면이 아직 쓴다).
  */
 @ApiTags('admin-reception')
 @UseGuards(AdminGuard)
@@ -18,6 +21,7 @@ export class ReceptionAdminController {
     private readonly reception: ReceptionService,
     private readonly live: ReceptionLiveService,
     private readonly quizzes: ReceptionQuizService,
+    private readonly peopleBoard: ReceptionPeopleService,
   ) {}
 
   private event(eventKey: string): ReceptionEventKey {
@@ -30,6 +34,15 @@ export class ReceptionAdminController {
   @ApiOperation({ summary: '참여자(이름·첫/마지막 접속·사진·누른 수·설문 여부) + 설문 응답 + 요약' })
   overview(@Param('eventKey') eventKey: string) {
     return this.reception.adminOverview(this.event(eventKey));
+  }
+
+  // ───────────── 참여자 판 ─────────────
+
+  @Get(':eventKey/people')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '참여자 판 — 자리 명단 전원 + 명단 밖 손님 · 도착(응모권) · 퀴즈 · 베스트드레서 · 설문 · 당첨 · 발급 모드 · 지운 이름 (?fresh=1 = 1초 묶음 건너뛰기)' })
+  people(@Param('eventKey') eventKey: string, @Query('fresh') fresh?: string) {
+    return this.peopleBoard.people(this.event(eventKey), fresh === '1' || fresh === 'true');
   }
 
   // ───────────── 입장 현황 · 자리 명단 · 응모권 ─────────────
