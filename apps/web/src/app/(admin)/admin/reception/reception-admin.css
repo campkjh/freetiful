@@ -1,4 +1,4 @@
-/* ═══ 송년회 어드민 2차(261122) — 입장 현황 · 퀴즈 · 럭키드로우 · 자리 명단 ═══════════════════════════
+/* ═══ 송년회 어드민 2차(261122) — 참여자 판(3차, 입장 현황 대신) · 퀴즈 · 럭키드로우 · 자리 명단 ═══════════════════════════
    · 태블릿에서 손가락으로 누르기 좋게 — 이 폴더 화면(.rca 아래)만 단추 48 이상. 어드민 전역 .adm-* 은 그대로 쓴다.
    · '크게 보기' 판(.rca-stage)은 body 포털이라 .admin-shell 밖 — 색 토큰을 판에 다시 깐다. 바탕 = 진한 남색 단색.
    · 표 줄 애니메이션: tr 에는 어드민 전역 admRowIn(fill both)이 걸려 있어 tr 의 transform·opacity 는 안 먹는다 → 반짝임 · 흐림은 칸(td)에.
@@ -311,11 +311,65 @@
 .rcs-sub-grid span { display: grid; place-items: center; height: 40px; border-radius: 10px; background: #16213F; color: rgba(255, 255, 255, .4); font-weight: 700; font-variant-numeric: tabular-nums; transition: background-color .3s ease, color .3s ease; }
 .rcs-sub-grid span.on { background: #3182F6; color: #fff; }
 
+/* ── 3차(261122) 참여자 판 — 명단 전원 + 도착하면 맨 위 · 태그 · 줄 색 ──────────────────────────────
+   · 사장 '은은한 하늘색 · 노란색 · 보라색 등' — 줄(칸 td)은 아주 옅게, 이름 옆 태그는 진하게. 단계 = receptionAdmin.ts personStage.
+   · 줄 색은 tr 이 아니라 td 에 — tr 바탕은 전역 hover(!important)가 쓰고, 반짝임도 td 에서 돈다.
+   · 어드민은 밝은 판 하나뿐(다크 테마 없음 — .admin-shell 토큰이 고정) → 다크 덮어쓰기는 두지 않는다. */
+.rcp-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 14px 20px; border-radius: 20px; background: #fff; }
+.rcp-bar-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rcp-bar-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--admin-ink); font-size: 16px; font-weight: 700; }
+.rcp-bar-sub { margin: 0; color: var(--admin-ph); font-size: 13px; }
+.rca .adm-seg.rcp-mode button { min-width: 72px; }
+.rcp-legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.rcp-legend .rcp-tag { height: 24px; padding: 0 9px; font-size: 12px; }
+
+.rcp-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.rcp-tag { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: #F2F4F6; color: var(--admin-muted); font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; transition: background-color .35s ease, color .35s ease; }
+.rcp-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; background: #F2F4F6; color: var(--admin-ph); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.admin-shell .rcp-table .adm-cell-sub.rcp-win { color: #D6336C; font-weight: 600; }
+.admin-shell .rcp-table .adm-cell-sub.rcp-ticket { color: var(--admin-blue); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rcp-dress { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rcp-thumb { flex: none; display: block; width: 40px; height: 40px; overflow: hidden; border-radius: 8px; background: #F2F4F6; }
+.rcp-thumb img { display: block; width: 40px; height: 40px; object-fit: cover; }
+.rcp-dress-text { display: flex; flex-direction: column; min-width: 0; }
+
+/* 단계 색 — 태그(진하게) · 줄(옅게) · 반짝임(태그 바탕색) */
+.rcp-tag.s-arrived { background: #DCEBFF; color: #2B6FD6; }
+.rcp-tag.s-quiz { background: #FCEBB0; color: #A86B00; }
+.rcp-tag.s-dresser { background: #E6DCFF; color: #6D45D9; }
+.rcp-tag.s-survey { background: #D4F1DE; color: #1E8E4E; }
+.rcp-tag.s-win { background: #FFD8E2; color: #D6336C; }
+.rcp-row.s-arrived { --rcp-row: #F0F7FF; --rcp-pulse: #DCEBFF; }
+.rcp-row.s-quiz { --rcp-row: #FFFAE6; --rcp-pulse: #FCEBB0; }
+.rcp-row.s-dresser { --rcp-row: #F6F1FF; --rcp-pulse: #E6DCFF; }
+.rcp-row.s-survey { --rcp-row: #EFFAF3; --rcp-pulse: #D4F1DE; }
+.rcp-row.s-win { --rcp-row: #FFF1F4; --rcp-pulse: #FFD8E2; }
+.admin-shell .rcp-table tr.rcp-row > td { transition: background-color .5s ease; }
+.admin-shell .rcp-table tr.rcp-row.tint > td { background-color: var(--rcp-row); }
+/* 처음 촤라락이 끝나면 줄 등장을 끈다 — 맨 위로 올리느라 React 가 줄을 옮겨 끼우면 등장이 다시 돌아 표 전체가 깜빡이므로 */
+.admin-shell .rcp-table.settled tbody tr { animation: none; }
+/* 방금 단계가 바뀐 줄 — 진한 색에서 그 단계 줄 색으로 스르르(자리 옮김은 useFlipRows 가 칸 transform 으로).
+   pa/pb = 같은 키프레임 두 벌 — 반짝이는 중에 또 바뀌면 이름을 바꿔 애니메이션을 처음부터 다시 돌린다(fix 261122) */
+.admin-shell .rcp-table tr.rcp-pulse.pa > td { animation: rcpPulseA 2.4s ease-out; }
+.admin-shell .rcp-table tr.rcp-pulse.pb > td { animation: rcpPulseB 2.4s ease-out; }
+@keyframes rcpPulseA {
+  0%, 35% { background-color: var(--rcp-pulse, #E8F3FF); }
+  100% { background-color: var(--rcp-row, rgba(255, 255, 255, 0)); }
+}
+@keyframes rcpPulseB {
+  0%, 35% { background-color: var(--rcp-pulse, #E8F3FF); }
+  100% { background-color: var(--rcp-row, rgba(255, 255, 255, 0)); }
+}
+
 /* ── 동작 줄이기 ── */
+
 @media (prefers-reduced-motion: reduce) {
   /* 줄 촤라락은 전역 .admin-shell tbody tr(admRowIn)이 건다 — 이 폴더 표(입장 · 퀴즈 · 추첨 · 명단)는 여기서 끈다 */
   .admin-shell .rca-table tbody tr { animation: none; }
   .admin-shell .rca-table tr.rca-fresh > td { animation: none; background-color: #E8F3FF; }
   .rca-stage, .rcs-board-row, .rcs-answer, .rcs-card, .rcd-screen.done .rcd-result, .rcq-dot.live { animation: none; }
   .rcq-timer-bar span, .rcs-sub-grid span { transition: none; }
+  /* 참여자 판 — 반짝임 · 색 바뀜 전환 없이 바로 */
+  .admin-shell .rcp-table tr.rcp-pulse.pa > td, .admin-shell .rcp-table tr.rcp-pulse.pb > td { animation: none; }
+  .admin-shell .rcp-table tr.rcp-row > td, .rcp-tag { transition: none; }
 }

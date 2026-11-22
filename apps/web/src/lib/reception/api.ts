@@ -2,6 +2,9 @@
 
 // 송년회 이벤트·설문 API(NestJS apps/api/src/reception) — 같은 출처 /api/v1/** 를 Next rewrites 가 Railway 로 넘긴다.
 // apiClient(axios) 대신 fetch: 로그인 없는 화면이라 401 → 로그인 시트 흐름을 타면 안 된다(wedding-run.api.ts 와 같은 이유).
+// 로그인 상태면 토큰만 붙인다(261122 사장 '당첨이 되면 푸시 알람이 가게끔 당사자에게') — 서버가 손님 표·응모권에 계정을 붙여 당첨 푸시를 보낸다.
+// 토큰이 없거나 틀려도 서버는 401 을 내지 않는다(OptionalJwtAuthGuard). 같은 출처라 CORS 는 그대로.
+import { useAuthStore } from '@/lib/store/auth.store';
 import { RECEPTION_EVENT_KEY } from './event';
 
 const BASE = `/api/v1/reception/${RECEPTION_EVENT_KEY}`;
@@ -137,6 +140,12 @@ export interface QuizPublic {
 async function call<T>(path: string, deviceId: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { 'X-RC-Device': deviceId };
   if (init.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  try {
+    const token = useAuthStore.getState().accessToken;
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    /* 저장소 접근 불가 — 손님(기기)으로만 */
+  }
   const res = await fetch(`${BASE}${path}`, { cache: 'no-store', ...init, headers: { ...headers, ...(init.headers as any) } });
   if (!res.ok) {
     let msg = res.status === 413 ? '사진이 너무 커요. 다른 사진으로 올려 주세요.' : '잠시 후 다시 시도해 주세요.';

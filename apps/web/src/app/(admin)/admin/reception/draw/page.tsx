@@ -3,7 +3,7 @@
 /* 송년회 럭키드로우(261122 사장 '럭키드로우도 이벤트로 해줘') — 손님이 입장할 때 자동으로 받은 응모권에서 뽑는다.
  *  · 뽑기는 서버가 한다(crypto.randomInt, 겹쳐 눌러도 같은 사람 두 번 안 나옴). 여기선 연출만 —
  *    누르자마자 번호가 빠르게 굴러가다(약 2.4초, 감속) 서버가 뽑은 번호에 멈추며 이름 · 테이블을 크게 + 진동.
- *  · 굴러가는 번호 · 이름 = 아직 안 뽑힌 실제 응모권(입장 현황에서 받음) — 없으면 숫자만.
+ *  · 굴러가는 번호 · 이름 = 아직 안 뽑힌 실제 응모권(서버 live 목록 — 손님이 자리 탭에서 받은 것, 어드민 입장 현황 탭은 261122 참여자 판으로 합침) — 없으면 숫자만.
  *  · 자리에 없으면 [무효] → 그 응모권은 다시 안 뽑고(서버 규칙), 같은 경품으로 한 번 더 추첨.
  *  · [크게 보기] = 대표님이 직접 누르는 전체 화면(판 안에도 경품 고르기 · 추첨 버튼).
  *  · 굴리는 동안 표 · 숫자 · 경품 남은 수는 누르기 직전 값으로 묶어 둔다 — 서버 응답·폴링이 먼저 와도 당첨자가 미리 안 드러나게.
@@ -184,7 +184,7 @@ export default function ReceptionDrawPage() {
         return (
           <button key={p.name} type="button" role="radio" aria-checked={on} className={`rcd-prize ${on ? 'on' : ''} ${left === 0 ? 'out' : ''}`} disabled={rolling} onClick={() => { setCustomOn(false); setPrize(p.name); }}>
             <b>{p.name}</b>
-            <small>{left > 0 ? `남은 ${left} / ${p.total}` : `${p.total}개 다 뽑았어요`}</small>
+            <small>{p.worth ? `${p.worth} · ` : ''}{left > 0 ? `남은 ${left} / ${p.total}` : `${p.total}개 다 뽑았어요`}</small>
           </button>
         );
       })}
@@ -217,7 +217,7 @@ export default function ReceptionDrawPage() {
         <div className="adm-stat">
           <p className="adm-stat-label">당첨</p>
           <p className="adm-stat-value"><RollingNumber value={won} /><small>명</small></p>
-          <p className="adm-stat-sub">{view.prizes.map((p) => `${p.name} ${p.drawn}/${p.total}`).join(' · ')}</p>
+          <p className="adm-stat-sub">{`경품 ${view.prizes.length}종 · ${view.prizes.reduce((n, p) => n + p.drawn, 0)} / ${view.prizes.reduce((n, p) => n + p.total, 0)}개 뽑음`}</p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label">무효</p>

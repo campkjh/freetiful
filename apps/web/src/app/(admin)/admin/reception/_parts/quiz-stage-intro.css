@@ -1,0 +1,110 @@
+/* 퀴즈 '크게 보기'(프로젝터) 문제 등장 연출(261122 사장 '사진이 엄청 크게 3초 정도 전체화면으로 … 아래에 살짝 딤드 그라데이션 …
+ * 이 웨딩홀은 어디일까요? 하고 3초 뒤에 이미지가 작아지면서 문제화면으로 그리고 각각 페이지별로 인터렉션 추가해줘').
+ *  · 엔진 = components/reception/QuizIntro.tsx(손님 화면과 같은 것) — 여기는 겉모양만(rcsi-*). QuizStageBody.tsx 가 불러온다.
+ *  · 판은 .rca-stage(z 1250) 안 z 1 — 닫기 단추 · 운영 단추 줄(z 2)은 연출 위에 그대로 보이고 바로 눌린다. 바탕은 판과 같은 진한 남색 단색.
+ *  · 사진 아래 딤 그라데이션은 사장이 콕 집은 예외(이 판 한정). 글자 굵기 최대 700.
+ *  · 등장 애니메이션은 fill backwards 만 — 착지(land) · 넘기기(out)에서 바꾸는 opacity · transform 을 forwards 가 덮지 않게.
+ *  · 판 속 단계 class(.rcs-live): rcsi-hold(덮는 중 — 속 숨김) → rcsi-land(날아와 앉는 중) → rcsi-in(차례로 등장). */
+@keyframes rcsiFade { from { opacity: 0; } }
+@keyframes rcsiUp { from { opacity: 0; transform: translate3d(0, 22px, 0); } }
+@keyframes rcsiPop { from { opacity: 0; transform: scale(.6); } }
+@keyframes rcsiLine { from { transform: scaleX(0); } }
+@keyframes rcsiStamp { from { opacity: 0; transform: scale(1.5) rotate(-4deg); } 55% { opacity: 1; } }
+
+.rcsi {
+  position: fixed; inset: 0; z-index: 1; overflow: hidden; cursor: pointer; -webkit-user-select: none; user-select: none;
+  color: #fff; transition: opacity .22s ease;
+}
+.rcsi.land, .rcsi.out, .rcsi.shrink { pointer-events: none; cursor: default; }
+/* 운영 단추 줄(마감 · 정답 공개 · 순위 발표 · 대기)은 연출 위(z 2, 닫기 단추와 같은 층) — 판이 덮는 3초 동안 [마감] 을 눌러도
+ * 첫 누름이 '넘기기'로 먹히지 않고 바로 서버로 간다(행사 중 '단추가 안 먹는다' 착각 방지). 단추는 제 바탕색이 있어 사진 위에서도 읽힌다.
+ * 판 밖(.rca-stage 직계)에만 거는 위치 지정이라 자리 · 다른 판(럭키드로우 크게 보기)에는 영향 없다. */
+.rca-stage > .rca-stage-foot { position: relative; z-index: 2; }
+.rcsi.out { opacity: 0; }
+.rcsi-bg { position: absolute; inset: 0; background: #0B1430; animation: rcsiFade .25s ease backwards; transition: opacity .55s ease; }
+.rcsi--photo .rcsi-bg { background: #050A1F; }
+.rcsi.land .rcsi-bg, .rcsi.shrink .rcsi-bg { opacity: 0; }
+.rcsi-eyebrow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 6px 16px; margin: 0; animation: rcsiUp .6s cubic-bezier(.22, 1, .36, 1) .3s backwards; }
+.rcsi-round { color: #F6DC93; font-size: clamp(18px, 2.2vw, 30px); font-weight: 700; letter-spacing: .14em; }
+.rcsi-meta { color: rgba(255, 255, 255, .78); font-size: clamp(16px, 1.9vw, 26px); font-weight: 600; }
+.rcsi-prompt { max-width: 1200px; margin: 2vh auto 0; color: #fff; font-size: clamp(36px, 5.6vw, 88px); font-weight: 700; line-height: 1.25; letter-spacing: -1.5px; word-break: keep-all; animation: rcsiUp .7s cubic-bezier(.22, 1, .36, 1) .5s backwards; }
+
+/* 사진 — 판 가득(cover) + 천천히 다가오는 줌(go) → 착지 때 틀이 판 속 그림 자리 크기로 */
+.rcsi-frame {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; border-radius: 0;
+  transition: top .76s cubic-bezier(.65, 0, .25, 1), left .76s cubic-bezier(.65, 0, .25, 1), width .76s cubic-bezier(.65, 0, .25, 1),
+    height .76s cubic-bezier(.65, 0, .25, 1), border-radius .76s cubic-bezier(.65, 0, .25, 1);
+}
+.rcsi-photo { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1); animation: rcsiFade .5s ease backwards; will-change: transform; }
+.rcsi.go .rcsi-photo { transform: scale(1.07); transition: transform 3.2s cubic-bezier(.25, .1, .25, 1); }
+.rcsi.land .rcsi-photo { transform: none; transition: transform .76s cubic-bezier(.65, 0, .25, 1); }
+/* 아래 은은한 딤 — 사장 지정 예외 */
+.rcsi-dim {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 60%; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(10, 16, 40, 0) 0%, rgba(10, 16, 40, .5) 48%, rgba(10, 16, 40, .8) 100%);
+  animation: rcsiFade .8s ease .15s backwards; transition: opacity .3s ease;
+}
+/* 아래 여백 = 8vh + 운영 단추 줄 높이(판 아래 24 + 단추 48) — 문제 글이 단추에 가리지 않게 */
+.rcsi-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 6vw calc(8vh + 72px + env(safe-area-inset-bottom)); text-align: center; transition: opacity .28s ease; }
+.rcsi.land .rcsi-dim, .rcsi.land .rcsi-cap { opacity: 0; }
+
+/* 가운데 판(짝 맞추기 · 글 문제) */
+.rcsi-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8vh 6vw calc(8vh + 72px + env(safe-area-inset-bottom)); text-align: center; }
+.rcsi-center > p { transition: opacity .28s ease; }
+.rcsi.land .rcsi-center > p { opacity: 0; }
+.rcsi--match .rcsi-prompt { font-size: clamp(26px, 3.4vw, 52px); }
+/* 판 속 그림 칸(본문 폭 4칸)보다 크게 — 착지 때 작아지며 앉게(1080p 기준) */
+.rcsi-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.4vw; width: min(94vw, 140vh); margin: 4vh 0 2vh; }
+.rcsi-tile { position: relative; transition: transform .76s cubic-bezier(.65, 0, .25, 1), opacity .3s ease; }
+.rcsi-tile-in {
+  position: relative; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 28px; background: #fff;
+  animation: rcsiPop .55s cubic-bezier(.3, 1.35, .5, 1) backwards; animation-delay: calc(var(--i, 0) * 110ms + 250ms);
+  transition: border-radius .76s cubic-bezier(.65, 0, .25, 1);
+}
+.rcsi-tile-in img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.rcsi-tile-in span { position: absolute; top: 12px; left: 12px; padding: 3px 12px; border-radius: 12px; background: #0B1430; color: #fff; font-size: clamp(16px, 1.8vw, 26px); font-weight: 700; transition: opacity .25s ease; }
+.rcsi.land .rcsi-tile-in span { opacity: 0; }
+
+/* 글 문제 — 'ROUND n' · 금줄 · 'n번 문제' · 점수 · 문제 → 착지 때 판 속 문제 글로 줄어들며 흐려짐 */
+.rcsi-block { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 1200px; transition: transform .66s cubic-bezier(.65, 0, .25, 1), opacity .5s ease .12s; }
+.rcsi-line { display: block; width: clamp(56px, 6vw, 96px); height: 3px; margin: 2.4vh 0; border-radius: 2px; background: #F6DC93; animation: rcsiLine .6s cubic-bezier(.22, 1, .36, 1) .25s backwards; }
+.rcsi-no { margin: 0; font-size: clamp(64px, 10vw, 156px); font-weight: 700; line-height: 1.05; letter-spacing: -2px; animation: rcsiPop .6s cubic-bezier(.3, 1.35, .5, 1) .3s backwards; }
+.rcsi.mission .rcsi-no { color: #F6DC93; font-size: clamp(52px, 8vw, 124px); letter-spacing: 2px; }
+.rcsi-points { margin: 2vh 0 0; padding: 6px 16px; border-radius: 12px; background: rgba(246, 220, 147, .16); color: #F6DC93; font-size: clamp(16px, 1.8vw, 24px); font-weight: 700; animation: rcsiUp .5s cubic-bezier(.22, 1, .36, 1) .5s backwards; }
+.rcsi-block .rcsi-prompt { margin-top: 4vh; font-size: clamp(26px, 3.6vw, 54px); line-height: 1.35; animation-delay: .7s; }
+.rcsi.shrink .rcsi-frame, .rcsi.shrink .rcsi-center, .rcsi.shrink .rcsi-cap, .rcsi.shrink .rcsi-dim {
+  opacity: 0; transform: scale(.84); transition: opacity .42s ease, transform .42s cubic-bezier(.65, 0, .25, 1);
+}
+
+/* 판 속(.rcs-live) — 덮는 동안 숨기고(자리는 그대로라 잴 수 있다), 착지에 맞춰 차례로. 그림 자리는 날아온 그림이 앉을 때까지 비워 둔다 */
+.rcs-live.rcsi-hold > * { opacity: 0; }
+.rcs-live.rcsi-hold .rcs-img, .rcs-live.rcsi-land .rcs-img,
+.rcs-live.rcsi-hold .rcs-match-slots img, .rcs-live.rcsi-land .rcs-match-slots img { visibility: hidden; }
+.rcs-live.rcsi-land > :not(.rcs-img), .rcs-live.rcsi-in > :not(.rcs-img) {
+  animation-name: rcsiUp; animation-duration: .5s; animation-timing-function: cubic-bezier(.22, 1, .36, 1); animation-fill-mode: backwards;
+}
+/* 짝 맞추기 칸은 그림이 날아와 앉을 자리라 움직이지 않고 흐려지기만 */
+.rcs-live.rcsi-land > .rcs-match, .rcs-live.rcsi-in > .rcs-match { animation-name: rcsiFade; }
+.rcs-live.rcsi-land > :nth-child(2), .rcs-live.rcsi-in > :nth-child(2) { animation-delay: .06s; }
+.rcs-live.rcsi-land > :nth-child(3), .rcs-live.rcsi-in > :nth-child(3) { animation-delay: .12s; }
+.rcs-live.rcsi-land > :nth-child(4), .rcs-live.rcsi-in > :nth-child(4) { animation-delay: .18s; }
+.rcs-live.rcsi-land > :nth-child(n+5), .rcs-live.rcsi-in > :nth-child(n+5) { animation-delay: .24s; }
+.rcs-live.rcsi-land .rcs-opts li, .rcs-live.rcsi-in .rcs-opts li, .rcs-live.rcsi-land .rcs-ox span, .rcs-live.rcsi-in .rcs-ox span {
+  animation: rcsiUp .45s cubic-bezier(.22, 1, .36, 1) .2s backwards;
+}
+.rcs-live.rcsi-land .rcs-opts li:nth-child(2), .rcs-live.rcsi-in .rcs-opts li:nth-child(2),
+.rcs-live.rcsi-land .rcs-ox span:nth-child(2), .rcs-live.rcsi-in .rcs-ox span:nth-child(2) { animation-delay: .28s; }
+.rcs-live.rcsi-land .rcs-opts li:nth-child(3), .rcs-live.rcsi-in .rcs-opts li:nth-child(3) { animation-delay: .36s; }
+.rcs-live.rcsi-land .rcs-opts li:nth-child(n+4), .rcs-live.rcsi-in .rcs-opts li:nth-child(n+4) { animation-delay: .44s; }
+
+/* 마감 — '답안 마감' 도장(진행 중 → 마감으로 class 가 바뀌는 순간 한 번) */
+.rcs-live .rcs-timer.locked { animation: rcsiStamp .5s cubic-bezier(.3, 1.45, .5, 1) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rcsi-bg, .rcsi-eyebrow, .rcsi-prompt, .rcsi-photo, .rcsi-dim, .rcsi-tile-in, .rcsi-line, .rcsi-no, .rcsi-points { animation: none; }
+  .rcsi .rcsi-photo, .rcsi.go .rcsi-photo { transform: none; transition: none; }
+  .rcsi-frame, .rcsi-tile, .rcsi-block { transition: none; }
+  /* 위 칸과 같은 선택자(같은 세기) — '> *' 로 쓰면 ':not()' 쪽이 더 세서 못 끈다 */
+  .rcs-live.rcsi-land > :not(.rcs-img), .rcs-live.rcsi-in > :not(.rcs-img), .rcs-live.rcsi-land .rcs-opts li, .rcs-live.rcsi-in .rcs-opts li,
+  .rcs-live.rcsi-land .rcs-ox span, .rcs-live.rcsi-in .rcs-ox span, .rcs-live .rcs-timer.locked { animation: none; }
+}

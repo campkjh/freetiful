@@ -4,9 +4,12 @@
 //  · 좋아요 · 공감은 종류별 한 사람 10개까지(사진 한 장에 1개, 내 사진엔 못 누름) — 사진이 받는 수는 무제한.
 //  · 순위 = 공감 많은 순. 넓은 화면은 오른쪽 칸에 늘 보이고, 폰은 오른쪽 가장자리 '순위' 손잡이 → 옆에서 나오는 서랍.
 //  · 8초마다 새로 받는다(화면이 보일 때만, 누르는 중엔 쉼). 규칙은 서버 apps/api/src/reception.
+//  · 맨 위 = 내 럭키드로우 응모권(261122 사장 '송년회페이지에서 참여가 되면 럭키드로우권이 앱에서 발급 · 이벤트 페이지에서 확인 · 당첨이 되면 푸시 알람').
+//    자리 탭과 같은 데이터(useReceptionMe — PUT /guest)를 15초마다 다시 받아 발급·당첨('당첨!' 띠)을 갱신. 당첨 푸시를 누르면 이 화면으로 온다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
+import LuckyTicket from '@/components/reception/LuckyTicket';
 import { NameGateModal } from '@/components/reception/NameGate';
 import PhotoViewer from '@/components/reception/PhotoViewer';
 import RankingList from '@/components/reception/RankingList';
@@ -14,9 +17,15 @@ import RankCrown from '@/components/reception/RankCrown';
 import { CloseIcon, EventIcon, HeartIcon, PlusIcon, ThumbIcon } from '@/components/reception/ReceptionIcons';
 import { receptionApi, shrinkPhoto, type ReceptionFeed, type ReceptionPhoto, type VoteKind } from '@/lib/reception/api';
 import { readGuest, useReceptionGuest } from '@/lib/reception/guest';
+import { resolveSeat, useReceptionMe } from '@/lib/reception/me';
+import '@/components/reception/reception-event-ticket.css';
 
 const POLL_MS = 8000;
+/** 응모권 다시 받기 — 자리 탭과 같은 간격 */
+const TICKET_POLL_MS = 15000;
 const KIND_LABEL: Record<VoteKind, string> = { like: '좋아요', empathy: '공감' };
+const PHOTO_HINT = '사진 올리기와 좋아요·공감은 성함을 입력한 뒤에 할 수 있어요.';
+const TICKET_HINT = '입력한 성함으로 자리를 찾고 럭키드로우 응모권을 드려요. 베스트드레서 어워즈·설문에도 이 이름이 쓰여요.';
 
 /** 누른 즉시 화면에 반영(서버 답이 오면 그걸로 바꿈) — 순위도 같은 규칙으로 다시 매긴다 */
 function applyVote(feed: ReceptionFeed, id: string, kind: VoteKind, on: boolean): ReceptionFeed {
@@ -40,12 +49,18 @@ export default function ReceptionEventPage() {
   // 보는 사진은 id 로 기억 — 공감을 누르면 순위 목록 순서가 바뀌어도 같은 사진에 머문다
   const [viewer, setViewer] = useState<{ list: 'feed' | 'rank'; id: string } | null>(null);
   const [rankOpen, setRankOpen] = useState(false);
-  const [needName, setNeedName] = useState<null | (() => void)>(null);
+  // 이름 카드 — 뒤에 할 일 + 카드 안내 문구(사진·공감이냐, 응모권이냐)
+  const [needName, setNeedName] = useState<null | { fn: () => void; hint: string }>(null);
   const [draft, setDraft] = useState<{ file: File; url: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [replaceAsk, setReplaceAsk] = useState(false);
   const busy = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
+  // 내 응모권 — 이름이 있을 때만 부른다(이름 없으면 훅이 아무것도 안 함). 공용 틀(ReceptionShell)의 첫 PUT 과 같은 길
+  const name = guest?.name || '';
+  const { me, status: meStatus } = useReceptionMe(guest, TICKET_POLL_MS);
+  const seat = resolveSeat(me, name);
+  const ticketTable = seat && (seat.kind === 'listed' || seat.kind === 'temp') ? seat.table : null;
 
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -73,9 +88,9 @@ export default function ReceptionEventPage() {
   const mine = photos.find((p) => p.mine) || null;
 
   /** 이름이 있어야 하는 일 — 없으면 이름 카드를 먼저 */
-  const withName = (fn: () => void) => {
+  const withName = (fn: () => void, hint = PHOTO_HINT) => {
     if (readGuest().name) fn();
-    else setNeedName(() => fn);
+    else setNeedName({ fn, hint });
   };
 
   const vote = async (p: ReceptionPhoto, kind: VoteKind) => {
@@ -166,7 +181,22 @@ export default function ReceptionEventPage() {
     <div className="rc-page rc-event-page">
       <div className="rc-event-layout">
         <div className="rc-event-main">
-          <header className="rc-event-head rc-rise">
+          {guest && (
+            <div className="rc-event-lucky rc-rise">
+              <LuckyTicket
+                ticket={name ? me?.ticket ?? null : null}
+                ticketsOpen={!!me?.ticketsOpen}
+                table={ticketTable}
+                status={meStatus}
+                needsPick={seat?.kind === 'choose'}
+                place="event"
+                onNeedName={name ? undefined : () => withName(() => {}, TICKET_HINT)}
+              />
+              <img src="/reception/divider.webp" alt="" aria-hidden="true" className="rc-divider" width={830} height={99} />
+            </div>
+          )}
+
+          <header className="rc-event-head rc-rise" style={{ '--i': 1 } as React.CSSProperties}>
             <p className="rc-eyebrow">Best Dresser Awards</p>
             <h1 className="rc-event-title">베스트드레서 어워즈</h1>
             <p className="rc-event-desc">오늘의 룩을 사진 한 장으로 올리고, 마음에 드는 룩에 좋아요·공감을 눌러 주세요. 공감을 많이 받은 순서대로 순위가 매겨져요.</p>
@@ -294,9 +324,9 @@ export default function ReceptionEventPage() {
 
       <NameGateModal
         open={!!needName}
-        hint="사진 올리기와 좋아요·공감은 성함을 입력한 뒤에 할 수 있어요."
+        hint={needName?.hint ?? PHOTO_HINT}
         onClose={() => setNeedName(null)}
-        onDone={() => { const fn = needName; setNeedName(null); fn?.(); }}
+        onDone={() => { const next = needName; setNeedName(null); next?.fn(); }}
       />
     </div>
   );

@@ -3,11 +3,17 @@
 /* 퀴즈 '크게 보기' 판 안쪽 — 프로젝터로 손님에게 보여 주는 화면(진한 남색 단색).
  *  · 정답 공개 = 정답 크게 + 테이블 답 카드 18개(맞힘 파랑 · 틀림 회색), 문제가 바뀔 때마다 촤라락.
  *  · 진행 중 · 마감 = 문제 + 남은 시간 + 낸 테이블 칸(답은 안 보임).
- *  · 대기 · 순위 발표 켬 = 점수판(공개된 문제만 채점 — 손님 화면과 같은 점수). */
-import type { CSSProperties } from 'react';
+ *  · 대기 · 순위 발표 켬 = 점수판(공개된 문제만 채점 — 손님 화면과 같은 점수).
+ *  · 261122 사장 '사진이 엄청 크게 3초 정도 전체화면으로 … 이 웨딩홀은 어디일까요? 하고 3초 뒤에 이미지가 작아지면서 문제화면으로'
+ *    = 판을 띄운 채 문제를 열면(또는 연 지 15초 안에 판을 띄우면) 손님 화면과 같은 등장 연출(QuizIntro, rcsi-* = quiz-stage-intro.css).
+ *    사진 문제 = 판 가득 사진 3초 + 아래 딤 + 문제 → 판의 그림 자리로 / 짝 맞추기 = 그림 4장 → 칸마다 / 글 문제 = 'n번 문제' 판 → 문제 글로.
+ *    닫기 단추는 연출 위에 그대로(z 2) · 누르면 바로 끝 · 정답은 절대 안 그린다. */
+import { useCallback, useRef, type CSSProperties } from 'react';
 import RankCrown from '@/components/reception/RankCrown';
+import { QuizIntro, useQuizImagePreload, useQuizIntro, type IntroTargets } from '@/components/reception/QuizIntro';
 import { TABLE_COUNT } from '@/lib/reception/event';
 import { CIRCLED, QUIZ_SECONDS, type QuizAdmin, type QuizScore } from '../../_components/receptionAdmin';
+import './quiz-stage-intro.css';
 
 export function rankBoard(board: QuizScore[]) {
   let prev: number | null = null;
@@ -32,6 +38,20 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
   const st = data.state;
   const cur = data.questions.find((q) => q.id === st.currentId) || null;
   const mode = st.showBoard || !cur || st.phase === 'idle' ? 'board' : st.phase === 'revealed' ? 'reveal' : 'live';
+
+  // 등장 연출 — 진행 중(open) 화면일 때만, 열림 하나(문제 + 연 시각)마다 한 번
+  useQuizImagePreload(data.questions);
+  const liveRef = useRef<HTMLDivElement>(null);
+  const introKey = mode === 'live' && cur && st.phase === 'open' ? `${cur.id}@${st.openedAt ?? ''}` : null;
+  const intro = useQuizIntro(introKey, st.openedAt, 'stage');
+  const introTargets = useCallback((): IntroTargets => {
+    const el = liveRef.current;
+    return {
+      photo: el?.querySelector<HTMLElement>('.rcs-img') ?? null,
+      head: el?.querySelector<HTMLElement>('.rcs-prompt') ?? null,
+      slots: el ? Array.from(el.querySelectorAll<HTMLElement>('.rcs-match-slots img')) : [],
+    };
+  }, []);
 
   if (mode === 'board' || !cur) {
     const rows = rankBoard(data.board);
@@ -92,48 +112,54 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
   const left = secondsLeft(st.openedAt, now);
   const submitted = new Set(tables.filter((t) => t.answer).map((t) => t.table));
   return (
-    <div className="rcs-live" key={`l:${cur.id}`}>
-      {head}
-      <p className="rcs-prompt">{cur.prompt}</p>
-      {cur.image && <img className="rcs-img" src={cur.image} alt="" />}
-      {cur.kind === 'choice' && (
-        <ol className="rcs-opts">
-          {(cur.options || []).map((o, i) => (
-            <li key={i}><b>{CIRCLED[i]}</b>{o}</li>
-          ))}
-        </ol>
-      )}
-      {cur.kind === 'ox' && (
-        <div className="rcs-ox"><span>O</span><span>X</span></div>
-      )}
-      {cur.kind === 'match' && (
-        <div className="rcs-match">
-          <div className="rcs-match-slots">
-            {(cur.slots || []).map((s, i) => (
-              <figure key={i}>
-                {cur.slotImages?.[i] && <img src={cur.slotImages[i]} alt="" />}
-                <figcaption>{s}</figcaption>
-              </figure>
+    <>
+      <div ref={liveRef} className={`rcs-live ${intro.stage ? `rcsi-${intro.stage}` : ''}`} key={`l:${cur.id}`}>
+        {head}
+        <p className="rcs-prompt">{cur.prompt}</p>
+        {cur.image && <img className="rcs-img" src={cur.image} alt="" />}
+        {cur.kind === 'choice' && (
+          <ol className="rcs-opts">
+            {(cur.options || []).map((o, i) => (
+              <li key={i}><b>{CIRCLED[i]}</b>{o}</li>
             ))}
+          </ol>
+        )}
+        {cur.kind === 'ox' && (
+          <div className="rcs-ox"><span>O</span><span>X</span></div>
+        )}
+        {cur.kind === 'match' && (
+          <div className="rcs-match">
+            <div className="rcs-match-slots">
+              {(cur.slots || []).map((s, i) => (
+                <figure key={i}>
+                  {cur.slotImages?.[i] && <img src={cur.slotImages[i]} alt="" />}
+                  <figcaption>{s}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <p className="rcs-match-opts">{(cur.options || []).join('   ')}</p>
           </div>
-          <p className="rcs-match-opts">{(cur.options || []).join('   ')}</p>
-        </div>
-      )}
-      {cur.kind === 'mission' && cur.notes && (
-        <ul className="rcs-notes">{cur.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
-      )}
-      {cur.kind !== 'mission' && (
-        <div className="rcs-live-foot">
-          <p className={`rcs-timer ${st.phase === 'locked' ? 'locked' : left <= 10 ? 'warn' : ''}`}>
-            {st.phase === 'locked' ? '답안 마감' : left > 0 ? `${left}초` : '시간 종료'}
-          </p>
-          <div className="rcs-sub-grid" aria-label={`답을 낸 테이블 ${submitted.size}곳`}>
-            {Array.from({ length: data.tableCount || TABLE_COUNT }, (_, i) => i + 1).map((n) => (
-              <span key={n} className={submitted.has(n) ? 'on' : ''}>{n}</span>
-            ))}
+        )}
+        {cur.kind === 'mission' && cur.notes && (
+          <ul className="rcs-notes">{cur.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        )}
+        {cur.kind !== 'mission' && (
+          <div className="rcs-live-foot">
+            <p className={`rcs-timer ${st.phase === 'locked' ? 'locked' : left <= 10 ? 'warn' : ''}`}>
+              {st.phase === 'locked' ? '답안 마감' : left > 0 ? `${left}초` : '시간 종료'}
+            </p>
+            <div className="rcs-sub-grid" aria-label={`답을 낸 테이블 ${submitted.size}곳`}>
+              {Array.from({ length: data.tableCount || TABLE_COUNT }, (_, i) => i + 1).map((n) => (
+                <span key={n} className={submitted.has(n) ? 'on' : ''}>{n}</span>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+      {/* 연출 판은 .rcs-live 밖 — 안에 두면 착지 때 카드 속 차례 등장(transform)이 fixed 판까지 끌고 간다 */}
+      {intro.overlay && intro.key && st.phase === 'open' && (
+        <QuizIntro key={intro.key} q={cur} prefix="rcsi" targets={introTargets} onStage={intro.onStage} onDone={intro.onDone} />
       )}
-    </div>
+    </>
   );
 }

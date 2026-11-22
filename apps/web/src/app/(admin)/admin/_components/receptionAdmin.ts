@@ -3,10 +3,11 @@
 // 송년회 어드민(참여자 · 설문 응답) 공용 — API GET /api/v1/admin/reception/:eventKey(apps/api reception-admin.controller.ts).
 // 참여자 = 자리 탭에서 이름을 넣은 기기 ∪ 사진·좋아요/공감·설문을 한 기기. 기기가 곧 한 사람(로그인 없음).
 // (261122 2차) 입장 현황 · 퀴즈 · 럭키드로우 · 자리 명단 — 응답 타입은 서버 명세 E 그대로, 태블릿 한 대가 폴링으로 본다.
+// (261122 3차) 참여자 판 — GET :eventKey/people(자리 명단 전원 + 명단 밖 손님). 태그 · 줄 색 · 맨 위 순서는 아래 personStage 한 곳에서 정한다.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminFetch } from './adminFetch';
 import { useAdminRefresh } from './adminRefresh';
-import { RECEPTION_EVENT_KEY } from '@/lib/reception/event';
+import { RECEPTION_DAY, RECEPTION_EVENT_KEY, RECEPTION_PROGRAM } from '@/lib/reception/event';
 
 export interface ReceptionParticipant {
   deviceId: string;
@@ -173,7 +174,7 @@ export interface QuizAdmin {
 
 export type QuizStateAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset';
 
-export interface DrawPrize { name: string; total: number; drawn: number }
+export interface DrawPrize { name: string; total: number; drawn: number; /** 값어치('각 27만원 상당') — 예전 API 엔 없음 */ worth?: string }
 export interface DrawRow {
   id: string;
   number: number;
@@ -189,6 +190,143 @@ export interface DrawBoard {
   /** 한 번도 안 뽑힌 응모권 수(무효된 응모권도 다시 안 뽑는다) */
   eligible: number;
   tickets: number;
+}
+
+/* ─── 3차(261122) 참여자 판 — apps/api reception-people.service.ts 와 같은 모양 ─────────── */
+
+export interface PersonPhoto {
+  thumbUrl: string;
+  imageUrl: string;
+  rank: number;
+  likes: number;
+  empathies: number;
+  at: string;
+}
+
+/** 한 줄 = 한 사람(명단 한 줄 · 명단 밖 손님). 도착 = 응모권이 나온 때 */
+export interface PersonRow {
+  /** 명단 줄 = 줄 열쇠(동명이인 '이름열쇠 @테이블'), 명단 밖 = 'x:이름열쇠' */
+  key: string;
+  name: string;
+  listed: boolean;
+  table: number | null;
+  seat: number | null;
+  arrivedAt: string | null;
+  ticket: { id: string; number: number } | null;
+  quizAt: string | null;
+  quizCount: number;
+  photo: PersonPhoto | null;
+  votedAt: string | null;
+  likesUsed: number;
+  empathiesUsed: number;
+  surveyAt: string | null;
+  win: ReceptionWin | null;
+  devices: number;
+  lastSeenAt: string | null;
+}
+
+export interface ReceptionPeople {
+  serverTime: string;
+  ticketsMode: TicketsMode;
+  ticketsOpen: boolean;
+  blocked: TicketBlock[];
+  people: PersonRow[];
+}
+
+/**
+ * 참여자 태그 단계(261122 사장 '앱에 이름을 입력하면 해당 테이블이 최상단 · 은은한 하늘색 · 도착 태그 →
+ * 럭키드로우·이벤트 참여하면 태그가 바뀌고 그때마다 색(노랑 · 보라 등)이 바뀌고 위로').
+ *  · none = 아직 안 옴(태그 없음 · 맨 아래 테이블 → 좌석 → 이름 순)
+ *  · 온 사람은 한 일 중 가장 최근 것이 태그 — 도착 · 퀴즈 · 베스트드레서(사진 올림 / 좋아요·공감 누름) · 설문 · 당첨.
+ *    도착보다 이른 기록(행사 전 시험 데이터)은 안 센다. 시각이 같으면 당첨 > 설문 > 베스트드레서 > 퀴즈 > 도착.
+ *  · 온 사람끼리는 그 시각(stageAt)이 늦을수록 위 — 방금 뭔가 한 사람이 맨 위.
+ */
+export type PersonStage = 'none' | 'arrived' | 'quiz' | 'dresser' | 'survey' | 'win';
+const STAGE_ORDER: Record<PersonStage, number> = { none: -1, arrived: 0, quiz: 1, dresser: 2, survey: 3, win: 4 };
+
+const isoMs = (v?: string | null): number | null => {
+  if (!v) return null;
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? t : null;
+};
+
+/** 베스트드레서 활동 시각 = 사진 올린 때와 마지막으로 누른 때 중 늦은 것 */
+export function dresserAt(p: PersonRow): number | null {
+  const a = isoMs(p.photo?.at);
+  const b = isoMs(p.votedAt);
+  return a == null ? b : b == null ? a : Math.max(a, b);
+}
+
+export interface PersonStageInfo {
+  stage: PersonStage;
+  /** 그 단계 시각(ms) — none 이면 0 */
+  at: number;
+  quiz: boolean;
+  dresser: boolean;
+  survey: boolean;
+  win: boolean;
+}
+
+export function personStage(p: PersonRow): PersonStageInfo {
+  const arrived = isoMs(p.arrivedAt);
+  if (arrived == null) return { stage: 'none', at: 0, quiz: false, dresser: false, survey: false, win: false };
+  let stage: PersonStage = 'arrived';
+  let at = arrived;
+  const seen = (s: PersonStage, t: number | null) => {
+    if (t == null || t < arrived) return false;
+    if (t > at || (t === at && STAGE_ORDER[s] > STAGE_ORDER[stage])) {
+      stage = s;
+      at = t;
+    }
+    return true;
+  };
+  const quiz = seen('quiz', isoMs(p.quizAt));
+  const dresser = seen('dresser', dresserAt(p));
+  const survey = seen('survey', isoMs(p.surveyAt));
+  const win = seen('win', isoMs(p.win?.at));
+  return { stage, at, quiz, dresser, survey, win };
+}
+
+/** 줄 순서 — 온 사람(최근 활동 위) → 안 온 사람(테이블 → 좌석 → 이름, 명단 밖은 맨 끝) */
+export function comparePeople(a: { p: PersonRow; s: PersonStageInfo }, b: { p: PersonRow; s: PersonStageInfo }): number {
+  const an = a.s.stage === 'none';
+  const bn = b.s.stage === 'none';
+  if (an !== bn) return an ? 1 : -1;
+  if (!an && a.s.at !== b.s.at) return b.s.at - a.s.at;
+  return (
+    (a.p.table ?? 99) - (b.p.table ?? 99) ||
+    (a.p.seat ?? 99) - (b.p.seat ?? 99) ||
+    a.p.name.localeCompare(b.p.name, 'ko') ||
+    (a.p.key < b.p.key ? -1 : a.p.key > b.p.key ? 1 : 0)
+  );
+}
+
+/** 1부 · 2부 시작(KST) — 식순표(RECEPTION_PROGRAM)의 부별 첫 시각. 못 읽으면 18:20 · 19:40(261108 식순표) */
+function partStart(part: 1 | 2, fallback: string): number {
+  const time = RECEPTION_PROGRAM.find((x) => x.part === part && x.time && /^\d{1,2}:\d{2}/.test(x.time))?.time;
+  const hm = (time || fallback).match(/^(\d{1,2}):(\d{2})/);
+  const t = hm ? Date.parse(`${RECEPTION_DAY}T${hm[1].padStart(2, '0')}:${hm[2]}:00+09:00`) : NaN;
+  return Number.isFinite(t) ? t : Date.parse(`2026-11-23T${fallback}:00+09:00`);
+}
+export const PART1_AT = partStart(1, '18:20');
+export const PART2_AT = partStart(2, '19:40');
+
+/** 도착 태그 글 — 지금 시각(KST)으로: 1부 시작 전 '도착' · 1부 '1부 참여중' · 2부 시작부터 '2부 참여중' */
+export function arrivedTagText(nowMs: number): string {
+  if (nowMs >= PART2_AT) return '2부 참여중';
+  if (nowMs >= PART1_AT) return '1부 참여중';
+  return '도착';
+}
+
+export function stageTagText(p: PersonRow, stage: PersonStage, nowMs: number): string | null {
+  switch (stage) {
+    case 'arrived': return arrivedTagText(nowMs);
+    case 'quiz': return '퀴즈 참여';
+    case 'dresser': return '베스트드레서';
+    case 'survey': return '설문 완료';
+    case 'win': return p.win ? `당첨 · ${p.win.prize}` : '당첨';
+    default: return null;
+  }
 }
 
 /* ─── 작은 도움 함수 ───────────────────────────────────────────── */
@@ -237,13 +375,18 @@ export function useReducedMotion() {
 /* ─── 폴링 훅 ─────────────────────────────────────────────────────
  * 태블릿을 켜 둔 채 행사 내내 본다 — 탭이 숨으면 멈추고 돌아오면 바로 한 번 받는다.
  * 실패해도 이전 화면은 그대로(error 만 바뀜). 겹쳐 부르지 않는다.
- * 고치기(mutate) 중에 떠난 폴링 응답은 버린다 — 늦게 온 옛 값이 방금 바꾼 화면을 덮지 않게. */
-function useReceptionPoll<T>(path: string, intervalMs: number) {
+ * 고치기(mutate) 중에 떠난 폴링 응답은 버린다 — 늦게 온 옛 값이 방금 바꾼 화면을 덮지 않게.
+ * accept(3차) = 폴링 응답을 넣을지 — false 면 이전 화면 유지(참여자 판: 갑자기 빈 목록이 오면 지우지 않기). 세 번 연달아 false 면 그땐 넣는다(정말 비운 것). */
+function useReceptionPoll<T>(path: string, intervalMs: number, accept?: (next: T, prev: T | null) => boolean) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const epoch = useRef(0);
   const busy = useRef(false);
+  const last = useRef<T | null>(null);
+  const rejected = useRef(0);
+  const acceptRef = useRef(accept);
+  acceptRef.current = accept;
 
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -252,7 +395,13 @@ function useReceptionPoll<T>(path: string, intervalMs: number) {
     try {
       const d = (await adminFetch('GET', path, undefined, { cache: false })) as T;
       if (mine === epoch.current) {
-        setData(d);
+        const ok = !acceptRef.current || acceptRef.current(d, last.current);
+        rejected.current = ok ? 0 : rejected.current + 1;
+        if (ok || rejected.current >= 3) {
+          rejected.current = 0;
+          last.current = d;
+          setData(d);
+        }
         setError(null);
       }
     } catch (e: any) {
@@ -295,7 +444,10 @@ function useReceptionPoll<T>(path: string, intervalMs: number) {
     try {
       const r = await fn();
       epoch.current += 1;
-      setData(pick ? pick(r) : (r as unknown as T));
+      const next = pick ? pick(r) : (r as unknown as T);
+      last.current = next;
+      rejected.current = 0;
+      setData(next);
       setError(null);
       return r;
     } catch (e) {
@@ -313,6 +465,9 @@ export const useReceptionLive = (intervalMs = 3000) => useReceptionPoll<Receptio
 export const useReceptionQuiz = (intervalMs = 2000) => useReceptionPoll<QuizAdmin>(`${BASE}/quiz`, intervalMs);
 /** 럭키드로우 — 5초 */
 export const useReceptionDraws = (intervalMs = 5000) => useReceptionPoll<DrawBoard>(`${BASE}/draws`, intervalMs);
+/** 참여자 판 — 2초(서버가 1초 묶음). 사람이 있다가 갑자기 0명이 오면 그 판은 버린다(연결이 꼬인 빈 응답에 표가 지워지지 않게) */
+const keepPeople = (next: ReceptionPeople, prev: ReceptionPeople | null) => !((prev?.people?.length ?? 0) > 0 && (next?.people?.length ?? 0) === 0);
+export const useReceptionPeople = (intervalMs = 2000) => useReceptionPoll<ReceptionPeople>(`${BASE}/people`, intervalMs, keepPeople);
 
 /** 고치는 요청 — 응답은 각 화면 값(ReceptionLive · QuizAdmin · DrawBoard) */
 export const receptionAdminApi = {
@@ -326,4 +481,6 @@ export const receptionAdminApi = {
   quizAnswer: (body: { questionId: string; table: number; answer?: string | null; correct?: boolean | null }) => adminFetch('PUT', `${BASE}/quiz/answer`, body) as Promise<QuizAdmin>,
   draw: (prize: string) => adminFetch('POST', `${BASE}/draws`, { prize }) as Promise<{ draw: DrawRow; board: DrawBoard }>,
   cancelDraw: (id: string) => adminFetch('POST', `${BASE}/draws/${encodeURIComponent(id)}/cancel`) as Promise<DrawBoard>,
+  /** 참여자 판 — fresh = 서버 1초 묶음 건너뛰기(방금 고친 것이 바로 보이게) */
+  people: (fresh = false) => adminFetch('GET', `${BASE}/people${fresh ? '?fresh=1' : ''}`, undefined, { cache: false }) as Promise<ReceptionPeople>,
 };

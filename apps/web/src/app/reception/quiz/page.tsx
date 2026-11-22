@@ -5,12 +5,17 @@
 // 손님 화면은 3초마다 상태를 받아 따라간다(화면이 숨으면 멈춤, 실패하면 이전 화면 그대로). 정답 · 채점은 서버만 안다.
 //  · 대기 → 규칙 + 점수판 · 열림 → 문제 + 답 고르기 + 60초 막대 · 마감 → 우리 답 · 공개 → 정답 + 모든 테이블 답 + 점수판
 //  · 운영팀이 '순위 발표'를 켜면 맨 위에 큰 점수판. 지난 공개 문제는 아래 '지난 문제'에 접어 둔다.
+//  · 261122 사장 '이 웨딩홀은 어디일까요? 하고 3초 뒤에 이미지가 작아지면서 문제화면으로 그리고 각각 페이지별로 인터렉션 추가해줘'
+//    = 문제가 막 열리면 등장 판(QuizIntro — 사진 전체 화면 3초 → 카드 그림 자리로 / 글 문제는 남색 판 2초 → 카드 머리로) 한 번,
+//      마감 = '답안 마감' 도장, 정답 공개 = 정답 → 판정 → 테이블 답 줄이 차례로(reception.css 퀴즈 등장 연출 칸).
+//      판은 폴링 · 남은 시간(서버 시각) · 고르던 답을 건드리지 않고, 끝나면 반드시 걷힌다(누르면 바로 끝 · 안전핀 6초).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { NameGateInline } from '@/components/reception/NameGate';
 import {
   QuizAnswerInput, QuizBoard, QuizCountdown, QuizQuestionHead, QuizTableAnswers, TablePicker,
 } from '@/components/reception/QuizParts';
+import { QuizIntro, useQuizImagePreload, useQuizIntro, type IntroTargets } from '@/components/reception/QuizIntro';
 import { CheckIcon, CloseIcon, QuizIcon } from '@/components/reception/ReceptionIcons';
 import { haptic } from '@/lib/haptics';
 import { receptionApi, type QuizPublic, type QuizQuestionPublic } from '@/lib/reception/api';
@@ -94,6 +99,21 @@ export default function ReceptionQuizPage() {
   const current = st?.currentId ? qById.get(st.currentId) ?? null : null;
   const phase = current && st ? st.phase : 'idle';
   const mine = res && res.table === table && data?.mine && current && data.mine.questionId === current.id ? data.mine : null;
+
+  // 등장 연출 — 열림 하나(문제 + 연 시각)마다 한 번. 그림은 문제 목록이 오자마자 미리 받아 둔다
+  useQuizImagePreload(data?.questions);
+  const cardRef = useRef<HTMLElement>(null);
+  const introKey = phase === 'open' && current ? `${current.id}@${st?.openedAt ?? ''}` : null;
+  const intro = useQuizIntro(introKey, st?.openedAt ?? null, 'guest');
+  const introTargets = useCallback((): IntroTargets => {
+    const card = cardRef.current;
+    return {
+      photo: card?.querySelector<HTMLElement>('.rc-qz-figure img') ?? null,
+      head: card?.querySelector<HTMLElement>('.rc-qz-head') ?? null,
+      slots: card ? Array.from(card.querySelectorAll<HTMLElement>('.rc-qz-match-slot')) : [],
+      scrollBox: card,
+    };
+  }, []);
 
   // 서버의 우리 답을 고르기 칸에 채운다 — 손님이 고치는 중(dirty)이면 그대로
   useEffect(() => {
@@ -202,7 +222,7 @@ export default function ReceptionQuizPage() {
     );
   } else if (phase === 'open') {
     main = (
-      <section className="rc-glass rc-qz-card rc-rise" key={current.id}>
+      <section ref={cardRef} className={`rc-glass rc-qz-card rc-rise ${intro.stage ? `qzi-${intro.stage}` : ''}`} key={current.id}>
         <QuizQuestionHead q={current} />
         {current.kind !== 'mission' && <QuizCountdown openedAt={st!.openedAt} />}
         {current.kind === 'mission' ? (
@@ -308,6 +328,20 @@ export default function ReceptionQuizPage() {
       )}
 
       {data && failed && <p className="rc-hint rc-qz-offline">연결이 잠시 끊겼어요. 다시 이어지면 바로 바뀌어요.</p>}
+
+      {intro.overlay && intro.key && current && phase === 'open' && (
+        <QuizIntro
+          key={intro.key}
+          q={current}
+          prefix="rc-qzi"
+          rootClassName="rc-theme"
+          portal
+          scroll
+          targets={introTargets}
+          onStage={intro.onStage}
+          onDone={intro.onDone}
+        />
+      )}
 
       <TablePicker
         open={picker}

@@ -672,3 +672,118 @@
   .rc-ticket.printing, .rc-ticket-win, .rc-ticket-empty.wait, .rc-seat-wait, .rc-qz-skel, .rc-qz-trow, .rc-qz-board.big .rc-qz-brow { animation: none; }
   .rc-qz-timer-bar i { transition: none; }
 }
+
+/* ─── 퀴즈 문제 등장 · 마감 · 정답 공개 연출(261122 사장 '사진이 엄청 크게 3초 정도 전체화면으로 … 아래에 살짝 딤드 그라데이션 …
+ *     3초 뒤에 이미지가 작아지면서 문제화면으로 그리고 각각 페이지별로 인터렉션 추가해줘') — QuizIntro.tsx(rc-qzi-*).
+ *  · 판 = body 포털, 떠 있는 탭(40) · 창(80) 위. 사진 아래 딤 그라데이션은 사장이 콕 집은 예외 — 이 판에만.
+ *  · 등장 애니메이션은 fill backwards 만 쓴다 — 착지(land) · 넘기기(out)에서 바꾸는 opacity · transform 을 forwards 가 덮지 않게.
+ *  · 카드 단계 class: qzi-hold(판이 덮는 중 — 속 숨김) → qzi-land(사진이 날아와 앉는 중 — 그림 자리만 비워 둠) → qzi-in(답 칸 차례로). ─── */
+@keyframes rc-qzi-up { from { opacity: 0; transform: translateY(18px); } }
+@keyframes rc-qzi-pop { from { opacity: 0; transform: scale(0.6); } }
+@keyframes rc-qzi-line { from { transform: scaleX(0); } }
+@keyframes rc-qzi-stamp { from { opacity: 0; transform: scale(1.55) rotate(-4deg); } 55% { opacity: 1; } }
+.rc-qzi {
+  position: fixed; inset: 0; z-index: 85; overflow: hidden; cursor: pointer; touch-action: none; overscroll-behavior: contain;
+  -webkit-user-select: none; user-select: none; transition: opacity 0.22s ease;
+}
+.rc-qzi.land, .rc-qzi.out, .rc-qzi.shrink { pointer-events: none; cursor: default; }
+.rc-qzi.out { opacity: 0; }
+.rc-qzi-bg { position: absolute; inset: 0; background: #061650; animation: rc-fade 0.25s ease backwards; transition: opacity 0.55s ease; }
+.rc-qzi--photo .rc-qzi-bg { background: #030B36; }
+.rc-qzi.land .rc-qzi-bg, .rc-qzi.shrink .rc-qzi-bg { opacity: 0; }
+.rc-qzi-eyebrow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; margin: 0; animation: rc-qzi-up 0.6s var(--rc-ease) 0.3s backwards; }
+.rc-qzi-round { color: #F1D58C; font-family: var(--rc-serif), 'Cormorant Garamond', Georgia, serif; font-size: 20px; font-style: italic; font-weight: 600; letter-spacing: 0.08em; font-variant-numeric: lining-nums; font-feature-settings: 'lnum' 1; }
+.rc-qzi-meta { color: var(--rc-ice); font-size: 14px; font-weight: 600; }
+.rc-qzi-prompt { margin: 12px 0 0; color: #fff; font-size: 28px; font-weight: 700; line-height: 1.32; letter-spacing: -0.02em; word-break: keep-all; animation: rc-qzi-up 0.7s var(--rc-ease) 0.5s backwards; }
+
+/* 사진 — 화면 가득(cover) + 천천히 다가오는 줌(go) → 착지 때 틀이 그림 칸 크기로(top/left/width/height · 모서리) */
+.rc-qzi-frame {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; border-radius: 0;
+  transition: top 0.76s cubic-bezier(0.65, 0, 0.25, 1), left 0.76s cubic-bezier(0.65, 0, 0.25, 1), width 0.76s cubic-bezier(0.65, 0, 0.25, 1),
+    height 0.76s cubic-bezier(0.65, 0, 0.25, 1), border-radius 0.76s cubic-bezier(0.65, 0, 0.25, 1);
+}
+.rc-qzi-photo { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1); animation: rc-fade 0.5s ease backwards; will-change: transform; }
+.rc-qzi.go .rc-qzi-photo { transform: scale(1.07); transition: transform 3.2s cubic-bezier(0.25, 0.1, 0.25, 1); }
+.rc-qzi.land .rc-qzi-photo { transform: none; transition: transform 0.76s cubic-bezier(0.65, 0, 0.25, 1); }
+/* 아래 은은한 딤 — 사장 지정 예외(이 판 한정 그라데이션) */
+.rc-qzi-dim {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 62%; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(10, 16, 40, 0) 0%, rgba(10, 16, 40, 0.5) 48%, rgba(10, 16, 40, 0.78) 100%);
+  animation: rc-fade 0.8s ease 0.15s backwards; transition: opacity 0.3s ease;
+}
+.rc-qzi-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 24px calc(var(--rc-safe-bottom) + 64px); text-align: center; transition: opacity 0.28s ease; }
+.rc-qzi.land .rc-qzi-dim, .rc-qzi.land .rc-qzi-cap { opacity: 0; }
+
+/* 가운데 판(짝 맞추기 · 글 문제) */
+.rc-qzi-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: calc(var(--rc-safe-top) + 40px) 24px calc(var(--rc-safe-bottom) + 48px); text-align: center;
+}
+.rc-qzi-center > p { transition: opacity 0.28s ease; }
+.rc-qzi.land .rc-qzi-center > p { opacity: 0; }
+.rc-qzi--match .rc-qzi-prompt { font-size: 21px; line-height: 1.45; }
+.rc-qzi-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(100%, 340px, 46dvh); margin: 22px 0 6px; }
+.rc-qzi-tile { position: relative; transition: transform 0.76s cubic-bezier(0.65, 0, 0.25, 1), opacity 0.3s ease; }
+.rc-qzi-tile-in {
+  position: relative; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 26px; background: #fff;
+  animation: rc-qzi-pop 0.55s cubic-bezier(0.3, 1.35, 0.5, 1) backwards; animation-delay: calc(var(--i, 0) * 110ms + 250ms);
+  transition: border-radius 0.76s cubic-bezier(0.65, 0, 0.25, 1);
+}
+.rc-qzi-tile-in img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.rc-qzi-tile-in span { position: absolute; top: 9px; left: 9px; padding: 2px 9px; border-radius: 10px; background: rgba(7, 20, 78, 0.88); color: #fff; font-size: 19px; font-weight: 700; transition: opacity 0.25s ease; }
+.rc-qzi.land .rc-qzi-tile-in span { opacity: 0; }
+
+/* 글 문제 — 'ROUND n' · 금줄 · 'n번 문제' · 점수 · 문제가 차례로 → 착지 때 카드 머리로 줄어들며 흐려짐 */
+.rc-qzi-block { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 440px; transition: transform 0.66s cubic-bezier(0.65, 0, 0.25, 1), opacity 0.5s ease 0.12s; }
+.rc-qzi-line { display: block; width: 56px; height: 2px; margin: 16px 0 18px; border-radius: 1px; background: #F1D58C; animation: rc-qzi-line 0.6s var(--rc-ease) 0.25s backwards; }
+.rc-qzi-no { margin: 0; color: #fff; font-size: 46px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; animation: rc-qzi-pop 0.6s cubic-bezier(0.3, 1.35, 0.5, 1) 0.3s backwards; }
+.rc-qzi.mission .rc-qzi-no { color: var(--rc-gold); font-family: var(--rc-serif), 'Cormorant Garamond', Georgia, serif; font-size: 42px; font-weight: 700; letter-spacing: 0.04em; }
+.rc-qzi-points { margin: 14px 0 0; padding: 4px 12px; border-radius: 12px; background: rgba(246, 220, 147, 0.16); color: var(--rc-gold); font-size: 14px; font-weight: 700; animation: rc-qzi-up 0.5s var(--rc-ease) 0.5s backwards; }
+.rc-qzi-block .rc-qzi-prompt { margin-top: 26px; font-size: 21px; line-height: 1.45; animation-delay: 0.7s; }
+.rc-qzi.shrink .rc-qzi-frame, .rc-qzi.shrink .rc-qzi-center, .rc-qzi.shrink .rc-qzi-cap, .rc-qzi.shrink .rc-qzi-dim {
+  opacity: 0; transform: scale(0.84); transition: opacity 0.42s ease, transform 0.42s cubic-bezier(0.65, 0, 0.25, 1);
+}
+
+/* 카드 — 판이 덮는 동안 속을 숨기고(자리는 그대로라 잴 수 있다), 착지에 맞춰 머리 → 남은 시간 → 답 칸 차례로 */
+.rc-qz-card.qzi-hold > * { opacity: 0; }
+.rc-qz-card.qzi-hold .rc-qz-figure img, .rc-qz-card.qzi-land .rc-qz-figure img,
+.rc-qz-card.qzi-hold .rc-qz-match-slot, .rc-qz-card.qzi-land .rc-qz-match-slot { visibility: hidden; }
+.rc-qz-card.qzi-land > .rc-qz-head, .rc-qz-card.qzi-in > .rc-qz-head { animation: rc-fade 0.45s ease 0.1s backwards; }
+.rc-qz-card.qzi-land > :not(.rc-qz-head), .rc-qz-card.qzi-in > :not(.rc-qz-head) { animation: rc-qzi-up 0.5s var(--rc-ease) backwards; }
+.rc-qz-card.qzi-land > :nth-child(2), .rc-qz-card.qzi-in > :nth-child(2) { animation-delay: 0.16s; }
+.rc-qz-card.qzi-land > :nth-child(3), .rc-qz-card.qzi-in > :nth-child(3) { animation-delay: 0.24s; }
+.rc-qz-card.qzi-land > :nth-child(4), .rc-qz-card.qzi-in > :nth-child(4) { animation-delay: 0.32s; }
+.rc-qz-card.qzi-land > :nth-child(5), .rc-qz-card.qzi-in > :nth-child(5) { animation-delay: 0.4s; }
+.rc-qz-card.qzi-land > :nth-child(n+6), .rc-qz-card.qzi-in > :nth-child(n+6) { animation-delay: 0.48s; }
+/* 짝 맞추기 칸은 그림이 날아와 앉을 자리라 움직이지 않고 흐려지기만 */
+.rc-qz-card.qzi-land > .rc-qz-match, .rc-qz-card.qzi-in > .rc-qz-match { animation-name: rc-fade; }
+.rc-qz-card.qzi-land .rc-qz-choice, .rc-qz-card.qzi-in .rc-qz-choice,
+.rc-qz-card.qzi-land .rc-qz-ox-btn, .rc-qz-card.qzi-in .rc-qz-ox-btn { animation: rc-qzi-up 0.45s var(--rc-ease) 0.3s backwards; }
+.rc-qz-card.qzi-land .rc-qz-choice:nth-child(2), .rc-qz-card.qzi-in .rc-qz-choice:nth-child(2),
+.rc-qz-card.qzi-land .rc-qz-ox-btn:nth-child(2), .rc-qz-card.qzi-in .rc-qz-ox-btn:nth-child(2) { animation-delay: 0.38s; }
+.rc-qz-card.qzi-land .rc-qz-choice:nth-child(3), .rc-qz-card.qzi-in .rc-qz-choice:nth-child(3) { animation-delay: 0.46s; }
+.rc-qz-card.qzi-land .rc-qz-choice:nth-child(n+4), .rc-qz-card.qzi-in .rc-qz-choice:nth-child(n+4) { animation-delay: 0.54s; }
+
+/* 마감 — '답안 마감' 도장이 쾅, 우리 답이 뒤따라 */
+.rc-qz-locked { animation: rc-qzi-stamp 0.5s cubic-bezier(0.3, 1.45, 0.5, 1) 0.3s backwards; }
+.rc-qz-locked + .rc-qz-mine { animation: rc-qzi-up 0.45s var(--rc-ease) 0.65s backwards; }
+
+/* 정답 공개 — '정답' → 정답 글이 톡 → 해설 → 우리 테이블 판정이 톡 → 테이블 답 줄이 촤라락 */
+.rc-qz-reveal .rc-qz-answer-eyebrow { animation: rc-qzi-up 0.4s var(--rc-ease) 0.2s backwards; }
+.rc-qz-reveal .rc-qz-answer { animation: rc-qzi-pop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) 0.4s backwards; }
+.rc-qz-reveal .rc-qz-card > .rc-qz-explain { animation: rc-qzi-up 0.45s var(--rc-ease) 0.75s backwards; }
+.rc-qz-reveal .rc-qz-verdict { animation: rc-qzi-pop 0.55s cubic-bezier(0.3, 1.5, 0.5, 1) 0.9s backwards; }
+.rc-qz-reveal .rc-qz-tables-sum { animation: rc-qzi-up 0.4s var(--rc-ease) 1.05s backwards; }
+.rc-qz-reveal .rc-qz-trow { animation-delay: calc(var(--i, 0) * 30ms + 1.15s); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-qzi-bg, .rc-qzi-eyebrow, .rc-qzi-prompt, .rc-qzi-photo, .rc-qzi-dim, .rc-qzi-tile-in, .rc-qzi-line, .rc-qzi-no, .rc-qzi-points { animation: none; }
+  .rc-qzi .rc-qzi-photo, .rc-qzi.go .rc-qzi-photo { transform: none; transition: none; }
+  .rc-qzi-frame, .rc-qzi-tile, .rc-qzi-block { transition: none; }
+  /* 위 칸과 같은 선택자(같은 세기) — '> *' 로 쓰면 ':not()' 쪽이 더 세서 못 끈다 */
+  .rc-qz-card.qzi-land > :not(.rc-qz-head), .rc-qz-card.qzi-in > :not(.rc-qz-head), .rc-qz-card.qzi-land > .rc-qz-head, .rc-qz-card.qzi-in > .rc-qz-head,
+  .rc-qz-card.qzi-land .rc-qz-choice, .rc-qz-card.qzi-in .rc-qz-choice,
+  .rc-qz-card.qzi-land .rc-qz-ox-btn, .rc-qz-card.qzi-in .rc-qz-ox-btn, .rc-qz-locked, .rc-qz-locked + .rc-qz-mine,
+  .rc-qz-reveal .rc-qz-answer-eyebrow, .rc-qz-reveal .rc-qz-answer, .rc-qz-reveal .rc-qz-card > .rc-qz-explain,
+  .rc-qz-reveal .rc-qz-verdict, .rc-qz-reveal .rc-qz-tables-sum { animation: none; }
+}

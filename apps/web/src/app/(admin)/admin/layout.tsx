@@ -71,7 +71,8 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
     items: [
       // (261108 사장) 송년회 /reception — 누가 참여했는지 · 누가 설문에 응답했는지
       // (261122 사장) + 입장 현황 · 퀴즈 · 럭키드로우 · 자리 명단(태블릿으로 현장 진행) — 탭이 여럿이라 메뉴 이름은 '송년회'
-      { href: '/admin/reception', label: '송년회', icon: 'calendar-days', desc: '입장 현황 · 퀴즈 · 럭키드로우 · 자리 명단, 참여자와 설문 응답을 봐요' },
+      // (261122 사장 '입장 현황 부분은 필요없는 것 같아') 입장 현황 탭은 빼고 참여자 판(명단 전원 · 도착하면 맨 위 · 태그)이 그 일을 한다
+      { href: '/admin/reception', label: '송년회', icon: 'calendar-days', desc: '참여자(도착 · 태그) · 퀴즈 · 럭키드로우 · 자리 명단 · 설문 응답을 봐요' },
       // (261110 사장) 신규 가입 5,000원 미션 — 출석 2번 · 웨딩숲 글 · 견적을 마친 사람의 계좌 신청
       { href: '/admin/welcome-mission', label: '신규 가입 미션', icon: 'gift', desc: '미션을 마친 신규 가입자의 5,000원 신청을 보고, 보낸 뒤 표시해요' },
     ],
@@ -117,7 +118,6 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
   ],
   [
     { href: '/admin/reception', label: '참여자' },
-    { href: '/admin/reception/live', label: '입장 현황' },
     { href: '/admin/reception/quiz', label: '퀴즈' },
     { href: '/admin/reception/draw', label: '럭키드로우' },
     { href: '/admin/reception/seats', label: '자리 명단' },
