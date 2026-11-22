@@ -99,7 +99,7 @@ export function useQuizTable(name: string, seat: ResolvedSeat | null, seatFailed
   else if (seat?.kind === 'listed') result = { status: 'ready', table: seat.table, from: 'listed' };
   else if (pick) result = { status: 'ready', table: pick.table, from: 'confirmed' };
   else if (seat?.kind === 'temp') result = { status: 'confirm', suggest: seat.table };
-  else if (seat?.kind === 'missing' || seatFailed) result = { status: 'choose' };
+  else if (seat?.kind === 'missing' || seat?.kind === 'choose' || seatFailed) result = { status: 'choose' };
   else result = { status: 'wait' };
 
   return { quizTable: result, setPick };

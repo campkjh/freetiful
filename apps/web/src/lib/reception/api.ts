@@ -45,13 +45,23 @@ export interface ReceptionTicket {
   win: { prize: string; at: string } | null;
 }
 
+/** 동명이인 — 명단에 같은 이름이 2줄 이상일 때 한 줄(손님이 함께 앉는 사람을 보고 고른다) */
+export interface ReceptionSameName {
+  table: number;
+  seat: number | null;
+  /** 같은 테이블에 앉는 사람들(좌석 순) */
+  mates: string[];
+}
+
 export interface ReceptionMe {
   ok: true;
   name: string;
   /** 자리 명단이 1줄이라도 있나 — 없으면 웹이 임시 자리(seatFor)를 보여 준다 */
   seatListLoaded: boolean;
-  /** 명단에서 찾은 자리(없으면 null) */
+  /** 명단에서 찾은 자리(없으면 null). 동명이인이면 고른 자리(아직 안 골랐으면 null) */
   seat: { table: number; seat: number | null } | null;
+  /** 동명이인이면 고를 자리들(테이블 순), 아니면 null — 예전 서버는 안 보냄 */
+  sameName: ReceptionSameName[] | null;
   ticketsOpen: boolean;
   ticket: ReceptionTicket | null;
 }
@@ -153,7 +163,9 @@ export const receptionApi = {
     call<ReceptionFeed>(`/photos/${encodeURIComponent(id)}/votes`, deviceId, { method: 'POST', body: JSON.stringify({ kind, on }) }),
   /** 손님 남기기(어드민 참여자 목록) + 자리 · 응모권 — 이름이 있는 기기만. 발급 시간이면 서버가 응모권도 같이 낸다(한 사람 한 장).
    *  옛 서버는 { ok } 만 준다 → 받는 쪽은 lib/reception/me.ts normalizeMe 로 빈 칸을 채워 쓴다 */
-  guest: (deviceId: string, name: string) => call<ReceptionMe>('/guest', deviceId, { method: 'PUT', body: JSON.stringify({ name }) }),
+  /** pick = 동명이인일 때 고른 테이블(고른 적 없으면 안 보냄) */
+  guest: (deviceId: string, name: string, pick?: number | null) =>
+    call<ReceptionMe>('/guest', deviceId, { method: 'PUT', body: JSON.stringify(pick ? { name, pick } : { name }) }),
   /** 퀴즈 지금 상태 · 문제 · 공개된 정답과 테이블별 답 · 점수판. table 을 주면 그 테이블의 지금 문제 답(mine)도 */
   quiz: (deviceId: string, table?: number | null) =>
     call<QuizPublic>(`/quiz${table ? `?table=${encodeURIComponent(String(table))}` : ''}`, deviceId),

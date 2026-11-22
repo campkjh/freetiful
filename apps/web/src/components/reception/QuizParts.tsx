@@ -148,7 +148,7 @@ const resultText = (q: QuizQuestionPublic, r: QuizTableResult | undefined) => {
   return r?.display || '—';
 };
 
-/** 정답 공개 — 1~19 테이블이 각각 뭘 냈는지 + O/X(우리 테이블 줄 강조, 안 낸 테이블 '—') */
+/** 정답 공개 — 1~18 테이블이 각각 뭘 냈는지 + O/X(우리 테이블 줄 강조, 안 낸 테이블 '—') */
 export function QuizTableAnswers({ q, tables, myTable }: { q: QuizQuestionPublic; tables: QuizTableResult[]; myTable: number | null }) {
   const byTable = new Map(tables.map((t) => [t.table, t]));
   const rows = Array.from({ length: Math.max(TABLE_COUNT, tables.length) }, (_, i) => i + 1);
@@ -215,7 +215,7 @@ export function QuizBoard({ board, myTable, big }: { board: QuizBoardRow[]; myTa
   );
 }
 
-/** 테이블 고르기 — 1~19 버튼 창 */
+/** 테이블 고르기 — 1~18 버튼 창 */
 export function TablePicker({ open, current, onPick, onClose }: { open: boolean; current: number | null; onPick: (n: number) => void; onClose: () => void }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);

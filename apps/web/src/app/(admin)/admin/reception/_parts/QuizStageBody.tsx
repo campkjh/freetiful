@@ -1,11 +1,12 @@
 'use client';
 
 /* 퀴즈 '크게 보기' 판 안쪽 — 프로젝터로 손님에게 보여 주는 화면(진한 남색 단색).
- *  · 정답 공개 = 정답 크게 + 테이블 답 카드 19개(맞힘 파랑 · 틀림 회색), 문제가 바뀔 때마다 촤라락.
+ *  · 정답 공개 = 정답 크게 + 테이블 답 카드 18개(맞힘 파랑 · 틀림 회색), 문제가 바뀔 때마다 촤라락.
  *  · 진행 중 · 마감 = 문제 + 남은 시간 + 낸 테이블 칸(답은 안 보임).
  *  · 대기 · 순위 발표 켬 = 점수판(공개된 문제만 채점 — 손님 화면과 같은 점수). */
 import type { CSSProperties } from 'react';
 import RankCrown from '@/components/reception/RankCrown';
+import { TABLE_COUNT } from '@/lib/reception/event';
 import { CIRCLED, QUIZ_SECONDS, type QuizAdmin, type QuizScore } from '../../_components/receptionAdmin';
 
 export function rankBoard(board: QuizScore[]) {
@@ -127,7 +128,7 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
             {st.phase === 'locked' ? '답안 마감' : left > 0 ? `${left}초` : '시간 종료'}
           </p>
           <div className="rcs-sub-grid" aria-label={`답을 낸 테이블 ${submitted.size}곳`}>
-            {Array.from({ length: data.tableCount || 19 }, (_, i) => i + 1).map((n) => (
+            {Array.from({ length: data.tableCount || TABLE_COUNT }, (_, i) => i + 1).map((n) => (
               <span key={n} className={submitted.has(n) ? 'on' : ''}>{n}</span>
             ))}
           </div>

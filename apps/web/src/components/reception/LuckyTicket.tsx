@@ -31,9 +31,11 @@ type Props = {
   table: number | null;
   /** 첫 응답 기다리는 중 · 못 받음 — 받아 둔 응모권이 있으면 그대로 보인다 */
   status: 'idle' | 'loading' | 'ready' | 'error';
+  /** 동명이인이라 아직 자리를 안 골랐음 — 고르면 응모권이 나온다 */
+  needsPick?: boolean;
 };
 
-export default function LuckyTicket({ ticket, ticketsOpen, table, status }: Props) {
+export default function LuckyTicket({ ticket, ticketsOpen, table, status, needsPick }: Props) {
   const [printing, setPrinting] = useState(false);
   const number = ticket?.number ?? null;
   const win = ticket?.win ?? null;
@@ -66,6 +68,7 @@ export default function LuckyTicket({ ticket, ticketsOpen, table, status }: Prop
   if (!ticket) {
     if (status === 'loading' || status === 'idle') empty = '응모권을 확인하고 있어요';
     else if (status === 'error') empty = '응모권을 불러오지 못했어요. 잠시 후 다시 보여 드릴게요.';
+    else if (ticketsOpen && needsPick) empty = '위에서 내 자리를 고르면 응모권이 나와요';
     else if (ticketsOpen) empty = '응모권을 준비하고 있어요. 잠시만 기다려 주세요.';
     else empty = '럭키드로우 응모권은 행사 당일 입장하면 자동으로 나와요';
   }

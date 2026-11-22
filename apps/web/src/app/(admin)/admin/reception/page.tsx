@@ -17,8 +17,12 @@ export default function ReceptionParticipantsPage() {
   // 자리 명단 — 30초마다(입장 현황 서버가 아직 없거나 실패하면 그냥 임시 자리로)
   const live = useReceptionLive(30000);
   const listed = useMemo(() => {
-    const m = new Map<string, { table: number; seat: number | null }>();
-    (live.data?.seats || []).forEach((s) => m.set(receptionNameKey(s.name), { table: s.table, seat: s.seat }));
+    // 동명이인(같은 이름이 두 테이블)은 줄이 여럿 — 손님이 고른 쪽은 여기선 모르니 테이블을 다 보여 준다
+    const m = new Map<string, { table: number; seat: number | null }[]>();
+    (live.data?.seats || []).forEach((s) => {
+      const k = receptionNameKey(s.name);
+      m.set(k, [...(m.get(k) || []), { table: s.table, seat: s.seat }]);
+    });
     return m;
   }, [live.data]);
   const [q, setQ] = useState('');
@@ -84,6 +88,7 @@ export default function ReceptionParticipantsPage() {
               <tbody>
                 {rows.map((p) => {
                   const fromList = p.name && listed.size ? listed.get(receptionNameKey(p.name)) || null : null;
+                  const one = fromList && fromList.length === 1 ? fromList[0] : null;
                   const seat = p.name && !listed.size ? seatFor(p.name) : null;
                   return (
                     <tr key={p.deviceId}>
@@ -92,8 +97,13 @@ export default function ReceptionParticipantsPage() {
                         <span className="adm-cell-sub">기기 {p.deviceId.slice(0, 8)}</span>
                       </td>
                       <td>
-                        {fromList ? (
-                          <>{fromList.table}번 테이블{fromList.seat != null ? ` ${fromList.seat}번` : ''}</>
+                        {one ? (
+                          <>{one.table}번 테이블{one.seat != null ? ` ${one.seat}번` : ''}</>
+                        ) : fromList ? (
+                          <>
+                            {fromList.map((x) => x.table).join(' · ')}번 테이블
+                            <span className="adm-cell-sub">동명이인 · 손님이 고름</span>
+                          </>
                         ) : p.name && listed.size ? (
                           <span className="adm-cell-sub">명단에 없음</span>
                         ) : seat ? (

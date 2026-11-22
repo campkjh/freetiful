@@ -4,7 +4,8 @@
  *  · 한 줄 = 이름, 테이블, 좌석(선택) — 탭(엑셀 복사) 또는 쉼표로 나눈다. 둘 다 없으면 띄어쓰기 뒤 숫자 칸을 테이블·좌석으로 본다.
  *  · '3번' · 'T3' · '3테이블' 은 숫자만 뽑는다. 첫 줄의 테이블 칸이 숫자가 아니면 머리줄로 보고 건너뛴다.
  *  · [미리 보기]에서 오류 줄(이유)을 먼저 보여 주고, 오류가 없을 때만 [명단 바꾸기] — 명단은 통째로 바뀐다(서버 PUT seats).
- *  · 명단이 비어 있으면 손님 화면은 예전처럼 이름으로 정한 임시 자리를 보여 준다. */
+ *  · 명단이 비어 있으면 손님 화면은 예전처럼 이름으로 정한 임시 자리를 보여 준다.
+ *  · 같은 이름이 다른 테이블에 또 있으면 동명이인 — 손님이 함께 앉는 분 이름을 보고 고른다(서버 sameNameKey). 같은 테이블에 두 번은 오류. */
 import { useMemo, useState } from 'react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
@@ -33,6 +34,8 @@ interface Parsed {
   seat: number | null;
   header: boolean;
   error: string | null;
+  /** 동명이인(같은 이름이 다른 테이블에도) */
+  same: boolean;
 }
 
 /** 서버 cleanName 과 같게 — 제어 문자 제거 · 겹친 띄어쓰기 하나로 · 1~20자 */
@@ -59,7 +62,7 @@ function splitCols(raw: string): string[] {
 
 function parseSeats(text: string): Parsed[] {
   const out: Parsed[] = [];
-  const keys = new Map<string, number>();
+  const keys = new Map<string, { line: number; table: number }[]>();
   let first = true;
   text.split(/\r?\n/).forEach((rawLine, idx) => {
     const raw = rawLine.replace(/ /g, ' ');
@@ -70,7 +73,7 @@ function parseSeats(text: string): Parsed[] {
     const tRaw = cols[1] || '';
     const sRaw = cols[2] || '';
     const table = firstInt(tRaw);
-    const base = { line, raw, name: nameRaw.trim(), table, seat: null as number | null, header: false, error: null as string | null };
+    const base = { line, raw, name: nameRaw.trim(), table, seat: null as number | null, header: false, error: null as string | null, same: false };
     if (table == null && (first || HEADER_WORDS.test(nameRaw.trim()))) {
       first = false;
       out.push({ ...base, header: true });
@@ -85,14 +88,20 @@ function parseSeats(text: string): Parsed[] {
     else if (table < 1 || table > TABLE_COUNT) error = `테이블은 1~${TABLE_COUNT}번이에요`;
     else if (sRaw && seat == null) error = '좌석 번호를 못 읽었어요';
     else if (seat != null && (seat < 1 || seat > SEATS_PER_TABLE)) error = `좌석은 1~${SEATS_PER_TABLE}번이에요`;
-    if (!error && name) {
+    if (!error && name && table != null) {
       const k = receptionNameKey(name);
-      const dup = keys.get(k);
-      if (dup) error = `${dup}번째 줄과 이름이 같아요`;
-      else keys.set(k, line);
+      const prev = keys.get(k) || [];
+      const clash = prev.find((x) => x.table === table);
+      if (clash) error = `${clash.line}번째 줄과 같은 테이블에 이름이 같아요`;
+      else keys.set(k, [...prev, { line, table }]);
     }
     out.push({ ...base, name: name || nameRaw.trim(), seat, error });
   });
+  // 동명이인 표시 — 다른 테이블에 같은 이름이 또 있는 줄
+  for (const p of out) {
+    if (p.header || p.error || !p.name) continue;
+    p.same = (keys.get(receptionNameKey(p.name))?.length ?? 0) > 1;
+  }
   return out;
 }
 
@@ -106,6 +115,7 @@ export default function ReceptionSeatsPage() {
   const rows = useMemo(() => (preview || []).filter((p) => !p.header && !p.error), [preview]);
   const errors = useMemo(() => (preview || []).filter((p) => p.error), [preview]);
   const headers = useMemo(() => (preview || []).filter((p) => p.header), [preview]);
+  const sameNames = useMemo(() => rows.filter((p) => p.same), [rows]);
   const tooMany = rows.length + errors.length > MAX_ROWS;
   const perTable = useMemo(() => {
     const m = new Map<number, number>();
@@ -216,6 +226,7 @@ export default function ReceptionSeatsPage() {
               읽은 줄 <b>{rows.length}</b>명
               {errors.length > 0 && <> · <span className="err">오류 {errors.length}줄</span></>}
               {headers.length > 0 && <> · 머리줄 {headers.length}줄 건너뜀</>}
+              {sameNames.length > 0 && <> · 동명이인 {sameNames.length}줄(손님이 함께 앉는 분을 보고 골라요)</>}
               {tooMany && <> · <span className="err">{MAX_ROWS}줄까지만 넣을 수 있어요</span></>}
             </p>
             {errors.length > 0 && <p className="adm-note">오류 줄을 고친 뒤 다시 [미리 보기]를 눌러 주세요.</p>}
@@ -239,7 +250,15 @@ export default function ReceptionSeatsPage() {
                       <td className="adm-num">{p.header ? '—' : p.table != null ? `${p.table}번` : '—'}</td>
                       <td className="adm-num">{p.header ? '—' : p.seat != null ? `${p.seat}번` : '—'}</td>
                       <td>
-                        {p.header ? <span className="adm-badge">머리줄 · 건너뜀</span> : p.error ? <span className="adm-badge red">{p.error}</span> : <span className="adm-badge green">좋아요</span>}
+                        {p.header ? (
+                          <span className="adm-badge">머리줄 · 건너뜀</span>
+                        ) : p.error ? (
+                          <span className="adm-badge red">{p.error}</span>
+                        ) : p.same ? (
+                          <span className="adm-badge orange">동명이인 · 손님이 고름</span>
+                        ) : (
+                          <span className="adm-badge green">좋아요</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -289,7 +308,7 @@ export default function ReceptionSeatsPage() {
                       ...list.map((s) => {
                         i += 1;
                         return (
-                          <tr key={`s${receptionNameKey(s.name)}`} className={s.arrived ? '' : 'rca-wait'} style={{ animationDelay: `${Math.min(i * 30, 900)}ms` }}>
+                          <tr key={`s${s.table}:${receptionNameKey(s.name)}`} className={s.arrived ? '' : 'rca-wait'} style={{ animationDelay: `${Math.min(i * 30, 900)}ms` }}>
                             <td className="adm-num">{s.seat != null ? `${s.seat}번` : '—'}</td>
                             <td><b className="rca-name">{s.name}</b></td>
                             <td className="adm-num">{s.arrived ? kstHm(s.arrivedAt) || '왔어요' : <span className="adm-badge">아직</span>}</td>

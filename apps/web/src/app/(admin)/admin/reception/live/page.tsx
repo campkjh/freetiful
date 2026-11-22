@@ -3,7 +3,7 @@
 /* 송년회 입장 현황(261122 사장 '관리자 테블릿버전에서는 누가누가왔는지 확인이 가능하게끔 데이터 테이블이 촤라락 나올 수 있게끔')
  *  · 입장 = 응모권 발급(손님이 자리 탭에서 이름을 넣으면 자동으로 한 장). 한 사람 한 장이라 응모권 수 = 입장 인원.
  *  · 처음 그릴 때 줄이 위에서부터 차례로(30ms 간격, 최대 900ms) — 3초 폴링으로 새 입장자가 생기면 그 줄만 맨 위로 미끄러져 들어오며 잠깐 옅은 파랑.
- *  · 보기 = 입장 순(최신 위) · 테이블별(1~19 묶음 머리 + n/m명) · 명단 전체(미입장은 회색 '아직').
+ *  · 보기 = 입장 순(최신 위) · 테이블별(1~18 묶음 머리 + n/m명) · 명단 전체(미입장은 회색 '아직').
  *  · 테이블 · 좌석 = 지금 자리 명단에서 이름으로 찾은 것(서버가 맞춰 줌). 명단에 없으면 '명단 밖'.
  *  · 동작 줄이기면 줄 지연을 안 넣는다(등장 자체는 reception-admin.css 가 끈다). */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -148,13 +148,14 @@ export default function ReceptionLivePage() {
       }
       return out;
     }
-    // 명단 전체 — 온 사람은 응모권과 이어서(번호 · 당첨 · 지우기), 안 온 사람은 회색 '아직'
-    const byKey = new Map(data.arrivals.map((a) => [receptionNameKey(a.name), a]));
+    // 명단 전체 — 온 사람은 응모권과 이어서(번호 · 당첨 · 지우기), 안 온 사람은 회색 '아직'.
+    // 응모권은 번호로 잇는다(동명이인 두 줄이 이름으로 같은 응모권에 붙지 않게), 줄 열쇠에도 테이블을 넣는다
+    const byNo = new Map(data.arrivals.map((a) => [a.number, a]));
     return data.seats
       .map((s): Row => {
-        const a = byKey.get(receptionNameKey(s.name));
+        const a = s.ticketNumber != null ? byNo.get(s.ticketNumber) : undefined;
         return {
-          k: `s:${receptionNameKey(s.name)}`,
+          k: `s:${s.table}:${receptionNameKey(s.name)}`,
           ticketId: a?.id ?? null,
           number: a?.number ?? s.ticketNumber,
           name: s.name,

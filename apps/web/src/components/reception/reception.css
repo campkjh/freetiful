@@ -459,6 +459,17 @@
 .rc-seat-missing { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 14px; }
 .rc-seat-missing > p:first-child { font-size: 17px; font-weight: 700; line-height: 1.5; color: #fff; }
 .rc-seat-missing .rc-seat-note { margin-top: 0 !important; }
+/* 동명이인 — 함께 앉는 분을 보고 내 자리 고르기(261122). 단색 테두리 카드(그라데이션·글로우 X) */
+.rc-seat-choices { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; margin: 4px 0 0; padding: 0; list-style: none; }
+.rc-seat-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 14px 18px; border-radius: 18px;
+  border: 1px solid rgba(246, 220, 147, 0.6); background: rgba(5, 16, 70, 0.35); color: #fff;
+  font-family: inherit; text-align: left; cursor: pointer; transition: transform 0.12s ease;
+}
+.rc-seat-choice:active { transform: scale(0.97); }
+.rc-seat-choice b { font-size: 20px; font-weight: 700; letter-spacing: 0.04em; }
+.rc-seat-choice span { font-size: 13.5px; font-weight: 500; line-height: 1.45; color: rgba(230, 236, 255, 0.8); }
+.rc-seat-repick { margin-top: 6px; font-size: 12.5px; }
 
 /* ─── 럭키드로우 응모권(261122) — 슬롯(단색 선) 아래로 용지가 밀려 나온다. 용지 그림 = GPT(3:2), 없으면 남색 판.
  * 글자색은 --rc-ticket-ink(번호 · 테이블) · --rc-ticket-text(이름). 그림을 바꾸면 아래 판 좌표(%)도 같이 ─── */
