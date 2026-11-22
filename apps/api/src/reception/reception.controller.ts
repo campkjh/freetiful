@@ -1,8 +1,10 @@
-import { BadRequestException, Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, Post, Put, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ReceptionService } from './reception.service';
-import { PHOTO_MAX_BYTES, ReceptionEventKey, isReceptionEvent, isVoteKind, parseDeviceId } from './reception.rules';
+import { ReceptionLiveService } from './reception-live.service';
+import { ReceptionQuizService } from './reception-quiz.service';
+import { PHOTO_MAX_BYTES, ReceptionEventKey, isReceptionEvent, isVoteKind, parseDeviceId, parseTableNo } from './reception.rules';
 
 /**
  * 송년회(261108 사장 'Freetiful & WMAK 2026 Year-End RECEPTION') — 웹 /reception 의 이벤트·설문 탭.
@@ -12,7 +14,11 @@ import { PHOTO_MAX_BYTES, ReceptionEventKey, isReceptionEvent, isVoteKind, parse
 @ApiTags('reception')
 @Controller('reception/:eventKey')
 export class ReceptionController {
-  constructor(private readonly reception: ReceptionService) {}
+  constructor(
+    private readonly reception: ReceptionService,
+    private readonly live: ReceptionLiveService,
+    private readonly quizzes: ReceptionQuizService,
+  ) {}
 
   private event(eventKey: string): ReceptionEventKey {
     if (!isReceptionEvent(eventKey)) throw new BadRequestException('없는 행사예요.');
@@ -67,9 +73,32 @@ export class ReceptionController {
   }
 
   @Put('guest')
-  @ApiOperation({ summary: '손님 남기기 — 자리 탭에서 넣은 이름(기기당 1줄, 다시 오면 마지막 접속 시각만 갱신). 어드민 참여자 목록용' })
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      '손님 남기기 + 내 자리·응모권 — 자리 탭에서 넣은 이름(기기당 1줄). 명단 자리, 발급 열림이면 럭키드로우 응모권(이름당 1장)·당첨. 응답 ok 는 예전 그대로',
+  })
   guest(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string }) {
-    return this.reception.touchGuest(this.event(eventKey), this.device(device), body?.name);
+    return this.live.guest(this.event(eventKey), this.device(device), body?.name);
+  }
+
+  @Get('quiz')
+  // 모든 손님 같은 내용 + table 별 mine — 앞단 캐시가 지난 상태를 돌려주지 않게
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '송년회 퀴즈 — 진행 상태·문제(정답 없음)·공개된 문제의 테이블 답·점수판. ?table=1~19 면 우리 테이블 답(mine)' })
+  quiz(@Param('eventKey') eventKey: string, @Query('table') table?: string) {
+    return this.quizzes.publicView(this.event(eventKey), parseTableNo(table));
+  }
+
+  @Put('quiz/answer')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '퀴즈 답 내기 — { questionId, table, answer, name }. 열린 문제만, 테이블당 1개(나중 답이 덮어씀)' })
+  answer(
+    @Param('eventKey') eventKey: string,
+    @Headers('x-rc-device') device: string,
+    @Body() body: { questionId?: string; table?: number; answer?: unknown; name?: string },
+  ) {
+    return this.quizzes.answer(this.event(eventKey), this.device(device), body || {});
   }
 
   @Get('survey')

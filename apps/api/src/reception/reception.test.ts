@@ -1,10 +1,44 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VOTE_LIMIT, cleanName, compareRank, parseDeviceId, parseSurvey } from './reception.rules';
+import { Prisma } from '@prisma/client';
+import {
+  SEAT_ROWS_MAX,
+  TICKETS_AUTO_FROM,
+  TICKETS_AUTO_UNTIL,
+  VOTE_LIMIT,
+  cleanName,
+  cleanPrize,
+  compareRank,
+  nameKey,
+  parseDeviceId,
+  parseSeatRows,
+  parseSurvey,
+  parseTableNo,
+  ticketsOpen,
+} from './reception.rules';
+import {
+  QUIZ_QUESTIONS,
+  applyQuizAction,
+  autoCorrect,
+  defaultQuizState,
+  displayAnswer,
+  normalizeQuizText,
+  parseQuizAnswer,
+  parseQuizState,
+  quizAdmin,
+  quizBoard,
+  quizMine,
+  quizPublicShared,
+  quizQuestion,
+  type QuizAnswerRow,
+} from './reception-quiz';
 import { ReceptionService } from './reception.service';
+import { ReceptionLiveService } from './reception-live.service';
+import { ReceptionQuizService } from './reception-quiz.service';
 
 const D1 = '11111111-1111-4111-8111-111111111111';
 const D2 = '22222222-2222-4222-8222-222222222222';
+const D3 = '33333333-3333-4333-8333-333333333333';
 
 test('규칙 — 기기 id·이름·설문', () => {
   assert.equal(parseDeviceId(D1.toUpperCase()), D1);
@@ -118,4 +152,504 @@ test('투표 — 종류별 10개 상한 · 내 사진 금지 · 지우면 돌려
   assert.equal(back.me.likesLeft, VOTE_LIMIT);
   assert.equal(back.me.empathiesLeft, 1);
   assert.equal(back.photos.some((p) => p.id === top.id), false);
+});
+
+// ───────────── 2차(261122) — 자리 명단 · 응모권 · 퀴즈 ─────────────
+
+test('이름 열쇠 · 테이블 번호 · 경품 이름', () => {
+  assert.equal(nameKey('김 솔'), nameKey('김솔'));
+  assert.equal(nameKey(' Kim  Sol '), 'kimsol');
+  assert.equal(nameKey('ＫＩＭ'), 'kim'); // 전각도 같게(NFKC)
+  assert.equal(parseTableNo(1), 1);
+  assert.equal(parseTableNo('19'), 19);
+  assert.equal(parseTableNo(' 3 '), 3);
+  for (const bad of [0, 20, 1.5, '3번', 'abc', null, undefined, '', [3]]) assert.equal(parseTableNo(bad), null);
+  assert.equal(cleanPrize('  횡성한우세트 '), '횡성한우세트');
+  assert.equal(cleanPrize(''), null);
+  assert.equal(cleanPrize('가'.repeat(41)), null);
+});
+
+test('응모권 발급 — 열기·닫기·자동(행사 당일 15:00 ~ 다음 날 03:00 KST) 경계', () => {
+  assert.equal(TICKETS_AUTO_FROM, Date.parse('2026-11-23T06:00:00Z'));
+  assert.equal(TICKETS_AUTO_UNTIL, Date.parse('2026-11-23T18:00:00Z'));
+  assert.equal(ticketsOpen('auto', TICKETS_AUTO_FROM - 1), false);
+  assert.equal(ticketsOpen('auto', TICKETS_AUTO_FROM), true);
+  assert.equal(ticketsOpen('auto', new Date('2026-11-23T17:30:00+09:00')), true);
+  assert.equal(ticketsOpen('auto', TICKETS_AUTO_UNTIL - 1), true);
+  assert.equal(ticketsOpen('auto', TICKETS_AUTO_UNTIL), false);
+  assert.equal(ticketsOpen('open', new Date('2026-11-22T12:00:00+09:00')), true);
+  assert.equal(ticketsOpen('closed', new Date('2026-11-23T18:00:00+09:00')), false);
+});
+
+test('자리 명단 검사 — 줄 번호·이유 · 겹친 이름 · 최대 줄 수', () => {
+  assert.deepEqual(parseSeatRows([
+    { name: ' 김  솔 ', table: 3, seat: 2 },
+    { name: '이하나', table: '19', seat: '' },
+    { name: 'Park', table: 1 },
+  ]), [
+    { name: '김 솔', nameKey: '김솔', table: 3, seat: 2 },
+    { name: '이하나', nameKey: '이하나', table: 19, seat: null },
+    { name: 'Park', nameKey: 'park', table: 1, seat: null },
+  ]);
+  assert.deepEqual(parseSeatRows([]), []);
+  assert.match(parseSeatRows('x') as string, /형식/);
+  assert.match(parseSeatRows([{ name: '', table: 1 }]) as string, /^1번째 줄 이름/);
+  assert.match(parseSeatRows([{ name: '가', table: 1 }, { name: '나', table: 20 }]) as string, /^2번째 줄\(나\) 테이블/);
+  assert.match(parseSeatRows([{ name: '가', table: 1, seat: 9 }]) as string, /좌석은 1~8/);
+  assert.match(parseSeatRows([{ name: '가', table: 1, seat: 0 }]) as string, /좌석/);
+  const dup = parseSeatRows([{ name: '김 솔', table: 1 }, { name: '김솔', table: 2 }, { name: '박', table: 3 }, { name: '박', table: 4 }]);
+  assert.equal(dup, '같은 이름이 두 번 있어요: 김 솔, 박');
+  const many = Array.from({ length: SEAT_ROWS_MAX + 1 }, (_, i) => ({ name: `손님${i}`, table: 1 }));
+  assert.match(parseSeatRows(many) as string, /400줄/);
+});
+
+test('퀴즈 문제 — 11문제 · id 겹침 없음 · 라운드 제목', () => {
+  assert.equal(QUIZ_QUESTIONS.length, 11);
+  assert.equal(new Set(QUIZ_QUESTIONS.map((x) => x.id)).size, 11);
+  assert.deepEqual([...new Set(QUIZ_QUESTIONS.map((x) => `${x.round}:${x.roundTitle}`))], ['1:워밍업', '2:브레인스토밍', '3:Wedding']);
+  for (const x of QUIZ_QUESTIONS) {
+    if (x.kind === 'choice') assert.ok(Number(x.answer) >= 1 && Number(x.answer) <= x.options!.length, x.id);
+    if (x.kind === 'match') assert.equal(x.answer.length, x.slots!.length, x.id);
+    if (x.kind === 'text') assert.ok(autoCorrect(x, x.answer), `${x.id} 대표 답은 정답이어야`);
+  }
+});
+
+test('퀴즈 정규화 · 자동 채점', () => {
+  const Q = (id: string) => quizQuestion(id)!;
+  assert.equal(normalizeQuizText(' Bridal-Shower! '), 'bridalshower');
+  assert.equal(normalizeQuizText('“슈슈 몽드” (웨딩홀).'), '슈슈몽드웨딩홀');
+  assert.equal(normalizeQuizText('ＦＲＥＥＴＩＦＵＬ'), 'freetiful');
+  assert.equal(autoCorrect(Q('r1q1'), 'Freetiful'), true);
+  assert.equal(autoCorrect(Q('r1q1'), 'free tiful.'), true);
+  assert.equal(autoCorrect(Q('r1q1'), 'prettyful'), false);
+  assert.equal(autoCorrect(Q('r3q1'), 'bridal shower'), true);
+  assert.equal(autoCorrect(Q('r3q1'), 'bachelorette'), false);
+  assert.equal(autoCorrect(Q('r3q2'), 'Chouchou Monde'), true);
+  assert.equal(autoCorrect(Q('r3q2'), '슈슈몽드 웨딩홀'), true);
+  assert.equal(autoCorrect(Q('r3q2'), '!!!'), false);
+  assert.equal(autoCorrect(Q('r1q2'), 'X'), true);
+  assert.equal(autoCorrect(Q('r1q2'), 'O'), false);
+  assert.equal(autoCorrect(Q('r1q3'), '4'), true);
+  assert.equal(autoCorrect(Q('r1q3'), '3'), false);
+  assert.equal(autoCorrect(Q('r2q1'), 'BDAC'), true);
+  assert.equal(autoCorrect(Q('r2q1'), 'BDCA'), false);
+  assert.equal(autoCorrect(Q('r3q3'), 'anything'), false);
+  assert.equal(autoCorrect(Q('r1q1'), null), false);
+});
+
+test('퀴즈 답 검사 — 종류별 저장 모양', () => {
+  const Q = (id: string) => quizQuestion(id)!;
+  const ok = (id: string, raw: unknown) => (parseQuizAnswer(Q(id), raw) as { answer?: string }).answer;
+  const err = (id: string, raw: unknown) => (parseQuizAnswer(Q(id), raw) as { error?: string }).error;
+  assert.equal(ok('r1q1', '  free\ntiful  '), 'free tiful');
+  assert.match(err('r1q1', '   ')!, /적어/);
+  assert.match(err('r1q1', 3)!, /적어/);
+  assert.match(err('r1q1', '가'.repeat(41))!, /40자/);
+  assert.equal(ok('r1q1', '가'.repeat(40)), '가'.repeat(40));
+  assert.equal(ok('r1q2', 'o'), 'O');
+  assert.equal(ok('r1q2', ' x '), 'X');
+  assert.equal(ok('r1q2', 'Ｘ'), 'X');
+  assert.match(err('r1q2', 'Y')!, /O 또는 X/);
+  assert.equal(ok('r1q3', 4), '4');
+  assert.equal(ok('r1q3', '1'), '1');
+  assert.match(err('r1q3', 5)!, /보기/);
+  assert.match(err('r1q3', 0)!, /보기/);
+  assert.match(err('r2q5', '3')!, /보기/);
+  assert.equal(ok('r2q5', 2), '2');
+  assert.equal(ok('r2q1', 'b d a c'), 'BDAC');
+  assert.equal(ok('r2q1', ['B', 'D', 'A', 'C']), 'BDAC');
+  assert.equal(ok('r2q1', 'AAAA'), 'AAAA'); // 같은 글자 겹쳐도 됨(채점은 문자열 비교)
+  assert.match(err('r2q1', 'BDA')!, /4칸/);
+  assert.match(err('r2q1', 'BDAE')!, /A~D/);
+  assert.match(err('r3q3', 'O')!, /미션/);
+});
+
+test('퀴즈 사람이 읽는 답', () => {
+  const Q = (id: string) => quizQuestion(id)!;
+  assert.equal(displayAnswer(Q('r1q3'), '4'), '④ 2,011건');
+  assert.equal(displayAnswer(Q('r2q5'), '2'), '② 아리송하다');
+  assert.equal(displayAnswer(Q('r1q2'), 'O'), 'O');
+  assert.equal(displayAnswer(Q('r2q1'), 'BDAC'), '1)B 2)D 3)A 4)C');
+  assert.equal(displayAnswer(Q('r3q2'), '슈슈 몽드'), '슈슈 몽드');
+  assert.equal(displayAnswer(Q('r1q1'), null), null);
+});
+
+const at = new Date('2026-11-23T19:52:00+09:00');
+const row = (questionId: string, tableNo: number, answer: string | null, correct: boolean | null = null, name: string | null = '김솔'): QuizAnswerRow =>
+  ({ questionId, tableNo, answer, name, correct, updatedAt: at });
+
+test('퀴즈 점수판 — 공개된 문제만 · 어드민 판정 우선 · 점수 → 테이블 순', () => {
+  const rows = [
+    row('r1q1', 5, 'Freetiful'), // 100
+    row('r1q2', 5, 'X'), // 100
+    row('r1q2', 2, 'X'), // 100
+    row('r1q3', 2, '1', true), // 틀렸지만 어드민이 O → 100
+    row('r1q1', 7, 'Freetiful', false), // 맞았지만 어드민이 X → 0
+    row('r3q3', 9, null, true), // 미션 성공 300
+    row('r2q1', 1, 'BDAC'), // 공개 안 됨 → 0
+  ];
+  const board = quizBoard(rows, ['r1q1', 'r1q2', 'r1q3', 'r3q3']);
+  assert.equal(board.length, 19);
+  assert.deepEqual(board.slice(0, 4), [
+    { table: 9, score: 300, correct: 1 },
+    { table: 2, score: 200, correct: 2 },
+    { table: 5, score: 200, correct: 2 },
+    { table: 1, score: 0, correct: 0 },
+  ]);
+  assert.equal(board.find((b) => b.table === 7)!.score, 0);
+  assert.deepEqual(quizBoard(rows, []).slice(0, 3).map((b) => b.table), [1, 2, 3]);
+});
+
+test('퀴즈 진행 상태 — open · lock · reveal · unreveal · board · reset', () => {
+  const now = new Date('2026-11-23T19:50:00+09:00');
+  let s = defaultQuizState();
+  assert.match(applyQuizAction(s, { action: 'lock' }, now) as string, /진행 중인 문제/);
+  assert.match(applyQuizAction(s, { action: 'reveal' }, now) as string, /진행 중인 문제/);
+  assert.match(applyQuizAction(s, { action: 'open', questionId: 'nope' }, now) as string, /없는 문제/);
+  assert.match(applyQuizAction(s, { action: 'fly' }, now) as string, /없는 동작/);
+
+  s = applyQuizAction(s, { action: 'open', questionId: 'r1q1' }, now) as any;
+  assert.deepEqual(s, { currentId: 'r1q1', phase: 'open', openedAt: now.toISOString(), revealed: [], showBoard: false });
+  s = applyQuizAction(s, { action: 'lock' }, now) as any;
+  assert.equal(s.phase, 'locked');
+  s = applyQuizAction(s, { action: 'reveal' }, now) as any;
+  s = applyQuizAction(s, { action: 'reveal' }, now) as any;
+  assert.deepEqual(s.revealed, ['r1q1']); // 두 번 눌러도 한 번
+  assert.equal(s.phase, 'revealed');
+  // 공개 취소 — 지금 문제면 마감으로
+  const un = applyQuizAction(s, { action: 'unreveal', questionId: 'r1q1' }, now) as any;
+  assert.deepEqual([un.phase, un.revealed], ['locked', []]);
+  // 다시 열면 공개도 다시 해야 한다
+  const reopened = applyQuizAction(s, { action: 'open', questionId: 'r1q1' }, now) as any;
+  assert.deepEqual([reopened.phase, reopened.revealed], ['open', []]);
+  // 다음 문제로 넘어가도 지난 공개는 남는다
+  const next = applyQuizAction(s, { action: 'open', questionId: 'r1q2' }, now) as any;
+  assert.deepEqual([next.currentId, next.revealed], ['r1q2', ['r1q1']]);
+  assert.match(applyQuizAction(s, { action: 'board' }, now) as string, /켜기/);
+  assert.equal((applyQuizAction(s, { action: 'board', on: true }, now) as any).showBoard, true);
+  const idle = applyQuizAction(s, { action: 'idle' }, now) as any;
+  assert.deepEqual([idle.currentId, idle.phase, idle.revealed], [null, 'idle', ['r1q1']]);
+  assert.deepEqual(applyQuizAction(s, { action: 'reset', questionId: 'r1q1' }, now), s); // 문제 하나 = 답만 지움(상태 그대로)
+  assert.deepEqual(applyQuizAction(s, { action: 'reset' }, now), defaultQuizState());
+  assert.match(applyQuizAction(s, { action: 'reset', questionId: 'zz' }, now) as string, /없는 문제/);
+});
+
+test('퀴즈 상태 읽기 — 모양이 틀리면 기본값 · 없는 문제 id 버림', () => {
+  assert.deepEqual(parseQuizState(null), defaultQuizState());
+  assert.deepEqual(parseQuizState('x'), defaultQuizState());
+  assert.deepEqual(parseQuizState({ currentId: 'zz', phase: 'open', revealed: ['r1q1', 'zz', 'r1q1'], showBoard: 1 }), {
+    currentId: null, phase: 'idle', openedAt: null, revealed: ['r1q1'], showBoard: false,
+  });
+  assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'weird' }).phase, 'idle');
+});
+
+test('손님 퀴즈 화면 — 정답 칸은 안 보내고 공개된 문제만 정답·테이블 답', () => {
+  const rows = [row('r1q1', 3, 'freetiful'), row('r1q2', 3, 'O', null, '이하나'), row('r1q2', 4, 'X')];
+  const closed = { ...defaultQuizState(), currentId: 'r1q2', phase: 'open' as const, openedAt: at.toISOString(), revealed: [] };
+  const pub = quizPublicShared(closed, rows);
+  const json = JSON.stringify(pub);
+  assert.equal(pub.questions.length, 11);
+  assert.ok(!json.includes('"accept"') && !json.includes('"answer"') && !json.includes('answerLabel') && !json.includes('chouchoumonde'));
+  assert.deepEqual(pub.results, {});
+  assert.equal(pub.board.every((b) => b.score === 0), true);
+
+  // 우리 테이블 답(mine)
+  assert.equal(quizMine(closed, rows, null), null);
+  assert.equal(quizMine(closed, rows, 9), null);
+  assert.deepEqual(quizMine(closed, rows, 3), { questionId: 'r1q2', answer: 'O', display: 'O', name: '이하나', updatedAt: at.toISOString() });
+
+  const revealed = { ...closed, phase: 'revealed' as const, revealed: ['r1q1', 'r1q2'] };
+  const pub2 = quizPublicShared(revealed, rows);
+  assert.deepEqual(Object.keys(pub2.results), ['r1q1', 'r1q2']);
+  assert.equal(pub2.questions.find((x) => x.id === 'r1q2')!.answerLabel, 'X');
+  assert.equal(pub2.questions.find((x) => x.id === 'r1q3')!.answerLabel, undefined);
+  assert.ok(!JSON.stringify(pub2).includes('"accept"'));
+  const t = pub2.results.r1q2.tables;
+  assert.equal(t.length, 19);
+  assert.deepEqual(t[2], { table: 3, answer: 'O', display: 'O', name: '이하나', correct: false });
+  assert.deepEqual(t[3], { table: 4, answer: 'X', display: 'X', name: '김솔', correct: true });
+  assert.deepEqual(t[0], { table: 1, answer: null, display: null, name: null, correct: false });
+  assert.equal(pub2.results.r1q2.explanation?.startsWith('프리티풀은'), true);
+  assert.deepEqual(pub2.board.slice(0, 2), [{ table: 3, score: 100, correct: 1 }, { table: 4, score: 100, correct: 1 }]);
+});
+
+test('어드민 퀴즈판 — 자동·판정·최종 · 낸 수 · 전체 채점', () => {
+  const rows = [row('r1q1', 1, 'freetiful'), row('r1q1', 2, 'pretiful', true), row('r1q1', 3, 'freetiful', false), row('r3q3', 4, null, true)];
+  const a = quizAdmin({ ...defaultQuizState(), revealed: ['r1q1'] }, rows);
+  assert.equal(Object.keys(a.results).length, 11);
+  assert.equal(a.questions.every((x) => typeof x.answerLabel === 'string'), true);
+  assert.ok(!JSON.stringify(a.questions).includes('"accept"'));
+  const r = a.results.r1q1;
+  assert.equal(r.submitted, 3);
+  assert.equal(r.correctCount, 2);
+  assert.deepEqual(r.tables.slice(0, 3).map((x) => [x.auto, x.override, x.correct]), [[true, null, true], [false, true, true], [true, false, false]]);
+  assert.equal(r.tables[0].updatedAt, at.toISOString());
+  assert.equal(r.tables[5].updatedAt, null);
+  assert.equal(a.results.r3q3.submitted, 0);
+  assert.equal(a.results.r3q3.correctCount, 1);
+  assert.deepEqual(a.board.slice(0, 2).map((b) => b.table), [1, 2]);
+  assert.equal(a.board.find((b) => b.table === 4)!.score, 0); // 미션은 아직 공개 전
+  assert.equal(a.boardAll[0].table, 4);
+  assert.equal(a.boardAll[0].score, 300);
+});
+
+/** 응모권·명단·추첨 표만 흉내 낸 가짜 prisma — 한 사람 한 장 · 번호 겹침 다시 시도 · 추첨 중복 없음 확인용 */
+function fakeLivePrisma() {
+  const tickets: any[] = [];
+  const draws: any[] = [];
+  const seats: any[] = [];
+  const guests: any[] = [];
+  const state = new Map<string, any>();
+  let failNextCreate = 0;
+  let n = 0;
+  const withDraws = (t: any) => ({ ...t, draws: draws.filter((d) => d.ticketId === t.id && !d.cancelledAt).sort((a, b) => b.createdAt - a.createdAt).slice(0, 1) });
+  const ticketMatch = (t: any, where: any): boolean =>
+    (!where.eventKey || t.eventKey === where.eventKey) &&
+    (!where.id || t.id === where.id) &&
+    (!where.nameKey || t.nameKey === where.nameKey) &&
+    (!where.deviceId || t.deviceId === where.deviceId) &&
+    (!where.OR || where.OR.some((w: any) => ticketMatch(t, w))) &&
+    (!where.draws?.none || !draws.some((d) => d.ticketId === t.id));
+  // 원시 SQL 은 지운 이름 목록(reception_state) 잠금·기본 줄만 흉내 — 값 순서 = eventKey, key
+  const stateRaw = (strings: TemplateStringsArray, ...values: any[]) => {
+    const sql = strings.join('?');
+    if (!sql.includes('reception_state')) return null;
+    const k = `${values[0]}:${values[1]}`;
+    if (sql.includes('INSERT') && !state.has(k)) state.set(k, JSON.parse(values[2]));
+    return [{ value: state.get(k) }];
+  };
+  const prisma: any = {
+    receptionGuest: { upsert: async ({ create }: any) => { guests.push(create); return create; } },
+    receptionSeat: { findMany: async ({ where }: any) => seats.filter((s) => s.eventKey === where.eventKey).map((s) => ({ ...s })) },
+    receptionState: {
+      findUnique: async ({ where }: any) => {
+        const v = state.get(`${where.eventKey_key.eventKey}:${where.eventKey_key.key}`);
+        return v ? { value: v } : null;
+      },
+      update: async ({ where, data }: any) => {
+        state.set(`${where.eventKey_key.eventKey}:${where.eventKey_key.key}`, JSON.parse(JSON.stringify(data.value)));
+        return data;
+      },
+    },
+    receptionTicket: {
+      findUnique: async ({ where }: any) => {
+        const k = where.eventKey_nameKey;
+        const t = tickets.find((x) => x.eventKey === k.eventKey && x.nameKey === k.nameKey);
+        return t ? withDraws(t) : null;
+      },
+      findMany: async ({ where }: any) => tickets.filter((t) => ticketMatch(t, where)).sort((a, b) => a.number - b.number).map(withDraws),
+      findFirst: async ({ where }: any) => tickets.find((t) => ticketMatch(t, where)) ?? null,
+      count: async ({ where }: any) => tickets.filter((t) => ticketMatch(t, where)).length,
+      aggregate: async ({ where }: any) => ({ _max: { number: tickets.filter((t) => t.eventKey === where.eventKey).reduce((m, t) => Math.max(m, t.number), 0) || null } }),
+      create: async ({ data }: any) => {
+        if (failNextCreate > 0) {
+          failNextCreate--;
+          // 다른 요청이 같은 번호를 막 가져간 것처럼
+          tickets.push({ id: `t${++n}`, eventKey: data.eventKey, number: data.number, nameKey: `other${n}`, name: `다른손님${n}`, deviceId: 'x', createdAt: new Date(), lastSeenAt: new Date() });
+          throw new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' });
+        }
+        if (tickets.some((t) => t.eventKey === data.eventKey && (t.number === data.number || t.nameKey === data.nameKey))) {
+          throw new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' });
+        }
+        const t = { id: `t${++n}`, createdAt: new Date(Date.now() + n), lastSeenAt: new Date(), ...data };
+        tickets.push(t);
+        return withDraws(t);
+      },
+      updateMany: async () => ({ count: 1 }),
+      deleteMany: async ({ where }: any) => {
+        const i = tickets.findIndex((t) => t.id === where.id && t.eventKey === where.eventKey);
+        if (i < 0) return { count: 0 };
+        const [t] = tickets.splice(i, 1);
+        for (let j = draws.length - 1; j >= 0; j--) if (draws[j].ticketId === t.id) draws.splice(j, 1);
+        return { count: 1 };
+      },
+    },
+    receptionDraw: {
+      findMany: async ({ where }: any) => draws.filter((d) => d.eventKey === where.eventKey).sort((a, b) => b.createdAt - a.createdAt),
+      create: async ({ data }: any) => { const d = { id: `d${++n}`, createdAt: new Date(Date.now() + n), cancelledAt: null, ...data }; draws.push(d); return d; },
+      updateMany: async ({ where, data }: any) => {
+        const d = draws.find((x) => x.id === where.id && x.eventKey === where.eventKey && !x.cancelledAt);
+        if (!d) return { count: 0 };
+        Object.assign(d, data);
+        return { count: 1 };
+      },
+      count: async ({ where }: any) => draws.filter((d) => d.id === where.id && d.eventKey === where.eventKey).length,
+    },
+    $transaction: async (arg: any) =>
+      typeof arg === 'function'
+        ? arg({ ...prisma, $executeRaw: async (s: TemplateStringsArray, ...v: any[]) => (stateRaw(s, ...v) ? 1 : 0), $queryRaw: async (s: TemplateStringsArray, ...v: any[]) => stateRaw(s, ...v) ?? [] })
+        : Promise.all(arg),
+  };
+  return { prisma, tickets, draws, seats, guests, state, failCreates: (k: number) => { failNextCreate = k; } };
+}
+
+function liveService(prisma: any) {
+  const reception = Object.assign(Object.create(ReceptionService.prototype), { prisma, feedCache: new Map(), logger: { warn() {} } });
+  return Object.assign(Object.create(ReceptionLiveService.prototype), {
+    prisma, reception, seatCache: new Map(), modeCache: new Map(), touched: new Map(), logger: { warn() {} },
+  }) as ReceptionLiveService;
+}
+
+test('손님 자리·응모권 — 닫힘이면 안 나옴 · 이름당 한 장 · 번호 겹치면 다시 · 명단 자리', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'closed' });
+  const closed = await svc.guest(EK, D1, '김 솔');
+  assert.deepEqual(closed, { ok: true, name: '김 솔', seatListLoaded: false, seat: null, ticketsOpen: false, ticket: null });
+  await assert.rejects(svc.guest(EK, D1, '  '), /이름을 먼저/);
+
+  (svc as any).modeCache.clear();
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  f.seats.push({ eventKey: EK, nameKey: '김솔', name: '김솔', tableNo: 7, seatNo: 3 });
+  (svc as any).seatCache.clear();
+  const me = await svc.guest(EK, D1, '김 솔');
+  assert.equal(me.ticketsOpen, true);
+  assert.deepEqual(me.seat, { table: 7, seat: 3 });
+  assert.equal(me.seatListLoaded, true);
+  assert.equal(me.ticket!.number, 1);
+  // 다른 기기·띄어쓰기 달라도 같은 이름이면 같은 응모권
+  const again = await svc.guest(EK, D2, '김솔');
+  assert.equal(again.ticket!.number, 1);
+  assert.equal(f.tickets.length, 1);
+  assert.equal(again.seat!.table, 7);
+
+  // 번호 겹침 두 번 → 다시 시도해서 다음 번호
+  f.failCreates(2);
+  const other = await svc.guest(EK, D2, '이하나');
+  assert.equal(other.ticket!.number, 4);
+  assert.equal(other.seat, null);
+  // 닫혀도 이미 받은 응모권은 보인다
+  (svc as any).modeCache.clear();
+  f.state.set(`${EK}:tickets`, { mode: 'closed' });
+  assert.equal((await svc.guest(EK, D1, '김솔')).ticket!.number, 1);
+
+  // 손님 표는 같은 기기·같은 이름이면 1분에 한 번만 쓴다
+  const before = f.guests.length;
+  await svc.guest(EK, D1, '김솔');
+  assert.equal(f.guests.length, before);
+
+  const live = await svc.live(EK);
+  assert.equal(live.summary.arrived, 4);
+  assert.equal(live.summary.listed, 1);
+  assert.equal(live.summary.listedArrived, 1);
+  assert.equal(live.summary.walkIns, 3);
+  assert.equal(live.summary.tables.length, 19);
+  assert.deepEqual(live.summary.tables[6], { table: 7, listed: 1, arrived: 1 });
+  assert.deepEqual(live.arrivals.map((a) => a.number), [1, 2, 3, 4]);
+  assert.equal(live.arrivals[0].listed, true);
+  assert.deepEqual([live.seats[0].arrived, live.seats[0].ticketNumber], [true, 1]);
+});
+
+test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다시 안 뽑음 · 다 뽑으면 400', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  for (const [name, device] of [['가', D1], ['나', D2], ['다', D3]]) await svc.guest(EK, device, name);
+  await assert.rejects(svc.draw(EK, ''), /경품 이름/);
+
+  const first = await svc.draw(EK, '횡성한우세트');
+  assert.equal(first.board.eligible, 2);
+  assert.equal(first.board.tickets, 3);
+  assert.equal(first.board.prizes[0].drawn, 1);
+  const cancelled = await svc.cancelDraw(EK, first.draw.id);
+  assert.equal(cancelled.prizes[0].drawn, 0);
+  assert.equal(cancelled.draws[0].cancelled, true);
+  assert.equal(cancelled.eligible, 2); // 무효된 사람도 다시 안 뽑음
+  await svc.cancelDraw(EK, first.draw.id); // 두 번 눌러도 그대로
+  await assert.rejects(svc.cancelDraw(EK, 'nope'), /찾을 수 없어요/);
+
+  const second = await svc.draw(EK, '횡성한우세트');
+  const third = await svc.draw(EK, '체스타필드 정장 세트');
+  assert.equal(new Set([first.draw.number, second.draw.number, third.draw.number]).size, 3);
+  await assert.rejects(svc.draw(EK, '횡성한우세트'), /뽑을 응모권이 없어요/);
+  assert.equal(third.board.eligible, 0);
+
+  // 응모권 지우면 추첨 기록도 같이
+  const t = f.tickets.find((x) => x.number === second.draw.number)!;
+  await svc.deleteTicket(EK, t.id);
+  assert.equal(f.draws.some((d) => d.ticketId === t.id), false);
+  await assert.rejects(svc.deleteTicket(EK, t.id), /찾을 수 없어요/);
+});
+
+test('응모권 — 한 기기 한 장(이름만 바꿔도 같은 것) · 지운 이름은 다시 안 나옴 · 풀면 다시', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  const first = await svc.guest(EK, D1, '김솔');
+  assert.equal(first.ticket!.number, 1);
+  // 같은 폰에서 이름만 바꿔도 새로 안 나오고 그 폰의 응모권
+  const renamed = await svc.guest(EK, D1, '김솔2');
+  assert.deepEqual([renamed.name, renamed.ticket!.number, renamed.ticket!.name], ['김솔2', 1, '김솔']);
+  assert.equal(f.tickets.length, 1);
+  // 다른 폰에서 같은 이름이면 같은 응모권, 다른 이름이면 새 응모권
+  assert.equal((await svc.guest(EK, D2, '김 솔')).ticket!.number, 1);
+  const other = await svc.guest(EK, D2, '이하나');
+  assert.equal(other.ticket!.number, 2);
+
+  // 지우면 그 이름은 폴링이 다시 와도 안 나온다(발급 열림이어도)
+  const live = await svc.deleteTicket(EK, f.tickets.find((x) => x.number === 2)!.id);
+  assert.deepEqual(live.blocked.map((b) => [b.nameKey, b.name]), [['이하나', '이하나']]);
+  const again = await svc.guest(EK, D2, '이하나');
+  assert.deepEqual([again.ticketsOpen, again.ticket], [true, null]);
+  assert.equal(f.tickets.length, 1);
+  // 없는 이름을 풀어도 그대로 성공 · 빈 이름은 400
+  await svc.unblockTicket(EK, '없는사람');
+  await assert.rejects(svc.unblockTicket(EK, '  '), /이름을 확인/);
+  assert.equal((await svc.live(EK)).blocked.length, 1);
+
+  // 풀면 다시 받는다(새 번호)
+  const unblocked = await svc.unblockTicket(EK, '이 하나');
+  assert.deepEqual(unblocked.blocked, []);
+  assert.equal((await svc.guest(EK, D2, '이하나')).ticket!.number, 2);
+});
+
+test('어드민 답 고치기 — 판정만 바꿀 땐 답·낸 사람 안 씀 · 없던 줄은 안 지움 · 답 바뀌면 판정 버림', async () => {
+  const EK = 'wmak-2026' as const;
+  let row: { answer: string | null; correct: boolean | null } | null = null;
+  const upserts: any[] = [];
+  const deletes: any[] = [];
+  const tx: any = {
+    // 잠그고 읽기(FOR UPDATE) — 지금 줄
+    $queryRaw: async (strings: TemplateStringsArray) => {
+      assert.match(strings.join('?'), /FOR UPDATE/);
+      return row ? [{ ...row }] : [];
+    },
+    receptionQuizAnswer: {
+      upsert: async (args: any) => { upserts.push(args); return {}; },
+      deleteMany: async (args: any) => { deletes.push(args); return { count: 1 }; },
+    },
+  };
+  const prisma: any = {
+    $transaction: async (fn: any) => fn(tx),
+    receptionState: { findUnique: async () => null },
+    receptionQuizAnswer: { findMany: async () => [] },
+  };
+  const svc = new ReceptionQuizService(prisma);
+
+  // 판정만 — update 에 answer·name·deviceId 없음(그 사이 손님 답을 덮지 않게)
+  row = { answer: '피자헛', correct: null };
+  await svc.adminAnswer(EK, { questionId: 'r1q1', table: 5, correct: true });
+  assert.deepEqual(upserts[0].update, { correct: true });
+  assert.equal(upserts[0].create.answer, '피자헛');
+
+  // 답이 바뀌면 판정 버리고 낸 사람 = 운영팀
+  row = { answer: 'freetifull', correct: false };
+  await svc.adminAnswer(EK, { questionId: 'r1q1', table: 5, answer: 'freetiful' });
+  assert.deepEqual(upserts[1].update, { correct: null, answer: 'freetiful', name: '운영팀', deviceId: null });
+  // 같은 답이면 판정 그대로
+  row = { answer: 'freetiful', correct: true };
+  await svc.adminAnswer(EK, { questionId: 'r1q1', table: 5, answer: 'freetiful' });
+  assert.deepEqual(upserts[2].update, { correct: true, answer: 'freetiful' });
+
+  // 답도 판정도 없게 되면 — 있던 줄만 지운다
+  row = null;
+  await svc.adminAnswer(EK, { questionId: 'r1q1', table: 5, correct: null });
+  assert.equal(deletes.length, 0);
+  row = { answer: null, correct: true };
+  await svc.adminAnswer(EK, { questionId: 'r3q3', table: 5, correct: null });
+  assert.equal(deletes.length, 1);
+  assert.equal(upserts.length, 3);
 });

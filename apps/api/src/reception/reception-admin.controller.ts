@@ -1,21 +1,122 @@
-import { BadRequestException, Controller, Get, Header, Param, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { ReceptionService } from './reception.service';
-import { isReceptionEvent } from './reception.rules';
+import { ReceptionLiveService } from './reception-live.service';
+import { ReceptionQuizService } from './reception-quiz.service';
+import { ReceptionEventKey, isReceptionEvent } from './reception.rules';
 
-/** 어드민 — 송년회 참여자 · 설문 응답(261108 사장 'campkjh@nate.com 어드민에서 누가 참여했는지 누가 설문조사에 응답했는지'). AdminGuard = 총괄운영자 id 포함 */
+/**
+ * 어드민 — 송년회 참여자 · 설문 응답(261108 사장 'campkjh@nate.com 어드민에서 누가 참여했는지 누가 설문조사에 응답했는지'). AdminGuard = 총괄운영자 id 포함
+ * + 2차(261122): 입장 현황(응모권) · 자리 명단 · 퀴즈 진행 · 럭키드로우. 새 경로는 ':eventKey/…' 로 두 칸 이상이라 ':eventKey' 하나와 겹치지 않는다.
+ */
 @ApiTags('admin-reception')
 @UseGuards(AdminGuard)
 @Controller(['admin/reception', 'api/v1/admin/reception'])
 export class ReceptionAdminController {
-  constructor(private readonly reception: ReceptionService) {}
+  constructor(
+    private readonly reception: ReceptionService,
+    private readonly live: ReceptionLiveService,
+    private readonly quizzes: ReceptionQuizService,
+  ) {}
+
+  private event(eventKey: string): ReceptionEventKey {
+    if (!isReceptionEvent(eventKey)) throw new BadRequestException('없는 행사예요.');
+    return eventKey;
+  }
 
   @Get(':eventKey')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '참여자(이름·첫/마지막 접속·사진·누른 수·설문 여부) + 설문 응답 + 요약' })
   overview(@Param('eventKey') eventKey: string) {
-    if (!isReceptionEvent(eventKey)) throw new BadRequestException('없는 행사예요.');
-    return this.reception.adminOverview(eventKey);
+    return this.reception.adminOverview(this.event(eventKey));
+  }
+
+  // ───────────── 입장 현황 · 자리 명단 · 응모권 ─────────────
+
+  @Get(':eventKey/live')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '입장 현황 — 응모권(=입장) 목록 · 명단 대조 · 테이블별 수 · 발급 모드' })
+  liveView(@Param('eventKey') eventKey: string) {
+    return this.live.live(this.event(eventKey));
+  }
+
+  @Put(':eventKey/seats')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '자리 명단 통째로 바꾸기 — { rows: [{ name, table, seat? }] } (빈 배열 = 비우기, 400줄까지)' })
+  putSeats(@Param('eventKey') eventKey: string, @Body() body: { rows?: unknown }) {
+    return this.live.putSeats(this.event(eventKey), body?.rows);
+  }
+
+  @Post(':eventKey/tickets/mode')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '응모권 발급 모드 — { mode: auto | open | closed } (auto = 행사 당일 15:00~다음 날 03:00)' })
+  ticketsMode(@Param('eventKey') eventKey: string, @Body() body: { mode?: unknown }) {
+    return this.live.setTicketsMode(this.event(eventKey), body?.mode);
+  }
+
+  @Delete(':eventKey/tickets/:id')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '응모권 지우기(테스트·실수 정리 — 추첨 기록도 같이 지움). 지운 이름으로는 다시 안 나옴(blocked) — 풀려면 tickets/unblock' })
+  deleteTicket(@Param('eventKey') eventKey: string, @Param('id') id: string) {
+    return this.live.deleteTicket(this.event(eventKey), id);
+  }
+
+  @Post(':eventKey/tickets/unblock')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '지운 이름 풀기 — { name } · 그 이름으로 다시 응모권을 받을 수 있게' })
+  unblockTicket(@Param('eventKey') eventKey: string, @Body() body: { name?: unknown }) {
+    return this.live.unblockTicket(this.event(eventKey), body?.name);
+  }
+
+  // ───────────── 퀴즈 ─────────────
+
+  @Get(':eventKey/quiz')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '퀴즈 진행판 — 상태 · 문제(정답 포함) · 문제별 테이블 답·채점 · 점수판(공개분/전체)' })
+  quiz(@Param('eventKey') eventKey: string) {
+    return this.quizzes.adminView(this.event(eventKey));
+  }
+
+  @Post(':eventKey/quiz/state')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '퀴즈 진행 — { action: open|lock|reveal|unreveal|idle|board|reset, questionId?, on? }' })
+  quizState(@Param('eventKey') eventKey: string, @Body() body: { action?: unknown; questionId?: unknown; on?: unknown }) {
+    return this.quizzes.adminState(this.event(eventKey), body || {});
+  }
+
+  @Put(':eventKey/quiz/answer')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '테이블 답·판정 고치기 — { questionId, table, answer?: string|null, correct?: boolean|null } (상태와 상관없이)' })
+  quizAnswer(@Param('eventKey') eventKey: string, @Body() body: { questionId?: unknown; table?: unknown; answer?: unknown; correct?: unknown }) {
+    return this.quizzes.adminAnswer(this.event(eventKey), body || {});
+  }
+
+  // ───────────── 럭키드로우 ─────────────
+
+  @Get(':eventKey/draws')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '럭키드로우 — 경품별 남은 수 · 추첨 기록(최근 위) · 응모권 수 · 뽑을 수 있는 수' })
+  draws(@Param('eventKey') eventKey: string) {
+    return this.live.drawBoard(this.event(eventKey));
+  }
+
+  @Post(':eventKey/draws')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '추첨하기 — { prize } · 한 번도 안 뽑힌 응모권 중 무작위 1장' })
+  draw(@Param('eventKey') eventKey: string, @Body() body: { prize?: unknown }) {
+    return this.live.draw(this.event(eventKey), body?.prize);
+  }
+
+  @Post(':eventKey/draws/:id/cancel')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '추첨 무효(자리에 없을 때) — 그 응모권은 다시 뽑지 않음' })
+  cancelDraw(@Param('eventKey') eventKey: string, @Param('id') id: string) {
+    return this.live.cancelDraw(this.event(eventKey), id);
   }
 }

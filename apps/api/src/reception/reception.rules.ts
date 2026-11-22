@@ -81,3 +81,110 @@ export function parseSurvey(v: unknown): SurveyAnswers | string {
   if ([...comment].length > SURVEY_COMMENT_MAX) return `하고 싶은 말은 ${SURVEY_COMMENT_MAX}자까지 쓸 수 있어요.`;
   return { rating, best, again, comment };
 }
+
+// ───────────── 2차(261122) — 자리 명단 · 럭키드로우 응모권 · 퀴즈 테이블 ─────────────
+
+/** 테이블 수 · 테이블당 좌석 — 웹 lib/reception/event.ts(TABLE_COUNT · SEATS_PER_TABLE)와 같게 */
+export const TABLE_COUNT = 19;
+export const SEATS_PER_TABLE = 8;
+/** 자리 명단 최대 줄 수(손님 ~150명, 넉넉히) */
+export const SEAT_ROWS_MAX = 400;
+export const PRIZE_MAX = 40;
+
+/** 이름 비교 열쇠 — 띄어쓰기 전부 빼고 소문자(NFKC). '김 솔' == '김솔', 전각 글자도 같게 */
+export function nameKey(name: string): string {
+  return name.normalize('NFKC').replace(/[\s​-‍﻿]+/g, '').toLowerCase();
+}
+
+/** 테이블 번호 1~19 — 숫자 또는 숫자 글자('3')만. 아니면 null */
+export function parseTableNo(v: unknown): number | null {
+  const n = typeof v === 'string' && /^\s*\d{1,3}\s*$/.test(v) ? Number(v) : v;
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= TABLE_COUNT ? n : null;
+}
+
+export const TICKETS_MODES = ['auto', 'open', 'closed'] as const;
+export type TicketsMode = (typeof TICKETS_MODES)[number];
+export const isTicketsMode = (v: unknown): v is TicketsMode =>
+  typeof v === 'string' && (TICKETS_MODES as readonly string[]).includes(v);
+
+/** 'auto' 일 때 응모권이 나오는 때 — 행사 당일 15:00 ~ 다음 날 03:00(KST). 전날 미리 이름 넣은 사람이 번호를 먼저 받지 않게 */
+export const TICKETS_AUTO_FROM = Date.parse('2026-11-23T15:00:00+09:00');
+export const TICKETS_AUTO_UNTIL = Date.parse('2026-11-24T03:00:00+09:00');
+
+/** 응모권 발급 열림 — open=열림, closed=닫힘, auto=행사 시간대만 */
+export function ticketsOpen(mode: TicketsMode, now: Date | number): boolean {
+  if (mode === 'open') return true;
+  if (mode === 'closed') return false;
+  const t = typeof now === 'number' ? now : now.getTime();
+  return t >= TICKETS_AUTO_FROM && t < TICKETS_AUTO_UNTIL;
+}
+
+/** 어드민이 응모권을 지운 이름 — 발급이 열려 있어도 이 이름(nameKey)으로는 새 응모권을 다시 주지 않는다(지운 게 15초 폴링에 되살아나지 않게) */
+export interface TicketBlock {
+  nameKey: string;
+  name: string;
+  at: string;
+}
+
+/** 지운 이름 목록 읽기(reception_state 'ticket-blocks' = { list }) — 모양이 틀린 줄은 버린다 */
+export function parseTicketBlocks(v: unknown): TicketBlock[] {
+  const list = (v && typeof v === 'object' ? (v as { list?: unknown }).list : null) as unknown;
+  if (!Array.isArray(list)) return [];
+  const out: TicketBlock[] = [];
+  for (const o of list) {
+    const b = (o && typeof o === 'object' ? o : {}) as Record<string, unknown>;
+    if (typeof b.nameKey !== 'string' || !b.nameKey || typeof b.name !== 'string' || typeof b.at !== 'string') continue;
+    if (!out.some((x) => x.nameKey === b.nameKey)) out.push({ nameKey: b.nameKey, name: b.name, at: b.at });
+  }
+  return out;
+}
+
+export interface SeatRowInput {
+  name: string;
+  nameKey: string;
+  table: number;
+  seat: number | null;
+}
+
+/** 자리 명단 검사 — 틀리면 이유(몇 번째 줄인지 같이). 같은 이름(nameKey)이 두 번이면 겹친 이름을 모두 알려 준다 */
+export function parseSeatRows(v: unknown): SeatRowInput[] | string {
+  if (!Array.isArray(v)) return '명단 형식이 맞지 않아요.';
+  if (v.length > SEAT_ROWS_MAX) return `명단은 ${SEAT_ROWS_MAX}줄까지 넣을 수 있어요.`;
+  const out: SeatRowInput[] = [];
+  for (let i = 0; i < v.length; i++) {
+    const o = (v[i] && typeof v[i] === 'object' ? v[i] : {}) as Record<string, unknown>;
+    const name = cleanName(o.name);
+    if (!name) return `${i + 1}번째 줄 이름을 확인해 주세요(1~${NAME_MAX}자).`;
+    const table = parseTableNo(o.table);
+    if (table == null) return `${i + 1}번째 줄(${name}) 테이블은 1~${TABLE_COUNT} 사이 숫자예요.`;
+    let seat: number | null = null;
+    if (o.seat != null && o.seat !== '') {
+      const s = typeof o.seat === 'string' && /^\s*\d{1,2}\s*$/.test(o.seat) ? Number(o.seat) : o.seat;
+      if (typeof s !== 'number' || !Number.isInteger(s) || s < 1 || s > SEATS_PER_TABLE) {
+        return `${i + 1}번째 줄(${name}) 좌석은 1~${SEATS_PER_TABLE} 사이 숫자예요.`;
+      }
+      seat = s;
+    }
+    out.push({ name, nameKey: nameKey(name), table, seat });
+  }
+  const seen = new Map<string, string[]>();
+  for (const r of out) seen.set(r.nameKey, [...(seen.get(r.nameKey) || []), r.name]);
+  const dup = [...seen.values()].filter((names) => names.length > 1).map((names) => names[0]);
+  if (dup.length) return `같은 이름이 두 번 있어요: ${dup.join(', ')}`;
+  return out;
+}
+
+/** 럭키드로우 기본 경품(사장 행사표의 '추첨' 경품) — total = 뽑을 개수 */
+export const DRAW_PRIZES: ReadonlyArray<{ name: string; total: number }> = [
+  { name: '횡성한우세트', total: 5 },
+  { name: '스튜디오패스 촬영+의상세트', total: 3 },
+  { name: '체스타필드 정장 세트', total: 1 },
+];
+
+/** 경품 이름 — 앞뒤·겹친 띄어쓰기 정리, 1~40자. 안 맞으면 null */
+export function cleanPrize(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
+  if (!s || [...s].length > PRIZE_MAX) return null;
+  return s;
+}
