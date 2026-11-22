@@ -84,8 +84,8 @@ export function parseSurvey(v: unknown): SurveyAnswers | string {
 
 // ───────────── 2차(261122) — 자리 명단 · 럭키드로우 응모권 · 퀴즈 테이블 ─────────────
 
-/** 테이블 수 · 테이블당 좌석 — 웹 lib/reception/event.ts(TABLE_COUNT · SEATS_PER_TABLE)와 같게 */
-export const TABLE_COUNT = 19;
+/** 테이블 수 · 테이블당 좌석 — 웹 lib/reception/event.ts(TABLE_COUNT · SEATS_PER_TABLE)와 같게(261122 사장 배정표 = 18개) */
+export const TABLE_COUNT = 18;
 export const SEATS_PER_TABLE = 8;
 /** 자리 명단 최대 줄 수(손님 ~150명, 넉넉히) */
 export const SEAT_ROWS_MAX = 400;
@@ -96,7 +96,7 @@ export function nameKey(name: string): string {
   return name.normalize('NFKC').replace(/[\s​-‍﻿]+/g, '').toLowerCase();
 }
 
-/** 테이블 번호 1~19 — 숫자 또는 숫자 글자('3')만. 아니면 null */
+/** 테이블 번호 1~TABLE_COUNT — 숫자 또는 숫자 글자('3')만. 아니면 null */
 export function parseTableNo(v: unknown): number | null {
   const n = typeof v === 'string' && /^\s*\d{1,3}\s*$/.test(v) ? Number(v) : v;
   return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= TABLE_COUNT ? n : null;
@@ -139,14 +139,24 @@ export function parseTicketBlocks(v: unknown): TicketBlock[] {
   return out;
 }
 
+/**
+ * 동명이인(261122 배정표에 김현우 님이 2번·12번 두 곳) — 명단에 같은 이름이 다른 테이블에 또 있으면 그 줄들의 열쇠 = '이름열쇠 @테이블'.
+ * nameKey 는 띄어쓰기를 다 빼므로 ' @' 가 든 열쇠는 어떤 이름에서도 나오지 않는다(다른 사람 열쇠와 겹칠 일 없음).
+ * 손님은 함께 앉는 사람을 보고 테이블을 고르고(PUT guest pick), 응모권도 그 줄 열쇠로 따로 받는다.
+ */
+export const sameNameKey = (key: string, table: number) => `${key} @${table}`;
+/** 명단 줄 · 응모권 열쇠 → 이름 열쇠(동명이인 꼬리 떼기) */
+export const baseNameKey = (key: string) => key.split(' @')[0];
+
 export interface SeatRowInput {
   name: string;
+  /** 명단 줄 열쇠 — 보통 nameKey(name), 동명이인이면 sameNameKey */
   nameKey: string;
   table: number;
   seat: number | null;
 }
 
-/** 자리 명단 검사 — 틀리면 이유(몇 번째 줄인지 같이). 같은 이름(nameKey)이 두 번이면 겹친 이름을 모두 알려 준다 */
+/** 자리 명단 검사 — 틀리면 이유(몇 번째 줄인지 같이). 같은 이름이 같은 테이블에 두 번이면 그 이름들을 알려 주고, 다른 테이블이면 동명이인 열쇠로 */
 export function parseSeatRows(v: unknown): SeatRowInput[] | string {
   if (!Array.isArray(v)) return '명단 형식이 맞지 않아요.';
   if (v.length > SEAT_ROWS_MAX) return `명단은 ${SEAT_ROWS_MAX}줄까지 넣을 수 있어요.`;
@@ -167,10 +177,20 @@ export function parseSeatRows(v: unknown): SeatRowInput[] | string {
     }
     out.push({ name, nameKey: nameKey(name), table, seat });
   }
-  const seen = new Map<string, string[]>();
-  for (const r of out) seen.set(r.nameKey, [...(seen.get(r.nameKey) || []), r.name]);
-  const dup = [...seen.values()].filter((names) => names.length > 1).map((names) => names[0]);
-  if (dup.length) return `같은 이름이 두 번 있어요: ${dup.join(', ')}`;
+  // 같은 이름 — 다른 테이블이면 동명이인(손님이 고름), 같은 테이블이면 잘못 넣은 줄
+  const groups = new Map<string, SeatRowInput[]>();
+  for (const r of out) groups.set(r.nameKey, [...(groups.get(r.nameKey) || []), r]);
+  const sameTable: string[] = [];
+  for (const rows of groups.values()) {
+    if (rows.length < 2) continue;
+    const tables = rows.map((r) => r.table);
+    if (new Set(tables).size < tables.length) {
+      sameTable.push(rows[0].name);
+      continue;
+    }
+    for (const r of rows) r.nameKey = sameNameKey(r.nameKey, r.table);
+  }
+  if (sameTable.length) return `같은 테이블에 같은 이름이 두 번 있어요: ${sameTable.join(', ')}`;
   return out;
 }
 

@@ -9,11 +9,13 @@ import {
   TABLE_COUNT,
   TicketBlock,
   TicketsMode,
+  baseNameKey,
   cleanName,
   cleanPrize,
   isTicketsMode,
   nameKey,
   parseSeatRows,
+  parseTableNo,
   parseTicketBlocks,
   ticketsOpen,
 } from './reception.rules';
@@ -24,10 +26,19 @@ export interface ReceptionMe {
   name: string;
   /** 자리 명단이 1줄이라도 있나 */
   seatListLoaded: boolean;
-  /** 명단에서 찾은 자리(없으면 null) */
+  /** 명단에서 찾은 자리(없으면 null). 동명이인이면 손님이 고른 자리(아직 안 골랐으면 null) */
   seat: { table: number; seat: number | null } | null;
+  /** 동명이인 — 명단에 이 이름이 2줄 이상이면 그 자리들(테이블 순) + 같은 테이블 사람들(손님이 보고 고름). 아니면 null */
+  sameName: ReceptionSameName[] | null;
   ticketsOpen: boolean;
   ticket: { number: number; name: string; issuedAt: string; win: { prize: string; at: string } | null } | null;
+}
+
+export interface ReceptionSameName {
+  table: number;
+  seat: number | null;
+  /** 같은 테이블에 앉는 사람들(좌석 순) */
+  mates: string[];
 }
 
 export interface LiveArrival {
@@ -105,7 +116,10 @@ interface SeatRow {
 
 interface SeatList {
   rows: SeatRow[];
+  /** 명단 줄 열쇠(동명이인은 '이름열쇠 @테이블') → 줄. 응모권 열쇠와 같은 것 */
   byKey: Map<string, SeatRow>;
+  /** 이름 열쇠 → 그 이름의 줄들(동명이인이면 2줄 이상, 테이블 순) */
+  byName: Map<string, SeatRow[]>;
 }
 
 /** 명단·발급 모드 묶어 두는 시간 — 손님 자리 탭이 15초마다 부르는 길(어드민이 바꾸면 바로 버림) */
@@ -126,6 +140,25 @@ const winSelect = Prisma.validator<Prisma.ReceptionTicket$drawsArgs>()({
   take: 1,
   select: { prize: true, createdAt: true },
 });
+
+/**
+ * 응모권 → 명단 줄(한 줄엔 응모권 하나, 번호 순으로 먼저 온 것). 열쇠가 딱 맞는 것 먼저, 그다음 이름이 하나뿐인 줄 —
+ * 명단을 고쳐 동명이인 열쇠('이름 @테이블')가 어긋난 응모권도 제 줄에 붙는다(손님 폰이 다시 부르면 열쇠도 옮겨 감, ticketFor).
+ */
+function matchTickets(seats: SeatList, tickets: ReadonlyArray<{ id: string; nameKey: string }>): Map<string, SeatRow> {
+  const out = new Map<string, SeatRow>();
+  const taken = new Set<SeatRow>();
+  for (const t of tickets) {
+    const row = seats.byKey.get(t.nameKey);
+    if (row && !taken.has(row)) { out.set(t.id, row); taken.add(row); }
+  }
+  for (const t of tickets) {
+    if (out.has(t.id)) continue;
+    const same = seats.byName.get(baseNameKey(t.nameKey));
+    if (same?.length === 1 && !taken.has(same[0])) { out.set(t.id, same[0]); taken.add(same[0]); }
+  }
+  return out;
+}
 
 const byTableSeatName = (a: SeatRow, b: SeatRow) =>
   a.tableNo - b.tableNo || (a.seatNo ?? 99) - (b.seatNo ?? 99) || a.name.localeCompare(b.name, 'ko');
@@ -158,7 +191,12 @@ export class ReceptionLiveService {
         .findMany({ where: { eventKey }, select: { nameKey: true, name: true, tableNo: true, seatNo: true } })
         .then((rows) => {
           rows.sort(byTableSeatName);
-          return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])) };
+          const byName = new Map<string, SeatRow[]>();
+          for (const r of rows) {
+            const k = baseNameKey(r.nameKey);
+            byName.set(k, [...(byName.get(k) || []), r]);
+          }
+          return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])), byName };
         }),
     };
     this.seatCache.set(eventKey, entry);
@@ -225,17 +263,32 @@ export class ReceptionLiveService {
   /**
    * 내 응모권 — 이름(nameKey)으로 찾고, 없으면 이 기기가 처음 받은 것(한 기기 한 장 — 이름만 바꿔 넣어 여러 장 받기 막기).
    * 둘 다 없고 발급 열림이면 새 번호(그 행사 최대+1, 겹치면 다시). 어드민이 지운 이름은 다시 주지 않는다.
+   * 동명이인(열쇠 '이름 @테이블'): 이 기기가 같은 이름의 다른 줄로 받은 응모권이 있으면 그것이 내 것 — 그 줄 응모권이
+   * 아직 없으면 지금 고른 줄로 옮긴다(잘못 골랐다 다시 고른 사람 · 명단이 바뀐 사람). 남의 기기 응모권을 대신 보여 주지 않는다.
+   * deviceOnly = 동명이인인데 아직 안 고름 — 이 기기 응모권만 본다(이름만 같은 다른 사람 것 X).
    */
-  private async ticketFor(eventKey: ReceptionEventKey, key: string, name: string, deviceId: string, open: boolean) {
+  private async ticketFor(eventKey: ReceptionEventKey, key: string, name: string, deviceId: string, open: boolean, deviceOnly = false) {
     let blocked: boolean | undefined;
+    const base = baseNameKey(key);
     for (let attempt = 0; attempt <= TICKET_RETRY; attempt++) {
       // 이름·기기를 한 번에 읽고 이름이 맞는 것을 먼저 — 같은 이름이면 기기가 달라도 같은 응모권
       const mine = await this.prisma.receptionTicket.findMany({
-        where: { eventKey, OR: [{ nameKey: key }, { deviceId }] },
+        where: { eventKey, OR: deviceOnly ? [{ deviceId }] : [{ nameKey: key }, { deviceId }] },
         orderBy: { number: 'asc' },
         include: { draws: winSelect },
       });
-      const found = mine.find((t) => t.nameKey === key) ?? mine[0];
+      const own = mine.find((t) => t.deviceId === deviceId && baseNameKey(t.nameKey) === base);
+      const named = deviceOnly ? undefined : mine.find((t) => t.nameKey === key);
+      let found = own ?? named ?? mine[0];
+      if (own && !named && !deviceOnly && own.nameKey !== key) {
+        try {
+          const moved = await this.prisma.receptionTicket.updateMany({ where: { id: own.id, nameKey: own.nameKey }, data: { nameKey: key } });
+          if (moved.count) found = { ...own, nameKey: key };
+        } catch (e) {
+          // 그 사이 그 줄 응모권을 누가 받음 — 옮기지 않고 내 것 그대로
+          if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
+        }
+      }
       if (found) {
         if (Date.now() - found.lastSeenAt.getTime() >= SEEN_WRITE_MS) {
           await this.prisma.receptionTicket.updateMany({ where: { id: found.id }, data: { lastSeenAt: new Date() } });
@@ -262,21 +315,36 @@ export class ReceptionLiveService {
     return null;
   }
 
-  /** 손님 자리 탭 — 손님 표 남기기 + 명단 자리 + (발급 열림이면) 응모권 */
-  async guest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown): Promise<ReceptionMe> {
+  /**
+   * 손님 자리 탭 — 손님 표 남기기 + 명단 자리 + (발급 열림이면) 응모권.
+   * 동명이인(명단에 이 이름이 2줄 이상)이면 rawPick(손님이 고른 테이블)으로 그 줄을 찾는다 — 못 찾으면 자리 없이 고를 목록만 주고
+   * 응모권도 새로 주지 않는다(고른 뒤 그 줄 열쇠로 받게. 이미 받은 것은 그대로 보임).
+   */
+  async guest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown, rawPick?: unknown): Promise<ReceptionMe> {
     const name = cleanName(rawName);
     if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
     const key = nameKey(name);
     const [, seats, mode] = await Promise.all([this.touchGuest(eventKey, deviceId, name), this.seats(eventKey), this.ticketsMode(eventKey)]);
     const open = ticketsOpen(mode, Date.now());
-    const ticket = await this.ticketFor(eventKey, key, name, deviceId, open);
-    const seat = seats.byKey.get(key);
+    const same = seats.byName.get(key) ?? [];
+    const pick = same.length > 1 ? parseTableNo(rawPick) : null;
+    const seat = same.length === 1 ? same[0] : same.find((r) => r.tableNo === pick);
+    const undecided = same.length > 1 && !seat;
+    const ticket = await this.ticketFor(eventKey, seat ? seat.nameKey : key, name, deviceId, open && !undecided, undecided);
     const win = ticket?.draws[0];
     return {
       ok: true,
       name,
       seatListLoaded: seats.rows.length > 0,
       seat: seat ? { table: seat.tableNo, seat: seat.seatNo } : null,
+      sameName:
+        same.length > 1
+          ? same.map((r) => ({
+              table: r.tableNo,
+              seat: r.seatNo,
+              mates: seats.rows.filter((m) => m.tableNo === r.tableNo && m !== r).map((m) => m.name),
+            }))
+          : null,
       ticketsOpen: open,
       ticket: ticket
         ? {
@@ -299,9 +367,14 @@ export class ReceptionLiveService {
       this.prisma.receptionState.findUnique({ where: { eventKey_key: { eventKey, key: BLOCKS_KEY } }, select: { value: true } }),
     ]);
     const now = new Date();
-    const ticketByKey = new Map(tickets.map((t) => [t.nameKey, t]));
+    const rowOf = matchTickets(seats, tickets);
+    const ticketByRow = new Map<SeatRow, (typeof tickets)[number]>();
+    for (const t of tickets) {
+      const row = rowOf.get(t.id);
+      if (row) ticketByRow.set(row, t);
+    }
     const arrivals: LiveArrival[] = tickets.map((t) => {
-      const seat = seats.byKey.get(t.nameKey);
+      const seat = rowOf.get(t.id);
       const win = t.draws[0];
       return {
         id: t.id,
@@ -316,7 +389,7 @@ export class ReceptionLiveService {
       };
     });
     const seatRows: LiveSeatRow[] = seats.rows.map((s) => {
-      const t = ticketByKey.get(s.nameKey);
+      const t = ticketByRow.get(s);
       return { name: s.name, table: s.tableNo, seat: s.seatNo, arrived: !!t, ticketNumber: t?.number ?? null, arrivedAt: t ? t.createdAt.toISOString() : null };
     });
     const tables = Array.from({ length: TABLE_COUNT }, (_, i) => ({ table: i + 1, listed: 0, arrived: 0 }));
@@ -397,7 +470,10 @@ export class ReceptionLiveService {
     const name = cleanName(rawName);
     if (!name) throw new BadRequestException('이름을 확인해 주세요.');
     const key = nameKey(name);
-    await this.prisma.$transaction((tx) => this.editBlocks(tx, eventKey, (list) => list.filter((b) => b.nameKey !== key)));
+    // 동명이인 응모권은 '이름 @테이블' 열쇠로 막혀 있다 — 이름으로 풀면 그 이름의 막힘을 다 푼다
+    await this.prisma.$transaction((tx) =>
+      this.editBlocks(tx, eventKey, (list) => list.filter((b) => b.nameKey !== key && baseNameKey(b.nameKey) !== key)),
+    );
     return this.live(eventKey);
   }
 
@@ -407,25 +483,27 @@ export class ReceptionLiveService {
     const [seats, draws, tickets, eligible] = await Promise.all([
       this.seats(eventKey, true),
       this.prisma.receptionDraw.findMany({ where: { eventKey }, orderBy: { createdAt: 'desc' } }),
-      this.prisma.receptionTicket.count({ where: { eventKey } }),
+      this.prisma.receptionTicket.findMany({ where: { eventKey }, orderBy: { number: 'asc' }, select: { id: true, nameKey: true } }),
       this.prisma.receptionTicket.count({ where: { eventKey, draws: { none: {} } } }),
     ]);
+    // 당첨자 테이블 = 응모권이 붙은 명단 줄(동명이인도 그 사람 테이블 — 입장 현황과 같은 규칙)
+    const rowOf = matchTickets(seats, tickets);
     const drawn = new Map<string, number>();
     for (const d of draws) if (!d.cancelledAt) drawn.set(d.prize, (drawn.get(d.prize) || 0) + 1);
     return {
       prizes: DRAW_PRIZES.map((p) => ({ name: p.name, total: p.total, drawn: drawn.get(p.name) || 0 })),
-      draws: draws.map((d) => this.drawRow(d, seats)),
+      draws: draws.map((d) => this.drawRow(d, rowOf.get(d.ticketId))),
       eligible,
-      tickets,
+      tickets: tickets.length,
     };
   }
 
-  private drawRow(d: { id: string; number: number; name: string; prize: string; createdAt: Date; cancelledAt: Date | null }, seats: SeatList): DrawRow {
+  private drawRow(d: { id: string; number: number; name: string; prize: string; createdAt: Date; cancelledAt: Date | null }, row: SeatRow | undefined): DrawRow {
     return {
       id: d.id,
       number: d.number,
       name: d.name,
-      table: seats.byKey.get(nameKey(d.name))?.tableNo ?? null,
+      table: row?.tableNo ?? null,
       prize: d.prize,
       at: d.createdAt.toISOString(),
       cancelled: !!d.cancelledAt,
@@ -444,8 +522,7 @@ export class ReceptionLiveService {
       return tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } });
     });
     const board = await this.drawBoard(eventKey);
-    const seats = await this.seats(eventKey);
-    return { draw: this.drawRow(created, seats), board };
+    return { draw: board.draws.find((d) => d.id === created.id) ?? this.drawRow(created, undefined), board };
   }
 
   /** 추첨 무효(자리에 없을 때) — 그 응모권은 다시 뽑지 않는다. 이미 무효면 그대로 */

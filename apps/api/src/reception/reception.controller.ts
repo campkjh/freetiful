@@ -76,10 +76,10 @@ export class ReceptionController {
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({
     summary:
-      '손님 남기기 + 내 자리·응모권 — 자리 탭에서 넣은 이름(기기당 1줄). 명단 자리, 발급 열림이면 럭키드로우 응모권(이름당 1장)·당첨. 응답 ok 는 예전 그대로',
+      '손님 남기기 + 내 자리·응모권 — 자리 탭에서 넣은 이름(기기당 1줄). 명단 자리, 발급 열림이면 럭키드로우 응모권(이름당 1장)·당첨. 응답 ok 는 예전 그대로. 동명이인이면 pick = 손님이 고른 테이블',
   })
-  guest(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string }) {
-    return this.live.guest(this.event(eventKey), this.device(device), body?.name);
+  guest(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string; pick?: number }) {
+    return this.live.guest(this.event(eventKey), this.device(device), body?.name, body?.pick);
   }
 
   @Get('quiz')

@@ -6,6 +6,7 @@ import {
   TICKETS_AUTO_FROM,
   TICKETS_AUTO_UNTIL,
   VOTE_LIMIT,
+  baseNameKey,
   cleanName,
   cleanPrize,
   compareRank,
@@ -14,6 +15,7 @@ import {
   parseSeatRows,
   parseSurvey,
   parseTableNo,
+  sameNameKey,
   ticketsOpen,
 } from './reception.rules';
 import {
@@ -161,9 +163,9 @@ test('이름 열쇠 · 테이블 번호 · 경품 이름', () => {
   assert.equal(nameKey(' Kim  Sol '), 'kimsol');
   assert.equal(nameKey('ＫＩＭ'), 'kim'); // 전각도 같게(NFKC)
   assert.equal(parseTableNo(1), 1);
-  assert.equal(parseTableNo('19'), 19);
+  assert.equal(parseTableNo('18'), 18);
   assert.equal(parseTableNo(' 3 '), 3);
-  for (const bad of [0, 20, 1.5, '3번', 'abc', null, undefined, '', [3]]) assert.equal(parseTableNo(bad), null);
+  for (const bad of [0, 19, 20, 1.5, '3번', 'abc', null, undefined, '', [3]]) assert.equal(parseTableNo(bad), null);
   assert.equal(cleanPrize('  횡성한우세트 '), '횡성한우세트');
   assert.equal(cleanPrize(''), null);
   assert.equal(cleanPrize('가'.repeat(41)), null);
@@ -181,24 +183,33 @@ test('응모권 발급 — 열기·닫기·자동(행사 당일 15:00 ~ 다음 �
   assert.equal(ticketsOpen('closed', new Date('2026-11-23T18:00:00+09:00')), false);
 });
 
-test('자리 명단 검사 — 줄 번호·이유 · 겹친 이름 · 최대 줄 수', () => {
+test('자리 명단 검사 — 줄 번호·이유 · 동명이인 · 같은 테이블 겹침 · 최대 줄 수', () => {
   assert.deepEqual(parseSeatRows([
     { name: ' 김  솔 ', table: 3, seat: 2 },
-    { name: '이하나', table: '19', seat: '' },
+    { name: '이하나', table: '18', seat: '' },
     { name: 'Park', table: 1 },
   ]), [
     { name: '김 솔', nameKey: '김솔', table: 3, seat: 2 },
-    { name: '이하나', nameKey: '이하나', table: 19, seat: null },
+    { name: '이하나', nameKey: '이하나', table: 18, seat: null },
     { name: 'Park', nameKey: 'park', table: 1, seat: null },
   ]);
   assert.deepEqual(parseSeatRows([]), []);
   assert.match(parseSeatRows('x') as string, /형식/);
   assert.match(parseSeatRows([{ name: '', table: 1 }]) as string, /^1번째 줄 이름/);
-  assert.match(parseSeatRows([{ name: '가', table: 1 }, { name: '나', table: 20 }]) as string, /^2번째 줄\(나\) 테이블/);
+  assert.match(parseSeatRows([{ name: '가', table: 1 }, { name: '나', table: 19 }]) as string, /^2번째 줄\(나\) 테이블은 1~18/);
   assert.match(parseSeatRows([{ name: '가', table: 1, seat: 9 }]) as string, /좌석은 1~8/);
   assert.match(parseSeatRows([{ name: '가', table: 1, seat: 0 }]) as string, /좌석/);
-  const dup = parseSeatRows([{ name: '김 솔', table: 1 }, { name: '김솔', table: 2 }, { name: '박', table: 3 }, { name: '박', table: 4 }]);
-  assert.equal(dup, '같은 이름이 두 번 있어요: 김 솔, 박');
+  // 다른 테이블의 같은 이름 = 동명이인 — 줄 열쇠에 테이블을 붙인다(이름 열쇠와 겹치지 않게)
+  assert.deepEqual(parseSeatRows([{ name: '김 솔', table: 1 }, { name: '김솔', table: 2, seat: 6 }, { name: '박', table: 3 }]), [
+    { name: '김 솔', nameKey: '김솔 @1', table: 1, seat: null },
+    { name: '김솔', nameKey: '김솔 @2', table: 2, seat: 6 },
+    { name: '박', nameKey: '박', table: 3, seat: null },
+  ]);
+  assert.equal(baseNameKey(sameNameKey(nameKey('김 솔'), 12)), '김솔');
+  assert.equal(baseNameKey('김솔'), '김솔');
+  // 같은 테이블에 같은 이름 = 잘못 넣은 줄
+  const dup = parseSeatRows([{ name: '김 솔', table: 1 }, { name: '김솔', table: 1 }, { name: '박', table: 3 }, { name: '박', table: 4 }, { name: '박', table: 3 }]);
+  assert.equal(dup, '같은 테이블에 같은 이름이 두 번 있어요: 김 솔, 박');
   const many = Array.from({ length: SEAT_ROWS_MAX + 1 }, (_, i) => ({ name: `손님${i}`, table: 1 }));
   assert.match(parseSeatRows(many) as string, /400줄/);
 });
@@ -289,7 +300,7 @@ test('퀴즈 점수판 — 공개된 문제만 · 어드민 판정 우선 · 점
     row('r2q1', 1, 'BDAC'), // 공개 안 됨 → 0
   ];
   const board = quizBoard(rows, ['r1q1', 'r1q2', 'r1q3', 'r3q3']);
-  assert.equal(board.length, 19);
+  assert.equal(board.length, 18);
   assert.deepEqual(board.slice(0, 4), [
     { table: 9, score: 300, correct: 1 },
     { table: 2, score: 200, correct: 2 },
@@ -365,7 +376,7 @@ test('손님 퀴즈 화면 — 정답 칸은 안 보내고 공개된 문제만 �
   assert.equal(pub2.questions.find((x) => x.id === 'r1q3')!.answerLabel, undefined);
   assert.ok(!JSON.stringify(pub2).includes('"accept"'));
   const t = pub2.results.r1q2.tables;
-  assert.equal(t.length, 19);
+  assert.equal(t.length, 18);
   assert.deepEqual(t[2], { table: 3, answer: 'O', display: 'O', name: '이하나', correct: false });
   assert.deepEqual(t[3], { table: 4, answer: 'X', display: 'X', name: '김솔', correct: true });
   assert.deepEqual(t[0], { table: 1, answer: null, display: null, name: null, correct: false });
@@ -455,7 +466,14 @@ function fakeLivePrisma() {
         tickets.push(t);
         return withDraws(t);
       },
-      updateMany: async () => ({ count: 1 }),
+      updateMany: async ({ where, data }: any) => {
+        const hit = tickets.filter((t) => ticketMatch(t, where));
+        if (data.nameKey && hit.length && tickets.some((t) => !hit.includes(t) && t.eventKey === hit[0].eventKey && t.nameKey === data.nameKey)) {
+          throw new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' });
+        }
+        for (const t of hit) Object.assign(t, data);
+        return { count: hit.length };
+      },
       deleteMany: async ({ where }: any) => {
         const i = tickets.findIndex((t) => t.id === where.id && t.eventKey === where.eventKey);
         if (i < 0) return { count: 0 };
@@ -496,7 +514,7 @@ test('손님 자리·응모권 — 닫힘이면 안 나옴 · 이름당 한 장 
   const EK = 'wmak-2026' as const;
   f.state.set(`${EK}:tickets`, { mode: 'closed' });
   const closed = await svc.guest(EK, D1, '김 솔');
-  assert.deepEqual(closed, { ok: true, name: '김 솔', seatListLoaded: false, seat: null, ticketsOpen: false, ticket: null });
+  assert.deepEqual(closed, { ok: true, name: '김 솔', seatListLoaded: false, seat: null, sameName: null, ticketsOpen: false, ticket: null });
   await assert.rejects(svc.guest(EK, D1, '  '), /이름을 먼저/);
 
   (svc as any).modeCache.clear();
@@ -534,11 +552,123 @@ test('손님 자리·응모권 — 닫힘이면 안 나옴 · 이름당 한 장 
   assert.equal(live.summary.listed, 1);
   assert.equal(live.summary.listedArrived, 1);
   assert.equal(live.summary.walkIns, 3);
-  assert.equal(live.summary.tables.length, 19);
+  assert.equal(live.summary.tables.length, 18);
   assert.deepEqual(live.summary.tables[6], { table: 7, listed: 1, arrived: 1 });
   assert.deepEqual(live.arrivals.map((a) => a.number), [1, 2, 3, 4]);
   assert.equal(live.arrivals[0].listed, true);
   assert.deepEqual([live.seats[0].arrived, live.seats[0].ticketNumber], [true, 1]);
+});
+
+test('동명이인 — 고르기 전엔 자리·응모권 없음 · 고른 테이블 줄로 따로 받음 · 입장·당첨 테이블 · 이름으로 막힘 풀기', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  const rows = parseSeatRows([
+    { name: '김현우', table: 2, seat: 7 },
+    { name: '김태우', table: 2, seat: 1 },
+    { name: '김현우', table: 12, seat: 6 },
+    { name: '임효준', table: 12, seat: 1 },
+    { name: '박병준', table: 12, seat: 5 },
+  ]);
+  assert.ok(Array.isArray(rows));
+  for (const r of rows) f.seats.push({ eventKey: EK, nameKey: r.nameKey, name: r.name, tableNo: r.table, seatNo: r.seat });
+
+  // 안 고름 — 자리 없음, 고를 목록(같은 테이블 사람 좌석 순), 응모권 안 나옴
+  const undecided = await svc.guest(EK, D1, '김 현우');
+  assert.equal(undecided.seatListLoaded, true);
+  assert.equal(undecided.seat, null);
+  assert.equal(undecided.ticket, null);
+  assert.deepEqual(undecided.sameName, [
+    { table: 2, seat: 7, mates: ['김태우'] },
+    { table: 12, seat: 6, mates: ['임효준', '박병준'] },
+  ]);
+  assert.equal(f.tickets.length, 0);
+  // 목록에 없는 테이블을 골라도 안 고른 것과 같다
+  assert.equal((await svc.guest(EK, D1, '김현우', 5)).seat, null);
+  assert.equal((await svc.guest(EK, D1, '김현우', 'x')).seat, null);
+  assert.equal(f.tickets.length, 0);
+
+  // 고름 — 그 줄 자리 + 그 줄 열쇠로 응모권(다른 기기·다른 테이블이면 따로)
+  const a = await svc.guest(EK, D1, '김현우', 12);
+  assert.deepEqual(a.seat, { table: 12, seat: 6 });
+  assert.equal(a.sameName!.length, 2);
+  assert.equal(a.ticket!.number, 1);
+  assert.equal(f.tickets[0].nameKey, '김현우 @12');
+  const b = await svc.guest(EK, D2, '김현우', '2');
+  assert.deepEqual(b.seat, { table: 2, seat: 7 });
+  assert.equal(b.ticket!.number, 2);
+  assert.equal(f.tickets[1].nameKey, '김현우 @2');
+  // 다시 골라도 이 기기 응모권은 내 것 그대로 — 그 줄에 남의 응모권이 있으면 옮기지도, 남의 것을 보여 주지도 않는다
+  assert.equal((await svc.guest(EK, D1, '김현우', 2)).ticket!.number, 1);
+  assert.equal(f.tickets[0].nameKey, '김현우 @12');
+  assert.equal((await svc.guest(EK, D1, '김현우', 12)).ticket!.number, 1);
+  assert.equal(f.tickets.length, 2);
+  // 안 고른 상태 — 이 기기 것만(같은 이름 다른 사람 응모권 X)
+  assert.equal((await svc.guest(EK, D3, '김현우')).ticket, null);
+  assert.equal((await svc.guest(EK, D1, '김현우')).ticket!.number, 1);
+  // 동명이인 아닌 사람은 pick 을 무시
+  const c = await svc.guest(EK, D3, '박병준', 2);
+  assert.equal(c.ticket!.number, 3);
+  assert.deepEqual([c.seat, c.sameName, c.ticket!.number], [{ table: 12, seat: 5 }, null, 3]);
+
+  const live = await svc.live(EK);
+  assert.equal(live.summary.walkIns, 0);
+  assert.deepEqual(live.arrivals.map((x) => [x.number, x.name, x.table, x.listed]), [[1, '김현우', 12, true], [2, '김현우', 2, true], [3, '박병준', 12, true]]);
+  const seen = live.seats.filter((x) => x.name === '김현우').map((x) => [x.table, x.arrived, x.ticketNumber]);
+  assert.deepEqual(seen, [[2, true, 2], [12, true, 1]]);
+  assert.deepEqual(live.summary.tables[11], { table: 12, listed: 3, arrived: 2 });
+
+  // 당첨 테이블 = 그 응모권의 줄
+  const won: number[] = [];
+  for (let i = 0; i < 3; i++) won.push((await svc.draw(EK, '경품')).draw.table!);
+  const board = await svc.drawBoard(EK);
+  assert.equal(board.tickets, 3);
+  const byNo = new Map(board.draws.map((d) => [d.number, d.table]));
+  assert.deepEqual([byNo.get(1), byNo.get(2), byNo.get(3)], [12, 2, 12]);
+  assert.equal(won.length, 3);
+
+  // 지우면 그 줄 열쇠로 막힘 → 이름으로 풀면 풀린다
+  await svc.deleteTicket(EK, f.tickets.find((t) => t.nameKey === '김현우 @2').id);
+  const blocked = await svc.live(EK);
+  assert.deepEqual(blocked.blocked.map((x) => x.nameKey), ['김현우 @2']);
+  const unblocked = await svc.unblockTicket(EK, '김현우');
+  assert.deepEqual(unblocked.blocked, []);
+});
+
+test('동명이인 — 잘못 골랐다 다시 고르면 응모권이 그 줄로 옮겨 감 · 명단을 고쳐도 응모권이 제 줄에', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  const load = (list: any[]) => {
+    f.seats.length = 0;
+    const rows = parseSeatRows(list);
+    assert.ok(Array.isArray(rows));
+    for (const r of rows) f.seats.push({ eventKey: EK, nameKey: r.nameKey, name: r.name, tableNo: r.table, seatNo: r.seat });
+    (svc as any).seatCache.clear();
+  };
+  load([{ name: '김현우', table: 2, seat: 7 }, { name: '김현우', table: 12, seat: 6 }]);
+  // 2번 김현우(D1)가 12를 잘못 고름 → #1 '@12' → 다시 2 → #1 이 '@2' 로 옮겨 감
+  assert.equal((await svc.guest(EK, D1, '김현우', 12)).ticket!.number, 1);
+  const back = await svc.guest(EK, D1, '김현우', 2);
+  assert.deepEqual([back.seat, back.ticket!.number], [{ table: 2, seat: 7 }, 1]);
+  assert.equal(f.tickets[0].nameKey, '김현우 @2');
+  // 진짜 12번 김현우(D2)는 자기 응모권을 새로 받는다
+  const other = await svc.guest(EK, D2, '김현우', 12);
+  assert.deepEqual([other.seat, other.ticket!.number, f.tickets[1].nameKey], [{ table: 12, seat: 6 }, 2, '김현우 @12']);
+  let live = await svc.live(EK);
+  assert.deepEqual(live.seats.map((x) => [x.table, x.ticketNumber]), [[2, 1], [12, 2]]);
+
+  // 명단 고침 — 12번 김현우를 빼서 이름이 하나뿐 → 남은 줄 열쇠 '김현우'. 옛 '@2' 응모권도 그 줄에 붙고(입장), 폰이 다시 부르면 열쇠도 옮김
+  load([{ name: '김현우', table: 2, seat: 7 }]);
+  live = await svc.live(EK);
+  assert.deepEqual(live.seats.map((x) => [x.table, x.arrived, x.ticketNumber]), [[2, true, 1]]);
+  assert.deepEqual(live.arrivals.map((a) => [a.number, a.table, a.listed]), [[1, 2, true], [2, null, false]]);
+  const again = await svc.guest(EK, D1, '김현우', 2);
+  assert.deepEqual([again.seat, again.sameName, again.ticket!.number, f.tickets[0].nameKey], [{ table: 2, seat: 7 }, null, 1, '김현우']);
+  const won = await svc.draw(EK, '경품');
+  assert.equal(won.draw.table, won.draw.number === 1 ? 2 : null);
 });
 
 test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다시 안 뽑음 · 다 뽑으면 400', async () => {
