@@ -1,16 +1,18 @@
 'use client';
 
-// 송년회 공용 틀 — 사장 견본 톤(로열 블루 · 크리스털 · 금빛 세리프): 배경 그림 고정 + 아래 떠 있는 탭(식순 · 자리 · 이벤트 · 설문조사).
+// 송년회 공용 틀 — 사장 견본 톤(로열 블루 · 크리스털 · 금빛 세리프): 배경 그림 고정 + 아래 떠 있는 탭(식순 · 자리 · 퀴즈 · 이벤트 · 설문조사).
 // 배경 = 그림 + 일렁이는 프리즘 빛줄기(rc-prism). 탭 아이콘 = 사장 제공 토스 단색 아이콘(ReceptionIcons). 고른 탭은 금빛 + 뒤에 은은한 알약이 미끄러져 따라간다.
 // 왼쪽 위 '‹ 프리티풀' = 송년회 밖(홈)으로 나가는 유일한 길 — 앱(iOS 웹 껍데기)엔 브라우저 뒤로가기가 없다(261108 사장 '빠져나올 수가 없음').
 // 이름 있는 손님이 화면을 열면 서버에 한 번 남긴다(어드민 '송년회 참여자' — 261108 사장 '누가 참여했는지'). 탭 세션마다 이름당 한 번.
+// 응답(명단 자리 · 응모권)은 기기에 남겨 자리 · 퀴즈 탭이 바로 그린다(lib/reception/me.ts).
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { BackIcon, EventIcon, ProgramIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
+import { BackIcon, EventIcon, ProgramIcon, QuizIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
 import { useReceptionGuest } from '@/lib/reception/guest';
 import { receptionApi } from '@/lib/reception/api';
+import { cacheMe, normalizeMe } from '@/lib/reception/me';
 
 // 배경 프리즘 빛줄기(261108 사장 레퍼런스 '프리즘 느낌이 배경에서 일렁이듯이') — 오른쪽 위에서 왼쪽 아래로 비스듬히 내리는 빛 + 무지개 테두리.
 // [왼쪽, 폭, 기울기, 한 번 오가는 시간, 시작 어긋남] — 서로 다른 박자로 오가며 겹쳤다 흩어진다. 그라데이션·빛 금지 규칙의 예외(배경 한정).
@@ -24,6 +26,7 @@ const PRISM: Array<[string, string, string, string, string]> = [
 const TABS = [
   { href: '/reception', label: '식순', Icon: ProgramIcon },
   { href: '/reception/seat', label: '자리', Icon: SeatIcon },
+  { href: '/reception/quiz', label: '퀴즈', Icon: QuizIcon },
   { href: '/reception/event', label: '이벤트', Icon: EventIcon },
   { href: '/reception/survey', label: '설문조사', Icon: SurveyIcon },
 ] as const;
@@ -41,7 +44,8 @@ export default function ReceptionShell({ children, fontClassName }: { children: 
     if (!guest?.name) return;
     const KEY = 'freetiful-reception-guest-sent';
     try { if (sessionStorage.getItem(KEY) === guest.name) return; } catch {}
-    receptionApi.guest(guest.deviceId, guest.name).then(() => {
+    receptionApi.guest(guest.deviceId, guest.name).then((raw) => {
+      cacheMe(guest.name, normalizeMe(raw, guest.name));
       try { sessionStorage.setItem(KEY, guest.name); } catch {}
     }).catch(() => {});
   }, [guest?.deviceId, guest?.name]);

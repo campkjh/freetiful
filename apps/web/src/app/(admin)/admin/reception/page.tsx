@@ -2,18 +2,25 @@
 
 /* 송년회 참여자(261108 사장 'campkjh@nate.com 어드민에서 누가 참여했는지 누가 설문조사에 응답했는지')
  *  · 한 줄 = 한 기기(로그인 없는 화면이라 기기가 곧 사람). 이름 = 자리 탭에서 넣은 것(없으면 설문 · 사진 이름).
- *  · 자리 = 손님 화면과 같은 seatFor(배정표가 비어 있으면 임시 자리라 '임시' 표시).
+ *  · 자리 = 자리 명단(261122 자리 명단 탭)이 있으면 그 명단에서 이름으로 찾은 자리, 없으면 손님 화면과 같은 seatFor 임시 자리('임시' 표시).
  *  · 손님 표(reception_guests)는 261108 배포부터 쌓인다 — 그 전에 이름만 넣고 아무것도 안 한 기기는 다시 들어와야 보인다. */
 import { useMemo, useState } from 'react';
 import { RollingNumber } from '../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { AdminSearchField } from '../_components/AdminSearchField';
 import { formatKstDateTime } from '../_components/adminEvent';
-import { useReceptionOverview } from '../_components/receptionAdmin';
+import { receptionNameKey, useReceptionLive, useReceptionOverview } from '../_components/receptionAdmin';
 import { seatFor } from '@/lib/reception/event';
 
 export default function ReceptionParticipantsPage() {
   const { data, loading, error } = useReceptionOverview();
+  // 자리 명단 — 30초마다(입장 현황 서버가 아직 없거나 실패하면 그냥 임시 자리로)
+  const live = useReceptionLive(30000);
+  const listed = useMemo(() => {
+    const m = new Map<string, { table: number; seat: number | null }>();
+    (live.data?.seats || []).forEach((s) => m.set(receptionNameKey(s.name), { table: s.table, seat: s.seat }));
+    return m;
+  }, [live.data]);
   const [q, setQ] = useState('');
   const rows = useMemo(() => {
     const list = data?.participants || [];
@@ -76,7 +83,8 @@ export default function ReceptionParticipantsPage() {
               </thead>
               <tbody>
                 {rows.map((p) => {
-                  const seat = p.name ? seatFor(p.name) : null;
+                  const fromList = p.name && listed.size ? listed.get(receptionNameKey(p.name)) || null : null;
+                  const seat = p.name && !listed.size ? seatFor(p.name) : null;
                   return (
                     <tr key={p.deviceId}>
                       <td>
@@ -84,7 +92,11 @@ export default function ReceptionParticipantsPage() {
                         <span className="adm-cell-sub">기기 {p.deviceId.slice(0, 8)}</span>
                       </td>
                       <td>
-                        {seat ? (
+                        {fromList ? (
+                          <>{fromList.table}번 테이블{fromList.seat != null ? ` ${fromList.seat}번` : ''}</>
+                        ) : p.name && listed.size ? (
+                          <span className="adm-cell-sub">명단에 없음</span>
+                        ) : seat ? (
                           <>
                             {seat.table}번 테이블 {seat.seat}번
                             {!seat.assigned && <span className="adm-cell-sub">임시 자리</span>}

@@ -3,6 +3,7 @@
 // 송년회 자리 배치도 — 받은 도면 그대로(261116 사장 '이거 송년회 좌석배치도인데 이거 완벽하게 구현해'). 좌표·선은 lib/reception/hall.ts.
 // 처음엔 홀 전체가 폭에 맞게 보이고, 배치도를 누르거나 [크게 보기]를 누르면 2.5배로 커진다 — 누른 곳(버튼이면 내 테이블)이
 // 화면의 같은 자리에 머문 채 커진다. 커진 뒤엔 옆으로 밀어서 본다. 글자(테이블 번호 등)는 HTML 로 얹어 작은 화면에서도 읽히게.
+// table 없음 = 명단에서 못 찾은 손님(홀만 보여 줌) · seat 없음 = 명단에 테이블만 있는 손님(테이블만 빛냄).
 import { useEffect, useRef, useState } from 'react';
 import { SEATS_PER_TABLE } from '@/lib/reception/event';
 import {
@@ -32,13 +33,13 @@ function ChairSymbol({ id, me }: { id: string; me?: boolean }) {
   );
 }
 
-export default function HallMap({ table, seat }: { table: number; seat: number }) {
+export default function HallMap({ table, seat }: { table: number | null; seat: number | null }) {
   const [zoomed, setZoomed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
   const mine = HALL_TABLES.find((t) => t.n === table);
-  const myChair = mine ? chairAt(mine, seat) : null;
+  const myChair = mine && seat ? chairAt(mine, seat) : null;
 
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
@@ -86,7 +87,7 @@ export default function HallMap({ table, seat }: { table: number; seat: number }
             className="rc-hall-svg"
             viewBox={`${V.x} ${V.y} ${V.w} ${V.h}`}
             role="img"
-            aria-label={`자리 배치도 — 무대 아래 원탁 ${HALL_TABLES.length}개. 내 자리는 ${table}번 테이블 ${seat}번 좌석`}
+            aria-label={`자리 배치도 — 무대 아래 원탁 ${HALL_TABLES.length}개.${mine ? ` 내 자리는 ${table}번 테이블${seat ? ` ${seat}번 좌석` : ''}` : ''}`}
           >
             <defs>
               <clipPath id="rc-hall-clip"><path d={HALL_PATHS.floor} /></clipPath>
@@ -167,15 +168,15 @@ export default function HallMap({ table, seat }: { table: number; seat: number }
             {HALL_TABLES.map((t) => (
               <span key={t.n} className={`rc-h-no ${t.n === table ? 'mine' : ''}`} style={pos([t.x, t.y])}>{t.n}</span>
             ))}
-            {mine && <span className="rc-h-pin" style={pos([mine.x, mine.y - TABLE_R - 15])}>내 자리</span>}
+            {mine && <span className="rc-h-pin" style={pos([mine.x, mine.y - TABLE_R - 15])}>{seat ? '내 자리' : '내 테이블'}</span>}
           </div>
         </div>
       </div>
 
       <div className="rc-hall-bar">
         <span className="rc-hall-legend">
-          <i className="t" />내 테이블
-          <i className="s" />내 좌석
+          {mine && <><i className="t" />내 테이블</>}
+          {myChair && <><i className="s" />내 좌석</>}
         </span>
         <button type="button" className="rc-hall-zoom" aria-pressed={zoomed} onClick={() => zoomTo(!zoomed)}>
           {zoomed ? '전체 보기' : '크게 보기'}
