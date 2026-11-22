@@ -87,8 +87,8 @@ export interface DrawPrize {
   name: string;
   total: number;
   drawn: number;
-  /** 값어치('각 27만원 상당') — 어드민 경품 단추에 같이 */
-  worth: string;
+  /** 세는 말('개' · 정장은 '벌') — 어드민 경품 단추에 같이 */
+  unit: string;
 }
 
 export interface DrawRow {
@@ -536,7 +536,7 @@ export class ReceptionLiveService {
     const drawn = new Map<string, number>();
     for (const d of draws) if (!d.cancelledAt) drawn.set(d.prize, (drawn.get(d.prize) || 0) + 1);
     return {
-      prizes: DRAW_PRIZES.map((p) => ({ name: p.name, total: p.total, worth: p.worth, drawn: drawn.get(p.name) || 0 })),
+      prizes: DRAW_PRIZES.map((p) => ({ name: p.name, total: p.total, unit: p.unit, drawn: drawn.get(p.name) || 0 })),
       draws: draws.map((d) => this.drawRow(d, rowOf.get(d.ticketId))),
       eligible,
       tickets: tickets.length,

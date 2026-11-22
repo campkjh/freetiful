@@ -194,15 +194,15 @@ export function parseSeatRows(v: unknown): SeatRowInput[] | string {
   return out;
 }
 
-/** 럭키드로우 경품(261122 사장 경품표 그대로 · 순서 = 사장 번호 1~7) — total = 뽑을 개수, worth = 화면에 같이 보여 줄 값어치 */
-export const DRAW_PRIZES: ReadonlyArray<{ name: string; total: number; worth: string }> = [
-  { name: '슬릭스틸 아이웨어 선글라스+안경테 세트', total: 2, worth: '각 27만원 상당' },
-  { name: '1++ 한우선물세트', total: 4, worth: '각 20만원 상당' },
-  { name: '스튜디오패스 촬영+의상', total: 3, worth: '각 15만원 상당' },
-  { name: '로이어 블루 펩타이드 화장품 3종 세트', total: 4, worth: '각 6만원 상당' },
-  { name: '아르비에 스킨케어 세럼 세트', total: 3, worth: '각 10만원 상당' },
-  { name: '슈트패브릭 영국 허더스필드 맞춤 정장', total: 1, worth: '200만원 상당' },
-  { name: '체스타필드 요크셔 맞춤정장 세트', total: 1, worth: '270만원 상당' },
+/** 럭키드로우 경품(261122 사장 경품표 사진 그대로 · 순서도 표 순서) — total = 뽑을 개수, unit = 세는 말(정장은 '벌') */
+export const DRAW_PRIZES: ReadonlyArray<{ name: string; total: number; unit: string }> = [
+  { name: '메리고어라운드 디퓨져', total: 3, unit: '개' },
+  { name: '아르비에 스킨케어 세럼 세트(컨디션클래리티 세럼)', total: 3, unit: '개' },
+  { name: '스튜디오패스 촬영+의상세트', total: 3, unit: '개' },
+  { name: '1++ 한우선물세트', total: 4, unit: '개' },
+  { name: '슬릭스틸 선글라스+안경테 세트', total: 2, unit: '개' },
+  { name: '슈트패브릭 영국 허더스필드 정장 세트', total: 1, unit: '벌' },
+  { name: '체스타필드 영국 요크셔 정장 세트', total: 1, unit: '벌' },
 ];
 
 /** 경품 이름 — 앞뒤·겹친 띄어쓰기 정리, 1~40자. 안 맞으면 null */
