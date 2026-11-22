@@ -1,8 +1,11 @@
 'use client';
 
 // 사진 크게 보기 — 좋아요 · 공감 누르기(종류별 한 사람 10개), 내 사진이면 지우기. 좌우로 밀거나 화살표로 다음 사진.
+// 누르면 가벼운 진동(261122 사장 '이벤트 페이지들도 누르면 진동') — 닫기 · 이전/다음(단추 · 밀기) · 지우기 묻기/그대로 두기.
+//  좋아요 · 공감 진동은 부르는 쪽 vote(켬 medium · 끔 light), 지우기 성공 진동도 부르는 쪽 remove. 키보드 화살표엔 없음.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { haptic } from '@/lib/haptics';
 import type { ReceptionPhoto, VoteKind } from '@/lib/reception/api';
 import RankCrown from './RankCrown';
 import { CloseIcon, HeartIcon, ThumbIcon } from './ReceptionIcons';
@@ -31,6 +34,8 @@ export default function PhotoViewer({
   const [deleting, setDeleting] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const go = (d: number) => { if (photos.length > 1) onIndex((index + d + photos.length) % photos.length); };
+  /** 손으로 넘길 때(단추 · 밀기) — 진동 + 넘기기 */
+  const flip = (d: number) => { if (photos.length > 1) { haptic('light'); go(d); } };
 
   useEffect(() => { setConfirmDelete(false); }, [p?.id]);
   useEffect(() => {
@@ -55,7 +60,7 @@ export default function PhotoViewer({
           <b>{p.name}</b>
           <span className="rc-viewer-rank">공감 {p.rank}위</span>
         </div>
-        <button type="button" className="rc-icon-btn" onClick={onClose} aria-label="닫기"><CloseIcon size={22} /></button>
+        <button type="button" className="rc-icon-btn" onClick={() => { haptic('light'); onClose(); }} aria-label="닫기"><CloseIcon size={22} /></button>
       </header>
 
       <div
@@ -68,7 +73,7 @@ export default function PhotoViewer({
           if (!s) return;
           const dx = e.changedTouches[0].clientX - s.x;
           const dy = e.changedTouches[0].clientY - s.y;
-          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) flip(dx < 0 ? 1 : -1);
         }}
       >
         <img
@@ -80,8 +85,8 @@ export default function PhotoViewer({
         />
         {photos.length > 1 && (
           <>
-            <button type="button" className="rc-viewer-nav prev" onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="이전 사진">‹</button>
-            <button type="button" className="rc-viewer-nav next" onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="다음 사진">›</button>
+            <button type="button" className="rc-viewer-nav prev" onClick={(e) => { e.stopPropagation(); flip(-1); }} aria-label="이전 사진">‹</button>
+            <button type="button" className="rc-viewer-nav next" onClick={(e) => { e.stopPropagation(); flip(1); }} aria-label="다음 사진">›</button>
           </>
         )}
       </div>
@@ -93,7 +98,7 @@ export default function PhotoViewer({
             {confirmDelete ? (
               <div className="rc-viewer-confirm">
                 <span>지우면 받은 좋아요·공감도 사라져요.</span>
-                <button type="button" className="rc-btn-line sm" onClick={() => setConfirmDelete(false)}>그대로 두기</button>
+                <button type="button" className="rc-btn-line sm" onClick={() => { haptic('light'); setConfirmDelete(false); }}>그대로 두기</button>
                 <button
                   type="button"
                   className="rc-btn-danger sm"
@@ -104,7 +109,7 @@ export default function PhotoViewer({
                 </button>
               </div>
             ) : (
-              <button type="button" className="rc-btn-line sm" onClick={() => setConfirmDelete(true)}>사진 지우기</button>
+              <button type="button" className="rc-btn-line sm" onClick={() => { haptic('light'); setConfirmDelete(true); }}>사진 지우기</button>
             )}
           </div>
         ) : (

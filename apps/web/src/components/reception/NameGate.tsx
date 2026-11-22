@@ -4,8 +4,10 @@
 // 프리티풀에 로그인 안 한 손님 = 이름 칸 대신 '카카오로 가입하기'(사장 261109 '이름 입력하고 가입하기 버튼으로, 카카오 가입하기로')
 //  → 카카오 로그인(가입 겸) 뒤 이 화면으로 돌아오면(rememberAuthReturnTo) 이름 칸, 계정 이름을 미리 채워 둔다.
 // 가입돼 있는(로그인한) 사람은 이름만 넣는다(사장 '가입이 되어있는사람은 이름만 입력할 수 있게끔'). 이미 이름을 넣은 기기는 이 카드를 안 본다.
+// 누르면 가벼운 진동(261122 사장 '이벤트 페이지들도 누르면 진동') — 닫기 · 카카오로 가입하기 · 이름 확인(빈 이름엔 없음). 글자 입력엔 없음.
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { haptic } from '@/lib/haptics';
 import { cleanGuestName, saveGuestName } from '@/lib/reception/guest';
 import { rememberAuthReturnTo, startOAuth } from '@/lib/auth/oauth';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -25,7 +27,7 @@ function Card(props: CardProps) {
   const user = useAuthStore((s) => s.user);
   const hydrated = useAuthStore((s) => s.hasHydrated);
   const close = props.onClose && (
-    <button type="button" className="rc-icon-btn rc-name-close" onClick={props.onClose} aria-label="닫기">
+    <button type="button" className="rc-icon-btn rc-name-close" onClick={() => { haptic('light'); props.onClose?.(); }} aria-label="닫기">
       <CloseIcon size={20} />
     </button>
   );
@@ -42,6 +44,7 @@ function Card(props: CardProps) {
           type="button"
           className="rc-btn-kakao"
           onClick={() => {
+            haptic('light');
             rememberAuthReturnTo();
             startOAuth('kakao');
           }}
@@ -63,6 +66,7 @@ function NameForm({ initial, cta, hint, onDone, close }: CardProps & { close: Re
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!value) return input.current?.focus();
+    haptic('light');
     saveGuestName(value);
     onDone(value);
   };

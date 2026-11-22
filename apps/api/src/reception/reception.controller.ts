@@ -111,6 +111,17 @@ export class ReceptionController {
     return this.quizzes.answer(this.event(eventKey), this.device(device), body || {});
   }
 
+  @Put('quiz/challenge')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '스페셜 미션 도전하기 — { questionId, table, name }. 열린 미션만, 테이블당 1명 · 한 번(성공·실패는 운영팀이 찍음)' })
+  challenge(
+    @Param('eventKey') eventKey: string,
+    @Headers('x-rc-device') device: string,
+    @Body() body: { questionId?: string; table?: number; name?: string },
+  ) {
+    return this.quizzes.challenge(this.event(eventKey), this.device(device), body || {});
+  }
+
   @Get('survey')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '내 설문 답(없으면 null)' })
@@ -122,5 +133,22 @@ export class ReceptionController {
   @ApiOperation({ summary: '설문 내기(기기당 1건, 다시 내면 덮어씀)' })
   saveSurvey(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string; answers?: unknown }) {
     return this.reception.saveSurvey(this.event(eventKey), this.device(device), body?.name, body?.answers);
+  }
+
+  @Get('after-party')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '내 2차 회식 참여 — { afterParty: yes|no|null, afterPartyAt } (GET survey 응답에도 같이 실림)' })
+  afterParty(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string) {
+    return this.reception.getAfterParty(this.event(eventKey), this.device(device));
+  }
+
+  @Put('after-party')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      '2차 회식 참여 고르기(261122 설문 첫 질문) — { name, going: yes|no }. 누르는 순간 손님 표에 저장(설문 제출과 따로 · 어드민 참여자 판 2차 참여). 응답 { afterParty, afterPartyAt }',
+  })
+  setAfterParty(@Param('eventKey') eventKey: string, @Headers('x-rc-device') device: string, @Body() body: { name?: string; going?: unknown }) {
+    return this.reception.setAfterParty(this.event(eventKey), this.device(device), body?.name, body?.going);
   }
 }

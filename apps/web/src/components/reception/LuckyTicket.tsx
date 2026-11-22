@@ -1,11 +1,13 @@
 'use client';
 
-// 럭키드로우 응모권(261122 사장 '이름을 입력하면 자동으로 자리를 알려주고 럭키드로우가 출력되게끔') — 자리 탭 자리 카드 아래.
+// 럭키드로우 응모권(261122 사장 '이름을 입력하면 자동으로 자리를 알려주고 럭키드로우가 출력되게끔') — 처음엔 자리 탭 자리 카드 아래였으나
+// 지금은 이벤트 탭에만 놓는다(261122 사장 '앱에서 자리, 퀴즈 이부분에는 럭키드로우권 안보여도 됨'). place='seat' 갈래는 남겨 둠(지금 쓰는 곳 없음).
 // 용지 = GPT 로 만든 그림(/reception/lucky-ticket.webp, 1536×1024 = 3:2) — 왼쪽 큰 판에 번호 · 이름, 오른쪽 떼는 칸 네모에 테이블. 그림이 없으면 남색 판.
 // 처음 받는 번호는 '출력' 연출 — 얇은 슬롯(단색 선) 아래로 응모권이 위에서 스르륵 밀려 나온다 + 진동. 본 번호는 기기에 기억해 다음부턴 바로 보인다.
 // 당첨되면 응모권 위에 단색 띠 '당첨! 경품' + 진동 한 번(당첨마다 한 번).
 // 이벤트 탭 맨 위에도 같은 응모권(261122 사장 '럭키드로우권이 앱에서 발급이 되고 그 앱에서 이벤트 페이지에서 확인 · 당첨이 되면 푸시 알람') — place='event'.
-//  · 출력 연출·당첨 진동은 기기에 한 번만 기억하니 자리 탭에서 본 번호는 이벤트 탭에서 다시 출력되지 않는다.
+//  · 출력 연출·당첨 진동은 기기에 한 번만 기억한다 — 예전에 자리 탭에서 본 번호는 이벤트 탭에서 다시 출력되지 않는다(새 번호는 이벤트 탭에서 출력 + 진동).
+//  · 단추(성함 입력하기 · 내 자리 고르기)는 누를 때 가벼운 진동(261122 사장 '이벤트 페이지들도 누르면 진동').
 //  · 이벤트 탭엔 자리 카드가 없어 동명이인 안내는 '자리 탭에서 고르기'로, 이름이 없으면 이름 카드 여는 단추(onNeedName).
 import { useEffect, useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
@@ -78,12 +80,12 @@ export default function LuckyTicket({ ticket, ticketsOpen, table, status, needsP
   if (!ticket) {
     if (onNeedName) {
       empty = '성함을 입력하면 내 자리를 찾고 럭키드로우 응모권을 드려요';
-      action = <button type="button" className="rc-btn-line sm" onClick={onNeedName}>성함 입력하기</button>;
+      action = <button type="button" className="rc-btn-line sm" onClick={() => { haptic('light'); onNeedName(); }}>성함 입력하기</button>;
     } else if (status === 'loading' || status === 'idle') empty = '응모권을 확인하고 있어요';
     else if (status === 'error') empty = '응모권을 불러오지 못했어요. 잠시 후 다시 보여 드릴게요.';
     else if (ticketsOpen && needsPick && place === 'event') {
       empty = '같은 이름이 여러 분 계세요. 자리 탭에서 내 자리를 고르면 응모권이 나와요';
-      action = <Link href="/reception/seat" className="rc-btn-line sm" scroll={false}>내 자리 고르기</Link>;
+      action = <Link href="/reception/seat" className="rc-btn-line sm" scroll={false} onClick={() => haptic('light')}>내 자리 고르기</Link>;
     } else if (ticketsOpen && needsPick) empty = '위에서 내 자리를 고르면 응모권이 나와요';
     else if (ticketsOpen) empty = '응모권을 준비하고 있어요. 잠시만 기다려 주세요.';
     else empty = '럭키드로우 응모권은 행사 당일 입장하면 자동으로 나와요';

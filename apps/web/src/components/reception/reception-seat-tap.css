@@ -1,0 +1,22 @@
+/* 자리 탭 자리 카드 = 누르는 단추(261122 사장 '크게보기를 클릭하지 않아도 그 자리 ui를 누르면 크게 보기') — app/reception/seat/page.tsx.
+   누르면 아래 배치도로 내려가며 내 테이블 쪽으로 커진다(HallMap zoomMine). 모양은 그대로(TABLE N · N번 테이블) + 아래 작은 '배치도에서 크게 보기' 알약.
+   누름 피드백 = 살짝 작아지기만(그라데이션·빛 없음). 글자·크기는 reception.css .rc-seat-table · .rc-seat-detail 를 그대로 쓴다(단추 안이라 span → block). */
+.rc-seat-tap {
+  display: flex; flex-direction: column; align-items: center; margin: 0 auto; padding: 2px 18px 4px; border: 0; border-radius: 18px;
+  background: none; color: inherit; font: inherit; text-align: center; cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent; transition: transform 0.14s ease;
+}
+.rc-seat-tap .rc-seat-table, .rc-seat-tap .rc-seat-detail { display: block; }
+.rc-seat-tap:active { transform: scale(0.97); }
+.rc-seat-tap:focus-visible { outline: 2px solid var(--rc-gold); outline-offset: 4px; }
+.rc-seat-tap-hint {
+  display: inline-flex; align-items: center; gap: 4px; height: 28px; margin-top: 12px; padding: 0 12px; border-radius: 14px;
+  border: 1px solid rgba(240, 207, 124, 0.45); background: rgba(7, 20, 78, 0.45); color: var(--rc-gold); font-size: 12.5px; font-weight: 600;
+}
+@media (hover: hover) {
+  .rc-seat-tap:hover .rc-seat-tap-hint { border-color: rgba(240, 207, 124, 0.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rc-seat-tap { transition: none; }
+  .rc-seat-tap:active { transform: none; }
+}

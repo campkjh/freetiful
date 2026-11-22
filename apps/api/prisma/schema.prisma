@@ -1697,6 +1697,10 @@ model ReceptionGuest {
   userId     String?
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
   lastSeenAt DateTime @default(now()) @db.Timestamptz(3)
+  /// 2차 회식 참여 'yes' | 'no' — 설문 첫 질문에서 누르는 순간 저장(설문을 안 내도 어드민 참여자 판 '2차 참여'). 안 골랐으면 null(261122)
+  afterParty   String?
+  /// afterParty 를 마지막으로 바꾼 때(같은 값을 다시 눌러도 안 바뀜)
+  afterPartyAt DateTime? @db.Timestamptz(3)
 
   @@unique([eventKey, deviceId])
   @@index([eventKey, createdAt])

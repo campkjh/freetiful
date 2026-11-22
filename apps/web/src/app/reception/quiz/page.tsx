@@ -9,6 +9,8 @@
 //    = 문제가 막 열리면 등장 판(QuizIntro — 사진 전체 화면 3초 → 카드 그림 자리로 / 글 문제는 남색 판 2초 → 카드 머리로) 한 번,
 //      마감 = '답안 마감' 도장, 정답 공개 = 정답 → 판정 → 테이블 답 줄이 차례로(reception.css 퀴즈 등장 연출 칸).
 //      판은 폴링 · 남은 시간(서버 시각) · 고르던 답을 건드리지 않고, 끝나면 반드시 걷힌다(누르면 바로 끝 · 안전핀 6초).
+//  · 261122 사장 '퀴즈에 도전 버튼 → 참여자 명단에 실패 성공 버튼 → 성공이면 몇점' + '테이블당 1명이라 2명이상 누를 수 없게끔'
+//    = 스페셜 미션은 답 대신 [도전하기](QuizMission). 테이블당 대표 1명(서버가 먼저 온 한 명만 받음), 성공 · 실패는 운영팀이 찍고 3초 폴링으로 따라온다.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { NameGateInline } from '@/components/reception/NameGate';
@@ -16,6 +18,7 @@ import {
   QuizAnswerInput, QuizBoard, QuizCountdown, QuizQuestionHead, QuizTableAnswers, TablePicker,
 } from '@/components/reception/QuizParts';
 import { QuizIntro, useQuizImagePreload, useQuizIntro, type IntroTargets } from '@/components/reception/QuizIntro';
+import { QuizMission } from '@/components/reception/QuizMission';
 import { CheckIcon, CloseIcon, QuizIcon } from '@/components/reception/ReceptionIcons';
 import { haptic } from '@/lib/haptics';
 import { receptionApi, type QuizPublic, type QuizQuestionPublic } from '@/lib/reception/api';
@@ -167,6 +170,24 @@ export default function ReceptionQuizPage() {
     }
   };
 
+  /** 스페셜 미션 도전 — 테이블당 1명. 이미 다른 사람이 했으면 서버가 이유를 알려 주고, 바로 다시 받아 그 사람 이름을 보여 준다 */
+  const challenge = async () => {
+    if (!current || current.kind !== 'mission' || !table || sending) return;
+    const g = readGuest();
+    setSending(true);
+    try {
+      const next = await receptionApi.challenge(g.deviceId, { questionId: current.id, table, name: g.name || name });
+      apply(++seq.current, next, table);
+      haptic('success');
+      toast.success('우리 테이블 대표로 도전했어요!');
+    } catch (e: any) {
+      toast.error(e?.message || '잠시 후 다시 시도해 주세요.');
+      load();
+    } finally {
+      setSending(false);
+    }
+  };
+
   const tableBar = (
     <div className="rc-qz-tablebar">
       {quizTable.status === 'ready' ? (
@@ -226,7 +247,7 @@ export default function ReceptionQuizPage() {
         <QuizQuestionHead q={current} />
         {current.kind !== 'mission' && <QuizCountdown openedAt={st!.openedAt} />}
         {current.kind === 'mission' ? (
-          <QuizAnswerInput q={current} value="" onChange={() => {}} onSubmit={() => {}} />
+          <QuizMission q={current} table={table} mine={mine} myName={name} phase="open" sending={sending} onChallenge={challenge} />
         ) : table ? (
           <>
             <QuizAnswerInput
@@ -254,7 +275,10 @@ export default function ReceptionQuizPage() {
     main = (
       <section className="rc-glass rc-qz-card rc-rise" key={`${current.id}-locked`}>
         <QuizQuestionHead q={current} compact />
-        <p className="rc-qz-locked">답안 마감 — 정답 공개를 기다려 주세요</p>
+        <p className="rc-qz-locked">{current.kind === 'mission' ? '도전 마감 — 결과 공개를 기다려 주세요' : '답안 마감 — 정답 공개를 기다려 주세요'}</p>
+        {current.kind === 'mission' && (mine || !table) && (
+          <QuizMission q={current} table={table} mine={mine} myName={name} phase="locked" sending={false} onChallenge={() => {}} />
+        )}
         {current.kind !== 'mission' && (
           <p className={`rc-qz-mine ${mine ? '' : 'none'}`}>
             {mine ? (

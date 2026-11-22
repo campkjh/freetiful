@@ -1,0 +1,114 @@
+/* ═══ 송년회 테이블 배치(261122) — _parts/SeatBoard.tsx ═══════════════════════════════════════
+   · 테이블 카드 격자: 폰 1열 · 태블릿 세로 2열 · 가로 3열 · 넓은 화면 4열(카드 최소 220px, 4열 상한 = minmax 의 max() 꼼수).
+   · 칩 색 = 참여자 표 태그(.rcp-tag)와 같은 단계 색 — 바탕은 태그 바탕, 글자는 태그 글자. 안 온 사람(s-none)은 흰 바탕 + 회색 테두리만.
+   · 끌기: 칩은 touch-action: manipulation — 칩에서 시작한 손짓도 판 스크롤이 된다(터치는 꾹 눌러야 들림, 들린 뒤엔 SeatBoard 가
+     touchmove 를 막는다). 복제 칩(.sb-ghost)과 창(.sb-sheet-root)은 body 포털이라
+     .admin-shell 을 같이 달아 색 토큰을 받는다.
+   · 글자 굵기 최대 700 · 그라데이션 · 글로우 없음 · 움직임 줄이기(.sb-reduce · prefers-reduced-motion)면 전환 없음. */
+
+.sb { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── 머리 ── */
+.sb-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 14px 16px 14px 20px; border-radius: 20px; background: #fff; }
+.sb-head-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sb-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--admin-ink); font-size: 16px; font-weight: 700; }
+.sb-sub { margin: 0; color: var(--admin-ph); font-size: 13px; line-height: 1.5; word-break: keep-all; }
+
+/* ── 테이블 카드 격자 ── */
+.sb-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(max(220px, calc((100% - 36px) / 4)), 1fr)); align-items: start; }
+.sb-table { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 12px 12px; border-radius: 20px; background: #fff; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .15s ease, background-color .15s ease; }
+.sb-table.is-over { background: #F7FBFF; box-shadow: inset 0 0 0 2px var(--admin-blue); }
+.sb-table.is-bad { box-shadow: inset 0 0 0 2px var(--admin-red); }
+.sb-table-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px; }
+.sb-table-name { color: var(--admin-ink); font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.sb-table-count { color: var(--admin-ph); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sb-table-count b { color: var(--admin-blue); font-weight: 700; }
+
+/* 좌석 1~8 — 두 줄 */
+.sb-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sb-seat { display: flex; gap: 4px; min-width: 0; min-height: 52px; padding: 5px 5px 5px 3px; border-radius: 14px; background: #F7F8FA; transition: background-color .15s ease, box-shadow .15s ease; }
+.sb-seat-no { flex: none; width: 18px; padding-top: 11px; color: var(--admin-dis); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; }
+.sb-seat-people { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+/* 좌석 없음 칸 — 비어 있으면 낮게 */
+.sb-loose { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-height: 40px; padding: 5px 8px; border: 1.5px dashed #E5E8EB; border-radius: 14px; transition: background-color .15s ease, border-color .15s ease; }
+.sb-loose-label { flex: none; margin-right: 2px; color: var(--admin-ph); font-size: 12px; font-weight: 600; }
+.sb-loose .sb-chip { width: auto; max-width: 100%; }
+/* 놓을 곳 강조(파랑) · 같은 이름이 있어 못 놓는 곳(빨강) */
+.sb-seat.is-over, .sb-loose.is-over { background: var(--admin-blue-weak); box-shadow: inset 0 0 0 2px var(--admin-blue); }
+.sb-loose.is-over { border-color: transparent; }
+.sb-seat.is-bad, .sb-loose.is-bad { background: var(--admin-red-weak); box-shadow: inset 0 0 0 2px var(--admin-red); }
+.sb-loose.is-bad { border-color: transparent; }
+/* 끄는 동안 빈 좌석이 보이게 */
+.sb.is-dragging .sb-seat.empty:not(.is-over):not(.is-bad) { box-shadow: inset 0 0 0 1.5px #D1D6DB; }
+
+.sb-add { height: 44px; border: 0; border-radius: 12px; background: #F2F4F6; color: var(--admin-sub); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.sb-add:hover:not(:disabled) { background: #E8EBEE; }
+.sb-add:disabled { cursor: default; opacity: .5; }
+
+/* ── 사람 칩 ── */
+.sb-chip { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 1px; width: 100%; min-width: 0; min-height: 42px; margin: 0; padding: 5px 9px; border: 1.5px solid transparent; border-radius: 11px; background: #fff; color: var(--admin-sub); font-family: inherit; text-align: left; cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; transition: background-color .3s ease, color .3s ease, border-color .3s ease, opacity .15s ease; }
+.sb-chip-name { max-width: 100%; overflow: hidden; font-size: 14px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.sb-chip-tag { max-width: 100%; overflow: hidden; font-size: 11px; font-weight: 600; line-height: 1.2; opacity: .85; text-overflow: ellipsis; white-space: nowrap; }
+.sb-chip:focus-visible { outline: 2px solid var(--admin-blue); outline-offset: 2px; }
+.sb-chip.s-none { border-color: #D1D6DB; background: #fff; color: var(--admin-sub); }
+.sb-chip.s-arrived { background: #DCEBFF; color: #2B6FD6; }
+.sb-chip.s-quiz { background: #FCEBB0; color: #A86B00; }
+.sb-chip.s-mission { background: #FFE2C7; color: #C25400; }
+.sb-chip.s-dresser { background: #E6DCFF; color: #6D45D9; }
+.sb-chip.s-survey { background: #D4F1DE; color: #1E8E4E; }
+.sb-chip.s-win { background: #FFD8E2; color: #D6336C; }
+/* 끄는 중인 원래 칩(자리 표시) · 그 위에 놓으면 맞바꿈 · 서버 응답 전 새 칩 */
+.sb-chip.is-lifted { opacity: .35; }
+.sb-chip.is-over { border-color: var(--admin-blue); }
+.sb-chip.is-bad { border-color: var(--admin-red); }
+.sb-chip.is-temp { cursor: default; opacity: .7; }
+body.sb-dragging, body.sb-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
+/* ── 명단 밖 ── */
+.sb-out { padding: 14px 16px; border-radius: 20px; background: #fff; }
+.sb-out-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 10px; color: var(--admin-ink); font-size: 15px; font-weight: 700; }
+.sb-out-title b { color: var(--admin-blue); font-weight: 700; }
+.sb-out-title span { color: var(--admin-ph); font-size: 13px; font-weight: 500; }
+.sb-out-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sb-out-chips .sb-chip { width: auto; max-width: 220px; }
+
+/* ── 손가락 따라 떠다니는 칩(body 포털) ── */
+.sb-ghost { position: fixed; top: 0; left: 0; z-index: 1200; display: flex; flex-direction: column; align-items: flex-start; pointer-events: none; will-change: transform; }
+.sb-ghost .sb-chip { width: 100%; box-shadow: 0 10px 24px rgba(0, 0, 0, .16); cursor: grabbing; transform: scale(1.04); transform-origin: left center; }
+.sb-ghost.sb-reduce .sb-chip { transform: none; }
+.sb-ghost-hint { margin-top: 6px; padding: 5px 10px; border-radius: 9px; background: #191F28; color: #fff; font-size: 12.5px; font-weight: 600; line-height: 1.35; white-space: nowrap; }
+.sb-ghost-hint.bad { background: var(--admin-red); }
+
+/* ── 창(이름 고치기 · 자리 옮기기 · 빼기 · 추가) — body 포털 ── */
+.sb-sheet { width: min(460px, 100%); }
+.sb-sheet .adm-btn { height: 48px; padding: 0 18px; border-radius: 14px; font-size: 15px; }
+/* iOS 는 16px 보다 작은 입력칸에 초점이 가면 화면을 키운다 — 16 이상 */
+.sb-sheet .adm-input.sb-input, .sb-sheet .adm-input.sb-select { height: 48px; font-size: 16px; }
+.sb-sheet-who { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: #F7F8FA; }
+.sb-sheet-meta { color: var(--admin-muted); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sb-sheet-sec { margin-top: 18px; }
+.sb-sheet-row { display: flex; gap: 8px; }
+.sb-sheet-row > .adm-input { flex: 1 1 0; min-width: 0; }
+.sb-sheet-row > .adm-btn { flex: none; }
+.sb-sheet-err { margin: 8px 0 0; color: var(--admin-red); font-size: 13px; font-weight: 600; }
+.sb-sheet-foot { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--admin-divider); }
+.sb-tag { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: #F2F4F6; color: var(--admin-muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.sb-tag.s-arrived { background: #DCEBFF; color: #2B6FD6; }
+.sb-tag.s-quiz { background: #FCEBB0; color: #A86B00; }
+.sb-tag.s-mission { background: #FFE2C7; color: #C25400; }
+.sb-tag.s-dresser { background: #E6DCFF; color: #6D45D9; }
+.sb-tag.s-survey { background: #D4F1DE; color: #1E8E4E; }
+.sb-tag.s-win { background: #FFD8E2; color: #D6336C; }
+
+/* 폰 — 창 안 이름 칸과 단추를 위아래로 */
+@media (max-width: 480px) {
+  .sb-sheet-row { flex-direction: column; }
+  .sb-sheet-row > .adm-btn { width: 100%; }
+}
+
+/* ── 움직임 줄이기 ── */
+.sb-reduce .sb-table, .sb-reduce .sb-seat, .sb-reduce .sb-loose, .sb-reduce .sb-chip, .sb-reduce .sb-add { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-table, .sb-seat, .sb-loose, .sb-chip, .sb-add { transition: none; }
+  .sb-ghost .sb-chip { transform: none; }
+}

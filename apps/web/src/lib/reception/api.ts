@@ -32,7 +32,12 @@ export interface ReceptionFeed {
   me: { likesLeft: number; empathiesLeft: number; myPhotoId: string | null; limit: number };
 }
 
+/** 2차 회식 참여(261122 설문 첫 질문) */
+export type AfterPartyAnswer = 'yes' | 'no';
+
 export interface SurveyAnswers {
+  /** 2차 회식 참여 — 옛 응답엔 없음. 누르는 순간 PUT /after-party 로도 따로 저장된다 */
+  afterParty?: AfterPartyAnswer;
   rating: number;
   best: string;
   again: 'yes' | 'maybe' | 'no';
@@ -124,6 +129,8 @@ export interface QuizMine {
   display: string;
   name: string;
   updatedAt: string;
+  /** 미션만(261122) — 우리 테이블 도전 결과. name = 도전한 사람(운영팀이 도전 없이 결과만 찍었으면 '') */
+  result?: 'pending' | 'success' | 'fail';
 }
 
 export interface QuizPublic {
@@ -136,6 +143,9 @@ export interface QuizPublic {
   board: QuizBoardRow[];
   tableCount: number;
 }
+
+/** call 이 던지는 오류 — status = 서버 응답 코드(망 오류로 응답 자체가 없으면 undefined) */
+export type ReceptionApiError = Error & { status?: number };
 
 async function call<T>(path: string, deviceId: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { 'X-RC-Device': deviceId };
@@ -154,7 +164,10 @@ async function call<T>(path: string, deviceId: string, init: RequestInit = {}): 
       const m = Array.isArray(j?.message) ? j.message[0] : j?.message;
       if (typeof m === 'string' && m && res.status < 500) msg = m;
     } catch {}
-    throw new Error(msg);
+    // status 도 실어 보낸다 — 받는 쪽이 '서버가 답을 거절(400)'과 '망 · 서버 오류'를 가를 수 있게(망 오류는 fetch 가 던져 status 없음)
+    const err = new Error(msg) as ReceptionApiError;
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -181,10 +194,23 @@ export const receptionApi = {
   /** 테이블 답 내기(같은 테이블은 마지막에 낸 답 하나) — 응답 = 그 테이블 기준 QuizPublic */
   answer: (deviceId: string, body: { questionId: string; table: number; answer: string; name: string }) =>
     call<QuizPublic>('/quiz/answer', deviceId, { method: 'PUT', body: JSON.stringify(body) }),
-  survey: (deviceId: string) => call<{ survey: { name: string; answers: SurveyAnswers; updatedAt: string } | null }>('/survey', deviceId),
+  /** 스페셜 미션 도전하기(261122) — 테이블당 1명 · 한 번. 이미 도전한 사람이 있으면 400('이미 ○○ 님이 도전했어요'). 응답 = 그 테이블 기준 QuizPublic */
+  challenge: (deviceId: string, body: { questionId: string; table: number; name: string }) =>
+    call<QuizPublic>('/quiz/challenge', deviceId, { method: 'PUT', body: JSON.stringify(body) }),
+  survey: (deviceId: string) => call<ReceptionSurveyMine>('/survey', deviceId),
   saveSurvey: (deviceId: string, name: string, answers: SurveyAnswers) =>
-    call<{ survey: { name: string; answers: SurveyAnswers; updatedAt: string } | null }>('/survey', deviceId, { method: 'PUT', body: JSON.stringify({ name, answers }) }),
+    call<ReceptionSurveyMine>('/survey', deviceId, { method: 'PUT', body: JSON.stringify({ name, answers }) }),
+  /** 2차 회식 참여 — 누르는 순간 손님 표에 저장(설문을 안 내도 어드민 참여자 판에 '2차 참여'). 응답 = 저장된 값 */
+  setAfterParty: (deviceId: string, name: string, going: AfterPartyAnswer) =>
+    call<{ afterParty: AfterPartyAnswer; afterPartyAt: string }>('/after-party', deviceId, { method: 'PUT', body: JSON.stringify({ name, going }) }),
 };
+
+/** GET · PUT /survey 응답 — afterParty 는 손님 표 값(설문을 안 내도 있음). 옛 서버는 survey 만 보낸다 */
+export interface ReceptionSurveyMine {
+  survey: { name: string; answers: SurveyAnswers; updatedAt: string } | null;
+  afterParty?: AfterPartyAnswer | null;
+  afterPartyAt?: string | null;
+}
 
 /** 올리기 전에 줄인다 — 폰 원본(3~8MB)은 웹 앞단(Vercel) 본문 한도에 걸릴 수 있다. 실패하면 원본 그대로 */
 export async function shrinkPhoto(file: File): Promise<{ blob: Blob; name: string }> {

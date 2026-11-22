@@ -4,6 +4,8 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReceptionEventKey, cleanName, parseTableNo } from './reception.rules';
 import {
+  MISSION_CHALLENGE,
+  MISSION_IDS,
   QuizAdmin,
   QuizAnswerRow,
   QuizPublic,
@@ -107,6 +109,76 @@ export class ReceptionQuizService {
     this.drop(eventKey);
     const snap = await this.load(eventKey, true);
     return { ...snap.shared, mine: quizMine(snap.state, snap.rows, table) };
+  }
+
+  /**
+   * 스페셜 미션 도전하기(261122) — 손님(테이블 대표)이 누른다. 미션 문제가 열려 있을 때만, 테이블당 1명 · 기회 한 번.
+   *  · 넣기는 '지금 열린 미션일 때만'을 SQL 한 문장으로(마감 버튼과 겹쳐도 마감 뒤 도전이 안 들어가게 — answer 와 같은 방식).
+   *  · 그 테이블 줄이 이미 있으면(다른 사람이 도전 · 운영팀이 결과를 먼저 찍음) 아무것도 안 바꾼다(ON CONFLICT DO NOTHING).
+   *    같은 기기가 또 누른 것이면 그대로 성공(두 번 눌림 · 응답 유실 뒤 다시 누름).
+   */
+  async challenge(
+    eventKey: ReceptionEventKey,
+    deviceId: string,
+    body: { questionId?: unknown; table?: unknown; name?: unknown },
+  ): Promise<QuizPublic> {
+    const question = quizQuestion(body?.questionId);
+    if (!question) throw new BadRequestException('없는 문제예요.');
+    if (question.kind !== 'mission') throw new BadRequestException('도전은 스페셜 미션에서만 할 수 있어요.');
+    const table = parseTableNo(body?.table);
+    if (table == null) throw new BadRequestException('테이블 번호를 골라 주세요.');
+    const name = cleanName(body?.name);
+    if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
+
+    const n = await this.prisma.$executeRaw`
+      INSERT INTO "reception_quiz_answers" ("id", "eventKey", "questionId", "tableNo", "answer", "name", "deviceId", "correct", "updatedAt")
+      SELECT ${randomUUID()}::text, ${eventKey}::text, ${question.id}::text, ${table}::int, ${MISSION_CHALLENGE}::text, ${name}::text, ${deviceId}::text, NULL::boolean, CURRENT_TIMESTAMP
+      WHERE EXISTS (
+        SELECT 1 FROM "reception_state"
+        WHERE "eventKey" = ${eventKey}::text AND "key" = ${STATE_KEY}::text
+          AND "value"->>'currentId' = ${question.id}::text AND "value"->>'phase' = 'open'
+      )
+      ON CONFLICT ("eventKey", "questionId", "tableNo") DO NOTHING`;
+    this.drop(eventKey);
+    if (!n) {
+      const cur = await this.prisma.receptionQuizAnswer.findUnique({
+        where: { eventKey_questionId_tableNo: { eventKey, questionId: question.id, tableNo: table } },
+        select: { answer: true, name: true, deviceId: true, correct: true },
+      });
+      if (!(cur && cur.answer && cur.deviceId === deviceId)) {
+        if (cur?.answer) throw new BadRequestException(cur.name ? `우리 테이블은 이미 ${cur.name} 님이 도전했어요.` : '우리 테이블은 이미 도전했어요.');
+        if (cur && cur.correct != null) throw new BadRequestException('우리 테이블은 이미 결과가 나왔어요.');
+        throw new BadRequestException('지금은 도전할 수 없어요.');
+      }
+    }
+    const snap = await this.load(eventKey, true);
+    return { ...snap.shared, mine: quizMine(snap.state, snap.rows, table) };
+  }
+
+  /**
+   * 운영팀 미션 판정(261122 참여자 명단의 성공 · 실패 단추) — 도전 줄 id 로 찍는다(상태와 상관없이 언제든).
+   *  · result: success = 그 문제 점수가 그 테이블에 · fail = 0점 · pending = 판정 되돌리기 · cancel = 도전 자체를 지움(잘못 누른 손님 · 시험).
+   *  · id 로 찾으니 그 사이 도전이 취소되고 다른 사람이 새로 도전했으면(새 줄 · 새 id) 0줄 → 화면을 새로 받게 알린다(엉뚱한 사람 판정 X).
+   *  · 손님 기기가 있는 미션 줄만(퀴즈 진행판이 도전 없이 찍은 줄은 거기서 고친다).
+   */
+  async judgeChallenge(eventKey: ReceptionEventKey, body: { id?: unknown; result?: unknown }): Promise<QuizAdmin> {
+    const id = typeof body?.id === 'string' && body.id.length <= 64 ? body.id : '';
+    if (!id) throw new BadRequestException('도전 기록을 찾을 수 없어요.');
+    const result = body?.result;
+    if (result !== 'success' && result !== 'fail' && result !== 'pending' && result !== 'cancel') {
+      throw new BadRequestException('성공 · 실패 · 되돌리기 · 취소 중에서 골라 주세요.');
+    }
+    const where = { id, eventKey, questionId: { in: [...MISSION_IDS] }, answer: MISSION_CHALLENGE, deviceId: { not: null } };
+    try {
+      const r =
+        result === 'cancel'
+          ? await this.prisma.receptionQuizAnswer.deleteMany({ where })
+          : await this.prisma.receptionQuizAnswer.updateMany({ where, data: { correct: result === 'success' ? true : result === 'fail' ? false : null } });
+      if (!r.count) throw new BadRequestException('도전 기록이 바뀌었어요(취소 · 새 도전). 화면을 새로 불러올게요.');
+    } finally {
+      this.drop(eventKey);
+    }
+    return this.adminView(eventKey);
   }
 
   async adminView(eventKey: ReceptionEventKey): Promise<QuizAdmin> {

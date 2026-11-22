@@ -61,6 +61,18 @@ export class ReceptionAdminController {
     return this.live.putSeats(this.event(eventKey), body?.rows);
   }
 
+  // (261122 사장 '테이블배치 · 드래그엔 드롭으로 자리 위치 · 이름도 수정 · 인원도 추가') 어드민 테이블 배치 판 — 지금 DB 명단에 한 건만 적용
+  @Post(':eventKey/seats/edit')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      '자리 명단 한 건 고치기 — { op: move, nameKey, table, seat|null } · { op: swap, nameKey, otherKey } · { op: rename, nameKey, name } · { op: add, name, table, seat|null, ticketId? } · { op: remove, nameKey } (동시에 고쳐도 하나씩 · 동명이인 열쇠 다시 계산 · 응모권 열쇠도 따라감)',
+  })
+  editSeats(@Param('eventKey') eventKey: string, @Body() body: Record<string, unknown>) {
+    return this.live.editSeats(this.event(eventKey), body);
+  }
+
   @Post(':eventKey/tickets/mode')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')
@@ -106,6 +118,13 @@ export class ReceptionAdminController {
   @ApiOperation({ summary: '테이블 답·판정 고치기 — { questionId, table, answer?: string|null, correct?: boolean|null } (상태와 상관없이)' })
   quizAnswer(@Param('eventKey') eventKey: string, @Body() body: { questionId?: unknown; table?: unknown; answer?: unknown; correct?: unknown }) {
     return this.quizzes.adminAnswer(this.event(eventKey), body || {});
+  }
+
+  @Put(':eventKey/quiz/challenge')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '미션 도전 판정 — { id: 도전 줄 id, result: success|fail|pending|cancel } (참여자 명단의 성공·실패 단추)' })
+  quizChallenge(@Param('eventKey') eventKey: string, @Body() body: { id?: unknown; result?: unknown }) {
+    return this.quizzes.judgeChallenge(this.event(eventKey), body || {});
   }
 
   // ───────────── 럭키드로우 ─────────────

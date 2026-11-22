@@ -143,6 +143,19 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
         {cur.kind === 'mission' && cur.notes && (
           <ul className="rcs-notes">{cur.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
         )}
+        {/* 261122 미션 도전 — 손님이 [도전하기]를 누른 테이블이 실시간으로(테이블 · 대표 이름 · 성공 금색 / 실패 흐림) */}
+        {cur.kind === 'mission' && (() => {
+          const ch = tables.filter((t) => t.answer);
+          return (
+            <div className="rcs-challengers" aria-label={`도전한 테이블 ${ch.length}곳`}>
+              {ch.length ? ch.map((t) => (
+                <span key={t.table} className={`rcs-ch ${t.override === true ? 'ok' : t.override === false ? 'no' : ''}`}>
+                  <b>{t.table}번</b>{t.name}{t.override === true ? ` +${cur.points}` : ''}
+                </span>
+              )) : <span className="rcs-ch-wait">테이블 대표가 앱에서 [도전하기]를 누르면 여기에 떠요</span>}
+            </div>
+          );
+        })()}
         {cur.kind !== 'mission' && (
           <div className="rcs-live-foot">
             <p className={`rcs-timer ${st.phase === 'locked' ? 'locked' : left <= 10 ? 'warn' : ''}`}>

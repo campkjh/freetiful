@@ -4,6 +4,7 @@
  *  · 이벤트 탭: 한 기기 = 살아 있는 사진 1장. 좋아요·공감은 각각 한 사람 10개까지(사진 한 장에 종류별 1개, 내 사진엔 못 누름).
  *    사진이 받는 좋아요·공감 수는 무제한. 순위 = 공감 많은 순 → 좋아요 많은 순 → 먼저 올린 순.
  *  · 설문: 기기당 1건(다시 내면 덮어씀).
+ *  · 2차 회식 참여(261122): 설문 첫 질문 — 누르는 순간 손님 표(reception_guests.afterParty)에 저장, 설문 답의 afterParty 와 같게 맞춘다.
  */
 
 export const RECEPTION_EVENTS = ['wmak-2026'] as const;
@@ -59,7 +60,14 @@ export function compareRank(a: RankablePhoto, b: RankablePhoto): number {
   );
 }
 
+/** 2차 회식 참여(261122 사장 '설문조사에 첫번째가 2차 회식 참여 여부') — 'yes' | 'no' */
+export type AfterPartyAnswer = 'yes' | 'no';
+export const AFTER_PARTY_PICK_MSG = '2차 회식 참여 여부를 골라 주세요.';
+export const isAfterParty = (v: unknown): v is AfterPartyAnswer => v === 'yes' || v === 'no';
+
 export interface SurveyAnswers {
+  /** 2차 회식 참여 — 옛 손님 화면은 안 보낸다(없으면 칸 자체가 없음). 손님 표 afterParty 와 같게 맞춘다 */
+  afterParty?: AfterPartyAnswer;
   /** 오늘 행사 만족도 1~5 */
   rating: number;
   /** 가장 좋았던 순서(식순 이름) — 없으면 '' */
@@ -69,9 +77,14 @@ export interface SurveyAnswers {
   comment: string;
 }
 
-/** 설문 답 검사 — 틀리면 이유 문자열 */
+/** 설문 답 검사 — 틀리면 이유 문자열. afterParty 는 없으면(undefined · null) 그대로 통과(옛 손님 화면), 있으면 yes | no 만 */
 export function parseSurvey(v: unknown): SurveyAnswers | string {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  let afterParty: AfterPartyAnswer | undefined;
+  if (o.afterParty != null) {
+    if (!isAfterParty(o.afterParty)) return AFTER_PARTY_PICK_MSG;
+    afterParty = o.afterParty;
+  }
   const rating = Number(o.rating);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return '만족도를 골라 주세요.';
   const again = o.again;
@@ -79,7 +92,7 @@ export function parseSurvey(v: unknown): SurveyAnswers | string {
   const best = typeof o.best === 'string' ? o.best.trim().slice(0, 40) : '';
   const comment = typeof o.comment === 'string' ? o.comment.replace(/\u0000/g, '').trim() : '';
   if ([...comment].length > SURVEY_COMMENT_MAX) return `하고 싶은 말은 ${SURVEY_COMMENT_MAX}자까지 쓸 수 있어요.`;
-  return { rating, best, again, comment };
+  return { ...(afterParty ? { afterParty } : {}), rating, best, again, comment };
 }
 
 // ───────────── 2차(261122) — 자리 명단 · 럭키드로우 응모권 · 퀴즈 테이블 ─────────────
@@ -124,6 +137,8 @@ export interface TicketBlock {
   nameKey: string;
   name: string;
   at: string;
+  /** 'rename' = 테이블 배치에서 이름을 고쳐 빈 옛 이름(운영자가 지운 게 아님 — 참여자 판 '지운 이름' 카드엔 안 보임, fix 261123) */
+  reason?: 'rename';
 }
 
 /** 지운 이름 목록 읽기(reception_state 'ticket-blocks' = { list }) — 모양이 틀린 줄은 버린다 */
@@ -134,7 +149,7 @@ export function parseTicketBlocks(v: unknown): TicketBlock[] {
   for (const o of list) {
     const b = (o && typeof o === 'object' ? o : {}) as Record<string, unknown>;
     if (typeof b.nameKey !== 'string' || !b.nameKey || typeof b.name !== 'string' || typeof b.at !== 'string') continue;
-    if (!out.some((x) => x.nameKey === b.nameKey)) out.push({ nameKey: b.nameKey, name: b.name, at: b.at });
+    if (!out.some((x) => x.nameKey === b.nameKey)) out.push({ nameKey: b.nameKey, name: b.name, at: b.at, ...(b.reason === 'rename' ? { reason: 'rename' as const } : {}) });
   }
   return out;
 }

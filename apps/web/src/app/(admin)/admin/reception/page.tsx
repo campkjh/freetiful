@@ -9,9 +9,18 @@
  *  · 그 뒤 퀴즈(노랑) · 베스트드레서 사진/좋아요·공감(보라) · 설문(초록) · 당첨(분홍)을 할 때마다 태그·줄 색이 바뀌고 다시 맨 위로.
  *    단계·순서 규칙 = receptionAdmin.ts personStage · comparePeople 한 곳(도착보다 이른 기록 = 행사 전 시험 데이터는 안 셈).
  *  · (261122 사장 '입장 현황 부분은 필요없는 것 같아') 입장 현황 탭은 없앴다 — 응모권 발급 모드 · 응모권 지우기 · 지운 이름 풀기는 여기로 옮김.
- *  · 실패한 폴링 · 갑자기 빈 응답은 표를 지우지 않는다(마지막 화면 + 작은 안내). 동작 줄이기면 미끄러짐 · 반짝임 없음. */
+ *  · 실패한 폴링 · 갑자기 빈 응답은 표를 지우지 않는다(마지막 화면 + 작은 안내). 동작 줄이기면 미끄러짐 · 반짝임 없음.
+ *  · (261122 사장 '퀴즈에 도전 버튼이 있어서 그거 누르면 참여자 명단에 실패 성공 버튼이 생겨서 성공이면 몇점 올라가게 테이블에')
+ *    손님(테이블 대표 1명)이 스페셜 미션 [도전하기]를 누르면 그 사람 줄이 주황 '미션 도전 중'으로 맨 위 + '미션' 칸에 [성공][실패].
+ *    성공 = 그 테이블 퀴즈 점수 +300(자리 칸 아래 '퀴즈 N점'이 올라감 · 손님 점수판도 같이) · 누른 단추를 다시 누르면 판정 되돌리기 · [도전 취소]는 잘못 누른 손님용.
+ *  · (261122 사장 '설문조사 첫번째가 2차 회식 참여 여부 — 예 버튼을 누르면 어드민 참여자 명단에 2차 참여 태그') 손님이 설문 첫 질문에서
+ *    [예]를 누르는 순간 이름 옆에 청록 '2차 참여' 칩(설문 제출 전에도). 설문 칸 위에 2차 참여 인원.
+ *  · (261122 사장 '참여자 리스트에서 테이블배치로 보기 · 드래그엔 드롭으로 자리 위치 바꾸기 · 실시간 · 이름 수정 · 인원 추가')
+ *    목록 위 [목록 | 테이블 배치] — 테이블 배치 = _parts/SeatBoard(같은 2초 판 · 끌어 놓기/이름 고치기/추가/빼기는 POST seats/edit).
+ *    고른 보기는 이 기기에만 기억(localStorage, 막혀 있으면 목록). */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RollingNumber } from '../_components/AdminNumber';
+import { SeatBoard } from './_parts/SeatBoard';
 import { AdminListCard, AdminTableScroll } from '../_components/AdminListCard';
 import { AdminSearchField } from '../_components/AdminSearchField';
 import { adminAlert, adminConfirm } from '../_components/adminDialog';
@@ -26,6 +35,8 @@ import {
   ticketLabel,
   useReceptionPeople,
   useReducedMotion,
+  type MissionResult,
+  type PersonChallenge,
   type PersonRow,
   type PersonStage,
   type PersonStageInfo,
@@ -50,10 +61,13 @@ const MODES: { key: TicketsMode; label: string }[] = [
 const LEGEND: { stage: Exclude<PersonStage, 'none'>; label: string }[] = [
   { stage: 'arrived', label: '도착 · 1부/2부 참여중' },
   { stage: 'quiz', label: '퀴즈 참여' },
+  { stage: 'mission', label: '미션 도전' },
   { stage: 'dresser', label: '베스트드레서' },
   { stage: 'survey', label: '설문 완료' },
   { stage: 'win', label: '당첨' },
 ];
+/** 목록 · 테이블 배치 보기 기억 열쇠 */
+const VIEW_KEY = 'rcp-view';
 /** 좋아요 · 공감 한 사람 상한(서버 VOTE_LIMIT) — 표시만 */
 const VOTE_LIMIT = 10;
 
@@ -78,6 +92,15 @@ export default function ReceptionParticipantsPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  /** 목록 · 테이블 배치 — 이 기기에만 기억 */
+  const [view, setViewState] = useState<'list' | 'board'>('list');
+  useEffect(() => {
+    try { if (localStorage.getItem(VIEW_KEY) === 'board') setViewState('board'); } catch { /* 저장소가 막혀 있으면 목록 */ }
+  }, []);
+  const setView = (v: 'list' | 'board') => {
+    setViewState(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* 이번 화면에서만 */ }
+  };
 
   // 1부/2부 태그는 서버 시계로(태블릿 시계가 틀려도 맞게) — 받은 순간의 차이를 더해 쓴다
   const skew = useMemo(() => {
@@ -98,9 +121,11 @@ export default function ReceptionParticipantsPage() {
       listedArrived: arrived.filter((x) => x.p.listed).length,
       walkIns: arrived.filter((x) => !x.p.listed).length,
       quiz: arrived.filter((x) => x.s.quiz).length,
+      mission: all.filter((x) => (x.p.challenges || []).length > 0).length,
       dresser: arrived.filter((x) => x.s.dresser).length,
       win: arrived.filter((x) => x.s.win).length,
       survey: arrived.filter((x) => x.s.survey).length,
+      afterParty: all.filter((x) => x.p.afterParty?.going === 'yes').length,
     };
   }, [all]);
 
@@ -163,6 +188,9 @@ export default function ReceptionParticipantsPage() {
     return () => window.clearTimeout(t);
   }, [data, settled]);
 
+  /** 테이블 퀴즈 점수(손님 점수판과 같음) — 자리 칸 아래 'N점'(미션 성공을 찍으면 바로 오른다) */
+  const scoreOf = useMemo(() => new Map((data?.quizScores || []).map((b) => [b.table, b.score])), [data]);
+
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   useFlipRows(tbodyRef, [rows], reduce);
 
@@ -202,6 +230,35 @@ export default function ReceptionParticipantsPage() {
     }
   };
 
+  /** 미션 판정 — 누른 단추를 다시 누르면 되돌리기(대기). 그 사이 도전이 바뀌었으면 서버가 400 → 알리고 새로 받는다 */
+  const judge = async (p: PersonRow, c: PersonChallenge, next: MissionResult) => {
+    const to: MissionResult = c.result === next ? 'pending' : next;
+    if (to === 'pending' && !(await adminConfirm({ title: `${p.name} 님 판정을 되돌릴까요?`, description: c.result === 'success' ? `${c.table}번 테이블 점수에서 ${c.points}점이 빠져요.` : '다시 성공 · 실패를 고를 수 있어요.', confirmText: '되돌리기' }))) return;
+    // 성공 → 실패로 바로 바꿀 때도 점수가 빠지니 한 번 묻는다
+    if (to === 'fail' && c.result === 'success' && !(await adminConfirm({ title: `${p.name} 님을 실패로 바꿀까요?`, description: `${c.table}번 테이블 점수에서 ${c.points}점이 빠져요.`, confirmText: '실패로 바꾸기' }))) return;
+    setBusy(`ch:${c.id}`);
+    try {
+      await refreshAfter(() => receptionAdminApi.judgeChallenge(c.id, to));
+    } catch (e) {
+      await adminAlert(`판정하지 못했어요\n${adminErrorText(e)}`);
+      mutate(() => receptionAdminApi.people(true)).catch(() => {});
+    } finally {
+      setBusy(null);
+    }
+  };
+  const cancelChallenge = async (p: PersonRow, c: PersonChallenge) => {
+    if (!(await adminConfirm({ title: `${p.name} 님 도전을 취소할까요?`, description: `${c.table}번 테이블이 다시 도전할 수 있게 돼요.${c.result === 'success' ? ` 받은 ${c.points}점도 빠져요.` : ''} 잘못 누른 경우에만 써 주세요.`, confirmText: '도전 취소' }))) return;
+    setBusy(`ch:${c.id}`);
+    try {
+      await refreshAfter(() => receptionAdminApi.judgeChallenge(c.id, 'cancel'));
+    } catch (e) {
+      await adminAlert(`취소하지 못했어요\n${adminErrorText(e)}`);
+      mutate(() => receptionAdminApi.people(true)).catch(() => {});
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // 지운 이름 풀기 — 서버는 지운 이름을 막아 둔다(손님 폰 폴링에 새 번호로 되살아나지 않게). 실수로 지웠을 때만
   const unblock = async (b: TicketBlock) => {
     if (!(await adminConfirm({ title: `${b.name} 님이 다시 응모권을 받게 할까요?`, description: '손님 화면이 다음에 새로 불러올 때 새 번호로 한 장 나와요. 예전 번호는 돌아오지 않아요.', confirmText: '다시 받게 하기' }))) return;
@@ -214,7 +271,8 @@ export default function ReceptionParticipantsPage() {
       setBusy(null);
     }
   };
-  const blocked = data?.blocked || [];
+  // 이름 고치기로 빈 옛 이름(reason 'rename')은 운영자가 지운 게 아니라 '지운 이름' 카드에서 뺀다 — 풀면 같은 사람 다른 폰이 옛 이름으로 응모권을 또 받는다
+  const blocked = (data?.blocked || []).filter((b) => b.reason !== 'rename');
 
   return (
     <div className="rca space-y-5">
@@ -232,7 +290,7 @@ export default function ReceptionParticipantsPage() {
         <div className="adm-stat">
           <p className="adm-stat-label">퀴즈 참여</p>
           <p className="adm-stat-value"><RollingNumber value={stats.quiz} /><small>명</small></p>
-          <p className="adm-stat-sub">도착 뒤 답을 낸 사람</p>
+          <p className="adm-stat-sub">{stats.mission ? `도착 뒤 답을 낸 사람 · 미션 도전 ${stats.mission}명` : '도착 뒤 답을 낸 사람'}</p>
         </div>
         <div className="adm-stat">
           <p className="adm-stat-label">베스트드레서</p>
@@ -247,7 +305,7 @@ export default function ReceptionParticipantsPage() {
         <div className="adm-stat">
           <p className="adm-stat-label">설문</p>
           <p className="adm-stat-value"><RollingNumber value={stats.survey} /><small>명</small></p>
-          <p className="adm-stat-sub">도착 뒤 응답한 사람</p>
+          <p className="adm-stat-sub">{stats.afterParty ? `도착 뒤 응답 · 2차 참여 ${stats.afterParty}명` : '도착 뒤 응답한 사람'}</p>
         </div>
       </div>
 
@@ -272,6 +330,22 @@ export default function ReceptionParticipantsPage() {
 
       {error && data && <p className="adm-note">연결이 잠깐 끊겼어요 — 마지막으로 받은 화면이에요. ({error})</p>}
 
+      <div className="rcp-viewbar">
+        <div className="adm-seg" role="tablist" aria-label="보기 방식">
+          <button type="button" role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>목록</button>
+          <button type="button" role="tab" aria-selected={view === 'board'} className={view === 'board' ? 'on' : ''} onClick={() => setView('board')}>테이블 배치</button>
+        </div>
+      </div>
+
+      {view === 'board' ? (
+        loading && !data ? (
+          <p className="adm-empty">불러오는 중…</p>
+        ) : !data ? (
+          <p className="adm-empty">{error || '불러오지 못했어요'}</p>
+        ) : (
+          <SeatBoard people={data.people} nowMs={nowMs} reduce={reduce} refreshAfter={refreshAfter} busy={!!busy} />
+        )
+      ) : (
       <AdminListCard
         filter={
           <>
@@ -311,6 +385,7 @@ export default function ReceptionParticipantsPage() {
                   <th>자리</th>
                   <th>도착</th>
                   <th>퀴즈</th>
+                  <th>미션</th>
                   <th>베스트드레서</th>
                   <th>설문</th>
                   <th aria-label="동작" />
@@ -327,11 +402,17 @@ export default function ReceptionParticipantsPage() {
                         <div className="rcp-name">
                           <b className="rca-name">{p.name}</b>
                           {tag && <span className={`rcp-tag s-${s.stage}`}>{tag}</span>}
+                          {p.afterParty?.going === 'yes' && <span className="rcp-chip after">2차 참여</span>}
                           {!p.listed && <span className="rcp-chip">명단 밖</span>}
                         </div>
                         {p.win && s.stage !== 'win' && <span className="adm-cell-sub rcp-win">당첨 · {p.win.prize}</span>}
                       </td>
-                      <td className="adm-num">{p.table != null ? `${p.table}번 테이블${p.seat != null ? ` ${p.seat}번` : ''}` : '—'}</td>
+                      <td className="adm-num">
+                        {p.table != null ? `${p.table}번 테이블${p.seat != null ? ` ${p.seat}번` : ''}` : '—'}
+                        {p.table != null && (scoreOf.get(p.table) || 0) > 0 && (
+                          <span className="adm-cell-sub rcp-score">퀴즈 <RollingNumber value={scoreOf.get(p.table) || 0} />점</span>
+                        )}
+                      </td>
                       <td className="adm-num">
                         {tinted ? (
                           <>
@@ -348,6 +429,25 @@ export default function ReceptionParticipantsPage() {
                             {p.quizCount}문제
                             <span className="adm-cell-sub">{kstHm(p.quizAt)}</span>
                           </>
+                        ) : <span className="adm-cell-sub">—</span>}
+                      </td>
+                      <td>
+                        {(p.challenges || []).length ? (
+                          <div className="rcp-missions">
+                            {(p.challenges || []).map((c) => (
+                              <div key={c.id} className={`rcp-mission r-${c.result}`}>
+                                <span className="rcp-mission-head">
+                                  {c.table}번 테이블 대표
+                                  <b>{c.result === 'success' ? `+${c.points}점` : c.result === 'fail' ? '0점' : `성공 시 +${c.points}점`}</b>
+                                </span>
+                                <div className="rcp-mission-btns" role="group" aria-label={`${p.name} 님 미션 판정`}>
+                                  <button type="button" className={`rcp-judge ok ${c.result === 'success' ? 'on' : ''}`} aria-pressed={c.result === 'success'} disabled={busy === `ch:${c.id}`} onClick={() => judge(p, c, 'success')}>성공</button>
+                                  <button type="button" className={`rcp-judge no ${c.result === 'fail' ? 'on' : ''}`} aria-pressed={c.result === 'fail'} disabled={busy === `ch:${c.id}`} onClick={() => judge(p, c, 'fail')}>실패</button>
+                                  <button type="button" className="rcp-judge-cancel" disabled={busy === `ch:${c.id}`} onClick={() => cancelChallenge(p, c)}>도전 취소</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         ) : <span className="adm-cell-sub">—</span>}
                       </td>
                       <td>
@@ -393,6 +493,7 @@ export default function ReceptionParticipantsPage() {
           </AdminTableScroll>
         )}
       </AdminListCard>
+      )}
 
       {blocked.length > 0 && (
         <section className="adm-card">

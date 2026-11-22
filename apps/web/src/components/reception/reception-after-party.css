@@ -1,0 +1,45 @@
+/* 송년회 2차 회식 장소 카드(261122) — AfterPartyPlace.tsx(rc-ap-*).
+   reception.css 의 유리 카드 · 단추를 그대로 쓰고 여기선 자리 · 크기만. 단색, 그라데이션 · 빛 없음. 글자 굵기 700 까지. */
+.rc-ap { margin-top: 12px; padding: 18px 16px 14px; animation: rc-ap-open 0.45s var(--rc-ease) both; }
+@keyframes rc-ap-open { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.rc-ap .rc-eyebrow { margin-bottom: 2px; font-size: 16px; }
+.rc-ap-name { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; color: #fff; }
+.rc-ap-name svg { flex: none; color: #F1D58C; }
+.rc-ap-addr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--rc-ice); }
+.rc-ap-copy {
+  display: inline-flex; align-items: center; gap: 3px; height: 26px; padding: 0 9px; border: 1px solid rgba(240, 207, 124, 0.35); border-radius: 13px;
+  background: rgba(5, 16, 70, 0.35); color: var(--rc-gold); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.rc-ap-copy:active { transform: scale(0.95); }
+.rc-ap-map { height: 220px; margin-top: 14px; border-radius: 16px; border: 1px solid var(--rc-gold-line); }
+.rc-ap-locate { width: 100%; margin-top: 12px; gap: 8px; }
+.rc-ap-status { min-height: 20px; margin: 10px 0 0; text-align: center; font-size: 13.5px; line-height: 1.5; color: var(--rc-ice); word-break: keep-all; }
+.rc-ap-status b { color: #FFE9AE; font-weight: 700; }
+.rc-ap-status.warn { color: #FFC2CF; }
+.rc-ap-sub { margin: 18px 0 8px; font-size: 13px; font-weight: 600; color: var(--rc-ice-dim); }
+.rc-ap-routes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.rc-ap-route {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 66px; padding: 8px 4px;
+  border: 1px solid rgba(200, 215, 255, 0.28); border-radius: 14px; background: rgba(255, 255, 255, 0.05);
+  color: rgba(235, 240, 255, 0.92); font-size: 14px; font-weight: 600; text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, border-color 0.2s ease;
+}
+.rc-ap-route svg { color: #F1D58C; }
+.rc-ap-route:active { transform: scale(0.97); border-color: #F1D58C; }
+.rc-ap-missing { margin: 10px 0 0; text-align: center; font-size: 13px; line-height: 1.5; color: var(--rc-ice); }
+.rc-ap-missing a { color: var(--rc-gold); font-weight: 700; text-underline-offset: 3px; }
+.rc-ap-kakao { width: 100%; margin-top: 10px; }
+.rc-ap-place { display: flex; width: fit-content; margin: 8px auto 0; text-decoration: none; }
+
+/* 설문 — 2차 답 아래 한 줄(고르면 바로 전해짐) */
+.rc-ap-saved { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: rgba(220, 230, 255, 0.6); word-break: keep-all; }
+/* 골랐지만 아직 못 전함(망 · 서버 오류) — 설문을 내면 같이 전해진다 */
+.rc-ap-saved.unsent { color: #FFC2CF; }
+/* 설문 완료 화면 위에 2차 장소 카드가 붙을 때 */
+.rc-survey-done.with-ap { margin-top: 4vh; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-ap { animation: none; }
+  .rc-ap-copy, .rc-ap-route { transition: none; }
+}

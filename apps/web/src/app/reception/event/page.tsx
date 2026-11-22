@@ -6,6 +6,9 @@
 //  · 8초마다 새로 받는다(화면이 보일 때만, 누르는 중엔 쉼). 규칙은 서버 apps/api/src/reception.
 //  · 맨 위 = 내 럭키드로우 응모권(261122 사장 '송년회페이지에서 참여가 되면 럭키드로우권이 앱에서 발급 · 이벤트 페이지에서 확인 · 당첨이 되면 푸시 알람').
 //    자리 탭과 같은 데이터(useReceptionMe — PUT /guest)를 15초마다 다시 받아 발급·당첨('당첨!' 띠)을 갱신. 당첨 푸시를 누르면 이 화면으로 온다.
+//    응모권은 이 탭에만 보인다(261122 사장 '자리, 퀴즈 이부분에는 럭키드로우권 안보여도 됨') — 새 번호의 출력 연출·진동도 여기서.
+//  · 누르면 진동(261122 사장 '이벤트 페이지들도 누르면 진동같은 것들 추가해줘', lib/haptics): 보통 누름 light ·
+//    좋아요/공감 켬 medium · 사진 올리기 성공 success · 내 사진 지우기 성공 medium. 막힘(내 사진 · 개수 다 씀) · 실패 토스트엔 진동 없음.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
@@ -15,6 +18,7 @@ import PhotoViewer from '@/components/reception/PhotoViewer';
 import RankingList from '@/components/reception/RankingList';
 import RankCrown from '@/components/reception/RankCrown';
 import { CloseIcon, EventIcon, HeartIcon, PlusIcon, ThumbIcon } from '@/components/reception/ReceptionIcons';
+import { haptic } from '@/lib/haptics';
 import { receptionApi, shrinkPhoto, type ReceptionFeed, type ReceptionPhoto, type VoteKind } from '@/lib/reception/api';
 import { readGuest, useReceptionGuest } from '@/lib/reception/guest';
 import { resolveSeat, useReceptionMe } from '@/lib/reception/me';
@@ -103,6 +107,7 @@ export default function ReceptionEventPage() {
       return;
     }
     withName(async () => {
+      haptic(on ? 'medium' : 'light');
       busy.current++;
       setFeed((f) => (f ? applyVote(f, p.id, kind, on) : f));
       try {
@@ -117,10 +122,13 @@ export default function ReceptionEventPage() {
     });
   };
 
-  const openPicker = () => withName(() => {
-    if (mine) { setReplaceAsk(true); return; }
-    picker.current?.click();
-  });
+  const openPicker = () => {
+    haptic('light');
+    withName(() => {
+      if (mine) { setReplaceAsk(true); return; }
+      picker.current?.click();
+    });
+  };
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -137,6 +145,7 @@ export default function ReceptionEventPage() {
 
   const upload = async () => {
     if (!draft || uploading) return;
+    haptic('light');
     setUploading(true);
     busy.current++;
     try {
@@ -147,6 +156,7 @@ export default function ReceptionEventPage() {
       busy.current--;
       setFeed(next);
       closeDraft();
+      haptic('success');
       toast.success('사진을 올렸어요');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
@@ -165,6 +175,7 @@ export default function ReceptionEventPage() {
       busy.current--;
       setFeed(next);
       setViewer(null);
+      haptic('medium');
       toast('사진을 지웠어요');
     } catch (e: any) {
       busy.current--;
@@ -172,7 +183,9 @@ export default function ReceptionEventPage() {
     }
   };
 
+  /** 사진 크게 보기 — 피드 칸 · 순위 줄 · '내 사진 보기' 모두 여기로(진동도 여기서 한 번) */
   const openPhoto = (p: ReceptionPhoto, list: 'feed' | 'rank') => {
+    haptic('light');
     setRankOpen(false);
     setViewer({ list, id: p.id });
   };
@@ -203,7 +216,7 @@ export default function ReceptionEventPage() {
             <div className="rc-event-bar">
               <span className="rc-chip"><ThumbIcon size={15} />좋아요 <b>{feed?.me.likesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>
               <span className="rc-chip empathy"><HeartIcon size={15} />공감 <b>{feed?.me.empathiesLeft ?? 10}</b>/{feed?.me.limit ?? 10}</span>
-              <button type="button" className="rc-chip rc-chip-btn rc-rank-open" onClick={() => setRankOpen(true)}>
+              <button type="button" className="rc-chip rc-chip-btn rc-rank-open" onClick={() => { haptic('light'); setRankOpen(true); }}>
                 <RankCrown rank={1} size={13} label="" />순위
               </button>
             </div>
@@ -218,7 +231,7 @@ export default function ReceptionEventPage() {
           {!feed && loadError && (
             <div className="rc-glass rc-empty">
               <p>사진을 불러오지 못했어요.</p>
-              <button type="button" className="rc-btn-line sm" onClick={load}>다시 불러오기</button>
+              <button type="button" className="rc-btn-line sm" onClick={() => { haptic('light'); load(); }}>다시 불러오기</button>
             </div>
           )}
           {feed && !photos.length && (
@@ -257,7 +270,7 @@ export default function ReceptionEventPage() {
       </div>
 
       {/* 폰: 오른쪽 가장자리 손잡이 → 옆에서 나오는 순위 서랍 */}
-      <button type="button" className="rc-rank-handle" onClick={() => setRankOpen(true)} aria-label="공감 순위 보기">
+      <button type="button" className="rc-rank-handle" onClick={() => { haptic('light'); setRankOpen(true); }} aria-label="공감 순위 보기">
         <RankCrown rank={1} size={12} label="" /><span>순위</span>
       </button>
       {rankOpen && typeof document !== 'undefined' && createPortal(
@@ -265,7 +278,7 @@ export default function ReceptionEventPage() {
           <aside className="rc-drawer" role="dialog" aria-modal="true" aria-label="공감 순위" onClick={(e) => e.stopPropagation()}>
             <header className="rc-drawer-head">
               <h2 className="rc-rank-head"><RankCrown rank={1} size={17} label="" />공감 순위</h2>
-              <button type="button" className="rc-icon-btn" onClick={() => setRankOpen(false)} aria-label="닫기"><CloseIcon size={20} /></button>
+              <button type="button" className="rc-icon-btn" onClick={() => { haptic('light'); setRankOpen(false); }} aria-label="닫기"><CloseIcon size={20} /></button>
             </header>
             <RankingList photos={photos} onOpen={(p) => openPhoto(p, 'rank')} />
           </aside>
@@ -286,7 +299,7 @@ export default function ReceptionEventPage() {
             <p className="rc-sheet-desc">사진은 한 사람당 한 장이에요. 바꾸면 지금 사진이 받은 좋아요·공감은 사라져요.</p>
             <div className="rc-sheet-actions">
               <button type="button" className="rc-btn-line" onClick={() => { setReplaceAsk(false); if (mine) openPhoto(mine, 'feed'); }}>내 사진 보기</button>
-              <button type="button" className="rc-btn-gold" onClick={() => { setReplaceAsk(false); picker.current?.click(); }}>사진 바꾸기</button>
+              <button type="button" className="rc-btn-gold" onClick={() => { haptic('light'); setReplaceAsk(false); picker.current?.click(); }}>사진 바꾸기</button>
             </div>
           </div>
         </div>,
@@ -301,7 +314,7 @@ export default function ReceptionEventPage() {
             <img src={draft.url} alt="올릴 사진 미리 보기" className="rc-upload-preview" />
             <p className="rc-sheet-desc">{guest?.name} 님 이름으로 올라가요.{mine ? ' 지금 올린 사진은 지워져요.' : ''}</p>
             <div className="rc-sheet-actions">
-              <button type="button" className="rc-btn-line" disabled={uploading} onClick={() => { closeDraft(); picker.current?.click(); }}>다시 고르기</button>
+              <button type="button" className="rc-btn-line" disabled={uploading} onClick={() => { haptic('light'); closeDraft(); picker.current?.click(); }}>다시 고르기</button>
               <button type="button" className="rc-btn-gold" disabled={uploading} onClick={upload}>{uploading ? '올리는 중…' : '올리기'}</button>
             </div>
           </div>

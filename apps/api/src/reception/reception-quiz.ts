@@ -118,6 +118,22 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
 const BY_ID = new Map(QUIZ_QUESTIONS.map((x) => [x.id, x]));
 export const quizQuestion = (id: unknown): QuizQuestion | undefined => (typeof id === 'string' ? BY_ID.get(id) : undefined);
 
+/**
+ * 스페셜 미션 '도전'(261122 사장 '퀴즈에 도전 버튼이 있어서 그거 누르면 참여자 명단에 실패 성공 버튼이 생겨서 성공이면 몇점 올라가게 테이블에').
+ *  · 손님(테이블 대표)이 도전하기를 누르면 그 테이블 답 줄에 answer = '도전' · 낸 사람 이름 · 기기가 들어간다(테이블당 1명 · 기회 한 번).
+ *  · 성공 · 실패는 운영팀이 참여자 명단(또는 퀴즈 진행판)에서 correct 로 찍는다 — 성공 = 그 문제 점수(300)가 그 테이블에.
+ *  · 미션은 숨길 정답이 없어서 점수판에 바로 반영한다(공개 버튼을 안 눌러도 — quizBoardIds).
+ */
+export const MISSION_CHALLENGE = '도전';
+export const MISSION_IDS: readonly string[] = QUIZ_QUESTIONS.filter((x) => x.kind === 'mission').map((x) => x.id);
+export type MissionResult = 'pending' | 'success' | 'fail';
+export const missionResult = (correct: boolean | null | undefined): MissionResult => (correct === true ? 'success' : correct === false ? 'fail' : 'pending');
+
+/** 점수판에 넣을 문제 — 정답 공개된 문제 + 미션 전부(성공을 찍는 순간 그 테이블 점수가 오르게) */
+export function quizBoardIds(state: Pick<QuizState, 'revealed'>): string[] {
+  return [...new Set([...state.revealed, ...MISSION_IDS])];
+}
+
 export const TEXT_ANSWER_MAX = 40;
 const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
@@ -349,6 +365,8 @@ export interface QuizMine {
   display: string;
   name: string;
   updatedAt: string;
+  /** 미션만 — 우리 테이블 도전 결과(대기 · 성공 · 실패). 정답을 숨길 게 없는 문제라 공개 전에도 보낸다 */
+  result?: MissionResult;
 }
 
 /** 손님 퀴즈 화면 — 3초마다 받는다 */
@@ -360,7 +378,7 @@ export interface QuizPublic {
   mine: QuizMine | null;
   /** 공개된 문제만 — 테이블 1~19 답 */
   results: Record<string, { answerLabel: string; explanation?: string; tables: QuizTableResult[] }>;
-  /** 공개된 문제만 채점한 점수판 */
+  /** 공개된 문제 + 미션(성공 찍으면 바로) 채점한 점수판 */
   board: QuizBoardRow[];
   tableCount: number;
 }
@@ -381,17 +399,32 @@ export function quizPublicShared(state: QuizState, rows: QuizAnswerRow[]): Omit<
     state,
     questions: QUIZ_QUESTIONS.map((question) => publicQuestion(question, revealed.has(question.id))),
     results,
-    board: quizBoard(rows, revealed),
+    board: quizBoard(rows, quizBoardIds(state)),
     tableCount: TABLE_COUNT,
   };
 }
 
-/** 우리 테이블 답 — table 이 1~19 이고 지금 문제에 답이 있을 때만 */
+/**
+ * 우리 테이블 답 — table 이 1~19 이고 지금 문제에 답이 있을 때만.
+ * 미션은 도전한 줄(answer '도전') 또는 운영팀이 도전 없이 결과만 찍은 줄(answer 없음 · 이름 '')도 — 결과(result)를 같이 준다.
+ */
 export function quizMine(state: QuizState, rows: QuizAnswerRow[], table: number | null): QuizMine | null {
   if (table == null || !state.currentId) return null;
   const question = quizQuestion(state.currentId);
   const r = rows.find((x) => x.questionId === state.currentId && x.tableNo === table);
-  if (!question || !r?.answer) return null;
+  if (!question || !r) return null;
+  if (question.kind === 'mission') {
+    if (!r.answer && r.correct == null) return null;
+    return {
+      questionId: question.id,
+      answer: r.answer || '',
+      display: r.answer ? MISSION_CHALLENGE : '',
+      name: r.answer ? r.name || '' : '',
+      updatedAt: r.updatedAt.toISOString(),
+      result: missionResult(r.correct),
+    };
+  }
+  if (!r.answer) return null;
   return {
     questionId: question.id,
     answer: r.answer,
@@ -421,7 +454,7 @@ export interface QuizAdmin {
   questions: Array<QuizQuestionPublic & { answerLabel: string; explanation?: string }>;
   /** 11문제 전부 */
   results: Record<string, { tables: QuizAdminTable[]; submitted: number; correctCount: number }>;
-  /** 공개된 문제만(손님과 같음) */
+  /** 공개된 문제 + 미션(손님과 같음) */
   board: QuizBoardRow[];
   /** 전 문제 채점(어드민 참고용) */
   boardAll: QuizBoardRow[];
@@ -458,7 +491,7 @@ export function quizAdmin(state: QuizState, rows: QuizAnswerRow[]): QuizAdmin {
     state,
     questions: QUIZ_QUESTIONS.map((question) => publicQuestion(question, true) as QuizQuestionPublic & { answerLabel: string }),
     results,
-    board: quizBoard(rows, state.revealed),
+    board: quizBoard(rows, quizBoardIds(state)),
     boardAll: quizBoard(rows, QUIZ_QUESTIONS.map((question) => question.id)),
     tableCount: TABLE_COUNT,
   };

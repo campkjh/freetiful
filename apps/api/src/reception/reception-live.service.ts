@@ -20,6 +20,21 @@ import {
   parseTicketBlocks,
   ticketsOpen,
 } from './reception.rules';
+import {
+  SeatEditOp,
+  TicketMove,
+  applySeatEdit,
+  editBlockList,
+  mergeSeatMoves,
+  newRowKeys,
+  parseSeatEdit,
+  parseSeatMoves,
+  planTicketMoves,
+  renameBlocks,
+  sameNameArrivedBlock,
+  resolveSameNameSeat,
+  seatMovesOf,
+} from './reception-seats-edit';
 
 /** 손님 자리 탭 응답(PUT guest) — 예전 웹이 보던 ok 는 그대로 둔다 */
 export interface ReceptionMe {
@@ -135,6 +150,8 @@ const TICKET_RETRY = 5;
 const TICKETS_KEY = 'tickets';
 /** 어드민이 지운 이름 목록 — 새로 줄 때만 읽으니 묶어 두지 않는다(지우자마자 바로 막히게) */
 const BLOCKS_KEY = 'ticket-blocks';
+/** 어드민이 테이블 배치 판에서 옮긴 응모권의 옛 테이블들(reception-seats-edit.ts SeatMove) — 동명이인 손님 폰의 옛 pick 가리기 */
+const SEAT_MOVES_KEY = 'seat-moves';
 /** 당첨 푸시를 누를 때 열 곳 — 송년회 이벤트 탭 맨 위 응모권(261122) */
 const DRAW_PUSH_URL = '/reception/event';
 /** 당첨 푸시 늦추기 — 어드민 추첨 화면이 번호를 굴리다 멈추기까지 약 2.4초(admin/reception/draw). 무대에 이름이 뜬 뒤에 폰이 울리게 */
@@ -175,6 +192,36 @@ export function matchTickets(seats: SeatList, tickets: ReadonlyArray<{ id: strin
 export const byTableSeatName = (a: SeatRow, b: SeatRow) =>
   a.tableNo - b.tableNo || (a.seatNo ?? 99) - (b.seatNo ?? 99) || a.name.localeCompare(b.name, 'ko');
 
+/** 명단 줄 → SeatList(테이블 → 좌석 → 이름 순으로 정렬해 둔다 · 열쇠 / 이름 열쇠로 찾기) */
+export function seatListOf(list: SeatRow[]): SeatList {
+  const rows = [...list].sort(byTableSeatName);
+  const byName = new Map<string, SeatRow[]>();
+  for (const r of rows) {
+    const k = baseNameKey(r.nameKey);
+    byName.set(k, [...(byName.get(k) || []), r]);
+  }
+  return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])), byName };
+}
+
+/** 명단 한 건 고치기 응답(POST seats/edit) — 웹은 이 뒤 참여자 판을 fresh 로 다시 받는다 */
+export interface SeatEditResponse {
+  ok: true;
+  /** 실제로 바뀐 줄이 있었나(같은 자리로 옮기기 등은 false) */
+  changed: boolean;
+  /** 이 명령의 그 사람 — 고친 뒤 줄 열쇠(빼기면 null) */
+  key: string | null;
+  /** 고친 뒤 명단 전체(테이블 → 좌석 → 이름 순) */
+  rows: Array<{ nameKey: string; name: string; table: number; seat: number | null }>;
+  /** 열쇠 · 이름을 옮긴 응모권 수 · 오래된 열쇠에 막혀 건너뛴 수 */
+  ticketsMoved: number;
+  ticketsSkipped: number;
+}
+
+/** 고치는 동안 잠깐 쓰는 열쇠 — 띄어쓰기가 든 열쇠는 이름에서 안 나오고(nameKey 는 띄어쓰기를 다 뺌) ' @' 도 없어서 어떤 진짜 열쇠와도 안 겹친다 */
+const tempKey = (id: string) => `#tmp ${id}`;
+/** 고치는 사이 다른 쪽(명단 통째로 바꾸기 · 손님 응모권)이 같은 줄을 바꿈 — 트랜잭션은 통째로 되돌려진다 */
+const SEAT_EDIT_RACE = '명단이 방금 다른 곳에서 바뀌었어요. 화면을 새로 고친 뒤 다시 해 주세요.';
+
 /**
  * 송년회 자리 명단 · 럭키드로우 응모권(=입장) · 추첨(261122 사장 '이름을 입력하면 자동으로 자리를 알려주고 럭키드로우가 출력되게끔'
  * · '관리자 태블릿에서 누가누가 왔는지'). 규칙은 reception.rules.ts.
@@ -209,15 +256,7 @@ export class ReceptionLiveService {
       at: Date.now(),
       p: this.prisma.receptionSeat
         .findMany({ where: { eventKey }, select: { nameKey: true, name: true, tableNo: true, seatNo: true } })
-        .then((rows) => {
-          rows.sort(byTableSeatName);
-          const byName = new Map<string, SeatRow[]>();
-          for (const r of rows) {
-            const k = baseNameKey(r.nameKey);
-            byName.set(k, [...(byName.get(k) || []), r]);
-          }
-          return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])), byName };
-        }),
+        .then(seatListOf),
     };
     this.seatCache.set(eventKey, entry);
     entry.p.catch(() => {
@@ -372,8 +411,7 @@ export class ReceptionLiveService {
     const [, seats, mode] = await Promise.all([this.touchGuest(eventKey, deviceId, name, userId), this.seats(eventKey), this.ticketsMode(eventKey)]);
     const open = ticketsOpen(mode, Date.now());
     const same = seats.byName.get(key) ?? [];
-    const pick = same.length > 1 ? parseTableNo(rawPick) : null;
-    const seat = same.length === 1 ? same[0] : same.find((r) => r.tableNo === pick);
+    const seat = same.length === 1 ? same[0] : same.length > 1 ? await this.sameNameSeat(eventKey, deviceId, key, same, parseTableNo(rawPick)) : undefined;
     const undecided = same.length > 1 && !seat;
     const ticket = await this.ticketFor(eventKey, seat ? seat.nameKey : key, name, deviceId, userId, open && !undecided, undecided);
     const win = ticket?.draws[0];
@@ -400,6 +438,27 @@ export class ReceptionLiveService {
           }
         : null,
     };
+  }
+
+  /**
+   * 동명이인 손님의 줄 — 폰이 보낸 고른 테이블(pick)과 이 기기 응모권 줄 중 어느 것인지(규칙 = resolveSameNameSeat).
+   * 어드민이 테이블 배치 판에서 그 사람을 옮기면 응모권 열쇠는 따라가지만 폰의 pick 은 옛 테이블 그대로다 — 그 pick 이 어드민이
+   * 옮기기 전 테이블('seat-moves')이면 응모권 줄이 이긴다(다음 폴링에 응모권을 옛 줄로 도로 가져가지 않게). 손님이 다시 고른 테이블이면 고른 줄.
+   * pick 이 없으면(안 고름 · '다시 고르기') 읽지 않고 바로 줄 없음.
+   */
+  private async sameNameSeat(eventKey: ReceptionEventKey, deviceId: string, key: string, same: SeatRow[], pick: number | null): Promise<SeatRow | undefined> {
+    if (pick == null) return undefined;
+    const mine = await this.prisma.receptionTicket.findMany({ where: { eventKey, deviceId }, orderBy: { number: 'asc' }, select: { id: true, nameKey: true } });
+    // ticketFor 의 own 과 같은 규칙 — 이 기기 응모권 중 같은 이름의 첫 장
+    const own = mine.find((t) => baseNameKey(t.nameKey) === key);
+    const picked = same.find((r) => r.tableNo === pick);
+    const ownRow = own ? same.find((r) => r.nameKey === own.nameKey) : undefined;
+    let movedFrom: number[] = [];
+    if (own && picked && ownRow && picked !== ownRow) {
+      const row = await this.prisma.receptionState.findUnique({ where: { eventKey_key: { eventKey, key: SEAT_MOVES_KEY } }, select: { value: true } });
+      movedFrom = parseSeatMoves(row?.value).find((m) => m.id === own.id)?.from ?? [];
+    }
+    return resolveSameNameSeat(same, pick, own?.nameKey ?? null, movedFrom);
   }
 
   // ───────────── 어드민 — 입장 현황 · 명단 · 응모권 ─────────────
@@ -477,6 +536,136 @@ export class ReceptionLiveService {
       this.seatCache.delete(eventKey);
     }
     return this.live(eventKey);
+  }
+
+  /**
+   * 자리 명단 한 건 고치기(261122 사장 '테이블배치 · 드래그엔 드롭으로 자리 위치 · 실시간으로 · 이름도 수정 · 인원도 추가') — POST seats/edit.
+   * { op: move | swap | rename | add | remove, ... } 를 '지금 DB 명단'에 하나만 적용한다(규칙 = reception-seats-edit.ts).
+   *  · 행사별 잠금(pg_advisory_xact_lock) 안에서 읽고-고치고-쓴다 — 태블릿 두 대가 동시에 끌어 놓아도 하나씩, 서로 덮지 않는다.
+   *  · 적용 뒤 전체를 parseSeatRows 로 다시 검사(동명이인 열쇠 다시 계산) — 틀리면 400(이유 그대로), 맞으면 바뀐 줄만 쓴다.
+   *  · 열쇠가 바뀐 줄의 응모권은 열쇠도 옮긴다(도착 기록 유지). 이름을 고치면 응모권 · 추첨 기록 이름도 새 이름으로.
+   *    열쇠가 서로 엇갈려도 유일 열쇠가 안 겹치게 잠깐 쓰는 열쇠를 거쳐 두 번에 쓴다. 동명이인끼리 맞바꾸기는 거절(SAME_NAME_SWAP).
+   *  · 이름을 고쳐 빈 옛 열쇠는 지운 이름 목록에 넣는다(같은 사람 다른 폰이 옛 이름으로 새 응모권을 받지 않게). 명단 줄에 새로 붙은 열쇠는 그 목록에서 푼다.
+   *  · 테이블을 옮긴 사람 응모권의 옛 테이블을 남긴다('seat-moves') — 동명이인 폰에 남은 옛 pick 이 응모권을 옛 줄로 도로 가져가지 않게(sameNameSeat).
+   *  · 손님 앱은 15초마다 자리를 다시 받으니 명단 묶음(seatCache)만 버리면 손님 자리도 바로 따라 바뀐다.
+   */
+  async editSeats(eventKey: ReceptionEventKey, body: unknown): Promise<SeatEditResponse> {
+    const op = parseSeatEdit(body);
+    if (typeof op === 'string') throw new BadRequestException(op);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-seats:${eventKey}`}))`;
+        return this.applySeatEditTx(tx, eventKey, op);
+      });
+    } catch (e) {
+      // 그 사이 손님이 같은 열쇠로 응모권을 막 받음 등 — 유일 열쇠 겹침은 '다시 해 주세요'로
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new BadRequestException(SEAT_EDIT_RACE);
+      throw e;
+    } finally {
+      this.seatCache.delete(eventKey);
+    }
+  }
+
+  private async applySeatEditTx(tx: Prisma.TransactionClient, eventKey: ReceptionEventKey, op: SeatEditOp): Promise<SeatEditResponse> {
+    const before = await tx.receptionSeat.findMany({ where: { eventKey }, select: { id: true, nameKey: true, name: true, tableNo: true, seatNo: true } });
+    before.sort(byTableSeatName);
+    const plan = applySeatEdit(before, op);
+    if (typeof plan === 'string') throw new BadRequestException(plan);
+    const tickets = await tx.receptionTicket.findMany({ where: { eventKey }, orderBy: { number: 'asc' }, select: { id: true, nameKey: true, name: true } });
+    // 응모권 → 고치기 전 줄(입장 현황 · 참여자 판과 같은 규칙)
+    const ticketRow = new Map<string, string>();
+    for (const [id, row] of matchTickets(seatListOf(before), tickets)) ticketRow.set(id, row.nameKey);
+    const arrivedSame = sameNameArrivedBlock(before, op, ticketRow);
+    if (arrivedSame) throw new BadRequestException(arrivedSame);
+    const tplan = planTicketMoves(plan, tickets, ticketRow, op.op === 'add' ? op.ticketId : null);
+    if (typeof tplan === 'string') throw new BadRequestException(tplan);
+
+    // 1) 명단 줄 — 지우기 → (열쇠 바뀌는 줄) 잠깐 열쇠 → 새 값 → 새 줄. 줄 수가 안 맞으면 그 사이 누가 바꾼 것 → 통째로 되돌림
+    //    id 는 꼭 있어야 한다(where 에 undefined 가 들어가면 Prisma 는 그 조건을 빼 버려 행사 명단 전체를 고친다)
+    const idOf = (r: { id?: string }): string => {
+      if (!r.id) throw new BadRequestException(SEAT_EDIT_RACE);
+      return r.id;
+    };
+    if (plan.removed.length) {
+      const r = await tx.receptionSeat.deleteMany({ where: { eventKey, id: { in: plan.removed.map(idOf) } } });
+      if (r.count !== plan.removed.length) throw new BadRequestException(SEAT_EDIT_RACE);
+    }
+    for (const u of plan.updated) {
+      if (u.before.nameKey === u.after.nameKey) continue;
+      const id = idOf(u.before);
+      const r = await tx.receptionSeat.updateMany({ where: { id, eventKey, nameKey: u.before.nameKey }, data: { nameKey: tempKey(id) } });
+      if (r.count !== 1) throw new BadRequestException(SEAT_EDIT_RACE);
+    }
+    for (const u of plan.updated) {
+      const r = await tx.receptionSeat.updateMany({
+        where: { id: idOf(u.before), eventKey },
+        data: { nameKey: u.after.nameKey, name: u.after.name, tableNo: u.after.tableNo, seatNo: u.after.seatNo },
+      });
+      if (r.count !== 1) throw new BadRequestException(SEAT_EDIT_RACE);
+    }
+    if (plan.added.length) {
+      await tx.receptionSeat.createMany({ data: plan.added.map((x) => ({ eventKey, nameKey: x.nameKey, name: x.name, tableNo: x.tableNo, seatNo: x.seatNo })) });
+    }
+
+    // 2) 응모권 — 열쇠가 바뀌는 것은 잠깐 열쇠를 거쳐서(맞바꾸기). 그 사이 손님 폰이 제 응모권 열쇠를 옮겼으면(count 0) 그 응모권은 건너뜀
+    let skipped = tplan.skipped.length;
+    const parked = new Set<string>();
+    for (const m of tplan.moves) {
+      if (m.from === m.to) continue;
+      const r = await tx.receptionTicket.updateMany({ where: { id: m.id, eventKey, nameKey: m.from }, data: { nameKey: tempKey(m.id) } });
+      if (r.count) parked.add(m.id);
+      else skipped += 1;
+    }
+    const done: TicketMove[] = [];
+    for (const m of tplan.moves) {
+      const where = m.from === m.to ? { id: m.id, eventKey, nameKey: m.from } : parked.has(m.id) ? { id: m.id, eventKey, nameKey: tempKey(m.id) } : null;
+      if (!where) continue;
+      const r = await tx.receptionTicket.updateMany({ where, data: { nameKey: m.to, ...(m.name ? { name: m.name } : {}) } });
+      if (!r.count) {
+        skipped += 1;
+        continue;
+      }
+      done.push(m);
+      // 이름을 고쳤으면 그 응모권 추첨 기록 이름도(무대 · 당첨 목록에 고친 이름으로)
+      if (m.name) await tx.receptionDraw.updateMany({ where: { eventKey, ticketId: m.id }, data: { name: m.name } });
+    }
+    if (skipped) this.logger.warn(`reception seats edit: ${skipped} ticket move(s) skipped — ${eventKey} op=${op.op}`);
+
+    // 3) 상태 줄(reception_state)은 맨 끝 — 잠금 순서 명단 → 응모권 → 상태 줄(deleteTicket 도 응모권 → 지운 이름 순이라 서로 안 막힘)
+    //    · 테이블을 옮긴 사람 응모권의 옛 테이블 — 동명이인 폰의 옛 pick 가리기(sameNameSeat). 이 줄은 여기(행사 잠금 안)서만 쓴다
+    const fromTables = seatMovesOf(plan, ticketRow);
+    if (fromTables.length) {
+      const where = { eventKey_key: { eventKey, key: SEAT_MOVES_KEY } };
+      const cur = await tx.receptionState.findUnique({ where, select: { value: true } });
+      const value = { list: mergeSeatMoves(parseSeatMoves(cur?.value), fromTables) } as unknown as Prisma.InputJsonValue;
+      await tx.receptionState.upsert({ where, create: { eventKey, key: SEAT_MOVES_KEY, value }, update: { value } });
+    }
+    //    · 이름 고치기로 빈 옛 열쇠는 지운 이름으로(같은 사람 다른 폰이 옛 이름으로 새 응모권 X) · 명단 줄에 새로 붙은 열쇠는 풀기
+    const blocks = renameBlocks(plan, done, ticketRow, tickets);
+    const unblock = newRowKeys(plan);
+    let blockEdit = blocks.length > 0;
+    if (!blockEdit && unblock.length) {
+      const cur = await tx.receptionState.findUnique({ where: { eventKey_key: { eventKey, key: BLOCKS_KEY } }, select: { value: true } });
+      blockEdit = parseTicketBlocks(cur?.value).some((b) => unblock.includes(b.nameKey));
+    }
+    if (blockEdit) {
+      const at = new Date().toISOString();
+      await this.editBlocks(tx, eventKey, (list) => editBlockList(list, blocks, unblock, at));
+    }
+
+    return {
+      ok: true,
+      changed: plan.removed.length + plan.updated.length + plan.added.length > 0,
+      key: plan.key,
+      rows: seatListOf(plan.rows.map((x) => ({ nameKey: x.nameKey, name: x.name, tableNo: x.tableNo, seatNo: x.seatNo }))).rows.map((x) => ({
+        nameKey: x.nameKey,
+        name: x.name,
+        table: x.tableNo,
+        seat: x.seatNo,
+      })),
+      ticketsMoved: done.length,
+      ticketsSkipped: skipped,
+    };
   }
 
   /** 응모권 발급 모드 — auto(행사 시간대) · open · closed */

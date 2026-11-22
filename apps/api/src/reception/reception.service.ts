@@ -3,6 +3,7 @@ import * as sharp from 'sharp';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageService } from '../image/image.service';
 import {
+  AFTER_PARTY_PICK_MSG,
   PHOTO_MAX_BYTES,
   PHOTO_MIMES,
   ReceptionEventKey,
@@ -11,7 +12,10 @@ import {
   VOTE_LIMIT,
   cleanName,
   compareRank,
+  isAfterParty,
+  nameKey,
   parseSurvey,
+  type AfterPartyAnswer,
   type SurveyAnswers,
 } from './reception.rules';
 
@@ -209,25 +213,111 @@ export class ReceptionService {
     return this.feed(eventKey, deviceId);
   }
 
+  /**
+   * 내 설문 + 2차 회식 참여(261122). afterParty 는 손님 표가 진실(설문 첫 질문에서 누르는 순간 저장 — 설문을 안 내도 있음),
+   * 손님 표에 없으면 낸 설문 답의 것. 옛 손님 화면은 survey 만 읽는다(칸 추가만).
+   */
   async getSurvey(eventKey: ReceptionEventKey, deviceId: string) {
-    const row = await this.prisma.receptionSurvey.findUnique({
-      where: { eventKey_deviceId: { eventKey, deviceId } },
-      select: { name: true, answers: true, updatedAt: true },
-    });
-    return { survey: row ? { name: row.name, answers: row.answers, updatedAt: row.updatedAt.toISOString() } : null };
+    const [row, guest] = await Promise.all([
+      this.prisma.receptionSurvey.findUnique({
+        where: { eventKey_deviceId: { eventKey, deviceId } },
+        select: { name: true, answers: true, updatedAt: true },
+      }),
+      this.guestAfterParty(eventKey, deviceId),
+    ]);
+    const fromGuest = guest?.afterParty;
+    const fromSurvey = (row?.answers as Partial<SurveyAnswers> | null | undefined)?.afterParty;
+    const afterParty: AfterPartyAnswer | null = isAfterParty(fromGuest) ? fromGuest : isAfterParty(fromSurvey) ? fromSurvey : null;
+    return {
+      survey: row ? { name: row.name, answers: row.answers, updatedAt: row.updatedAt.toISOString() } : null,
+      afterParty,
+      afterPartyAt: isAfterParty(fromGuest) && guest?.afterPartyAt ? guest.afterPartyAt.toISOString() : null,
+    };
   }
 
+  /**
+   * 설문 내기 — 답에 2차 회식 참여가 있으면 손님 표 afterParty 도 같이 맞춘다(둘이 어긋나지 않게).
+   * 옛 손님 화면(2차 칸 없음)으로 내면 먼저 눌러 둔 손님 표의 2차 답을 설문에도 넣어 둔다(설문에서 빠지지 않게).
+   */
   async saveSurvey(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown, rawAnswers: unknown) {
     const name = cleanName(rawName);
     if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
     const answers = parseSurvey(rawAnswers);
     if (typeof answers === 'string') throw new BadRequestException(answers);
+    const guest = await this.guestAfterParty(eventKey, deviceId);
+    const prev = guest?.afterParty;
+    const stored: SurveyAnswers = !answers.afterParty && isAfterParty(prev) ? { afterParty: prev, ...answers } : answers;
     await this.prisma.receptionSurvey.upsert({
       where: { eventKey_deviceId: { eventKey, deviceId } },
-      create: { eventKey, deviceId, name, answers: answers as any },
-      update: { name, answers: answers as any },
+      create: { eventKey, deviceId, name, answers: stored as any },
+      update: { name, answers: stored as any },
     });
+    if (answers.afterParty) await this.writeAfterParty(eventKey, deviceId, name, answers.afterParty, guest);
     return this.getSurvey(eventKey, deviceId);
+  }
+
+  /**
+   * 2차 회식 참여(261122 사장 '예 버튼을 누르면 어드민 참여자 명단에 2차 참여 태그') — 설문 첫 질문에서 누르는 순간(설문 제출과 따로).
+   * 손님 표에 남긴다(touchGuest 와 같은 규칙 — 기기 줄이 없으면 만들고 이름은 마지막 것으로). 이미 낸 설문이 있으면 그 답의 afterParty 도 고친다.
+   */
+  async setAfterParty(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown, rawGoing: unknown) {
+    const name = cleanName(rawName);
+    if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
+    if (!isAfterParty(rawGoing)) throw new BadRequestException(AFTER_PARTY_PICK_MSG);
+    const saved = await this.writeAfterParty(eventKey, deviceId, name, rawGoing);
+    await this.syncSurveyAfterParty(eventKey, deviceId, rawGoing);
+    return saved;
+  }
+
+  /** 내 2차 회식 참여(안 골랐으면 null) */
+  async getAfterParty(eventKey: ReceptionEventKey, deviceId: string) {
+    const { afterParty, afterPartyAt } = await this.getSurvey(eventKey, deviceId);
+    return { afterParty, afterPartyAt };
+  }
+
+  private guestAfterParty(eventKey: ReceptionEventKey, deviceId: string) {
+    return this.prisma.receptionGuest.findUnique({
+      where: { eventKey_deviceId: { eventKey, deviceId } },
+      select: { afterParty: true, afterPartyAt: true },
+    });
+  }
+
+  /**
+   * 손님 표에 2차 참여 쓰기. afterPartyAt 은 답이 바뀔 때만 새 시각 — 같은 답을 다시 눌러도(설문 다시 내기 포함) 어드민 판 순서가 튀지 않게.
+   * 계정(userId)은 건드리지 않는다. before = 미리 읽은 손님 표(undefined 면 여기서 읽음)
+   */
+  private async writeAfterParty(
+    eventKey: ReceptionEventKey,
+    deviceId: string,
+    name: string,
+    going: AfterPartyAnswer,
+    before?: { afterParty: string | null; afterPartyAt: Date | null } | null,
+  ) {
+    const prev = before !== undefined ? before : await this.guestAfterParty(eventKey, deviceId);
+    const now = new Date();
+    const changed = prev?.afterParty !== going || !prev?.afterPartyAt;
+    await this.prisma.receptionGuest.upsert({
+      where: { eventKey_deviceId: { eventKey, deviceId } },
+      create: { eventKey, deviceId, name, afterParty: going, afterPartyAt: now },
+      update: { name, lastSeenAt: now, ...(changed ? { afterParty: going, afterPartyAt: now } : {}) },
+    });
+    const at = changed ? now : (prev!.afterPartyAt as Date);
+    return { afterParty: going, afterPartyAt: at.toISOString() };
+  }
+
+  /**
+   * 이미 낸 설문 답의 afterParty 를 손님 표와 같게 — 원시 SQL 이라 설문 updatedAt 은 그대로(참여자 판 '설문 완료' 시각이 2차 누름에 밀리지 않게).
+   * 실패해도 손님 표가 진실이라 요청은 그대로 성공(읽을 때 손님 표 값을 먼저 쓴다)
+   */
+  private async syncSurveyAfterParty(eventKey: ReceptionEventKey, deviceId: string, going: AfterPartyAnswer) {
+    try {
+      await this.prisma.$executeRaw`
+        UPDATE "reception_surveys" SET "answers" = jsonb_set("answers", '{afterParty}', to_jsonb(${going}::text), true)
+        WHERE "eventKey" = ${eventKey}::text AND "deviceId" = ${deviceId}::text
+          AND jsonb_typeof("answers") = 'object' AND "answers"->>'afterParty' IS DISTINCT FROM ${going}::text`;
+    } catch (e: any) {
+      this.logger.warn(`reception after-party survey sync failed: ${e?.message || e}`);
+    }
   }
   /**
    * 손님 남기기 — 자리 탭에서 이름을 넣거나, 이름 있는 손님이 송년회 화면을 열 때(웹 ReceptionShell). 이름은 마지막 것으로.
@@ -251,7 +341,7 @@ export class ReceptionService {
    */
   async adminOverview(eventKey: ReceptionEventKey) {
     const [guests, rows, votes, surveys] = await Promise.all([
-      this.prisma.receptionGuest.findMany({ where: { eventKey }, select: { deviceId: true, name: true, createdAt: true, lastSeenAt: true } }),
+      this.prisma.receptionGuest.findMany({ where: { eventKey }, select: { deviceId: true, name: true, createdAt: true, lastSeenAt: true, afterParty: true, afterPartyAt: true } }),
       this.feedRows(eventKey),
       this.prisma.receptionVote.groupBy({ by: ['voterDeviceId', 'kind'], where: { eventKey }, _count: { _all: true }, _min: { createdAt: true } }),
       this.prisma.receptionSurvey.findMany({ where: { eventKey }, orderBy: { updatedAt: 'desc' }, select: { deviceId: true, name: true, answers: true, createdAt: true, updatedAt: true } }),
@@ -266,12 +356,15 @@ export class ReceptionService {
       likesUsed: number;
       empathiesUsed: number;
       surveyAt: string | null;
+      /** 2차 회식 참여(261122) — 손님 표가 진실, 없으면 낸 설문 답 */
+      afterParty: AfterPartyAnswer | null;
+      afterPartyAt: string | null;
     };
     const people = new Map<string, P>();
     const get = (deviceId: string, at: Date) => {
       let p = people.get(deviceId);
       if (!p) {
-        p = { deviceId, name: null, firstAt: at, lastAt: at, photo: null, likesUsed: 0, empathiesUsed: 0, surveyAt: null };
+        p = { deviceId, name: null, firstAt: at, lastAt: at, photo: null, likesUsed: 0, empathiesUsed: 0, surveyAt: null, afterParty: null, afterPartyAt: null };
         people.set(deviceId, p);
       }
       if (at < p.firstAt) p.firstAt = at;
@@ -293,16 +386,51 @@ export class ReceptionService {
       if (s.updatedAt > p.lastAt) p.lastAt = s.updatedAt;
       p.name = s.name;
       p.surveyAt = s.updatedAt.toISOString();
+      const ap = (s.answers as Partial<SurveyAnswers> | null)?.afterParty;
+      if (isAfterParty(ap)) {
+        p.afterParty = ap;
+        p.afterPartyAt = s.updatedAt.toISOString();
+      }
     }
     for (const g of guests) {
       const p = get(g.deviceId, g.createdAt);
       if (g.lastSeenAt > p.lastAt) p.lastAt = g.lastSeenAt;
       p.name = g.name;
+      if (isAfterParty(g.afterParty)) {
+        p.afterParty = g.afterParty;
+        p.afterPartyAt = (g.afterPartyAt || g.lastSeenAt).toISOString();
+      }
     }
 
     const participants = [...people.values()]
       .sort((a, b) => b.lastAt.getTime() - a.lastAt.getTime())
       .map((p) => ({ ...p, firstAt: p.firstAt.toISOString(), lastAt: p.lastAt.toISOString() }));
+
+    // 설문 답의 2차 참여는 손님 표(진실)로 맞춰 보낸다 — 설문을 낸 뒤 2차만 바꾼 손님도 어드민엔 지금 답
+    const afterPartyOf = (deviceId: string) => people.get(deviceId)?.afterParty ?? null;
+    const surveyAnswers = (s: (typeof surveys)[number]) => {
+      const a = (s.answers && typeof s.answers === 'object' ? s.answers : {}) as Record<string, unknown>;
+      const ap = afterPartyOf(s.deviceId);
+      return ap ? { ...a, afterParty: ap } : a;
+    };
+    // 2차 회식은 사람 단위 — 한 사람이 폰 · 브라우저 여럿에서 누르면 기기마다 줄이 생기므로 참여자 판(buildPeople)처럼
+    // 이름 하나로 합치고 마지막으로 고른 답만 센다(설문 낸 기록은 그 이름의 어느 기기든). 이름 없는 기기는 기기 그대로(fix 261123)
+    type ApPerson = { deviceId: string; name: string | null; afterParty: AfterPartyAnswer; afterPartyAt: string | null; surveyAt: string | null };
+    const apPeople = new Map<string, ApPerson>();
+    for (const p of participants) {
+      if (!p.afterParty) continue;
+      const k = (p.name && nameKey(p.name)) || `d:${p.deviceId}`;
+      const cur = apPeople.get(k);
+      const row: ApPerson = { deviceId: p.deviceId, name: p.name, afterParty: p.afterParty as AfterPartyAnswer, afterPartyAt: p.afterPartyAt, surveyAt: p.surveyAt };
+      if (!cur) apPeople.set(k, row);
+      else if ((p.afterPartyAt || '') > (cur.afterPartyAt || '')) apPeople.set(k, { ...row, surveyAt: row.surveyAt || cur.surveyAt });
+      else if (!cur.surveyAt && p.surveyAt) cur.surveyAt = p.surveyAt;
+    }
+    const afterParty = { yes: 0, no: 0, noSurvey: 0 };
+    for (const p of apPeople.values()) {
+      afterParty[p.afterParty] += 1;
+      if (p.afterParty === 'yes' && !p.surveyAt) afterParty.noSurvey += 1;
+    }
 
     const answers = surveys.map((s) => s.answers as unknown as Partial<SurveyAnswers>);
     const ratings = answers.map((a) => Number(a.rating)).filter((n) => n >= 1 && n <= 5);
@@ -324,9 +452,13 @@ export class ReceptionService {
         avgRating: ratings.length ? Math.round((ratings.reduce((x, y) => x + y, 0) / ratings.length) * 10) / 10 : null,
         again,
         best: Object.entries(best).sort((a, b) => b[1] - a[1]).map(([title, count]) => ({ title, count })),
+        /** 2차 회식 참여(261122) — yes · no = 답한 사람 수, noSurvey = 2차 참여인데 설문은 아직 안 낸 사람 */
+        afterParty,
       },
       participants,
-      surveys: surveys.map((s) => ({ deviceId: s.deviceId, name: s.name, answers: s.answers, createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() })),
+      surveys: surveys.map((s) => ({ deviceId: s.deviceId, name: s.name, answers: surveyAnswers(s), createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() })),
+      /** 2차 회식에 답한 사람 전부(설문을 안 낸 사람 포함 · 같은 이름 기기는 한 사람) — 마지막으로 바꾼 순 */
+      afterParty: [...apPeople.values()].sort((a, b) => (b.afterPartyAt || '').localeCompare(a.afterPartyAt || '')),
     };
   }
 }

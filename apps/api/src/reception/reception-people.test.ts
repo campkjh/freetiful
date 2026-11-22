@@ -292,6 +292,7 @@ function fakeDeps() {
       findMany: async () => [
         { key: 'tickets', value: { mode: 'open' } },
         { key: 'ticket-blocks', value: { list: [{ nameKey: 'a', name: '가', at: '2026-11-23T08:00:00.000Z' }, { nameKey: 'b', name: '나', at: '2026-11-23T09:00:00.000Z' }] } },
+        { key: 'quiz', value: { currentId: 'r3q3', phase: 'open', revealed: ['r1q1'] } },
       ],
     },
     receptionTicket: {
@@ -300,7 +301,7 @@ function fakeDeps() {
         return [{ id: 't1', number: 1, nameKey: '김솔', name: '김솔', deviceId: D1, createdAt: at(1), lastSeenAt: at(2), draws: [{ prize: '체스타필드 정장 세트', createdAt: at(3) }] }];
       },
     },
-    receptionGuest: { findMany: async () => [{ deviceId: D1, name: '김솔', lastSeenAt: at(4) }] },
+    receptionGuest: { findMany: async () => [{ deviceId: D1, name: '김솔', lastSeenAt: at(4), afterParty: 'yes', afterPartyAt: at(11) }] },
     receptionPhoto: { findMany: async () => [] },
     receptionVote: {
       groupBy: async ({ by }: any) => (by[0] === 'voterDeviceId' ? [{ voterDeviceId: D1, kind: 'like', _count: { _all: 2 }, _max: { createdAt: at(5) } }] : []),
@@ -311,7 +312,13 @@ function fakeDeps() {
         // 판정 · 처음 낸 때도 같이 고르는지(quizRowAt) — 판정이 붙은 줄은 createdAt 이 퀴즈 시각
         assert.equal(select.correct, true);
         assert.equal(select.createdAt, true);
-        return [{ deviceId: D1, name: '김솔', correct: true, createdAt: at(6), updatedAt: at(30) }];
+        assert.equal(select.questionId && select.tableNo && select.answer && select.id, true);
+        return [
+          { id: 'a1', questionId: 'r1q1', tableNo: 2, answer: 'freetiful', deviceId: D1, name: '김솔', correct: true, createdAt: at(6), updatedAt: at(30) },
+          { id: 'a2', questionId: 'r3q3', tableNo: 2, answer: '도전', deviceId: D1, name: '김솔', correct: true, createdAt: at(7), updatedAt: at(40) },
+          // 운영팀이 넣은 답(기기 없음) — 사람엔 안 붙고 점수판엔 들어감
+          { id: 'a3', questionId: 'r1q1', tableNo: 5, answer: 'freetiful', deviceId: null, name: '운영팀', correct: null, createdAt: at(8), updatedAt: at(8) },
+        ];
       },
     },
   };
@@ -332,10 +339,89 @@ test('참여자 판 서비스 — 발급 모드 · 지운 이름(최근 위) · 
   assert.deepEqual(p.win, { prize: '체스타필드 정장 세트', at: at(3).toISOString() });
   assert.equal(p.likesUsed, 2);
   assert.equal(p.votedAt, at(5).toISOString());
-  assert.equal(p.quizAt, at(6).toISOString());
+  assert.equal(p.quizAt, at(6).toISOString()); // 미션 도전 줄은 퀴즈 수 · 시각에 안 섞임
+  assert.equal(p.quizCount, 1);
+  assert.deepEqual(p.challenges, [{ id: 'a2', questionId: 'r3q3', title: '스페셜 미션 · 타이밍을 지배하라!', table: 2, points: 300, result: 'success', at: at(7).toISOString() }]);
   assert.equal(p.lastSeenAt, at(4).toISOString());
+  assert.deepEqual(p.afterParty, { going: 'yes', at: at(11).toISOString() });
+  // 테이블 점수 = 공개된 r1q1(100) + 미션 성공(300)
+  assert.deepEqual(a.quizScores.slice(0, 2).map((b) => [b.table, b.score]), [[2, 400], [5, 100]]);
   await svc.people('wmak-2026');
   assert.equal(calls(), 1);
   await svc.people('wmak-2026', true);
   assert.equal(calls(), 2);
+});
+
+test('참여자 — 미션 도전 줄은 challenges 로(대기 · 실패 · 시각 = 도전한 때) · 퀴즈 수에 안 셈 · 테이블 친구 도전은 그 사람에게만', () => {
+  seq = 0;
+  const seats = seatList([['김솔', 2, 1], ['이하나', 2, 2]]);
+  const rows = buildPeople(input({
+    seats,
+    tickets: [ticket('김솔', D1, 1), ticket('이하나', D2, 2)],
+    guests: [{ deviceId: D1, name: '김솔', lastSeenAt: at(3) }, { deviceId: D2, name: '이하나', lastSeenAt: at(3) }],
+    quiz: [
+      { id: 'q1', questionId: 'r1q2', tableNo: 2, answer: 'O', deviceId: D2, name: '이하나', correct: null, createdAt: at(4), updatedAt: at(4) },
+      { id: 'm1', questionId: 'r3q3', tableNo: 2, answer: '도전', deviceId: D1, name: '김솔', correct: null, createdAt: at(5), updatedAt: at(9) },
+      // 미션인데 answer 가 '도전'이 아닌 줄(옛 데이터) — 보통 퀴즈 줄로
+      { id: 'm2', questionId: 'r1q3', tableNo: 2, answer: '도전', deviceId: D1, name: '김솔', correct: null, createdAt: at(6), updatedAt: at(6) },
+    ],
+  }));
+  const m = byKey(rows);
+  const kim = m.get(nameKey('김솔'))!;
+  assert.equal(kim.challenges.length, 1);
+  assert.deepEqual(kim.challenges[0], { id: 'm1', questionId: 'r3q3', title: '스페셜 미션 · 타이밍을 지배하라!', table: 2, points: 300, result: 'pending', at: at(5).toISOString() });
+  assert.equal(kim.quizCount, 1); // r1q3 줄만(미션 아님)
+  const lee = m.get(nameKey('이하나'))!;
+  assert.deepEqual(lee.challenges, []);
+  assert.equal(lee.quizCount, 1);
+  const failed = buildPeople(input({
+    seats,
+    tickets: [ticket('김솔', D1, 1)],
+    guests: [{ deviceId: D1, name: '김솔', lastSeenAt: at(3) }],
+    quiz: [{ id: 'm1', questionId: 'r3q3', tableNo: 2, answer: '도전', deviceId: D1, name: '김솔', correct: false, createdAt: at(5), updatedAt: at(9) }],
+  }));
+  const k2 = byKey(failed).get(nameKey('김솔'))!;
+  assert.equal(k2.challenges[0].result, 'fail');
+  assert.equal(k2.challenges[0].at, at(5).toISOString()); // 판정(updatedAt 9분)으로 밀리지 않음
+  assert.equal(k2.quizAt, null);
+});
+
+test('참여자 — 2차 회식(손님 표 afterParty) · 기기 여럿이면 마지막에 고른 값 · 안 골랐으면 null', () => {
+  seq = 0;
+  const seats = seatList([['김솔', 2, 1], ['이하나', 2, 2]]);
+  const rows = buildPeople(input({
+    seats,
+    tickets: [ticket('김솔', D1, 1)],
+    guests: [
+      { deviceId: D1, name: '김솔', lastSeenAt: at(3), afterParty: 'yes', afterPartyAt: at(5) },
+      { deviceId: D2, name: '김솔', lastSeenAt: at(3), afterParty: 'no', afterPartyAt: at(9) },
+      { deviceId: D3, name: '이하나', lastSeenAt: at(3), afterParty: null, afterPartyAt: null },
+    ],
+  }));
+  const m = byKey(rows);
+  assert.deepEqual(m.get(nameKey('김솔'))!.afterParty, { going: 'no', at: at(9).toISOString() });
+  assert.equal(m.get(nameKey('이하나'))!.afterParty, null);
+});
+
+test('참여자 — 어드민이 이름을 고친 뒤(응모권은 새 이름 줄로) 옛 이름이 남은 폰의 기록은 새 이름 줄에 붙고 유령 줄이 안 생김', () => {
+  seq = 0;
+  const seats = seatList([['김솔비', 3, 8], ['이하나', 2, 2]]);
+  const rows = buildPeople(input({
+    seats,
+    tickets: [ticket('김솔비', D1, 1)],
+    guests: [
+      { deviceId: D1, name: '김솔', lastSeenAt: at(4), afterParty: 'yes', afterPartyAt: at(6) },
+      // 응모권이 없는 다른 폰이 명단에 없는 이름이면 예전처럼 명단 밖(응모권 없으니 판엔 안 남음)
+      { deviceId: D2, name: '방문객', lastSeenAt: at(4) },
+    ],
+    surveys: [{ deviceId: D1, name: '김솔', updatedAt: at(7) }],
+  }));
+  const m = byKey(rows);
+  const p = m.get(nameKey('김솔비'))!;
+  assert.equal(p.ticket?.number, 1);
+  assert.equal(p.devices, 1);
+  assert.deepEqual(p.afterParty, { going: 'yes', at: at(6).toISOString() });
+  assert.ok(p.surveyAt);
+  assert.equal(rows.some((r) => r.key === `x:${nameKey('김솔')}`), false);
+  assert.equal(rows.some((r) => !r.listed), false);
 });

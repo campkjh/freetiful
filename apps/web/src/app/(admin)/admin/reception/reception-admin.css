@@ -303,6 +303,15 @@
 .rcs-match-slots figcaption { margin-top: 4px; font-size: 18px; font-weight: 700; }
 .rcs-match-opts { margin: 14px 0 0; font-size: clamp(18px, 2vw, 26px); font-weight: 600; white-space: pre-wrap; }
 .rcs-notes { margin: 18px 0 0; padding-left: 1.2em; font-size: clamp(18px, 2.1vw, 26px); line-height: 1.7; }
+/* 미션 도전한 테이블(261122) — 남색 판 위 칩 · 성공 금색 · 실패 흐림 · 새로 뜰 때 톡 */
+.rcs-challengers { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+.rcs-ch { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: clamp(16px, 1.8vw, 24px); font-weight: 600; animation: rcsChIn .4s cubic-bezier(0.3, 1.45, 0.5, 1); }
+.rcs-ch b { color: #F6DC93; font-weight: 700; }
+.rcs-ch.ok { background: #F1D58C; color: #3A2604; }
+.rcs-ch.ok b { color: #3A2604; }
+.rcs-ch.no { opacity: .45; }
+.rcs-ch-wait { color: rgba(225, 233, 255, 0.6); font-size: clamp(15px, 1.6vw, 20px); }
+@keyframes rcsChIn { from { opacity: 0; transform: scale(.7); } }
 .rcs-live-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 24px; }
 .rcs-timer { min-width: 140px; margin: 0; font-size: clamp(36px, 5vw, 64px); font-weight: 700; font-variant-numeric: tabular-nums; }
 .rcs-timer.warn { color: #F7C3D2; }
@@ -336,11 +345,13 @@
 /* 단계 색 — 태그(진하게) · 줄(옅게) · 반짝임(태그 바탕색) */
 .rcp-tag.s-arrived { background: #DCEBFF; color: #2B6FD6; }
 .rcp-tag.s-quiz { background: #FCEBB0; color: #A86B00; }
+.rcp-tag.s-mission { background: #FFE1C7; color: #C2550A; }
 .rcp-tag.s-dresser { background: #E6DCFF; color: #6D45D9; }
 .rcp-tag.s-survey { background: #D4F1DE; color: #1E8E4E; }
 .rcp-tag.s-win { background: #FFD8E2; color: #D6336C; }
 .rcp-row.s-arrived { --rcp-row: #F0F7FF; --rcp-pulse: #DCEBFF; }
 .rcp-row.s-quiz { --rcp-row: #FFFAE6; --rcp-pulse: #FCEBB0; }
+.rcp-row.s-mission { --rcp-row: #FFF4EA; --rcp-pulse: #FFE1C7; }
 .rcp-row.s-dresser { --rcp-row: #F6F1FF; --rcp-pulse: #E6DCFF; }
 .rcp-row.s-survey { --rcp-row: #EFFAF3; --rcp-pulse: #D4F1DE; }
 .rcp-row.s-win { --rcp-row: #FFF1F4; --rcp-pulse: #FFD8E2; }
@@ -361,9 +372,31 @@
   100% { background-color: var(--rcp-row, rgba(255, 255, 255, 0)); }
 }
 
+/* 스페셜 미션 도전(261122) — 성공 · 실패 단추(태블릿 손가락 48px) · 누른 쪽만 진하게 · 자리 칸 아래 테이블 퀴즈 점수 */
+.rcp-score { display: block; color: #C2550A; font-weight: 700; }
+.rcp-missions { display: flex; flex-direction: column; gap: 8px; min-width: 210px; }
+.rcp-mission-head { display: flex; align-items: baseline; gap: 6px; color: var(--admin-sub); font-size: 12.5px; white-space: nowrap; }
+.rcp-mission-head b { color: var(--admin-ink); font-size: 13px; font-weight: 700; }
+.rcp-mission.r-success .rcp-mission-head b { color: var(--admin-blue); }
+.rcp-mission.r-fail .rcp-mission-head b { color: var(--admin-muted); }
+.rcp-mission-btns { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.rcp-judge { min-width: 64px; height: 44px; padding: 0 14px; border: 1.5px solid #E5E8EB; border-radius: 12px; background: #fff; color: var(--admin-sub); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .12s var(--adm-ease); -webkit-tap-highlight-color: transparent; }
+.rcp-judge:active:not(:disabled) { transform: scale(.95); }
+.rcp-judge:disabled { opacity: .5; cursor: default; }
+.rcp-judge.ok:not(.on) { color: var(--admin-blue); border-color: #CFE2FF; }
+.rcp-judge.no:not(.on) { color: #E5484D; border-color: #FFD3D5; }
+.rcp-judge.ok.on { background: var(--admin-blue); border-color: var(--admin-blue); color: #fff; animation: rcpJudgePop .32s var(--adm-ease); }
+.rcp-judge.no.on { background: #4E5968; border-color: #4E5968; color: #fff; animation: rcpJudgePop .32s var(--adm-ease); }
+.rcp-judge-cancel { height: 44px; padding: 0 8px; border: 0; background: none; color: var(--admin-muted); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.rcp-judge-cancel:disabled { opacity: .5; cursor: default; }
+@keyframes rcpJudgePop { 0% { transform: scale(.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+/* 2차 회식 참여(설문 첫 질문 '예') — 이름 옆 작은 칩 */
+.rcp-chip.after { background: #D9F4F1; color: #0F7C72; }
+
 /* ── 동작 줄이기 ── */
 
 @media (prefers-reduced-motion: reduce) {
+  .rcp-judge.ok.on, .rcp-judge.no.on, .rcs-ch { animation: none; }
   /* 줄 촤라락은 전역 .admin-shell tbody tr(admRowIn)이 건다 — 이 폴더 표(입장 · 퀴즈 · 추첨 · 명단)는 여기서 끈다 */
   .admin-shell .rca-table tbody tr { animation: none; }
   .admin-shell .rca-table tr.rca-fresh > td { animation: none; background-color: #E8F3FF; }
@@ -373,3 +406,6 @@
   .admin-shell .rcp-table tr.rcp-pulse.pa > td, .admin-shell .rcp-table tr.rcp-pulse.pb > td { animation: none; }
   .admin-shell .rcp-table tr.rcp-row > td, .rcp-tag { transition: none; }
 }
+
+/* 참여자 판 보기 방식 — [목록 | 테이블 배치](261122) */
+.rcp-viewbar { display: flex; align-items: center; justify-content: flex-start; }

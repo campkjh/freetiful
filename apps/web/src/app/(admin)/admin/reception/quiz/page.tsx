@@ -6,7 +6,10 @@
  *  · 테이블 답 표: 최종 O/X 칸을 누르면 자동 → O → X → 자동 으로 돈다(오타 정답 인정 등). 종이 답안은 [답 입력].
  *  · [크게 보기] = 프로젝터용 전체 화면(진한 남색) — 정답 공개면 테이블 답 카드 18개, 대기면 점수판.
  *    판 안에 [다음 문제 열기]까지 둔다 — 판을 닫으면 태블릿 미러링 화면에 본문 카드가 그대로 비친다.
- *  · 본문 카드의 정답 상자는 공개 전엔 가려 둔다([정답 보기]로 잠깐 펼침) — 문제 고르는 순간 프로젝터에 정답이 뜨지 않게. */
+ *  · 본문 카드의 정답 상자는 공개 전엔 가려 둔다([정답 보기]로 잠깐 펼침) — 문제 고르는 순간 프로젝터에 정답이 뜨지 않게.
+ *  · (261122 사장 '퀴즈 초기화버튼도 만들어줘 처음부터 시작할 수 있게끔') 맨 위 상태 줄에 [처음부터 다시] — 두 번 묻고 모든 답 · 미션 도전 ·
+ *    공개 기록 · 점수판을 지운 뒤 손님 화면을 대기('곧 퀴즈가 시작돼요')로, 왼쪽 목록은 1번 문제로. (아래 초기화 칸의 [전체 초기화]와 같은 동작)
+ *  · 미션 표 = 손님이 [도전하기]를 누른 테이블은 '도전한 사람' 칸에 이름(참여자 명단에서도 성공 · 실패를 찍을 수 있다). */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminTableScroll } from '../../_components/AdminListCard';
@@ -162,9 +165,11 @@ export default function ReceptionQuizPage() {
     act('reset', { questionId: q.id });
   };
   const resetAll = async () => {
-    if (!(await adminConfirm({ title: '퀴즈를 처음부터 다시 할까요?', description: '11문제의 모든 답 · O/X 고친 것 · 공개 기록이 지워지고 대기 화면으로 돌아가요.', confirmText: '전체 초기화' }))) return;
-    if (!(await adminConfirm({ title: '정말 전체를 지울까요?', description: '점수판도 0점이 돼요. 되돌릴 수 없어요.', confirmText: '지우기' }))) return;
-    act('reset');
+    const qs = data?.questions || [];
+    if (!(await adminConfirm({ title: '퀴즈를 처음부터 다시 할까요?', description: `${qs.length}문제의 모든 답 · 미션 도전 · O/X 고친 것 · 공개 기록이 지워지고 손님 화면은 대기('곧 퀴즈가 시작돼요')로 돌아가요.`, confirmText: '처음부터 다시' }))) return;
+    if (!(await adminConfirm({ title: '정말 전체를 지울까요?', description: '점수판도 모두 0점이 돼요. 되돌릴 수 없어요.', confirmText: '지우기' }))) return;
+    await act('reset');
+    if (qs[0]) setSelId(qs[0].id);
   };
 
   /** 최종 O/X — 자동 → O → X → 자동 */
@@ -212,6 +217,7 @@ export default function ReceptionQuizPage() {
           {st.showBoard && <span className="adm-badge orange">순위 발표 중</span>}
         </div>
         <div className="rcq-now-act">
+          <button type="button" className="adm-btn danger" disabled={stateBusy} onClick={resetAll}>처음부터 다시</button>
           <button type="button" className={`adm-btn ${st.showBoard ? 'weak' : ''}`} disabled={stateBusy} onClick={toggleBoard}>
             {st.showBoard ? '순위 발표 끄기' : '순위 발표 켜기'}
           </button>
@@ -317,7 +323,7 @@ export default function ReceptionQuizPage() {
                   <p className="rcq-sec-title">테이블 답</p>
                   <p className="rcq-sec-sub">
                     {q.kind === 'mission'
-                      ? '성공한 테이블만 눌러 주세요 — 다시 누르면 풀려요'
+                      ? '손님이 [도전하기]를 누르면 도전한 사람이 떠요 · 성공한 테이블만 눌러 주세요 — 다시 누르면 풀려요'
                       : <>낸 테이블 <b><RollingNumber value={res?.submitted || 0} /></b>/{data.tableCount} · 맞힘 <b><RollingNumber value={res?.correctCount || 0} /></b> · O/X 칸을 누르면 자동 → O → X 로 바뀌어요</>}
                   </p>
                 </div>
@@ -326,7 +332,7 @@ export default function ReceptionQuizPage() {
                 <table className="adm-table rca-table rcq-table">
                   <thead>
                     {q.kind === 'mission' ? (
-                      <tr><th>테이블</th><th>결과</th><th className="r">점수</th></tr>
+                      <tr><th>테이블</th><th>도전한 사람</th><th>결과</th><th className="r">점수</th></tr>
                     ) : (
                       <tr><th>테이블</th><th>답</th><th>낸 사람</th><th>자동</th><th>최종</th><th aria-label="답 입력" /></tr>
                     )}
@@ -338,6 +344,14 @@ export default function ReceptionQuizPage() {
                         return (
                           <tr key={t.table} style={delay}>
                             <td className="rcq-tno">{t.table}번</td>
+                            <td>
+                              {t.answer && t.name ? (
+                                <>
+                                  <span className="adm-cell-main rcq-who">{t.name}</span>
+                                  {t.updatedAt && <span className="adm-cell-sub adm-num">{kstHm(t.updatedAt)}</span>}
+                                </>
+                              ) : <span className="adm-cell-sub">—</span>}
+                            </td>
                             <td>
                               <div className="rcq-mission">
                                 <button type="button" className={`rcq-pick ${t.override === true ? 'on ok' : ''}`} disabled={busy === `ox:${t.table}`} onClick={() => cycleOx(t, t.override === true ? null : true)}>성공</button>

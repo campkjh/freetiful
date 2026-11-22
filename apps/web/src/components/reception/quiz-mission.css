@@ -1,0 +1,39 @@
+/* 스페셜 미션 도전(261122) — QuizMission.tsx. 손님 화면 규칙: 그라데이션·글로우 없음 · 글자 굵기 700 까지 */
+.rc-qm { margin-top: 4px; }
+.rc-qm-notes { margin: 14px auto 0; padding: 0; list-style: none; text-align: left; }
+.rc-qm-notes li { position: relative; padding: 6px 0 6px 18px; color: var(--rc-ice); font-size: 14.5px; line-height: 1.5; }
+.rc-qm-notes li::before { content: ''; position: absolute; left: 5px; top: calc(6px + 0.75em - 3px); width: 6px; height: 6px; border-radius: 3px; background: var(--rc-gold); }
+
+.rc-qm-go-wrap { display: flex; flex-direction: column; align-items: center; margin-top: 18px; }
+.rc-qm-go { width: 100%; height: 60px; border-radius: 30px; font-size: 19px; animation: rc-qm-nudge 2.4s var(--rc-ease) 0.8s infinite; }
+.rc-qm-go-hint { margin: 10px 0 0; color: var(--rc-ice-dim); font-size: 13px; }
+
+.rc-qm-ask { margin-top: 18px; padding: 18px 16px 16px; border: 1px solid var(--rc-gold-line); border-radius: 18px; background: rgba(5, 16, 70, 0.45); text-align: center; animation: rc-qm-in 0.32s var(--rc-ease); }
+.rc-qm-ask-q { margin: 0; color: #FFF3D2; font-size: 17px; font-weight: 700; }
+.rc-qm-ask-desc { margin: 6px 0 0; color: var(--rc-ice-dim); font-size: 13.5px; line-height: 1.5; }
+.rc-qm-ask-btns { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+.rc-qm-ask-btns > button { flex: 1; max-width: 160px; }
+
+.rc-qm-state { margin-top: 18px; padding: 18px 14px; border-radius: 18px; text-align: center; animation: rc-qzi-stamp 0.5s cubic-bezier(0.3, 1.45, 0.5, 1) backwards; }
+.rc-qm-state.wait { background: rgba(255, 255, 255, 0.07); border: 1px solid var(--rc-gold-line); }
+.rc-qm-state.ok { background: #F1D58C; color: var(--rc-ink); }
+.rc-qm-state.no { background: rgba(255, 255, 255, 0.07); }
+/* 성공 튀어 오름은 안쪽 점수에만 — 카드(.rc-qm-state)의 animation 이름을 바꾸면 cheer 가 빠질 때 도장이 처음부터 다시 돈다(fix 261122) */
+.rc-qm-state.cheer .rc-qm-points { animation: rc-qm-cheer 0.7s cubic-bezier(0.3, 1.45, 0.5, 1); }
+.rc-qm-badge { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 11px; border-radius: 13px; background: rgba(246, 220, 147, 0.16); color: var(--rc-gold); font-size: 13px; font-weight: 700; }
+.rc-qm-state.ok .rc-qm-badge { background: rgba(58, 38, 4, 0.12); color: var(--rc-ink); }
+.rc-qm-state.no .rc-qm-badge { background: rgba(255, 255, 255, 0.1); color: var(--rc-ice); }
+.rc-qm-state.wait .rc-qm-badge::before { content: ''; width: 7px; height: 7px; margin-right: 2px; border-radius: 50%; background: var(--rc-gold); animation: rc-breathe 1.4s ease-in-out infinite; }
+.rc-qm-who { margin: 10px 0 0; color: #FFF3D2; font-size: 20px; font-weight: 700; }
+.rc-qm-points { margin: 8px 0 0; font-size: 40px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+.rc-qm-sub { margin: 6px 0 0; color: var(--rc-ice-dim); font-size: 13.5px; line-height: 1.5; word-break: keep-all; }
+.rc-qm-state.ok .rc-qm-sub { color: rgba(58, 38, 4, 0.78); }
+.rc-qm-closed { margin: 18px 0 0; padding: 14px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); color: var(--rc-ice); font-size: 15px; font-weight: 700; text-align: center; }
+
+@keyframes rc-qm-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes rc-qm-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: scale(1.03); } 90% { transform: scale(0.99); } }
+@keyframes rc-qm-cheer { 0% { transform: scale(0.92); } 45% { transform: scale(1.06); } 100% { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-qm-go, .rc-qm-ask, .rc-qm-state, .rc-qm-state.cheer .rc-qm-points, .rc-qm-state.wait .rc-qm-badge::before { animation: none; }
+}

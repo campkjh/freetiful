@@ -23,7 +23,8 @@ export interface ReceptionParticipant {
 export interface ReceptionSurveyRow {
   deviceId: string;
   name: string;
-  answers: { rating?: number; best?: string; again?: 'yes' | 'maybe' | 'no'; comment?: string };
+  /** afterParty = 2차 회식 참여(261122 설문 첫 질문 — 옛 응답엔 없음) */
+  answers: { afterParty?: 'yes' | 'no'; rating?: number; best?: string; again?: 'yes' | 'maybe' | 'no'; comment?: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +100,8 @@ export interface TicketBlock {
   nameKey: string;
   name: string;
   at: string;
+  /** 'rename' = 테이블 배치에서 이름을 고쳐 빈 옛 이름(운영자가 지운 게 아님 — '지운 이름' 카드엔 안 보임) */
+  reason?: 'rename';
 }
 
 export interface ReceptionLive {
@@ -203,6 +206,20 @@ export interface PersonPhoto {
   at: string;
 }
 
+/** 스페셜 미션 도전(261122) — 테이블 대표 1명. id 로 판정(receptionAdminApi.judgeChallenge) */
+export type MissionResult = 'pending' | 'success' | 'fail';
+export interface PersonChallenge {
+  id: string;
+  questionId: string;
+  title: string;
+  table: number;
+  /** 성공하면 그 테이블이 받는 점수 */
+  points: number;
+  result: MissionResult;
+  /** 도전한 때(판정해도 안 바뀜) */
+  at: string;
+}
+
 /** 한 줄 = 한 사람(명단 한 줄 · 명단 밖 손님). 도착 = 응모권이 나온 때 */
 export interface PersonRow {
   /** 명단 줄 = 줄 열쇠(동명이인 '이름열쇠 @테이블'), 명단 밖 = 'x:이름열쇠' */
@@ -221,6 +238,10 @@ export interface PersonRow {
   empathiesUsed: number;
   surveyAt: string | null;
   win: ReceptionWin | null;
+  /** 스페셜 미션 도전(옛 서버는 없음) */
+  challenges?: PersonChallenge[];
+  /** 2차 회식 참여(설문 첫 질문 — 누르는 순간 저장). 안 골랐으면 null · 옛 서버는 없음 */
+  afterParty?: { going: 'yes' | 'no'; at: string | null } | null;
   devices: number;
   lastSeenAt: string | null;
 }
@@ -231,18 +252,22 @@ export interface ReceptionPeople {
   ticketsOpen: boolean;
   blocked: TicketBlock[];
   people: PersonRow[];
+  /** 테이블 퀴즈 점수(손님 점수판과 같음 — 공개된 문제 + 미션 성공). 옛 서버는 없음 */
+  quizScores?: QuizScore[];
 }
 
 /**
  * 참여자 태그 단계(261122 사장 '앱에 이름을 입력하면 해당 테이블이 최상단 · 은은한 하늘색 · 도착 태그 →
  * 럭키드로우·이벤트 참여하면 태그가 바뀌고 그때마다 색(노랑 · 보라 등)이 바뀌고 위로').
  *  · none = 아직 안 옴(태그 없음 · 맨 아래 테이블 → 좌석 → 이름 순)
- *  · 온 사람은 한 일 중 가장 최근 것이 태그 — 도착 · 퀴즈 · 베스트드레서(사진 올림 / 좋아요·공감 누름) · 설문 · 당첨.
- *    도착보다 이른 기록(행사 전 시험 데이터)은 안 센다. 시각이 같으면 당첨 > 설문 > 베스트드레서 > 퀴즈 > 도착.
+ *  · 온 사람은 한 일 중 가장 최근 것이 태그 — 도착 · 퀴즈 · 미션 도전 · 베스트드레서(사진 올림 / 좋아요·공감 누름) · 설문 · 당첨.
+ *    도착보다 이른 기록(행사 전 시험 데이터)은 안 센다. 시각이 같으면 당첨 > 설문 > 베스트드레서 > 미션 > 퀴즈 > 도착.
+ *  · (261122 사장 '퀴즈에 도전 버튼 → 참여자 명단에 실패 성공 버튼') 미션 = 도전한 때(주황) — 태그는 '미션 도전 중' → 판정하면
+ *    '미션 성공 +300점' / '미션 실패'. 판정은 시각을 안 밀어서 누르는 순간 줄이 튀지 않는다.
  *  · 온 사람끼리는 그 시각(stageAt)이 늦을수록 위 — 방금 뭔가 한 사람이 맨 위.
  */
-export type PersonStage = 'none' | 'arrived' | 'quiz' | 'dresser' | 'survey' | 'win';
-const STAGE_ORDER: Record<PersonStage, number> = { none: -1, arrived: 0, quiz: 1, dresser: 2, survey: 3, win: 4 };
+export type PersonStage = 'none' | 'arrived' | 'quiz' | 'mission' | 'dresser' | 'survey' | 'win';
+const STAGE_ORDER: Record<PersonStage, number> = { none: -1, arrived: 0, quiz: 1, mission: 2, dresser: 3, survey: 4, win: 5 };
 
 const isoMs = (v?: string | null): number | null => {
   if (!v) return null;
@@ -262,14 +287,21 @@ export interface PersonStageInfo {
   /** 그 단계 시각(ms) — none 이면 0 */
   at: number;
   quiz: boolean;
+  mission: boolean;
   dresser: boolean;
   survey: boolean;
   win: boolean;
 }
 
+/** 마지막 도전(태그 · 시각) */
+export const lastChallenge = (p: PersonRow): PersonChallenge | null => {
+  const list = p.challenges || [];
+  return list.length ? list.reduce((a, b) => (b.at > a.at ? b : a)) : null;
+};
+
 export function personStage(p: PersonRow): PersonStageInfo {
   const arrived = isoMs(p.arrivedAt);
-  if (arrived == null) return { stage: 'none', at: 0, quiz: false, dresser: false, survey: false, win: false };
+  if (arrived == null) return { stage: 'none', at: 0, quiz: false, mission: false, dresser: false, survey: false, win: false };
   let stage: PersonStage = 'arrived';
   let at = arrived;
   const seen = (s: PersonStage, t: number | null) => {
@@ -281,10 +313,11 @@ export function personStage(p: PersonRow): PersonStageInfo {
     return true;
   };
   const quiz = seen('quiz', isoMs(p.quizAt));
+  const mission = seen('mission', isoMs(lastChallenge(p)?.at));
   const dresser = seen('dresser', dresserAt(p));
   const survey = seen('survey', isoMs(p.surveyAt));
   const win = seen('win', isoMs(p.win?.at));
-  return { stage, at, quiz, dresser, survey, win };
+  return { stage, at, quiz, mission, dresser, survey, win };
 }
 
 /** 줄 순서 — 온 사람(최근 활동 위) → 안 온 사람(테이블 → 좌석 → 이름, 명단 밖은 맨 끝) */
@@ -322,6 +355,11 @@ export function stageTagText(p: PersonRow, stage: PersonStage, nowMs: number): s
   switch (stage) {
     case 'arrived': return arrivedTagText(nowMs);
     case 'quiz': return '퀴즈 참여';
+    case 'mission': {
+      const c = lastChallenge(p);
+      if (!c) return '미션 도전';
+      return c.result === 'success' ? `미션 성공 +${c.points}점` : c.result === 'fail' ? '미션 실패' : '미션 도전 중';
+    }
     case 'dresser': return '베스트드레서';
     case 'survey': return '설문 완료';
     case 'win': return p.win ? `당첨 · ${p.win.prize}` : '당첨';
@@ -481,6 +519,8 @@ export const receptionAdminApi = {
   quizAnswer: (body: { questionId: string; table: number; answer?: string | null; correct?: boolean | null }) => adminFetch('PUT', `${BASE}/quiz/answer`, body) as Promise<QuizAdmin>,
   draw: (prize: string) => adminFetch('POST', `${BASE}/draws`, { prize }) as Promise<{ draw: DrawRow; board: DrawBoard }>,
   cancelDraw: (id: string) => adminFetch('POST', `${BASE}/draws/${encodeURIComponent(id)}/cancel`) as Promise<DrawBoard>,
+  /** 미션 도전 판정 — success(점수) · fail · pending(되돌리기) · cancel(도전 지우기). 그 사이 도전이 바뀌었으면 400 */
+  judgeChallenge: (id: string, result: MissionResult | 'cancel') => adminFetch('PUT', `${BASE}/quiz/challenge`, { id, result }) as Promise<QuizAdmin>,
   /** 참여자 판 — fresh = 서버 1초 묶음 건너뛰기(방금 고친 것이 바로 보이게) */
   people: (fresh = false) => adminFetch('GET', `${BASE}/people${fresh ? '?fresh=1' : ''}`, undefined, { cache: false }) as Promise<ReceptionPeople>,
 };

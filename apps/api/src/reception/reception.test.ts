@@ -33,6 +33,8 @@ import {
   quizMine,
   quizPublicShared,
   quizQuestion,
+  quizBoardIds,
+  MISSION_CHALLENGE,
   type QuizAnswerRow,
 } from './reception-quiz';
 import { ReceptionService } from './reception.service';
@@ -399,10 +401,37 @@ test('어드민 퀴즈판 — 자동·판정·최종 · 낸 수 · 전체 채점
   assert.equal(r.tables[5].updatedAt, null);
   assert.equal(a.results.r3q3.submitted, 0);
   assert.equal(a.results.r3q3.correctCount, 1);
-  assert.deepEqual(a.board.slice(0, 2).map((b) => b.table), [1, 2]);
-  assert.equal(a.board.find((b) => b.table === 4)!.score, 0); // 미션은 아직 공개 전
+  // (261122 미션 도전) 미션은 숨길 정답이 없어 공개 전에도 점수판에 — 성공 찍은 4번 테이블 300점이 맨 위
+  assert.deepEqual(a.board.slice(0, 3).map((b) => [b.table, b.score]), [[4, 300], [1, 100], [2, 100]]);
   assert.equal(a.boardAll[0].table, 4);
   assert.equal(a.boardAll[0].score, 300);
+});
+
+test('미션 도전 — 점수판 = 공개 문제 + 미션 · 우리 테이블 결과(대기 · 성공 · 실패) · 도전 없이 결과만 찍은 줄', () => {
+  assert.deepEqual(quizBoardIds({ revealed: [] }), ['r3q3']);
+  assert.deepEqual(quizBoardIds({ revealed: ['r1q1', 'r3q3'] }), ['r1q1', 'r3q3']);
+  const open = { ...defaultQuizState(), currentId: 'r3q3', phase: 'open' as const, openedAt: at.toISOString() };
+  const rows = [
+    row('r3q3', 2, MISSION_CHALLENGE, null, '김솔'),
+    row('r3q3', 3, MISSION_CHALLENGE, true, '이하나'),
+    row('r3q3', 4, MISSION_CHALLENGE, false, '박민'),
+    row('r3q3', 5, null, false, null), // 운영팀이 도전 없이 실패만 찍음(패스)
+    row('r1q1', 2, 'freetiful'), // 공개 전 — 점수 X
+  ];
+  const pub = quizPublicShared(open, rows);
+  assert.deepEqual(pub.board.slice(0, 2).map((b) => [b.table, b.score]), [[3, 300], [1, 0]]);
+  assert.equal(pub.board.find((b) => b.table === 2)!.score, 0);
+  assert.deepEqual(pub.results, {}); // 테이블별 답은 공개 때만(지금 문제 결과는 mine 으로)
+  assert.deepEqual(quizMine(open, rows, 2), { questionId: 'r3q3', answer: MISSION_CHALLENGE, display: MISSION_CHALLENGE, name: '김솔', updatedAt: at.toISOString(), result: 'pending' });
+  assert.equal(quizMine(open, rows, 3)!.result, 'success');
+  assert.equal(quizMine(open, rows, 4)!.result, 'fail');
+  assert.deepEqual(quizMine(open, rows, 5), { questionId: 'r3q3', answer: '', display: '', name: '', updatedAt: at.toISOString(), result: 'fail' });
+  assert.equal(quizMine(open, rows, 6), null);
+  // 손님 답 내기 규칙은 그대로 — 미션은 답을 안 냄
+  assert.match((parseQuizAnswer(quizQuestion('r3q3')!, '도전') as { error: string }).error, /미션/);
+  // 보통 문제 mine 에는 result 가 없다(공개 전 정답 새지 않게)
+  const q1 = { ...open, currentId: 'r1q1' };
+  assert.equal('result' in (quizMine(q1, rows, 2) as object), false);
 });
 
 /** 응모권·명단·추첨 표만 흉내 낸 가짜 prisma — 한 사람 한 장 · 번호 겹침 다시 시도 · 추첨 중복 없음 확인용 */
@@ -1012,4 +1041,127 @@ test('어드민 답 고치기 — 판정만 바꿀 땐 답·낸 사람 안 씀 �
   await svc.adminAnswer(EK, { questionId: 'r3q3', table: 5, correct: null });
   assert.equal(deletes.length, 1);
   assert.equal(upserts.length, 3);
+});
+
+// ───────────── 2차 회식 참여(261122 설문 첫 질문) ─────────────
+
+test('설문 — 2차 회식 참여: 없으면 그대로 통과(옛 화면) · yes/no 만 · 이상한 값은 400 이유', () => {
+  const base = { rating: 5, again: 'yes', best: '', comment: '' };
+  assert.deepEqual(parseSurvey(base), { rating: 5, again: 'yes', best: '', comment: '' });
+  assert.equal('afterParty' in (parseSurvey(base) as object), false);
+  assert.equal('afterParty' in (parseSurvey({ ...base, afterParty: null }) as object), false);
+  assert.deepEqual(parseSurvey({ ...base, afterParty: 'yes' }), { afterParty: 'yes', rating: 5, again: 'yes', best: '', comment: '' });
+  assert.equal((parseSurvey({ ...base, afterParty: 'no' }) as { afterParty?: string }).afterParty, 'no');
+  for (const bad of ['maybe', '', 'YES', 1, true]) assert.equal(parseSurvey({ ...base, afterParty: bad }), '2차 회식 참여 여부를 골라 주세요.');
+  // 2차 칸이 맞아도 다른 칸이 틀리면 그 이유
+  assert.equal(parseSurvey({ afterParty: 'yes', rating: 0, again: 'yes' }), '만족도를 골라 주세요.');
+});
+
+/** 손님 표 · 설문 — 2차 회식 저장 흉내(upsert 의 create/update 그대로, 원시 SQL = 설문 답 afterParty 고치기) */
+function fakeAfterPartyPrisma() {
+  const guests = new Map<string, any>();
+  const surveys = new Map<string, any>();
+  const k = (w: any) => `${w.eventKey_deviceId.eventKey}:${w.eventKey_deviceId.deviceId}`;
+  const prisma: any = {
+    receptionGuest: {
+      findUnique: async ({ where }: any) => {
+        const g = guests.get(k(where));
+        return g ? { afterParty: g.afterParty ?? null, afterPartyAt: g.afterPartyAt ?? null } : null;
+      },
+      upsert: async ({ where, create, update }: any) => {
+        const prev = guests.get(k(where));
+        const row = prev ? Object.assign(prev, update) : { userId: null, afterParty: null, afterPartyAt: null, ...create };
+        guests.set(k(where), row);
+        return row;
+      },
+    },
+    receptionSurvey: {
+      findUnique: async ({ where }: any) => surveys.get(k(where)) ?? null,
+      upsert: async ({ where, create, update }: any) => {
+        const prev = surveys.get(k(where));
+        const row = prev ? Object.assign(prev, update, { updatedAt: new Date() }) : { ...create, createdAt: new Date(), updatedAt: new Date() };
+        surveys.set(k(where), row);
+        return row;
+      },
+    },
+    // UPDATE reception_surveys … jsonb_set — 값 순서 = going, eventKey, deviceId, going(같으면 건너뛰는 비교)
+    $executeRaw: async (strings: TemplateStringsArray, ...values: any[]) => {
+      const sql = strings.join('?');
+      assert.match(sql, /UPDATE "reception_surveys"/);
+      assert.doesNotMatch(sql, /updatedAt/);
+      const [going, eventKey, deviceId] = values;
+      const row = surveys.get(`${eventKey}:${deviceId}`);
+      if (!row) return 0;
+      row.answers = { ...row.answers, afterParty: going };
+      return 1;
+    },
+  };
+  return { prisma, guests, surveys };
+}
+
+test('2차 회식 — 누르는 순간 손님 표(줄 없으면 만듦 · 이름 맞춤) · 같은 답은 시각 그대로 · 설문과 어긋나지 않게', async () => {
+  const f = fakeAfterPartyPrisma();
+  const svc = service(f.prisma);
+  const EK = 'wmak-2026';
+
+  await assert.rejects(svc.setAfterParty(EK, D1, '', 'yes'), /이름을 먼저/);
+  await assert.rejects(svc.setAfterParty(EK, D1, '김솔', 'maybe'), /2차 회식 참여 여부/);
+  assert.equal(f.guests.size, 0);
+
+  // 설문 전 — 손님 표 줄을 만들고 2차 = yes
+  const first = await svc.setAfterParty(EK, D1, ' 김솔 ', 'yes');
+  assert.equal(first.afterParty, 'yes');
+  const g = f.guests.get(`${EK}:${D1}`);
+  assert.equal(g.name, '김솔');
+  assert.equal(g.afterParty, 'yes');
+  assert.equal(g.afterPartyAt.toISOString(), first.afterPartyAt);
+  assert.deepEqual((await svc.getSurvey(EK, D1)).afterParty, 'yes');
+  assert.equal((await svc.getSurvey(EK, D1)).survey, null);
+
+  // 같은 답 다시 — 시각 그대로(어드민 판 순서가 안 튐), 이름은 마지막 것
+  await new Promise((r) => setTimeout(r, 3));
+  const again = await svc.setAfterParty(EK, D1, '김 솔', 'yes');
+  assert.equal(again.afterPartyAt, first.afterPartyAt);
+  assert.equal(g.name, '김 솔');
+
+  // 옛 화면으로 설문(2차 칸 없음) — 먼저 눌러 둔 2차 답이 설문에도 들어간다
+  await svc.saveSurvey(EK, D1, '김솔', { rating: 5, again: 'yes' });
+  assert.equal(f.surveys.get(`${EK}:${D1}`).answers.afterParty, 'yes');
+
+  // 설문 낸 뒤 2차만 바꿈 — 손님 표 + 설문 답 둘 다, 설문 updatedAt 은 그대로
+  const surveyAt = f.surveys.get(`${EK}:${D1}`).updatedAt;
+  await new Promise((r) => setTimeout(r, 3));
+  const changed = await svc.setAfterParty(EK, D1, '김솔', 'no');
+  assert.notEqual(changed.afterPartyAt, first.afterPartyAt);
+  assert.equal(g.afterParty, 'no');
+  assert.equal(f.surveys.get(`${EK}:${D1}`).answers.afterParty, 'no');
+  assert.equal(f.surveys.get(`${EK}:${D1}`).updatedAt, surveyAt);
+
+  // 설문에 2차를 담아 내면 손님 표도 맞춘다(다른 기기는 손님 표 줄이 새로 생김)
+  const res = await svc.saveSurvey(EK, D2, '이하나', { afterParty: 'yes', rating: 4, again: 'maybe' });
+  assert.equal(res.afterParty, 'yes');
+  assert.equal(f.guests.get(`${EK}:${D2}`).afterParty, 'yes');
+  assert.equal(f.guests.get(`${EK}:${D2}`).name, '이하나');
+  await assert.rejects(svc.saveSurvey(EK, D2, '이하나', { afterParty: 'later', rating: 4, again: 'maybe' }), /2차 회식 참여 여부/);
+  assert.deepEqual(await svc.getAfterParty(EK, D3), { afterParty: null, afterPartyAt: null });
+});
+
+test('설문 화면 2차 회식 — 같은 이름 기기 여럿은 한 사람(마지막 답) · 설문 낸 기록은 어느 기기든 · 이름 없는 기기는 따로', async () => {
+  const T = (m: number) => new Date(Date.parse('2026-11-23T20:00:00+09:00') + m * 60_000);
+  const prisma = {
+    receptionGuest: { findMany: async () => [
+      { deviceId: 'a', name: '김솔', createdAt: T(0), lastSeenAt: T(5), afterParty: 'yes', afterPartyAt: T(1) },
+      { deviceId: 'b', name: '김 솔', createdAt: T(0), lastSeenAt: T(5), afterParty: 'yes', afterPartyAt: T(3) },
+      { deviceId: 'c', name: '이하나', createdAt: T(0), lastSeenAt: T(5), afterParty: 'yes', afterPartyAt: T(2) },
+      { deviceId: 'd', name: '이하나', createdAt: T(0), lastSeenAt: T(5), afterParty: 'no', afterPartyAt: T(4) },
+      { deviceId: 'e', name: '', createdAt: T(0), lastSeenAt: T(5), afterParty: 'yes', afterPartyAt: T(0) },
+    ] },
+    receptionVote: { groupBy: async () => [] },
+    receptionSurvey: { findMany: async () => [{ deviceId: 'a', name: '김솔', answers: { rating: 5, again: 'yes' }, createdAt: T(2), updatedAt: T(2) }] },
+  };
+  const svc = service(prisma);
+  (svc as any).feedRows = async () => [];
+  const o: any = await svc.adminOverview('wmak-2026');
+  assert.deepEqual(o.summary.afterParty, { yes: 2, no: 1, noSurvey: 1 });
+  assert.deepEqual(o.afterParty.map((p: any) => [p.deviceId, p.afterParty, !!p.surveyAt]), [['d', 'no', false], ['b', 'yes', true], ['e', 'yes', false]]);
 });
