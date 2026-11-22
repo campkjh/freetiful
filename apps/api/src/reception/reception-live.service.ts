@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
-import { randomInt } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { ReceptionService } from './reception.service';
@@ -21,16 +21,22 @@ import {
   ticketsOpen,
 } from './reception.rules';
 import {
+  RenameNote,
   SeatEditOp,
   TicketMove,
   applySeatEdit,
   editBlockList,
+  followRename,
+  freshNamedRows,
+  mergeRenames,
   mergeSeatMoves,
   newRowKeys,
+  parseRenames,
   parseSeatEdit,
   parseSeatMoves,
   planTicketMoves,
   renameBlocks,
+  renameNoteOf,
   sameNameArrivedBlock,
   resolveSameNameSeat,
   seatMovesOf,
@@ -48,6 +54,16 @@ export interface ReceptionMe {
   sameName: ReceptionSameName[] | null;
   ticketsOpen: boolean;
   ticket: { number: number; name: string; issuedAt: string; win: { prize: string; at: string } | null } | null;
+  /**
+   * 어드민이 이름을 고쳐 폰이 보낸 이름(옛 이름)을 새 이름으로 이었을 때만 — 폰이 보낸 이름 그대로(261123). 이때 name = 새 이름.
+   * 웹은 이걸 보면 기기에 남긴 이름을 name 으로 바꾼다(lib/reception/me.ts adoptRename). 옛 웹은 모르는 칸이라 그냥 둔다
+   */
+  renamedFrom?: string;
+}
+
+/** 손님 앱 바뀜 신호(GET pulse) — v = 자리 명단 지문. 바뀌면 손님 폰이 PUT guest 로 자기 자리 · 이름을 다시 받는다 */
+export interface ReceptionPulse {
+  v: string;
 }
 
 export interface ReceptionSameName {
@@ -126,6 +142,8 @@ export interface DrawBoard {
 }
 
 export interface SeatRow {
+  /** DB 줄 id — 이름 고친 기록(renames)이 '그 줄'을 찾을 때. 계산으로 만든 명단(seatListOf(plan.rows) 등)엔 없을 수 있다 */
+  id?: string;
   nameKey: string;
   name: string;
   tableNo: number;
@@ -138,6 +156,8 @@ export interface SeatList {
   byKey: Map<string, SeatRow>;
   /** 이름 열쇠 → 그 이름의 줄들(동명이인이면 2줄 이상, 테이블 순) */
   byName: Map<string, SeatRow[]>;
+  /** DB 줄 id → 줄(id 있는 줄만) */
+  byId: Map<string, SeatRow>;
 }
 
 /** 명단·발급 모드 묶어 두는 시간 — 손님 자리 탭이 15초마다 부르는 길(어드민이 바꾸면 바로 버림) */
@@ -152,6 +172,20 @@ const TICKETS_KEY = 'tickets';
 const BLOCKS_KEY = 'ticket-blocks';
 /** 어드민이 테이블 배치 판에서 옮긴 응모권의 옛 테이블들(reception-seats-edit.ts SeatMove) — 동명이인 손님 폰의 옛 pick 가리기 */
 const SEAT_MOVES_KEY = 'seat-moves';
+/** 어드민이 테이블 배치 판에서 이름을 고친 기록(reception-seats-edit.ts RenameNote) — 옛 이름으로 부르는 손님 폰을 새 이름으로 잇기 */
+const RENAMES_KEY = 'renames';
+
+/** 자리 명단 지문(손님 앱 바뀜 신호) — 명단 묶음 하나에 한 번만 계산. DB 는 순서를 안 정해 주니 열쇠 순으로 줄 세워 잰다 */
+const seatsVersions = new WeakMap<SeatList, string>();
+function seatsVersion(seats: SeatList): string {
+  let v = seatsVersions.get(seats);
+  if (!v) {
+    const lines = seats.rows.map((r) => `${r.nameKey}\t${r.name}\t${r.tableNo}\t${r.seatNo ?? ''}`).sort();
+    v = createHash('sha1').update(lines.join('\n')).digest('base64url').slice(0, 16);
+    seatsVersions.set(seats, v);
+  }
+  return v;
+}
 /** 당첨 푸시를 누를 때 열 곳 — 송년회 이벤트 탭 맨 위 응모권(261122) */
 const DRAW_PUSH_URL = '/reception/event';
 /** 당첨 푸시 늦추기 — 어드민 추첨 화면이 번호를 굴리다 멈추기까지 약 2.4초(admin/reception/draw). 무대에 이름이 뜬 뒤에 폰이 울리게 */
@@ -200,7 +234,9 @@ export function seatListOf(list: SeatRow[]): SeatList {
     const k = baseNameKey(r.nameKey);
     byName.set(k, [...(byName.get(k) || []), r]);
   }
-  return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])), byName };
+  const byId = new Map<string, SeatRow>();
+  for (const r of rows) if (r.id) byId.set(r.id, r);
+  return { rows, byKey: new Map(rows.map((r) => [r.nameKey, r])), byName, byId };
 }
 
 /** 명단 한 건 고치기 응답(POST seats/edit) — 웹은 이 뒤 참여자 판을 fresh 로 다시 받는다 */
@@ -232,6 +268,7 @@ export class ReceptionLiveService {
   private readonly logger = new Logger(ReceptionLiveService.name);
   private readonly seatCache = new Map<string, { at: number; p: Promise<SeatList> }>();
   private readonly modeCache = new Map<string, { at: number; p: Promise<TicketsMode> }>();
+  private readonly renameCache = new Map<string, { at: number; p: Promise<RenameNote[]> }>();
   private readonly touched = new Map<string, { name: string; userId: string | null; at: number }>();
   private readonly drawPushDelayMs = DRAW_PUSH_DELAY_MS;
 
@@ -255,12 +292,29 @@ export class ReceptionLiveService {
     const entry = {
       at: Date.now(),
       p: this.prisma.receptionSeat
-        .findMany({ where: { eventKey }, select: { nameKey: true, name: true, tableNo: true, seatNo: true } })
+        .findMany({ where: { eventKey }, select: { id: true, nameKey: true, name: true, tableNo: true, seatNo: true } })
         .then(seatListOf),
     };
     this.seatCache.set(eventKey, entry);
     entry.p.catch(() => {
       if (this.seatCache.get(eventKey) === entry) this.seatCache.delete(eventKey);
+    });
+    return entry.p;
+  }
+
+  /** 이름 고친 기록(3초 묶음, 어드민이 고치면 바로 버림) — 폰이 보낸 이름이 명단에 없을 때만 읽는다 */
+  private renames(eventKey: string): Promise<RenameNote[]> {
+    const hit = this.renameCache.get(eventKey);
+    if (hit && Date.now() - hit.at < SEATS_CACHE_MS) return hit.p;
+    const entry = {
+      at: Date.now(),
+      p: this.prisma.receptionState
+        .findUnique({ where: { eventKey_key: { eventKey, key: RENAMES_KEY } }, select: { value: true } })
+        .then((row) => parseRenames(row?.value)),
+    };
+    this.renameCache.set(eventKey, entry);
+    entry.p.catch(() => {
+      if (this.renameCache.get(eventKey) === entry) this.renameCache.delete(eventKey);
     });
     return entry.p;
   }
@@ -405,13 +459,37 @@ export class ReceptionLiveService {
    * userId = 로그인한 프리티풀 계정(없으면 null) — 손님 표·응모권에 붙여 당첨 푸시를 보낸다(261122).
    */
   async guest(eventKey: ReceptionEventKey, deviceId: string, rawName: unknown, rawPick?: unknown, userId: string | null = null): Promise<ReceptionMe> {
-    const name = cleanName(rawName);
-    if (!name) throw new BadRequestException('이름을 먼저 입력해 주세요.');
-    const key = nameKey(name);
-    const [, seats, mode] = await Promise.all([this.touchGuest(eventKey, deviceId, name, userId), this.seats(eventKey), this.ticketsMode(eventKey)]);
+    const sent = cleanName(rawName);
+    if (!sent) throw new BadRequestException('이름을 먼저 입력해 주세요.');
+    let name = sent;
+    let key = nameKey(name);
+    let pick = parseTableNo(rawPick);
+    const [seats, mode] = await Promise.all([this.seats(eventKey), this.ticketsMode(eventKey)]);
     const open = ticketsOpen(mode, Date.now());
-    const same = seats.byName.get(key) ?? [];
-    const seat = same.length === 1 ? same[0] : same.length > 1 ? await this.sameNameSeat(eventKey, deviceId, key, same, parseTableNo(rawPick)) : undefined;
+    let same = seats.byName.get(key) ?? [];
+    // 어드민이 이름을 고쳤나(261123) — 폰은 옛 이름으로 계속 부른다. 그 이름이 명단에 없거나, 동명이인 폰이 고른 테이블에 그 이름이 없을 때만 기록을 본다
+    // (평소 폴링은 안 읽음). 이으면 이후 전부(손님 표 · 자리 · 응모권) 새 이름으로, 답에 renamedFrom 을 실어 폰이 저장한 이름을 바꾸게 한다
+    let renamedFrom: string | null = null;
+    if (seats.rows.length && (same.length === 0 || (pick != null && !same.some((r) => r.tableNo === pick)))) {
+      const notes = await this.renames(eventKey);
+      // 이 이름 기록이 있을 때만 이 기기 응모권을 본다(같은 옛 이름 기록이 여럿이면 — 동명이인 둘을 다 고침 — 내 응모권이 따라간 새 이름이 내 것)
+      const deviceKeys = notes.some((x) => x.from === key)
+        ? new Set(
+            (await this.prisma.receptionTicket.findMany({ where: { eventKey, deviceId }, select: { nameKey: true } })).map((t) => baseNameKey(t.nameKey)),
+          )
+        : undefined;
+      const to = followRename(notes, key, pick, (k) => seats.byName.get(k) ?? [], (id) => seats.byId.get(id), deviceKeys);
+      if (to) {
+        renamedFrom = sent;
+        name = to.name;
+        key = nameKey(name);
+        same = seats.byName.get(key) ?? [];
+        // 폰이 고른 테이블은 옛 이름 것 — 새 이름이 동명이인이면 그 줄의 지금 테이블을 고른 것으로(줄 id 로 찾은 그 줄이라 남의 줄이 아니다)
+        pick = same.length > 1 ? to.table : null;
+      }
+    }
+    await this.touchGuest(eventKey, deviceId, name, userId);
+    const seat = same.length === 1 ? same[0] : same.length > 1 ? await this.sameNameSeat(eventKey, deviceId, key, same, pick) : undefined;
     const undecided = same.length > 1 && !seat;
     const ticket = await this.ticketFor(eventKey, seat ? seat.nameKey : key, name, deviceId, userId, open && !undecided, undecided);
     const win = ticket?.draws[0];
@@ -437,7 +515,17 @@ export class ReceptionLiveService {
             win: win ? { prize: win.prize, at: win.createdAt.toISOString() } : null,
           }
         : null,
+      ...(renamedFrom ? { renamedFrom } : {}),
     };
+  }
+
+  /**
+   * 손님 앱 바뀜 신호(261123 사장 '자리랑 이름 바뀌면 앱에서도 실시간으로 바로 바뀌어야함') — 자리 명단 지문만 준다.
+   * 손님 폰이 화면이 보일 때 2초마다 부르고, 지문이 바뀌면 PUT guest 로 자기 자리 · 이름을 다시 받는다(웹 lib/reception/me.ts).
+   * 명단 묶음(3초, 어드민이 고치면 바로 버림)만 쓰니 부를 때마다 DB 를 읽지 않는다. 이름 · 자리는 안 내보낸다(지문뿐)
+   */
+  async pulse(eventKey: ReceptionEventKey): Promise<ReceptionPulse> {
+    return { v: seatsVersion(await this.seats(eventKey)) };
   }
 
   /**
@@ -547,7 +635,8 @@ export class ReceptionLiveService {
    *    열쇠가 서로 엇갈려도 유일 열쇠가 안 겹치게 잠깐 쓰는 열쇠를 거쳐 두 번에 쓴다. 동명이인끼리 맞바꾸기는 거절(SAME_NAME_SWAP).
    *  · 이름을 고쳐 빈 옛 열쇠는 지운 이름 목록에 넣는다(같은 사람 다른 폰이 옛 이름으로 새 응모권을 받지 않게). 명단 줄에 새로 붙은 열쇠는 그 목록에서 푼다.
    *  · 테이블을 옮긴 사람 응모권의 옛 테이블을 남긴다('seat-moves') — 동명이인 폰에 남은 옛 pick 이 응모권을 옛 줄로 도로 가져가지 않게(sameNameSeat).
-   *  · 손님 앱은 15초마다 자리를 다시 받으니 명단 묶음(seatCache)만 버리면 손님 자리도 바로 따라 바뀐다.
+   *  · 이름을 고치면 그 기록을 남긴다('renames') — 손님 폰이 옛 이름으로 불러도 새 이름으로 잇고 폰이 저장한 이름도 바꾸게(guest followRename).
+   *  · 손님 앱은 2초마다 명단 지문(pulse)을 보고 바뀌면 자리를 다시 받으니 명단 묶음(seatCache)만 버리면 손님 자리 · 이름도 바로 따라 바뀐다.
    */
   async editSeats(eventKey: ReceptionEventKey, body: unknown): Promise<SeatEditResponse> {
     const op = parseSeatEdit(body);
@@ -563,6 +652,7 @@ export class ReceptionLiveService {
       throw e;
     } finally {
       this.seatCache.delete(eventKey);
+      this.renameCache.delete(eventKey);
     }
   }
 
@@ -639,6 +729,20 @@ export class ReceptionLiveService {
       const cur = await tx.receptionState.findUnique({ where, select: { value: true } });
       const value = { list: mergeSeatMoves(parseSeatMoves(cur?.value), fromTables) } as unknown as Prisma.InputJsonValue;
       await tx.receptionState.upsert({ where, create: { eventKey, key: SEAT_MOVES_KEY, value }, update: { value } });
+    }
+    //    · 이름 고친 기록 — 옛 이름으로 부르는 손님 폰을 새 이름으로 잇는다(guest followRename). 그 옛 이름을 단 줄이 새로 생기면 그 기록은 버림
+    const note = renameNoteOf(before, op, new Date().toISOString());
+    const fresh = freshNamedRows(plan);
+    const gone = plan.removed.map((r) => r.id).filter((id): id is string => !!id);
+    if (note || fresh.length || gone.length) {
+      const where = { eventKey_key: { eventKey, key: RENAMES_KEY } };
+      const cur = await tx.receptionState.findUnique({ where, select: { value: true } });
+      const list = parseRenames(cur?.value);
+      const next = mergeRenames(list, note, fresh, gone);
+      if (note || next.length !== list.length) {
+        const value = { list: next } as unknown as Prisma.InputJsonValue;
+        await tx.receptionState.upsert({ where, create: { eventKey, key: RENAMES_KEY, value }, update: { value } });
+      }
     }
     //    · 이름 고치기로 빈 옛 열쇠는 지운 이름으로(같은 사람 다른 폰이 옛 이름으로 새 응모권 X) · 명단 줄에 새로 붙은 열쇠는 풀기
     const blocks = renameBlocks(plan, done, ticketRow, tickets);

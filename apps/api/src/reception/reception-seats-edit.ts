@@ -387,3 +387,124 @@ export function editBlockList(list: ReadonlyArray<TicketBlock>, add: ReadonlyArr
     ...add.filter((a) => !free.has(a.nameKey)).map((a) => ({ nameKey: a.nameKey, name: a.name, at, ...(a.reason ? { reason: a.reason } : {}) })),
   ];
 }
+
+/* ─── 이름 고친 기록 — 옛 이름으로 부르는 손님 폰을 새 이름으로 잇기(261123 사장 '자리랑 이름 바뀌면 앱에서도 실시간으로 바로 바뀌어야함') ─── */
+
+/**
+ * reception_state 'renames' 한 줄 — 어드민이 테이블 배치 판에서 이름을 고친 기록.
+ * 손님 폰은 기기에 남긴 이름(옛 이름)으로 계속 부른다 → 서버가 이 기록으로 그 줄의 지금 이름을 찾아 그 이름으로 답하고(PUT guest renamedFrom),
+ * 폰은 저장한 이름을 새 이름으로 바꾼다(웹 lib/reception/me.ts adoptRename).
+ *  · from = 옛 이름 열쇠(꼬리 없는 이름 열쇠 — 폰이 보내는 이름에서 나오는 것)
+ *  · rowId = 고친 그 명단 줄(DB id) — 줄은 옮기기 · 이름 고치기를 해도 id 가 그대로라, 그 뒤 또 고치거나 옮겨도 '그 줄의 지금 이름 · 자리'로 잇는다
+ *    (fix 261123 교차 검토 — 이름 · 테이블을 적어 두면 연달아 고치거나 옮긴 뒤 같은 이름이 생길 때 남의 줄로 갔다). 줄이 빠지면(빼기 · 명단 통째 바꾸기) 잇지 않는다.
+ *  · table = 고칠 때 그 줄 테이블(동명이인 폰이 고른 테이블과 맞춰 보는 데만) · name = 고칠 때 새 이름(보기용)
+ *  · dup = 고칠 때 그 이름이 2줄 이상이었나(동명이인) — 옛 이름이 짝 줄로 명단에 남으니, 폰이 고른 테이블(pick)이 table 일 때만 잇는다
+ */
+export interface RenameNote {
+  from: string;
+  rowId: string;
+  name: string;
+  table: number;
+  dup: boolean;
+  at: string;
+}
+
+/** 기록 상한 — 오래된 것부터 버린다(이름 고치기는 행사 하나에 많아야 수십 번) */
+export const RENAMES_MAX = 300;
+
+/** 'renames' 읽기({ list }) — 모양이 틀린 줄은 버린다 */
+export function parseRenames(v: unknown): RenameNote[] {
+  const list = (v && typeof v === 'object' ? (v as { list?: unknown }).list : null) as unknown;
+  if (!Array.isArray(list)) return [];
+  const out: RenameNote[] = [];
+  for (const o of list) {
+    const m = (o && typeof o === 'object' ? o : {}) as Record<string, unknown>;
+    const name = cleanName(m.name);
+    const table = parseTableNo(m.table);
+    if (typeof m.from !== 'string' || !m.from || m.from.length > 80 || typeof m.rowId !== 'string' || !m.rowId || m.rowId.length > 80 || !name || table == null) continue;
+    out.push({ from: m.from, rowId: m.rowId, name, table, dup: m.dup === true, at: typeof m.at === 'string' ? m.at : '' });
+  }
+  return out;
+}
+
+/** 이번 고치기의 이름 기록(순수) — 이름 열쇠가 바뀐 rename 만(띄어쓰기만 고침 X). before = 고치기 전 명단(DB 줄이라 id 가 있다) */
+export function renameNoteOf(before: ReadonlyArray<EditSeatRow>, op: SeatEditOp, at: string): RenameNote | null {
+  if (op.op !== 'rename') return null;
+  const row = before.find((r) => r.nameKey === op.nameKey);
+  if (!row?.id) return null;
+  const from = nameKeyOf(row.name);
+  if (nameKeyOf(op.name) === from) return null;
+  const dup = before.filter((r) => nameKeyOf(r.name) === from).length > 1;
+  return { from, rowId: row.id, name: op.name, table: row.tableNo, dup, at };
+}
+
+/** 이번 고치기로 새 이름을 단 줄(순수) — 새로 넣은 줄 + 이름을 고친 그 줄(고친 뒤). 옮기기 · 맞바꾸기는 사람이 그대로라 X */
+export function freshNamedRows(plan: SeatEditPlan): EditSeatRow[] {
+  const out = [...plan.added];
+  if (plan.renamed && plan.key) {
+    const row = plan.rows.find((r) => r.nameKey === plan.key);
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+/**
+ * 기록 더하기 + 정리(순수).
+ *  · 같은 옛 이름(동명이인 기록이면 같은 테이블까지)의 옛 기록은 새것으로 갈음한다.
+ *  · 그 옛 이름을 단 줄이 이번에 새로 생겼으면(fresh — 새로 넣음 · 다른 줄을 그 이름으로 고침 · 되돌림) 그 기록은 버린다 — 이제 그 이름은 그 사람 것.
+ *    동명이인 기록은 같은 테이블에 생겼을 때만(다른 테이블이면 짝이 하나 더 늘었을 뿐이라 고른 테이블로 그대로 가린다).
+ *  · gone = 이번에 빠진 줄 id — 그 줄 기록은 버린다(잇지도 않으니 목록만 줄임).
+ */
+export function mergeRenames(
+  list: ReadonlyArray<RenameNote>,
+  note: RenameNote | null,
+  fresh: ReadonlyArray<{ name: string; tableNo: number }>,
+  gone: ReadonlyArray<string> = [],
+): RenameNote[] {
+  let out = [...list];
+  if (note) out = [...out.filter((x) => !(x.from === note.from && x.dup === note.dup && (!note.dup || x.table === note.table))), note];
+  out = out.filter((x) => !gone.includes(x.rowId) && !fresh.some((r) => nameKeyOf(r.name) === x.from && (!x.dup || r.tableNo === x.table)));
+  return out.slice(-RENAMES_MAX);
+}
+
+/**
+ * 폰이 보낸 이름이 어드민이 고친 옛 이름이면 그 줄의 지금 이름 · 테이블(순수) — 아니면 null.
+ *  · rowsOf(이름 열쇠) = 지금 명단에서 그 이름의 줄들 · rowOf(id) = 지금 명단의 그 줄(서비스 seats.byName · byId).
+ *  · 쓸 수 있는 기록: 그 줄이 아직 명단에 있고 지금 이름이 옛 이름과 다를 때 + 한 줄이던 이름 기록(dup X)은 옛 이름이 명단에서 사라졌을 때만,
+ *    동명이인 기록은 그 기록 테이블에 옛 이름 줄이 없을 때만.
+ *  · 같은 옛 이름 기록이 여럿이면(동명이인 둘을 다 고침 — 한 줄을 고치면 남은 줄이 한 줄 이름이 되어 dup X 기록이 또 생긴다) 이 순서로 고른다
+ *    (fix 261123 교차 검토 — 최근 기록부터 보면 쌍둥이 폰이 서로 상대 이름 · 자리 · 응모권으로 갔다):
+ *    ① 이 기기 응모권이 그 줄의 지금 이름이면 그 기록(받은 응모권은 이름을 따라 옮겨 간다 — 가장 확실한 내 것)
+ *    ② 폰이 고른 테이블(pick)이 기록 테이블과 같은 기록(dup 이든 아니든)
+ *    ③ 한 줄이던 이름 기록 — pick 이 없을 때나 그 옛 이름에 (살아 있는) 동명이인 기록이 없을 때만(고른 테이블이 어느 기록과도 안 맞으면 짐작하지 않고 null)
+ *  · 같은 조건이면 최근 기록. deviceKeys = 이 기기 응모권들의 이름 열쇠(꼬리 뗀 것).
+ *  · 옛 이름이 아직 명단에 있고 이 기기가 그 이름 응모권을 쥐고 있으면 잇지 않는다(남은 쌍둥이 본인).
+ */
+export function followRename<R extends { name: string; tableNo: number }>(
+  notes: ReadonlyArray<RenameNote>,
+  key: string,
+  pick: number | null,
+  rowsOf: (key: string) => ReadonlyArray<{ tableNo: number }>,
+  rowOf: (id: string) => R | undefined,
+  deviceKeys: ReadonlySet<string> = new Set(),
+): { name: string; table: number } | null {
+  const rows = rowsOf(key);
+  // 이 기기가 아직 명단에 있는 그 이름으로 응모권을 쥐고 있으면 고친 사람이 아니다(fix 261123 2차 검토) — 응모권이 있는 줄을 고치면 응모권도
+  // 새 이름으로 옮겨 가고, 응모권 있는 동명이인 줄은 고치기가 막힌다(SAME_NAME_ARRIVED). 폰의 옛 pick 이 고친 줄 테이블과 겹쳐도 잇지 않고
+  // 예전 길(한 줄 · sameNameSeat 의 응모권 줄 · seat-moves)로 둔다
+  if (rows.length > 0 && deviceKeys.has(key)) return null;
+  const alive = notes.filter((x) => {
+    if (x.from !== key) return false;
+    const row = rowOf(x.rowId);
+    return !!row && nameKeyOf(row.name) !== key;
+  });
+  const usable = alive.filter((x) => (x.dup ? !rows.some((r) => r.tableNo === x.table) : rows.length === 0)).reverse();
+  const hasDup = alive.some((x) => x.dup);
+  const note =
+    usable.find((x) => deviceKeys.has(nameKeyOf(rowOf(x.rowId)!.name))) ??
+    (pick != null ? usable.find((x) => x.table === pick) : undefined) ??
+    (pick == null || !hasDup ? usable.find((x) => !x.dup) : undefined);
+  if (!note) return null;
+  const row = rowOf(note.rowId)!;
+  return { name: row.name, table: row.tableNo };
+}

@@ -2,10 +2,12 @@
 
 // 송년회 '나' — PUT /guest 응답(ReceptionMe: 명단 자리 · 럭키드로우 응모권)을 받아 두는 곳. 자리 탭 · 퀴즈 탭 · 공용 틀이 같이 쓴다.
 // 마지막 응답을 기기에 남겨 다음에 열 때 바로 그린다(자리가 임시 → 명단으로 깜빡 바뀌지 않게). 이름이 바뀌면 남긴 것은 안 쓴다.
+// 실시간(261123 사장 '자리랑 이름 바뀌면 앱에서도 실시간으로 바로 바뀌어야함') — 화면이 보이는 동안 2초마다 명단 지문(GET pulse)만 보고,
+// 바뀌면 바로 PUT /guest 로 다시 받는다(onSeatsChange). 어드민이 이름을 고쳤으면 서버가 새 이름으로 답하고(renamedFrom) 기기 이름도 바꾼다(adoptRename).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { receptionApi, type ReceptionMe, type ReceptionSameName, type ReceptionTicket } from './api';
 import { RECEPTION_EVENT_KEY, seatFor } from './event';
-import type { ReceptionGuest } from './guest';
+import { cleanGuestName, readGuest, saveGuestName, type ReceptionGuest } from './guest';
 
 const CACHE_KEY = `freetiful-reception-${RECEPTION_EVENT_KEY}-me`;
 /** 동명이인일 때 고른 테이블 — 이름별(이름을 바꾸면 안 씀) */
@@ -97,6 +99,68 @@ export function resolveSeat(me: ReceptionMe | null, name: string): ResolvedSeat 
   return { kind: 'temp', table: s.table, seat: s.seat };
 }
 
+/**
+ * 어드민이 이름을 고쳤으면(서버가 보낸 옛 이름을 새 이름으로 이어 답함 — renamedFrom) 이 기기에 남긴 이름을 새 이름으로 바꾼다(261123).
+ * 새 이름으로 받은 값을 먼저 남겨 두니 이름이 바뀐 뒤 첫 그리기도 깜빡이지 않는다. 새 이름이 동명이인이면 서버가 고른 자리를 기기에도 남긴다.
+ * 그 사이 손님이 직접 다른 이름을 넣었으면(보낸 이름 ≠ 지금 저장된 이름) 덮지 않는다. 바꿨으면 새 이름, 아니면 null
+ */
+export function adoptRename(raw: unknown, sentName: string, me: ReceptionMe): string | null {
+  const from = (raw as { renamedFrom?: unknown } | null)?.renamedFrom;
+  const to = cleanGuestName(me.name);
+  if (typeof from !== 'string' || !from || !to || receptionNameKey(to) === receptionNameKey(sentName)) return null;
+  if (readGuest().name !== sentName) return null;
+  cacheMe(to, me);
+  saveSamePick(to, me.sameName && me.seat ? me.seat.table : null);
+  saveGuestName(to);
+  return to;
+}
+
+/* ─── 바뀜 신호 — 화면이 보일 때 2초마다 명단 지문(GET pulse). 구독이 하나라도 있을 때만 돈다(공용 틀이 늘 하나 구독) ─── */
+const PULSE_MS = 2000;
+const pulseSubs = new Set<() => void>();
+let pulseTimer: ReturnType<typeof setInterval> | null = null;
+let pulseLast: string | null = null;
+let pulseBusy = false;
+
+async function pulseTick() {
+  if (pulseBusy || typeof document === 'undefined' || document.visibilityState === 'hidden') return;
+  pulseBusy = true;
+  try {
+    const { v } = await receptionApi.pulse(readGuest().deviceId);
+    if (typeof v !== 'string' || !v) return;
+    const changed = pulseLast !== null && pulseLast !== v;
+    pulseLast = v;
+    if (changed) for (const fn of [...pulseSubs]) fn();
+  } catch {
+    /* 망 오류 · 옛 서버(404) — 다음 번에 다시. 15초 폴링은 그대로 돈다 */
+  } finally {
+    pulseBusy = false;
+  }
+}
+
+/** 자리 명단이 바뀌면(어드민이 자리 · 이름을 고침) fn. 반환 = 끊기 */
+export function onSeatsChange(fn: () => void): () => void {
+  pulseSubs.add(fn);
+  if (!pulseTimer) {
+    pulseTimer = setInterval(pulseTick, PULSE_MS);
+    void pulseTick();
+  }
+  return () => {
+    pulseSubs.delete(fn);
+    if (!pulseSubs.size && pulseTimer) {
+      clearInterval(pulseTimer);
+      pulseTimer = null;
+    }
+  };
+}
+
+/** 손님 140명이 한꺼번에 PUT /guest 로 몰리지 않게 — 바뀜을 본 뒤 0~1.5초 흩어서 */
+export const pulseJitter = () => Math.random() * 1500;
+
+/** 지금 화면에 useReceptionMe 가 몇 개 떠 있나 — 공용 틀은 0 일 때만(사진 · 순서 · 설문 탭) 스스로 다시 받아 이름 고침을 잇는다 */
+let meHooks = 0;
+export const meHookCount = () => meHooks;
+
 export type MeStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /** 요청 열쇠 — 이름 + 동명이인 고른 테이블(둘 중 하나라도 바뀌면 다른 요청) */
@@ -115,9 +179,11 @@ export function useReceptionMe(guest: ReceptionGuest | null, pollMs?: number) {
   // 고른 자리는 이름과 묶어 둔다 — 이름이 바뀐 그 그리기에서 바로 새 이름의 고른 자리를 쓴다(옛 이름 자리로 한 번 부르지 않게)
   const [picked, setPicked] = useState<{ name: string; table: number | null }>({ name: '', table: null });
   const pick = picked.name === name ? picked.table : readSamePick(name);
-  // 같은 이름·같은 고름으로 가는 중이면 겹쳐 부르지 않는다(바뀌면 바로 새로)
+  // 같은 이름·같은 고름으로 가는 중이면 겹쳐 부르지 않는다(바뀌면 바로 새로). 바뀜 신호로 부를 땐 겹쳐도 새로(force) — 늦게 온 옛 답은 순번으로 버림
   const inflight = useRef<string | null>(null);
   const current = useRef('');
+  const seq = useRef(0);
+  const applied = useRef(0);
 
   // 이름이 바뀌면 그 이름으로 남겨 둔 값·고른 자리부터
   useEffect(() => {
@@ -128,21 +194,28 @@ export function useReceptionMe(guest: ReceptionGuest | null, pollMs?: number) {
     setStatus(name ? 'loading' : 'idle');
   }, [name]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     const k = reqKey(name, pick);
-    if (!name || !deviceId || inflight.current === k) return;
+    if (!name || !deviceId || (!force && inflight.current === k)) return;
     inflight.current = k;
+    const my = ++seq.current;
     try {
       const raw = await receptionApi.guest(deviceId, name, pick);
-      if (current.current !== k) return;
+      if (current.current !== k || my < applied.current) return;
+      applied.current = my;
       const next = normalizeMe(raw, name);
+      // 어드민이 이름을 고침 — 기기 이름을 바꾸면 이 훅이 새 이름으로 다시 시작한다(남겨 둔 새 이름 값으로 바로 그림)
+      if (adoptRename(raw, name, next)) {
+        setMe(next);
+        return;
+      }
       cacheMe(name, next);
       setMe(next);
       setStatus('ready');
     } catch {
-      if (current.current === k) setStatus('error');
+      if (current.current === k && my >= applied.current) setStatus('error');
     } finally {
-      if (inflight.current === k) inflight.current = null;
+      if (inflight.current === k && my === seq.current) inflight.current = null;
     }
   }, [name, deviceId, pick]);
 
@@ -169,5 +242,28 @@ export function useReceptionMe(guest: ReceptionGuest | null, pollMs?: number) {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [name, deviceId, pollMs, load]);
 
-  return { me, status, reload: load, choose };
+  // 바뀜 신호 — 명단이 바뀌면 흩어서 바로 다시 받는다(폴링 간격과 무관 · 퀴즈 탭처럼 폴링이 없는 곳도)
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+  useEffect(() => {
+    meHooks += 1;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const off = onSeatsChange(() => {
+      if (t) return;
+      t = setTimeout(() => {
+        t = null;
+        void loadRef.current(true);
+      }, pulseJitter());
+    });
+    return () => {
+      meHooks -= 1;
+      off();
+      if (t) clearTimeout(t);
+    };
+  }, []);
+
+  const reload = useCallback(() => load(), [load]);
+  return { me, status, reload, choose };
 }

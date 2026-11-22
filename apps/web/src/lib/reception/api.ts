@@ -72,6 +72,11 @@ export interface ReceptionMe {
   sameName: ReceptionSameName[] | null;
   ticketsOpen: boolean;
   ticket: ReceptionTicket | null;
+  /**
+   * 어드민이 이름을 고쳐 서버가 보낸 이름(옛 이름)을 새 이름으로 이었을 때만 — 보낸 이름 그대로(261123). 이때 name = 새 이름.
+   * 받는 쪽은 lib/reception/me.ts adoptRename 으로 기기에 남긴 이름을 바꾼다. 옛 서버는 안 보냄
+   */
+  renamedFrom?: string;
 }
 
 /* ─── 퀴즈(서버가 정답의 유일한 출처 — 정답 칸은 공개된 문제만 온다) ─── */
@@ -188,6 +193,8 @@ export const receptionApi = {
   /** pick = 동명이인일 때 고른 테이블(고른 적 없으면 안 보냄) */
   guest: (deviceId: string, name: string, pick?: number | null) =>
     call<ReceptionMe>('/guest', deviceId, { method: 'PUT', body: JSON.stringify(pick ? { name, pick } : { name }) }),
+  /** 바뀜 신호(261123) — 자리 명단 지문만. 바뀌면 guest 로 내 자리 · 이름을 다시 받는다(lib/reception/me.ts onSeatsChange) */
+  pulse: (deviceId: string) => call<{ v: string }>('/pulse', deviceId),
   /** 퀴즈 지금 상태 · 문제 · 공개된 정답과 테이블별 답 · 점수판. table 을 주면 그 테이블의 지금 문제 답(mine)도 */
   quiz: (deviceId: string, table?: number | null) =>
     call<QuizPublic>(`/quiz${table ? `?table=${encodeURIComponent(String(table))}` : ''}`, deviceId),

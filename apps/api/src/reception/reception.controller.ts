@@ -92,6 +92,14 @@ export class ReceptionController {
     return this.live.guest(this.event(eventKey), this.device(device), body?.name, body?.pick, userId);
   }
 
+  @Get('pulse')
+  // 손님 폰이 화면이 보일 때 2초마다 부른다 — 앞단 캐시가 옛 지문을 돌려주지 않게
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '손님 앱 바뀜 신호 — 자리 명단 지문(v)만. 바뀌면 손님 폰이 PUT guest 로 자기 자리 · 이름을 다시 받는다(261123)' })
+  pulse(@Param('eventKey') eventKey: string) {
+    return this.live.pulse(this.event(eventKey));
+  }
+
   @Get('quiz')
   // 모든 손님 같은 내용 + table 별 mine — 앞단 캐시가 지난 상태를 돌려주지 않게
   @Header('Cache-Control', 'private, no-store')

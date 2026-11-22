@@ -28,7 +28,7 @@ function seatList(rows: Array<[name: string, table: number, seat?: number]>): Se
     const k = baseNameKey(r.nameKey);
     byName.set(k, [...(byName.get(k) || []), r]);
   }
-  return { rows: list, byKey: new Map(list.map((r) => [r.nameKey, r])), byName };
+  return { rows: list, byKey: new Map(list.map((r) => [r.nameKey, r])), byName, byId: new Map() };
 }
 
 let seq = 0;

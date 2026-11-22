@@ -568,7 +568,7 @@ function fakeNotifications(fail = false) {
 function liveService(prisma: any, notifications: any = fakeNotifications(), warns: string[] = [], drawPushDelayMs = 0) {
   const reception = Object.assign(Object.create(ReceptionService.prototype), { prisma, feedCache: new Map(), logger: { warn() {} } });
   return Object.assign(Object.create(ReceptionLiveService.prototype), {
-    prisma, reception, notifications, seatCache: new Map(), modeCache: new Map(), touched: new Map(), drawPushDelayMs,
+    prisma, reception, notifications, seatCache: new Map(), modeCache: new Map(), renameCache: new Map(), touched: new Map(), drawPushDelayMs,
     logger: { warn: (m: string) => { warns.push(m); }, log() {}, error() {} },
   }) as ReceptionLiveService;
 }

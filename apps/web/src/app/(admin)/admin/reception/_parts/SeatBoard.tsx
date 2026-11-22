@@ -21,7 +21,8 @@
  *  · 놓는 순간 화면에 먼저 반영(낙관) → refreshAfter(서버 POST seats/edit → 참여자 판 fresh) → 실패면 되돌리고 알림.
  *    저장 중엔 2초 폴링 값 위에 낙관 값을 덮어 그린다(덮개는 '그 사람을 그 자리로' 같은 절대값이라 서버가 이미 반영한 폴링에 또 덮어도 그대로).
  *    끄는 동안엔 판을 멈춰 둔다 — 폴링이 칩을 옮겨 손가락 밑이 바뀌지 않게.
- *  · 손님 앱은 15초마다 자기 자리를 다시 받는다(useReceptionMe) — 서버 명단만 바뀌면 손님 자리도 따라 바뀐다.
+ *  · 손님 앱은 화면이 보이는 동안 2초마다 명단 지문(GET pulse)을 보고 바뀌면 바로 자기 자리를 다시 받는다(lib/reception/me.ts) — 서버 명단만 바뀌면
+ *    손님 자리도 2~4초 안에 따라 바뀐다. 이름을 고치면 옛 이름으로 부르는 폰도 새 이름으로 이어지고 폰에 남긴 이름도 바뀐다(서버 'renames').
  *  · 같은 테이블에 같은 이름은 못 둔다(서버 parseSeatRows) — 놓기 전에 빨간 강조 + 이유, 놓으면 알림만(요청 안 보냄).
  *  · 글자 굵기 최대 700 · 그라데이션 · 글로우 없음 · 움직임 줄이기면 전환 없음. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';

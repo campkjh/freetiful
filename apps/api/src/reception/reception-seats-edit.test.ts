@@ -7,6 +7,8 @@ import {
   SEAT_NOT_FOUND,
   applySeatEdit,
   editBlockList,
+  followRename,
+  mergeRenames,
   mergeSeatMoves,
   newRowKeys,
   parseSeatEdit,
@@ -443,7 +445,7 @@ function fakeSeatPrisma() {
 function liveSvc(prisma: any) {
   const reception = Object.assign(Object.create(ReceptionService.prototype), { prisma, feedCache: new Map(), logger: { warn() {} } });
   return Object.assign(Object.create(ReceptionLiveService.prototype), {
-    prisma, reception, seatCache: new Map(), modeCache: new Map(), touched: new Map(), drawPushDelayMs: 0,
+    prisma, reception, seatCache: new Map(), modeCache: new Map(), renameCache: new Map(), touched: new Map(), drawPushDelayMs: 0,
     logger: { warn() {}, log() {}, error() {} },
   }) as ReceptionLiveService;
 }
@@ -589,7 +591,7 @@ test('editSeats + 손님 폴링 — 동명이인을 옮겨도 폰의 옛 pick �
   assert.deepEqual([fixed.seat, f.tickets[2].nameKey], [{ table: 3, seat: 1 }, '이하나 @3']);
 });
 
-test('editSeats + 손님 폴링 — 이름을 고치면 옛 이름으로 부르는 다른 폰은 새 응모권을 못 받음 · 받은 폰은 그대로', async () => {
+test('editSeats + 손님 폴링 — 이름을 고치면 옛 이름으로 부르는 폰도 새 이름 · 자리 · 같은 응모권으로 이어짐(renamedFrom) · 새 번호는 안 나옴', async () => {
   const f = fakeSeatPrisma();
   const EK = 'wmak-2026' as const;
   f.state.set(`${EK}:tickets`, { mode: 'open' });
@@ -597,20 +599,236 @@ test('editSeats + 손님 폴링 — 이름을 고치면 옛 이름으로 부르�
   const svc = liveSvc(f.prisma);
   const d1 = await svc.guest(EK, 'D1', '김솔');
   assert.equal(d1.ticket?.number, 1);
+  assert.equal('renamedFrom' in d1, false);
   // 같은 사람 두 번째 폰 — 같은 응모권
   assert.equal((await svc.guest(EK, 'D2', '김솔')).ticket?.number, 1);
 
   await svc.editSeats(EK, { op: 'rename', nameKey: '김솔', name: '김솔비' });
-  // D2 가 옛 이름으로 폴링 — 새 번호 안 나옴(명단 밖 손님 · 추첨 후보가 늘지 않게)
-  const d2 = await svc.guest(EK, 'D2', '김솔');
-  assert.deepEqual([d2.seat, d2.ticket], [null, null]);
+  // 두 폰 다 옛 이름으로 폴링 — 새 이름으로 이어 주고(폰이 저장한 이름을 바꾸게 renamedFrom) 자리 · 같은 응모권. 새 번호 안 나옴
+  for (const dev of ['D2', 'D1']) {
+    const r = await svc.guest(EK, dev, '김솔');
+    assert.deepEqual([r.name, r.renamedFrom, r.seat, r.ticket?.number, r.ticket?.name], ['김솔비', '김솔', { table: 7, seat: 3 }, 1, '김솔비']);
+  }
   assert.equal(f.tickets.length, 1);
-  // 받은 폰 D1 은 기기로 찾으니 응모권이 그대로 보인다(자리는 새 이름을 넣어야)
-  const again = await svc.guest(EK, 'D1', '김솔');
-  assert.deepEqual([again.seat, again.ticket?.number, again.ticket?.name], [null, 1, '김솔비']);
-  // 새 이름을 넣으면 자리 + 같은 응모권
+  // 새 이름으로 부르면 그대로(renamedFrom 없음)
   const renamed = await svc.guest(EK, 'D2', '김솔비');
-  assert.deepEqual([renamed.seat, renamed.ticket?.number], [{ table: 7, seat: 3 }, 1]);
+  assert.deepEqual([renamed.name, renamed.renamedFrom, renamed.seat, renamed.ticket?.number], ['김솔비', undefined, { table: 7, seat: 3 }, 1]);
+});
+
+test('이름 고친 기록 — 안 온 사람도 이어짐 · 여러 번 고치면 끝까지 · 되돌리면 멈춤 · 옛 이름이 다시 생기면 그 사람 · 그 뒤 빠지면 안 이음', async () => {
+  const f = fakeSeatPrisma();
+  const EK = 'wmak-2026' as const;
+  f.seats.push(
+    { id: 'a', eventKey: EK, nameKey: '강문주', name: '강문주', tableNo: 7, seatNo: 1 },
+    { id: 'b', eventKey: EK, nameKey: '홍현미', name: '홍현미', tableNo: 14, seatNo: 5 },
+  );
+  const svc = liveSvc(f.prisma);
+  // 발급 전(응모권 없음) — 폰이 먼저 이름만 넣어 둠
+  assert.deepEqual((await svc.guest(EK, 'P1', '강문주')).seat, { table: 7, seat: 1 });
+  await svc.editSeats(EK, { op: 'rename', nameKey: '강문주', name: '장현준' });
+  const a = await svc.guest(EK, 'P1', '강문주');
+  assert.deepEqual([a.name, a.renamedFrom, a.seat, a.ticket], ['장현준', '강문주', { table: 7, seat: 1 }, null]);
+  // 한 번 더 고침 — 옛 옛 이름으로 불러도 끝 이름으로
+  await svc.editSeats(EK, { op: 'rename', nameKey: '장현준', name: '장현중' });
+  const b = await svc.guest(EK, 'P1', '강문주');
+  assert.deepEqual([b.name, b.renamedFrom, b.seat], ['장현중', '강문주', { table: 7, seat: 1 }]);
+  assert.equal((await svc.guest(EK, 'P2', '장현준')).name, '장현중');
+  // 되돌림(장현중 → 강문주) — 강문주는 명단에 있으니 그대로, 장현준 · 장현중 폰은 강문주로
+  await svc.editSeats(EK, { op: 'rename', nameKey: '장현중', name: '강문주' });
+  const c = await svc.guest(EK, 'P1', '강문주');
+  assert.deepEqual([c.name, c.renamedFrom, c.seat], ['강문주', undefined, { table: 7, seat: 1 }]);
+  assert.deepEqual([(await svc.guest(EK, 'P2', '장현준')).name, (await svc.guest(EK, 'P3', '장현중')).name], ['강문주', '강문주']);
+  // 옛 이름(홍현미 → 임윤희 로 고친 뒤 '홍현미'를 새로 넣음) — 이제 그 이름은 새로 넣은 사람 것
+  await svc.editSeats(EK, { op: 'rename', nameKey: '홍현미', name: '임윤희' });
+  assert.equal((await svc.guest(EK, 'Q1', '홍현미')).name, '임윤희');
+  await svc.editSeats(EK, { op: 'add', name: '홍현미', table: 3, seat: 2 });
+  const d = await svc.guest(EK, 'Q1', '홍현미');
+  assert.deepEqual([d.name, d.renamedFrom, d.seat], ['홍현미', undefined, { table: 3, seat: 2 }]);
+  // 새 이름 줄이 그 뒤 빠지면 잇지 않는다(없는 이름으로 바꿔 주지 않게)
+  await svc.editSeats(EK, { op: 'rename', nameKey: '강문주', name: '강문지' });
+  await svc.editSeats(EK, { op: 'remove', nameKey: '강문지' });
+  const e = await svc.guest(EK, 'P1', '강문주');
+  assert.deepEqual([e.name, e.renamedFrom, e.seat], ['강문주', undefined, null]);
+});
+
+test('이름 고친 기록 — 동명이인 한 줄을 고치면 고른 테이블이 그 줄이던 폰만 이어짐 · 짝 폰 · 고르기 전 폰은 그대로', async () => {
+  const f = fakeSeatPrisma();
+  const EK = 'wmak-2026' as const;
+  f.seats.push(
+    { id: 'a', eventKey: EK, nameKey: '김현우 @2', name: '김현우', tableNo: 2, seatNo: 3 },
+    { id: 'b', eventKey: EK, nameKey: '김현우 @12', name: '김현우', tableNo: 12, seatNo: 5 },
+  );
+  const svc = liveSvc(f.prisma);
+  await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @12', name: '김현오' });
+  // 12번을 골라 두었던 폰 — 새 이름으로
+  const mine = await svc.guest(EK, 'D12', '김현우', 12);
+  assert.deepEqual([mine.name, mine.renamedFrom, mine.seat], ['김현오', '김현우', { table: 12, seat: 5 }]);
+  // 2번을 고른 짝 폰 · 안 고른 폰 — 남은 한 줄(2번) 그대로
+  const twin = await svc.guest(EK, 'D2', '김현우', 2);
+  assert.deepEqual([twin.name, twin.renamedFrom, twin.seat], ['김현우', undefined, { table: 2, seat: 3 }]);
+  const none = await svc.guest(EK, 'D0', '김현우');
+  assert.deepEqual([none.name, none.renamedFrom, none.seat], ['김현우', undefined, { table: 2, seat: 3 }]);
+  // 새 이름이 다시 동명이인이 되어도(다른 테이블에 '김현오' 추가) 고친 그 줄(12번)로
+  await svc.editSeats(EK, { op: 'add', name: '김현오', table: 9, seat: 1 });
+  const again = await svc.guest(EK, 'D12', '김현우', 12);
+  assert.deepEqual([again.name, again.seat], ['김현오', { table: 12, seat: 5 }]);
+  // 그 테이블(12)에 '김현우'가 새로 들어오면 기록을 버린다 — 이제 12번 김현우는 그 사람
+  await svc.editSeats(EK, { op: 'add', name: '김현우', table: 12, seat: 1 });
+  const fresh = await svc.guest(EK, 'D12', '김현우', 12);
+  assert.deepEqual([fresh.name, fresh.renamedFrom, fresh.seat], ['김현우', undefined, { table: 12, seat: 1 }]);
+});
+
+test('이름 고친 기록 — 동명이인 둘을 다 고쳐도(두 순서 모두) 각자 폰은 자기 새 이름 · 고른 테이블이 어느 기록과도 안 맞으면 짐작 안 함 · 응모권이 이김', async () => {
+  for (const order of ['12먼저', '2먼저'] as const) {
+    const f = fakeSeatPrisma();
+    const EK = 'wmak-2026' as const;
+    f.seats.push(
+      { id: 'a', eventKey: EK, nameKey: '김현우 @2', name: '김현우', tableNo: 2, seatNo: 3 },
+      { id: 'b', eventKey: EK, nameKey: '김현우 @12', name: '김현우', tableNo: 12, seatNo: 5 },
+    );
+    const svc = liveSvc(f.prisma);
+    if (order === '12먼저') {
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @12', name: '김현오' });
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우', name: '김현수' });
+    } else {
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @2', name: '김현수' });
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우', name: '김현오' });
+    }
+    const y = await svc.guest(EK, 'DY', '김현우', 12);
+    assert.deepEqual([y.name, y.seat], ['김현오', { table: 12, seat: 5 }], `${order}: 12번 폰`);
+    const x = await svc.guest(EK, 'DX', '김현우', 2);
+    assert.deepEqual([x.name, x.seat], ['김현수', { table: 2, seat: 3 }], `${order}: 2번 폰`);
+    // 엉뚱한 테이블을 고른 폰 — 짐작하지 않고 명단에 없음(예전 그대로)
+    const lost = await svc.guest(EK, 'DZ', '김현우', 7);
+    assert.deepEqual([lost.name, lost.renamedFrom, lost.seat], ['김현우', undefined, null], `${order}: 7번 폰`);
+  }
+  // 고른 테이블이 없어도 이 기기 응모권이 따라간 새 이름이 이김
+  const f = fakeSeatPrisma();
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  f.seats.push(
+    { id: 'a', eventKey: EK, nameKey: '김현우 @2', name: '김현우', tableNo: 2, seatNo: 3 },
+    { id: 'b', eventKey: EK, nameKey: '김현우 @12', name: '김현우', tableNo: 12, seatNo: 5 },
+  );
+  const svc = liveSvc(f.prisma);
+  await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @12', name: '김현오' });
+  // 12번 분이 새 이름으로 응모권을 받음(그 폰엔 옛 이름도 남아 있을 수 있다)
+  assert.equal((await svc.guest(EK, 'DY', '김현오')).ticket?.number, 1);
+  await svc.editSeats(EK, { op: 'rename', nameKey: '김현우', name: '김현수' });
+  const y = await svc.guest(EK, 'DY', '김현우');
+  assert.deepEqual([y.name, y.seat, y.ticket?.number], ['김현오', { table: 12, seat: 5 }, 1]);
+  // 응모권 없는 폰 · 고른 테이블 없음 — 한 줄이던 이름 기록(남은 2번 분)으로
+  const x = await svc.guest(EK, 'DX', '김현우');
+  assert.deepEqual([x.name, x.seat], ['김현수', { table: 2, seat: 3 }]);
+});
+
+test('이름 고친 기록 — 사슬(A→B→C) 뒤 중간 이름 B 를 다른 분께 줘도 A 폰은 C · 고친 이름이 옮긴 뒤 동명이인이 되어도 그 줄(줄 id)', async () => {
+  const f = fakeSeatPrisma();
+  const EK = 'wmak-2026' as const;
+  f.state.set(`${EK}:tickets`, { mode: 'open' });
+  f.seats.push({ id: 'a', eventKey: EK, nameKey: '강문주', name: '강문주', tableNo: 7, seatNo: 1 });
+  const svc = liveSvc(f.prisma);
+  await svc.editSeats(EK, { op: 'rename', nameKey: '강문주', name: '장현준' });
+  await svc.editSeats(EK, { op: 'rename', nameKey: '장현준', name: '장현중' });
+  await svc.editSeats(EK, { op: 'add', name: '장현준', table: 3, seat: 2 });
+  const p1 = await svc.guest(EK, 'P1', '강문주');
+  assert.deepEqual([p1.name, p1.seat], ['장현중', { table: 7, seat: 1 }]);
+  // 새로 넣은 장현준 분 폰은 그대로 자기 자리
+  assert.deepEqual((await svc.guest(EK, 'P2', '장현준')).seat, { table: 3, seat: 2 });
+
+  // 고친 이름(장현중)이 옮긴 뒤 다른 분과 같은 이름이 됨 — 기록 테이블(7)에 앉은 남의 줄로 보내지 않는다
+  await svc.editSeats(EK, { op: 'move', nameKey: '장현중', table: 4, seat: 1 });
+  await svc.editSeats(EK, { op: 'add', name: '장현중', table: 7, seat: 1 });
+  const p3 = await svc.guest(EK, 'P3', '강문주');
+  assert.deepEqual([p3.name, p3.seat, p3.sameName?.map((x) => x.table)], ['장현중', { table: 4, seat: 1 }, [4, 7]]);
+  // 그 사람 폰에 응모권이 있으면(옛 이름으로 받아 이름을 따라 옮겨 감) 그 줄
+  const g = fakeSeatPrisma();
+  g.state.set(`${EK}:tickets`, { mode: 'open' });
+  g.seats.push({ id: 'a', eventKey: EK, nameKey: '강문주', name: '강문주', tableNo: 7, seatNo: 1 });
+  const svc2 = liveSvc(g.prisma);
+  assert.equal((await svc2.guest(EK, 'P1', '강문주')).ticket?.number, 1);
+  await svc2.editSeats(EK, { op: 'rename', nameKey: '강문주', name: '장현중' });
+  await svc2.editSeats(EK, { op: 'move', nameKey: '장현중', table: 4, seat: 1 });
+  await svc2.editSeats(EK, { op: 'add', name: '장현중', table: 7, seat: 1 });
+  const own = await svc2.guest(EK, 'P1', '강문주');
+  assert.deepEqual([own.name, own.seat, own.ticket?.number], ['장현중', { table: 4, seat: 1 }, 1]);
+});
+
+test('이름 고친 기록 — 남은 쌍둥이(응모권 있음)가 옮겨진 뒤 다른 쌍둥이가 그 옛 테이블로 와서 이름을 고쳐도 남은 쌍둥이 폰은 자기 자리 · 응모권 그대로', async () => {
+  for (const how of ['옮김', '추가'] as const) {
+    const f = fakeSeatPrisma();
+    const EK = 'wmak-2026' as const;
+    f.state.set(`${EK}:tickets`, { mode: 'open' });
+    f.seats.push(
+      { id: 'p', eventKey: EK, nameKey: '김현우 @5', name: '김현우', tableNo: 5, seatNo: 1 },
+      { id: 'q', eventKey: EK, nameKey: '김현우 @7', name: '김현우', tableNo: 7, seatNo: 2 },
+    );
+    const svc = liveSvc(f.prisma);
+    assert.equal((await svc.guest(EK, 'DP', '김현우', 5, 'userP')).ticket?.number, 1);
+    await svc.editSeats(EK, { op: 'move', nameKey: '김현우 @5', table: 3, seat: 1 });
+    if (how === '옮김') {
+      await svc.editSeats(EK, { op: 'move', nameKey: '김현우 @7', table: 5, seat: 4 });
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @5', name: '김현수' });
+    } else {
+      await svc.editSeats(EK, { op: 'add', name: '김현우', table: 5, seat: 4 });
+      await svc.editSeats(EK, { op: 'rename', nameKey: '김현우 @5', name: '김현수' });
+    }
+    const p = await svc.guest(EK, 'DP', '김현우', 5, 'userP');
+    assert.deepEqual([p.name, p.renamedFrom, p.seat, p.ticket?.number], ['김현우', undefined, { table: 3, seat: 1 }, 1], how);
+    // 고친 분(김현수)이 자기 폰으로 와도 P 의 계정이 붙지 않는다
+    const q = await svc.guest(EK, 'DQ', '김현수');
+    assert.deepEqual([q.seat, q.ticket?.number], [{ table: 5, seat: 4 }, 2], how);
+    assert.equal(f.tickets.find((t) => t.number === 2)?.userId ?? null, null, how);
+  }
+});
+
+test('이름 기록 합치기 · 따라가기(순수) — 같은 옛 이름 갈음 · 새로 생긴 옛 이름 줄 · 빠진 줄은 버림 · 줄 id 로 지금 이름 · 되돌린 줄은 안 이음', () => {
+  const at = 't';
+  const n = (from: string, rowId: string, name: string, table: number, dup = false) => ({ from, rowId, name, table, dup, at });
+  assert.deepEqual(mergeRenames([n('a', 'r1', 'b', 1)], n('a', 'r2', 'c', 2), []), [n('a', 'r2', 'c', 2)]);
+  assert.deepEqual(mergeRenames([n('a', 'r1', 'b', 1), n('b', 'r1', 'c', 1)], null, [{ name: 'b', tableNo: 3 }]), [n('a', 'r1', 'b', 1)]);
+  assert.deepEqual(mergeRenames([n('a', 'r1', 'b', 1, true)], null, [{ name: 'a', tableNo: 4 }]), [n('a', 'r1', 'b', 1, true)]);
+  assert.deepEqual(mergeRenames([n('a', 'r1', 'b', 1, true)], null, [{ name: 'a', tableNo: 1 }]), []);
+  assert.deepEqual(mergeRenames([n('a', 'r1', 'b', 1), n('x', 'r2', 'y', 2)], null, [], ['r1']), [n('x', 'r2', 'y', 2)]);
+  const now = new Map([['r1', { name: '다', tableNo: 9 }], ['r3', { name: '가', tableNo: 4 }]]);
+  const rowsOf = (k: string) => [...now.values()].filter((r) => r.name === k);
+  // A→B→다(같은 줄 r1) — 한 번에 지금 이름 · 지금 테이블
+  assert.deepEqual(followRename([n('가2', 'r1', '나', 1)], '가2', null, rowsOf, (id) => now.get(id)), { name: '다', table: 9 });
+  // 줄이 빠졌으면 null · 그 줄이 옛 이름으로 되돌아갔으면 null
+  assert.equal(followRename([n('가2', 'r9', '나', 1)], '가2', null, rowsOf, (id) => now.get(id)), null);
+  assert.equal(followRename([n('가', 'r3', '나', 4)], '가', null, () => [], (id) => now.get(id)), null);
+  // 고른 테이블이 있는데 어느 기록과도 안 맞고 동명이인 기록이 있으면 짐작 안 함
+  const twins = [n('김', 'r1', '다', 12, true), n('김', 'r3', '가', 2)];
+  assert.equal(followRename(twins, '김', 7, () => [], (id) => now.get(id)), null);
+  assert.deepEqual(followRename(twins, '김', 12, () => [], (id) => now.get(id)), { name: '다', table: 9 });
+  assert.deepEqual(followRename(twins, '김', null, () => [], (id) => now.get(id)), { name: '가', table: 4 });
+  assert.deepEqual(followRename(twins, '김', null, () => [], (id) => now.get(id), new Set(['다'])), { name: '다', table: 9 });
+});
+
+test('바뀜 신호(pulse) — 명단이 그대로면 같은 지문 · 옮기기 · 이름 고치기 · 추가마다 바뀜 · 줄 순서와 무관', async () => {
+  const f = fakeSeatPrisma();
+  const EK = 'wmak-2026' as const;
+  f.seats.push(
+    { id: 'a', eventKey: EK, nameKey: '김솔', name: '김솔', tableNo: 1, seatNo: 1 },
+    { id: 'b', eventKey: EK, nameKey: '이연주', name: '이연주', tableNo: 6, seatNo: 7 },
+  );
+  const svc = liveSvc(f.prisma);
+  const v0 = (await svc.pulse(EK)).v;
+  assert.match(v0, /^[\w-]{16}$/);
+  f.seats.reverse();
+  (svc as any).seatCache.clear();
+  assert.equal((await svc.pulse(EK)).v, v0);
+  const seen = new Set([v0]);
+  for (const op of [
+    { op: 'move', nameKey: '김솔', table: 2, seat: 1 },
+    { op: 'rename', nameKey: '이연주', name: '이연지' },
+    { op: 'add', name: '박하나', table: 3, seat: null },
+  ]) {
+    await svc.editSeats(EK, op);
+    const v = (await svc.pulse(EK)).v;
+    assert.equal(seen.has(v), false, `${op.op} 뒤 지문이 그대로`);
+    seen.add(v);
+  }
 });
 
 test('동명이인 중 도착한 줄은 이름 고치기 · 빼기 거절 — 안 온 줄 · 옮기기 · 띄어쓰기만 · 동명이인 아닌 줄은 그대로', () => {

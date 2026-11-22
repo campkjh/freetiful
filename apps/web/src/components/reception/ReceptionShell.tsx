@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 import { BackIcon, EventIcon, ProgramIcon, QuizIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
 import { useReceptionGuest } from '@/lib/reception/guest';
 import { receptionApi } from '@/lib/reception/api';
-import { cacheMe, normalizeMe, readSamePick } from '@/lib/reception/me';
+import { adoptRename, cacheMe, meHookCount, normalizeMe, onSeatsChange, pulseJitter, readSamePick } from '@/lib/reception/me';
 
 // 배경 프리즘 빛줄기(261108 사장 레퍼런스 '프리즘 느낌이 배경에서 일렁이듯이') — 오른쪽 위에서 왼쪽 아래로 비스듬히 내리는 빛 + 무지개 테두리.
 // [왼쪽, 폭, 기울기, 한 번 오가는 시간, 시작 어긋남] — 서로 다른 박자로 오가며 겹쳤다 흩어진다. 그라데이션·빛 금지 규칙의 예외(배경 한정).
@@ -42,14 +42,28 @@ export default function ReceptionShell({ children, fontClassName }: { children: 
   const guest = useReceptionGuest();
   useEffect(() => {
     if (!guest?.name) return;
+    const { deviceId, name } = guest;
     const KEY = 'freetiful-reception-guest-sent';
-    try { if (sessionStorage.getItem(KEY) === guest.name) return; } catch {}
     // 동명이인으로 고른 자리도 같이(안 보내면 '안 고름' 응답이 고른 자리 캐시를 덮는다)
-    receptionApi.guest(guest.deviceId, guest.name, readSamePick(guest.name)).then((raw) => {
-      cacheMe(guest.name, normalizeMe(raw, guest.name));
-      try { sessionStorage.setItem(KEY, guest.name); } catch {}
-    }).catch(() => {});
-  }, [guest?.deviceId, guest?.name]);
+    const send = () =>
+      receptionApi.guest(deviceId, name, readSamePick(name)).then((raw) => {
+        const me = normalizeMe(raw, name);
+        // 어드민이 이름을 고침 — 기기 이름을 새 이름으로(이 효과가 새 이름으로 다시 돈다)
+        if (adoptRename(raw, name, me)) return;
+        cacheMe(name, me);
+        try { sessionStorage.setItem(KEY, name); } catch {}
+      }).catch(() => {});
+    let sent = false;
+    try { sent = sessionStorage.getItem(KEY) === name; } catch {}
+    if (!sent) void send();
+    // 바뀜 신호(261123) — 자리 · 퀴즈 · 이벤트 탭은 useReceptionMe 가 다시 받는다. 그 밖의 탭(사진 · 순서 · 설문)에서도 이름 고침이 바로 이어지게 여기서
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const off = onSeatsChange(() => {
+      if (t || meHookCount() > 0) return;
+      t = setTimeout(() => { t = null; void send(); }, pulseJitter());
+    });
+    return () => { off(); if (t) clearTimeout(t); };
+  }, [guest?.deviceId, guest?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const active = TABS.reduce((best, t) => (pathname === t.href || pathname.startsWith(`${t.href}/`) ? t : best), TABS[0] as (typeof TABS)[number]);
   return (
     <div className={`rc-theme rc-root ${fontClassName}`}>
