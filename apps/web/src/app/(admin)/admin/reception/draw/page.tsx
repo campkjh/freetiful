@@ -107,7 +107,7 @@ export default function ReceptionDrawPage() {
     if ([...name].length > PRIZE_MAX) return adminAlert(`경품 이름이 너무 길어요\n${PRIZE_MAX}자까지 적을 수 있어요.`);
     if (data && data.eligible <= 0) return adminAlert('뽑을 응모권이 없어요\n입장한 손님이 아직 없거나 모두 뽑혔어요.');
     const p = data?.prizes.find((x) => x.name === name);
-    if (p && p.drawn >= p.total && !(await adminConfirm({ title: `${eunNeun(name)} ${p.total}개 다 뽑았어요`, description: '그래도 한 번 더 뽑을까요?', confirmText: '더 뽑기' }))) return;
+    if (p && p.drawn >= p.total && !(await adminConfirm({ title: `${eunNeun(name)} ${p.total}${p.unit || '개'} 다 뽑았어요`, description: '그래도 한 번 더 뽑을까요?', confirmText: '더 뽑기' }))) return;
 
     setFrozen(data);
     setRoll({ phase: 'rolling', prize: name, shown: null, win: null });
@@ -184,7 +184,7 @@ export default function ReceptionDrawPage() {
         return (
           <button key={p.name} type="button" role="radio" aria-checked={on} className={`rcd-prize ${on ? 'on' : ''} ${left === 0 ? 'out' : ''}`} disabled={rolling} onClick={() => { setCustomOn(false); setPrize(p.name); }}>
             <b>{p.name}</b>
-            <small>{p.worth ? `${p.worth} · ` : ''}{left > 0 ? `남은 ${left} / ${p.total}` : `${p.total}개 다 뽑았어요`}</small>
+            <small>{left > 0 ? `남은 ${left} / ${p.total}${p.unit || '개'}` : `${p.total}${p.unit || '개'} 다 뽑았어요`}</small>
           </button>
         );
       })}

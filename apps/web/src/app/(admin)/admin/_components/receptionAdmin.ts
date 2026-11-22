@@ -174,7 +174,7 @@ export interface QuizAdmin {
 
 export type QuizStateAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset';
 
-export interface DrawPrize { name: string; total: number; drawn: number; /** 값어치('각 27만원 상당') — 예전 API 엔 없음 */ worth?: string }
+export interface DrawPrize { name: string; total: number; drawn: number; /** 세는 말('개' · 정장은 '벌') — 예전 API 엔 없음 */ unit?: string }
 export interface DrawRow {
   id: string;
   number: number;
