@@ -23,11 +23,19 @@
 .rdv-card-back, .rdv-card-front { position: absolute; inset: 0; display: grid; justify-items: center; align-content: center; place-content: center; gap: 4px; background: url('/reception/draw/card.webp') center / 100% 100% no-repeat; backface-visibility: hidden; -webkit-backface-visibility: hidden; text-shadow: 0 2px 5px #080613; }
 .rdv-card-back strong { font-size: 42px; line-height: 1; font-weight: 950; }
 .rdv-card-back span { font-size: 12px; font-weight: 900; }
-.rdv-card-front { transform: rotateY(180deg); align-content: end; padding: 20px 14px 49px; box-sizing: border-box; }
-.rdv-card-front img { display: block; width: 77px; height: 100px; object-fit: contain; }
-.rdv-card-front small { font-size: 12px; font-weight: 900; color: #ffdb86; }
-.rdv-card-front b { font-size: 16px; font-weight: 900; }
-.rdv-card-front strong { width: 116px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; font-weight: 950; }
+.rdv-card-front { --draw-foil: #f2ca74; --draw-shadow: #403023; --draw-dark: #1a151c; transform: rotateY(180deg); box-sizing: border-box; background: url('/reception/draw/card.webp') center / 100% 100% no-repeat; color: #fff8e9; }
+.rdv-pick-card-1 .rdv-card-front { --draw-foil: #9ee7ff; --draw-shadow: #1d4567; --draw-dark: #0a2334; }
+.rdv-pick-card-2 .rdv-card-front { --draw-foil: #fac5ff; --draw-shadow: #573671; --draw-dark: #2d1b4a; }
+.rdv-pick-card-3 .rdv-card-front { --draw-foil: #a0ebc2; --draw-shadow: #2a634e; --draw-dark: #112e2d; }
+.rdv-pick-card-4 .rdv-card-front { --draw-foil: #ffac9e; --draw-shadow: #6f303b; --draw-dark: #381c29; }
+.rdv-card-front::before { content: ''; position: absolute; inset: 12% 10% 13%; background: repeating-linear-gradient(128deg, transparent 0 8px, #ffffff10 8px 9px, transparent 9px 17px), linear-gradient(158deg, var(--draw-shadow), var(--draw-dark) 50%, var(--draw-shadow)); clip-path: polygon(50% 0, 100% 7%, 100% 91%, 50% 100%, 0 91%, 0 7%); }
+.rdv-card-front::after { content: ''; position: absolute; inset: 36% 19% 33%; border-top: 1px solid var(--draw-foil); border-bottom: 1px solid var(--draw-foil); opacity: .52; pointer-events: none; }
+.rdv-card-crest { position: absolute; inset: 17% 0 auto; color: var(--draw-foil); display: flex; justify-content: center; filter: drop-shadow(0 0 6px var(--draw-shadow)); }
+.rdv-card-identity { position: absolute; top: 50%; left: 50%; width: 79%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 8px; }
+.rdv-card-front small { position: absolute; inset: auto 0 20%; font-size: 11px; font-weight: 900; color: var(--draw-foil); }
+.rdv-card-front b { font-size: 15px; line-height: 1; font-weight: 850; color: var(--draw-foil); font-variant-numeric: tabular-nums; }
+.rdv-card-front strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 22px; line-height: 1.15; font-weight: 950; }
+.rdv-pick-card.winner .rdv-card-front small { color: #fff2b3; font-size: 14px; }
 .rdv-pick-card.winner .rdv-card-front { animation: rdv-card-won 1s .27s ease-out both; }
 @keyframes rdv-card-won { 0%, 100% { filter: drop-shadow(0 0 8px #ffcf74); } 48% { filter: brightness(1.8) drop-shadow(0 0 16px #fff4c3); } }
 @media (prefers-reduced-motion: reduce) { .rdv-card-sides { transition: none; } .rdv-pick-card.winner .rdv-card-front { animation: none; } }

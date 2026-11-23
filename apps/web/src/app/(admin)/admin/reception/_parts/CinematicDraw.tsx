@@ -1,3 +1,4 @@
+import { Crown, Gem, Orbit, Sparkles, Zap } from 'lucide-react';
 import { clamp01, lerp, out, smooth, type RevealPlan } from './draw-reveal';
 
 const ASSET = '/reception/draw';
@@ -6,6 +7,7 @@ const MC = `${ASSET}/pudding-host-1.webp`;
 const sticker = (n: number) => `/images/chat-stickers/freeti/freeti-${n}.png`;
 const pad = (n: number) => String(n).padStart(3, '0');
 const COLORS = ['#fff3bb', '#f3bb67', '#abdfff', '#ba94ff', '#fff'];
+const CRESTS = [Sparkles, Gem, Crown, Orbit, Zap];
 const pulse = (t: number, middle: number, span: number) => Math.max(0, 1 - Math.abs(t - middle) / span) ** 2;
 
 function Sparks({ time, power, center = [480, 236], count = 85 }: { time: number; power: number; center?: number[]; count?: number }) {
@@ -64,21 +66,25 @@ export function CinematicCards({ plan, t, opened, onOpen }: { plan: RevealPlan; 
       <path d="M480 282L0 40V173L480 286L960 117V0ZM480 282L0 448V510L480 285L960 477V413Z" fill="#d7c6ff" opacity={.24 * lift} />
       <ellipse cx="480" cy="486" rx={68 + lift * 172} ry="16" fill="#ffeac0" opacity={.64 * lift} />
       {plan.lineup.map((ticket, i) => {
-        const show = out((t - .771 - Math.abs(i - 2) * .024) / .12);
-        const main = i === 2;
-        const x = lerp(480, 480 + (i - 2) * 153, show), y = lerp(510, main ? 266 : 304, show);
-        const k = main ? 1.06 : .91;
+        const show = out((t - .771) / .134);
+        const x = lerp(480, 480 + (i - 2) * 176, show), y = lerp(491, 286, show);
+        const k = .85 + reveal * .15;
         const flipped = opened.includes(i);
         const winner = flipped && i === plan.winnerIndex;
-        return <g key={i} transform={`translate(${x} ${y}) rotate(${(i - 2) * 7 * show}) scale(${k * (.75 + reveal * .25)})`} opacity={show * (main ? 1 : .81)}>
+        const Crest = CRESTS[i % CRESTS.length];
+        return <g key={i} transform={`translate(${x} ${y}) scale(${k})`} opacity={show}>
           <foreignObject x="-85" y="-142" width="170" height="284">
-            <button type="button" className={`rdv-pick-card ${winner ? 'winner' : ''}`} data-open={flipped} disabled={!ticket || t < .94}
+            <button type="button" className={`rdv-pick-card rdv-pick-card-${i} ${winner ? 'winner' : ''}`} data-open={flipped} disabled={!ticket || t < .94}
               aria-label={flipped && ticket ? `${i + 1}번 카드, No. ${pad(ticket.number)} ${ticket.name}${winner ? ', 당첨' : ''}` : `${i + 1}번 카드 뒤집기`}
               aria-pressed={flipped} onClick={() => { if (!flipped) onOpen(i); }}>
               <span className="rdv-card-sides">
                 <span className="rdv-card-back" aria-hidden="true"><strong>{String(i + 1).padStart(2, '0')}</strong><span>FREETIFUL</span></span>
                 <span className="rdv-card-front" aria-hidden="true">
-                  {flipped && ticket && <><img src={MC} alt="" /><small>{winner ? '당첨' : '응모자'}</small><b>No. {pad(ticket.number)}</b><strong>{ticket.name}</strong></>}
+                  {flipped && ticket && <>
+                    <span className="rdv-card-crest"><Crest size={31} strokeWidth={1.6} /></span>
+                    <span className="rdv-card-identity"><strong title={ticket.name}>{ticket.name}</strong><b>No. {pad(ticket.number)}</b></span>
+                    <small>{winner ? '당첨' : 'LUCKY DRAW'}</small>
+                  </>}
                 </span>
               </span>
             </button>
