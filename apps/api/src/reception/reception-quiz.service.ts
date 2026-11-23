@@ -8,12 +8,14 @@ import {
   MISSION_IDS,
   QuizAdmin,
   QuizAnswerRow,
+  QuizBonus,
   QuizPublic,
   QuizState,
   applyQuizAction,
   defaultQuizState,
   isQuizAction,
   parseQuizAnswer,
+  parseQuizBonus,
   parseQuizState,
   quizAdmin,
   quizMine,
@@ -24,9 +26,12 @@ import {
 /** 퀴즈 상태·답을 묶어 두는 시간 — 손님 ~150명이 3초마다 불러도 DB 는 1초에 한두 번만(쓰면 바로 버림) */
 const QUIZ_CACHE_MS = 1000;
 const STATE_KEY = 'quiz';
+/** 추가 점수 줄(parseQuizBonus) — 진행 상태와 따로 둬서 어드민 진행 버튼의 읽고-쓰기와 안 겹친다 */
+const BONUS_KEY = 'quiz-bonus';
 
 interface QuizSnapshot {
   state: QuizState;
+  bonus: QuizBonus;
   rows: QuizAnswerRow[];
   shared: Omit<QuizPublic, 'mine'>;
 }
@@ -44,14 +49,15 @@ export class ReceptionQuizService {
 
   private async read(eventKey: string): Promise<QuizSnapshot> {
     const [st, rows] = await Promise.all([
-      this.prisma.receptionState.findUnique({ where: { eventKey_key: { eventKey, key: STATE_KEY } }, select: { value: true } }),
+      this.prisma.receptionState.findMany({ where: { eventKey, key: { in: [STATE_KEY, BONUS_KEY] } }, select: { key: true, value: true } }),
       this.prisma.receptionQuizAnswer.findMany({
         where: { eventKey },
         select: { questionId: true, tableNo: true, answer: true, name: true, correct: true, updatedAt: true },
       }),
     ]);
-    const state = parseQuizState(st?.value);
-    const shared = quizPublicShared(state, rows);
+    const state = parseQuizState(st.find((x) => x.key === STATE_KEY)?.value);
+    const bonus = parseQuizBonus(st.find((x) => x.key === BONUS_KEY)?.value);
+    const shared = quizPublicShared(state, rows, bonus);
     // 미션 도전 테이블 — 대표 좌석을 명단에서 찾아 붙인다(자리 배치도에 그 의자까지 초록 불). 못 읽으면 테이블만
     if (shared.challengers?.length) {
       try {
@@ -66,7 +72,7 @@ export class ReceptionQuizService {
         /* 좌석 못 찾음 — 테이블만 켠다 */
       }
     }
-    return { state, rows, shared };
+    return { state, bonus, rows, shared };
   }
 
   /** 묶어 둔 것 또는 새로 읽기 — 동시에 온 요청은 같은 읽기를 기다린다(만료 순간 DB 로 한꺼번에 몰리지 않게) */
@@ -198,7 +204,7 @@ export class ReceptionQuizService {
 
   async adminView(eventKey: ReceptionEventKey): Promise<QuizAdmin> {
     const snap = await this.load(eventKey, true);
-    return quizAdmin(snap.state, snap.rows);
+    return quizAdmin(snap.state, snap.rows, snap.bonus);
   }
 
   /** 어드민 진행 버튼 — open · lock · reveal · unreveal · idle · board · reset */

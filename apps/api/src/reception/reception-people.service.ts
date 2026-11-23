@@ -7,6 +7,7 @@ import {
   QuizBoardRow,
   missionResult,
   parseQuizState,
+  parseQuizBonus,
   quizBoard,
   quizBoardIds,
   quizQuestion,
@@ -340,6 +341,8 @@ export function buildPeople(input: PeopleInput): PersonRow[] {
 const TICKETS_KEY = 'tickets';
 const BLOCKS_KEY = 'ticket-blocks';
 const QUIZ_KEY = 'quiz';
+/** 퀴즈 추가 점수(reception-quiz.service.ts 와 같은 열쇠) */
+const QUIZ_BONUS_KEY = 'quiz-bonus';
 /** 태블릿 2초 폴링 — 1초 안 겹친 요청은 같은 조회 결과를 나눠 쓴다 */
 const PEOPLE_CACHE_MS = 1000;
 
@@ -368,7 +371,7 @@ export class ReceptionPeopleService {
     // 칸은 꼭 필요한 것만 고른다(select) — 다른 작업이 표에 칸을 더해도(userId 등) 이 조회는 그대로
     const [seats, state, tickets, guests, photos, photoVotes, voterVotes, surveys, quiz] = await Promise.all([
       this.live.seatList(eventKey),
-      this.prisma.receptionState.findMany({ where: { eventKey, key: { in: [TICKETS_KEY, BLOCKS_KEY, QUIZ_KEY] } }, select: { key: true, value: true } }),
+      this.prisma.receptionState.findMany({ where: { eventKey, key: { in: [TICKETS_KEY, BLOCKS_KEY, QUIZ_KEY, QUIZ_BONUS_KEY] } }, select: { key: true, value: true } }),
       this.prisma.receptionTicket.findMany({
         where: { eventKey },
         orderBy: { number: 'asc' },
@@ -430,7 +433,7 @@ export class ReceptionPeopleService {
       ),
     });
     const quizState = parseQuizState(state.find((s) => s.key === QUIZ_KEY)?.value);
-    const quizScores = quizBoard(quiz, quizBoardIds(quizState));
+    const quizScores = quizBoard(quiz, quizBoardIds(quizState), parseQuizBonus(state.find((s) => s.key === QUIZ_BONUS_KEY)?.value));
 
     return { serverTime: now.toISOString(), ticketsMode: mode, ticketsOpen: ticketsOpen(mode, now), blocked, people, quizScores };
   }

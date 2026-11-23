@@ -33,6 +33,7 @@ import {
   quizBoard,
   quizMine,
   quizPublicShared,
+  parseQuizBonus,
   quizQuestion,
   quizBoardIds,
   MISSION_CHALLENGE,
@@ -314,6 +315,24 @@ test('퀴즈 점수판 — 공개된 문제만 · 어드민 판정 우선 · 점
   ]);
   assert.equal(board.find((b) => b.table === 7)!.score, 0);
   assert.deepEqual(quizBoard(rows, []).slice(0, 3).map((b) => b.table), [1, 2, 3]);
+});
+
+test('퀴즈 추가 점수 — quiz-bonus 줄은 테이블 점수에만 더함(맞힌 수 그대로) · 모양 틀린 칸 버림', () => {
+  const bonus = parseQuizBonus({ '5': 100, '6': 200, '11': 200, '12': 100, '14': 100, '15': 200, '18': 300, '19': 500, '0': 100, x: 1, '7': 1.5, '8': '100', '9': 99999 });
+  assert.deepEqual(bonus, { 5: 100, 6: 200, 11: 200, 12: 100, 14: 100, 15: 200, 18: 300 });
+  assert.deepEqual(parseQuizBonus(null), {});
+  assert.deepEqual(parseQuizBonus([100]), {});
+  const rows: QuizAnswerRow[] = [{ questionId: 'r1q2', tableNo: 5, answer: 'X', name: '가', correct: null, updatedAt: new Date() }];
+  const board = quizBoard(rows, ['r1q2'], bonus);
+  assert.deepEqual(board.find((b) => b.table === 5), { table: 5, score: 200, correct: 1 });
+  assert.deepEqual(board.find((b) => b.table === 18), { table: 18, score: 300, correct: 0 });
+  assert.equal(board[0].table, 18);
+  assert.equal(board.find((b) => b.table === 1)!.score, 0);
+  assert.equal(quizPublicShared(defaultQuizState(), rows, bonus).board.find((b) => b.table === 6)!.score, 200);
+  const adm = quizAdmin(defaultQuizState(), rows, bonus);
+  assert.equal(adm.board.find((b) => b.table === 15)!.score, 200);
+  assert.equal(adm.boardAll.find((b) => b.table === 5)!.score, 200);
+  assert.equal(quizBoard(rows, ['r1q2']).find((b) => b.table === 5)!.score, 100);
 });
 
 test('퀴즈 진행 상태 — open · lock · reveal · unreveal · board · reset', () => {
@@ -1148,7 +1167,7 @@ test('어드민 답 고치기 — 판정만 바꿀 땐 답·낸 사람 안 씀 �
   };
   const prisma: any = {
     $transaction: async (fn: any) => fn(tx),
-    receptionState: { findUnique: async () => null },
+    receptionState: { findUnique: async () => null, findMany: async () => [] },
     receptionQuizAnswer: { findMany: async () => [] },
   };
   const svc = new ReceptionQuizService(prisma);

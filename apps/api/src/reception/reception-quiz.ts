@@ -254,10 +254,28 @@ export interface QuizBoardRow {
   correct: number;
 }
 
-/** 점수판 — 테이블 1~19 전부, questionIds 에 든 문제만 맞힌 점수 합. 점수 많은 순 → 테이블 번호 순 */
-export function quizBoard(rows: QuizAnswerRow[], questionIds: Iterable<string>): QuizBoardRow[] {
+/**
+ * 추가 점수(261123 사장 '테이블 점수 이렇게 더 추가해줘 5번 100 · 6번 200 …') — reception_state 'quiz-bonus' 한 줄 {"5":100, …}.
+ * 문제와 상관없이 그 테이블 점수에 더한다(맞힌 문제 수는 그대로). 모양이 틀린 칸은 버림 · 테이블 1~TABLE_COUNT · 한 테이블 ±10,000점까지.
+ */
+export type QuizBonus = Record<number, number>;
+export const QUIZ_BONUS_MAX = 10_000;
+export function parseQuizBonus(v: unknown): QuizBonus {
+  const out: QuizBonus = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    const table = /^\d{1,2}$/.test(k) ? Number(k) : NaN;
+    if (!Number.isInteger(table) || table < 1 || table > TABLE_COUNT) continue;
+    if (typeof raw !== 'number' || !Number.isInteger(raw) || raw === 0 || Math.abs(raw) > QUIZ_BONUS_MAX) continue;
+    out[table] = raw;
+  }
+  return out;
+}
+
+/** 점수판 — 테이블 1~19 전부, questionIds 에 든 문제만 맞힌 점수 합 + 추가 점수. 점수 많은 순 → 테이블 번호 순 */
+export function quizBoard(rows: QuizAnswerRow[], questionIds: Iterable<string>, bonus: QuizBonus = {}): QuizBoardRow[] {
   const ids = new Set(questionIds);
-  const board = Array.from({ length: TABLE_COUNT }, (_, i) => ({ table: i + 1, score: 0, correct: 0 }));
+  const board = Array.from({ length: TABLE_COUNT }, (_, i) => ({ table: i + 1, score: bonus[i + 1] ?? 0, correct: 0 }));
   for (const r of rows) {
     if (!ids.has(r.questionId) || r.tableNo < 1 || r.tableNo > TABLE_COUNT) continue;
     const question = BY_ID.get(r.questionId);
@@ -441,7 +459,7 @@ export interface QuizPublic {
 }
 
 /** 테이블과 상관없는 부분(모든 손님 같음) — 서비스가 1초 묶어 두고 mine 만 붙인다 */
-export function quizPublicShared(state: QuizState, rows: QuizAnswerRow[]): Omit<QuizPublic, 'mine'> {
+export function quizPublicShared(state: QuizState, rows: QuizAnswerRow[], bonus: QuizBonus = {}): Omit<QuizPublic, 'mine'> {
   const revealed = new Set(state.revealed);
   const results: QuizPublic['results'] = {};
   for (const question of QUIZ_QUESTIONS) {
@@ -456,7 +474,7 @@ export function quizPublicShared(state: QuizState, rows: QuizAnswerRow[]): Omit<
     state,
     questions: QUIZ_QUESTIONS.map((question) => publicQuestion(question, revealed.has(question.id))),
     results,
-    board: quizBoard(rows, quizBoardIds(state)),
+    board: quizBoard(rows, quizBoardIds(state), bonus),
     tableCount: TABLE_COUNT,
     ...(() => { const c = missionChallengers(state, rows); return c ? { challengers: c } : {}; })(),
   };
@@ -519,7 +537,7 @@ export interface QuizAdmin {
   tableCount: number;
 }
 
-export function quizAdmin(state: QuizState, rows: QuizAnswerRow[]): QuizAdmin {
+export function quizAdmin(state: QuizState, rows: QuizAnswerRow[], bonus: QuizBonus = {}): QuizAdmin {
   const results: QuizAdmin['results'] = {};
   for (const question of QUIZ_QUESTIONS) {
     const byTable = new Map(rows.filter((r) => r.questionId === question.id).map((r) => [r.tableNo, r]));
@@ -550,8 +568,8 @@ export function quizAdmin(state: QuizState, rows: QuizAnswerRow[]): QuizAdmin {
     state,
     questions: QUIZ_QUESTIONS.map((question) => publicQuestion(question, true) as QuizQuestionPublic & { answerLabel: string }),
     results,
-    board: quizBoard(rows, quizBoardIds(state)),
-    boardAll: quizBoard(rows, QUIZ_QUESTIONS.map((question) => question.id)),
+    board: quizBoard(rows, quizBoardIds(state), bonus),
+    boardAll: quizBoard(rows, QUIZ_QUESTIONS.map((question) => question.id), bonus),
     tableCount: TABLE_COUNT,
   };
 }
