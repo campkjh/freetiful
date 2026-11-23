@@ -44,3 +44,10 @@ test('animation is stable during full-screen switches, and only the selected rac
     }
   }
 });
+
+test('the fighting arena fills up to fifteen distinct slots, including the server winner', () => {
+  const plan = buildReveal(prizes[5], 'draw-15', winner, pool);
+  assert.equal(plan.lineup.length, 15);
+  assert.equal(new Set(plan.lineup.map(ticket => ticket?.number)).size, 15);
+  assert.equal(plan.lineup[plan.winnerIndex]?.number, winner.number);
+});

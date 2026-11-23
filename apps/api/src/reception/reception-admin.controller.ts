@@ -151,4 +151,12 @@ export class ReceptionAdminController {
   cancelDraw(@Param('eventKey') eventKey: string, @Param('id') id: string) {
     return this.live.cancelDraw(this.event(eventKey), id);
   }
+
+  @Post(':eventKey/draws/reset')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '선택 행사 추첨 기록 전체 삭제 — 응모권과 자리 명단 유지' })
+  resetDraws(@Param('eventKey') eventKey: string, @Body() body: { expectedIds?: unknown }) {
+    return this.live.resetDraws(this.event(eventKey), body?.expectedIds);
+  }
 }

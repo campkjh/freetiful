@@ -4,10 +4,12 @@
  *  · 뽑기는 서버가 한다(crypto.randomInt, 겹쳐 눌러도 같은 사람 두 번 안 나옴). 여기선 연출만 —
  *    서버 결과를 받은 뒤 경품별 연출을 재생하고 이름 · 번호 · 테이블을 발표한다.
  *  · 자리에 없으면 [무효] → 그 응모권은 다시 안 뽑고(서버 규칙), 같은 경품으로 한 번 더 추첨.
- *  · [크게 보기] = 대표님이 직접 누르는 전체 화면(판 안에도 경품 고르기 · 추첨 버튼).
+ *  · [크게 보기] = 현재 경품만 보여 주는 무대 전체 화면.
  *  · 굴리는 동안 표 · 숫자 · 경품 남은 수는 누르기 직전 값으로 묶어 둔다 — 서버 응답·폴링이 먼저 와도 당첨자가 미리 안 드러나게.
  *  · 화면 읽기: 굴리는 번호는 숨기고(실명이 줄줄이 읽힘), 멈춘 뒤 당첨 한 줄만 알린다. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { Maximize, Trash2 } from 'lucide-react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { adminAlert, adminConfirm } from '../../_components/adminDialog';
@@ -84,8 +86,34 @@ export default function ReceptionDrawPage() {
   const [frozen, setFrozen] = useState<DrawBoard | null>(null);
   const [stage, setStage] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   const alive = useRef(true);
   const drawing = useRef(false);
+  const resettingRef = useRef(false);
+  const stageSurface = useRef<HTMLDivElement>(null);
+  const wasFullscreen = useRef(false);
+
+  const closeStage = useCallback(() => {
+    if (stageSurface.current && document.fullscreenElement === stageSurface.current) void document.exitFullscreen().catch(() => {});
+    setStage(false);
+  }, []);
+
+  const openStage = () => {
+    flushSync(() => setStage(true));
+    void stageSurface.current?.requestFullscreen?.().catch(() => {});
+  };
+
+  useEffect(() => {
+    const sync = () => {
+      if (stageSurface.current && document.fullscreenElement === stageSurface.current) wasFullscreen.current = true;
+      else if (wasFullscreen.current) {
+        wasFullscreen.current = false;
+        setStage(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
   // 개발 모드 StrictMode 는 마운트를 두 번 하므로 들어올 때 다시 true 로
   useEffect(() => {
     alive.current = true;
@@ -100,6 +128,18 @@ export default function ReceptionDrawPage() {
   }, [data, prize]);
 
   const prizeName = (customOn ? custom : prize).trim();
+  const currentTheme = useMemo(() => revealTheme(prizeName).kind, [prizeName]);
+
+  useEffect(() => {
+    if (!prizeName) return;
+    const file = new Image();
+    file.src = `/reception/draw/${currentTheme}.webp`;
+    const extra = currentTheme === 'fight' ? Array.from({ length: 15 }, (_, i) => `fighter-${i + 1}`) : currentTheme === 'cards' ? ['card'] : [];
+    for (const name of extra) {
+      const image = new Image();
+      image.src = `/reception/draw/${name}.webp`;
+    }
+  }, [prizeName, currentTheme]);
 
   /** 무대 연출에 쓸 실제 응모권. 추첨 대상자는 서버가 결정한다. */
   const pool = useMemo(() => {
@@ -122,7 +162,7 @@ export default function ReceptionDrawPage() {
   }, [roll.scene, finish, reduce]);
 
   const runDraw = async () => {
-    if (drawing.current || roll.phase === 'rolling') return;
+    if (resettingRef.current || busy || drawing.current || roll.phase === 'rolling') return;
     const name = prizeName;
     if (!name) return adminAlert('경품을 골라 주세요\n직접 입력이면 경품 이름을 적어 주세요.');
     if ([...name].length > PRIZE_MAX) return adminAlert(`경품 이름이 너무 길어요\n${PRIZE_MAX}자까지 적을 수 있어요.`);
@@ -154,11 +194,13 @@ export default function ReceptionDrawPage() {
       if (!alive.current) return;
       setFrozen(null);
       setRoll({ phase: 'idle', prize: name, win: null });
+      if (stage) closeStage();
       await adminAlert(`추첨하지 못했어요\n${adminErrorText(error, '다시 눌러 주세요')}`);
     }
   };
 
   const cancel = async (d: DrawRow) => {
+    if (resettingRef.current || drawing.current) return;
     if (!(await adminConfirm({ title: `${ticketLabel(d.number)} ${d.name} 님 당첨을 무효로 할까요?`, description: `자리에 없을 때만 무효로 해 주세요. 이 응모권은 다시 뽑히지 않아요. ${eunNeun(d.prize)} 한 번 더 추첨하면 돼요.`, confirmText: '무효' }))) return;
     setBusy(d.id);
     try {
@@ -177,9 +219,28 @@ export default function ReceptionDrawPage() {
   const draws = useMemo(() => [...(view?.draws || [])].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)), [view]);
   const won = draws.filter((d) => !d.cancelled).length;
   const voided = draws.length - won;
+  const selected = view?.prizes.find(p => p.name === prizeName);
+  const outOfStock = !!selected && selected.drawn >= selected.total;
 
-  const prizePicker = (onDark = false) => (
-    <div className={`rcd-prizes ${onDark ? 'dark' : ''}`} role="radiogroup" aria-label="경품">
+  const clearHistory = async () => {
+    if (resettingRef.current || drawing.current || busy || !draws.length) return;
+    const expectedIds = draws.map(d => d.id);
+    resettingRef.current = true;
+    setResetting(true);
+    try {
+      if (!await adminConfirm({ title: `추첨 내역 ${expectedIds.length}건을 모두 삭제할까요?`, description: '확정·무효 기록을 모두 지워요. 응모권과 자리 명단은 유지되며, 기존 응모권은 다시 추첨 대상이 됩니다. 이미 발송된 알림은 회수되지 않아요. 이 작업은 되돌릴 수 없어요.', confirmText: '모두 삭제' })) return;
+      await mutate(() => receptionAdminApi.resetDraws(expectedIds));
+      setRoll({ phase: 'idle', prize: '', win: null });
+    } catch (e) {
+      await adminAlert(`삭제하지 못했어요\n${adminErrorText(e)}`);
+    } finally {
+      resettingRef.current = false;
+      setResetting(false);
+    }
+  };
+
+  const prizePicker = (
+    <div className="rcd-prizes" role="radiogroup" aria-label="경품">
       {(view?.prizes || []).map((p) => {
         const left = Math.max(0, p.total - p.drawn);
         const on = !customOn && prize === p.name;
@@ -236,12 +297,14 @@ export default function ReceptionDrawPage() {
             <p className="adm-card-title">경품 고르기</p>
             <p className="adm-card-sub">고른 경품으로 응모권 한 장을 뽑아요</p>
           </div>
-          <button type="button" className="adm-btn" onClick={() => setStage(true)}>크게 보기</button>
+          <button type="button" className="adm-btn" onClick={openStage} disabled={!prizeName || resetting}>
+            <Maximize size={16} aria-hidden="true" /> 크게 보기
+          </button>
         </div>
-        {prizePicker()}
+        {prizePicker}
         {customInput}
         {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} />}
-        <button type="button" className="rcd-go" disabled={rolling || view.eligible <= 0} onClick={runDraw}>
+        <button type="button" className="rcd-go" disabled={rolling || resetting || !!busy || view.eligible <= 0} onClick={runDraw}>
           {rolling ? '추첨 중…' : view.eligible <= 0 ? '뽑을 응모권이 없어요' : '추첨하기'}
         </button>
       </section>
@@ -251,6 +314,9 @@ export default function ReceptionDrawPage() {
           <div className="adm-toolbar">
             <p className="rcd-list-title">당첨 목록</p>
             <span className="adm-count grow" style={{ textAlign: 'right' }}>총 <b><RollingNumber value={draws.length} /></b>건</span>
+            <button type="button" className="adm-btn danger sm" disabled={!draws.length || rolling || resetting || !!busy} onClick={clearHistory}>
+              <Trash2 size={16} aria-hidden="true" /> {resetting ? '확인 중…' : '전체 삭제'}
+            </button>
           </div>
         }
       >
@@ -281,7 +347,7 @@ export default function ReceptionDrawPage() {
                       {d.cancelled ? (
                         <span className="adm-badge">무효</span>
                       ) : (
-                        <button type="button" className="adm-btn ghost sm rca-del" disabled={busy === d.id || rolling} onClick={() => cancel(d)}>무효</button>
+                        <button type="button" className="adm-btn ghost sm rca-del" disabled={!!busy || rolling || resetting} onClick={() => cancel(d)}>무효</button>
                       )}
                     </td>
                   </tr>
@@ -292,16 +358,12 @@ export default function ReceptionDrawPage() {
         )}
       </AdminListCard>
 
-      <ReceptionStage open={stage} onClose={() => setStage(false)} label="럭키드로우 크게 보기">
-        <div className="rcd-stage">
-          <p className="rcs-eyebrow">LUCKY DRAW</p>
+      <ReceptionStage open={stage} onClose={closeStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface}>
+        <div className={`rcd-presentation rdv-${roll.phase === 'idle' ? currentTheme : revealTheme(roll.prize).kind}`}>
           <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} />
-          {prizePicker(true)}
-          {customInput}
-          <button type="button" className="rcd-go big" disabled={rolling || view.eligible <= 0} onClick={runDraw}>
-            {rolling ? '추첨 중…' : view.eligible <= 0 ? '뽑을 응모권이 없어요' : '추첨하기'}
-          </button>
-          <p className="rcd-stage-sub">뽑을 수 있는 응모권 {view.eligible}장</p>
+          {!rolling && <button type="button" className="rcd-presentation-action" disabled={view.eligible <= 0 || outOfStock || resetting || !!busy} onClick={runDraw}>
+            {outOfStock ? '추첨 완료' : view.eligible <= 0 ? '남은 응모권 없음' : '추첨하기'}
+          </button>}
         </div>
       </ReceptionStage>
     </div>

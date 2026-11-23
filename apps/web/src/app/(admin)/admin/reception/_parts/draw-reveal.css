@@ -1,18 +1,55 @@
-.rdv-scene { position: relative; isolation: isolate; overflow: hidden; width: min(100%, 840px); margin-block: 12px; border: 1px solid #ffffff24; border-radius: 8px; background: #252340; letter-spacing: 0; }
+.rdv-scene { position: relative; isolation: isolate; overflow: hidden; width: min(100%, 960px); margin-block: 12px; border: 1px solid #ffffff24; border-radius: 8px; background: #141721 var(--rdv-artwork) center / cover no-repeat; letter-spacing: 0; }
+.rdv-scene::before { content: ''; position: absolute; inset: 0; z-index: -1; background: #0a112b36; }
 .rdv-art { display: block; width: 100%; height: auto; aspect-ratio: 840 / 340; }
+.rdv-fight-art { aspect-ratio: 16 / 9; }
 .rdv-art text { font-family: inherit; paint-order: stroke; stroke: #131725; stroke-width: 1px; stroke-opacity: .45; stroke-linejoin: round; }
 .rdv-tag text { stroke-width: 2.5px; stroke-opacity: .7; }
 .rdv-progress { position: absolute; inset: auto 0 0; height: 3px; background: #ffdb8d; transform-origin: left; }
-.rdv-fight { background: linear-gradient(#231a32, #4c2f4e); }
-.rdv-race { background: #182d38; }
-.rdv-cards { background: linear-gradient(#17182a, #25294b); }
-.rdv-pinball { background: #171b32; }
-.rdv-wheel { background: #232033; }
-.rdv-capsule { background: #37243e; }
-.rdv-vault { background: #232025; }
+.rdv-fight { --rdv-artwork: url('/reception/draw/fight.webp'); }
+.rdv-race { --rdv-artwork: url('/reception/draw/race.webp'); }
+.rdv-cards { --rdv-artwork: url('/reception/draw/cards.webp'); }
+.rdv-pinball { --rdv-artwork: url('/reception/draw/pinball.webp'); }
+.rdv-wheel { --rdv-artwork: url('/reception/draw/wheel.webp'); }
+.rdv-capsule { --rdv-artwork: url('/reception/draw/capsule.webp'); }
+.rdv-vault { --rdv-artwork: url('/reception/draw/vault.webp'); }
+.rdv-sprite { image-rendering: pixelated; }
+.rdv-art .rdv-arcade-command { font-family: Impact, 'Arial Black', system-ui, sans-serif; font-size: 85px; font-weight: 950; font-style: italic; stroke: #6d242c; stroke-width: 9px; stroke-opacity: 1; }
+.rdv-art .rdv-arcade-depth { fill: #100f1d; stroke: #100f1d; stroke-width: 18px; }
+.rdv-art .rdv-arena-winner { fill: #fff1b7; font-size: 28px; font-weight: 900; stroke-width: 7px; stroke-opacity: 1; }
+.rdv-card-foil { filter: saturate(.8) drop-shadow(0 10px 10px #050916a0); }
+.rdv-card-foil-1, .rdv-card-foil-4 { filter: hue-rotate(36deg) saturate(.78) drop-shadow(0 10px 10px #050916a0); }
+.rdv-card-foil-2, .rdv-card-foil-3 { filter: hue-rotate(-18deg) saturate(.78) drop-shadow(0 10px 10px #050916a0); }
+.rdv-card-winner { filter: drop-shadow(0 0 15px #ffdb8c) drop-shadow(0 3px 7px #050916); }
+.rdv-backed-metal { filter: drop-shadow(0 8px 13px #0009); }
+.rdv-ball { filter: drop-shadow(0 0 8px #f7bc70); }
 .rdv-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; min-height: 32px; margin-top: 4px; color: #f6dc93; font-size: 13px; font-weight: 700; letter-spacing: 0; }
 .rdv-controls button { padding: 7px 11px; border: 1px solid #ffffff36; border-radius: 6px; background: transparent; color: #fff; cursor: pointer; font: inherit; }
 .rdv-controls button:hover, .rdv-controls button:focus-visible { background: #ffffff1b; }
 .rdv-wait { width: 32px; height: 32px; margin-block: 23px; border: 3px solid #ffffff30; border-top-color: #f6dc93; border-radius: 50%; animation: rdv-wait .7s linear infinite; }
 @keyframes rdv-wait { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rdv-wait { animation: none; } }
+
+.rca-stage.rca-stage-presentation { padding: 0; overflow: hidden; background: #090d19; }
+.rca-stage-presentation .rca-stage-body { position: relative; width: 100%; height: 100%; max-width: none; min-height: 0; padding: 0; }
+.rca-stage-presentation .rca-stage-close { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 5; width: 44px; height: 44px; justify-content: center; padding: 0; border-radius: 8px; background: #101726bd; }
+.rcd-presentation { position: relative; flex: 1; display: grid; place-items: center; overflow: hidden; isolation: isolate; background: #10182b var(--rdv-artwork) center / cover no-repeat; }
+.rcd-presentation::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(#091226d9 0%, #09122630 32%, #091226a3 100%); }
+.rcd-presentation .rcd-screen { width: 100%; height: 100%; min-height: 0; gap: 12px; padding: 80px 24px 44px; }
+.rcd-presentation .rcd-screen.rolling .rcd-prize-label { position: absolute; inset: max(16px, env(safe-area-inset-top)) 66px auto; z-index: 2; line-height: 1.25; overflow-wrap: anywhere; text-shadow: 0 2px 10px #080b13; }
+.rcd-presentation .rdv-scene { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; }
+.rcd-presentation .rdv-art { position: absolute; inset: 7% 0 4%; width: 100%; height: 89%; aspect-ratio: auto; }
+.rcd-presentation .rdv-fight-art { inset: 0; height: 100%; }
+.rcd-presentation .rdv-controls { position: absolute; z-index: 2; right: 16px; bottom: max(12px, env(safe-area-inset-bottom)); margin: 0; }
+.rcd-presentation .rdv-controls > span { display: none; }
+.rcd-presentation .rdv-controls button { background: #111a2bc9; }
+.rcd-presentation .rcd-result { max-width: 100%; text-shadow: 0 3px 22px #0a0a17; }
+.rcd-presentation .rcd-name { overflow-wrap: anywhere; line-height: 1.08; }
+.rcd-presentation .rcd-prize-label { overflow-wrap: anywhere; }
+.rcd-presentation-action { position: absolute; bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px)); left: 50%; transform: translateX(-50%); min-width: 158px; padding: 13px 24px; border: 1px solid #ffdf95; border-radius: 8px; background: #f6dc93; color: #181322; font-size: 17px; font-weight: 800; cursor: pointer; }
+.rcd-presentation-action:hover { background: #ffebaf; }
+.rcd-presentation-action:disabled { opacity: .5; cursor: default; }
+@media (max-width: 600px) {
+  .rcd-presentation .rcd-screen.big .rcd-prize-label { font-size: 17px; }
+  .rcd-presentation .rdv-art { inset-block: 12% 9%; height: 79%; }
+  .rcd-presentation .rcd-result { max-width: 100%; }
+}

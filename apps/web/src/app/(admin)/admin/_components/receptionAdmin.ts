@@ -519,6 +519,7 @@ export const receptionAdminApi = {
   quizAnswer: (body: { questionId: string; table: number; answer?: string | null; correct?: boolean | null }) => adminFetch('PUT', `${BASE}/quiz/answer`, body) as Promise<QuizAdmin>,
   draw: (prize: string) => adminFetch('POST', `${BASE}/draws`, { prize }) as Promise<{ draw: DrawRow; board: DrawBoard }>,
   cancelDraw: (id: string) => adminFetch('POST', `${BASE}/draws/${encodeURIComponent(id)}/cancel`) as Promise<DrawBoard>,
+  resetDraws: (expectedIds: string[]) => adminFetch('POST', `${BASE}/draws/reset`, { expectedIds }) as Promise<DrawBoard>,
   /** 미션 도전 판정 — success(점수) · fail · pending(되돌리기) · cancel(도전 지우기). 그 사이 도전이 바뀌었으면 400 */
   judgeChallenge: (id: string, result: MissionResult | 'cancel') => adminFetch('PUT', `${BASE}/quiz/challenge`, { id, result }) as Promise<QuizAdmin>,
   /** 참여자 판 — fresh = 서버 1초 묶음 건너뛰기(방금 고친 것이 바로 보이게) */

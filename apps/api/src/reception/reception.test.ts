@@ -533,6 +533,13 @@ function fakeLivePrisma() {
     },
     receptionDraw: {
       findMany: async ({ where }: any) => draws.filter((d) => d.eventKey === where.eventKey).sort((a, b) => b.createdAt - a.createdAt),
+      deleteMany: async ({ where }: any) => {
+        let count = 0;
+        for (let i = draws.length - 1; i >= 0; i--) {
+          if (draws[i].eventKey === where.eventKey && where.id.in.includes(draws[i].id)) { draws.splice(i, 1); count++; }
+        }
+        return { count };
+      },
       findFirst: async ({ where }: any) =>
         draws.find((d) => d.id === where.id && d.eventKey === where.eventKey && (where.cancelledAt !== null || !d.cancelledAt)) ?? null,
       create: async ({ data }: any) => { const d = { id: `d${++n}`, createdAt: new Date(Date.now() + n), cancelledAt: null, ...data }; draws.push(d); return d; },
@@ -770,6 +777,26 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   await svc.deleteTicket(EK, t.id);
   assert.equal(f.draws.some((d) => d.ticketId === t.id), false);
   await assert.rejects(svc.deleteTicket(EK, t.id), /찾을 수 없어요/);
+});
+
+test('reset clears only the confirmed event draw history and makes its tickets eligible again', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const event = 'wmak-2026' as const;
+  f.state.set(`${event}:tickets`, { mode: 'open' });
+  await svc.guest(event, D1, '김솔');
+  await svc.guest(event, D2, '이하나');
+  const a = await svc.draw(event, '첫 경품');
+  const b = await svc.draw(event, '둘째 경품');
+  await svc.cancelDraw(event, a.draw.id);
+  f.draws.push({ ...f.draws[0], eventKey: 'another-event', id: 'elsewhere' });
+  await assert.rejects(svc.resetDraws(event, []), /확인해 주세요/);
+  await assert.rejects(svc.resetDraws(event, [a.draw.id]), /내역이 바뀌었어요/);
+  const board = await svc.resetDraws(event, [a.draw.id, b.draw.id]);
+  assert.deepEqual(board.draws, []);
+  assert.equal(board.tickets, 2);
+  assert.equal(board.eligible, 2);
+  assert.deepEqual(f.draws.map(d => d.id), ['elsewhere']);
 });
 
 test('응모권 — 한 기기 한 장(이름만 바꿔도 같은 것) · 지운 이름은 다시 안 나옴 · 풀면 다시', async () => {

@@ -7,7 +7,7 @@ const themes: Record<RevealKind, { label: string; duration: number; slots: numbe
   cards: { label: '카드 팩 오픈', duration: 5400, slots: 5 },
   race: { label: '동물 레이스', duration: 6500, slots: 5 },
   pinball: { label: '핀볼 드롭', duration: 5500, slots: 5 },
-  fight: { label: '픽셀 파이널', duration: 6500, slots: 6 },
+  fight: { label: '픽셀 파이널', duration: 9800, slots: 15 },
   vault: { label: '골드 금고', duration: 5500, slots: 5 },
 };
 

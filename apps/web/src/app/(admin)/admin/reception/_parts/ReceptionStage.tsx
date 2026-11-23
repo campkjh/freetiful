@@ -4,7 +4,8 @@
  *  · body 포털 + position:fixed inset:0 — 본문 카드의 등장 애니메이션(transform) 안에 있으면 fixed 가 카드 기준으로 갇혀서 밖으로 뺐다.
  *  · 어드민 머리·메뉴·떠 있는 단추를 다 덮는다(z 1250). 알림 창(adminConfirm, z 1300)은 이 위에 뜬다.
  *  · ESC · 닫기 단추로 닫는다 — 알림 창이 먼저 ESC 를 먹으면(defaultPrevented) 판은 그대로 둔다. */
-import { useEffect, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, type ReactNode, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 
 export function ReceptionStage({
@@ -13,6 +14,8 @@ export function ReceptionStage({
   label,
   children,
   foot,
+  presentation = false,
+  surfaceRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,6 +23,8 @@ export function ReceptionStage({
   children: ReactNode;
   /** 아래 단추 줄(운영자용) */
   foot?: ReactNode;
+  presentation?: boolean;
+  surfaceRef?: Ref<HTMLDivElement>;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -37,12 +42,10 @@ export function ReceptionStage({
 
   if (!open || typeof document === 'undefined') return null;
   return createPortal(
-    <div className="rca-stage" role="dialog" aria-modal="true" aria-label={label}>
-      <button type="button" className="rca-stage-close" onClick={onClose} aria-label="크게 보기 닫기">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-        </svg>
-        닫기
+    <div ref={surfaceRef} className={`rca-stage${presentation ? ' rca-stage-presentation' : ''}`} role="dialog" aria-modal="true" aria-label={label}>
+      <button type="button" className="rca-stage-close" onClick={onClose} aria-label="크게 보기 닫기" title="크게 보기 닫기">
+        <X size={20} aria-hidden="true" />
+        {!presentation && '닫기'}
       </button>
       <div className="rca-stage-body">{children}</div>
       {foot && <div className="rca-stage-foot">{foot}</div>}

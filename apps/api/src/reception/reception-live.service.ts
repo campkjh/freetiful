@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -188,8 +188,8 @@ function seatsVersion(seats: SeatList): string {
 }
 /** 당첨 푸시를 누를 때 열 곳 — 송년회 이벤트 탭 맨 위 응모권(261122) */
 const DRAW_PUSH_URL = '/reception/event';
-/** 무대 연출(최대 6.5초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
-const DRAW_PUSH_DELAY_MS = 9000;
+/** 무대 연출(최대 9.8초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
+const DRAW_PUSH_DELAY_MS = 13000;
 /**
  * 알림톡 템플릿으로 잘못 이어지는 말(biztalk.service.ts resolveTemplate 본문 검사) — 어드민이 경품 이름을 자유롭게 넣을 수 있어서
  * 경품 이름에 이런 말이 섞이면 본문에서 경품 이름을 뺀다(엉뚱한 '새 메시지' 알림톡이 카톡으로 가지 않게)
@@ -934,6 +934,23 @@ export class ReceptionLiveService {
     if (!r.count && !(await this.prisma.receptionDraw.count({ where: { id, eventKey } }))) {
       throw new NotFoundException('추첨 기록을 찾을 수 없어요.');
     }
+    return this.drawBoard(eventKey);
+  }
+
+  async resetDraws(eventKey: ReceptionEventKey, expectedIds: unknown): Promise<DrawBoard> {
+    if (!Array.isArray(expectedIds) || !expectedIds.length || !expectedIds.every(id => typeof id === 'string' && id.length > 0)) {
+      throw new BadRequestException('삭제할 추첨 기록을 확인해 주세요.');
+    }
+    const expected = new Set(expectedIds);
+    const deleted = await this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-draw:${eventKey}`}))`;
+      const rows = await tx.receptionDraw.findMany({ where: { eventKey }, select: { id: true } });
+      if (rows.length !== expected.size || rows.some(row => !expected.has(row.id))) {
+        throw new ConflictException('추첨 내역이 바뀌었어요. 새로고침하고 다시 확인해 주세요.');
+      }
+      return tx.receptionDraw.deleteMany({ where: { eventKey, id: { in: rows.map(row => row.id) } } });
+    });
+    this.logger.log(`reception draws reset: ${eventKey} count=${deleted.count}`);
     return this.drawBoard(eventKey);
   }
 }
