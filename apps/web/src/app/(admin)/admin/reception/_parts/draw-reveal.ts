@@ -7,7 +7,7 @@ const themes: Record<RevealKind, { label: string; duration: number; slots: numbe
   cards: { label: '스튜디오패스 카드 오픈', duration: 12400, slots: 5 },
   race: { label: '동물런', duration: 21500, slots: 9 },
   pinball: { label: '핀볼 레이스', duration: 14200, slots: 0 },
-  boss: { label: '세럼 보스전', duration: 17000, slots: 3 },
+  boss: { label: '세럼 보스전', duration: 23400, slots: 3 },
   fight: { label: 'Freetiful Fight', duration: 12000, slots: 15 },
   vault: { label: '푸딩이 왕궁', duration: 15500, slots: 5 },
 };
@@ -30,7 +30,7 @@ export type RevealPlan = ReturnType<typeof revealTheme> & {
   seed: number;
 };
 
-export const isBatchReveal = (kind: RevealKind) => kind === 'boss' || kind === 'race' || kind === 'pinball';
+export const isBatchReveal = (kind: RevealKind) => kind === 'capsule' || kind === 'boss' || kind === 'race' || kind === 'pinball';
 
 export function buildReveal(prize: string, id: string, winner: RevealTicket, pool: readonly RevealTicket[], winners: readonly RevealTicket[] = [winner]): RevealPlan {
   const theme = revealTheme(prize);
@@ -55,7 +55,8 @@ export function buildReveal(prize: string, id: string, winner: RevealTicket, poo
     [lineup[i], lineup[j]] = [lineup[j], lineup[i]];
   }
   const winnerIndex = lineup.findIndex((entry) => entry?.number === winner.number);
-  return { ...theme, lineup, winnerIndex, seed, winners, entrantCount };
+  const duration = theme.kind === 'capsule' ? theme.duration * winners.length : theme.duration;
+  return { ...theme, duration, lineup, winnerIndex, seed, winners, entrantCount };
 }
 
 export const clamp01 = (t: number) => Math.max(0, Math.min(1, t));

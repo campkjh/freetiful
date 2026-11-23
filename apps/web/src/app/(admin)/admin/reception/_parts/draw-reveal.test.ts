@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildReveal, revealTheme } from './draw-reveal';
+import { buildReveal, isBatchReveal, revealTheme } from './draw-reveal';
 import { GOAL_Y, pinballFinishAt, pinballPoint, pinballTracks } from './pinball-motion';
-import { CHAMBER_RADIUS, DRAW_BALL_RADIUS, lotteryFrames } from './lottery-motion';
+import { CHAMBER_RADIUS, DRAW_BALL_RADIUS, lotteryFrames, lotteryRoundAt, lotteryRounds } from './lottery-motion';
+import { SERUM_DROPS, serumBossMotion, serumHeroMotion } from './serum-motion';
 
 const prizes = ['메리고어라운드 디퓨져', '아르비에 스킨케어 세럼 세트(컨디션클래리티 세럼)', '스튜디오패스 촬영+의상세트', '1++ 한우선물세트', '슬릭스틸 선글라스+안경테 세트', '슈트패브릭 영국 허더스필드 정장 세트', '체스타필드 영국 요크셔 정장 세트'];
 const winner = { number: 48, name: '테스트 당첨자' };
@@ -68,4 +69,31 @@ test('the fighting arena never drops eligible tickets, even with over 130 guests
   assert.equal(plan.lineup.length, 156);
   assert.equal(new Set(plan.lineup.map(ticket => ticket?.number)).size, 156);
   assert.equal(plan.lineup[plan.winnerIndex]?.number, winner.number);
+});
+
+test('the diffuser reveals each server winner once and mixes again without replacing earlier balls', () => {
+  const wins = [pool[4], pool[7], pool[13]];
+  const plan = buildReveal(prizes[0], 'diffuser-3', wins[0], pool, wins);
+  assert.equal(isBatchReveal(plan.kind), true);
+  assert.equal(plan.duration, 22_800);
+  const rounds = lotteryRounds(plan);
+  assert.deepEqual(rounds.map(round => round.lineup[round.winnerIndex]), wins);
+  assert.deepEqual(rounds.map(round => round.lineup.length), [12, 11, 10]);
+  assert.ok(!rounds[2].lineup.some(entry => entry.number === wins[0].number || entry.number === wins[1].number));
+  assert.deepEqual(rounds[1].frames[0], rounds[0].frames.at(-1)?.filter((_, i) => i !== rounds[0].winnerIndex));
+  assert.deepEqual([0, .4, .75, 1].map(t => lotteryRoundAt(t, 3).index), [0, 1, 2, 2]);
+  assert.equal(lotteryRoundAt(1, 3).progress, 1);
+  const remaining = buildReveal(prizes[0], 'diffuser-2', wins[1], pool.filter(x => x !== wins[0]), wins.slice(1));
+  assert.equal(remaining.duration, 15_200);
+  assert.ok(remaining.lineup.every(entry => entry?.number !== wins[0].number));
+});
+
+test('serum motion has distinct run and reload cels, and morphs at each reward checkpoint', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(i => serumHeroMotion((i + .1) / 13, 0, false, true).frame), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual([1.41, 1.68].map(t => serumHeroMotion(t, 0, true, false).frame), [3, 4]);
+  assert.equal(serumHeroMotion(.19, 0, true, false).state, 'fire');
+  assert.ok(serumHeroMotion(.45, 0, true, false).contact >= 0);
+  assert.ok(serumBossMotion(.26).counter >= 0);
+  assert.deepEqual(SERUM_DROPS.slice(0, 2).map(t => serumBossMotion(t).forming), [true, true]);
+  assert.equal(serumBossMotion(SERUM_DROPS[2]).defeated, true);
 });

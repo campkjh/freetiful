@@ -130,7 +130,7 @@ export default function ReceptionDrawPage() {
 
   const previewDraw = () => {
     if (!prizeName || drawing.current || resettingRef.current || busy) return;
-    const count = currentTheme === 'pinball' ? 4 : currentTheme === 'boss' ? 3 : currentTheme === 'race' ? 2 : 1;
+    const count = currentTheme === 'pinball' ? 4 : currentTheme === 'boss' || currentTheme === 'capsule' ? 3 : currentTheme === 'race' ? 2 : 1;
     const samples = Array.from({ length: 156 }, (_, i) => ({ number: i + 1, name: `참가자 ${i + 1}` }));
     const at = new Date().toISOString();
     const wins: DrawRow[] = [21, 89, 133, 57].slice(0, count).map((n, i) => ({
@@ -179,7 +179,7 @@ export default function ReceptionDrawPage() {
     const extra = currentTheme === 'fight' ? Array.from({ length: 15 }, (_, i) => `fighter-${i + 1}`)
       : currentTheme === 'cards' ? ['card', 'pudding-host-1']
       : currentTheme === 'capsule' ? ['lottery-machine', 'lottery-ball']
-      : currentTheme === 'boss' ? ['boss-1', 'boss-2', 'boss-3', 'hero-1', 'hero-2', 'loot']
+      : currentTheme === 'boss' ? ['serum-players', 'serum-bosses', 'serum-effects', 'serum-loot']
       : currentTheme === 'vault' ? ['pudding-oven', 'pudding-dough', 'pudding-sky', 'pudding-palace', 'pudding-host-1', 'pudding-host-2'] : [];
     for (const name of extra) {
       const image = new Image();
@@ -359,7 +359,7 @@ export default function ReceptionDrawPage() {
         <div className="adm-card-head">
           <div>
             <p className="adm-card-title">경품 고르기</p>
-            <p className="adm-card-sub">{selected && isBatchReveal(currentTheme) ? `남은 ${Math.max(0, selected.total - selected.drawn)}명을 한 번에 뽑아요` : '고른 경품으로 응모권 한 장을 뽑아요'}</p>
+            <p className="adm-card-sub">{selected && isBatchReveal(currentTheme) ? `남은 ${Math.max(0, selected.total - selected.drawn)}명을 ${currentTheme === 'capsule' ? '한 명씩 공개해요' : '한 번에 뽑아요'}` : '고른 경품으로 응모권 한 장을 뽑아요'}</p>
           </div>
           <div className="rdv-actions">
           <button type="button" className="adm-btn" onClick={previewDraw} disabled={!prizeName || rolling || resetting || !!busy}>

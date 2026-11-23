@@ -783,7 +783,7 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   await assert.rejects(svc.deleteTicket(EK, t.id), /찾을 수 없어요/);
 });
 
-test('batch draws reserve exactly 2, 4 and 3 distinct tickets with a full eligible snapshot', async () => {
+test('batch draws reserve the catalog quantities with a full eligible snapshot', async () => {
   const f = fakeLivePrisma();
   const svc = liveService(f.prisma);
   const event = 'wmak-2026' as const;
@@ -792,7 +792,7 @@ test('batch draws reserve exactly 2, 4 and 3 distinct tickets with a full eligib
   }));
   f.tickets.push(...tickets);
   const picked = new Set<number>();
-  for (const [i, count] of [[4, 2], [3, 4], [1, 3]]) {
+  for (const [i, count] of [[4, 2], [3, 4], [1, 3], [0, 3]]) {
     const { winners, participants, board } = await svc.draw(event, DRAW_PRIZES[i].name, true);
     assert.equal(winners.length, count);
     assert.equal(participants.length, tickets.length - picked.size);
@@ -810,6 +810,20 @@ test('batch draws reserve exactly 2, 4 and 3 distinct tickets with a full eligib
   insufficient.tickets.push(tickets[0]);
   await assert.rejects(liveService(insufficient.prisma).draw(event, DRAW_PRIZES[4].name, true), /응모권이 적어요/);
   assert.equal(insufficient.draws.length, 0);
+});
+
+test('diffuser batch preserves a prior draw and fills exactly the two unawarded prizes', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const event = 'wmak-2026' as const;
+  f.state.set(`${event}:tickets`, { mode: 'open' });
+  for (const [device, name] of [[D1, '가'], [D2, '나'], [D3, '다']]) await svc.guest(event, device, name);
+  const prize = DRAW_PRIZES[0].name;
+  const { draw } = await svc.draw(event, prize);
+  const { winners, board } = await svc.draw(event, prize, true);
+  assert.equal(winners.length, 2);
+  assert.equal(board.prizes[0].drawn, 3);
+  assert.equal(new Set([draw.number, ...winners.map(w => w.number)]).size, 3);
 });
 
 test('reset clears only the confirmed event draw history and makes its tickets eligible again', async () => {

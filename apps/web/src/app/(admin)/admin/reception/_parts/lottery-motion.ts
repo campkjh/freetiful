@@ -1,4 +1,4 @@
-import { clamp01, lerp, smooth } from './draw-reveal';
+import { clamp01, lerp, smooth, type RevealPlan, type RevealTicket } from './draw-reveal';
 
 type Position = { x: number; y: number };
 type Body = Position & { vx: number; vy: number };
@@ -21,14 +21,15 @@ function keepInside(body: Body) {
 }
 
 // Precompute a short, deterministic motion clip. It does not select a winning ticket.
-export function lotteryFrames(count: number, seed: number): Position[][] {
+export function lotteryFrames(count: number, seed: number, previous: readonly Position[] = []): Position[][] {
   const bodies: Body[] = Array.from({ length: count }, (_, i) => {
     const angle = (i * 2.4 + (seed % 341) * .019);
     const r = 22 + (i % 4) * 13;
-    return { x: Math.cos(angle) * r, y: Math.sin(angle) * r, vx: Math.sin(angle + 2) * 210, vy: Math.cos(angle - 1) * 198 };
+    return { ...(previous[i] ?? { x: Math.cos(angle) * r, y: Math.sin(angle) * r }), vx: Math.sin(angle + 2) * 210, vy: Math.cos(angle - 1) * 198 };
   });
   const dt = 1 / 60;
   return Array.from({ length: HISTORY_FRAMES }, (_, f) => {
+    if (f === 0) return bodies.map(({ x, y }) => ({ x, y }));
     const power = f > 210 ? .65 : 1;
     bodies.forEach((body, i) => {
       body.vx = (body.vx + dt * (-body.y * 10 * power + Math.sin(f * .21 + i) * 265)) * .992;
@@ -53,6 +54,29 @@ export function lotteryFrames(count: number, seed: number): Position[][] {
       }
     }
     return bodies.map(body => { keepInside(body); return { x: body.x, y: body.y }; });
+  });
+}
+
+export const LOTTERY_RELEASE = .55;
+export const LOTTERY_DISPLAY = .74;
+export const LOTTERY_LIST = .87;
+
+export function lotteryRoundAt(progress: number, count: number) {
+  const scaled = clamp01(progress) * count;
+  const index = Math.min(count - 1, Math.floor(scaled));
+  return { index, progress: scaled - index };
+}
+
+export function lotteryRounds(plan: RevealPlan) {
+  let lineup = plan.lineup.filter((ticket): ticket is RevealTicket => ticket !== null);
+  let previous: Position[] = [];
+  return plan.winners.map((winner, index) => {
+    const winnerIndex = lineup.findIndex(ticket => ticket.number === winner.number);
+    const frames = lotteryFrames(lineup.length, plan.seed + index * 701, previous);
+    const current = { winner, winnerIndex, frames, lineup };
+    previous = frames[frames.length - 1].filter((_, i) => i !== winnerIndex);
+    lineup = lineup.filter((_, i) => i !== winnerIndex);
+    return current;
   });
 }
 

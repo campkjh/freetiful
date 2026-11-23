@@ -856,7 +856,7 @@ export class ReceptionLiveService {
   async draw(eventKey: ReceptionEventKey, rawPrize: unknown, batch = false): Promise<{ draw: DrawRow; winners: DrawRow[]; board: DrawBoard; participants: { number: number; name: string }[] }> {
     const prize = cleanPrize(rawPrize);
     if (!prize) throw new BadRequestException('경품 이름을 확인해 주세요(1~40자).');
-    const catalog = batch ? DRAW_PRIZES.find((p) => p.name === prize && /세럼|한우|선글라스/.test(p.name)) : undefined;
+    const catalog = batch ? DRAW_PRIZES.find((p) => p.name === prize && /디퓨|세럼|한우|선글라스/.test(p.name)) : undefined;
     if (batch && !catalog) throw new BadRequestException('한 번에 추첨할 수 없는 경품이에요.');
     const { created, participants } = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-draw:${eventKey}`}))`;
