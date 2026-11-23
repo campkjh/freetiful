@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, type ReceptionDraw } from '@prisma/client';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -868,7 +868,7 @@ export class ReceptionLiveService {
       if (!pool.length) throw new BadRequestException('뽑을 응모권이 없어요.');
       if (pool.length < quantity) throw new BadRequestException('남은 경품 수보다 응모권이 적어요.');
       const participants = pool.map(({ number, name }) => ({ number, name }));
-      const created = [];
+      const created: ReceptionDraw[] = [];
       for (let i = 0; i < quantity; i++) {
         const index = randomInt(pool.length);
         const t = pool[index];
