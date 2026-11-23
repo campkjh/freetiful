@@ -1,0 +1,18 @@
+.rdv-scene { position: relative; isolation: isolate; overflow: hidden; width: min(100%, 840px); margin-block: 12px; border: 1px solid #ffffff24; border-radius: 8px; background: #252340; letter-spacing: 0; }
+.rdv-art { display: block; width: 100%; height: auto; aspect-ratio: 840 / 340; }
+.rdv-art text { font-family: inherit; paint-order: stroke; stroke: #131725; stroke-width: 1px; stroke-opacity: .45; stroke-linejoin: round; }
+.rdv-tag text { stroke-width: 2.5px; stroke-opacity: .7; }
+.rdv-progress { position: absolute; inset: auto 0 0; height: 3px; background: #ffdb8d; transform-origin: left; }
+.rdv-fight { background: linear-gradient(#231a32, #4c2f4e); }
+.rdv-race { background: #182d38; }
+.rdv-cards { background: linear-gradient(#17182a, #25294b); }
+.rdv-pinball { background: #171b32; }
+.rdv-wheel { background: #232033; }
+.rdv-capsule { background: #37243e; }
+.rdv-vault { background: #232025; }
+.rdv-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; min-height: 32px; margin-top: 4px; color: #f6dc93; font-size: 13px; font-weight: 700; letter-spacing: 0; }
+.rdv-controls button { padding: 7px 11px; border: 1px solid #ffffff36; border-radius: 6px; background: transparent; color: #fff; cursor: pointer; font: inherit; }
+.rdv-controls button:hover, .rdv-controls button:focus-visible { background: #ffffff1b; }
+.rdv-wait { width: 32px; height: 32px; margin-block: 23px; border: 3px solid #ffffff30; border-top-color: #f6dc93; border-radius: 50%; animation: rdv-wait .7s linear infinite; }
+@keyframes rdv-wait { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rdv-wait { animation: none; } }

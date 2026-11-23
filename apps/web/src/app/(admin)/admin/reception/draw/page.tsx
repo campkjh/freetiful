@@ -2,13 +2,12 @@
 
 /* 송년회 럭키드로우(261122 사장 '럭키드로우도 이벤트로 해줘') — 손님이 입장할 때 자동으로 받은 응모권에서 뽑는다.
  *  · 뽑기는 서버가 한다(crypto.randomInt, 겹쳐 눌러도 같은 사람 두 번 안 나옴). 여기선 연출만 —
- *    누르자마자 번호가 빠르게 굴러가다(약 2.4초, 감속) 서버가 뽑은 번호에 멈추며 이름 · 테이블을 크게 + 진동.
- *  · 굴러가는 번호 · 이름 = 아직 안 뽑힌 실제 응모권(서버 live 목록 — 손님이 자리 탭에서 받은 것, 어드민 입장 현황 탭은 261122 참여자 판으로 합침) — 없으면 숫자만.
+ *    서버 결과를 받은 뒤 경품별 연출을 재생하고 이름 · 번호 · 테이블을 발표한다.
  *  · 자리에 없으면 [무효] → 그 응모권은 다시 안 뽑고(서버 규칙), 같은 경품으로 한 번 더 추첨.
  *  · [크게 보기] = 대표님이 직접 누르는 전체 화면(판 안에도 경품 고르기 · 추첨 버튼).
  *  · 굴리는 동안 표 · 숫자 · 경품 남은 수는 누르기 직전 값으로 묶어 둔다 — 서버 응답·폴링이 먼저 와도 당첨자가 미리 안 드러나게.
  *  · 화면 읽기: 굴리는 번호는 숨기고(실명이 줄줄이 읽힘), 멈춘 뒤 당첨 한 줄만 알린다. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { adminAlert, adminConfirm } from '../../_components/adminDialog';
@@ -24,13 +23,13 @@ import {
   type DrawRow,
 } from '../../_components/receptionAdmin';
 import { ReceptionStage } from '../_parts/ReceptionStage';
+import { DrawReveal } from '../_parts/DrawReveal';
+import { buildReveal, revealTheme, type RevealPlan } from '../_parts/draw-reveal';
 import { haptic } from '@/lib/haptics';
 import '../reception-admin.css';
 
-type Shown = { number: number | null; name: string; table: number | null };
-type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; shown: Shown | null; win: DrawRow | null };
+type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; win: DrawRow | null; scene?: { plan: RevealPlan; startedAt: number } };
 
-const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 const PRIZE_MAX = 40;
 /** 경품 이름 뒤 은/는 — 한글 받침으로 고른다(한글이 아니면 '은(는)') */
 const eunNeun = (w: string) => {
@@ -40,8 +39,8 @@ const eunNeun = (w: string) => {
 };
 
 /** announce = 지금 보이는 판 하나만 알림 칸을 둔다(본문 판 · 크게 보기 판이 같이 읽히지 않게) */
-function DrawScreen({ roll, prize, big = false, announce = false }: { roll: Roll; prize: string; big?: boolean; announce?: boolean }) {
-  const s = roll.phase === 'done' && roll.win ? { number: roll.win.number, name: roll.win.name, table: roll.win.table } : roll.shown;
+function DrawScreen({ roll, prize, big = false, announce = false, onFinish }: { roll: Roll; prize: string; big?: boolean; announce?: boolean; onFinish: () => void }) {
+  const s = roll.phase === 'done' ? roll.win : null;
   const said = roll.phase === 'done' && roll.win
     ? `${roll.prize} 당첨, ${ticketLabel(roll.win.number)} ${roll.win.name} 님${roll.win.table != null ? `, ${roll.win.table}번 테이블` : ''}`
     : '';
@@ -49,11 +48,19 @@ function DrawScreen({ roll, prize, big = false, announce = false }: { roll: Roll
     <div className={`rcd-screen ${big ? 'big' : ''} ${roll.phase}`}>
       {announce && <p className="sr-only" aria-live="polite" aria-atomic="true">{said}</p>}
       <p className="rcd-prize-label">{roll.phase === 'done' ? `${roll.prize} 당첨!` : roll.phase === 'rolling' ? `${roll.prize} 추첨 중…` : prize || '경품을 골라 주세요'}</p>
-      {s ? (
-        <div className="rcd-result" key={roll.phase === 'done' ? `w:${roll.win?.id}` : 'roll'} aria-hidden={roll.phase === 'rolling' || undefined}>
-          <p className="rcd-num">{s.number != null ? ticketLabel(s.number) : 'No. ···'}</p>
-          <p className="rcd-name">{s.name || ' '}</p>
-          <p className="rcd-table">{roll.phase === 'done' ? (s.table != null ? `${s.table}번 테이블` : '테이블 정보 없음') : ' '}</p>
+      {roll.phase === 'rolling' ? (
+        roll.scene ? <>
+          <DrawReveal key={roll.win?.id} {...roll.scene} />
+          <div className="rdv-controls">
+            <span>{roll.scene.plan.label}</span>
+            <button type="button" onClick={onFinish}>결과 바로 보기</button>
+          </div>
+        </> : <span className="rdv-wait" aria-hidden="true" />
+      ) : s ? (
+        <div className="rcd-result" key={`w:${s.id}`}>
+          <p className="rcd-num">{ticketLabel(s.number)}</p>
+          <p className="rcd-name">{s.name}</p>
+          <p className="rcd-table">{s.table != null ? `${s.table}번 테이블` : '테이블 정보 없음'}</p>
         </div>
       ) : (
         <div className="rcd-result idle">
@@ -72,12 +79,13 @@ export default function ReceptionDrawPage() {
   const [prize, setPrize] = useState('');
   const [custom, setCustom] = useState('');
   const [customOn, setCustomOn] = useState(false);
-  const [roll, setRoll] = useState<Roll>({ phase: 'idle', prize: '', shown: null, win: null });
+  const [roll, setRoll] = useState<Roll>({ phase: 'idle', prize: '', win: null });
   // 굴리는 동안 화면에 그릴 값 — 누르기 직전 board(멈출 때 null 로 풀면 실제 data 로 바뀐다)
   const [frozen, setFrozen] = useState<DrawBoard | null>(null);
   const [stage, setStage] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const alive = useRef(true);
+  const drawing = useRef(false);
   // 개발 모드 StrictMode 는 마운트를 두 번 하므로 들어올 때 다시 true 로
   useEffect(() => {
     alive.current = true;
@@ -93,67 +101,61 @@ export default function ReceptionDrawPage() {
 
   const prizeName = (customOn ? custom : prize).trim();
 
-  /** 굴릴 후보 — 아직 한 번도 안 뽑힌 응모권(무효 포함해 뽑힌 번호는 뺀다) */
-  const pool = useMemo<Shown[]>(() => {
+  /** 무대 연출에 쓸 실제 응모권. 추첨 대상자는 서버가 결정한다. */
+  const pool = useMemo(() => {
     const drawn = new Set((data?.draws || []).map((d) => d.number));
     return (live.data?.arrivals || []).filter((a) => !drawn.has(a.number)).map((a) => ({ number: a.number, name: a.name, table: a.table }));
   }, [data, live.data]);
-  const maxNo = useMemo(() => Math.max(data?.tickets || 0, ...(live.data?.arrivals || []).map((a) => a.number), 1), [data, live.data]);
+  const finish = useCallback(() => {
+    if (roll.phase !== 'rolling' || !roll.scene || !roll.win || !drawing.current) return;
+    drawing.current = false;
+    setFrozen(null);
+    setRoll({ phase: 'done', prize: roll.prize, win: roll.win });
+    haptic('success');
+  }, [roll]);
+
+  useEffect(() => {
+    if (!roll.scene) return;
+    const remaining = roll.scene.startedAt + roll.scene.plan.duration - performance.now();
+    const timer = window.setTimeout(finish, reduce ? 0 : Math.max(0, remaining));
+    return () => window.clearTimeout(timer);
+  }, [roll.scene, finish, reduce]);
 
   const runDraw = async () => {
-    if (roll.phase === 'rolling') return;
+    if (drawing.current || roll.phase === 'rolling') return;
     const name = prizeName;
     if (!name) return adminAlert('경품을 골라 주세요\n직접 입력이면 경품 이름을 적어 주세요.');
     if ([...name].length > PRIZE_MAX) return adminAlert(`경품 이름이 너무 길어요\n${PRIZE_MAX}자까지 적을 수 있어요.`);
     if (data && data.eligible <= 0) return adminAlert('뽑을 응모권이 없어요\n입장한 손님이 아직 없거나 모두 뽑혔어요.');
     const p = data?.prizes.find((x) => x.name === name);
-    if (p && p.drawn >= p.total && !(await adminConfirm({ title: `${eunNeun(name)} ${p.total}${p.unit || '개'} 다 뽑았어요`, description: '그래도 한 번 더 뽑을까요?', confirmText: '더 뽑기' }))) return;
-
-    setFrozen(data);
-    setRoll({ phase: 'rolling', prize: name, shown: null, win: null });
-    // 결과는 상자에 — 굴리는 동안 비동기로 채워진다
-    const box: { win: DrawRow | null; fail: unknown; settled: boolean } = { win: null, fail: null, settled: false };
-    const req = mutate(() => receptionAdminApi.draw(name), (r): DrawBoard => r.board)
-      .then((r) => { box.win = r.draw; })
-      .catch((e) => { box.fail = e || new Error('추첨하지 못했어요'); })
-      .finally(() => { box.settled = true; });
-
-    if (reduce) {
-      await req;
-    } else {
-      // 빠르게(45ms) 굴리다 0.9초가 지나고 결과가 오면 점점 느리게 — 다 해서 약 2.4초
-      let delay = 45;
-      let elapsed = 0;
-      let last = -1;
-      for (;;) {
-        let pick: Shown;
-        if (pool.length) {
-          let i = Math.floor(Math.random() * pool.length);
-          if (pool.length > 1 && i === last) i = (i + 1) % pool.length;
-          last = i;
-          pick = pool[i];
-        } else {
-          pick = { number: 1 + Math.floor(Math.random() * maxNo), name: '', table: null };
-        }
-        if (!alive.current) return;
-        setRoll((r) => ({ ...r, shown: pick }));
-        await sleep(delay);
-        elapsed += delay;
-        if (box.settled && box.fail) break;
-        if (box.settled && elapsed >= 900) delay *= 1.2;
-        if (delay > 330) break;
+    drawing.current = true;
+    try {
+      if (p && p.drawn >= p.total && !(await adminConfirm({ title: `${eunNeun(name)} ${p.total}${p.unit || '개'} 다 뽑았어요`, description: '그래도 한 번 더 뽑을까요?', confirmText: '더 뽑기' }))) {
+        drawing.current = false;
+        return;
       }
-      await req;
+      if (!alive.current) return;
+      setFrozen(data);
+      setRoll({ phase: 'rolling', prize: name, win: null });
+      const { draw, board } = await mutate(() => receptionAdminApi.draw(name), (r): DrawBoard => r.board);
+      if (!alive.current) return;
+      if (reduce) {
+        drawing.current = false;
+        setFrozen(null);
+        setRoll({ phase: 'done', prize: name, win: draw });
+        haptic('success');
+        return;
+      }
+      const prior = new Set(board.draws.filter((row) => row.id !== draw.id).map(row => row.number));
+      const plan = buildReveal(name, draw.id, draw, pool.filter((ticket) => !prior.has(ticket.number)));
+      setRoll({ phase: 'rolling', prize: name, win: draw, scene: { plan, startedAt: performance.now() } });
+    } catch (error) {
+      drawing.current = false;
+      if (!alive.current) return;
+      setFrozen(null);
+      setRoll({ phase: 'idle', prize: name, win: null });
+      await adminAlert(`추첨하지 못했어요\n${adminErrorText(error, '다시 눌러 주세요')}`);
     }
-    if (!alive.current) return;
-    setFrozen(null);
-    if (box.fail || !box.win) {
-      setRoll({ phase: 'idle', prize: name, shown: null, win: null });
-      await adminAlert(`추첨하지 못했어요\n${adminErrorText(box.fail, '다시 눌러 주세요')}`);
-      return;
-    }
-    setRoll({ phase: 'done', prize: name, shown: null, win: box.win });
-    haptic('success');
   };
 
   const cancel = async (d: DrawRow) => {
@@ -161,7 +163,7 @@ export default function ReceptionDrawPage() {
     setBusy(d.id);
     try {
       await mutate(() => receptionAdminApi.cancelDraw(d.id));
-      if (roll.win?.id === d.id) setRoll((r) => ({ ...r, phase: 'idle', win: null, shown: null }));
+      if (roll.win?.id === d.id) setRoll({ phase: 'idle', win: null, prize: d.prize });
     } catch (e) {
       await adminAlert(`무효로 하지 못했어요\n${adminErrorText(e)}`);
     } finally {
@@ -185,6 +187,7 @@ export default function ReceptionDrawPage() {
           <button key={p.name} type="button" role="radio" aria-checked={on} className={`rcd-prize ${on ? 'on' : ''} ${left === 0 ? 'out' : ''}`} disabled={rolling} onClick={() => { setCustomOn(false); setPrize(p.name); }}>
             <b>{p.name}</b>
             <small>{left > 0 ? `남은 ${left} / ${p.total}${p.unit || '개'}` : `${p.total}${p.unit || '개'} 다 뽑았어요`}</small>
+            <small>{revealTheme(p.name).label}</small>
           </button>
         );
       })}
@@ -237,7 +240,7 @@ export default function ReceptionDrawPage() {
         </div>
         {prizePicker()}
         {customInput}
-        <DrawScreen roll={roll} prize={prizeName} announce={!stage} />
+        {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} />}
         <button type="button" className="rcd-go" disabled={rolling || view.eligible <= 0} onClick={runDraw}>
           {rolling ? '추첨 중…' : view.eligible <= 0 ? '뽑을 응모권이 없어요' : '추첨하기'}
         </button>
@@ -292,7 +295,7 @@ export default function ReceptionDrawPage() {
       <ReceptionStage open={stage} onClose={() => setStage(false)} label="럭키드로우 크게 보기">
         <div className="rcd-stage">
           <p className="rcs-eyebrow">LUCKY DRAW</p>
-          <DrawScreen roll={roll} prize={prizeName} big announce />
+          <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} />
           {prizePicker(true)}
           {customInput}
           <button type="button" className="rcd-go big" disabled={rolling || view.eligible <= 0} onClick={runDraw}>

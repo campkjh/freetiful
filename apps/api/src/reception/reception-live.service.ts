@@ -188,8 +188,8 @@ function seatsVersion(seats: SeatList): string {
 }
 /** 당첨 푸시를 누를 때 열 곳 — 송년회 이벤트 탭 맨 위 응모권(261122) */
 const DRAW_PUSH_URL = '/reception/event';
-/** 당첨 푸시 늦추기 — 어드민 추첨 화면이 번호를 굴리다 멈추기까지 약 2.4초(admin/reception/draw). 무대에 이름이 뜬 뒤에 폰이 울리게 */
-const DRAW_PUSH_DELAY_MS = 2500;
+/** 무대 연출(최대 6.5초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
+const DRAW_PUSH_DELAY_MS = 9000;
 /**
  * 알림톡 템플릿으로 잘못 이어지는 말(biztalk.service.ts resolveTemplate 본문 검사) — 어드민이 경품 이름을 자유롭게 넣을 수 있어서
  * 경품 이름에 이런 말이 섞이면 본문에서 경품 이름을 뺀다(엉뚱한 '새 메시지' 알림톡이 카톡으로 가지 않게)
@@ -851,7 +851,7 @@ export class ReceptionLiveService {
   /**
    * 추첨 — 한 번도 안 뽑힌 응모권 중 무작위 1장. 행사별 잠금 안에서 후보 읽기 + 넣기(겹쳐 눌러도 같은 응모권 두 번 X).
    * 저장(커밋)된 뒤 당첨자에게 푸시 — 기다리지 않는다(푸시가 느리거나 실패해도 추첨 응답은 그대로, notifyWinner).
-   * 푸시는 무대 발표(추첨 화면 굴림 ~2.4초) 뒤에 닿게 조금 늦춰 보낸다 — 그 사이 무효로 돌리면 안 보냄
+   * 푸시는 무대 발표 뒤에 닿게 늦춰 보낸다 — 그 사이 무효로 돌리면 안 보냄
    */
   async draw(eventKey: ReceptionEventKey, rawPrize: unknown): Promise<{ draw: DrawRow; board: DrawBoard }> {
     const prize = cleanPrize(rawPrize);
