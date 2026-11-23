@@ -593,7 +593,7 @@
 .rc-qz-mission p { margin: 12px 0 0; color: var(--rc-ice-dim); font-size: 13px; text-align: center; }
 
 .rc-qz-send { width: 100%; margin-top: 16px; }
-.rc-qz-mine { margin: 12px 0 0; color: var(--rc-ice); font-size: 14px; line-height: 1.5; text-align: center; word-break: keep-all; }
+.rc-qz-mine { margin: 12px 0 0; color: var(--rc-ice); font-size: 14px; line-height: 1.5; text-align: center; word-break: keep-all; overflow-wrap: anywhere; }
 .rc-qz-mine b { color: var(--rc-gold); }
 .rc-qz-mine span { color: var(--rc-ice-dim); font-size: 12.5px; }
 .rc-qz-mine.none { color: var(--rc-ice-dim); font-size: 13px; }
@@ -621,6 +621,8 @@
 .rc-qz-trow.mine .rc-qz-tno { background: #F1D58C; color: var(--rc-ink); }
 .rc-qz-tans { flex: 1; min-width: 0; overflow: hidden; font-size: 14.5px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .rc-qz-trow.none .rc-qz-tans { color: rgba(220, 230, 255, 0.4); }
+/* 오프닝 주관식(261123) — 맞고 틀림 없이 답만, 긴 답(이유)은 줄을 바꿔 다 보이게 */
+.rc-qz-trow.open .rc-qz-tans { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
 .rc-qz-tans em, .rc-qz-bname em { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(246, 220, 147, 0.2); color: var(--rc-gold); font-size: 11px; font-style: normal; font-weight: 700; letter-spacing: 0; vertical-align: 1px; }
 .rc-qz-mark { display: grid; flex: none; place-items: center; width: 26px; height: 26px; border-radius: 13px; }
 .rc-qz-mark.o { background: #F1D58C; color: var(--rc-ink); }
@@ -660,6 +662,8 @@
 .rc-qz-past-no { flex: none; color: var(--rc-gold); font-size: 12.5px; font-weight: 700; }
 .rc-qz-past-label { flex: 1; min-width: 0; overflow: hidden; font-size: 14.5px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
 .rc-qz-past-body { padding: 0 12px 12px; }
+/* 오프닝 주관식 — 머리 줄이 곧 문제 글(정답 글이 없어서) · 잘리지 않게 줄바꿈, 펼친 칸엔 문제 글 다시 안 씀 */
+.rc-qz-past-item.open-q .rc-qz-past-label { white-space: normal; word-break: keep-all; line-height: 1.4; }
 .rc-qz-past-prompt { margin: 0; color: var(--rc-ice); font-size: 13.5px; line-height: 1.5; word-break: keep-all; }
 .rc-qz-offline { margin-top: 14px !important; }
 

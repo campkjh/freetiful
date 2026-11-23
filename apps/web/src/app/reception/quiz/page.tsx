@@ -145,6 +145,8 @@ export default function ReceptionQuizPage() {
   const revealed = st?.revealed ?? [];
   const results = data?.results ?? {};
   const board = data?.board ?? [];
+  // 점수판은 점수 있는 문제가 하나라도 공개된 뒤부터(오프닝 주관식만 공개됐으면 0점 판이라 숨김)
+  const scoredRevealed = revealed.some((id) => { const q = qById.get(id); return !!q && !q.open; });
   const pastIds = [...revealed].reverse().filter((id) => !(phase === 'revealed' && id === current?.id) && qById.has(id));
   const value = current && draft?.qid === current.id ? draft.value : '';
   const ready = !!current && answerReady(current, value);
@@ -275,7 +277,7 @@ export default function ReceptionQuizPage() {
     main = (
       <section className="rc-glass rc-qz-card rc-rise" key={`${current.id}-locked`}>
         <QuizQuestionHead q={current} compact />
-        <p className="rc-qz-locked">{current.kind === 'mission' ? '도전 마감 — 결과 공개를 기다려 주세요' : '답안 마감 — 정답 공개를 기다려 주세요'}</p>
+        <p className="rc-qz-locked">{current.kind === 'mission' ? '도전 마감 — 결과 공개를 기다려 주세요' : current.open ? '답안 마감 — 테이블 답 공개를 기다려 주세요' : '답안 마감 — 정답 공개를 기다려 주세요'}</p>
         {current.kind === 'mission' && (mine || !table) && (
           <QuizMission q={current} table={table} mine={mine} myName={name} phase="locked" sending={false} onChallenge={() => {}} />
         )}
@@ -294,6 +296,14 @@ export default function ReceptionQuizPage() {
       <section className="rc-qz-reveal rc-rise" key={`${current.id}-revealed`}>
         <div className="rc-glass rc-qz-card">
           <QuizQuestionHead q={current} compact />
+          {/* 오프닝 주관식 — 정답 · 맞고 틀림 없이 우리 답만(모든 테이블 답은 아래 목록) */}
+          {current.open ? (
+            table && (
+              <p className={`rc-qz-mine ${myResult?.display ? '' : 'none'}`}>
+                {myResult?.display ? <>우리 테이블 답: <b>{myResult.display}</b></> : '우리 테이블은 답을 내지 않았어요'}
+              </p>
+            )
+          ) : <>
           <p className="rc-qz-answer-eyebrow">정답</p>
           <p className="rc-qz-answer">{r?.answerLabel || current.answerLabel || ''}</p>
           {(r?.explanation || current.explanation) && <p className="rc-qz-explain">{r?.explanation || current.explanation}</p>}
@@ -306,6 +316,7 @@ export default function ReceptionQuizPage() {
                 : myResult?.display ? `아쉬워요 — 우리 답: ${myResult.display}` : '우리 테이블은 답을 내지 않았어요'}
             </p>
           )}
+          </>}
         </div>
         {r && <QuizTableAnswers q={current} tables={r.tables} myTable={table} />}
       </section>
@@ -324,7 +335,7 @@ export default function ReceptionQuizPage() {
       {confirmCard}
       {main}
 
-      {!st?.showBoard && revealed.length > 0 && <QuizBoard board={board} myTable={table} />}
+      {!st?.showBoard && scoredRevealed && <QuizBoard board={board} myTable={table} />}
 
       {pastIds.length > 0 && (
         <section className="rc-qz-past" aria-label="지난 문제">
@@ -334,14 +345,14 @@ export default function ReceptionQuizPage() {
             const r = results[id];
             const mineRow = r?.tables.find((t) => t.table === table);
             return (
-              <details key={id} className="rc-qz-past-item">
+              <details key={id} className={`rc-qz-past-item ${q.open ? 'open-q' : ''}`}>
                 <summary>
-                  <span className="rc-qz-past-no">R{q.round} · {q.kind === 'mission' ? '미션' : `Q${q.no}`}</span>
-                  <span className="rc-qz-past-label">{r?.answerLabel || q.answerLabel || ''}</span>
-                  {table && <span className={`rc-qz-mark ${mineRow?.correct ? 'o' : 'x'}`} role="img" aria-label={mineRow?.correct ? '우리 테이블 정답' : '우리 테이블 오답'}>{mineRow?.correct ? <CheckIcon size={14} /> : <CloseIcon size={12} />}</span>}
+                  <span className="rc-qz-past-no">{q.open ? 'OPENING' : `R${q.round} · ${q.kind === 'mission' ? '미션' : `Q${q.no}`}`}</span>
+                  <span className="rc-qz-past-label">{q.open ? q.prompt : r?.answerLabel || q.answerLabel || ''}</span>
+                  {table && !q.open && <span className={`rc-qz-mark ${mineRow?.correct ? 'o' : 'x'}`} role="img" aria-label={mineRow?.correct ? '우리 테이블 정답' : '우리 테이블 오답'}>{mineRow?.correct ? <CheckIcon size={14} /> : <CloseIcon size={12} />}</span>}
                 </summary>
                 <div className="rc-qz-past-body">
-                  <p className="rc-qz-past-prompt">{q.prompt}</p>
+                  {!q.open && <p className="rc-qz-past-prompt">{q.prompt}</p>}
                   {r?.explanation && <p className="rc-qz-explain">{r.explanation}</p>}
                   {r && <QuizTableAnswers q={q} tables={r.tables} myTable={table} />}
                 </div>

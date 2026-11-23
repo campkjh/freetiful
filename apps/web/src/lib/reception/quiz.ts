@@ -14,6 +14,13 @@ export const quizClock = (sec: number) => {
   const s = Math.max(0, Math.ceil(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
+/**
+ * 문제 머리 글(손님 카드 · 등장 연출 · 크게 보기 공통). 맨 앞 열린 주관식(open, 261123 사장 '연습문제인데 연습문제라고 안 뜨는 초기 문제')은
+ * 'ROUND n · n번 문제 · 점수' 대신 'OPENING · 주관식'(점수 없음) — '연습' 글자는 어디에도 안 쓴다.
+ */
+type HeadQ = { round: number; no: number; kind: string; open?: boolean };
+export const quizRoundChip = (q: HeadQ) => (q.open ? 'OPENING' : `ROUND ${q.round}`);
+export const quizNoLabel = (q: HeadQ) => (q.open ? '주관식' : q.kind === 'mission' ? '스페셜 미션' : `${q.no}번 문제`);
 export const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'] as const;
 /** match 칸에서 아직 안 고른 자리 */
 export const MATCH_EMPTY = '_';

@@ -96,7 +96,8 @@ export interface QuizState {
 
 export interface QuizQuestionPublic {
   id: string;
-  round: 1 | 2 | 3;
+  /** 0 = 오프닝 */
+  round: 0 | 1 | 2 | 3;
   roundTitle: string;
   no: number;
   kind: QuizKind;
@@ -114,6 +115,8 @@ export interface QuizQuestionPublic {
   /** 공개된 문제만 */
   answerLabel?: string;
   explanation?: string;
+  /** 정답 없는 열린 주관식(맨 앞 오프닝) — 점수 · O/X · 정답 글 없음, 공개 땐 테이블 답만 */
+  open?: boolean;
 }
 
 export interface QuizTableResult {

@@ -137,7 +137,8 @@ export interface QuizState {
 /** 어드민 문제 — 정답 글(answerLabel)은 늘 온다(정답 원값 answer/accept 는 안 올 수도 있다) */
 export interface QuizQuestionAdmin {
   id: string;
-  round: 1 | 2 | 3;
+  /** 0 = 오프닝 */
+  round: 0 | 1 | 2 | 3;
   roundTitle: string;
   no: number;
   kind: QuizKind;
@@ -151,6 +152,8 @@ export interface QuizQuestionAdmin {
   notes?: string[];
   answerLabel: string;
   explanation?: string;
+  /** 정답 없는 열린 주관식(맨 앞 오프닝) — 점수 · O/X · 정답 글 없음, 공개 땐 테이블 답만 */
+  open?: boolean;
 }
 
 export interface QuizAdminTable {

@@ -35,7 +35,11 @@ import RankCrown from '@/components/reception/RankCrown';
 import '../reception-admin.css';
 
 const PHASE_LABEL = { idle: '대기', open: '진행 중', locked: '마감', revealed: '정답 공개' } as const;
-const qName = (q: QuizQuestionAdmin) => `${q.round}라운드 ${q.no}번`;
+/** 오프닝 주관식은 정답이 없어 '답 공개' */
+const phaseLabel = (phase: keyof typeof PHASE_LABEL, q: QuizQuestionAdmin | null) => (phase === 'revealed' && q?.open ? '답 공개' : PHASE_LABEL[phase]);
+const qName = (q: QuizQuestionAdmin) => (q.open ? `오프닝 ${q.no}번` : `${q.round}라운드 ${q.no}번`);
+/** 짧은 번호(목록 배지 · 크게 보기 다음 문제 단추) — 오프닝은 'OP-1'(0라운드 '0-1' 으로 안 보이게) */
+const qShort = (q: QuizQuestionAdmin) => (q.open ? `OP-${q.no}` : `${q.round}-${q.no}`);
 
 /** 객관식 정답 보기 번호(0부터) — 원값이 오면 그걸로, 아니면 정답 글 앞 원문자('④ 2,011건')나 같은 글로 */
 function correctOption(q: QuizQuestionAdmin): number {
@@ -118,19 +122,21 @@ export default function ReceptionQuizPage() {
     if (cur && cur.id !== q.id && (st.phase === 'open' || st.phase === 'locked')) {
       if (!(await adminConfirm({ title: `${qName(cur)}이 아직 ${PHASE_LABEL[st.phase]}이에요`, description: `${qName(q)}을 열면 손님 화면이 이 문제로 바뀌어요. ${qName(cur)}의 답은 그대로 남아요.`, confirmText: '이 문제 열기' }))) return;
     } else if (selRevealed || (isCurrent && st.phase === 'locked')) {
-      if (!(await adminConfirm({ title: `${qName(q)}을 다시 열까요?`, description: selRevealed ? '정답 공개가 취소되고 점수판에서도 빠져요. 손님이 답을 다시 낼 수 있어요.' : '손님이 답을 다시 내거나 바꿀 수 있어요.', confirmText: '다시 열기' }))) return;
+      if (!(await adminConfirm({ title: `${qName(q)}을 다시 열까요?`, description: selRevealed ? (q.open ? '답 공개가 취소돼요. 손님이 답을 다시 낼 수 있어요.' : '정답 공개가 취소되고 점수판에서도 빠져요. 손님이 답을 다시 낼 수 있어요.') : '손님이 답을 다시 내거나 바꿀 수 있어요.', confirmText: '다시 열기' }))) return;
     }
     act('open', { questionId: q.id });
   };
   const lock = () => act('lock');
   const reveal = async () => {
     if (!st) return;
-    if (st.phase === 'open' && !(await adminConfirm('아직 마감 전이에요. 바로 정답을 공개할까요?\n공개하면 손님은 더 답을 낼 수 없어요.'))) return;
+    if (st.phase === 'open' && !(await adminConfirm(`아직 마감 전이에요. 바로 ${cur?.open ? '테이블 답' : '정답'}을 공개할까요?\n공개하면 손님은 더 답을 낼 수 없어요.`))) return;
     act('reveal');
   };
   const unreveal = async () => {
     if (!q) return;
-    if (!(await adminConfirm({ title: `${qName(q)} 정답 공개를 취소할까요?`, description: '손님 화면에서 정답과 테이블 답이 사라지고 점수판에서도 빠져요.', confirmText: '공개 취소' }))) return;
+    if (!(await adminConfirm(q.open
+      ? { title: `${qName(q)} 답 공개를 취소할까요?`, description: '손님 화면 · 크게 보기에서 테이블 답이 사라져요.', confirmText: '공개 취소' }
+      : { title: `${qName(q)} 정답 공개를 취소할까요?`, description: '손님 화면에서 정답과 테이블 답이 사라지고 점수판에서도 빠져요.', confirmText: '공개 취소' }))) return;
     act('unreveal', { questionId: q.id });
   };
   const toIdle = async () => {
@@ -142,6 +148,8 @@ export default function ReceptionQuizPage() {
   const extend = () => act('extend');
 
   /** 판 안 [다음 문제 열기] — 지금 문제(대기면 마지막으로 공개한 문제) 다음이면서 아직 공개 안 한 첫 문제 */
+  // 점수판에 든 공개 문제 수 — 오프닝 주관식은 점수판 밖이라 안 센다
+  const scoredShown = (st?.revealed ?? []).filter((id) => { const x = data?.questions.find((y) => y.id === id); return !!x && !x.open; }).length;
   const nextQ = useMemo(() => {
     const qs = data?.questions || [];
     const s = data?.state;
@@ -217,7 +225,7 @@ export default function ReceptionQuizPage() {
       {/* 지금 상태 줄 — 어느 문제가 손님 화면에 떠 있나 */}
       <div className="rcq-now">
         <div className="rcq-now-text">
-          <span className={`rcq-phase ${st.phase}`}>{PHASE_LABEL[st.phase]}</span>
+          <span className={`rcq-phase ${st.phase}`}>{phaseLabel(st.phase, cur)}</span>
           <b>{cur ? `${qName(cur)} · ${QUIZ_KIND_LABEL[cur.kind]}` : '손님 화면 = 대기'}</b>
           {st.phase === 'open' && <span className={`rcq-left ${left <= 10 ? 'warn' : ''}`}>{left > 0 ? `${quizClock(left)} 남음` : '시간이 다 됐어요'}</span>}
           {st.phase === 'open' && <button type="button" className="adm-btn" disabled={stateBusy} onClick={extend}>+60초</button>}
@@ -238,7 +246,7 @@ export default function ReceptionQuizPage() {
         <nav className="rcq-list" aria-label="문제 목록">
           {rounds.map(([round, r]) => (
             <div key={round} className="rcq-round">
-              <p className="rcq-round-title">{round}라운드 · {r.title}</p>
+              <p className="rcq-round-title">{round === 0 ? `${r.title} · 점수 없는 주관식` : `${round}라운드 · ${r.title}`}</p>
               <div className="rcq-items">
                 {r.items.map((x) => {
                   const live = st.currentId === x.id && (st.phase === 'open' || st.phase === 'locked');
@@ -246,10 +254,10 @@ export default function ReceptionQuizPage() {
                   const sub = data.results[x.id]?.submitted || 0;
                   return (
                     <button key={x.id} type="button" className={`rcq-q ${selId === x.id ? 'on' : ''}`} onClick={() => setSelId(x.id)} aria-current={selId === x.id ? 'true' : undefined}>
-                      <span className="rcq-q-no">{x.round}-{x.no}</span>
+                      <span className="rcq-q-no">{qShort(x)}</span>
                       <span className="rcq-q-text">
                         <span className="rcq-q-prompt">{x.prompt}</span>
-                        <span className="rcq-q-meta">{QUIZ_KIND_LABEL[x.kind]} · {x.points}점{x.kind !== 'mission' ? ` · ${sub}/${data.tableCount}` : ''}</span>
+                        <span className="rcq-q-meta">{QUIZ_KIND_LABEL[x.kind]} · {x.open ? '점수 없음' : `${x.points}점`}{x.kind !== 'mission' ? ` · ${sub}/${data.tableCount}` : ''}</span>
                       </span>
                       {(live || done) && <span className={`rcq-dot ${live ? 'live' : 'done'}`} aria-label={live ? '진행 중' : '공개됨'} />}
                     </button>
@@ -264,8 +272,8 @@ export default function ReceptionQuizPage() {
           <div className="rcq-main">
             <section className="adm-card rcq-card">
               <div className="rcq-card-head">
-                <p className="rcq-eyebrow">{q.round}라운드 · {q.roundTitle} · {q.no}번 · {QUIZ_KIND_LABEL[q.kind]} · {q.points}점</p>
-                <span className={`rcq-phase ${selPhase}`}>{PHASE_LABEL[selPhase]}</span>
+                <p className="rcq-eyebrow">{q.open ? `${q.roundTitle} · ${q.no}번 · ${QUIZ_KIND_LABEL[q.kind]} · 점수 없음` : `${q.round}라운드 · ${q.roundTitle} · ${q.no}번 · ${QUIZ_KIND_LABEL[q.kind]} · ${q.points}점`}</p>
+                <span className={`rcq-phase ${selPhase}`}>{phaseLabel(selPhase, q)}</span>
               </div>
               <p className="rcq-prompt">{q.prompt}</p>
               {q.image && <img className="rcq-img" src={q.image} alt="" />}
@@ -290,7 +298,14 @@ export default function ReceptionQuizPage() {
               {q.kind === 'mission' && q.notes && (
                 <ul className="rcq-notes">{q.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
               )}
-              {showAns ? (
+              {q.open ? (
+                // 오프닝 주관식 — 가릴 정답이 없다
+                <div className="rcq-answer">
+                  <span>정답 없음</span>
+                  <b>맞고 틀림 없는 주관식</b>
+                  <p>공개하면 손님 화면 · 크게 보기에 테이블 답만 떠요. 점수판에는 안 들어가요.</p>
+                </div>
+              ) : showAns ? (
                 <div className={`rcq-answer ${selRevealed ? '' : 'peeking'}`}>
                   <span>정답</span>
                   <b>{q.answerLabel}</b>
@@ -318,7 +333,7 @@ export default function ReceptionQuizPage() {
                   {selRevealed || (isCurrent && st.phase === 'locked') ? '다시 열기' : '문제 열기'}
                 </button>
                 <button type="button" className="adm-btn" disabled={stateBusy || !(isCurrent && st.phase === 'open')} onClick={lock}>마감</button>
-                <button type="button" className="adm-btn weak" disabled={stateBusy || !(isCurrent && (st.phase === 'open' || st.phase === 'locked'))} onClick={reveal}>정답 공개</button>
+                <button type="button" className="adm-btn weak" disabled={stateBusy || !(isCurrent && (st.phase === 'open' || st.phase === 'locked'))} onClick={reveal}>{q.open ? '답 공개' : '정답 공개'}</button>
                 <button type="button" className="adm-btn" disabled={stateBusy || !selRevealed} onClick={unreveal}>공개 취소</button>
                 <button type="button" className="adm-btn" disabled={stateBusy || st.phase === 'idle'} onClick={toIdle}>대기 화면</button>
               </div>
@@ -332,6 +347,7 @@ export default function ReceptionQuizPage() {
                   <p className="rcq-sec-sub">
                     {q.kind === 'mission'
                       ? '손님이 [도전하기]를 누르면 도전한 사람이 떠요 · 성공한 테이블만 눌러 주세요 — 다시 누르면 풀려요'
+                      : q.open ? <>낸 테이블 <b><RollingNumber value={res?.submitted || 0} /></b>/{data.tableCount} · 맞고 틀림 없는 주관식이에요</>
                       : <>낸 테이블 <b><RollingNumber value={res?.submitted || 0} /></b>/{data.tableCount} · 맞힘 <b><RollingNumber value={res?.correctCount || 0} /></b> · O/X 칸을 누르면 자동 → O → X 로 바뀌어요</>}
                   </p>
                 </div>
@@ -342,7 +358,7 @@ export default function ReceptionQuizPage() {
                     {q.kind === 'mission' ? (
                       <tr><th>테이블</th><th>도전한 사람</th><th>결과</th><th className="r">점수</th></tr>
                     ) : (
-                      <tr><th>테이블</th><th>답</th><th>낸 사람</th><th>자동</th><th>최종</th><th aria-label="답 입력" /></tr>
+                      <tr><th>테이블</th><th>답</th><th>낸 사람</th>{!q.open && <><th>자동</th><th>최종</th></>}<th aria-label="답 입력" /></tr>
                     )}
                   </thead>
                   <tbody key={q.id}>
@@ -378,8 +394,8 @@ export default function ReceptionQuizPage() {
                             {t.name ? <span className="adm-cell-main rcq-who">{t.name}</span> : <span className="adm-cell-sub">—</span>}
                             {t.updatedAt && <span className="adm-cell-sub adm-num">{kstHm(t.updatedAt)}</span>}
                           </td>
-                          <td>{t.answer ? <span className={`adm-badge ${t.auto ? 'blue' : ''}`}>{t.auto ? 'O' : 'X'}</span> : <span className="adm-cell-sub">—</span>}</td>
-                          <td>
+                          {!q.open && <td>{t.answer ? <span className={`adm-badge ${t.auto ? 'blue' : ''}`}>{t.auto ? 'O' : 'X'}</span> : <span className="adm-cell-sub">—</span>}</td>}
+                          {!q.open && <td>
                             <button
                               type="button"
                               className={`rcq-ox ${t.correct ? 'ok' : 'no'} ${t.override !== null ? 'fixed' : ''}`}
@@ -390,7 +406,7 @@ export default function ReceptionQuizPage() {
                               <b>{t.correct ? 'O' : 'X'}</b>
                               <small>{t.override !== null ? '고정' : '자동'}</small>
                             </button>
-                          </td>
+                          </td>}
                           <td className="r">
                             <button type="button" className="adm-btn ghost sm" onClick={() => setEditing(editing === t.table ? null : t.table)}>
                               {t.answer ? '답 고치기' : '답 입력'}
@@ -401,7 +417,7 @@ export default function ReceptionQuizPage() {
                       if (editing === t.table) {
                         rows.push(
                           <tr key={`e${t.table}`} className="rcq-edit-row">
-                            <td colSpan={6}>
+                            <td colSpan={q.open ? 4 : 6}>
                               <QuizAnswerEditor
                                 question={q}
                                 initial={t.answer}
@@ -428,7 +444,7 @@ export default function ReceptionQuizPage() {
               <div className="adm-card-head">
                 <div>
                   <p className="adm-card-title">점수판</p>
-                  <p className="adm-card-sub">{boardAll ? '아직 공개 안 한 문제까지 채점한 참고용이에요' : `공개한 ${st.revealed.length}문제만 — 손님 화면과 같은 점수예요`}</p>
+                  <p className="adm-card-sub">{boardAll ? '아직 공개 안 한 문제까지 채점한 참고용이에요' : `공개한 ${scoredShown}문제만 — 손님 화면과 같은 점수예요`}</p>
                 </div>
                 <div className="adm-seg" role="tablist" aria-label="점수판">
                   <button type="button" role="tab" aria-selected={!boardAll} className={!boardAll ? 'on' : ''} onClick={() => setBoardAll(false)}>공개분</button>
@@ -465,11 +481,11 @@ export default function ReceptionQuizPage() {
         foot={
           <>
             <button type="button" className={`rca-stage-btn ${st.phase === 'idle' || st.phase === 'revealed' ? 'go' : ''}`} disabled={stateBusy || !nextQ} onClick={openNext}>
-              {nextQ ? `다음 문제 열기 · ${nextQ.round}-${nextQ.no}` : '모든 문제를 공개했어요'}
+              {nextQ ? `다음 문제 열기 · ${qShort(nextQ)}` : '모든 문제를 공개했어요'}
             </button>
             <button type="button" className="rca-stage-btn" disabled={stateBusy || st.phase !== 'open'} onClick={extend}>+60초</button>
             <button type="button" className="rca-stage-btn" disabled={stateBusy || st.phase !== 'open'} onClick={lock}>마감</button>
-            <button type="button" className="rca-stage-btn" disabled={stateBusy || !(st.phase === 'open' || st.phase === 'locked')} onClick={reveal}>정답 공개</button>
+            <button type="button" className="rca-stage-btn" disabled={stateBusy || !(st.phase === 'open' || st.phase === 'locked')} onClick={reveal}>{cur?.open ? '답 공개' : '정답 공개'}</button>
             <button type="button" className={`rca-stage-btn ${st.showBoard ? 'on' : ''}`} disabled={stateBusy} onClick={toggleBoard}>{st.showBoard ? '순위 발표 끄기' : '순위 발표'}</button>
             <button type="button" className="rca-stage-btn" disabled={stateBusy || st.phase === 'idle'} onClick={toIdle}>대기</button>
           </>

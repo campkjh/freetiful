@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { RECEPTION_EVENT_KEY } from '@/lib/reception/event';
+import { quizNoLabel, quizRoundChip } from '@/lib/reception/quiz';
 
 /** 연출에 쓰는 문제 칸(손님 QuizQuestionPublic · 어드민 QuizQuestionAdmin 공통 — 정답 칸은 받지 않는다) */
 export interface IntroQuestion {
@@ -27,6 +28,8 @@ export interface IntroQuestion {
   image?: string;
   slots?: string[];
   slotImages?: string[];
+  /** 오프닝 주관식 — 'OPENING · 주관식', 점수 줄 없음 */
+  open?: boolean;
 }
 
 /** 카드 쪽 단계 — hold: 판이 덮는 중(카드 속 숨김) · land: 날아가 앉는 중 · in: 끝(답 칸 차례 등장) */
@@ -348,12 +351,14 @@ export function QuizIntro({ q, prefix: p, rootClassName, portal, scroll, targets
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const roundLabel = `ROUND ${q.round}`;
-  const noLabel = q.kind === 'mission' ? '스페셜 미션' : `${q.no}번 문제`;
+  const roundLabel = quizRoundChip(q);
+  const noLabel = quizNoLabel(q);
+  // 오프닝 주관식은 라운드 제목 없이 'OPENING · 주관식'
+  const metaText = (withNo: boolean) => (q.open ? (withNo ? noLabel : '') : `${q.roundTitle}${withNo ? ` · ${noLabel}` : ''}`);
   const eyebrow = (withNo: boolean) => (
     <p className={`${p}-eyebrow`}>
       <span className={`${p}-round`}>{roundLabel}</span>
-      <span className={`${p}-meta`}>{q.roundTitle}{withNo ? ` · ${noLabel}` : ''}</span>
+      {metaText(withNo) && <span className={`${p}-meta`}>{metaText(withNo)}</span>}
     </p>
   );
 
@@ -398,7 +403,7 @@ export function QuizIntro({ q, prefix: p, rootClassName, portal, scroll, targets
             {eyebrow(false)}
             <i className={`${p}-line`} />
             <p className={`${p}-no`}>{q.kind === 'mission' ? 'SPECIAL MISSION' : noLabel}</p>
-            <p className={`${p}-points`}>{q.points.toLocaleString('ko-KR')}점</p>
+            {!q.open && <p className={`${p}-points`}>{q.points.toLocaleString('ko-KR')}점</p>}
             <p className={`${p}-prompt`}>{q.prompt}</p>
           </div>
         </div>

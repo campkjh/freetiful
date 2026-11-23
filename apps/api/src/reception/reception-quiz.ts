@@ -9,7 +9,8 @@ export type QuizKind = 'text' | 'ox' | 'choice' | 'match' | 'mission';
 
 export interface QuizQuestion {
   id: string;
-  round: 1 | 2 | 3;
+  /** 0 = 오프닝(맨 앞 열린 주관식) */
+  round: 0 | 1 | 2 | 3;
   roundTitle: string;
   no: number;
   kind: QuizKind;
@@ -34,14 +35,32 @@ export interface QuizQuestion {
   /** 정답 공개 때 보이는 글 */
   answerLabel: string;
   explanation?: string;
+  /**
+   * 정답 없는 열린 주관식(261123 사장 '연습문제인데 연습문제라고 안 뜨는 초기 문제') — 맨 앞 오프닝 문제.
+   * 채점 · 점수 없음(어드민 O/X 도 무시), 정답 공개 = 정답 대신 테이블 답만 보여 준다. 화면엔 '연습' 글자 없이 'OPENING · 주관식'.
+   */
+  open?: boolean;
 }
 
-const ROUND_TITLES = { 1: '워밍업', 2: '브레인스토밍', 3: 'Wedding' } as const;
+const ROUND_TITLES = { 0: '오프닝', 1: '워밍업', 2: '브레인스토밍', 3: 'Wedding' } as const;
 
 const q = (x: Omit<QuizQuestion, 'roundTitle'>): QuizQuestion => ({ ...x, roundTitle: ROUND_TITLES[x.round] });
 
-/** 문제 11개(퀴즈고 PPT + 사장 txt 그대로) — 순서 = 진행 순서 */
+/** 문제 13개(오프닝 주관식 2 + 퀴즈고 PPT + 사장 txt 그대로) — 순서 = 진행 순서 */
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
+  // 261123 사장 '(주관식)임하람,남재영 사회자 닮은 연예인은? (주관식)우리 테이블이 꼭 선물을 받아야하는 이유' — 맨 앞 열린 문제(점수 없음)
+  q({
+    id: 'r0q1', round: 0, no: 1, kind: 'text', points: 0, open: true,
+    prompt: '임하람, 남재영 사회자 닮은 연예인은?',
+    placeholder: '닮은 연예인을 적어 주세요',
+    answer: '', accept: [], answerLabel: '',
+  }),
+  q({
+    id: 'r0q2', round: 0, no: 2, kind: 'text', points: 0, open: true,
+    prompt: '우리 테이블이 꼭 선물을 받아야 하는 이유는?',
+    placeholder: '이유를 적어 주세요',
+    answer: '', accept: [], answerLabel: '',
+  }),
   q({
     id: 'r1q1', round: 1, no: 1, kind: 'text', points: 100,
     prompt: '프리티풀의 영문 표기는 무엇일까요?',
@@ -129,9 +148,9 @@ export const MISSION_IDS: readonly string[] = QUIZ_QUESTIONS.filter((x) => x.kin
 export type MissionResult = 'pending' | 'success' | 'fail';
 export const missionResult = (correct: boolean | null | undefined): MissionResult => (correct === true ? 'success' : correct === false ? 'fail' : 'pending');
 
-/** 점수판에 넣을 문제 — 정답 공개된 문제 + 미션 전부(성공을 찍는 순간 그 테이블 점수가 오르게) */
+/** 점수판에 넣을 문제 — 정답 공개된 문제 + 미션 전부(성공을 찍는 순간 그 테이블 점수가 오르게). 열린 주관식(open)은 늘 빼기 */
 export function quizBoardIds(state: Pick<QuizState, 'revealed'>): string[] {
-  return [...new Set([...state.revealed, ...MISSION_IDS])];
+  return [...new Set([...state.revealed, ...MISSION_IDS])].filter((id) => !BY_ID.get(id)?.open);
 }
 
 export const TEXT_ANSWER_MAX = 40;
@@ -180,9 +199,9 @@ export function parseQuizAnswer(question: QuizQuestion, raw: unknown): { answer:
   }
 }
 
-/** 자동 채점 — 답 없음·미션은 false */
+/** 자동 채점 — 답 없음·미션·열린 주관식은 false */
 export function autoCorrect(question: QuizQuestion, answer: string | null): boolean {
-  if (!answer) return false;
+  if (!answer || question.open) return false;
   switch (question.kind) {
     case 'text': {
       const n = normalizeQuizText(answer);
@@ -197,8 +216,9 @@ export function autoCorrect(question: QuizQuestion, answer: string | null): bool
   }
 }
 
-/** 최종 O/X — 어드민 판정이 있으면 그것, 없으면 자동 채점 */
+/** 최종 O/X — 어드민 판정이 있으면 그것, 없으면 자동 채점. 열린 주관식은 늘 false(맞고 틀림이 없는 문제) */
 export function finalCorrect(question: QuizQuestion, answer: string | null, override: boolean | null): boolean {
+  if (question.open) return false;
   return override ?? autoCorrect(question, answer);
 }
 
@@ -241,7 +261,7 @@ export function quizBoard(rows: QuizAnswerRow[], questionIds: Iterable<string>):
   for (const r of rows) {
     if (!ids.has(r.questionId) || r.tableNo < 1 || r.tableNo > TABLE_COUNT) continue;
     const question = BY_ID.get(r.questionId);
-    if (!question || !finalCorrect(question, r.answer, r.correct)) continue;
+    if (!question || question.open || !finalCorrect(question, r.answer, r.correct)) continue;
     board[r.tableNo - 1].score += question.points;
     board[r.tableNo - 1].correct += 1;
   }
@@ -332,7 +352,7 @@ export function applyQuizAction(state: QuizState, body: { action?: unknown; ques
 /** 손님에게 보내는 문제 — 정답 칸(answer·accept)은 빼고, 공개된 문제만 정답 글·해설 */
 export interface QuizQuestionPublic {
   id: string;
-  round: 1 | 2 | 3;
+  round: 0 | 1 | 2 | 3;
   roundTitle: string;
   no: number;
   kind: QuizKind;
@@ -346,6 +366,8 @@ export interface QuizQuestionPublic {
   notes?: string[];
   answerLabel?: string;
   explanation?: string;
+  /** 정답 없는 열린 주관식(점수 · O/X 없음) */
+  open?: boolean;
 }
 
 export function publicQuestion(question: QuizQuestion, withAnswer: boolean): QuizQuestionPublic {
@@ -480,7 +502,8 @@ export function quizAdmin(state: QuizState, rows: QuizAnswerRow[]): QuizAdmin {
     const tables = Array.from({ length: TABLE_COUNT }, (_, i): QuizAdminTable => {
       const r = byTable.get(i + 1);
       const answer = r?.answer ?? null;
-      const override = r?.correct ?? null;
+      // 열린 주관식은 O/X 가 없다 — 예전에 찍힌 판정이 남아 있어도 안 보인다
+      const override = question.open ? null : r?.correct ?? null;
       const auto = autoCorrect(question, answer);
       return {
         table: i + 1,

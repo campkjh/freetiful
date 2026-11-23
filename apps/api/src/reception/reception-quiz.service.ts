@@ -230,6 +230,7 @@ export class ReceptionQuizService {
     if (table == null) throw new BadRequestException('테이블 번호를 골라 주세요.');
     const has = (k: string) => !!body && Object.prototype.hasOwnProperty.call(body, k);
     if (!has('answer') && !has('correct')) throw new BadRequestException('바꿀 내용이 없어요.');
+    if (question.open && has('correct') && body.correct != null) throw new BadRequestException('오프닝 주관식은 O·X 판정이 없어요.');
 
     let answer: string | null | undefined;
     if (has('answer')) {

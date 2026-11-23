@@ -24,6 +24,7 @@ import {
   applyQuizAction,
   autoCorrect,
   defaultQuizState,
+  finalCorrect,
   displayAnswer,
   normalizeQuizText,
   parseQuizAnswer,
@@ -217,14 +218,15 @@ test('자리 명단 검사 — 줄 번호·이유 · 동명이인 · 같은 테�
   assert.match(parseSeatRows(many) as string, /400줄/);
 });
 
-test('퀴즈 문제 — 11문제 · id 겹침 없음 · 라운드 제목', () => {
-  assert.equal(QUIZ_QUESTIONS.length, 11);
-  assert.equal(new Set(QUIZ_QUESTIONS.map((x) => x.id)).size, 11);
-  assert.deepEqual([...new Set(QUIZ_QUESTIONS.map((x) => `${x.round}:${x.roundTitle}`))], ['1:워밍업', '2:브레인스토밍', '3:Wedding']);
+test('퀴즈 문제 — 오프닝 2 + 11문제 · id 겹침 없음 · 라운드 제목', () => {
+  assert.equal(QUIZ_QUESTIONS.length, 13);
+  assert.equal(new Set(QUIZ_QUESTIONS.map((x) => x.id)).size, 13);
+  assert.deepEqual([...new Set(QUIZ_QUESTIONS.map((x) => `${x.round}:${x.roundTitle}`))], ['0:오프닝', '1:워밍업', '2:브레인스토밍', '3:Wedding']);
+  assert.deepEqual(QUIZ_QUESTIONS.slice(0, 2).map((x) => [x.id, x.kind, x.points, x.open]), [['r0q1', 'text', 0, true], ['r0q2', 'text', 0, true]]);
   for (const x of QUIZ_QUESTIONS) {
     if (x.kind === 'choice') assert.ok(Number(x.answer) >= 1 && Number(x.answer) <= x.options!.length, x.id);
     if (x.kind === 'match') assert.equal(x.answer.length, x.slots!.length, x.id);
-    if (x.kind === 'text') assert.ok(autoCorrect(x, x.answer), `${x.id} 대표 답은 정답이어야`);
+    if (x.kind === 'text' && !x.open) assert.ok(autoCorrect(x, x.answer), `${x.id} 대표 답은 정답이어야`);
   }
 });
 
@@ -377,7 +379,7 @@ test('손님 퀴즈 화면 — 정답 칸은 안 보내고 공개된 문제만 �
   const closed = { ...defaultQuizState(), currentId: 'r1q2', phase: 'open' as const, openedAt: at.toISOString(), revealed: [] };
   const pub = quizPublicShared(closed, rows);
   const json = JSON.stringify(pub);
-  assert.equal(pub.questions.length, 11);
+  assert.equal(pub.questions.length, 13);
   assert.ok(!json.includes('"accept"') && !json.includes('"answer"') && !json.includes('answerLabel') && !json.includes('chouchoumonde'));
   assert.deepEqual(pub.results, {});
   assert.equal(pub.board.every((b) => b.score === 0), true);
@@ -405,7 +407,7 @@ test('손님 퀴즈 화면 — 정답 칸은 안 보내고 공개된 문제만 �
 test('어드민 퀴즈판 — 자동·판정·최종 · 낸 수 · 전체 채점', () => {
   const rows = [row('r1q1', 1, 'freetiful'), row('r1q1', 2, 'pretiful', true), row('r1q1', 3, 'freetiful', false), row('r3q3', 4, null, true)];
   const a = quizAdmin({ ...defaultQuizState(), revealed: ['r1q1'] }, rows);
-  assert.equal(Object.keys(a.results).length, 11);
+  assert.equal(Object.keys(a.results).length, 13);
   assert.equal(a.questions.every((x) => typeof x.answerLabel === 'string'), true);
   assert.ok(!JSON.stringify(a.questions).includes('"accept"'));
   const r = a.results.r1q1;
@@ -1297,4 +1299,24 @@ test('설문 화면 2차 회식 — 같은 이름 기기 여럿은 한 사람(�
   const o: any = await svc.adminOverview('wmak-2026');
   assert.deepEqual(o.summary.afterParty, { yes: 2, no: 1, noSurvey: 1 });
   assert.deepEqual(o.afterParty.map((p: any) => [p.deviceId, p.afterParty, !!p.surveyAt]), [['d', 'no', false], ['b', 'yes', true], ['e', 'yes', false]]);
+});
+
+test('오프닝 주관식 — 아무 답이나 받고 · 채점 · 점수 · O/X 없음 · 공개 땐 테이블 답만', () => {
+  const o1 = quizQuestion('r0q1')!;
+  assert.deepEqual(parseQuizAnswer(o1, '  차은우 '), { answer: '차은우' });
+  assert.equal(autoCorrect(o1, '차은우'), false);
+  assert.equal(finalCorrect(o1, '차은우', true), false); // 어드민 O 가 남아 있어도 맞힘 아님
+  const rows = [row('r0q1', 3, '차은우', true), row('r0q2', 3, '올해 제일 열심히 일해서'), row('r1q1', 4, 'freetiful')];
+  const ids = quizBoardIds({ revealed: ['r0q1', 'r0q2', 'r1q1'] });
+  assert.ok(!ids.includes('r0q1') && !ids.includes('r0q2') && ids.includes('r1q1'));
+  const board = quizBoard(rows, QUIZ_QUESTIONS.map((x) => x.id)); // 전 문제를 넣어도 오프닝은 0
+  assert.deepEqual(board.find((b) => b.table === 3), { table: 3, score: 0, correct: 0 });
+  assert.deepEqual(board[0], { table: 4, score: 100, correct: 1 });
+  const shared = quizPublicShared({ ...defaultQuizState(), currentId: 'r0q1', phase: 'revealed', revealed: ['r0q1'] }, rows);
+  const t3 = shared.results.r0q1.tables.find((t) => t.table === 3)!;
+  assert.deepEqual([t3.display, t3.correct], ['차은우', false]);
+  assert.equal(shared.questions[0].open, true);
+  assert.equal(shared.questions[0].answerLabel, '');
+  const adminT3 = quizAdmin(defaultQuizState(), rows).results.r0q1.tables.find((t) => t.table === 3)!;
+  assert.deepEqual([adminT3.override, adminT3.correct, adminT3.auto], [null, false, false]);
 });

@@ -83,7 +83,7 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
 
   const head = (
     <p className="rcs-eyebrow">
-      {cur.round}라운드 · {cur.roundTitle} · {cur.no}번{cur.points !== 100 ? ` · ${cur.points}점` : ''}
+      {cur.open ? '오프닝 · 주관식' : <>{cur.round}라운드 · {cur.roundTitle} · {cur.no}번{cur.points !== 100 ? ` · ${cur.points}점` : ''}</>}
     </p>
   );
   const res = data.results[cur.id];
@@ -94,16 +94,17 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
       <div className="rcs-reveal" key={`r:${cur.id}`}>
         {head}
         <p className="rcs-prompt sm">{cur.prompt}</p>
-        <p className="rcs-answer"><span>정답</span>{cur.answerLabel}</p>
+        {/* 오프닝 주관식 — 정답 줄 · O/X 없이 테이블 답만 */}
+        {!cur.open && <p className="rcs-answer"><span>정답</span>{cur.answerLabel}</p>}
         {cur.explanation && <p className="rcs-expl">{cur.explanation}</p>}
-        <div className="rcs-cards">
+        <div className={`rcs-cards ${cur.open ? 'open' : ''}`}>
           {tables.map((t, i) => {
             const shown = cur.kind === 'mission' ? (t.correct ? '성공' : t.override === false ? '실패' : '—') : t.display || '—';
             return (
-              <div key={t.table} className={`rcs-card ${t.correct ? 'ok' : 'no'} ${!t.answer && cur.kind !== 'mission' ? 'empty' : ''}`} style={{ '--i': i } as CSSProperties}>
+              <div key={t.table} className={`rcs-card ${cur.open ? (t.answer ? 'said' : '') : t.correct ? 'ok' : 'no'} ${!t.answer && cur.kind !== 'mission' ? 'empty' : ''}`} style={{ '--i': i } as CSSProperties}>
                 <span className="rcs-card-table">{t.table}번</span>
                 <span className="rcs-card-ans">{shown}</span>
-                <span className="rcs-card-mark" aria-label={t.correct ? '맞힘' : '틀림'}>{t.correct ? 'O' : 'X'}</span>
+                {!cur.open && <span className="rcs-card-mark" aria-label={t.correct ? '맞힘' : '틀림'}>{t.correct ? 'O' : 'X'}</span>}
               </div>
             );
           })}

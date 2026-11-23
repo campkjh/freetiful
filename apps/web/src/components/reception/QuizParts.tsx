@@ -6,20 +6,20 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { QuizBoardRow, QuizQuestionPublic, QuizTableResult } from '@/lib/reception/api';
 import { TABLE_COUNT } from '@/lib/reception/event';
-import { CIRCLED, MATCH_EMPTY, QUIZ_SECONDS, optionLetter, quizClock, rankBoard } from '@/lib/reception/quiz';
+import { CIRCLED, MATCH_EMPTY, QUIZ_SECONDS, optionLetter, quizClock, quizNoLabel, quizRoundChip, rankBoard } from '@/lib/reception/quiz';
 import RankCrown from './RankCrown';
 import { CheckIcon, CloseIcon, TrophyIcon } from './ReceptionIcons';
 
-/** 'ROUND 1 · 워밍업 · Q2 · 100점' + 문제 + 그림 */
+/** 'ROUND 1 · 워밍업 · Q2 · 100점' + 문제 + 그림 — 오프닝 주관식은 'OPENING · 주관식'(점수 없음) */
 export function QuizQuestionHead({ q, compact }: { q: QuizQuestionPublic; compact?: boolean }) {
   return (
     <div className={`rc-qz-head ${compact ? 'compact' : ''}`}>
       <p className="rc-qz-meta">
-        <span className="rc-qz-round">ROUND {q.round}</span>
-        <span>{q.roundTitle}</span>
-        <span className="rc-qz-dot" aria-hidden="true" />
-        <span>{q.kind === 'mission' ? '스페셜 미션' : `${q.no}번 문제`}</span>
-        <span className="rc-qz-points">{q.points}점</span>
+        <span className="rc-qz-round">{quizRoundChip(q)}</span>
+        {!q.open && <span>{q.roundTitle}</span>}
+        {!q.open && <span className="rc-qz-dot" aria-hidden="true" />}
+        <span>{quizNoLabel(q)}</span>
+        {!q.open && <span className="rc-qz-points">{q.points}점</span>}
       </p>
       <h2 className="rc-qz-prompt">{q.prompt}</h2>
       {!compact && q.image && (
@@ -149,32 +149,34 @@ const resultText = (q: QuizQuestionPublic, r: QuizTableResult | undefined) => {
   return r?.display || '—';
 };
 
-/** 정답 공개 — 1~18 테이블이 각각 뭘 냈는지 + O/X(우리 테이블 줄 강조, 안 낸 테이블 '—') */
+/** 정답 공개 — 1~18 테이블이 각각 뭘 냈는지 + O/X(우리 테이블 줄 강조, 안 낸 테이블 '—'). 오프닝 주관식은 O/X 없이 답만(긴 답은 줄바꿈) */
 export function QuizTableAnswers({ q, tables, myTable }: { q: QuizQuestionPublic; tables: QuizTableResult[]; myTable: number | null }) {
   const byTable = new Map(tables.map((t) => [t.table, t]));
   const rows = Array.from({ length: Math.max(TABLE_COUNT, tables.length) }, (_, i) => i + 1);
   const correct = tables.filter((t) => t.correct).length;
+  const submitted = tables.filter((t) => !!t.display).length;
   return (
     <div className="rc-qz-tables">
       <p className="rc-qz-tables-sum">
-        {q.kind === 'mission' ? <>성공한 테이블 <b>{correct}</b>곳</> : <>{rows.length}개 테이블 중 <b>{correct}</b>곳이 맞혔어요</>}
+        {q.open ? <>{rows.length}개 테이블 중 <b>{submitted}</b>곳이 답했어요</>
+          : q.kind === 'mission' ? <>성공한 테이블 <b>{correct}</b>곳</> : <>{rows.length}개 테이블 중 <b>{correct}</b>곳이 맞혔어요</>}
       </p>
       <ol className="rc-qz-table-list">
         {rows.map((n) => {
           const r = byTable.get(n);
           const answered = q.kind === 'mission' ? !!r?.correct : !!r?.display;
           return (
-            <li key={n} className={`rc-qz-trow ${n === myTable ? 'mine' : ''} ${r?.correct ? 'ok' : ''} ${answered ? '' : 'none'}`} style={{ '--i': n - 1 } as React.CSSProperties}>
+            <li key={n} className={`rc-qz-trow ${n === myTable ? 'mine' : ''} ${r?.correct ? 'ok' : ''} ${answered ? '' : 'none'} ${q.open ? 'open' : ''}`} style={{ '--i': n - 1 } as React.CSSProperties}>
               <span className="rc-qz-tno">{n}</span>
               <span className="rc-qz-tans">{resultText(q, r)}{n === myTable && <em>우리</em>}</span>
               {/* role=img — 그냥 span 의 aria-label 은 화면 읽기가 건너뛰어 정오답이 안 읽힌다 */}
-              <span
+              {!q.open && <span
                 className={`rc-qz-mark ${r?.correct ? 'o' : 'x'}`}
                 role="img"
                 aria-label={q.kind === 'mission' ? (r?.correct ? '성공' : '300점 못 받음') : r?.correct ? '정답' : answered ? '오답' : '답 안 냄'}
               >
                 {r?.correct ? <CheckIcon size={16} /> : <CloseIcon size={14} />}
-              </span>
+              </span>}
             </li>
           );
         })}
