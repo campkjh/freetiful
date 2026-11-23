@@ -11,7 +11,48 @@
 .rdv-pinball { --rdv-artwork: url('/reception/draw/pinball.webp'); }
 .rdv-wheel { --rdv-artwork: url('/reception/draw/wheel.webp'); }
 .rdv-capsule { --rdv-artwork: url('/reception/draw/capsule.webp'); }
-.rdv-vault { --rdv-artwork: url('/reception/draw/vault.webp'); }
+.rdv-vault { --rdv-artwork: url('/reception/draw/pudding-palace.webp'); }
+.rdv-pudding-character { filter: drop-shadow(0 5px 1px #47273d7d); }
+.rdv-scene.rdv-cards, .rdv-scene.rdv-vault { background: #161126; }
+.rdv-pick-card { display: block; width: 100%; height: 100%; border: 0; background: transparent; color: #fff5d4; padding: 4px; cursor: pointer; font: inherit; perspective: 700px; }
+.rdv-pick-card:disabled { cursor: default; }
+.rdv-pick-card:focus-visible { outline: 2px solid #ffe697; outline-offset: -5px; border-radius: 8px; }
+.rdv-card-sides { display: block; position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.24,.75,.3,1), filter .25s; }
+.rdv-pick-card:not(:disabled):hover .rdv-card-sides { filter: brightness(1.27) drop-shadow(0 0 8px #ffcf78); }
+.rdv-pick-card[data-open="true"] .rdv-card-sides { transform: rotateY(180deg); }
+.rdv-card-back, .rdv-card-front { position: absolute; inset: 0; display: grid; justify-items: center; align-content: center; place-content: center; gap: 4px; background: url('/reception/draw/card.webp') center / 100% 100% no-repeat; backface-visibility: hidden; -webkit-backface-visibility: hidden; text-shadow: 0 2px 5px #080613; }
+.rdv-card-back strong { font-size: 42px; line-height: 1; font-weight: 950; }
+.rdv-card-back span { font-size: 12px; font-weight: 900; }
+.rdv-card-front { transform: rotateY(180deg); align-content: end; padding: 20px 14px 49px; box-sizing: border-box; }
+.rdv-card-front img { display: block; width: 77px; height: 100px; object-fit: contain; }
+.rdv-card-front small { font-size: 12px; font-weight: 900; color: #ffdb86; }
+.rdv-card-front b { font-size: 16px; font-weight: 900; }
+.rdv-card-front strong { width: 116px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; font-weight: 950; }
+.rdv-pick-card.winner .rdv-card-front { animation: rdv-card-won 1s .27s ease-out both; }
+@keyframes rdv-card-won { 0%, 100% { filter: drop-shadow(0 0 8px #ffcf74); } 48% { filter: brightness(1.8) drop-shadow(0 0 16px #fff4c3); } }
+@media (prefers-reduced-motion: reduce) { .rdv-card-sides { transition: none; } .rdv-pick-card.winner .rdv-card-front { animation: none; } }
+.rdv-boss { --rdv-artwork: url('/reception/draw/boss.webp'); }
+.rdv-wide-art { aspect-ratio: 16 / 9; }
+.rdv-boss-art { background: center / cover no-repeat url('/reception/draw/boss.webp'); }
+.rdv-animal { position: relative; isolation: isolate; display: block; width: 100%; aspect-ratio: 16 / 9; }
+.rdv-animal-canvas, .rdv-race-fallback, .rdv-animal-overlay { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.rdv-animal-overlay { pointer-events: none; color: #fff; background: linear-gradient(#1424388c, transparent 25%, transparent 70%, #162436a6); }
+.rdv-animal-hud { position: absolute; top: 7%; left: 4%; display: grid; gap: 4px; text-align: left; text-shadow: 0 2px 5px #142436; }
+.rdv-animal-hud strong { font-size: 23px; font-weight: 900; }
+.rdv-animal-hud span { font-size: 13px; font-weight: 750; }
+.rdv-animal-cue { position: absolute; top: 39%; left: 50%; transform: translateX(-50%); color: #fff6c5; font-size: 55px; font-weight: 950; white-space: nowrap; text-shadow: 0 3px #633e1f, 0 5px 14px #142436; animation: rdv-cue-in .3s cubic-bezier(.2,.84,.3,1) both; }
+.rdv-animal-event { top: 24%; padding: 7px 14px; border-radius: 6px; background: #142b42bd; font-size: 18px; text-shadow: 0 2px 5px #142436; }
+.rdv-animal-standing { position: absolute; bottom: 8%; left: 4%; display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.rdv-animal-standing li { display: flex; gap: 9px; align-items: center; min-width: 110px; padding: 8px 11px; border-radius: 6px; background: #14283de6; font-weight: 800; font-size: 14px; text-align: left; }
+.rdv-animal-standing b { color: #ffdf89; }
+.rdv-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.rdv-preview-badge { position: absolute; z-index: 3; top: max(17px, env(safe-area-inset-top)); left: 16px; margin: 0; padding: 7px 10px; border: 1px solid #d6eeff7d; border-radius: 6px; background: #11223b; color: #eaf7ff; font-weight: 800; font-size: 12px; }
+.rdv-winners { width: min(100%, 1090px); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(165px, 100%), 1fr)); align-items: stretch; gap: 12px; padding: 0; margin: 15px 0; list-style: none; }
+.rdv-winners .rcd-result { min-width: 0; display: grid; align-content: center; padding: 15px 9px; border: 1px solid #ffedbb62; border-radius: 8px; background: #13213bd4; overflow-wrap: anywhere; }
+.rdv-winners .rcd-result .rcd-num { font-size: 30px; }
+.rdv-winners .rcd-result .rcd-name { font-size: 24px; }
+.rdv-place { color: #ffe0a1; font-size: 14px; font-weight: 900; }
+@keyframes rdv-cue-in { from { opacity: 0; transform: translateX(-50%) scale(.86); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
 .rdv-sprite { image-rendering: pixelated; }
 .rdv-art .rdv-arcade-command { font-family: Impact, 'Arial Black', system-ui, sans-serif; font-size: 85px; font-weight: 950; font-style: italic; stroke: #6d242c; stroke-width: 9px; stroke-opacity: 1; }
 .rdv-art .rdv-arcade-depth { fill: #100f1d; stroke: #100f1d; stroke-width: 18px; }
@@ -39,6 +80,9 @@
 .rcd-presentation .rdv-scene { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; }
 .rcd-presentation .rdv-art { position: absolute; inset: 7% 0 4%; width: 100%; height: 89%; aspect-ratio: auto; }
 .rcd-presentation .rdv-fight-art { inset: 0; height: 100%; }
+.rcd-presentation .rdv-animal { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rcd-presentation .rdv-animal-hud { top: 12%; }
+.rcd-presentation .rdv-boss-art { inset: 0; height: 100%; }
 .rcd-presentation .rdv-controls { position: absolute; z-index: 2; right: 16px; bottom: max(12px, env(safe-area-inset-bottom)); margin: 0; }
 .rcd-presentation .rdv-controls > span { display: none; }
 .rcd-presentation .rdv-controls button { background: #111a2bc9; }
@@ -51,5 +95,11 @@
 @media (max-width: 600px) {
   .rcd-presentation .rcd-screen.big .rcd-prize-label { font-size: 17px; }
   .rcd-presentation .rdv-art { inset-block: 12% 9%; height: 79%; }
+  .rcd-presentation .rdv-boss-art { background-size: auto 62%; }
+  .rdv-animal-cue { font-size: 38px; }
+  .rdv-animal-event { font-size: 14px; }
+  .rdv-winners { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .rdv-winners .rcd-result .rcd-num { font-size: 23px; }
+  .rdv-winners .rcd-result .rcd-name { font-size: 19px; }
   .rcd-presentation .rcd-result { max-width: 100%; }
 }

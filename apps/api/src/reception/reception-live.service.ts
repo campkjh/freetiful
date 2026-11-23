@@ -270,7 +270,7 @@ export class ReceptionLiveService {
   private readonly modeCache = new Map<string, { at: number; p: Promise<TicketsMode> }>();
   private readonly renameCache = new Map<string, { at: number; p: Promise<RenameNote[]> }>();
   private readonly touched = new Map<string, { name: string; userId: string | null; at: number }>();
-  private readonly drawPushDelayMs = DRAW_PUSH_DELAY_MS;
+  private readonly drawPushDelayMs?: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -853,23 +853,38 @@ export class ReceptionLiveService {
    * 저장(커밋)된 뒤 당첨자에게 푸시 — 기다리지 않는다(푸시가 느리거나 실패해도 추첨 응답은 그대로, notifyWinner).
    * 푸시는 무대 발표 뒤에 닿게 늦춰 보낸다 — 그 사이 무효로 돌리면 안 보냄
    */
-  async draw(eventKey: ReceptionEventKey, rawPrize: unknown): Promise<{ draw: DrawRow; board: DrawBoard; participants: { number: number; name: string }[] }> {
+  async draw(eventKey: ReceptionEventKey, rawPrize: unknown, batch = false): Promise<{ draw: DrawRow; winners: DrawRow[]; board: DrawBoard; participants: { number: number; name: string }[] }> {
     const prize = cleanPrize(rawPrize);
     if (!prize) throw new BadRequestException('경품 이름을 확인해 주세요(1~40자).');
+    const catalog = batch ? DRAW_PRIZES.find((p) => p.name === prize && /세럼|한우|선글라스/.test(p.name)) : undefined;
+    if (batch && !catalog) throw new BadRequestException('한 번에 추첨할 수 없는 경품이에요.');
     const { created, participants } = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-draw:${eventKey}`}))`;
+      const quantity = catalog
+        ? catalog.total - await tx.receptionDraw.count({ where: { eventKey, prize, cancelledAt: null } })
+        : 1;
+      if (quantity < 1) throw new BadRequestException('남은 경품이 없어요.');
       const pool = await tx.receptionTicket.findMany({ where: { eventKey, draws: { none: {} } }, select: { id: true, number: true, name: true } });
       if (!pool.length) throw new BadRequestException('뽑을 응모권이 없어요.');
-      const t = pool[randomInt(pool.length)];
-      const created = await tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } });
-      return { created, participants: pool.map(({ number, name }) => ({ number, name })) };
+      if (pool.length < quantity) throw new BadRequestException('남은 경품 수보다 응모권이 적어요.');
+      const participants = pool.map(({ number, name }) => ({ number, name }));
+      const created = [];
+      for (let i = 0; i < quantity; i++) {
+        const index = randomInt(pool.length);
+        const t = pool[index];
+        pool[index] = pool[pool.length - 1];
+        pool.pop();
+        created.push(await tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } }));
+      }
+      return { created, participants };
     });
     const timer = setTimeout(() => {
-      void this.notifyWinner(eventKey, created).catch(() => undefined);
-    }, this.drawPushDelayMs ?? DRAW_PUSH_DELAY_MS);
+      for (const winner of created) void this.notifyWinner(eventKey, winner).catch(() => undefined);
+    }, this.drawPushDelayMs ?? (batch ? 24_000 : DRAW_PUSH_DELAY_MS));
     timer.unref?.();
     const board = await this.drawBoard(eventKey);
-    return { draw: board.draws.find((d) => d.id === created.id) ?? this.drawRow(created, undefined), board, participants };
+    const winners = created.map((row) => board.draws.find((d) => d.id === row.id) ?? this.drawRow(row, undefined));
+    return { draw: winners[0], winners, board, participants };
   }
 
   /**

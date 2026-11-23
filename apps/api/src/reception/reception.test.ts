@@ -549,7 +549,9 @@ function fakeLivePrisma() {
         Object.assign(d, data);
         return { count: 1 };
       },
-      count: async ({ where }: any) => draws.filter((d) => d.id === where.id && d.eventKey === where.eventKey).length,
+      count: async ({ where }: any) => draws.filter((d) => d.eventKey === where.eventKey &&
+        (!where.id || d.id === where.id) && (!where.prize || d.prize === where.prize) &&
+        (where.cancelledAt !== null || !d.cancelledAt)).length,
     },
     $transaction: async (arg: any) =>
       typeof arg === 'function'
@@ -779,6 +781,35 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   await svc.deleteTicket(EK, t.id);
   assert.equal(f.draws.some((d) => d.ticketId === t.id), false);
   await assert.rejects(svc.deleteTicket(EK, t.id), /찾을 수 없어요/);
+});
+
+test('batch draws reserve exactly 2, 4 and 3 distinct tickets with a full eligible snapshot', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const event = 'wmak-2026' as const;
+  const tickets = Array.from({ length: 156 }, (_, i) => ({
+    id: `batch-${i}`, eventKey: event, number: i + 1, nameKey: `guest-${i}`, name: `guest ${i}`, createdAt: new Date(),
+  }));
+  f.tickets.push(...tickets);
+  const picked = new Set<number>();
+  for (const [i, count] of [[4, 2], [3, 4], [1, 3]]) {
+    const { winners, participants, board } = await svc.draw(event, DRAW_PRIZES[i].name, true);
+    assert.equal(winners.length, count);
+    assert.equal(participants.length, tickets.length - picked.size);
+    assert.ok(winners.every(w => participants.some(p => p.number === w.number)));
+    for (const w of winners) { assert.ok(!picked.has(w.number)); picked.add(w.number); }
+    assert.equal(board.prizes[i].drawn, count);
+    await assert.rejects(svc.draw(event, DRAW_PRIZES[i].name, true), /남은 경품/);
+  }
+  const prize = DRAW_PRIZES[3].name;
+  await svc.cancelDraw(event, f.draws.find(d => d.prize === prize).id);
+  const replacement = await svc.draw(event, prize, true);
+  assert.equal(replacement.winners.length, 1);
+  assert.ok(!picked.has(replacement.draw.number));
+  const insufficient = fakeLivePrisma();
+  insufficient.tickets.push(tickets[0]);
+  await assert.rejects(liveService(insufficient.prisma).draw(event, DRAW_PRIZES[4].name, true), /응모권이 적어요/);
+  assert.equal(insufficient.draws.length, 0);
 });
 
 test('reset clears only the confirmed event draw history and makes its tickets eligible again', async () => {

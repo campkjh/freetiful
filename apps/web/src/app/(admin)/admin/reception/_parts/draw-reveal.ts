@@ -1,19 +1,20 @@
-export type RevealKind = 'capsule' | 'wheel' | 'cards' | 'race' | 'pinball' | 'fight' | 'vault';
+export type RevealKind = 'capsule' | 'wheel' | 'cards' | 'race' | 'pinball' | 'fight' | 'vault' | 'boss';
 export type RevealTicket = { number: number; name: string };
 
 const themes: Record<RevealKind, { label: string; duration: number; slots: number }> = {
-  capsule: { label: '캡슐 드롭', duration: 5000, slots: 7 },
+  capsule: { label: '복권 공 추첨', duration: 7600, slots: 12 },
   wheel: { label: '골든 룰렛', duration: 5700, slots: 8 },
-  cards: { label: '카드 팩 오픈', duration: 5400, slots: 5 },
-  race: { label: '동물 레이스', duration: 6500, slots: 5 },
-  pinball: { label: '핀볼 드롭', duration: 5500, slots: 5 },
+  cards: { label: '스튜디오패스 카드 오픈', duration: 12400, slots: 5 },
+  race: { label: '동물런', duration: 21500, slots: 9 },
+  pinball: { label: '핀볼 레이스', duration: 14200, slots: 0 },
+  boss: { label: '세럼 보스전', duration: 17000, slots: 3 },
   fight: { label: 'Freetiful Fight', duration: 12000, slots: 15 },
-  vault: { label: '골드 금고', duration: 5500, slots: 5 },
+  vault: { label: '푸딩이 왕궁', duration: 15500, slots: 5 },
 };
 
 const prizeThemes: [string, RevealKind][] = [
-  ['디퓨', 'capsule'], ['세럼', 'wheel'], ['스튜디오패스', 'cards'],
-  ['한우', 'race'], ['선글라스', 'pinball'], ['슈트패브릭', 'fight'], ['체스타필드', 'vault'],
+  ['디퓨', 'capsule'], ['세럼', 'boss'], ['스튜디오패스', 'cards'],
+  ['한우', 'pinball'], ['선글라스', 'race'], ['슈트패브릭', 'fight'], ['체스타필드', 'vault'],
 ];
 
 export function revealTheme(prize: string) {
@@ -23,11 +24,15 @@ export function revealTheme(prize: string) {
 
 export type RevealPlan = ReturnType<typeof revealTheme> & {
   lineup: (RevealTicket | null)[];
+  winners: readonly RevealTicket[];
+  entrantCount: number;
   winnerIndex: number;
   seed: number;
 };
 
-export function buildReveal(prize: string, id: string, winner: RevealTicket, pool: readonly RevealTicket[]): RevealPlan {
+export const isBatchReveal = (kind: RevealKind) => kind === 'boss' || kind === 'race' || kind === 'pinball';
+
+export function buildReveal(prize: string, id: string, winner: RevealTicket, pool: readonly RevealTicket[], winners: readonly RevealTicket[] = [winner]): RevealPlan {
   const theme = revealTheme(prize);
   const seed = [...id].reduce((value, char) => Math.imul(value ^ char.charCodeAt(0), 16777619), 2166136261) >>> 0;
   let state = seed;
@@ -36,26 +41,24 @@ export function buildReveal(prize: string, id: string, winner: RevealTicket, poo
     return state % limit;
   };
   // Only the stage lineup is shuffled. The server has already selected and stored the winner.
-  const alternates = [...new Map(pool.filter((entry) => entry.number !== winner.number).map((entry) => [entry.number, entry])).values()];
+  const winnerNumbers = new Set(winners.map((entry) => entry.number));
+  const alternates = [...new Map(pool.filter((entry) => !winnerNumbers.has(entry.number)).map((entry) => [entry.number, entry])).values()];
   for (let i = alternates.length - 1; i > 0; i--) {
     const j = next(i + 1);
     [alternates[i], alternates[j]] = [alternates[j], alternates[i]];
   }
-  const size = theme.kind === 'fight' ? alternates.length + 1 : theme.kind === 'race' ? Math.min(theme.slots, alternates.length + 1) : theme.slots;
-  const winnerIndex = next(size);
-  const lineup = Array.from({ length: size }, (_, i) => i === winnerIndex ? winner : alternates.pop() ?? null);
-  return { ...theme, lineup, winnerIndex, seed };
+  const entrantCount = alternates.length + winners.length;
+  const size = theme.kind === 'fight' || theme.kind === 'pinball' ? entrantCount : theme.kind === 'race' ? Math.min(theme.slots, entrantCount) : theme.slots;
+  const lineup = Array.from({ length: size }, (_, i) => i < winners.length ? winners[i] : alternates.pop() ?? null);
+  for (let i = size - 1; i > 0; i--) {
+    const j = next(i + 1);
+    [lineup[i], lineup[j]] = [lineup[j], lineup[i]];
+  }
+  const winnerIndex = lineup.findIndex((entry) => entry?.number === winner.number);
+  return { ...theme, lineup, winnerIndex, seed, winners, entrantCount };
 }
 
 export const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
 export const smooth = (t: number) => { const x = clamp01(t); return x * x * (3 - 2 * x); };
 export const out = (t: number) => 1 - (1 - clamp01(t)) ** 3;
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
-export function racePosition(progress: number, lane: number, winnerIndex: number, seed: number) {
-  const t = clamp01(progress / 0.88);
-  const offset = (seed % 97) / 31 + lane * 1.74;
-  const surge = Math.sin(t * 7.6 + offset) * Math.sin(Math.PI * t) * 0.20;
-  const endpoint = lane === winnerIndex ? 1 : 0.9 - (lane % 4) * 0.042;
-  return clamp01(Math.min(lane === winnerIndex ? 1 : 0.94, t * endpoint + surge));
-}

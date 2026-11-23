@@ -9,7 +9,7 @@
  *  · 화면 읽기: 굴리는 번호는 숨기고(실명이 줄줄이 읽힘), 멈춘 뒤 당첨 한 줄만 알린다. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Maximize, Trash2 } from 'lucide-react';
+import { Maximize, Play, Trash2 } from 'lucide-react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { adminAlert, adminConfirm } from '../../_components/adminDialog';
@@ -26,11 +26,12 @@ import {
 } from '../../_components/receptionAdmin';
 import { ReceptionStage } from '../_parts/ReceptionStage';
 import { DrawReveal } from '../_parts/DrawReveal';
-import { buildReveal, revealTheme, type RevealPlan } from '../_parts/draw-reveal';
+import { buildReveal, isBatchReveal, revealTheme, type RevealPlan } from '../_parts/draw-reveal';
 import { haptic } from '@/lib/haptics';
 import '../reception-admin.css';
 
-type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; win: DrawRow | null; scene?: { plan: RevealPlan; startedAt: number } };
+type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; win: DrawRow | null; wins?: DrawRow[]; preview?: boolean; openedCards?: number[]; scene?: { plan: RevealPlan; startedAt: number } };
+const NO_CARDS: readonly number[] = [];
 
 const PRIZE_MAX = 40;
 /** 경품 이름 뒤 은/는 — 한글 받침으로 고른다(한글이 아니면 '은(는)') */
@@ -41,10 +42,13 @@ const eunNeun = (w: string) => {
 };
 
 /** announce = 지금 보이는 판 하나만 알림 칸을 둔다(본문 판 · 크게 보기 판이 같이 읽히지 않게) */
-function DrawScreen({ roll, prize, big = false, announce = false, onFinish }: { roll: Roll; prize: string; big?: boolean; announce?: boolean; onFinish: () => void }) {
+function DrawScreen({ roll, prize, big = false, announce = false, onFinish, onOpenCard, reduce }: { roll: Roll; prize: string; big?: boolean; announce?: boolean; onFinish: () => void; onOpenCard: (index: number) => void; reduce: boolean }) {
   const s = roll.phase === 'done' ? roll.win : null;
-  const said = roll.phase === 'done' && roll.win
-    ? `${roll.prize} 당첨, ${ticketLabel(roll.win.number)} ${roll.win.name} 님${roll.win.table != null ? `, ${roll.win.table}번 테이블` : ''}`
+  const winners = s ? roll.wins ?? [s] : [];
+  const cardPlan = roll.scene?.plan.kind === 'cards' ? roll.scene.plan : null;
+  const winnerOpen = cardPlan && roll.openedCards?.includes(cardPlan.winnerIndex);
+  const said = s
+    ? `${roll.prize} 당첨, ${winners.map(w => `${ticketLabel(w.number)} ${w.name} 님${w.table != null ? `, ${w.table}번 테이블` : ''}`).join(', ')}`
     : '';
   return (
     <div className={`rcd-screen ${big ? 'big' : ''} ${roll.phase}`}>
@@ -52,12 +56,21 @@ function DrawScreen({ roll, prize, big = false, announce = false, onFinish }: { 
       <p className="rcd-prize-label">{roll.phase === 'done' ? `${roll.prize} 당첨!` : roll.phase === 'rolling' ? `${roll.prize} 추첨 중…` : prize || '경품을 골라 주세요'}</p>
       {roll.phase === 'rolling' ? (
         roll.scene ? <>
-          <DrawReveal key={roll.win?.id} {...roll.scene} />
+          <DrawReveal key={roll.win?.id} {...roll.scene} openedCards={roll.openedCards ?? NO_CARDS} onOpenCard={onOpenCard} reduce={reduce} />
           <div className="rdv-controls">
             <span>{roll.scene.plan.label}</span>
-            <button type="button" onClick={onFinish}>결과 바로 보기</button>
+            {(!cardPlan || winnerOpen) && <button type="button" onClick={onFinish}>{cardPlan ? '당첨 결과 보기' : '결과 바로 보기'}</button>}
           </div>
         </> : <span className="rdv-wait" aria-hidden="true" />
+      ) : winners.length > 1 ? (
+        <ol className="rdv-winners" aria-label="당첨자">
+          {winners.map((win, i) => <li className="rcd-result" key={win.id} style={{ animationDelay: `${i * 90}ms` }}>
+            <span className="rdv-place">{String(i + 1).padStart(2, '0')}</span>
+            <p className="rcd-num">{ticketLabel(win.number)}</p>
+            <p className="rcd-name">{win.name}</p>
+            <p className="rcd-table">{win.table != null ? `${win.table}번 테이블` : '테이블 정보 없음'}</p>
+          </li>)}
+        </ol>
       ) : s ? (
         <div className="rcd-result" key={`w:${s.id}`}>
           <p className="rcd-num">{ticketLabel(s.number)}</p>
@@ -98,10 +111,36 @@ export default function ReceptionDrawPage() {
     setStage(false);
   }, []);
 
+  const stageClosed = useCallback(() => {
+    if (roll.preview) {
+      drawing.current = false;
+      setRoll({ phase: 'idle', prize: '', win: null });
+    }
+  }, [roll.preview]);
+
+  useEffect(() => { if (!stage) stageClosed(); }, [stage, stageClosed]);
+
   const openStage = () => {
     flushSync(() => {
       if (roll.phase === 'done' && roll.prize !== prizeName) setRoll({ phase: 'idle', prize: '', win: null });
       setStage(true);
+    });
+    void stageSurface.current?.requestFullscreen?.().catch(() => {});
+  };
+
+  const previewDraw = () => {
+    if (!prizeName || drawing.current || resettingRef.current || busy) return;
+    const count = currentTheme === 'pinball' ? 4 : currentTheme === 'boss' ? 3 : currentTheme === 'race' ? 2 : 1;
+    const samples = Array.from({ length: 156 }, (_, i) => ({ number: i + 1, name: `참가자 ${i + 1}` }));
+    const at = new Date().toISOString();
+    const wins: DrawRow[] = [21, 89, 133, 57].slice(0, count).map((n, i) => ({
+      ...samples[n - 1], id: `preview:${n}:${at}`, prize: prizeName, at, table: i + 1, cancelled: false,
+    }));
+    const plan = buildReveal(prizeName, wins[0].id, wins[0], samples, wins);
+    drawing.current = true;
+    flushSync(() => {
+      setStage(true);
+      setRoll({ phase: 'rolling', prize: prizeName, win: wins[0], wins, preview: true, scene: { plan, startedAt: performance.now() } });
     });
     void stageSurface.current?.requestFullscreen?.().catch(() => {});
   };
@@ -137,11 +176,22 @@ export default function ReceptionDrawPage() {
     if (!prizeName) return;
     const file = new Image();
     file.src = `/reception/draw/${currentTheme}.webp`;
-    const extra = currentTheme === 'fight' ? Array.from({ length: 15 }, (_, i) => `fighter-${i + 1}`) : currentTheme === 'cards' ? ['card'] : [];
+    const extra = currentTheme === 'fight' ? Array.from({ length: 15 }, (_, i) => `fighter-${i + 1}`)
+      : currentTheme === 'cards' ? ['card', 'pudding-host-1']
+      : currentTheme === 'capsule' ? ['lottery-machine', 'lottery-ball']
+      : currentTheme === 'boss' ? ['boss-1', 'boss-2', 'boss-3', 'hero-1', 'hero-2', 'loot']
+      : currentTheme === 'vault' ? ['pudding-oven', 'pudding-dough', 'pudding-sky', 'pudding-palace', 'pudding-host-1', 'pudding-host-2'] : [];
     for (const name of extra) {
       const image = new Image();
       image.src = `/reception/draw/${name}.webp`;
     }
+    if (currentTheme === 'vault') {
+      for (const n of [1, 2, 3, 9, 12]) {
+        const image = new Image();
+        image.src = `/images/chat-stickers/freeti/freeti-${n}.png`;
+      }
+    }
+    if (currentTheme === 'race') void import('../_parts/animal-run-engine').catch(() => {});
   }, [prizeName, currentTheme]);
 
   /** 무대 연출에 쓸 실제 응모권. 추첨 대상자는 서버가 결정한다. */
@@ -151,14 +201,21 @@ export default function ReceptionDrawPage() {
   }, [data, live.data]);
   const finish = useCallback(() => {
     if (roll.phase !== 'rolling' || !roll.scene || !roll.win || !drawing.current) return;
+    if (roll.scene.plan.kind === 'cards' && !roll.openedCards?.includes(roll.scene.plan.winnerIndex)) return;
     drawing.current = false;
     setFrozen(null);
-    setRoll({ phase: 'done', prize: roll.prize, win: roll.win });
-    haptic('success');
+    setRoll({ phase: 'done', prize: roll.prize, win: roll.win, wins: roll.wins, preview: roll.preview });
+    if (!roll.preview) haptic('success');
   }, [roll]);
 
+  const openCard = useCallback((index: number) => {
+    setRoll(current => current.phase === 'rolling' && current.scene?.plan.kind === 'cards' &&
+      current.scene.plan.lineup[index] && !current.openedCards?.includes(index)
+      ? { ...current, openedCards: [...(current.openedCards ?? []), index] } : current);
+  }, []);
+
   useEffect(() => {
-    if (!roll.scene) return;
+    if (!roll.scene || roll.scene.plan.kind === 'cards') return;
     const remaining = roll.scene.startedAt + roll.scene.plan.duration - performance.now();
     const timer = window.setTimeout(finish, reduce ? 0 : Math.max(0, remaining));
     return () => window.clearTimeout(timer);
@@ -171,6 +228,9 @@ export default function ReceptionDrawPage() {
     if ([...name].length > PRIZE_MAX) return adminAlert(`경품 이름이 너무 길어요\n${PRIZE_MAX}자까지 적을 수 있어요.`);
     if (data && data.eligible <= 0) return adminAlert('뽑을 응모권이 없어요\n입장한 손님이 아직 없거나 모두 뽑혔어요.');
     const p = data?.prizes.find((x) => x.name === name);
+    const batch = !!p && isBatchReveal(currentTheme);
+    if (batch && p.drawn >= p.total) return adminAlert('남은 경품이 없어요.');
+    if (batch && data && data.eligible < p.total - p.drawn) return adminAlert('남은 경품 수보다 응모권이 적어요.');
     drawing.current = true;
     try {
       if (p && p.drawn >= p.total && !(await adminConfirm({ title: `${eunNeun(name)} ${p.total}${p.unit || '개'} 다 뽑았어요`, description: '그래도 한 번 더 뽑을까요?', confirmText: '더 뽑기' }))) {
@@ -180,18 +240,18 @@ export default function ReceptionDrawPage() {
       if (!alive.current) return;
       setFrozen(data);
       setRoll({ phase: 'rolling', prize: name, win: null });
-      const { draw, board, participants } = await mutate(() => receptionAdminApi.draw(name), (r): DrawBoard => r.board);
+      const { draw, winners, board, participants } = await mutate(() => receptionAdminApi.draw(name, batch), (r): DrawBoard => r.board);
       if (!alive.current) return;
-      if (reduce) {
+      if (reduce && currentTheme !== 'cards') {
         drawing.current = false;
         setFrozen(null);
-        setRoll({ phase: 'done', prize: name, win: draw });
+        setRoll({ phase: 'done', prize: name, win: draw, wins: winners });
         haptic('success');
         return;
       }
       const prior = new Set(board.draws.filter((row) => row.id !== draw.id).map(row => row.number));
-      const plan = buildReveal(name, draw.id, draw, participants ?? pool.filter((ticket) => !prior.has(ticket.number)));
-      setRoll({ phase: 'rolling', prize: name, win: draw, scene: { plan, startedAt: performance.now() } });
+      const plan = buildReveal(name, draw.id, draw, participants ?? pool.filter((ticket) => !prior.has(ticket.number)), winners);
+      setRoll({ phase: 'rolling', prize: name, win: draw, wins: winners, scene: { plan, startedAt: performance.now() } });
     } catch (error) {
       drawing.current = false;
       if (!alive.current) return;
@@ -208,7 +268,7 @@ export default function ReceptionDrawPage() {
     setBusy(d.id);
     try {
       await mutate(() => receptionAdminApi.cancelDraw(d.id));
-      if (roll.win?.id === d.id) setRoll({ phase: 'idle', win: null, prize: d.prize });
+      if (roll.win?.id === d.id || roll.wins?.some(w => w.id === d.id)) setRoll({ phase: 'idle', win: null, prize: d.prize });
     } catch (e) {
       await adminAlert(`무효로 하지 못했어요\n${adminErrorText(e)}`);
     } finally {
@@ -224,6 +284,7 @@ export default function ReceptionDrawPage() {
   const voided = draws.length - won;
   const selected = view?.prizes.find(p => p.name === prizeName);
   const outOfStock = !!selected && selected.drawn >= selected.total;
+  const shortOfTickets = !!selected && isBatchReveal(currentTheme) && (view?.eligible ?? 0) < selected.total - selected.drawn;
 
   const clearHistory = async () => {
     if (resettingRef.current || drawing.current || busy || !draws.length) return;
@@ -298,16 +359,21 @@ export default function ReceptionDrawPage() {
         <div className="adm-card-head">
           <div>
             <p className="adm-card-title">경품 고르기</p>
-            <p className="adm-card-sub">고른 경품으로 응모권 한 장을 뽑아요</p>
+            <p className="adm-card-sub">{selected && isBatchReveal(currentTheme) ? `남은 ${Math.max(0, selected.total - selected.drawn)}명을 한 번에 뽑아요` : '고른 경품으로 응모권 한 장을 뽑아요'}</p>
           </div>
+          <div className="rdv-actions">
+          <button type="button" className="adm-btn" onClick={previewDraw} disabled={!prizeName || rolling || resetting || !!busy}>
+            <Play size={16} aria-hidden="true" /> 추첨 미리보기
+          </button>
           <button type="button" className="adm-btn" onClick={openStage} disabled={!prizeName || resetting}>
             <Maximize size={16} aria-hidden="true" /> 크게 보기
           </button>
+          </div>
         </div>
         {prizePicker}
         {customInput}
-        {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} />}
-        <button type="button" className="rcd-go" disabled={rolling || resetting || !!busy || view.eligible <= 0} onClick={runDraw}>
+        {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} onOpenCard={openCard} reduce={reduce} />}
+        <button type="button" className="rcd-go" disabled={rolling || resetting || !!busy || view.eligible <= 0 || shortOfTickets || (!!selected && isBatchReveal(currentTheme) && outOfStock)} onClick={runDraw}>
           {rolling ? '추첨 중…' : view.eligible <= 0 ? '뽑을 응모권이 없어요' : '추첨하기'}
         </button>
       </section>
@@ -363,9 +429,11 @@ export default function ReceptionDrawPage() {
 
       <ReceptionStage open={stage} onClose={closeStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface}>
         <div className={`rcd-presentation rdv-${roll.phase === 'idle' ? currentTheme : revealTheme(roll.prize).kind}`}>
-          <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} />
-          {!rolling && <button type="button" className="rcd-presentation-action" disabled={view.eligible <= 0 || outOfStock || resetting || !!busy} onClick={runDraw}>
-            {outOfStock ? '추첨 완료' : view.eligible <= 0 ? '남은 응모권 없음' : '추첨하기'}
+          {roll.preview && <p className="rdv-preview-badge">미리보기</p>}
+          <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} onOpenCard={openCard} reduce={reduce} />
+          {!rolling && roll.preview && <button type="button" className="rcd-presentation-action" onClick={previewDraw}>다시 재생</button>}
+          {!rolling && !roll.preview && <button type="button" className="rcd-presentation-action" disabled={view.eligible <= 0 || shortOfTickets || outOfStock || resetting || !!busy} onClick={runDraw}>
+            {outOfStock ? '추첨 완료' : view.eligible <= 0 ? '남은 응모권 없음' : shortOfTickets ? '응모권 부족' : '추첨하기'}
           </button>}
         </div>
       </ReceptionStage>

@@ -144,6 +144,14 @@ export class ReceptionAdminController {
     return this.live.draw(this.event(eventKey), body?.prize);
   }
 
+  @Post(':eventKey/draws/batch')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '경품의 남은 수량만큼 중복 없이 한 번에 추첨' })
+  drawBatch(@Param('eventKey') eventKey: string, @Body() body: { prize?: unknown }) {
+    return this.live.draw(this.event(eventKey), body?.prize, true);
+  }
+
   @Post(':eventKey/draws/:id/cancel')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')
