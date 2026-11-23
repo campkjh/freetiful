@@ -87,6 +87,8 @@ export interface QuizState {
   currentId: string | null;
   phase: QuizPhase;
   openedAt: string | null;
+  /** 사회자가 [+60초]로 더한 초 — 시계 = QUIZ_SECONDS + extraSec(옛 서버엔 없음) */
+  extraSec?: number;
   revealed: string[];
   /** 손님 화면 맨 위에 '순위 발표' 점수판을 크게 */
   showBoard: boolean;

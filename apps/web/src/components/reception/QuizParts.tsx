@@ -124,8 +124,8 @@ export function QuizAnswerInput({ q, value, onChange, onSubmit, disabled }: Inpu
   );
 }
 
-/** 열린 뒤 60초 막대(표시만) — 0 이 돼도 마감 전까진 바꿀 수 있다 */
-export function QuizCountdown({ openedAt }: { openedAt: string | null }) {
+/** 열린 뒤 60초(+사회자가 더한 초) 막대(표시만) — 0 이 돼도 마감 전까진 바꿀 수 있다 */
+export function QuizCountdown({ openedAt, extraSec }: { openedAt: string | null; extraSec?: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -133,11 +133,12 @@ export function QuizCountdown({ openedAt }: { openedAt: string | null }) {
   }, []);
   const start = openedAt ? Date.parse(openedAt) : NaN;
   if (Number.isNaN(start)) return null;
-  const left = Math.max(0, Math.min(QUIZ_SECONDS, QUIZ_SECONDS - (now - start) / 1000));
+  const total = QUIZ_SECONDS + (extraSec && extraSec > 0 ? extraSec : 0);
+  const left = Math.max(0, Math.min(total, total - (now - start) / 1000));
   const sec = Math.ceil(left);
   return (
     <div className={`rc-qz-timer ${sec <= 10 ? 'low' : ''} ${sec === 0 ? 'done' : ''}`} role="timer" aria-live="off">
-      <div className="rc-qz-timer-bar" aria-hidden="true"><i style={{ transform: `scaleX(${left / QUIZ_SECONDS})` }} /></div>
+      <div className="rc-qz-timer-bar" aria-hidden="true"><i style={{ transform: `scaleX(${left / total})` }} /></div>
       <p>{sec > 0 ? <><b>{sec}</b>초 남았어요</> : '시간이 다 됐어요 — 마감 전까진 바꿀 수 있어요'}</p>
     </div>
   );

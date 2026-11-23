@@ -25,6 +25,7 @@ import {
   type DrawRow,
 } from '../../_components/receptionAdmin';
 import { ReceptionStage } from '../_parts/ReceptionStage';
+import { useStageFromQuery } from '../_parts/StageNav';
 import { DrawReveal } from '../_parts/DrawReveal';
 import { buildReveal, isBatchReveal, revealTheme, type RevealPlan } from '../_parts/draw-reveal';
 import { PhysicsDraw, physicsKindOf, type PhysicsKind, type PhysicsRun } from '../_parts/PhysicsDraw';
@@ -139,6 +140,12 @@ export default function ReceptionDrawPage() {
     });
     void stageSurface.current?.requestFullscreen?.().catch(() => {});
   };
+
+  // ☰ 로 옮겨 오면(?stage=1) 크게 보기 판을 바로 연다 — 문서 전체가 이미 전체 화면이면 그대로(판이 화면을 꽉 채운다)
+  useStageFromQuery(() => {
+    flushSync(() => setStage(true));
+    if (!document.fullscreenElement) void stageSurface.current?.requestFullscreen?.().catch(() => {});
+  });
 
   /** 물리 판 열기 — 참가자 전원을 넣고 [시작]을 기다린다 */
   const openPhysics = (name: string, run: Omit<PhysicsRun, 'id' | 'started'>) => {
@@ -600,7 +607,7 @@ export default function ReceptionDrawPage() {
         )}
       </AdminListCard>
 
-      <ReceptionStage open={stage} onClose={requestCloseStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface}>
+      <ReceptionStage open={stage} onClose={requestCloseStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface} nav={rolling ? undefined : 'draw'}>
         <div className={`rcd-presentation rdv-${roll.phase === 'idle' ? currentTheme : revealTheme(roll.prize).kind}`}>
           {roll.preview && <p className="rdv-preview-badge">미리보기</p>}
           <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} onOpenCard={openCard} reduce={reduce} physics={physicsHandlers} />

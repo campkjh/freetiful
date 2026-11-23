@@ -27,7 +27,8 @@ import {
   type QuizStateAction,
 } from '../../_components/receptionAdmin';
 import { ReceptionStage } from '../_parts/ReceptionStage';
-import { QuizStageBody, rankBoard, secondsLeft } from '../_parts/QuizStageBody';
+import { useStageFromQuery } from '../_parts/StageNav';
+import { QuizStageBody, quizTotalSec, rankBoard, secondsLeft } from '../_parts/QuizStageBody';
 import { QuizAnswerEditor } from '../_parts/QuizAnswerEditor';
 import RankCrown from '@/components/reception/RankCrown';
 import '../reception-admin.css';
@@ -61,6 +62,8 @@ export default function ReceptionQuizPage() {
   const { data, loading, error, mutate } = useReceptionQuiz(2000);
   const [selId, setSelId] = useState<string | null>(null);
   const [stage, setStage] = useState(false);
+  // ☰ 로 옮겨 오면(?stage=1) 크게 보기 판을 바로 연다
+  useStageFromQuery(() => setStage(true));
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [boardAll, setBoardAll] = useState(false);
@@ -86,7 +89,7 @@ export default function ReceptionQuizPage() {
   const selRevealed = !!q && !!st?.revealed.includes(q.id);
   const selPhase = isCurrent ? st!.phase : selRevealed ? 'revealed' : 'idle';
   const now = useNow(st?.phase === 'open');
-  const left = secondsLeft(st?.openedAt ?? null, now);
+  const left = secondsLeft(st?.openedAt ?? null, now, st?.extraSec);
 
   const rounds = useMemo(() => {
     const m = new Map<number, { title: string; items: QuizQuestionAdmin[] }>();
@@ -134,6 +137,8 @@ export default function ReceptionQuizPage() {
     act('idle');
   };
   const toggleBoard = () => act('board', { on: !st?.showBoard });
+  /** 받는 중인 문제 시계에 60초 더하기(손님 폰 · 큰 화면 시계가 같이 늘어난다) */
+  const extend = () => act('extend');
 
   /** 판 안 [다음 문제 열기] — 지금 문제(대기면 마지막으로 공개한 문제) 다음이면서 아직 공개 안 한 첫 문제 */
   const nextQ = useMemo(() => {
@@ -214,6 +219,7 @@ export default function ReceptionQuizPage() {
           <span className={`rcq-phase ${st.phase}`}>{PHASE_LABEL[st.phase]}</span>
           <b>{cur ? `${qName(cur)} · ${QUIZ_KIND_LABEL[cur.kind]}` : '손님 화면 = 대기'}</b>
           {st.phase === 'open' && <span className={`rcq-left ${left <= 10 ? 'warn' : ''}`}>{left > 0 ? `${left}초 남음` : '시간이 다 됐어요'}</span>}
+          {st.phase === 'open' && <button type="button" className="adm-btn" disabled={stateBusy} onClick={extend}>+60초</button>}
           {st.showBoard && <span className="adm-badge orange">순위 발표 중</span>}
         </div>
         <div className="rcq-now-act">
@@ -300,8 +306,9 @@ export default function ReceptionQuizPage() {
 
               {isCurrent && st.phase === 'open' && (
                 <div className={`rcq-timer ${left <= 10 ? 'warn' : ''}`} role="timer" aria-live="off">
-                  <div className="rcq-timer-bar"><span style={{ transform: `scaleX(${left / QUIZ_SECONDS})` }} /></div>
+                  <div className="rcq-timer-bar"><span style={{ transform: `scaleX(${left / quizTotalSec(st.extraSec)})` }} /></div>
                   <span>{left > 0 ? `남은 시간 ${left}초` : '시간이 다 됐어요 — 마감을 눌러 주세요'}</span>
+                  <button type="button" className="adm-btn" disabled={stateBusy} onClick={extend}>+60초</button>
                 </div>
               )}
 
@@ -453,11 +460,13 @@ export default function ReceptionQuizPage() {
         open={stage}
         onClose={() => setStage(false)}
         label="퀴즈 크게 보기"
+        nav="quiz"
         foot={
           <>
             <button type="button" className={`rca-stage-btn ${st.phase === 'idle' || st.phase === 'revealed' ? 'go' : ''}`} disabled={stateBusy || !nextQ} onClick={openNext}>
               {nextQ ? `다음 문제 열기 · ${nextQ.round}-${nextQ.no}` : '모든 문제를 공개했어요'}
             </button>
+            <button type="button" className="rca-stage-btn" disabled={stateBusy || st.phase !== 'open'} onClick={extend}>+60초</button>
             <button type="button" className="rca-stage-btn" disabled={stateBusy || st.phase !== 'open'} onClick={lock}>마감</button>
             <button type="button" className="rca-stage-btn" disabled={stateBusy || !(st.phase === 'open' || st.phase === 'locked')} onClick={reveal}>정답 공개</button>
             <button type="button" className={`rca-stage-btn ${st.showBoard ? 'on' : ''}`} disabled={stateBusy} onClick={toggleBoard}>{st.showBoard ? '순위 발표 끄기' : '순위 발표'}</button>

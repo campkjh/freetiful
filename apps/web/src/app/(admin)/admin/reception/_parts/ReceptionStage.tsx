@@ -7,6 +7,7 @@
 import { X } from 'lucide-react';
 import { useEffect, type ReactNode, type Ref } from 'react';
 import { createPortal } from 'react-dom';
+import { StageNav, type StageScreen } from './StageNav';
 
 export function ReceptionStage({
   open,
@@ -16,6 +17,7 @@ export function ReceptionStage({
   foot,
   presentation = false,
   surfaceRef,
+  nav,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,8 @@ export function ReceptionStage({
   foot?: ReactNode;
   presentation?: boolean;
   surfaceRef?: Ref<HTMLDivElement>;
+  /** 닫기 옆 ☰ — 퀴즈 · 럭키드로우 · 베스트드레서 화면 옮기기(지금 화면). 없으면 안 보임 */
+  nav?: StageScreen;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -43,10 +47,13 @@ export function ReceptionStage({
   if (!open || typeof document === 'undefined') return null;
   return createPortal(
     <div ref={surfaceRef} className={`rca-stage${presentation ? ' rca-stage-presentation' : ''}`} role="dialog" aria-modal="true" aria-label={label}>
-      <button type="button" className="rca-stage-close" onClick={onClose} aria-label="크게 보기 닫기" title="크게 보기 닫기">
-        <X size={20} aria-hidden="true" />
-        {!presentation && '닫기'}
-      </button>
+      <div className="rca-stage-top">
+        {nav && <StageNav current={nav} />}
+        <button type="button" className="rca-stage-close" onClick={onClose} aria-label="크게 보기 닫기" title="크게 보기 닫기">
+          <X size={20} aria-hidden="true" />
+          {!presentation && '닫기'}
+        </button>
+      </div>
       <div className="rca-stage-body">{children}</div>
       {foot && <div className="rca-stage-foot">{foot}</div>}
     </div>,

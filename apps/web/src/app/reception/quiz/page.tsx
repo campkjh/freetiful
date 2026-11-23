@@ -245,7 +245,7 @@ export default function ReceptionQuizPage() {
     main = (
       <section ref={cardRef} className={`rc-glass rc-qz-card rc-rise ${intro.stage ? `qzi-${intro.stage}` : ''}`} key={current.id}>
         <QuizQuestionHead q={current} />
-        {current.kind !== 'mission' && <QuizCountdown openedAt={st!.openedAt} />}
+        {current.kind !== 'mission' && <QuizCountdown openedAt={st!.openedAt} extraSec={st!.extraSec} />}
         {current.kind === 'mission' ? (
           <QuizMission q={current} table={table} mine={mine} myName={name} phase="open" sending={sending} onChallenge={challenge} />
         ) : table ? (

@@ -27,11 +27,15 @@ export function rankBoard(board: QuizScore[]) {
   });
 }
 
-export function secondsLeft(openedAt: string | null, now: number) {
-  if (!openedAt) return QUIZ_SECONDS;
+/** 이 문제의 제한시간(초) = 60 + [+60초]로 더한 초 */
+export const quizTotalSec = (extraSec?: number) => QUIZ_SECONDS + (extraSec && extraSec > 0 ? extraSec : 0);
+
+export function secondsLeft(openedAt: string | null, now: number, extraSec?: number) {
+  const total = quizTotalSec(extraSec);
+  if (!openedAt) return total;
   const t = new Date(openedAt).getTime();
-  if (Number.isNaN(t)) return QUIZ_SECONDS;
-  return Math.max(0, Math.ceil(QUIZ_SECONDS - (now - t) / 1000));
+  if (Number.isNaN(t)) return total;
+  return Math.max(0, Math.ceil(total - (now - t) / 1000));
 }
 
 export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
@@ -109,7 +113,7 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
   }
 
   // 진행 중 · 마감
-  const left = secondsLeft(st.openedAt, now);
+  const left = secondsLeft(st.openedAt, now, st.extraSec);
   const submitted = new Set(tables.filter((t) => t.answer).map((t) => t.table));
   return (
     <>

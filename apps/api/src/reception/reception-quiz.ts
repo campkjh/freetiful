@@ -254,11 +254,17 @@ export interface QuizState {
   currentId: string | null;
   phase: QuizPhase;
   openedAt: string | null;
+  /** 제한시간에 더한 초(261123 사장 '퀴즈는 60초 추가하는거') — 문제를 새로 열면 0. 화면 시계 = QUIZ_SECONDS + extraSec */
+  extraSec: number;
   revealed: string[];
   showBoard: boolean;
 }
 
-export const defaultQuizState = (): QuizState => ({ currentId: null, phase: 'idle', openedAt: null, revealed: [], showBoard: false });
+/** [+60초] 한 번에 더하는 초 · 한 문제에 더할 수 있는 최대 */
+export const QUIZ_EXTEND_SEC = 60;
+export const QUIZ_EXTRA_MAX = 600;
+
+export const defaultQuizState = (): QuizState => ({ currentId: null, phase: 'idle', openedAt: null, extraSec: 0, revealed: [], showBoard: false });
 
 const PHASES: QuizPhase[] = ['idle', 'open', 'locked', 'revealed'];
 
@@ -269,11 +275,12 @@ export function parseQuizState(v: unknown): QuizState {
   const phase = currentId && PHASES.includes(o.phase as QuizPhase) ? (o.phase as QuizPhase) : 'idle';
   const openedAt = typeof o.openedAt === 'string' && !Number.isNaN(Date.parse(o.openedAt)) ? o.openedAt : null;
   const revealed = Array.isArray(o.revealed) ? [...new Set(o.revealed.filter((id): id is string => !!quizQuestion(id)))] : [];
-  return { currentId: phase === 'idle' ? null : currentId, phase, openedAt, revealed, showBoard: o.showBoard === true };
+  const extraSec = typeof o.extraSec === 'number' && Number.isInteger(o.extraSec) && o.extraSec > 0 ? Math.min(o.extraSec, QUIZ_EXTRA_MAX) : 0;
+  return { currentId: phase === 'idle' ? null : currentId, phase, openedAt, extraSec, revealed, showBoard: o.showBoard === true };
 }
 
-export type QuizAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset';
-const ACTIONS: QuizAction[] = ['open', 'lock', 'reveal', 'unreveal', 'idle', 'board', 'reset'];
+export type QuizAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset' | 'extend';
+const ACTIONS: QuizAction[] = ['open', 'lock', 'reveal', 'unreveal', 'idle', 'board', 'reset', 'extend'];
 export const isQuizAction = (v: unknown): v is QuizAction => typeof v === 'string' && (ACTIONS as string[]).includes(v);
 
 /**
@@ -289,8 +296,13 @@ export function applyQuizAction(state: QuizState, body: { action?: unknown; ques
       const question = quizQuestion(body.questionId);
       if (!question) return '없는 문제예요.';
       // 다시 열면 정답도 다시 공개해야 한다(예전 공개가 남아 답이 미리 보이지 않게)
-      return { ...s, currentId: question.id, phase: 'open', openedAt: now.toISOString(), revealed: s.revealed.filter((id) => id !== question.id) };
+      return { ...s, currentId: question.id, phase: 'open', openedAt: now.toISOString(), extraSec: 0, revealed: s.revealed.filter((id) => id !== question.id) };
     }
+    case 'extend':
+      // 받는 중인 문제의 시계에 60초 더하기(시간이 다 된 뒤에도 — 다 된 시점부터가 아니라 처음 시계에 더한다)
+      if (!s.currentId || s.phase !== 'open') return '답을 받는 중인 문제가 없어요.';
+      if (s.extraSec + QUIZ_EXTEND_SEC > QUIZ_EXTRA_MAX) return `한 문제에 ${QUIZ_EXTRA_MAX / 60}분까지만 더할 수 있어요.`;
+      return { ...s, extraSec: s.extraSec + QUIZ_EXTEND_SEC };
     case 'lock':
       if (!s.currentId) return '진행 중인 문제가 없어요.';
       return { ...s, phase: 'locked' };

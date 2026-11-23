@@ -252,6 +252,19 @@
 @keyframes rcaStageIn { from { opacity: 0; } to { opacity: 1; } }
 .rca-stage-close { position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 48px; padding: 0 18px 0 14px; border: 0; border-radius: 14px; background: #1C2748; color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
 .rca-stage-close:active { transform: scale(.96); }
+/* 닫기 · ☰(화면 옮기기) 한 줄 — 오른쪽 위 고정(261123) */
+.rca-stage-top { position: fixed; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 4; display: flex; align-items: flex-start; gap: 8px; }
+.rca-stage .rca-stage-top .rca-stage-close { position: static; }
+/* 발표 판(럭키드로우 · 베스트드레서) — 닫기 자리(draw-reveal.css 의 44px 단추)에 맞춘다 */
+.rca-stage.rca-stage-presentation .rca-stage-top { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 5; }
+.rca-stage-nav { position: relative; }
+.rca-stage-nav-btn { padding: 0 14px; }
+.rca-stage-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; display: flex; flex-direction: column; padding: 8px; border: 1px solid #ffffff24; border-radius: 14px; background: #1C2748; box-shadow: 0 12px 32px #0000004d; }
+.rca-stage-menu hr { margin: 6px 4px; border: 0; border-top: 1px solid #ffffff1f; }
+.rca-stage-menu-item { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #fff; font: inherit; font-size: 17px; font-weight: 600; text-align: left; cursor: pointer; }
+.rca-stage-menu-item:hover, .rca-stage-menu-item:focus-visible { background: #ffffff14; }
+.rca-stage-menu-item.on { color: #F6DC93; font-weight: 700; }
+.rca-stage-menu-item small { margin-left: auto; color: #ffffffa6; font-size: 13px; font-weight: 500; }
 .rca-stage-body { display: flex; flex: 1; flex-direction: column; justify-content: center; width: 100%; max-width: 1280px; margin: 0 auto; padding-top: 56px; }
 .rca-stage-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding-top: 20px; }
 .rca-stage-btn { height: 48px; padding: 0 18px; border: 0; border-radius: 14px; background: #1C2748; color: rgba(255, 255, 255, .85); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }

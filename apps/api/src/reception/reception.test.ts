@@ -323,7 +323,18 @@ test('퀴즈 진행 상태 — open · lock · reveal · unreveal · board · re
   assert.match(applyQuizAction(s, { action: 'fly' }, now) as string, /없는 동작/);
 
   s = applyQuizAction(s, { action: 'open', questionId: 'r1q1' }, now) as any;
-  assert.deepEqual(s, { currentId: 'r1q1', phase: 'open', openedAt: now.toISOString(), revealed: [], showBoard: false });
+  assert.deepEqual(s, { currentId: 'r1q1', phase: 'open', openedAt: now.toISOString(), extraSec: 0, revealed: [], showBoard: false });
+  // [+60초] — 받는 중일 때만 · 60초씩 · 한 문제 10분까지 · 다시 열면 0
+  let ext = applyQuizAction(s, { action: 'extend' }, now) as any;
+  ext = applyQuizAction(ext, { action: 'extend' }, now) as any;
+  assert.equal(ext.extraSec, 120);
+  assert.equal(ext.openedAt, now.toISOString()); // 연 시각은 그대로(손님 등장 연출이 다시 안 돌게)
+  for (let i = 0; i < 8; i++) ext = applyQuizAction(ext, { action: 'extend' }, now) as any;
+  assert.equal(ext.extraSec, 600);
+  assert.match(applyQuizAction(ext, { action: 'extend' }, now) as string, /10분까지/);
+  assert.equal((applyQuizAction(ext, { action: 'open', questionId: 'r1q2' }, now) as any).extraSec, 0);
+  assert.match(applyQuizAction({ ...ext, phase: 'locked' }, { action: 'extend' }, now) as string, /받는 중인 문제가 없어요/);
+  assert.match(applyQuizAction(defaultQuizState(), { action: 'extend' }, now) as string, /받는 중인 문제가 없어요/);
   s = applyQuizAction(s, { action: 'lock' }, now) as any;
   assert.equal(s.phase, 'locked');
   s = applyQuizAction(s, { action: 'reveal' }, now) as any;
@@ -352,8 +363,12 @@ test('퀴즈 상태 읽기 — 모양이 틀리면 기본값 · 없는 문제 id
   assert.deepEqual(parseQuizState(null), defaultQuizState());
   assert.deepEqual(parseQuizState('x'), defaultQuizState());
   assert.deepEqual(parseQuizState({ currentId: 'zz', phase: 'open', revealed: ['r1q1', 'zz', 'r1q1'], showBoard: 1 }), {
-    currentId: null, phase: 'idle', openedAt: null, revealed: ['r1q1'], showBoard: false,
+    currentId: null, phase: 'idle', openedAt: null, extraSec: 0, revealed: ['r1q1'], showBoard: false,
   });
+  assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'open', extraSec: 120 }).extraSec, 120);
+  assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'open', extraSec: -5 }).extraSec, 0);
+  assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'open', extraSec: 1.5 }).extraSec, 0);
+  assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'open', extraSec: 99999 }).extraSec, 600);
   assert.equal(parseQuizState({ currentId: 'r1q2', phase: 'weird' }).phase, 'idle');
 });
 

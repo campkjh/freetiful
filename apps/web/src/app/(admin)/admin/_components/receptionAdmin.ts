@@ -128,6 +128,8 @@ export interface QuizState {
   currentId: string | null;
   phase: QuizPhase;
   openedAt: string | null;
+  /** [+60초]로 더한 초 — 옛 서버엔 없음 */
+  extraSec?: number;
   revealed: string[];
   showBoard: boolean;
 }
@@ -175,7 +177,7 @@ export interface QuizAdmin {
   tableCount: number;
 }
 
-export type QuizStateAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset';
+export type QuizStateAction = 'open' | 'lock' | 'reveal' | 'unreveal' | 'idle' | 'board' | 'reset' | 'extend';
 
 export interface DrawPrize { name: string; total: number; drawn: number; /** 세는 말('개' · 정장은 '벌') — 예전 API 엔 없음 */ unit?: string }
 export interface DrawRow {

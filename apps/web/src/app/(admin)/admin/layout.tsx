@@ -120,6 +120,7 @@ const TAB_GROUPS: { href: string; label: string }[][] = [
     { href: '/admin/reception', label: '참여자' },
     { href: '/admin/reception/quiz', label: '퀴즈' },
     { href: '/admin/reception/draw', label: '럭키드로우' },
+    { href: '/admin/reception/dresser', label: '베스트드레서' },
     { href: '/admin/reception/seats', label: '자리 명단' },
     { href: '/admin/reception/survey', label: '설문 응답' },
   ],
