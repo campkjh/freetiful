@@ -7,7 +7,7 @@ const themes: Record<RevealKind, { label: string; duration: number; slots: numbe
   cards: { label: '카드 팩 오픈', duration: 5400, slots: 5 },
   race: { label: '동물 레이스', duration: 6500, slots: 5 },
   pinball: { label: '핀볼 드롭', duration: 5500, slots: 5 },
-  fight: { label: '픽셀 파이널', duration: 9800, slots: 15 },
+  fight: { label: 'Freetiful Fight', duration: 12000, slots: 15 },
   vault: { label: '골드 금고', duration: 5500, slots: 5 },
 };
 
@@ -41,7 +41,7 @@ export function buildReveal(prize: string, id: string, winner: RevealTicket, poo
     const j = next(i + 1);
     [alternates[i], alternates[j]] = [alternates[j], alternates[i]];
   }
-  const size = theme.kind === 'race' || theme.kind === 'fight' ? Math.min(theme.slots, alternates.length + 1) : theme.slots;
+  const size = theme.kind === 'fight' ? alternates.length + 1 : theme.kind === 'race' ? Math.min(theme.slots, alternates.length + 1) : theme.slots;
   const winnerIndex = next(size);
   const lineup = Array.from({ length: size }, (_, i) => i === winnerIndex ? winner : alternates.pop() ?? null);
   return { ...theme, lineup, winnerIndex, seed };

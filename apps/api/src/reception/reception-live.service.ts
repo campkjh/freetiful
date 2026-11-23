@@ -188,8 +188,8 @@ function seatsVersion(seats: SeatList): string {
 }
 /** 당첨 푸시를 누를 때 열 곳 — 송년회 이벤트 탭 맨 위 응모권(261122) */
 const DRAW_PUSH_URL = '/reception/event';
-/** 무대 연출(최대 9.8초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
-const DRAW_PUSH_DELAY_MS = 13000;
+/** 무대 연출(최대 12초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
+const DRAW_PUSH_DELAY_MS = 15500;
 /**
  * 알림톡 템플릿으로 잘못 이어지는 말(biztalk.service.ts resolveTemplate 본문 검사) — 어드민이 경품 이름을 자유롭게 넣을 수 있어서
  * 경품 이름에 이런 말이 섞이면 본문에서 경품 이름을 뺀다(엉뚱한 '새 메시지' 알림톡이 카톡으로 가지 않게)
@@ -853,22 +853,23 @@ export class ReceptionLiveService {
    * 저장(커밋)된 뒤 당첨자에게 푸시 — 기다리지 않는다(푸시가 느리거나 실패해도 추첨 응답은 그대로, notifyWinner).
    * 푸시는 무대 발표 뒤에 닿게 늦춰 보낸다 — 그 사이 무효로 돌리면 안 보냄
    */
-  async draw(eventKey: ReceptionEventKey, rawPrize: unknown): Promise<{ draw: DrawRow; board: DrawBoard }> {
+  async draw(eventKey: ReceptionEventKey, rawPrize: unknown): Promise<{ draw: DrawRow; board: DrawBoard; participants: { number: number; name: string }[] }> {
     const prize = cleanPrize(rawPrize);
     if (!prize) throw new BadRequestException('경품 이름을 확인해 주세요(1~40자).');
-    const created = await this.prisma.$transaction(async (tx) => {
+    const { created, participants } = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-draw:${eventKey}`}))`;
       const pool = await tx.receptionTicket.findMany({ where: { eventKey, draws: { none: {} } }, select: { id: true, number: true, name: true } });
       if (!pool.length) throw new BadRequestException('뽑을 응모권이 없어요.');
       const t = pool[randomInt(pool.length)];
-      return tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } });
+      const created = await tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } });
+      return { created, participants: pool.map(({ number, name }) => ({ number, name })) };
     });
     const timer = setTimeout(() => {
       void this.notifyWinner(eventKey, created).catch(() => undefined);
     }, this.drawPushDelayMs ?? DRAW_PUSH_DELAY_MS);
     timer.unref?.();
     const board = await this.drawBoard(eventKey);
-    return { draw: board.draws.find((d) => d.id === created.id) ?? this.drawRow(created, undefined), board };
+    return { draw: board.draws.find((d) => d.id === created.id) ?? this.drawRow(created, undefined), board, participants };
   }
 
   /**

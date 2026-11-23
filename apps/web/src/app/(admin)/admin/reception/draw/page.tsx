@@ -99,7 +99,10 @@ export default function ReceptionDrawPage() {
   }, []);
 
   const openStage = () => {
-    flushSync(() => setStage(true));
+    flushSync(() => {
+      if (roll.phase === 'done' && roll.prize !== prizeName) setRoll({ phase: 'idle', prize: '', win: null });
+      setStage(true);
+    });
     void stageSurface.current?.requestFullscreen?.().catch(() => {});
   };
 
@@ -177,7 +180,7 @@ export default function ReceptionDrawPage() {
       if (!alive.current) return;
       setFrozen(data);
       setRoll({ phase: 'rolling', prize: name, win: null });
-      const { draw, board } = await mutate(() => receptionAdminApi.draw(name), (r): DrawBoard => r.board);
+      const { draw, board, participants } = await mutate(() => receptionAdminApi.draw(name), (r): DrawBoard => r.board);
       if (!alive.current) return;
       if (reduce) {
         drawing.current = false;
@@ -187,7 +190,7 @@ export default function ReceptionDrawPage() {
         return;
       }
       const prior = new Set(board.draws.filter((row) => row.id !== draw.id).map(row => row.number));
-      const plan = buildReveal(name, draw.id, draw, pool.filter((ticket) => !prior.has(ticket.number)));
+      const plan = buildReveal(name, draw.id, draw, participants ?? pool.filter((ticket) => !prior.has(ticket.number)));
       setRoll({ phase: 'rolling', prize: name, win: draw, scene: { plan, startedAt: performance.now() } });
     } catch (error) {
       drawing.current = false;

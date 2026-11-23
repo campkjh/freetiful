@@ -198,14 +198,18 @@ export function DrawReveal({ plan, startedAt }: { plan: RevealPlan; startedAt: n
   const [t, setTime] = useState(() => clamp01((performance.now() - startedAt) / plan.duration));
   useEffect(() => {
     let frame = 0;
-    const tick = () => {
-      const next = clamp01((performance.now() - startedAt) / plan.duration);
-      setTime(next);
+    let lastFrame = 0;
+    const tick = (now: number) => {
+      const next = clamp01((now - startedAt) / plan.duration);
+      if (plan.lineup.length < 60 || now - lastFrame >= 30 || next === 1) {
+        lastFrame = now;
+        setTime(next);
+      }
       if (next < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [startedAt, plan.duration]);
+  }, [startedAt, plan.duration, plan.lineup.length]);
   const Art = plan.kind === 'fight' ? null : SCENES[plan.kind];
   return <div className={`rdv-scene rdv-${plan.kind}`} aria-hidden="true">
     {Art ? <svg className="rdv-art" viewBox={`0 0 ${W} ${H}`} textAnchor="middle"><Materials /><Art plan={plan} t={t} /></svg> : <DrawArena plan={plan} t={t} />}

@@ -45,9 +45,11 @@ test('animation is stable during full-screen switches, and only the selected rac
   }
 });
 
-test('the fighting arena fills up to fifteen distinct slots, including the server winner', () => {
-  const plan = buildReveal(prizes[5], 'draw-15', winner, pool);
-  assert.equal(plan.lineup.length, 15);
-  assert.equal(new Set(plan.lineup.map(ticket => ticket?.number)).size, 15);
+test('the fighting arena never drops eligible tickets, even with over 130 guests', () => {
+  const largePool = Array.from({ length: 156 }, (_, i) => ({ number: i + 1, name: `테스트 ${i + 1}` }));
+  const plan = buildReveal(prizes[5], 'draw-156', winner, largePool);
+  assert.equal(plan.label, 'Freetiful Fight');
+  assert.equal(plan.lineup.length, 156);
+  assert.equal(new Set(plan.lineup.map(ticket => ticket?.number)).size, 156);
   assert.equal(plan.lineup[plan.winnerIndex]?.number, winner.number);
 });

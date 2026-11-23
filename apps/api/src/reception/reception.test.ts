@@ -756,6 +756,7 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   const P0 = DRAW_PRIZES[0].name;
 
   const first = await svc.draw(EK, P0);
+  assert.deepEqual(first.participants.map(ticket => ticket.number).sort((a, b) => a - b), [1, 2, 3]);
   assert.equal(first.board.eligible, 2);
   assert.equal(first.board.tickets, 3);
   assert.equal(first.board.prizes[0].drawn, 1);
@@ -767,6 +768,7 @@ test('럭키드로우 — 같은 응모권 두 번 안 뽑힘 · 무효도 다�
   await assert.rejects(svc.cancelDraw(EK, 'nope'), /찾을 수 없어요/);
 
   const second = await svc.draw(EK, P0);
+  assert.equal(second.participants.some(ticket => ticket.number === first.draw.number), false);
   const third = await svc.draw(EK, '체스타필드 정장 세트');
   assert.equal(new Set([first.draw.number, second.draw.number, third.draw.number]).size, 3);
   await assert.rejects(svc.draw(EK, P0), /뽑을 응모권이 없어요/);
