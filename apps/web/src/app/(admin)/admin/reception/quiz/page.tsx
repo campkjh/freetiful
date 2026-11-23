@@ -19,7 +19,6 @@ import {
   CIRCLED,
   kstHm,
   QUIZ_KIND_LABEL,
-  QUIZ_SECONDS,
   quizClock,
   receptionAdminApi,
   useReceptionQuiz,
@@ -119,17 +118,13 @@ export default function ReceptionQuizPage() {
 
   const openSel = async () => {
     if (!q || !st) return;
-    if (cur && cur.id !== q.id && (st.phase === 'open' || st.phase === 'locked')) {
-      if (!(await adminConfirm({ title: `${qName(cur)}이 아직 ${PHASE_LABEL[st.phase]}이에요`, description: `${qName(q)}을 열면 손님 화면이 이 문제로 바뀌어요. ${qName(cur)}의 답은 그대로 남아요.`, confirmText: '이 문제 열기' }))) return;
-    } else if (selRevealed || (isCurrent && st.phase === 'locked')) {
-      if (!(await adminConfirm({ title: `${qName(q)}을 다시 열까요?`, description: selRevealed ? (q.open ? '답 공개가 취소돼요. 손님이 답을 다시 낼 수 있어요.' : '정답 공개가 취소되고 점수판에서도 빠져요. 손님이 답을 다시 낼 수 있어요.') : '손님이 답을 다시 내거나 바꿀 수 있어요.', confirmText: '다시 열기' }))) return;
-    }
+    // 넘길 때는 묻지 않고 바로(261123 사장 '알럿 안 뜨고 바로 넘어가게') — 공개한 문제를 다시 여는 것(점수판에서 빠짐)만 묻는다
+    if (selRevealed && !(await adminConfirm({ title: `${qName(q)}을 다시 열까요?`, description: q.open ? '답 공개가 취소돼요. 손님이 답을 다시 낼 수 있어요.' : '정답 공개가 취소되고 점수판에서도 빠져요. 손님이 답을 다시 낼 수 있어요.', confirmText: '다시 열기' }))) return;
     act('open', { questionId: q.id });
   };
   const lock = () => act('lock');
   const reveal = async () => {
     if (!st) return;
-    if (st.phase === 'open' && !(await adminConfirm(`아직 마감 전이에요. 바로 ${cur?.open ? '테이블 답' : '정답'}을 공개할까요?\n공개하면 손님은 더 답을 낼 수 없어요.`))) return;
     act('reveal');
   };
   const unreveal = async () => {
@@ -140,7 +135,6 @@ export default function ReceptionQuizPage() {
     act('unreveal', { questionId: q.id });
   };
   const toIdle = async () => {
-    if (st?.phase === 'open' && !(await adminConfirm('지금 문제를 닫고 대기 화면으로 갈까요?\n손님은 더 답을 낼 수 없어요. 낸 답은 그대로 남아요.'))) return;
     act('idle');
   };
   const toggleBoard = () => act('board', { on: !st?.showBoard });
@@ -161,14 +155,6 @@ export default function ReceptionQuizPage() {
   }, [data]);
   const openNext = async () => {
     if (!nextQ || !st) return;
-    const busyCur = cur && (st.phase === 'open' || st.phase === 'locked');
-    if (!(await adminConfirm({
-      title: `${qName(nextQ)}을 열까요?`,
-      description: busyCur
-        ? `${qName(cur!)}이 아직 ${PHASE_LABEL[st.phase]}이에요. 열면 손님 화면이 이 문제로 바뀌어요. ${qName(cur!)}의 답은 그대로 남아요.`
-        : `손님 화면에 문제가 뜨고 ${QUIZ_SECONDS / 60}분 타이머가 시작돼요.`,
-      confirmText: '문제 열기',
-    }))) return;
     act('open', { questionId: nextQ.id });
   };
 
