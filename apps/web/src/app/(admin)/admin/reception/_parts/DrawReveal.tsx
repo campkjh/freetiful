@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { clamp01, out, type RevealPlan, type RevealTicket } from './draw-reveal';
-import { DrawArena } from './DrawArena';
+import { FightArena } from './FightArena';
 import { AnimalRunDraw } from './AnimalRunDraw';
 import { BossDraw } from './BossDraw';
 import { PinballDraw } from './PinballDraw';
@@ -69,7 +69,7 @@ export function DrawReveal({ plan, startedAt, openedCards, onOpenCard, reduce }:
       plan.kind === 'vault' ? <PuddingDraw plan={plan} t={t} /> :
       plan.kind === 'boss' ? <BossDraw plan={plan} t={t} /> :
       plan.kind === 'pinball' ? <PinballDraw plan={plan} t={t} /> :
-      plan.kind === 'race' ? <AnimalRunDraw plan={plan} t={t} /> : <DrawArena plan={plan} t={t} />}
+      plan.kind === 'race' ? <AnimalRunDraw plan={plan} t={t} /> : <FightArena plan={plan} t={t} />}
     <span className="rdv-progress" style={{ transform: `scaleX(${t})` }} />
   </div>;
 }

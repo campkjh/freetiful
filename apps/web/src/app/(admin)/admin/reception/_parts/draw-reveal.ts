@@ -1,3 +1,5 @@
+import { fightDurationMs } from './fight-sim';
+
 export type RevealKind = 'capsule' | 'wheel' | 'cards' | 'race' | 'pinball' | 'fight' | 'vault' | 'boss';
 export type RevealTicket = { number: number; name: string };
 
@@ -9,7 +11,8 @@ const themes: Record<RevealKind, { label: string; duration: number; slots: numbe
   pinball: { label: '핀볼 레이스', duration: 14200, slots: 0 },
   // 261123 사장 '보스전도 2.0배로' — 같은 연출을 2배 빠르게(23.4초 → 11.7초). BossDraw 는 원래 속도 시계(BOSS_TIMELINE_MS)로 그린다
   boss: { label: '세럼 보스전', duration: 11700, slots: 3 },
-  fight: { label: 'Freetiful Fight', duration: 12000, slots: 15 },
+  // 261123 사장 '진짜 싸우는 느낌' — 난투 → 결승 → 슬로모션 K.O.(fight-sim). 길이는 인원으로 정해진다(buildReveal 의 fightDurationMs)
+  fight: { label: 'Freetiful Fight', duration: 30900, slots: 15 },
   vault: { label: '공 배틀', duration: 15500, slots: 5 },
 };
 
@@ -56,7 +59,7 @@ export function buildReveal(prize: string, id: string, winner: RevealTicket, poo
     [lineup[i], lineup[j]] = [lineup[j], lineup[i]];
   }
   const winnerIndex = lineup.findIndex((entry) => entry?.number === winner.number);
-  const duration = theme.kind === 'capsule' ? theme.duration * winners.length : theme.duration;
+  const duration = theme.kind === 'capsule' ? theme.duration * winners.length : theme.kind === 'fight' ? fightDurationMs(lineup.length) : theme.duration;
   return { ...theme, duration, lineup, winnerIndex, seed, winners, entrantCount };
 }
 
