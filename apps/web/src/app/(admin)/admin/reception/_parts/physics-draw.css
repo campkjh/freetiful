@@ -1,0 +1,24 @@
+/* 물리 추첨 무대(핀볼 레이스 · 공 배틀) — PhysicsDraw.tsx */
+.rpx { position: relative; width: min(100%, 960px); aspect-ratio: 16 / 9; margin-block: 12px; overflow: hidden; border-radius: 8px; background: #05070c; letter-spacing: 0; }
+.rcd-presentation .rpx { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border-radius: 0; aspect-ratio: auto; }
+.rpx-engine { position: absolute; inset: 0; }
+/* 레이스는 보기만 — 마우스가 미니맵 위에 머물면 엔진 카메라가 거기 묶이고, iframe 이 포커스를 가져가 ESC 를 먹는다 */
+.rpx-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #000; pointer-events: none; }
+.rpx-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #c9d2e6; font-size: 16px; font-weight: 600; }
+.rpx-ready, .rpx-status { position: absolute; left: 50%; bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px)); z-index: 3; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 14px 18px; border: 1px solid #ffffff2e; border-radius: 12px; background: #0b101cd9; color: #fff; text-align: center; font-size: 16px; font-weight: 600; }
+.rpx-status.error { border-color: #ff8a8a80; }
+.rpx-status p { margin: 0; }
+.rpx-ready-text { margin: 0; font-size: 17px; font-weight: 600; color: #e8edf8; }
+.rpx-ready-text b { color: #ffd781; font-weight: 700; }
+.rpx-ready-actions { display: flex; gap: 10px; }
+.rpx-start { min-width: 168px; padding: 14px 28px; border: 1px solid #ffdf95; border-radius: 10px; background: #f6dc93; color: #181322; font-size: 20px; font-weight: 700; cursor: pointer; }
+.rpx-start:hover { background: #ffebaf; }
+.rpx-cancel { padding: 14px 18px; border: 1px solid #ffffff38; border-radius: 10px; background: transparent; color: #dfe5f2; font-size: 16px; font-weight: 600; cursor: pointer; }
+.rpx-cancel:hover { background: #ffffff14; }
+.rcd-presentation .rcd-screen.rolling:has(.rpx) .rcd-prize-label { left: 50%; right: auto; transform: translateX(-50%); width: max-content; max-width: calc(100% - 140px); padding: 6px 14px; border-radius: 8px; background: #0b101cb3; font-size: 18px; }
+/* 체스타필드 = 공 배틀(261123) — 옛 '푸딩이 왕궁' 그림은 크게 보기 판 대기 · 결과 화면에서도 뺀다 */
+.rcd-presentation.rdv-vault { --rdv-artwork: none; background-color: #0e111b; }
+/* 핀볼은 출발하면 경품 이름을 아래로 — 위쪽은 엔진의 '당첨 n / N' 칸 · 순위표가 쓴다(세로 태블릿에서 겹침) */
+.rcd-presentation .rcd-screen.rolling:has(.rpx-marble.started) .rcd-prize-label { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); }
+/* 공 배틀은 판이 제목(체스타필드 배틀)을 직접 그린다 — 위 가운데 경품 이름표는 겹쳐서 숨김(읽기 알림 칸은 그대로) */
+.rcd-screen.rolling:has(.rpx-battle) .rcd-prize-label { display: none; }

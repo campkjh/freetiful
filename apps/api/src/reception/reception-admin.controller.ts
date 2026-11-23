@@ -152,6 +152,14 @@ export class ReceptionAdminController {
     return this.live.draw(this.event(eventKey), body?.prize, true);
   }
 
+  @Post(':eventKey/draws/pick')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '물리 연출 추첨 기록 — { prize, numbers, ids } · 무대 물리가 정한 순서대로 응모권을 당첨으로 넣음(안 뽑힌 응모권·남은 경품만, 번호와 응모권 id 가 맞아야)' })
+  pick(@Param('eventKey') eventKey: string, @Body() body: { prize?: unknown; numbers?: unknown; ids?: unknown }) {
+    return this.live.pick(this.event(eventKey), body?.prize, body?.numbers, body?.ids);
+  }
+
   @Post(':eventKey/draws/:id/cancel')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')

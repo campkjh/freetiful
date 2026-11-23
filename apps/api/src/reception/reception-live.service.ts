@@ -190,6 +190,10 @@ function seatsVersion(seats: SeatList): string {
 const DRAW_PUSH_URL = '/reception/event';
 /** 무대 연출(최대 12초)과 응답 시간 여유를 두고 당첨 푸시를 보낸다. */
 const DRAW_PUSH_DELAY_MS = 15500;
+/** 물리 연출 추첨(pick)은 무대에서 당첨이 이미 드러난 뒤 기록된다 — 발표할 틈만 두고 보낸다 */
+const PICK_PUSH_DELAY_MS = 6000;
+/** pick 한 번에 넣을 수 있는 최대 당첨 수 */
+const PICK_MAX = 20;
 /**
  * 알림톡 템플릿으로 잘못 이어지는 말(biztalk.service.ts resolveTemplate 본문 검사) — 어드민이 경품 이름을 자유롭게 넣을 수 있어서
  * 경품 이름에 이런 말이 섞이면 본문에서 경품 이름을 뺀다(엉뚱한 '새 메시지' 알림톡이 카톡으로 가지 않게)
@@ -942,6 +946,55 @@ export class ReceptionLiveService {
     });
     const ids = new Set(guests.filter((g) => g.userId && nameKey(g.name) === base).map((g) => g.userId as string));
     return ids.size === 1 ? [...ids][0] : null;
+  }
+
+  /**
+   * 물리 연출 추첨 기록(261123 사장 '핀볼레이스 이걸로'·체스타필드 공 배틀) — 당첨자를 서버가 고르지 않고 무대 물리가 정한다.
+   * 무대(어드민 화면)가 끝난 순서대로 응모권 번호를 보내면, 아직 한 번도 안 뽑힌 응모권인지 · 경품이 남았는지 잠금 안에서 확인하고 그대로 넣는다.
+   * 하나라도 안 맞으면 하나도 안 넣는다(트랜잭션). 푸시는 무대가 이미 끝났으니 짧게만 늦춘다.
+   */
+  async pick(eventKey: ReceptionEventKey, rawPrize: unknown, rawNumbers: unknown, rawIds?: unknown): Promise<{ draw: DrawRow; winners: DrawRow[]; board: DrawBoard; participants: { number: number; name: string }[] }> {
+    const prize = cleanPrize(rawPrize);
+    if (!prize) throw new BadRequestException('경품 이름을 확인해 주세요(1~40자).');
+    if (!Array.isArray(rawNumbers) || rawNumbers.length < 1 || rawNumbers.length > PICK_MAX
+      || !rawNumbers.every((n) => typeof n === 'number' && Number.isInteger(n) && n > 0)) {
+      throw new BadRequestException('당첨 응모권 번호를 확인해 주세요.');
+    }
+    const numbers = rawNumbers as number[];
+    if (new Set(numbers).size !== numbers.length) throw new BadRequestException('같은 응모권이 두 번 들어 있어요.');
+    // 판에 들어간 그 응모권인지(번호만으론 모른다 — 맨 끝 번호를 지우면 다음 손님이 같은 번호를 받는다) — 응모권 id 를 번호와 같은 순서로
+    if (!Array.isArray(rawIds) || rawIds.length !== numbers.length || !rawIds.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 64)) {
+      throw new BadRequestException('당첨 응모권을 확인해 주세요. 추첨 화면을 새로고침해 주세요.');
+    }
+    const ids = rawIds as string[];
+    const catalog = DRAW_PRIZES.find((p) => p.name === prize);
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rc-draw:${eventKey}`}))`;
+      if (catalog) {
+        const left = catalog.total - await tx.receptionDraw.count({ where: { eventKey, prize, cancelledAt: null } });
+        if (left < 1) throw new BadRequestException('남은 경품이 없어요.');
+        if (numbers.length > left) throw new BadRequestException(`남은 경품은 ${left}${catalog.unit}예요.`);
+      }
+      const pool = await tx.receptionTicket.findMany({ where: { eventKey, draws: { none: {} } }, select: { id: true, number: true, name: true } });
+      const byNumber = new Map(pool.map((t) => [t.number, t]));
+      const missing = numbers.filter((n, i) => byNumber.get(n)?.id !== ids[i]);
+      if (missing.length) {
+        throw new BadRequestException(`${missing.map((n) => `No.${String(n).padStart(3, '0')}`).join(', ')} 응모권은 이미 뽑혔거나 지워졌어요(주인이 바뀌었을 수도 있어요). 다시 추첨해 주세요.`);
+      }
+      const rows: ReceptionDraw[] = [];
+      for (const n of numbers) {
+        const t = byNumber.get(n)!;
+        rows.push(await tx.receptionDraw.create({ data: { eventKey, ticketId: t.id, number: t.number, name: t.name, prize } }));
+      }
+      return rows;
+    });
+    const timer = setTimeout(() => {
+      for (const winner of created) void this.notifyWinner(eventKey, winner).catch(() => undefined);
+    }, this.drawPushDelayMs ?? PICK_PUSH_DELAY_MS);
+    timer.unref?.();
+    const board = await this.drawBoard(eventKey);
+    const winners = created.map((row) => board.draws.find((d) => d.id === row.id) ?? this.drawRow(row, undefined));
+    return { draw: winners[0], winners, board, participants: [] };
   }
 
   /** 추첨 무효(자리에 없을 때) — 그 응모권은 다시 뽑지 않는다. 이미 무효면 그대로 */

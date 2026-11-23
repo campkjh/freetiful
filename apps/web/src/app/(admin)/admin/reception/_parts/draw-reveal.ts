@@ -9,7 +9,7 @@ const themes: Record<RevealKind, { label: string; duration: number; slots: numbe
   pinball: { label: '핀볼 레이스', duration: 14200, slots: 0 },
   boss: { label: '세럼 보스전', duration: 23400, slots: 3 },
   fight: { label: 'Freetiful Fight', duration: 12000, slots: 15 },
-  vault: { label: '푸딩이 왕궁', duration: 15500, slots: 5 },
+  vault: { label: '공 배틀', duration: 15500, slots: 5 },
 };
 
 const prizeThemes: [string, RevealKind][] = [

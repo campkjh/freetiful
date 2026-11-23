@@ -826,6 +826,50 @@ test('diffuser batch preserves a prior draw and fills exactly the two unawarded 
   assert.equal(new Set([draw.number, ...winners.map(w => w.number)]).size, 3);
 });
 
+test('pick — 무대 물리가 정한 순서 그대로 기록 · 뽑힌/없는 응모권·남은 수 초과·겹침은 하나도 안 넣음', async () => {
+  const f = fakeLivePrisma();
+  const svc = liveService(f.prisma);
+  const event = 'wmak-2026' as const;
+  f.tickets.push(...Array.from({ length: 10 }, (_, i) => ({
+    id: `pick-${i}`, eventKey: event, number: i + 1, nameKey: `guest-${i}`, name: `guest ${i}`, createdAt: new Date(),
+  })));
+  const hanwoo = DRAW_PRIZES[3]; // 1++ 한우선물세트 4개
+  // 판에 들어간 응모권 id(번호와 같은 순서) — 번호만으론 주인이 바뀐 걸 모른다
+  const ids = (ns: number[]) => ns.map((n) => `pick-${n - 1}`);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 2]), /새로고침/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 2], ['pick-0']), /새로고침/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 2], ['pick-0', 7]), /새로고침/);
+  // 맨 끝 번호를 지우고 다음 손님이 같은 번호를 받은 경우 — 판의 응모권(id)과 다르면 하나도 안 넣는다
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 10], ['pick-0', 'old-ticket-10']), /No\.010 응모권은 이미 뽑혔거나 지워졌어요\(주인이 바뀌었을/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [], ids([])), /번호를 확인/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 1], ids([1, 1])), /두 번/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 2.5], ids([1, 2.5])), /번호를 확인/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 2, 3, 4, 5], ids([1, 2, 3, 4, 5])), /남은 경품은 4개/);
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 99], ids([1, 99])), /No\.099/);
+  assert.equal(f.draws.length, 0);
+
+  const first = await svc.pick(event, hanwoo.name, [7, 2, 9], ids([7, 2, 9]));
+  assert.deepEqual(first.winners.map((w) => w.number), [7, 2, 9]);
+  assert.equal(first.draw.number, 7);
+  assert.equal(first.board.prizes[3].drawn, 3);
+  assert.equal(first.board.eligible, 7);
+  // 이미 뽑힌 응모권은 안 됨(무효로 돌려도 다시 안 뽑는 규칙 그대로)
+  await assert.rejects(svc.pick(event, hanwoo.name, [2], ids([2])), /No\.002 응모권은 이미 뽑혔거나/);
+  await svc.cancelDraw(event, first.winners[1].id);
+  await assert.rejects(svc.pick(event, hanwoo.name, [2], ids([2])), /이미 뽑혔거나/);
+  // 무효 1건 → 한우 남은 2개
+  await assert.rejects(svc.pick(event, hanwoo.name, [1, 3, 4], ids([1, 3, 4])), /남은 경품은 2개/);
+  const second = await svc.pick(event, hanwoo.name, [1, 3], ids([1, 3]));
+  assert.equal(second.board.prizes[3].drawn, 4);
+  await assert.rejects(svc.pick(event, hanwoo.name, [4], ids([4])), /남은 경품이 없어요/);
+
+  // 체스타필드 1벌 · 목록에 없는 경품은 수량 제한 없이
+  const chester = DRAW_PRIZES.find((p) => p.name.includes('체스타필드'))!;
+  await assert.rejects(svc.pick(event, chester.name, [4, 5], ids([4, 5])), /남은 경품은 1벌/);
+  assert.equal((await svc.pick(event, chester.name, [4], ids([4]))).winners[0].prize, chester.name);
+  assert.equal((await svc.pick(event, '직접 입력 경품', [5, 6], ids([5, 6]))).winners.length, 2);
+});
+
 test('reset clears only the confirmed event draw history and makes its tickets eligible again', async () => {
   const f = fakeLivePrisma();
   const svc = liveService(f.prisma);

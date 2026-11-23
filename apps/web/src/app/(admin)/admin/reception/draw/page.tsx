@@ -27,10 +27,13 @@ import {
 import { ReceptionStage } from '../_parts/ReceptionStage';
 import { DrawReveal } from '../_parts/DrawReveal';
 import { buildReveal, isBatchReveal, revealTheme, type RevealPlan } from '../_parts/draw-reveal';
+import { PhysicsDraw, physicsKindOf, type PhysicsKind, type PhysicsRun } from '../_parts/PhysicsDraw';
 import { haptic } from '@/lib/haptics';
 import '../reception-admin.css';
 
-type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; win: DrawRow | null; wins?: DrawRow[]; preview?: boolean; openedCards?: number[]; scene?: { plan: RevealPlan; startedAt: number } };
+/** physics = 물리가 당첨을 정하는 판(한우 핀볼 레이스 · 체스타필드 공 배틀) — scene 대신 이것으로 굴린다 */
+type Roll = { phase: 'idle' | 'rolling' | 'done'; prize: string; win: DrawRow | null; wins?: DrawRow[]; preview?: boolean; openedCards?: number[]; scene?: { plan: RevealPlan; startedAt: number }; physics?: PhysicsRun };
+type PhysicsHandlers = { onStart: () => void; onFinish: (numbers: number[]) => void; onRetry: () => void; onCancel: () => void; onEngineError: (message: string) => void };
 const NO_CARDS: readonly number[] = [];
 
 const PRIZE_MAX = 40;
@@ -42,7 +45,7 @@ const eunNeun = (w: string) => {
 };
 
 /** announce = 지금 보이는 판 하나만 알림 칸을 둔다(본문 판 · 크게 보기 판이 같이 읽히지 않게) */
-function DrawScreen({ roll, prize, big = false, announce = false, onFinish, onOpenCard, reduce }: { roll: Roll; prize: string; big?: boolean; announce?: boolean; onFinish: () => void; onOpenCard: (index: number) => void; reduce: boolean }) {
+function DrawScreen({ roll, prize, big = false, announce = false, onFinish, onOpenCard, reduce, physics }: { roll: Roll; prize: string; big?: boolean; announce?: boolean; onFinish: () => void; onOpenCard: (index: number) => void; reduce: boolean; physics: PhysicsHandlers }) {
   const s = roll.phase === 'done' ? roll.win : null;
   const winners = s ? roll.wins ?? [s] : [];
   const cardPlan = roll.scene?.plan.kind === 'cards' ? roll.scene.plan : null;
@@ -55,6 +58,7 @@ function DrawScreen({ roll, prize, big = false, announce = false, onFinish, onOp
       {announce && <p className="sr-only" aria-live="polite" aria-atomic="true">{said}</p>}
       <p className="rcd-prize-label">{roll.phase === 'done' ? `${roll.prize} 당첨!` : roll.phase === 'rolling' ? `${roll.prize} 추첨 중…` : prize || '경품을 골라 주세요'}</p>
       {roll.phase === 'rolling' ? (
+        roll.physics ? <PhysicsDraw run={roll.physics} {...physics} /> :
         roll.scene ? <>
           <DrawReveal key={roll.win?.id} {...roll.scene} openedCards={roll.openedCards ?? NO_CARDS} onOpenCard={onOpenCard} reduce={reduce} />
           <div className="rdv-controls">
@@ -111,12 +115,20 @@ export default function ReceptionDrawPage() {
     setStage(false);
   }, []);
 
+  // 물리 판이 굴러가는 중인지(전체 화면을 빠져나와도 판을 닫지 않게) — fullscreenchange 처리기는 처음 한 번만 걸리므로 ref 로 본다
+  const rollRef = useRef(roll);
+  rollRef.current = roll;
+  const physicsDone = useRef<string | null>(null);
+  /** 미리보기 물리 판의 테이블(명단) — 결과 화면에 보여 주려고 */
+  const previewTables = useRef(new Map<number, number>());
+
   const stageClosed = useCallback(() => {
-    if (roll.preview) {
+    // 미리보기 · 물리 판(끝나기 전)은 판을 닫으면 같이 접는다 — 물리 판은 다시 열면 처음부터(기록 안 된 판을 남기지 않게)
+    if (roll.preview || (roll.phase === 'rolling' && roll.physics && !roll.physics.saving)) {
       drawing.current = false;
       setRoll({ phase: 'idle', prize: '', win: null });
     }
-  }, [roll.preview]);
+  }, [roll.preview, roll.phase, roll.physics]);
 
   useEffect(() => { if (!stage) stageClosed(); }, [stage, stageClosed]);
 
@@ -128,8 +140,164 @@ export default function ReceptionDrawPage() {
     void stageSurface.current?.requestFullscreen?.().catch(() => {});
   };
 
+  /** 물리 판 열기 — 참가자 전원을 넣고 [시작]을 기다린다 */
+  const openPhysics = (name: string, run: Omit<PhysicsRun, 'id' | 'started'>) => {
+    drawing.current = true;
+    physicsDone.current = null;
+    flushSync(() => {
+      setStage(true);
+      setRoll({ phase: 'rolling', prize: name, win: null, preview: run.preview, physics: { ...run, id: `${Date.now()}:${Math.random().toString(36).slice(2)}`, started: false } });
+    });
+    void stageSurface.current?.requestFullscreen?.().catch(() => {});
+  };
+
+  /** 판이 전체 화면이면 먼저 푼다 — 알림 창(adminAlert · adminConfirm)은 body 에 떠서 전체 화면 판 뒤로 숨는다.
+   *  물리 판이 굴러가는 중이면 fullscreenchange 처리기가 판은 남겨 둔다(창 모드로 계속 보임) */
+  const leaveStageFullscreen = async () => {
+    if (stageSurface.current && document.fullscreenElement === stageSurface.current) await document.exitFullscreen().catch(() => {});
+  };
+
+  /** 실제 추첨용 물리 판 — 누르는 순간의 입장 현황 · 추첨 기록으로 참가자를 다시 받는다(폴링 값이 늦어도 이미 뽑힌 사람이 안 들어가게) */
+  const startPhysics = async (name: string, kind: PhysicsKind) => {
+    drawing.current = true;
+    try {
+      const [fresh, board] = await Promise.all([receptionAdminApi.live(), receptionAdminApi.board()]);
+      if (!alive.current) return;
+      const drawn = new Set(board.draws.map((d) => d.number));
+      const entrants = fresh.arrivals.filter((a) => !drawn.has(a.number)).map((a) => ({ id: a.id, number: a.number, name: a.name }));
+      const p = board.prizes.find((x) => x.name === name);
+      const left = p ? p.total - p.drawn : 1;
+      const quantity = kind === 'battle' ? 1 : left;
+      const problem = left < 1 ? '남은 경품이 없어요.'
+        : entrants.length < 1 ? '뽑을 응모권이 없어요\n입장한 손님이 아직 없거나 모두 뽑혔어요.'
+        : entrants.length < quantity ? '남은 경품 수보다 응모권이 적어요.' : null;
+      if (problem) {
+        drawing.current = false;
+        await leaveStageFullscreen();
+        await adminAlert(problem);
+        return;
+      }
+      openPhysics(name, { kind, entrants, quantity });
+    } catch (error) {
+      drawing.current = false;
+      if (!alive.current) return;
+      await leaveStageFullscreen();
+      await adminAlert(`추첨 판을 열지 못했어요\n${adminErrorText(error, '다시 눌러 주세요')}`);
+    }
+  };
+
+  const physicsStart = useCallback(() => {
+    setRoll((r) => (r.phase === 'rolling' && r.physics && !r.physics.started ? { ...r, physics: { ...r.physics, started: true } } : r));
+  }, []);
+
+  const savePhysics = useCallback(async (run: PhysicsRun, prizeOf: string, numbers: number[]) => {
+    const patch = (next: Partial<PhysicsRun>) => setRoll((r) => (r.physics?.id === run.id ? { ...r, physics: { ...r.physics, ...next } } : r));
+    if (run.preview) {
+      const at = new Date().toISOString();
+      const byNo = new Map(run.entrants.map((e) => [e.number, e]));
+      const wins: DrawRow[] = numbers.map((n) => ({ id: `preview:${n}:${at}`, number: n, name: byNo.get(n)?.name ?? '', prize: prizeOf, at, table: previewTables.current.get(n) ?? null, cancelled: false }));
+      drawing.current = false;
+      setRoll({ phase: 'done', prize: prizeOf, win: wins[0], wins, preview: true });
+      return;
+    }
+    // 판에 들어간 응모권 id — 서버가 번호 주인이 그새 바뀌지 않았는지 대조한다
+    const ids = numbers.map((n) => run.entrants.find((e) => e.number === n)?.id);
+    if (!ids.every((id): id is string => !!id)) {
+      patch({ result: numbers, saving: false, error: '골인한 응모권을 찾지 못했어요. 닫고 다시 추첨해 주세요.' });
+      return;
+    }
+    patch({ result: numbers, saving: true, error: undefined });
+    try {
+      const res = await mutate(() => receptionAdminApi.pick(prizeOf, numbers, ids), (r): DrawBoard => r.board);
+      if (!alive.current) return;
+      drawing.current = false;
+      setRoll({ phase: 'done', prize: prizeOf, win: res.draw, wins: res.winners ?? [res.draw] });
+      haptic('success');
+    } catch (error) {
+      // 응답만 잃고 서버엔 기록됐을 수 있다(그대로 [다시 기록]하면 '이미 뽑혔어요'로 막힌다) — 최신 기록에 이 번호들이 이 경품으로 다 있으면 기록된 것으로 본다
+      const recorded = await mutate(() => receptionAdminApi.board(), (b) => b)
+        .then((b) => numbers.map((n) => b.draws.find((d) => d.number === n && d.prize === prizeOf && !d.cancelled)))
+        .catch(() => null);
+      if (!alive.current) return;
+      if (recorded && recorded.every((d): d is DrawRow => !!d)) {
+        drawing.current = false;
+        setRoll({ phase: 'done', prize: prizeOf, win: recorded[0], wins: recorded });
+        haptic('success');
+        return;
+      }
+      patch({ saving: false, error: `당첨을 기록하지 못했어요 — ${adminErrorText(error, '[다시 기록]을 눌러 주세요')}` });
+    }
+  }, [mutate]);
+
+  const physicsFinish = useCallback((numbers: number[]) => {
+    const r = rollRef.current;
+    const run = r.physics;
+    if (r.phase !== 'rolling' || !run || !run.started || physicsDone.current === run.id) return;
+    physicsDone.current = run.id;
+    void savePhysics(run, r.prize, numbers);
+  }, [savePhysics]);
+
+  const physicsRetry = useCallback(() => {
+    const r = rollRef.current;
+    if (r.physics?.result && !r.physics.saving) void savePhysics(r.physics, r.prize, r.physics.result);
+  }, [savePhysics]);
+
+  /** [그만두기] · 오류 칸 [닫기] — 끝난 결과가 기록 안 된 채 남아 있으면 한 번 묻는다 */
+  const physicsCancel = useCallback(async () => {
+    const first = rollRef.current.physics;
+    if (!first || first.saving) return;
+    if (first.result && !first.preview) {
+      await leaveStageFullscreen();
+      const ok = await adminConfirm({ title: '당첨 기록 없이 닫을까요?', description: '레이스는 끝났지만 아직 기록되지 않았어요. 닫으면 이 결과는 버려지고 다시 추첨해야 해요.', confirmText: '닫기' });
+      if (!ok) return;
+    }
+    // 묻는 사이 다른 판이 됐거나 기록이 시작됐으면 그대로 둔다
+    const now = rollRef.current;
+    if (now.phase !== 'rolling' || now.physics?.id !== first.id || now.physics.saving) return;
+    drawing.current = false;
+    setRoll({ phase: 'idle', prize: '', win: null });
+    closeStage();
+  }, [closeStage]);
+
+  const physicsError = useCallback((message: string) => {
+    setRoll((r) => (r.physics ? { ...r, physics: { ...r.physics, error: message } } : r));
+  }, []);
+
+  const physicsHandlers = useMemo<PhysicsHandlers>(() => ({
+    onStart: physicsStart, onFinish: physicsFinish, onRetry: physicsRetry, onCancel: physicsCancel, onEngineError: physicsError,
+  }), [physicsStart, physicsFinish, physicsRetry, physicsCancel, physicsError]);
+
+  /** 판 닫기(닫기 단추 · ESC) — 물리 판이 굴러가는 중이면 한 번 묻는다. 기록 중에는 닫지 않는다 */
+  const requestCloseStage = useCallback(async () => {
+    const r = rollRef.current;
+    const run = r.phase === 'rolling' ? r.physics : undefined;
+    if (run?.saving) return;
+    if (run && run.started && !run.preview) {
+      await leaveStageFullscreen();
+      const ok = await adminConfirm(run.result
+        ? { title: '당첨 기록 없이 닫을까요?', description: '레이스는 끝났지만 아직 기록되지 않았어요. 닫으면 이 결과는 버려지고 다시 추첨해야 해요.', confirmText: '닫기' }
+        : { title: '추첨을 그만둘까요?', description: '아직 끝나지 않아 당첨이 기록되지 않아요. 다시 열면 처음부터 시작해요.', confirmText: '그만두기' });
+      if (!ok) return;
+      // 묻는 사이 레이스가 끝나 기록 중이면 닫지 않는다(기록이 끝나면 결과 화면으로 넘어간다)
+      if (rollRef.current.physics?.saving) return;
+    }
+    closeStage();
+  }, [closeStage]);
+
   const previewDraw = () => {
     if (!prizeName || drawing.current || resettingRef.current || busy) return;
+    const physicsKind = physicsKindOf(currentTheme);
+    if (physicsKind) {
+      // 미리보기 = 자리 명단 전원(기록 안 함). 명단이 없으면 이름표만
+      const seats = live.data?.seats ?? [];
+      const entrants = seats.length
+        ? seats.map((s, i) => ({ number: i + 1, name: s.name }))
+        : Array.from({ length: 137 }, (_, i) => ({ number: i + 1, name: `참가자 ${i + 1}` }));
+      previewTables.current = new Map(seats.map((s, i) => [i + 1, s.table]));
+      const total = data?.prizes.find((p) => p.name === prizeName)?.total ?? (physicsKind === 'marble' ? 4 : 1);
+      openPhysics(prizeName, { kind: physicsKind, entrants, quantity: physicsKind === 'battle' ? 1 : Math.min(total, entrants.length), preview: true });
+      return;
+    }
     const count = currentTheme === 'pinball' ? 4 : currentTheme === 'boss' || currentTheme === 'capsule' ? 3 : currentTheme === 'race' ? 2 : 1;
     const samples = Array.from({ length: 156 }, (_, i) => ({ number: i + 1, name: `참가자 ${i + 1}` }));
     const at = new Date().toISOString();
@@ -150,7 +318,9 @@ export default function ReceptionDrawPage() {
       if (stageSurface.current && document.fullscreenElement === stageSurface.current) wasFullscreen.current = true;
       else if (wasFullscreen.current) {
         wasFullscreen.current = false;
-        setStage(false);
+        // 물리 판은 전체 화면만 풀리고 판은 남긴다(ESC 한 번에 레이스가 날아가지 않게) — 닫기는 닫기 단추로
+        const r = rollRef.current;
+        if (!(r.phase === 'rolling' && r.physics)) setStage(false);
       }
     };
     document.addEventListener('fullscreenchange', sync);
@@ -226,6 +396,9 @@ export default function ReceptionDrawPage() {
     const name = prizeName;
     if (!name) return adminAlert('경품을 골라 주세요\n직접 입력이면 경품 이름을 적어 주세요.');
     if ([...name].length > PRIZE_MAX) return adminAlert(`경품 이름이 너무 길어요\n${PRIZE_MAX}자까지 적을 수 있어요.`);
+    // 한우 핀볼 · 체스타필드 배틀 = 물리가 당첨을 정한다 → 참가자 전원을 넣은 판을 열고 [시작]을 기다린다
+    const physicsKind = physicsKindOf(currentTheme);
+    if (physicsKind) return startPhysics(name, physicsKind);
     if (data && data.eligible <= 0) return adminAlert('뽑을 응모권이 없어요\n입장한 손님이 아직 없거나 모두 뽑혔어요.');
     const p = data?.prizes.find((x) => x.name === name);
     const batch = !!p && isBatchReveal(currentTheme);
@@ -372,7 +545,7 @@ export default function ReceptionDrawPage() {
         </div>
         {prizePicker}
         {customInput}
-        {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} onOpenCard={openCard} reduce={reduce} />}
+        {!stage && <DrawScreen roll={roll} prize={prizeName} announce onFinish={finish} onOpenCard={openCard} reduce={reduce} physics={physicsHandlers} />}
         <button type="button" className="rcd-go" disabled={rolling || resetting || !!busy || view.eligible <= 0 || shortOfTickets || (!!selected && isBatchReveal(currentTheme) && outOfStock)} onClick={runDraw}>
           {rolling ? '추첨 중…' : view.eligible <= 0 ? '뽑을 응모권이 없어요' : '추첨하기'}
         </button>
@@ -427,10 +600,10 @@ export default function ReceptionDrawPage() {
         )}
       </AdminListCard>
 
-      <ReceptionStage open={stage} onClose={closeStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface}>
+      <ReceptionStage open={stage} onClose={requestCloseStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface}>
         <div className={`rcd-presentation rdv-${roll.phase === 'idle' ? currentTheme : revealTheme(roll.prize).kind}`}>
           {roll.preview && <p className="rdv-preview-badge">미리보기</p>}
-          <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} onOpenCard={openCard} reduce={reduce} />
+          <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} onOpenCard={openCard} reduce={reduce} physics={physicsHandlers} />
           {!rolling && roll.preview && <button type="button" className="rcd-presentation-action" onClick={previewDraw}>다시 재생</button>}
           {!rolling && !roll.preview && <button type="button" className="rcd-presentation-action" disabled={view.eligible <= 0 || shortOfTickets || outOfStock || resetting || !!busy} onClick={runDraw}>
             {outOfStock ? '추첨 완료' : view.eligible <= 0 ? '남은 응모권 없음' : shortOfTickets ? '응모권 부족' : '추첨하기'}

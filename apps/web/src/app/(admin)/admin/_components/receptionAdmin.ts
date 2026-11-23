@@ -518,6 +518,12 @@ export const receptionAdminApi = {
   /** answer 키 = 답 저장/지우기(null·''), correct 키 = O/X 고정(null = 자동으로) — 넣은 키만 바뀐다 */
   quizAnswer: (body: { questionId: string; table: number; answer?: string | null; correct?: boolean | null }) => adminFetch('PUT', `${BASE}/quiz/answer`, body) as Promise<QuizAdmin>,
   draw: (prize: string, batch = false) => adminFetch('POST', `${BASE}/draws${batch ? '/batch' : ''}`, { prize }) as Promise<{ draw: DrawRow; winners?: DrawRow[]; board: DrawBoard; participants?: { number: number; name: string }[] }>,
+  /** 물리 연출 추첨(핀볼 레이스 · 체스타필드 배틀) — 무대가 정한 순서대로 응모권 번호를 당첨으로 기록. 안 뽑힌 응모권 · 남은 경품만 */
+  /** 물리 판이 정한 당첨 — numbers 와 같은 순서의 응모권 id(판에 들어간 그 응모권인지 서버가 대조) */
+  pick: (prize: string, numbers: number[], ids: string[]) => adminFetch('POST', `${BASE}/draws/pick`, { prize, numbers, ids }) as Promise<{ draw: DrawRow; winners?: DrawRow[]; board: DrawBoard }>,
+  /** 입장 현황을 지금 값으로(폴링 기다리지 않고) — 물리 연출에 넣을 참가자를 누르는 순간 기준으로 */
+  live: () => adminFetch('GET', `${BASE}/live`, undefined, { cache: false }) as Promise<ReceptionLive>,
+  board: () => adminFetch('GET', `${BASE}/draws`, undefined, { cache: false }) as Promise<DrawBoard>,
   cancelDraw: (id: string) => adminFetch('POST', `${BASE}/draws/${encodeURIComponent(id)}/cancel`) as Promise<DrawBoard>,
   resetDraws: (expectedIds: string[]) => adminFetch('POST', `${BASE}/draws/reset`, { expectedIds }) as Promise<DrawBoard>,
   /** 미션 도전 판정 — success(점수) · fail · pending(되돌리기) · cancel(도전 지우기). 그 사이 도전이 바뀌었으면 400 */
