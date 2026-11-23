@@ -374,8 +374,8 @@ export function stageTagText(p: PersonRow, stage: PersonStage, nowMs: number): s
 const BASE = `/api/v1/admin/reception/${RECEPTION_EVENT_KEY}`;
 const KST_MS = 9 * 3600000;
 
-/** 한 문제 제한 시간(표시만 — 마감은 운영자가 누른다) */
-export const QUIZ_SECONDS = 60;
+/** 한 문제 제한 시간(표시만 — 마감은 운영자가 누른다) · 분:초 — 손님 화면과 한 곳(lib/reception/quiz.ts)에서 */
+export { QUIZ_SECONDS, quizClock } from '@/lib/reception/quiz';
 export const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'] as const;
 export const QUIZ_KIND_LABEL: Record<QuizKind, string> = { text: '주관식', ox: 'OX', choice: '객관식', match: '짝 맞추기', mission: '미션' };
 

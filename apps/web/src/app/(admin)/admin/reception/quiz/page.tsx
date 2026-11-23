@@ -20,6 +20,7 @@ import {
   kstHm,
   QUIZ_KIND_LABEL,
   QUIZ_SECONDS,
+  quizClock,
   receptionAdminApi,
   useReceptionQuiz,
   type QuizAdminTable,
@@ -157,7 +158,7 @@ export default function ReceptionQuizPage() {
       title: `${qName(nextQ)}을 열까요?`,
       description: busyCur
         ? `${qName(cur!)}이 아직 ${PHASE_LABEL[st.phase]}이에요. 열면 손님 화면이 이 문제로 바뀌어요. ${qName(cur!)}의 답은 그대로 남아요.`
-        : `손님 화면에 문제가 뜨고 ${QUIZ_SECONDS}초 타이머가 시작돼요.`,
+        : `손님 화면에 문제가 뜨고 ${QUIZ_SECONDS / 60}분 타이머가 시작돼요.`,
       confirmText: '문제 열기',
     }))) return;
     act('open', { questionId: nextQ.id });
@@ -218,7 +219,7 @@ export default function ReceptionQuizPage() {
         <div className="rcq-now-text">
           <span className={`rcq-phase ${st.phase}`}>{PHASE_LABEL[st.phase]}</span>
           <b>{cur ? `${qName(cur)} · ${QUIZ_KIND_LABEL[cur.kind]}` : '손님 화면 = 대기'}</b>
-          {st.phase === 'open' && <span className={`rcq-left ${left <= 10 ? 'warn' : ''}`}>{left > 0 ? `${left}초 남음` : '시간이 다 됐어요'}</span>}
+          {st.phase === 'open' && <span className={`rcq-left ${left <= 10 ? 'warn' : ''}`}>{left > 0 ? `${quizClock(left)} 남음` : '시간이 다 됐어요'}</span>}
           {st.phase === 'open' && <button type="button" className="adm-btn" disabled={stateBusy} onClick={extend}>+60초</button>}
           {st.showBoard && <span className="adm-badge orange">순위 발표 중</span>}
         </div>
@@ -307,7 +308,7 @@ export default function ReceptionQuizPage() {
               {isCurrent && st.phase === 'open' && (
                 <div className={`rcq-timer ${left <= 10 ? 'warn' : ''}`} role="timer" aria-live="off">
                   <div className="rcq-timer-bar"><span style={{ transform: `scaleX(${left / quizTotalSec(st.extraSec)})` }} /></div>
-                  <span>{left > 0 ? `남은 시간 ${left}초` : '시간이 다 됐어요 — 마감을 눌러 주세요'}</span>
+                  <span>{left > 0 ? `남은 시간 ${quizClock(left)}` : '시간이 다 됐어요 — 마감을 눌러 주세요'}</span>
                   <button type="button" className="adm-btn" disabled={stateBusy} onClick={extend}>+60초</button>
                 </div>
               )}

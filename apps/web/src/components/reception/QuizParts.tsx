@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { QuizBoardRow, QuizQuestionPublic, QuizTableResult } from '@/lib/reception/api';
 import { TABLE_COUNT } from '@/lib/reception/event';
-import { CIRCLED, MATCH_EMPTY, QUIZ_SECONDS, optionLetter, rankBoard } from '@/lib/reception/quiz';
+import { CIRCLED, MATCH_EMPTY, QUIZ_SECONDS, optionLetter, quizClock, rankBoard } from '@/lib/reception/quiz';
 import RankCrown from './RankCrown';
 import { CheckIcon, CloseIcon, TrophyIcon } from './ReceptionIcons';
 
@@ -124,7 +124,7 @@ export function QuizAnswerInput({ q, value, onChange, onSubmit, disabled }: Inpu
   );
 }
 
-/** 열린 뒤 60초(+사회자가 더한 초) 막대(표시만) — 0 이 돼도 마감 전까진 바꿀 수 있다 */
+/** 열린 뒤 5분(+사회자가 더한 초) 막대(표시만) — 0 이 돼도 마감 전까진 바꿀 수 있다 */
 export function QuizCountdown({ openedAt, extraSec }: { openedAt: string | null; extraSec?: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -139,7 +139,7 @@ export function QuizCountdown({ openedAt, extraSec }: { openedAt: string | null;
   return (
     <div className={`rc-qz-timer ${sec <= 10 ? 'low' : ''} ${sec === 0 ? 'done' : ''}`} role="timer" aria-live="off">
       <div className="rc-qz-timer-bar" aria-hidden="true"><i style={{ transform: `scaleX(${left / total})` }} /></div>
-      <p>{sec > 0 ? <><b>{sec}</b>초 남았어요</> : '시간이 다 됐어요 — 마감 전까진 바꿀 수 있어요'}</p>
+      <p>{sec > 0 ? <><b>{quizClock(sec)}</b> 남았어요</> : '시간이 다 됐어요 — 마감 전까진 바꿀 수 있어요'}</p>
     </div>
   );
 }

@@ -7,8 +7,13 @@ import type { QuizBoardRow, QuizQuestionPublic } from './api';
 import { RECEPTION_EVENT_KEY, TABLE_COUNT } from './event';
 import { receptionNameKey, type ResolvedSeat } from './me';
 
-/** 한 문제 시간(표시만 — 마감은 운영팀이 누른다) */
-export const QUIZ_SECONDS = 60;
+/** 한 문제 시간(표시만 — 마감은 운영팀이 누른다). 261123 사장 '기본 60초 → 5분으로 통일' */
+export const QUIZ_SECONDS = 300;
+/** 남은 초 → '4:59'(분:초) */
+export const quizClock = (sec: number) => {
+  const s = Math.max(0, Math.ceil(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 export const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'] as const;
 /** match 칸에서 아직 안 고른 자리 */
 export const MATCH_EMPTY = '_';

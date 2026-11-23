@@ -12,7 +12,7 @@ import { useCallback, useRef, type CSSProperties } from 'react';
 import RankCrown from '@/components/reception/RankCrown';
 import { QuizIntro, useQuizImagePreload, useQuizIntro, type IntroTargets } from '@/components/reception/QuizIntro';
 import { TABLE_COUNT } from '@/lib/reception/event';
-import { CIRCLED, QUIZ_SECONDS, type QuizAdmin, type QuizScore } from '../../_components/receptionAdmin';
+import { CIRCLED, QUIZ_SECONDS, quizClock, type QuizAdmin, type QuizScore } from '../../_components/receptionAdmin';
 import './quiz-stage-intro.css';
 
 export function rankBoard(board: QuizScore[]) {
@@ -27,7 +27,7 @@ export function rankBoard(board: QuizScore[]) {
   });
 }
 
-/** 이 문제의 제한시간(초) = 60 + [+60초]로 더한 초 */
+/** 이 문제의 제한시간(초) = 기본 5분(QUIZ_SECONDS) + [+60초]로 더한 초 */
 export const quizTotalSec = (extraSec?: number) => QUIZ_SECONDS + (extraSec && extraSec > 0 ? extraSec : 0);
 
 export function secondsLeft(openedAt: string | null, now: number, extraSec?: number) {
@@ -163,7 +163,7 @@ export function QuizStageBody({ data, now }: { data: QuizAdmin; now: number }) {
         {cur.kind !== 'mission' && (
           <div className="rcs-live-foot">
             <p className={`rcs-timer ${st.phase === 'locked' ? 'locked' : left <= 10 ? 'warn' : ''}`}>
-              {st.phase === 'locked' ? '답안 마감' : left > 0 ? `${left}초` : '시간 종료'}
+              {st.phase === 'locked' ? '답안 마감' : left > 0 ? quizClock(left) : '시간 종료'}
             </p>
             <div className="rcs-sub-grid" aria-label={`답을 낸 테이블 ${submitted.size}곳`}>
               {Array.from({ length: data.tableCount || TABLE_COUNT }, (_, i) => i + 1).map((n) => (
