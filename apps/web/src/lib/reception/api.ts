@@ -152,6 +152,8 @@ export interface QuizPublic {
   results: Record<string, { answerLabel: string; explanation?: string; tables: QuizTableResult[] }>;
   board: QuizBoardRow[];
   tableCount: number;
+  /** 지금 문제가 스페셜 미션일 때만 — 도전을 수락한 테이블(자리 배치도에 초록 불, 261123). seat = 대표 좌석(명단에 없으면 null) */
+  challengers?: Array<{ table: number; name: string; seat: number | null; result: 'pending' | 'success' | 'fail' }>;
 }
 
 /** call 이 던지는 오류 — status = 서버 응답 코드(망 오류로 응답 자체가 없으면 undefined) */
@@ -199,7 +201,7 @@ export const receptionApi = {
   guest: (deviceId: string, name: string, pick?: number | null) =>
     call<ReceptionMe>('/guest', deviceId, { method: 'PUT', body: JSON.stringify(pick ? { name, pick } : { name }) }),
   /** 바뀜 신호(261123) — 자리 명단 지문만. 바뀌면 guest 로 내 자리 · 이름을 다시 받는다(lib/reception/me.ts onSeatsChange) */
-  pulse: (deviceId: string) => call<{ v: string }>('/pulse', deviceId),
+  pulse: (deviceId: string) => call<{ v: string; nc?: string }>('/pulse', deviceId),
   /** 퀴즈 지금 상태 · 문제 · 공개된 정답과 테이블별 답 · 점수판. table 을 주면 그 테이블의 지금 문제 답(mine)도 */
   quiz: (deviceId: string, table?: number | null) =>
     call<QuizPublic>(`/quiz${table ? `?table=${encodeURIComponent(String(table))}` : ''}`, deviceId),

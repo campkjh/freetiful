@@ -1320,3 +1320,41 @@ test('오프닝 주관식 — 아무 답이나 받고 · 채점 · 점수 · O/X
   const adminT3 = quizAdmin(defaultQuizState(), rows).results.r0q1.tables.find((t) => t.table === 3)!;
   assert.deepEqual([adminT3.override, adminT3.correct, adminT3.auto], [null, false, false]);
 });
+
+test('2부 이름 다시 받기 — 자동은 2부 시작부터 · 지금 받기는 누른 때가 회차 · 끄기 · 모양 틀리면 자동', () => {
+  const { NAME_CHECK_AUTO_AT, nameCheckId, parseNameCheck } = require('./reception.rules') as typeof import('./reception.rules');
+  const before = NAME_CHECK_AUTO_AT - 60_000;
+  const after = NAME_CHECK_AUTO_AT + 60_000;
+  const auto = parseNameCheck(null);
+  assert.deepEqual(auto, { mode: 'auto', at: null });
+  assert.equal(nameCheckId(auto, before), '');
+  assert.equal(nameCheckId(auto, after), new Date(NAME_CHECK_AUTO_AT).toISOString());
+  const now = parseNameCheck({ mode: 'now', at: '2026-11-23T10:05:00.000Z' });
+  assert.equal(nameCheckId(now, before), '2026-11-23T10:05:00.000Z');
+  assert.equal(nameCheckId(now, after), '2026-11-23T10:05:00.000Z'); // 자동 시각이 지나도 누른 회차 그대로(두 번 안 물음)
+  assert.equal(nameCheckId(parseNameCheck({ mode: 'off' }), after), '');
+  assert.deepEqual(parseNameCheck({ mode: 'now' }), { mode: 'auto', at: null }); // 시각 없는 now = 자동
+  assert.deepEqual(parseNameCheck({ mode: 'weird', at: 'x' }), { mode: 'auto', at: null });
+  assert.equal(new Date(NAME_CHECK_AUTO_AT).toISOString(), '2026-11-23T10:40:00.000Z'); // 19:40 KST
+});
+
+test('미션 도전 테이블 — 지금 문제가 미션일 때만 · 도전 줄과 운영팀 성공 줄 · 테이블 순 · 공개 전에도', () => {
+  const { missionChallengers } = require('./reception-quiz') as typeof import('./reception-quiz');
+  const rows = [
+    row('r3q3', 9, MISSION_CHALLENGE, null, '박팀장'),
+    row('r3q3', 2, MISSION_CHALLENGE, true, '김대표'),
+    row('r3q3', 5, null, true, ''), // 도전 없이 운영팀이 성공
+    row('r3q3', 7, null, false, ''), // 결과만 실패 — 수락 안 함
+    row('r1q1', 4, 'freetiful'),
+  ];
+  const open = { ...defaultQuizState(), currentId: 'r3q3', phase: 'open' as const };
+  assert.deepEqual(missionChallengers(open, rows), [
+    { table: 2, name: '김대표', seat: null, result: 'success' },
+    { table: 5, name: '', seat: null, result: 'success' },
+    { table: 9, name: '박팀장', seat: null, result: 'pending' },
+  ]);
+  assert.equal(missionChallengers({ ...open, currentId: 'r1q1' }, rows), undefined);
+  assert.equal(missionChallengers(defaultQuizState(), rows), undefined);
+  assert.equal(quizPublicShared(open, rows).challengers?.length, 3);
+  assert.equal('challengers' in quizPublicShared({ ...open, currentId: 'r1q1' }, rows), false);
+});

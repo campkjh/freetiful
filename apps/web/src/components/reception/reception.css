@@ -262,6 +262,23 @@
 .rc-h-table.mine .rc-h-top { fill: #F1D58C; stroke: #F1D58C; }
 .rc-h-table.mine .rc-h-chair { color: rgba(246, 220, 147, 0.9); }
 .rc-h-table.mine .rc-h-chair.me { color: var(--rc-pink); }
+/* 스페셜 미션 도전 수락(261123) — 그 테이블 초록 불(단색) · 대표 의자는 더 진하게 · 켜지는 순간 고리 한 번 */
+.rc-h-top { transition: fill 0.45s ease, stroke 0.45s ease; }
+.rc-h-chair { transition: color 0.45s ease; }
+.rc-h-table.lit .rc-h-top { fill: #2FCB6E; stroke: #9BF0BD; }
+.rc-h-table.lit .rc-h-chair { color: rgba(120, 236, 166, 0.85); }
+.rc-h-table.lit .rc-h-chair.leader { color: #B6FFD2; }
+.rc-h-table.lit.mine .rc-h-top { stroke: #F1D58C; stroke-width: 2.4; }
+.rc-h-lit-ring { fill: none; stroke: #2FCB6E; stroke-width: 2; transform-box: fill-box; transform-origin: center; opacity: 0; animation: rc-lit-ring 1.1s ease-out 1 both; pointer-events: none; }
+@keyframes rc-lit-ring { 0% { opacity: 0.95; transform: scale(0.8); } 100% { opacity: 0; transform: scale(2.1); } }
+.rc-h-no.lit { color: #04351A; }
+/* 퀴즈 탭 미션 배치도 머리 */
+.rc-qz-mmap { margin-top: 18px; }
+.rc-qz-mmap-title { margin: 0; font-size: 16px; font-weight: 700; text-align: center; }
+.rc-qz-mmap-title b { color: #5BE39A; font-variant-numeric: tabular-nums; }
+.rc-qz-mmap-sub { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--rc-ice-dim); text-align: center; word-break: keep-all; }
+.rc-qz-mmap .rc-hall { margin-top: 12px; }
+.rc-hall-legend i.g { margin-left: 8px; background: #2FCB6E; }
 .rc-h-ping { fill: none; stroke: var(--rc-pink); stroke-width: 1.6; transform-box: fill-box; transform-origin: center; animation: rc-ping-svg 1.6s ease-out infinite; pointer-events: none; }
 @keyframes rc-ping-svg { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
 .rc-hall-labels { position: absolute; inset: 0; pointer-events: none; }
@@ -420,6 +437,15 @@
 .rc-modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(2, 6, 30, 0.62); animation: rc-fade 0.2s ease; }
 .rc-modal > div { width: 100%; max-width: 380px; }
 .rc-modal .rc-glass { background: rgba(11, 30, 112, 0.96); }
+/* 이름 확인 알럿 · 2부 이름 다시 받기(261123) — 알럿은 이름 창 위로. 경고 줄은 금빛 굵게(그라데이션 · 빛 X) */
+.rc-name-recheck { z-index: 90; }
+.rc-name-alert { z-index: 95; }
+.rc-name-alert-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.rc-name-alert-btns .rc-btn-gold, .rc-name-alert-btns .rc-btn-line { width: 100%; margin-top: 0; }
+.rc-name-hint b { color: #fff; font-weight: 700; }
+.rc-name-hint .rc-name-warn { color: var(--rc-gold); }
+.rc-name-now { margin: -6px 0 14px; font-size: 13px; color: var(--rc-ice-dim); }
+.rc-name-now b { color: var(--rc-ice); font-weight: 700; }
 .rc-sheet { width: 100%; padding: 24px 20px 20px; text-align: center; }
 .rc-sheet-title { margin: 0; font-size: 21px; font-weight: 700; }
 .rc-sheet-desc { margin: 8px 0 0; font-size: 14px; line-height: 1.55; color: rgba(225, 233, 255, 0.8); }
@@ -669,7 +695,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rc-rise { opacity: 1; transform: none; animation: none; }
-  .rc-h-ping, .rc-hall-labels > .rc-h-pin, .rc-tile-skel, .rc-tl-flag i, .rc-live-eyebrow i { animation: none; }
+  .rc-h-ping, .rc-h-lit-ring, .rc-hall-labels > .rc-h-pin, .rc-tile-skel, .rc-tl-flag i, .rc-live-eyebrow i { animation: none; }
   .rc-sparkle { display: none; }
   .rc-hallmap-in { transition: none; }
   .rc-prism i { animation: none; opacity: 0.6; }

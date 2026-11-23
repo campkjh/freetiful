@@ -512,8 +512,20 @@ export const useReceptionDraws = (intervalMs = 5000) => useReceptionPoll<DrawBoa
 const keepPeople = (next: ReceptionPeople, prev: ReceptionPeople | null) => !((prev?.people?.length ?? 0) > 0 && (next?.people?.length ?? 0) === 0);
 export const useReceptionPeople = (intervalMs = 2000) => useReceptionPoll<ReceptionPeople>(`${BASE}/people`, intervalMs, keepPeople);
 
+/** 2부 이름 다시 받기(261123) — auto = 2부 시작(19:40)부터 · now = 누른 때부터(새 회차) · off = 안 받음 */
+export type NameCheckMode = 'auto' | 'now' | 'off';
+export interface NameCheckStatus {
+  mode: NameCheckMode;
+  at: string | null;
+  autoAt: string;
+  /** 지금 손님에게 묻는 회차('' = 안 묻는 중) */
+  id: string;
+}
+
 /** 고치는 요청 — 응답은 각 화면 값(ReceptionLive · QuizAdmin · DrawBoard) */
 export const receptionAdminApi = {
+  nameCheck: () => adminFetch('GET', `${BASE}/name-check`, undefined, { cache: false }) as Promise<NameCheckStatus>,
+  setNameCheck: (mode: NameCheckMode) => adminFetch('POST', `${BASE}/name-check`, { mode }) as Promise<NameCheckStatus>,
   ticketsMode: (mode: TicketsMode) => adminFetch('POST', `${BASE}/tickets/mode`, { mode }) as Promise<ReceptionLive>,
   /** 지운 이름은 막힌다(다시 안 나옴) — 실수였으면 unblockTicket(이름)으로 풀기 */
   /** 손님 사진 내리기(베스트드레서) — 받은 좋아요 · 공감도 같이 지움 */

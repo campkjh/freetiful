@@ -40,6 +40,8 @@ import {
   type PersonRow,
   type PersonStage,
   type PersonStageInfo,
+  type NameCheckMode,
+  type NameCheckStatus,
   type TicketBlock,
   type TicketsMode,
 } from '../_components/receptionAdmin';
@@ -57,6 +59,60 @@ const MODES: { key: TicketsMode; label: string }[] = [
   { key: 'open', label: '열기' },
   { key: 'closed', label: '닫기' },
 ];
+/**
+ * 2부 이름 다시 받기(261123 사장 '2부 시작하면 이름을 한번 더 입력하게끔 — 카톡 이름이랑 다른 경우가 있어서') —
+ * 자동 = 2부 시작(19:40)부터 손님 폰에 '성함을 한 번 더' 창 · 받기 = 지금부터(이미 확인한 손님도 한 번 더) · 끄기.
+ */
+function NameCheckBar() {
+  const [st, setSt] = useState<NameCheckStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const load = () => receptionAdminApi.nameCheck().then((v) => { if (alive) setSt(v); }).catch(() => {});
+    void load();
+    const t = window.setInterval(load, 15000);
+    return () => { alive = false; window.clearInterval(t); };
+  }, []);
+  const set = async (mode: NameCheckMode) => {
+    if (!st || busy) return;
+    if (mode === 'now' && !(await adminConfirm({
+      title: '지금 손님 폰에 이름을 다시 받을까요?',
+      description: "앱을 연 손님 모두에게 '성함을 한 번 더 입력해 주세요' 창이 떠요(이미 확인한 손님도 한 번 더). 실명 확인 알럿이 같이 떠요.",
+      confirmText: '지금 받기',
+    }))) return;
+    if (mode === st.mode && mode !== 'now') return;
+    setBusy(true);
+    try {
+      setSt(await receptionAdminApi.setNameCheck(mode));
+    } catch (e) {
+      await adminAlert(`바꾸지 못했어요\n${adminErrorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const active = !!st?.id;
+  const sub = !st ? '' : st.mode === 'off' ? '꺼 뒀어요 — 손님에게 다시 묻지 않아요'
+    : st.mode === 'now' ? `${kstHm(st.at)}부터 받는 중 — 앱을 연 손님에게 '성함을 한 번 더' 창이 떠요`
+    : active ? `2부 시작(${kstHm(st.autoAt)})부터 받는 중 — 앱을 연 손님에게 '성함을 한 번 더' 창이 떠요`
+    : `자동 = 2부 시작 ${kstHm(st.autoAt)}부터 손님 폰에 '성함을 한 번 더' 창 + 실명 확인 알럿`;
+  return (
+    <section className="rcp-bar">
+      <div className="rcp-bar-text">
+        <p className="rcp-bar-title">
+          2부 이름 다시 받기
+          <span className={`adm-badge ${active ? 'green' : ''}`}>{st ? (active ? '받는 중' : st.mode === 'off' ? '꺼짐' : '대기') : '—'}</span>
+        </p>
+        <p className="rcp-bar-sub">{sub}</p>
+      </div>
+      <div className="adm-seg rcp-mode" role="group" aria-label="2부 이름 다시 받기">
+        <button type="button" className={st?.mode === 'auto' ? 'on' : ''} aria-pressed={st?.mode === 'auto'} disabled={!st || busy} onClick={() => set('auto')}>자동</button>
+        <button type="button" className={st?.mode === 'now' ? 'on' : ''} aria-pressed={st?.mode === 'now'} disabled={!st || busy} onClick={() => set('now')}>{st?.mode === 'now' ? '다시 받기' : '지금 받기'}</button>
+        <button type="button" className={st?.mode === 'off' ? 'on' : ''} aria-pressed={st?.mode === 'off'} disabled={!st || busy} onClick={() => set('off')}>끄기</button>
+      </div>
+    </section>
+  );
+}
+
 /** 태그 색 보기(줄 색과 같은 순서) */
 const LEGEND: { stage: Exclude<PersonStage, 'none'>; label: string }[] = [
   { stage: 'arrived', label: '도착 · 1부/2부 참여중' },
@@ -327,6 +383,8 @@ export default function ReceptionParticipantsPage() {
           ))}
         </div>
       </section>
+
+      <NameCheckBar />
 
       {error && data && <p className="adm-note">연결이 잠깐 끊겼어요 — 마지막으로 받은 화면이에요. ({error})</p>}
 

@@ -44,13 +44,17 @@ export type HallMapHandle = {
   zoomMine: () => void;
 };
 
-const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number | null }>(function HallMap({ table, seat }, ref) {
+/** 초록 불 켤 테이블(스페셜 미션 도전 수락 — 261123 사장 '팀장이 퀴즈수락을 하면 초록색으로 그 자리가 불켜지게'). seat = 대표 좌석(있으면 그 의자도) */
+export type HallLit = { table: number; seat: number | null };
+
+const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number | null; lit?: HallLit[]; litLabel?: string }>(function HallMap({ table, seat, lit, litLabel = '도전 수락' }, ref) {
   const [zoomed, setZoomed] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
   const mine = HALL_TABLES.find((t) => t.n === table);
   const myChair = mine && seat ? chairAt(mine, seat) : null;
+  const litBy = new Map((lit ?? []).map((l) => [l.table, l.seat]));
 
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
@@ -159,12 +163,14 @@ const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number |
             {/* 원탁 + 의자 8 */}
             {HALL_TABLES.map((t) => {
               const isMine = t.n === table;
+              const isLit = litBy.has(t.n);
+              const leader = isLit ? litBy.get(t.n) ?? null : null;
               return (
-                <g key={t.n} className={`rc-h-table ${isMine ? 'mine' : ''}`}>
+                <g key={t.n} className={`rc-h-table ${isMine ? 'mine' : ''} ${isLit ? 'lit' : ''}`}>
                   {Array.from({ length: SEATS_PER_TABLE }, (_, i) => {
                     const s = i + 1;
                     const c = chairAt(t, s);
-                    const me = isMine && s === seat;
+                    const me = (isMine && s === seat) || (isLit && s === leader);
                     const size = me ? CHAIR_SIZE * 1.3 : CHAIR_SIZE;
                     return (
                       <use
@@ -175,11 +181,13 @@ const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number |
                         width={size}
                         height={size}
                         transform={`translate(${c.x} ${c.y}) rotate(${c.rot})`}
-                        className={`rc-h-chair ${me ? 'me' : ''}`}
+                        className={`rc-h-chair ${me ? 'me' : ''} ${isLit && s === leader ? 'leader' : ''}`}
                       />
                     );
                   })}
                   <circle cx={t.x} cy={t.y} r={TABLE_R} className="rc-h-top" />
+                  {/* 켜지는 순간 한 번 퍼지는 고리(빛 번짐 X — 선만) */}
+                  {isLit && <circle key={`ring-${t.n}`} cx={t.x} cy={t.y} r={TABLE_R + 4} className="rc-h-lit-ring" />}
                 </g>
               );
             })}
@@ -190,7 +198,7 @@ const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number |
             <span className="rc-h-stage-label" style={pos(HALL_LABELS.stage)}>STAGE</span>
             <span className="rc-h-entrance" style={pos(HALL_LABELS.entrance)}>입구</span>
             {HALL_TABLES.map((t) => (
-              <span key={t.n} className={`rc-h-no ${t.n === table ? 'mine' : ''}`} style={pos([t.x, t.y])}>{t.n}</span>
+              <span key={t.n} className={`rc-h-no ${t.n === table ? 'mine' : ''} ${litBy.has(t.n) ? 'lit' : ''}`} style={pos([t.x, t.y])}>{t.n}</span>
             ))}
             {mine && <span className="rc-h-pin" style={pos([mine.x, mine.y - TABLE_R - 15])}>{seat ? '내 자리' : '내 테이블'}</span>}
           </div>
@@ -201,6 +209,7 @@ const HallMap = forwardRef<HallMapHandle, { table: number | null; seat: number |
         <span className="rc-hall-legend">
           {mine && <><i className="t" />내 테이블</>}
           {myChair && <><i className="s" />내 좌석</>}
+          {lit && <><i className="g" />{litLabel}</>}
         </span>
         <button type="button" className="rc-hall-zoom" aria-pressed={zoomed} onClick={() => { haptic('light'); zoomTo(!zoomed); }}>
           {zoomed ? '전체 보기' : '크게 보기'}

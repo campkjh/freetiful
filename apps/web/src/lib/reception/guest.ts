@@ -8,6 +8,11 @@ import { RECEPTION_EVENT_KEY } from './event';
 export interface ReceptionGuest {
   deviceId: string;
   name: string;
+  /**
+   * 이 이름을 확인받은 '이름 다시 받기' 회차 id(261123 사장 '2부 시작하면 이름을 한번 더') — 서버 pulse 의 nc 와 다르면 다시 받는다.
+   * 없음 = 이 기능 전에 넣은 이름 · '' = 회차가 없을 때(1부) 넣은 이름
+   */
+  nameCheck?: string;
 }
 
 const KEY = `freetiful-reception-${RECEPTION_EVENT_KEY}`;
@@ -32,7 +37,11 @@ export function readGuest(): ReceptionGuest {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (v && typeof v.deviceId === 'string' && /^[0-9a-f-]{36}$/i.test(v.deviceId)) {
-      memory = { deviceId: v.deviceId.toLowerCase(), name: typeof v.name === 'string' ? v.name : '' };
+      memory = {
+        deviceId: v.deviceId.toLowerCase(),
+        name: typeof v.name === 'string' ? v.name : '',
+        ...(typeof v.nameCheck === 'string' ? { nameCheck: v.nameCheck } : {}),
+      };
       return memory;
     }
   } catch {}
@@ -43,8 +52,12 @@ export function readGuest(): ReceptionGuest {
 
 export const cleanGuestName = (v: string) => v.replace(/\s+/g, ' ').trim().slice(0, 20);
 
-export function saveGuestName(name: string) {
-  const next = { ...readGuest(), name: cleanGuestName(name) };
+/** check = 손님이 직접 확인한 회차(이름 입력 · 다시 받기). 안 주면(어드민 이름 고침 따라가기) 예전 회차 그대로 */
+export function saveGuestName(name: string, check?: string | null) {
+  const cur = readGuest();
+  const next: ReceptionGuest = { ...cur, name: cleanGuestName(name) };
+  if (check != null) next.nameCheck = check;
+  else if (check === null) delete next.nameCheck;
   memory = next;
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
   window.dispatchEvent(new Event(EVT));

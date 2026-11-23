@@ -19,6 +19,7 @@ import {
 } from '@/components/reception/QuizParts';
 import { QuizIntro, useQuizImagePreload, useQuizIntro, type IntroTargets } from '@/components/reception/QuizIntro';
 import { QuizMission } from '@/components/reception/QuizMission';
+import HallMap from '@/components/reception/HallMap';
 import { CheckIcon, CloseIcon, QuizIcon } from '@/components/reception/ReceptionIcons';
 import { haptic } from '@/lib/haptics';
 import { receptionApi, type QuizPublic, type QuizQuestionPublic } from '@/lib/reception/api';
@@ -334,6 +335,21 @@ export default function ReceptionQuizPage() {
 
       {confirmCard}
       {main}
+
+      {/* 스페셜 미션(261123 사장 '마지막 퀴즈에서 자리 ui — 팀장이 퀴즈수락을 하면 초록색으로 그 자리가 불켜지게') — 도전을 수락한 테이블에 초록 불 */}
+      {current?.kind === 'mission' && phase !== 'idle' && (() => {
+        const lit = (data?.challengers ?? []).map((c) => ({ table: c.table, seat: c.seat }));
+        const mySeat = seat?.kind === 'listed' && seat.table === table ? seat.seat : null;
+        return (
+          <section className="rc-qz-mmap rc-rise" aria-label="도전을 수락한 테이블">
+            <p className="rc-qz-mmap-title">도전을 수락한 테이블 <b>{lit.length}</b>곳</p>
+            <p className="rc-qz-mmap-sub">
+              {lit.length ? lit.map((l) => `${l.table}번`).join(' · ') : '테이블 대표가 [도전하기]를 누르면 그 자리에 초록 불이 켜져요'}
+            </p>
+            <HallMap table={table} seat={mySeat} lit={lit} />
+          </section>
+        );
+      })()}
 
       {!st?.showBoard && scoredRevealed && <QuizBoard board={board} myTable={table} />}
 

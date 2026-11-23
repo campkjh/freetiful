@@ -12,7 +12,8 @@ import { motion } from 'framer-motion';
 import { BackIcon, EventIcon, ProgramIcon, QuizIcon, SeatIcon, SurveyIcon } from './ReceptionIcons';
 import { useReceptionGuest } from '@/lib/reception/guest';
 import { receptionApi } from '@/lib/reception/api';
-import { adoptRename, cacheMe, meHookCount, normalizeMe, onSeatsChange, pulseJitter, readSamePick } from '@/lib/reception/me';
+import { adoptRename, cacheMe, meHookCount, normalizeMe, onSeatsChange, pulseJitter, readSamePick, useNameCheck } from '@/lib/reception/me';
+import { NameRecheckModal } from './NameGate';
 
 // 배경 프리즘 빛줄기(261108 사장 레퍼런스 '프리즘 느낌이 배경에서 일렁이듯이') — 오른쪽 위에서 왼쪽 아래로 비스듬히 내리는 빛 + 무지개 테두리.
 // [왼쪽, 폭, 기울기, 한 번 오가는 시간, 시작 어긋남] — 서로 다른 박자로 오가며 겹쳤다 흩어진다. 그라데이션·빛 금지 규칙의 예외(배경 한정).
@@ -40,6 +41,9 @@ export default function ReceptionShell({ children, fontClassName }: { children: 
     return () => document.documentElement.classList.remove(...cls);
   }, [fontClassName]);
   const guest = useReceptionGuest();
+  // 2부 이름 다시 받기(261123 사장) — 서버 회차가 있고 이 기기가 그 회차에 이름을 확인받지 않았으면 닫을 수 없는 창
+  const nameCheck = useNameCheck();
+  const recheck = !!guest?.name && !!nameCheck && guest.nameCheck !== nameCheck;
   useEffect(() => {
     if (!guest?.name) return;
     const { deviceId, name } = guest;
@@ -79,6 +83,7 @@ export default function ReceptionShell({ children, fontClassName }: { children: 
         <span>프리티풀</span>
       </Link>
       <main className="rc-main">{children}</main>
+      {recheck && <NameRecheckModal current={guest!.name} />}
       <nav className="rc-nav" aria-label="송년회 메뉴">
         {TABS.map((t) => {
           const on = t.href === active.href;

@@ -445,7 +445,7 @@ function fakeSeatPrisma() {
 function liveSvc(prisma: any) {
   const reception = Object.assign(Object.create(ReceptionService.prototype), { prisma, feedCache: new Map(), logger: { warn() {} } });
   return Object.assign(Object.create(ReceptionLiveService.prototype), {
-    prisma, reception, seatCache: new Map(), modeCache: new Map(), renameCache: new Map(), touched: new Map(), drawPushDelayMs: 0,
+    prisma, reception, seatCache: new Map(), modeCache: new Map(), nameCheckCache: new Map(), renameCache: new Map(), touched: new Map(), drawPushDelayMs: 0,
     logger: { warn() {}, log() {}, error() {} },
   }) as ReceptionLiveService;
 }

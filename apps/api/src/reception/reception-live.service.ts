@@ -14,7 +14,12 @@ import {
   cleanName,
   cleanPrize,
   isTicketsMode,
+  isNameCheckMode,
+  nameCheckId,
+  NAME_CHECK_AUTO_AT,
+  type NameCheckState,
   nameKey,
+  parseNameCheck,
   parseSeatRows,
   parseTableNo,
   parseTicketBlocks,
@@ -64,6 +69,16 @@ export interface ReceptionMe {
 /** 손님 앱 바뀜 신호(GET pulse) — v = 자리 명단 지문. 바뀌면 손님 폰이 PUT guest 로 자기 자리 · 이름을 다시 받는다 */
 export interface ReceptionPulse {
   v: string;
+  /** 2부 이름 다시 받기 회차 id('' = 안 받음) — 기기에 남긴 회차와 다르면 폰이 이름을 다시 받는다(261123) */
+  nc: string;
+}
+
+/** 어드민 — 2부 이름 다시 받기 상태 */
+export interface NameCheckStatus extends NameCheckState {
+  /** 자동이면 받기 시작하는 때(ISO, 2부 시작) */
+  autoAt: string;
+  /** 지금 손님에게 묻는 회차 id('' = 안 묻는 중) */
+  id: string;
 }
 
 export interface ReceptionSameName {
@@ -168,6 +183,7 @@ const SEEN_WRITE_MS = 60_000;
 /** 응모권 번호 겹침(동시에 받기) 다시 시도 횟수 */
 const TICKET_RETRY = 5;
 const TICKETS_KEY = 'tickets';
+const NAME_CHECK_KEY = 'name-check';
 /** 어드민이 지운 이름 목록 — 새로 줄 때만 읽으니 묶어 두지 않는다(지우자마자 바로 막히게) */
 const BLOCKS_KEY = 'ticket-blocks';
 /** 어드민이 테이블 배치 판에서 옮긴 응모권의 옛 테이블들(reception-seats-edit.ts SeatMove) — 동명이인 손님 폰의 옛 pick 가리기 */
@@ -272,6 +288,7 @@ export class ReceptionLiveService {
   private readonly logger = new Logger(ReceptionLiveService.name);
   private readonly seatCache = new Map<string, { at: number; p: Promise<SeatList> }>();
   private readonly modeCache = new Map<string, { at: number; p: Promise<TicketsMode> }>();
+  private readonly nameCheckCache = new Map<string, { at: number; p: Promise<NameCheckState> }>();
   private readonly renameCache = new Map<string, { at: number; p: Promise<RenameNote[]> }>();
   private readonly touched = new Map<string, { name: string; userId: string | null; at: number }>();
   private readonly drawPushDelayMs?: number;
@@ -321,6 +338,44 @@ export class ReceptionLiveService {
       if (this.renameCache.get(eventKey) === entry) this.renameCache.delete(eventKey);
     });
     return entry.p;
+  }
+
+  /** 2부 이름 다시 받기 설정(3초 묶음, 어드민이 바꾸면 바로 버림) — pulse 가 2초마다 불려도 DB 를 매번 안 읽게 */
+  private nameCheck(eventKey: string, fresh = false): Promise<NameCheckState> {
+    const hit = this.nameCheckCache.get(eventKey);
+    if (!fresh && hit && Date.now() - hit.at < MODE_CACHE_MS) return hit.p;
+    const entry = {
+      at: Date.now(),
+      p: this.prisma.receptionState
+        .findUnique({ where: { eventKey_key: { eventKey, key: NAME_CHECK_KEY } }, select: { value: true } })
+        .then((row) => parseNameCheck(row?.value)),
+    };
+    this.nameCheckCache.set(eventKey, entry);
+    entry.p.catch(() => {
+      if (this.nameCheckCache.get(eventKey) === entry) this.nameCheckCache.delete(eventKey);
+    });
+    return entry.p;
+  }
+
+  async nameCheckStatus(eventKey: ReceptionEventKey, fresh = true): Promise<NameCheckStatus> {
+    const s = await this.nameCheck(eventKey, fresh);
+    return { ...s, autoAt: new Date(NAME_CHECK_AUTO_AT).toISOString(), id: nameCheckId(s, Date.now()) };
+  }
+
+  /** 어드민 — 자동(2부 시작부터) · 지금 받기(누른 때가 새 회차 — 이미 확인한 손님도 한 번 더) · 끄기 */
+  async setNameCheck(eventKey: ReceptionEventKey, mode: unknown): Promise<NameCheckStatus> {
+    if (!isNameCheckMode(mode)) throw new BadRequestException('자동 · 지금 받기 · 끄기 중에서 골라 주세요.');
+    const value = { mode, at: mode === 'now' ? new Date().toISOString() : null };
+    try {
+      await this.prisma.receptionState.upsert({
+        where: { eventKey_key: { eventKey, key: NAME_CHECK_KEY } },
+        create: { eventKey, key: NAME_CHECK_KEY, value },
+        update: { value },
+      });
+    } finally {
+      this.nameCheckCache.delete(eventKey);
+    }
+    return this.nameCheckStatus(eventKey);
   }
 
   private ticketsMode(eventKey: string, fresh = false): Promise<TicketsMode> {
@@ -529,7 +584,9 @@ export class ReceptionLiveService {
    * 명단 묶음(3초, 어드민이 고치면 바로 버림)만 쓰니 부를 때마다 DB 를 읽지 않는다. 이름 · 자리는 안 내보낸다(지문뿐)
    */
   async pulse(eventKey: ReceptionEventKey): Promise<ReceptionPulse> {
-    return { v: seatsVersion(await this.seats(eventKey)) };
+    // 이름 다시 받기 설정을 못 읽어도 명단 지문은 그대로 준다(그땐 자동 규칙으로)
+    const [seats, check] = await Promise.all([this.seats(eventKey), this.nameCheck(eventKey).catch(() => parseNameCheck(null))]);
+    return { v: seatsVersion(seats), nc: nameCheckId(check, Date.now()) };
   }
 
   /**

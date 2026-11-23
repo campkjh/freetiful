@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReceptionEventKey, cleanName, parseTableNo } from './reception.rules';
+import { ReceptionEventKey, baseNameKey, cleanName, nameKey, parseTableNo } from './reception.rules';
 import {
   MISSION_CHALLENGE,
   MISSION_IDS,
@@ -51,7 +51,22 @@ export class ReceptionQuizService {
       }),
     ]);
     const state = parseQuizState(st?.value);
-    return { state, rows, shared: quizPublicShared(state, rows) };
+    const shared = quizPublicShared(state, rows);
+    // 미션 도전 테이블 — 대표 좌석을 명단에서 찾아 붙인다(자리 배치도에 그 의자까지 초록 불). 못 읽으면 테이블만
+    if (shared.challengers?.length) {
+      try {
+        const tables = [...new Set(shared.challengers.map((c) => c.table))];
+        const seats = await this.prisma.receptionSeat.findMany({ where: { eventKey, tableNo: { in: tables } }, select: { nameKey: true, tableNo: true, seatNo: true } });
+        shared.challengers = shared.challengers.map((c) => {
+          const k = c.name ? nameKey(c.name) : '';
+          const row = k ? seats.find((s) => s.tableNo === c.table && baseNameKey(s.nameKey) === k) : undefined;
+          return { ...c, seat: row?.seatNo ?? null };
+        });
+      } catch {
+        /* 좌석 못 찾음 — 테이블만 켠다 */
+      }
+    }
+    return { state, rows, shared };
   }
 
   /** 묶어 둔 것 또는 새로 읽기 — 동시에 온 요청은 같은 읽기를 기다린다(만료 순간 DB 로 한꺼번에 몰리지 않게) */

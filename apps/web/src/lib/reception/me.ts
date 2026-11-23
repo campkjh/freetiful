@@ -122,11 +122,21 @@ let pulseTimer: ReturnType<typeof setInterval> | null = null;
 let pulseLast: string | null = null;
 let pulseBusy = false;
 
+/* 2부 이름 다시 받기 회차(261123) — pulse 의 nc. null = 아직 모름(첫 응답 전 · 옛 서버) */
+let nameCheckNow: string | null = null;
+const nameCheckSubs = new Set<(id: string | null) => void>();
+/** 지금 아는 회차 id — 손님이 이름을 넣는 순간 기기에 같이 남긴다 */
+export const currentNameCheck = () => nameCheckNow;
+
 async function pulseTick() {
   if (pulseBusy || typeof document === 'undefined' || document.visibilityState === 'hidden') return;
   pulseBusy = true;
   try {
-    const { v } = await receptionApi.pulse(readGuest().deviceId);
+    const { v, nc } = await receptionApi.pulse(readGuest().deviceId);
+    if (typeof nc === 'string' && nc !== nameCheckNow) {
+      nameCheckNow = nc;
+      for (const fn of [...nameCheckSubs]) fn(nc);
+    }
     if (typeof v !== 'string' || !v) return;
     const changed = pulseLast !== null && pulseLast !== v;
     pulseLast = v;
@@ -152,6 +162,18 @@ export function onSeatsChange(fn: () => void): () => void {
       pulseTimer = null;
     }
   };
+}
+
+/** 이름 다시 받기 회차(null = 아직 모름). 쓰는 동안 바뀜 신호 폴링도 같이 돈다(이름 없는 손님도 — 첫 이름에 회차를 남기게) */
+export function useNameCheck(): string | null {
+  const [id, setId] = useState<string | null>(nameCheckNow);
+  useEffect(() => {
+    setId(nameCheckNow);
+    nameCheckSubs.add(setId);
+    const off = onSeatsChange(() => {});
+    return () => { nameCheckSubs.delete(setId); off(); };
+  }, []);
+  return id;
 }
 
 /** 손님 140명이 한꺼번에 PUT /guest 로 몰리지 않게 — 바뀜을 본 뒤 0~1.5초 흩어서 */

@@ -227,3 +227,29 @@ export function cleanPrize(v: unknown): string | null {
   if (!s || [...s].length > PRIZE_MAX) return null;
   return s;
 }
+
+/* ─── 2부 이름 다시 받기(261123 사장 '2부 시작하면 이름을 한번 더 입력하게끔 — 카톡 이름이랑 다른 경우가 있어서 정말로 맞는지 확인 알럿,
+ *     실명을 입력 안 하면 점수가 등록 안 된다') ───
+ * 손님 폰은 pulse 의 nc(확인 회차 id)가 기기에 남긴 회차와 다르면 이름을 다시 받는다(빈 칸 · 확인 알럿).
+ *  · auto = 2부 시작(식순 19:40 — 웹 lib/reception/event.ts RECEPTION_PROGRAM part 2 첫 시각)부터 · now = 어드민이 누른 그때부터 · off = 안 받음 */
+export const NAME_CHECK_AUTO_AT = Date.parse('2026-11-23T19:40:00+09:00');
+export type NameCheckMode = 'auto' | 'now' | 'off';
+export interface NameCheckState {
+  mode: NameCheckMode;
+  /** now 를 누른 때(ISO) — 회차 id */
+  at: string | null;
+}
+export const isNameCheckMode = (v: unknown): v is NameCheckMode => v === 'auto' || v === 'now' || v === 'off';
+export function parseNameCheck(v: unknown): NameCheckState {
+  const o = (v && typeof v === 'object' && !Array.isArray(v) ? v : {}) as Record<string, unknown>;
+  const mode = isNameCheckMode(o.mode) ? o.mode : 'auto';
+  const at = typeof o.at === 'string' && !Number.isNaN(Date.parse(o.at)) ? o.at : null;
+  if (mode === 'now' && !at) return { mode: 'auto', at: null };
+  return { mode, at: mode === 'now' ? at : null };
+}
+/** 지금 손님에게 물을 확인 회차 id — '' = 묻지 않음 */
+export function nameCheckId(s: NameCheckState, now: number): string {
+  if (s.mode === 'off') return '';
+  if (s.mode === 'now' && s.at) return s.at;
+  return now >= NAME_CHECK_AUTO_AT ? new Date(NAME_CHECK_AUTO_AT).toISOString() : '';
+}

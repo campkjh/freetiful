@@ -73,6 +73,21 @@ export class ReceptionAdminController {
     return this.live.editSeats(this.event(eventKey), body);
   }
 
+  @Get(':eventKey/name-check')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '2부 이름 다시 받기 상태 — { mode: auto | now | off, at, autoAt, id }' })
+  nameCheck(@Param('eventKey') eventKey: string) {
+    return this.live.nameCheckStatus(this.event(eventKey));
+  }
+
+  @Post(':eventKey/name-check')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '2부 이름 다시 받기 — { mode: auto(2부 시작 19:40부터) | now(지금부터 · 새 회차) | off }' })
+  setNameCheck(@Param('eventKey') eventKey: string, @Body() body: { mode?: unknown }) {
+    return this.live.setNameCheck(this.event(eventKey), body?.mode);
+  }
+
   @Post(':eventKey/tickets/mode')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')

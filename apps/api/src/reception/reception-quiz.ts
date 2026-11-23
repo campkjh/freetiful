@@ -403,6 +403,27 @@ export interface QuizMine {
   result?: MissionResult;
 }
 
+/**
+ * 스페셜 미션 도전을 수락한 테이블(261123 사장 '마지막 퀴즈에서 송년회 앱에 자리 ui — 자리에서 팀장이 퀴즈 수락을 하면 초록색으로 그 자리가 불 켜지게').
+ * 지금 문제가 미션일 때만, 공개 전에도(숨길 정답이 없다) 보낸다. seat = 명단에서 찾은 대표 좌석(없으면 null — 테이블만 켠다)
+ */
+export interface QuizChallenger {
+  table: number;
+  name: string;
+  seat: number | null;
+  result: MissionResult;
+}
+
+/** 지금 문제가 미션이면 도전한 테이블(대표가 [도전하기] — 또는 운영팀이 도전 없이 성공을 찍은 테이블), 테이블 순 */
+export function missionChallengers(state: QuizState, rows: QuizAnswerRow[]): QuizChallenger[] | undefined {
+  const question = state.phase !== 'idle' ? quizQuestion(state.currentId) : undefined;
+  if (!question || question.kind !== 'mission') return undefined;
+  return rows
+    .filter((r) => r.questionId === question.id && r.tableNo >= 1 && r.tableNo <= TABLE_COUNT && (r.answer === MISSION_CHALLENGE || r.correct === true))
+    .map((r) => ({ table: r.tableNo, name: r.answer ? r.name || '' : '', seat: null, result: missionResult(r.correct) }))
+    .sort((a, b) => a.table - b.table);
+}
+
 /** 손님 퀴즈 화면 — 3초마다 받는다 */
 export interface QuizPublic {
   state: QuizState;
@@ -415,6 +436,8 @@ export interface QuizPublic {
   /** 공개된 문제 + 미션(성공 찍으면 바로) 채점한 점수판 */
   board: QuizBoardRow[];
   tableCount: number;
+  /** 지금 문제가 미션일 때만 — 도전을 수락한 테이블(자리 배치도에 초록 불) */
+  challengers?: QuizChallenger[];
 }
 
 /** 테이블과 상관없는 부분(모든 손님 같음) — 서비스가 1초 묶어 두고 mine 만 붙인다 */
@@ -435,6 +458,7 @@ export function quizPublicShared(state: QuizState, rows: QuizAnswerRow[]): Omit<
     results,
     board: quizBoard(rows, quizBoardIds(state)),
     tableCount: TABLE_COUNT,
+    ...(() => { const c = missionChallengers(state, rows); return c ? { challengers: c } : {}; })(),
   };
 }
 
