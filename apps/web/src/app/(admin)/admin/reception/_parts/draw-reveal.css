@@ -111,3 +111,14 @@
   .rdv-winners .rcd-result .rcd-name { font-size: 19px; }
   .rcd-presentation .rcd-result { max-width: 100%; }
 }
+/* 판 아래 [이전]/[다음] 경품(261123 사장 '하단에 다음 이전 … 럭키드로우 종류 바꾸는거') — 가운데 [추첨하기] 양옆 */
+.rcd-stage-step { position: absolute; bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px)); z-index: 4; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; max-width: min(30vw, 280px); padding: 6px 16px; border: 1px solid #ffffff2e; border-radius: 8px; background: #101726d9; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.rcd-stage-step.prev { left: max(20px, env(safe-area-inset-left)); }
+.rcd-stage-step.next { right: max(20px, env(safe-area-inset-right)); text-align: right; }
+.rcd-stage-step span { display: flex; flex-direction: column; min-width: 0; }
+.rcd-stage-step small { color: #ffffffa6; font-size: 12px; font-weight: 600; line-height: 1.3; }
+.rcd-stage-step b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 700; line-height: 1.3; }
+.rcd-stage-step:hover:not(:disabled) { background: #1c2748; }
+.rcd-stage-step:active:not(:disabled) { transform: scale(.97); }
+.rcd-stage-step:disabled { opacity: .35; cursor: default; }
+@media (max-width: 640px) { .rcd-stage-step { max-width: 30vw; padding: 6px 10px; } .rcd-stage-step b { font-size: 15px; } }

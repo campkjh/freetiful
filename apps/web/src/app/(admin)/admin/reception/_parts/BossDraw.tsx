@@ -26,9 +26,12 @@ function Impact({ x, y, progress, size, energy = false }: { x: number; y: number
   return <Sprite sheet="effects" row={energy ? 1 : 0} frame={Math.floor(progress * 4)} x={x - span / 2} y={y - span / 2} size={span} opacity={1 - smooth((progress - .75) / .25)} />;
 }
 
+/** 보스전 연출의 원래 길이 — 주인공 사격 · 장전 박자(serumHeroMotion)는 이 시계로 돈다. 재생 길이(plan.duration)가 반이면 전부 2배 빠르게 */
+const BOSS_TIMELINE_MS = 23400;
+
 export function BossDraw({ plan, t }: { plan: RevealPlan; t: number }) {
   const { phase, part, morph, forming, defeated, death, counter } = serumBossMotion(t);
-  const seconds = t * plan.duration / 1000;
+  const seconds = t * BOSS_TIMELINE_MS / 1000;
   const entering = t < SERUM_ENTRY;
   const collecting = defeated && death > .56 && t < SERUM_CLEAR;
   const moving = entering || collecting;

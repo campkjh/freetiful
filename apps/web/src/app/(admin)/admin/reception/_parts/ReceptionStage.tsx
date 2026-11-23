@@ -7,7 +7,7 @@
 import { X } from 'lucide-react';
 import { useEffect, type ReactNode, type Ref } from 'react';
 import { createPortal } from 'react-dom';
-import { StageNav, type StageScreen } from './StageNav';
+import { StageNav, type StageMenuSection, type StageScreen } from './StageNav';
 
 export function ReceptionStage({
   open,
@@ -18,6 +18,7 @@ export function ReceptionStage({
   presentation = false,
   surfaceRef,
   nav,
+  menu,
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,6 +30,8 @@ export function ReceptionStage({
   surfaceRef?: Ref<HTMLDivElement>;
   /** 닫기 옆 ☰ — 퀴즈 · 럭키드로우 · 베스트드레서 화면 옮기기(지금 화면). 없으면 안 보임 */
   nav?: StageScreen;
+  /** ☰ 맨 위에 붙는 지금 화면 고르기 줄(럭키드로우 경품 종류 등) */
+  menu?: StageMenuSection;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -48,7 +51,7 @@ export function ReceptionStage({
   return createPortal(
     <div ref={surfaceRef} className={`rca-stage${presentation ? ' rca-stage-presentation' : ''}`} role="dialog" aria-modal="true" aria-label={label}>
       <div className="rca-stage-top">
-        {nav && <StageNav current={nav} />}
+        {nav && <StageNav current={nav} section={menu} />}
         <button type="button" className="rca-stage-close" onClick={onClose} aria-label="크게 보기 닫기" title="크게 보기 닫기">
           <X size={20} aria-hidden="true" />
           {!presentation && '닫기'}

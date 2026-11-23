@@ -190,6 +190,25 @@ export class ReceptionService {
     return this.feed(eventKey, deviceId);
   }
 
+  /** 운영자가 사진 지우기(261123 사장 '사진 삭제했는데 아직도 뜸' — 같은 폰으로 다시 올린 사진을 어드민에서 바로 내린다).
+   *  손님 지우기와 같게 받은 좋아요 · 공감도 지워 누른 사람에게 돌려준다. 이미 지운 사진이면 그대로 성공(두 번 눌러도 오류 없게). */
+  async adminRemove(eventKey: ReceptionEventKey, photoId: string): Promise<{ ok: true; removed: boolean }> {
+    const id = typeof photoId === 'string' ? photoId.trim() : '';
+    if (!id || id.length > 64) throw new BadRequestException('사진을 확인해 주세요.');
+    const photo = await this.prisma.receptionPhoto.findFirst({ where: { id, eventKey }, select: { deletedAt: true } });
+    if (!photo) throw new NotFoundException('사진을 찾을 수 없어요.');
+    if (photo.deletedAt) {
+      this.dropCache(eventKey);
+      return { ok: true, removed: false };
+    }
+    await this.prisma.$transaction([
+      this.prisma.receptionVote.deleteMany({ where: { photoId: id } }),
+      this.prisma.receptionPhoto.update({ where: { id }, data: { deletedAt: new Date() } }),
+    ]);
+    this.dropCache(eventKey);
+    return { ok: true, removed: true };
+  }
+
   /** 좋아요·공감 누르기/거두기 — 종류별 한 사람 VOTE_LIMIT 개까지 */
   async vote(eventKey: ReceptionEventKey, deviceId: string, photoId: string, kind: ReceptionVoteKind, on: boolean): Promise<ReceptionFeed> {
     await this.prisma.$transaction(async (tx) => {

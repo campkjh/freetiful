@@ -11,13 +11,19 @@ import { useEffect, useRef, useState } from 'react';
 
 export type StageScreen = 'quiz' | 'draw' | 'dresser';
 
+/** 지금 화면 안에서 고르는 줄(261123 사장 '럭키드로우 햄버거에 어떤거 할건지도 다 뜨게끔') — 예: 럭키드로우 경품 종류 */
+export type StageMenuSection = {
+  title: string;
+  items: { key: string; label: string; sub?: string; on?: boolean; disabled?: boolean; onSelect: () => void }[];
+};
+
 const SCREENS: { key: StageScreen; label: string; href: string }[] = [
   { key: 'quiz', label: '퀴즈', href: '/admin/reception/quiz' },
   { key: 'draw', label: '럭키드로우', href: '/admin/reception/draw' },
   { key: 'dresser', label: '베스트드레서', href: '/admin/reception/dresser' },
 ];
 
-export function StageNav({ current }: { current: StageScreen }) {
+export function StageNav({ current, section }: { current: StageScreen; section?: StageMenuSection }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false);
@@ -70,6 +76,32 @@ export function StageNav({ current }: { current: StageScreen }) {
       </button>
       {open && (
         <div className="rca-stage-menu" role="menu" aria-label="화면 옮기기">
+          {section && section.items.length > 0 && (
+            <>
+              <p className="rca-stage-menu-title">{section.title}</p>
+              {section.items.map((it) => (
+                <button
+                  key={it.key}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={!!it.on}
+                  className={`rca-stage-menu-item pick${it.on ? ' on' : ''}`}
+                  disabled={it.disabled}
+                  onClick={() => {
+                    setOpen(false);
+                    if (!it.on) it.onSelect();
+                  }}
+                >
+                  <span className="rca-stage-menu-pick">
+                    <b>{it.label}</b>
+                    {it.sub && <small>{it.sub}</small>}
+                  </span>
+                </button>
+              ))}
+              <hr />
+              <p className="rca-stage-menu-title">화면</p>
+            </>
+          )}
           {SCREENS.map((s) => (
             <button
               key={s.key}

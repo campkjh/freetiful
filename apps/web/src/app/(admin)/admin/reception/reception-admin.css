@@ -259,11 +259,20 @@
 .rca-stage.rca-stage-presentation .rca-stage-top { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); z-index: 5; }
 .rca-stage-nav { position: relative; }
 .rca-stage-nav-btn { padding: 0 14px; }
-.rca-stage-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; display: flex; flex-direction: column; padding: 8px; border: 1px solid #ffffff24; border-radius: 14px; background: #1C2748; box-shadow: 0 12px 32px #0000004d; }
+.rca-stage-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 260px; max-height: calc(100vh - 96px); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 8px; border: 1px solid #ffffff24; border-radius: 14px; background: #1C2748; box-shadow: 0 12px 32px #0000004d; }
 .rca-stage-menu hr { margin: 6px 4px; border: 0; border-top: 1px solid #ffffff1f; }
 .rca-stage-menu-item { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #fff; font: inherit; font-size: 17px; font-weight: 600; text-align: left; cursor: pointer; }
 .rca-stage-menu-item:hover, .rca-stage-menu-item:focus-visible { background: #ffffff14; }
 .rca-stage-menu-item.on { color: #F6DC93; font-weight: 700; }
+/* 지금 화면 고르기 줄(럭키드로우 경품) — 이름 · 설명 두 줄 */
+.rca-stage-menu { width: max-content; max-width: min(380px, calc(100vw - 32px)); }
+.rca-stage-menu-item.pick { min-height: 56px; padding-block: 6px; }
+.rca-stage-menu-pick { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rca-stage-menu-pick b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
+.rca-stage-menu-item.on .rca-stage-menu-pick b { font-weight: 700; }
+.rca-stage-menu-item .rca-stage-menu-pick small { margin-left: 0; }
+.rca-stage-menu-title { margin: 6px 14px 4px; color: #ffffff8c; font-size: 13px; font-weight: 600; }
+.rca-stage-menu-item:disabled { opacity: .4; cursor: default; }
 .rca-stage-menu-item small { margin-left: auto; color: #ffffffa6; font-size: 13px; font-weight: 500; }
 .rca-stage-body { display: flex; flex: 1; flex-direction: column; justify-content: center; width: 100%; max-width: 1280px; margin: 0 auto; padding-top: 56px; }
 .rca-stage-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding-top: 20px; }

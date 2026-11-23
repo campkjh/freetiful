@@ -9,7 +9,7 @@
  *  · 화면 읽기: 굴리는 번호는 숨기고(실명이 줄줄이 읽힘), 멈춘 뒤 당첨 한 줄만 알린다. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Maximize, Play, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize, Play, Trash2 } from 'lucide-react';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { adminAlert, adminConfirm } from '../../_components/adminDialog';
@@ -122,6 +122,14 @@ export default function ReceptionDrawPage() {
   const physicsDone = useRef<string | null>(null);
   /** 미리보기 물리 판의 테이블(명단) — 결과 화면에 보여 주려고 */
   const previewTables = useRef(new Map<number, number>());
+
+  /** 경품(럭키드로우 종류) 바꾸기 — 판 ☰ · 아래 [이전]/[다음](261123 사장). 굴리는 중엔 안 바꾸고, 지난 결과 화면은 대기로 돌린다 */
+  const pickPrize = useCallback((name: string) => {
+    if (drawing.current || resettingRef.current || rollRef.current.phase === 'rolling') return;
+    setCustomOn(false);
+    setPrize(name);
+    if (rollRef.current.phase !== 'idle') setRoll({ phase: 'idle', prize: '', win: null });
+  }, []);
 
   const stageClosed = useCallback(() => {
     // 미리보기 · 물리 판(끝나기 전)은 판을 닫으면 같이 접는다 — 물리 판은 다시 열면 처음부터(기록 안 된 판을 남기지 않게)
@@ -465,6 +473,25 @@ export default function ReceptionDrawPage() {
   const selected = view?.prizes.find(p => p.name === prizeName);
   const outOfStock = !!selected && selected.drawn >= selected.total;
   const shortOfTickets = !!selected && isBatchReveal(currentTheme) && (view?.eligible ?? 0) < selected.total - selected.drawn;
+  // 판 ☰ 의 '럭키드로우 종류' 줄 · 아래 [이전]/[다음] — 경품 순서(카탈로그) 그대로. 직접 입력 중이면 [다음] = 첫 경품
+  const prizeList = view?.prizes || [];
+  const prizeAt = customOn ? -1 : prizeList.findIndex((p) => p.name === prize);
+  const prevPrize = prizeAt > 0 ? prizeList[prizeAt - 1] : null;
+  const nextPrize = prizeAt + 1 < prizeList.length ? prizeList[prizeAt + 1] : null;
+  const stageMenu = {
+    title: '럭키드로우 종류',
+    items: prizeList.map((p) => {
+      const left = Math.max(0, p.total - p.drawn);
+      return {
+        key: p.name,
+        label: p.name,
+        sub: `${revealTheme(p.name).label} · ${left > 0 ? `남은 ${left}` : '완료'}`,
+        on: !customOn && prize === p.name,
+        disabled: resetting || !!busy,
+        onSelect: () => pickPrize(p.name),
+      };
+    }),
+  };
 
   const clearHistory = async () => {
     if (resettingRef.current || drawing.current || busy || !draws.length) return;
@@ -607,11 +634,23 @@ export default function ReceptionDrawPage() {
         )}
       </AdminListCard>
 
-      <ReceptionStage open={stage} onClose={requestCloseStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface} nav={rolling ? undefined : 'draw'}>
+      <ReceptionStage open={stage} onClose={requestCloseStage} label="럭키드로우 전체 화면" presentation surfaceRef={stageSurface} nav={rolling ? undefined : 'draw'} menu={stageMenu}>
         <div className={`rcd-presentation rdv-${roll.phase === 'idle' ? currentTheme : revealTheme(roll.prize).kind}`}>
           {roll.preview && <p className="rdv-preview-badge">미리보기</p>}
           <DrawScreen roll={roll} prize={prizeName} big announce onFinish={finish} onOpenCard={openCard} reduce={reduce} physics={physicsHandlers} />
           {!rolling && roll.preview && <button type="button" className="rcd-presentation-action" onClick={previewDraw}>다시 재생</button>}
+          {!rolling && prizeList.length > 1 && (
+            <>
+              <button type="button" className="rcd-stage-step prev" disabled={!prevPrize || resetting || !!busy} onClick={() => prevPrize && pickPrize(prevPrize.name)} aria-label={prevPrize ? `이전 경품 ${prevPrize.name}` : '이전 경품 없음'}>
+                <ChevronLeft size={22} aria-hidden="true" />
+                <span><small>이전</small><b>{prevPrize?.name ?? '처음이에요'}</b></span>
+              </button>
+              <button type="button" className="rcd-stage-step next" disabled={!nextPrize || resetting || !!busy} onClick={() => nextPrize && pickPrize(nextPrize.name)} aria-label={nextPrize ? `다음 경품 ${nextPrize.name}` : '다음 경품 없음'}>
+                <span><small>다음</small><b>{nextPrize?.name ?? '마지막이에요'}</b></span>
+                <ChevronRight size={22} aria-hidden="true" />
+              </button>
+            </>
+          )}
           {!rolling && !roll.preview && <button type="button" className="rcd-presentation-action" disabled={view.eligible <= 0 || shortOfTickets || outOfStock || resetting || !!busy} onClick={runDraw}>
             {outOfStock ? '추첨 완료' : view.eligible <= 0 ? '남은 응모권 없음' : shortOfTickets ? '응모권 부족' : '추첨하기'}
           </button>}

@@ -513,6 +513,8 @@ export const useReceptionPeople = (intervalMs = 2000) => useReceptionPoll<Recept
 export const receptionAdminApi = {
   ticketsMode: (mode: TicketsMode) => adminFetch('POST', `${BASE}/tickets/mode`, { mode }) as Promise<ReceptionLive>,
   /** 지운 이름은 막힌다(다시 안 나옴) — 실수였으면 unblockTicket(이름)으로 풀기 */
+  /** 손님 사진 내리기(베스트드레서) — 받은 좋아요 · 공감도 같이 지움 */
+  deletePhoto: (id: string) => adminFetch('DELETE', `${BASE}/photos/${encodeURIComponent(id)}`) as Promise<{ ok: true; removed: boolean }>,
   deleteTicket: (id: string) => adminFetch('DELETE', `${BASE}/tickets/${encodeURIComponent(id)}`) as Promise<ReceptionLive>,
   unblockTicket: (name: string) => adminFetch('POST', `${BASE}/tickets/unblock`, { name }) as Promise<ReceptionLive>,
   putSeats: (rows: { name: string; table: number; seat: number | null }[]) => adminFetch('PUT', `${BASE}/seats`, { rows }) as Promise<ReceptionLive>,

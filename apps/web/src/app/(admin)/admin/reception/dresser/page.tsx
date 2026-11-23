@@ -4,7 +4,8 @@
  *  · 손님 사진 순위 = 공감 → 좋아요 → 먼저 올린 순(서버 reception.rules.ts compareRank, 피드의 rank 그대로).
  *  · 공개 피드 GET /reception/:ek/photos 를 5초마다 다시 읽는다(기기 머리글 없이 — 내 표 · 남은 수는 안 쓴다).
  *  · [크게 보기] = 프로젝터용 판 — 1 · 2 · 3등 사진 시상대 + 4~10등 줄. ☰ 로 퀴즈 · 럭키드로우와 오간다(?stage=1 이면 바로 연다). */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 import RankCrown from '@/components/reception/RankCrown';
 import { HeartIcon, ThumbIcon } from '@/components/reception/ReceptionIcons';
 import type { ReceptionPhoto } from '@/lib/reception/api';
@@ -12,6 +13,8 @@ import { RECEPTION_EVENT_KEY } from '@/lib/reception/event';
 import { RollingNumber } from '../../_components/AdminNumber';
 import { AdminListCard, AdminTableScroll } from '../../_components/AdminListCard';
 import { formatKstDateTime } from '../../_components/adminEvent';
+import { adminConfirm } from '../../_components/adminDialog';
+import { adminErrorText, receptionAdminApi } from '../../_components/receptionAdmin';
 import { ReceptionStage } from '../_parts/ReceptionStage';
 import { useStageFromQuery } from '../_parts/StageNav';
 import '../reception-admin.css';
@@ -49,34 +52,35 @@ function toRanked(raw: unknown): RankedPhoto[] {
 function usePhotoRanking() {
   const [photos, setPhotos] = useState<RankedPhoto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 지운 사진 — 서버 피드 캐시(2.5초) · 늦게 온 응답에 다시 떠도 화면에선 뺀다
+  const gone = useRef(new Set<string>());
+  const seq = useRef(0);
+  const load = useCallback(async () => {
+    const mine = ++seq.current;
+    try {
+      const res = await fetch(FEED, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const ranked = toRanked(await res.json());
+      if (mine !== seq.current) return;
+      setPhotos(ranked.filter((p) => !gone.current.has(p.id)));
+      setError(null);
+    } catch {
+      if (mine === seq.current) setError('사진 순위를 불러오지 못했어요.');
+    }
+  }, []);
   useEffect(() => {
-    let alive = true;
-    let busy = false;
-    const load = async () => {
-      if (busy) return;
-      busy = true;
-      try {
-        const res = await fetch(FEED, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const ranked = toRanked(await res.json());
-        if (alive) {
-          setPhotos(ranked);
-          setError(null);
-        }
-      } catch {
-        if (alive) setError('사진 순위를 불러오지 못했어요.');
-      } finally {
-        busy = false;
-      }
-    };
     void load();
     const t = window.setInterval(() => void load(), POLL_MS);
     return () => {
-      alive = false;
+      seq.current++;
       window.clearInterval(t);
     };
+  }, [load]);
+  const drop = useCallback((id: string) => {
+    gone.current.add(id);
+    setPhotos((list) => (list ? list.filter((p) => p.id !== id) : list));
   }, []);
-  return { photos, error };
+  return { photos, error, reload: load, drop };
 }
 
 /** 1 · 2 · 3등 표시 — 공감을 하나라도 받아야 왕관(손님 순위 목록과 같은 규칙) */
@@ -142,7 +146,28 @@ function DresserStageBody({ photos }: { photos: RankedPhoto[] | null }) {
 }
 
 export default function ReceptionDresserAdminPage() {
-  const { photos, error } = usePhotoRanking();
+  const { photos, error, reload, drop } = usePhotoRanking();
+  const [removing, setRemoving] = useState<string | null>(null);
+  const removePhoto = async (p: RankedPhoto) => {
+    if (removing) return;
+    const ok = await adminConfirm({
+      title: `${p.name} 사진을 내릴까요?`,
+      description: `${p.rank}등 · 공감 ${p.empathies} · 좋아요 ${p.likes} — 받은 공감 · 좋아요도 같이 지워지고 손님 화면에서도 사라져요. 그 손님은 다시 올릴 수 있어요.`,
+      confirmText: '내리기',
+    });
+    if (!ok) return;
+    setRemoving(p.id);
+    try {
+      await receptionAdminApi.deletePhoto(p.id);
+      drop(p.id);
+      toast.success(`${p.name} 사진을 내렸어요`);
+      void reload();
+    } catch (e) {
+      toast.error(adminErrorText(e, '사진을 내리지 못했어요'));
+    } finally {
+      setRemoving(null);
+    }
+  };
   const [stage, setStage] = useState(false);
   // ☰ 로 옮겨 오면(?stage=1) 크게 보기 판을 바로 연다
   useStageFromQuery(() => setStage(true));
@@ -200,6 +225,7 @@ export default function ReceptionDresserAdminPage() {
                   <th>공감</th>
                   <th>좋아요</th>
                   <th>올린 시각</th>
+                  <th aria-label="관리" />
                 </tr>
               </thead>
               <tbody>
@@ -215,6 +241,11 @@ export default function ReceptionDresserAdminPage() {
                     <td className="adm-num"><b>{p.empathies}</b></td>
                     <td className="adm-num">{p.likes}</td>
                     <td className="adm-num">{p.createdAt ? formatKstDateTime(p.createdAt) : '—'}</td>
+                    <td>
+                      <button type="button" className="adm-btn danger sm" disabled={!!removing} onClick={() => void removePhoto(p)}>
+                        {removing === p.id ? '내리는 중…' : '내리기'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

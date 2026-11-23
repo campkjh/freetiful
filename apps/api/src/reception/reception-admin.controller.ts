@@ -88,6 +88,13 @@ export class ReceptionAdminController {
     return this.live.deleteTicket(this.event(eventKey), id);
   }
 
+  @Delete(':eventKey/photos/:id')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '손님 사진 내리기(베스트드레서 화면) — 받은 좋아요·공감도 같이 지움' })
+  deletePhoto(@Param('eventKey') eventKey: string, @Param('id') id: string) {
+    return this.reception.adminRemove(this.event(eventKey), id);
+  }
+
   @Post(':eventKey/tickets/unblock')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')
