@@ -3,10 +3,12 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { handleAppLinkClick } from '@/components/AppLinkSheet';
 import { QdBackIcon } from '../my/_components/detail-ui';
 
 const PARTNER_ACCESS_KEY = 'freetiful-partner-apply-access';
 const PARTNER_ACCESS_PASSWORD = '1234';
+const PARTNER_APPLY_EMAIL = 'freetiful2025@gmail.com';
 const MAX_LEN = 12;
 
 /** 0~9 섞기 — 3×4 판: 앞 9개 + [확인, 10번째, ←] (유앤미 키패드와 같은 배치) */
@@ -68,6 +70,8 @@ function PartnerKeypadGate({ onUnlock }: { onUnlock: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { router.back(); return; }
       if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
+      // 안내 칸 메일 링크에 초점이 있으면 Enter 는 링크 몫
+      if (e.key === 'Enter' && e.target instanceof Element && e.target.closest('a')) return;
       if (e.key === 'Enter') { e.preventDefault(); submit(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
       if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key); }
@@ -86,6 +90,15 @@ function PartnerKeypadGate({ onUnlock }: { onUnlock: () => void }) {
         <div className="pk-context">파트너스 신청</div>
         <div className="pk-title">비밀번호를 눌러주세요</div>
         <p className="pk-sub">승인된 비밀번호를 입력하면 신청을 시작할 수 있어요</p>
+
+        {/* 비밀번호 받는 법(261125 사장 문구 그대로) — 안드로이드 앱은 mailto 를 못 열어 주소 복사 시트로 */}
+        <div className="pk-note">
+          <p>파트너스 등록을 희망하시는 분께서는 아래 이메일로 프로필을 보내주시기 바랍니다.</p>
+          <a className="pk-note-mail" href={`mailto:${PARTNER_APPLY_EMAIL}`} onClick={handleAppLinkClick}>
+            <span aria-hidden="true">📩</span> {PARTNER_APPLY_EMAIL}
+          </a>
+          <p>프로필 검토 후 개별 회신을 통해 파트너스 등록에 필요한 비밀번호를 안내해 드립니다.</p>
+        </div>
 
         {/* 값은 화면에 노출하지 않는다 — 점은 자릿수만 */}
         <div className={`pk-dots${error ? ' is-err' : ''}${leaving ? ' is-ok' : ''}`} aria-hidden="true">

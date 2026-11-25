@@ -128,7 +128,8 @@ function AppLinkSheetView({ req, onExited }: { req: SheetRequest; onExited: () =
             key="app-link-scrim"
             className="ft-scrim"
             // CSS 등장(ftFade)은 끄고 여기서 — 닫을 때도 옅어지며 사라지게
-            style={{ animation: 'none' }}
+            // 파트너 신청 비밀번호 화면(.pk, z 900) 안 메일 링크에서도 떠야 해서 그 위로(261125)
+            style={{ animation: 'none', zIndex: 950 }}
             initial={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
             animate={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
             exit={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
