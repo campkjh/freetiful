@@ -761,8 +761,8 @@ export class ChatService implements OnModuleInit {
       '새 문의가 도착했습니다 💬',
       `${inquiryUser?.name || '고객'}님이 채팅 문의를 보냈습니다.`,
       dto.matchRequestId
-        ? { roomId: room.id, matchRequestId: dto.matchRequestId, url: '/pro-dashboard/inquiries' }
-        : { roomId: room.id },
+        ? { roomId: room.id, matchRequestId: dto.matchRequestId, url: '/pro-dashboard/inquiries', matchAlimtalkEvent: 'room_opened' }
+        : { roomId: room.id, matchAlimtalkEvent: 'room_opened' },
     ).catch(() => {});
 
     // 추가 쿼리 없이 응답 조립 (이미 pro join을 받아놨음)
@@ -928,7 +928,7 @@ export class ChatService implements OnModuleInit {
       'chat' as any,
       '새 채팅이 도착했습니다 💬',
       `${proProfile.user.name || '사회자'}님이 매칭 요청을 보고 먼저 연락드렸습니다.`,
-      { roomId: room.id, proProfileId: proProfile.id },
+      { roomId: room.id, proProfileId: proProfile.id, matchAlimtalkEvent: 'room_opened' },
     ).catch(() => {});
 
     return {

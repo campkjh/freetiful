@@ -952,6 +952,23 @@ model Notification {
   @@map("notifications")
 }
 
+model MatchAlimtalkDelivery {
+  id          String   @id
+  kind        String
+  userId      String
+  subjectId   String
+  status      String   @default("pending")
+  dueAt       DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  providerId  String?
+  reason      String?
+
+  @@index([status, dueAt])
+  @@index([userId, kind, status, updatedAt])
+  @@map("match_alimtalk_deliveries")
+}
+
 model PushToken {
   id        String   @id @default(uuid())
   userId    String

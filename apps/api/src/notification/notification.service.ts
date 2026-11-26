@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push.service';
 import { BizTalkService } from '../biztalk/biztalk.service';
+import { MatchAlimtalkService } from '../biztalk/match-alimtalk.service';
 import { NotificationType } from '@prisma/client';
 import axios from 'axios';
 
@@ -23,6 +24,7 @@ export class NotificationService {
     private readonly config: ConfigService,
     private readonly pushService: PushService,
     private readonly bizTalkService: BizTalkService,
+    private readonly matchAlimtalk: MatchAlimtalkService,
   ) {}
 
   private getOneSignalConfig() {
@@ -277,6 +279,12 @@ export class NotificationService {
     return notification;
   }
 
+  async queueMatchReceipt(userId: string, matchRequestId: string) {
+    await this.matchAlimtalk.enqueue('request_received', userId, matchRequestId).catch(() => {
+      this.logger.warn('SOLAPI match receipt could not be queued');
+    });
+  }
+
   private async dispatchPush(
     userId: string,
     type: NotificationType,
@@ -321,6 +329,17 @@ export class NotificationService {
   ) {
     try {
       if (!(await this.isPushAllowed(userId, type))) return;
+      if (this.matchAlimtalk.enabled) {
+        if (data.matchAlimtalkEvent === 'new_quote_request' && typeof data.matchRequestId === 'string') {
+          await this.matchAlimtalk.enqueue('new_quote_request', userId, data.matchRequestId);
+          return;
+        }
+        if (type === 'chat' && typeof data.roomId === 'string' && typeof data.messageId === 'string') {
+          await this.matchAlimtalk.enqueueChat(userId, data.roomId, data.messageId);
+          return;
+        }
+        if (type === 'chat' && data.matchAlimtalkEvent === 'room_opened') return;
+      }
       const result = await this.bizTalkService.sendForNotification({ userId, type, title, body, data });
       if (result.sent) {
         this.logger.log(`[BizTalk] notification=${notificationId} delivered`);

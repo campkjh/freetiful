@@ -159,11 +159,12 @@ export class MatchService {
     // 폼에 적은 연락처를 계정에도 남긴다.
     // 로그인 상태로 랜딩 폼을 내면 이 경로(createMatchRequest)를 타는데, 예전엔 번호를 버려서
     // 소셜 가입 고객은 계정에 연락처가 영영 비어 있었다(어드민에서 연락 불가, 비회원 로그인도 불가).
+    let savePhone: Promise<unknown> | undefined;
     if (!testLead && !requester?.phone) {
       const typed = String(data.rawUserInput?.phone ?? '').replace(/[^0-9]/g, '');
       if (typed.length >= 10 && typed.length <= 11) {
         // phone 은 unique — 이미 다른 계정이 쓰고 있으면 조용히 넘어간다
-        this.prisma.user
+        savePhone = this.prisma.user
           .update({ where: { id: userId }, data: { phone: typed } })
           .catch(() => {});
       }
@@ -271,6 +272,7 @@ export class MatchService {
     }
 
     if (!testLead) {
+      void Promise.resolve(savePhone).then(() => this.notificationService.queueMatchReceipt(userId, matchRequest.id));
       await attributeLandingLead(this.prisma, {
         page: leadLandingPage(data.rawUserInput?.source),
         sessionKey: data.rawUserInput?.landingSessionKey,
@@ -520,7 +522,7 @@ export class MatchService {
           // bizTalkTemplate 은 알림톡 템플릿을 '명시'로 지정한다.
           // 제목 문자열로 추론하던 시절엔 '새로운 섭외 요청' 이 '새 매칭 요청' 규칙에 안 걸려
           // 알림톡이 조용히 한 건도 안 나갔다(A00081 사문화). 문구를 바꿔도 안 깨지도록 마커 사용.
-          { type: 'match_request', matchRequestId, bizTalkTemplate: 'PARTNER_MATCH_CONFIRM' },
+          { type: 'match_request', matchRequestId, bizTalkTemplate: 'PARTNER_MATCH_CONFIRM', matchAlimtalkEvent: 'new_quote_request' },
         )
         .catch(() => {});
     }
