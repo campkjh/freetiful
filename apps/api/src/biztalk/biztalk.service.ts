@@ -4,6 +4,7 @@ import { NotificationType, User } from '@prisma/client';
 import axios from 'axios';
 import { createHmac, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ncpAlimtalkConfig, ncpSensHeaders } from './ncp-alimtalk';
 
 type BizTalkTemplateKey =
   | 'GENERAL_SIGNUP_COMPLETE'
@@ -390,24 +391,7 @@ export class BizTalkService implements OnModuleInit {
   private static readonly NCP_TPL_TTL = 10 * 60 * 1000;
 
   private getNcpConfig() {
-    const accessKey = this.config.get<string>('NCP_ACCESS_KEY');
-    const secretKey = this.config.get<string>('NCP_SECRET_KEY');
-    const serviceId = this.config.get<string>('NCP_ALIMTALK_SERVICE_ID');
-    const channelId = this.config.get<string>('NCP_ALIMTALK_CHANNEL_ID');
-    const host = this.config.get<string>('NCP_SENS_HOST') || 'https://sens.apigw.ntruss.com';
-    return { accessKey, secretKey, serviceId, channelId, host, enabled: !!(accessKey && secretKey && serviceId && channelId) };
-  }
-
-  /** NCP API Gateway signature v2 — "{METHOD} {path}\n{timestamp}\n{accessKey}" 를 HMAC-SHA256/base64 */
-  private ncpHeaders(method: string, path: string, accessKey: string, secretKey: string) {
-    const ts = Date.now().toString();
-    const signature = createHmac('sha256', secretKey).update(`${method} ${path}\n${ts}\n${accessKey}`).digest('base64');
-    return {
-      'Content-Type': 'application/json; charset=utf-8',
-      'x-ncp-apigw-timestamp': ts,
-      'x-ncp-iam-access-key': accessKey,
-      'x-ncp-apigw-signature-v2': signature,
-    };
+    return ncpAlimtalkConfig(this.config);
   }
 
   /**
@@ -425,7 +409,7 @@ export class BizTalkService implements OnModuleInit {
       `?channelId=${encodeURIComponent(cfg.channelId!)}&templateCode=${encodeURIComponent(templateCode)}`;
     try {
       const { data } = await axios.get(`${cfg.host}${path}`, {
-        headers: this.ncpHeaders('GET', path, cfg.accessKey!, cfg.secretKey!),
+        headers: ncpSensHeaders('GET', path, cfg.accessKey!, cfg.secretKey!),
         timeout: 10000,
       });
       const tpl = Array.isArray(data) ? data[0] : data;
@@ -467,7 +451,7 @@ export class BizTalkService implements OnModuleInit {
     };
     try {
       const { data } = await axios.post(`${cfg.host}${path}`, body, {
-        headers: this.ncpHeaders('POST', path, cfg.accessKey!, cfg.secretKey!),
+        headers: ncpSensHeaders('POST', path, cfg.accessKey!, cfg.secretKey!),
         timeout: 15000,
       });
       const msgStatus = data?.messages?.[0]?.statusCode ?? data?.statusCode;

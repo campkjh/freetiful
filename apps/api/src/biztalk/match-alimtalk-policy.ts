@@ -1,18 +1,16 @@
-export const MATCH_ALIMTALK_CHANNEL = 'KA01PF261102031305056ZNdauPtckFU';
-
-export const MATCH_ALIMTALK_TEMPLATES = {
-  request_received: 'KA01TP261102031430411h01gWQPohr7',
-  pro_message: 'KA01TP261102031430475TgKU5fyLR1d',
-  unread_reminder: 'KA01TP261102031430528nLDjOaGkckX',
-  no_reply_reminder: 'KA01TP261102031430558y67iAqMt1WS',
-  new_quote_request: 'KA01TP261102031430605On8LOHIBJYi',
-  customer_reply: 'KA01TP2611020314306490oOatPnRfdX',
+export const NCP_MATCH_TEMPLATES = {
+  request_received: { key: 'NCP_MATCH_TEMPLATE_RECEIPT', fallback: '' },
+  pro_message: { key: 'NCP_MATCH_TEMPLATE_PRO_MESSAGE', fallback: 'A0009' },
+  unread_reminder: { key: 'NCP_MATCH_TEMPLATE_UNREAD', fallback: '' },
+  no_reply_reminder: { key: 'NCP_MATCH_TEMPLATE_NO_REPLY', fallback: '' },
+  new_quote_request: { key: 'NCP_MATCH_TEMPLATE_NEW_QUOTE', fallback: 'A0003' },
+  customer_reply: { key: 'NCP_MATCH_TEMPLATE_CUSTOMER_REPLY', fallback: 'A00051' },
 } as const;
 
-export type MatchAlimtalkKind = keyof typeof MATCH_ALIMTALK_TEMPLATES;
+export type MatchAlimtalkKind = keyof typeof NCP_MATCH_TEMPLATES;
 
 export function isMatchAlimtalkKind(value: string): value is MatchAlimtalkKind {
-  return Object.prototype.hasOwnProperty.call(MATCH_ALIMTALK_TEMPLATES, value);
+  return Object.prototype.hasOwnProperty.call(NCP_MATCH_TEMPLATES, value);
 }
 
 export function chatAlimtalkKind(sender: string, recipient: string, customer: string, pro: string) {

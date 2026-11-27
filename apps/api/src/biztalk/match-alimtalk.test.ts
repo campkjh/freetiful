@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { MatchAlimtalkProvider } from './match-alimtalk-provider';
-import { MATCH_ALIMTALK_CHANNEL, MATCH_ALIMTALK_TEMPLATES, chatAlimtalkKind, koreanMobile, matchTemplateVariables, nextReminderHour, reminderDecision, type MatchAlimtalkContext } from './match-alimtalk-policy';
+import { NCP_MATCH_TEMPLATES, chatAlimtalkKind, koreanMobile, matchTemplateVariables, nextReminderHour, reminderDecision, type MatchAlimtalkContext } from './match-alimtalk-policy';
 
 const context: MatchAlimtalkContext = {
   recipientName: '고객', customerName: '고객', proName: '사회자',
@@ -11,8 +11,8 @@ const context: MatchAlimtalkContext = {
   requestId: 'request-1', roomId: 'room-1', notice: '메시지가 도착했습니다.', path: '/chat/room-1',
 };
 
-test('six distinct templates and chat direction uses room membership, not account role', () => {
-  assert.equal(new Set(Object.values(MATCH_ALIMTALK_TEMPLATES)).size, 6);
+test('six distinct event mappings and chat direction uses room membership, not account role', () => {
+  assert.equal(new Set(Object.values(NCP_MATCH_TEMPLATES).map(t => t.key)).size, 6);
   assert.equal(chatAlimtalkKind('p', 'c', 'c', 'p'), 'pro_message');
   assert.equal(chatAlimtalkKind('c', 'p', 'c', 'p'), 'customer_reply');
   assert.equal(chatAlimtalkKind('p', 'x', 'c', 'p'), null);
@@ -53,29 +53,57 @@ test('only Korean mobile numbers are eligible', () => {
   assert.equal(koreanMobile(undefined), null);
 });
 
-test('provider uses the selected channel and queues only an approved Kakao message, never SMS', async t => {
-  const templateId = MATCH_ALIMTALK_TEMPLATES.pro_message;
+test('SENS uses the approved template, substitutes the content and links, and disables SMS', async t => {
+  const templateCode = 'A0009';
   const config = new ConfigService({
-    SOLAPI_API_KEY: 'fixture-key', SOLAPI_API_SECRET: 'fixture-secret', SOLAPI_FROM: '0212345678', SOLAPI_MATCH_ALIMTALK_ENABLED: 'true',
+    NCP_ACCESS_KEY: 'fixture-key', NCP_SECRET_KEY: 'fixture-secret', NCP_ALIMTALK_CHANNEL_ID: '@freetiful',
+    NCP_ALIMTALK_SERVICE_ID: 'ncp:example', NCP_MATCH_ALIMTALK_ENABLED: 'true',
   });
+  const button = { type: 'WL', name: '확인하기', linkMobile: 'https://freetiful.com/#{채팅 링크}', linkPc: 'https://freetiful.com/chat' };
   const get = t.mock.method(axios, 'get', async () => ({
-    data: [{ templateId, channelId: MATCH_ALIMTALK_CHANNEL, status: 'APPROVED', content: '#{사회자명} 메시지' }],
+    data: [{ templateCode, channelId: '@freetiful', templateStatus: 'ACTIVE', templateInspectionStatus: 'COMPLETE', content: '#{Username}님, #{사회자명} 메시지', buttons: [button] }],
   }));
   const post = t.mock.method(axios, 'post', async (_url: string, _payload: unknown) => ({
-    data: { failedMessageList: [], messageList: [{ messageId: 'fixture' }], groupInfo: { count: { registeredSuccess: 1 } } },
+    data: { statusCode: '202', messages: [{ requestStatusCode: 'A000', messageId: 'fixture' }] },
   }));
   const client = new MatchAlimtalkProvider(config);
+  assert.deepEqual(await client.send('unread_reminder', '01012345678', context, async () => true),
+    { status: 'skipped', reason: 'template_not_configured' });
+  assert.equal(get.mock.callCount(), 0);
   assert.deepEqual(await client.send('pro_message', '01012345678', context, async () => false),
     { status: 'skipped', reason: 'recipient_or_state_changed' });
   assert.equal(post.mock.callCount(), 0);
   assert.deepEqual(await client.send('pro_message', '01012345678', context, async () => true),
     { status: 'accepted', providerId: 'fixture' });
   assert.equal(get.mock.callCount(), 1);
-  assert.deepEqual(post.mock.calls[0].arguments[1], { messages: [{
-    to: '01012345678', from: '0212345678', type: 'ATA',
-    kakaoOptions: { pfId: MATCH_ALIMTALK_CHANNEL, templateId, disableSms: true, variables: { '#{사회자명}': '사회자' } },
+  assert.deepEqual(post.mock.calls[0].arguments[1], { plusFriendId: '@freetiful', templateCode, messages: [{
+    to: '01012345678', countryCode: '82', content: '고객님, 사회자 메시지', useSmsFailover: false,
+    buttons: [{ ...button, linkMobile: 'https://freetiful.com/chat/room-1' }],
   }] });
   assert.deepEqual(await client.send('customer_reply', '01012345678', context, async () => true),
     { status: 'failed', reason: 'template_unavailable' });
   assert.equal(post.mock.callCount(), 1);
+});
+
+test('SENS will not post a dormant or unapproved template, or treat a failed recipient as accepted', async t => {
+  const config = new ConfigService({
+    NCP_ACCESS_KEY: 'fixture-key', NCP_SECRET_KEY: 'fixture-secret', NCP_ALIMTALK_CHANNEL_ID: '@freetiful',
+    NCP_ALIMTALK_SERVICE_ID: 'fixture', NCP_MATCH_ALIMTALK_ENABLED: 'true', NCP_MATCH_TEMPLATE_RECEIPT: 'FT_RECEIPT',
+  });
+  t.mock.method(axios, 'get', async (url: string) => {
+    const templateCode = new URL(url).searchParams.get('templateCode');
+    return { data: { templateCode, channelId: '@freetiful', templateStatus: templateCode === 'A0009' ? 'DORMANT' : 'ACTIVE',
+      templateInspectionStatus: templateCode === 'FT_RECEIPT' ? 'REGISTER' : 'COMPLETE', content: '확인해 주세요.' } };
+  });
+  const post = t.mock.method(axios, 'post', async () => ({
+    data: { statusCode: '202', messages: [{ messageId: 'rejected', requestStatusCode: 'A002' }] },
+  }));
+  const client = new MatchAlimtalkProvider(config);
+  assert.deepEqual(await client.send('request_received', '01012345678', context, async () => true),
+    { status: 'failed', reason: 'template_unavailable' });
+  assert.deepEqual(await client.send('pro_message', '01012345678', context, async () => true),
+    { status: 'failed', reason: 'template_unavailable' });
+  assert.equal(post.mock.callCount(), 0);
+  assert.deepEqual(await client.send('new_quote_request', '01012345678', context, async () => true),
+    { status: 'failed', reason: 'ncp_A002' });
 });

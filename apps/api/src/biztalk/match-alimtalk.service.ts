@@ -50,8 +50,8 @@ export class MatchAlimtalkService implements OnModuleInit {
 
   onModuleInit() {
     const missing = this.provider.missingSettings();
-    if (missing.length) this.logger.log(`SOLAPI matching Alimtalk inactive: ${missing.join(', ')}`);
-    else this.logger.log('SOLAPI matching Alimtalk enabled');
+    if (missing.length) this.logger.log(`NCP SENS matching Alimtalk inactive: ${missing.join(', ')}`);
+    else this.logger.log('NCP SENS matching Alimtalk enabled');
   }
 
   private delay(key: string, fallback: number) {
@@ -59,7 +59,7 @@ export class MatchAlimtalkService implements OnModuleInit {
     return (Number.isInteger(minutes) && minutes >= 15 && minutes <= 2880 ? minutes : fallback) * MINUTE;
   }
 
-  private get replyDelay() { return this.delay('SOLAPI_MATCH_NO_REPLY_MINUTES', 1440); }
+  private get replyDelay() { return this.delay('NCP_MATCH_NO_REPLY_MINUTES', 1440); }
 
   async enqueue(kind: 'request_received' | 'new_quote_request', userId: string, requestId: string) {
     if (!this.enabled || !userId || !requestId || isTestLeadUserId(userId)) return;
@@ -83,7 +83,7 @@ export class MatchAlimtalkService implements OnModuleInit {
     ];
     if (kind === 'pro_message') {
       jobs.push(
-        { kind: 'unread_reminder', userId, subjectId: messageId, dueAt: new Date(message.createdAt.getTime() + this.delay('SOLAPI_MATCH_UNREAD_MINUTES', 60)) },
+        { kind: 'unread_reminder', userId, subjectId: messageId, dueAt: new Date(message.createdAt.getTime() + this.delay('NCP_MATCH_UNREAD_MINUTES', 60)) },
         { kind: 'no_reply_reminder', userId, subjectId: messageId, dueAt: new Date(message.createdAt.getTime() + this.replyDelay) },
       );
     }
@@ -91,8 +91,10 @@ export class MatchAlimtalkService implements OnModuleInit {
   }
 
   private async insert(jobs: { kind: MatchAlimtalkKind; userId: string; subjectId: string; dueAt: Date }[]) {
+    const data = jobs.filter(job => this.provider.templateCode(job.kind)).map(job => ({ ...job, id: `${job.kind}:${job.userId}:${job.subjectId}` }));
+    if (!data.length) return;
     await this.prisma.matchAlimtalkDelivery.createMany({
-      data: jobs.map(job => ({ ...job, id: `${job.kind}:${job.userId}:${job.subjectId}` })),
+      data,
       skipDuplicates: true,
     });
     if (this.queued || this.draining) return;
@@ -116,11 +118,11 @@ export class MatchAlimtalkService implements OnModuleInit {
         await Promise.all(jobs.slice(i, i + 5).map(async job => {
           if (!isMatchAlimtalkKind(job.kind)) return;
           try { await this.process({ ...job, kind: job.kind }); }
-          catch { this.logger.warn(`SOLAPI job processing failed kind=${job.kind}`); }
+          catch { this.logger.warn(`NCP SENS job processing failed kind=${job.kind}`); }
         }));
       }
     } catch {
-      this.logger.warn('SOLAPI delivery queue unavailable');
+      this.logger.warn('NCP SENS delivery queue unavailable');
     } finally {
       this.draining = false;
     }
@@ -130,7 +132,7 @@ export class MatchAlimtalkService implements OnModuleInit {
   async cleanHistory() {
     if (!this.enabled) return;
     await this.prisma.matchAlimtalkDelivery.deleteMany({ where: { updatedAt: { lt: new Date(Date.now() - 30 * DAY) } } })
-      .catch(() => this.logger.warn('SOLAPI delivery history cleanup failed'));
+      .catch(() => this.logger.warn('NCP SENS delivery history cleanup failed'));
   }
 
   private async claim(job: Job, now: Date) {
@@ -184,7 +186,7 @@ export class MatchAlimtalkService implements OnModuleInit {
         reason: result.status === 'accepted' ? null : result.reason,
       },
     });
-    if (result.status === 'failed') this.logger.warn(`SOLAPI ${job.kind}: ${result.reason}${'unknown' in result && result.unknown?.length ? ` (${result.unknown.join(', ')})` : ''}`);
+    if (result.status === 'failed') this.logger.warn(`NCP SENS ${job.kind}: ${result.reason}${'unknown' in result && result.unknown?.length ? ` (${result.unknown.join(', ')})` : ''}`);
   }
 
   private context(job: Job, recipientName: string, customerName: string, proName: string, request: RequestInfo | null, path: string, roomId = ''): MatchAlimtalkContext {

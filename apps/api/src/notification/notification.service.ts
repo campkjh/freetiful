@@ -281,7 +281,7 @@ export class NotificationService {
 
   async queueMatchReceipt(userId: string, matchRequestId: string) {
     await this.matchAlimtalk.enqueue('request_received', userId, matchRequestId).catch(() => {
-      this.logger.warn('SOLAPI match receipt could not be queued');
+      this.logger.warn('NCP SENS match receipt could not be queued');
     });
   }
 
